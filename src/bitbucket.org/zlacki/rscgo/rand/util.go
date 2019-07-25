@@ -1,16 +1,24 @@
-package server
+package rand
 
 import (
 	"crypto/rand"
 	"encoding/base64"
 	nrand "math/rand"
-	"net"
-	"strings"
 	"time"
 )
 
 func init() {
 	nrand.Seed(time.Now().UnixNano())
+}
+
+//getRandomData Reads n random bytes from the system-specific PRNG and returns them in a byte slice
+func getRandomData(n int) ([]byte, error) {
+	b := make([]byte, n)
+	if _, err := nrand.Read(b); err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }
 
 //getCryptoRandomData Reads n random bytes from the system-specific cryptographically secure PRNG and returns them in a byte slice
@@ -83,10 +91,62 @@ func GetSecureRandomByte() uint8 {
 	return uint8(b[0])
 }
 
-func getIPFromConn(c net.Conn) string {
-	parts := strings.Split(c.RemoteAddr().String(), ":")
-	if len(parts) < 1 {
+//GetRandomByte Gets a single random byte of data from the PRNG
+func GetRandomByte() uint8 {
+	b, err := getRandomData(1)
+	if err != nil {
+		return 0
+	}
+
+	return uint8(b[0])
+}
+
+//GetRandomShort Gets 2 random bytes of data from the PRNG and returns them as a single 16-bit short integer
+func GetRandomShort() uint16 {
+	b, err := getRandomData(2)
+	if err != nil {
+		return 0
+	}
+
+	return (uint16(b[0]) << 8) | uint16(b[1])
+}
+
+//GetRandomSmart Gets 3 random bytes of data from the PRNG and returns them as a single 24-bit smart integer
+func GetRandomSmart() uint32 {
+	b, err := getRandomData(3)
+	if err != nil {
+		return 0
+	}
+
+	return (uint32(b[0]) << 16) | (uint32(b[1]) << 8) | uint32(b[2])
+}
+
+//GetRandomInt Gets 4 random bytes of data from the PRNG and returns them as a single 32-bit integer
+func GetRandomInt() uint32 {
+	b, err := getRandomData(4)
+	if err != nil {
+		return 0
+	}
+
+	return (uint32(b[0]) << 24) | (uint32(b[1]) << 16) | (uint32(b[2]) << 8) | uint32(b[3])
+}
+
+//GetRandomLong Gets 8 random bytes of data from the PRNG and returns them as a single 64-bit long integer
+func GetRandomLong() uint64 {
+	b, err := getRandomData(8)
+	if err != nil {
+		return 0
+	}
+
+	return (uint64(b[0]) << 56) | (uint64(b[1]) << 48) | (uint64(b[2]) << 40) | (uint64(b[3]) << 32) | (uint64(b[4]) << 24) | (uint64(b[5]) << 16) | (uint64(b[6]) << 8) | uint64(b[7])
+}
+
+//GetRandomString Gets n random bytes of data from the PRNG and returns them as a Go string
+func GetRandomString(length int) string {
+	b, err := getRandomData(length)
+	if err != nil {
 		return "nil"
 	}
-	return parts[0]
+
+	return base64.URLEncoding.EncodeToString(b)
 }

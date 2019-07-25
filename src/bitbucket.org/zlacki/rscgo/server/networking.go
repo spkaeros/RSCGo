@@ -1,8 +1,10 @@
 package server
 
 import (
+	rscrand "bitbucket.org/zlacki/rscgo/rand"
 	"fmt"
 	"net"
+	"strings"
 )
 
 type packet struct {
@@ -82,7 +84,7 @@ func sessionIDRequest(c *client, p *packet) {
 	c.uID = p.payload[0]
 	p1 := newPacket(0, []byte{}, 0)
 	p1.bare = true
-	p1.addLong(GetSecureRandomLong())
+	p1.addLong(rscrand.GetSecureRandomLong())
 	c.send <- p1
 }
 
@@ -107,4 +109,12 @@ func (c *client) handlePacket(p *packet) {
 		return
 	}
 	handler(c, p)
+}
+
+func getIPFromConn(c net.Conn) string {
+	parts := strings.Split(c.RemoteAddr().String(), ":")
+	if len(parts) < 1 {
+		return "nil"
+	}
+	return parts[0]
 }
