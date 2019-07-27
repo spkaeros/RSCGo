@@ -45,7 +45,6 @@ func newPacket(opcode byte, payload []byte, length int) *packet {
 
 type channel struct {
 	socket net.Conn
-	send   chan *packet
 }
 
 func (c channel) write(b []byte) {
@@ -75,7 +74,7 @@ func (c channel) readPacket() (*packet, *netError) {
 		return nil, timedOut()
 	} else if err != nil {
 		if strings.Contains(err.Error(), "use of closed") {
-			return nil, &netError{"", true, true}
+			return nil, &netError{"Trying to read a closed socket.", true, true}
 		}
 		fmt.Printf("Rejected packet from: '%s'\n", getIPFromConn(c.socket))
 		fmt.Println(err)
@@ -179,6 +178,7 @@ func sessionIDRequest(c *client, p *packet) {
 	p1.bare = true
 	p1.addLong(rscrand.GetSecureRandomLong())
 	c.writePacket(p1)
+//	c.send <- p1
 }
 
 func loginRequest(c *client, p *packet) {
@@ -187,6 +187,7 @@ func loginRequest(c *client, p *packet) {
 	p1 := newPacket(0, []byte{}, 0)
 	p1.bare = true
 	p1.addByte(3)
+//	c.send <- p1
 	c.writePacket(p1)
 	c.kill <- struct{}{}
 }

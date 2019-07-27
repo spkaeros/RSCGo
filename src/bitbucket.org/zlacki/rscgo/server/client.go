@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"time"
 )
 
 type client struct {
@@ -20,7 +21,6 @@ type client struct {
 //unregister Clean up resources and unregister the receiver from the global clientList.
 func (c *client) unregister() {
 	close(c.kill)
-	close(c.send)
 	fmt.Println("Unregistering client" + c.String())
 	if err := c.socket.Close(); err != nil {
 		fmt.Printf("WARNING: Error closing listener for client%s\n", c.String())
@@ -29,40 +29,18 @@ func (c *client) unregister() {
 	activeClients.remove(c.index)
 }
 
-//startWriter todo: do I need this?
-func (c *client) startWriter() {
-	go func() {
-		defer func() {
-			c.unregister()
-		}()
-		for {
-			select {
-			case p := <-c.send:
-				if p != nil {
-					c.writePacket(p)
-				}
-				continue
-			case <-c.kill:
-				return;
-			}
-		}
-	}()
-}
-
 //startReader Creates a new goroutine to handle all incoming network events for the receiver client.
 // This goroutine will also automatically handle cleanup for client disconnections, and handle incoming I/O errors
 // and disconnect the related client appropriately.
 func (c *client) startReader() {
 	go func() {
+		defer c.unregister()
 		for {
 			select {
 			case <-c.kill:
 				return
-			default:
+			case <-time.After(time.Millisecond * 5):
 				p, err := c.readPacket()
-				if p == nil {
-					return
-				}
 				if err != nil {
 					fmt.Println(err.Error())
 					if err.ping || err.closed {
@@ -70,6 +48,7 @@ func (c *client) startReader() {
 					}
 				}
 				c.handlePacket(p)
+				continue
 			}
 		}
 	}()
@@ -77,9 +56,8 @@ func (c *client) startReader() {
 
 //newClient Creates a new instance of a client, registers it with the global clientList, and returns it.
 func newClient(socket net.Conn) *client {
-	c := &client{channel: channel{socket: socket, send: make(chan *packet)}, cipherKey: -1, ip: getIPFromConn(socket), index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer()}
+	c := &client{channel: channel{socket: socket}, cipherKey: -1, ip: getIPFromConn(socket), index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer()}
 	c.startReader()
-	c.startWriter()
 	return c
 }
 
