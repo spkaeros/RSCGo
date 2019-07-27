@@ -174,24 +174,23 @@ var handlers = make(map[byte]func(*client, *packet))
 
 func sessionIDRequest(c *client, p *packet) {
 	c.uID = p.payload[0]
-	p1 := newPacket(0, []byte{}, 0)
+	p1 := &packet{}
 	p1.bare = true
 	p1.addLong(rscrand.GetSecureRandomLong())
 	c.writePacket(p1)
-//	c.send <- p1
 }
 
 func loginRequest(c *client, p *packet) {
 	// TODO: RSA decryption, blabla.
 	// Currently returns an invalid username or password response
-	p1 := newPacket(0, []byte{}, 0)
+	p1 := &packet{}
 	p1.bare = true
 	p1.addByte(3)
-//	c.send <- p1
 	c.writePacket(p1)
 	c.kill <- struct{}{}
 }
 
+// TODO: Maybe load this from some sort of persistent storage medium, e.g YAML/TOML/JSON file
 func init() {
 	handlers[32] = sessionIDRequest
 	handlers[0] = loginRequest
