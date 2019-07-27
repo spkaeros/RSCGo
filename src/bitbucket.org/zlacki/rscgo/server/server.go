@@ -48,8 +48,6 @@ func startConnectionService() {
 			}
 
 			client := newClient(socket)
-			client.startReader()
-			client.startWriter()
 			activeClients.add(client)
 			fmt.Println("Registered client" + client.String())
 		}

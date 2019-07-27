@@ -3,9 +3,34 @@ package server
 import (
 	rscrand "bitbucket.org/zlacki/rscgo/rand"
 	"fmt"
+	"io"
 	"net"
+	"strconv"
 	"strings"
+	"time"
 )
+
+type netError struct {
+	msg string
+	ping bool
+	closed bool
+}
+
+func (e *netError) Error() string {
+	return e.msg
+}
+
+func connectionClosed() *netError {
+	return &netError{msg: "Connection reset by peer.", closed: true}
+}
+
+func timedOut() *netError {
+	return &netError{msg: "Connection timed out.", ping: true}
+}
+
+func deadlineError() *netError {
+	return &netError{msg: "Could not set read deadline for client listener.", closed: true}
+}
 
 type packet struct {
 	opcode  byte
@@ -34,7 +59,75 @@ func (c channel) write(b []byte) {
 	}
 }
 
-func (c channel) sendPacket(p *packet) {
+func (c channel) readPacket() (*packet, *netError) {
+	headerBuffer := make([]byte, 3)
+
+	if err := c.socket.SetReadDeadline(time.Now().Add(time.Second * 10)); err != nil {
+		fmt.Printf("Rejected packet from: '%s'\n", getIPFromConn(c.socket))
+		fmt.Println(err)
+		return nil, deadlineError()
+	}
+	headerLength, err := c.socket.Read(headerBuffer)
+
+	if err == io.EOF {
+		return nil, connectionClosed()
+	} else if err, ok := err.(net.Error); ok && err.Timeout() {
+		return nil, timedOut()
+	} else if err != nil {
+		if strings.Contains(err.Error(), "use of closed") {
+			return nil, &netError{"", true, true}
+		}
+		fmt.Printf("Rejected packet from: '%s'\n", getIPFromConn(c.socket))
+		fmt.Println(err)
+		return nil, &netError{msg: "Unexpected I/O error encountered while reading packet header."}
+	} else if headerLength != 3 {
+		fmt.Printf("Rejected packet from: '%s'\n", getIPFromConn(c.socket))
+		return nil, &netError{msg: "Packet header unexpected length.  Expected 3 bytes, got " + strconv.Itoa(headerLength) + " bytes."}
+	}
+
+	length := int(headerBuffer[0] & 0xFF)
+	if length >= 160 {
+		length = (length-160)*256 + int(headerBuffer[1]&0xFF)
+	} else {
+		length--
+	}
+
+	opcode := headerBuffer[2] & 0xFF
+	// Opcode is part of the length variable sent from Jagex client.
+	// IMO, opcode is a part of the header, so I read it into the header.
+	// TODO: Check Jagex client for any cases that would break this code, e.g raw opcode-free context-based packets?
+	length--
+
+	payloadBuffer := make([]byte, length)
+
+	if err := c.socket.SetReadDeadline(time.Now().Add(time.Second * 10)); err != nil {
+		fmt.Printf("Rejected packet[opcode: %d, len:%d] from: '%s'\n", opcode, length, getIPFromConn(c.socket))
+		fmt.Println(err)
+		return nil, deadlineError()
+	}
+	payloadLength, err := c.socket.Read(payloadBuffer)
+
+	if err == io.EOF {
+		return nil, connectionClosed()
+	} else if err, ok := err.(net.Error); ok && err.Timeout() {
+		return nil, timedOut()
+	} else if err != nil {
+		fmt.Printf("Rejected packet[opcode: %d, len:%d] from: '%s'\n", opcode, length, getIPFromConn(c.socket))
+		return nil, &netError{msg: "Unexpected I/O error encountered while reading packet header."}
+	} else if payloadLength != length {
+		fmt.Printf("Rejected packet[opcode: %d, len:%d] from: '%s'\n", opcode, length, getIPFromConn(c.socket))
+		return nil, &netError{msg: "Packet frame unexpected length.  Expected " + strconv.Itoa(length) + " bytes, got " + strconv.Itoa(payloadLength) + " bytes."}
+	}
+
+	if length < 160 {
+		payloadBuffer = append(payloadBuffer, headerBuffer[1])
+		length++
+	}
+
+	return newPacket(opcode, payloadBuffer, length), nil
+}
+
+func (c channel) writePacket(p *packet) {
 	buf := make([]byte, 0)
 	dataLen := len(p.payload)
 	packetLen := dataLen + 1
@@ -85,7 +178,7 @@ func sessionIDRequest(c *client, p *packet) {
 	p1 := newPacket(0, []byte{}, 0)
 	p1.bare = true
 	p1.addLong(rscrand.GetSecureRandomLong())
-	c.send <- p1
+	c.writePacket(p1)
 }
 
 func loginRequest(c *client, p *packet) {
@@ -94,7 +187,8 @@ func loginRequest(c *client, p *packet) {
 	p1 := newPacket(0, []byte{}, 0)
 	p1.bare = true
 	p1.addByte(3)
-	c.send <- p1
+	c.writePacket(p1)
+	c.kill <- struct{}{}
 }
 
 func init() {
