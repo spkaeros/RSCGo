@@ -30,8 +30,9 @@ func bind(port int) {
 
 func startConnectionService() {
 	if listener == nil {
-		fmt.Println("WARNING: Attempted to start connection service without a listener!")
-		return
+		fmt.Println("WARNING: Attempted to start connection service without a listener!  This shouldn't happen.")
+		fmt.Println("Starting listener on default port...")
+		bind(43591)
 	}
 
 	go func() {

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bitbucket.org/zlacki/rscgo/entity"
 	"fmt"
 	"io"
 	"net"
@@ -15,6 +16,7 @@ type client struct {
 	ip        string
 	index     int
 	kill      chan struct{}
+	player    *entity.Player
 }
 
 //unregister Clean up resources and unregister the receiver from the global clientList.
@@ -130,7 +132,7 @@ func (c *client) startReader() {
 
 //newClient Creates a new instance of a client, registers it with the global clientList, and returns it.
 func newClient(socket net.Conn) *client {
-	return &client{channel: channel{socket: socket, send: make(chan *packet)}, cipherKey: -1, ip: getIPFromConn(socket), index: -1, kill: make(chan struct{}, 1)}
+	return &client{channel: channel{socket: socket, send: make(chan *packet)}, cipherKey: -1, ip: getIPFromConn(socket), index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer()}
 }
 
 //String Returns a string populated with some of the more identifying fields from the receiver client.
