@@ -1,7 +1,7 @@
 package server
 
 import (
-	"bitbucket.org/zlacki/rscgo/entity"
+	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"fmt"
 	"net"
 	"strconv"

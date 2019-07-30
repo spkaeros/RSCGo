@@ -1,4 +1,4 @@
-package server // import "bitbucket.org/zlacki/rscgo/server"
+package server
 
 import (
 	"fmt"

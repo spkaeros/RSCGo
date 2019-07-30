@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bitbucket.org/zlacki/rscgo/server"
+	"bitbucket.org/zlacki/rscgo/pkg/server"
 	"flag"
 )
 

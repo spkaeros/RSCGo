@@ -1,7 +1,7 @@
 package server
 
 import (
-	rscrand "bitbucket.org/zlacki/rscgo/rand"
+	rscrand "bitbucket.org/zlacki/rscgo/pkg/rand"
 	"fmt"
 	"io"
 	"net"
