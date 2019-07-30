@@ -2,13 +2,17 @@ package main
 
 import (
 	"bitbucket.org/zlacki/rscgo/pkg/server"
-	"flag"
+	"github.com/jessevdk/go-flags"
+	"os"
 )
 
-var port = 43591
-
 func main() {
-	flag.IntVar(&port,"p", 43591, "The TCP port that the server should bind to")
-	flag.Parse()
-	server.Start(port)
+	var opts struct {
+		Port int `short:"p" long:"port" description:"The port for the server to listen on," default:"43591"`
+	}
+	_, err := flags.Parse(&opts)
+	if err != nil {
+		os.Exit(1)
+	}
+	server.Start(opts.Port)
 }
