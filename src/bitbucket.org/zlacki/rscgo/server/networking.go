@@ -143,9 +143,7 @@ func (c channel) writePacket(p *packet) {
 		}
 	}
 
-	for i := 0; i < dataLen; i++ {
-		buf = append(buf, p.payload[i])
-	}
+	buf = append(buf, p.payload[:dataLen]...)
 
 	c.write(buf)
 }

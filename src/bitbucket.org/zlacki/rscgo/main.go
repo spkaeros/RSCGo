@@ -1,7 +1,14 @@
 package main
 
-import "bitbucket.org/zlacki/rscgo/server"
+import (
+	"bitbucket.org/zlacki/rscgo/server"
+	"flag"
+)
+
+var port = 43591
 
 func main() {
-	server.Start(43591)
+	flag.IntVar(&port,"p", 43591, "The TCP port that the server should bind to")
+	flag.Parse()
+	server.Start(port)
 }

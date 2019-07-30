@@ -48,7 +48,7 @@ func startConnectionService() {
 			}
 
 			client := newClient(socket)
-			activeClients.add(client)
+			ActiveClients.Add(client)
 			fmt.Println("Registered client" + client.String())
 		}
 	}()
@@ -81,7 +81,7 @@ func Start(port int) {
 // TODO: Can movement be handled concurrently per-player safely on the Jagex client? Mob movement might not look right.
 func startSynchronizedTaskService() {
 	go func() {
-		for _ = range syncTicker.C {
+		for range syncTicker.C {
 		}
 	}()
 }
@@ -89,7 +89,7 @@ func startSynchronizedTaskService() {
 //Stop This will stop the server instance, if it is running.
 func Stop() {
 	fmt.Print("Clearing active client list...")
-	activeClients.clear()
+	ActiveClients.Clear()
 	fmt.Println("done")
 	fmt.Println("Stopping server...")
 	kill <- struct{}{}

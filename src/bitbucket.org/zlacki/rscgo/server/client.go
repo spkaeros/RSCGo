@@ -18,7 +18,7 @@ type client struct {
 	player    *entity.Player
 }
 
-//unregister Clean up resources and unregister the receiver from the global clientList.
+//unregister Clean up resources and unregister the receiver from the global ClientList.
 func (c *client) unregister() {
 	close(c.kill)
 	fmt.Println("Unregistering client" + c.String())
@@ -26,7 +26,7 @@ func (c *client) unregister() {
 		fmt.Printf("WARNING: Error closing listener for client%s\n", c.String())
 		fmt.Println(err)
 	}
-	activeClients.remove(c.index)
+	ActiveClients.Remove(c.index)
 }
 
 //startReader Creates a new goroutine to handle all incoming network events for the receiver client.
@@ -54,7 +54,7 @@ func (c *client) startReader() {
 	}()
 }
 
-//newClient Creates a new instance of a client, registers it with the global clientList, and returns it.
+//newClient Creates a new instance of a client, registers it with the global ClientList, and returns it.
 func newClient(socket net.Conn) *client {
 	c := &client{channel: channel{socket: socket}, cipherKey: -1, ip: getIPFromConn(socket), index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer()}
 	c.startReader()
