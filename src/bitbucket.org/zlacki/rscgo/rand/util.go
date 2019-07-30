@@ -1,4 +1,4 @@
-package rand
+package rand // import "bitbucket.org/zlacki/rscgo/rand"
 
 import (
 	"crypto/rand"
