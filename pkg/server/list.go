@@ -6,17 +6,17 @@ import (
 
 const MaxClients = 2048
 
-var ActiveClients = &ClientList{make(map[int] *client)}
+var ActiveClients = &ClientList{clients: make([]*Client, MaxClients)}
 
-//ClientList Data structure representing a single instance of a client list.
+//ClientList Data structure representing a single instance of a Client list.
 type ClientList struct {
-	clients  map[int] *client
+	clients []*Client
 }
 
 //NextIndex Returns the lowest available index in the specified receiver list.
 func (list *ClientList) NextIndex() int {
-	for i := 0; i < MaxClients; i++ {
-		if _, ok := list.clients[i]; !ok {
+	for i, c := range list.clients {
+		if c == nil {
 			return i
 		}
 	}
@@ -27,33 +27,33 @@ func (list *ClientList) NextIndex() int {
 //Clear Clears the receiver ClientList instance, and unregisters all of the clients safely.
 func (list *ClientList) Clear() {
 	for i, c := range list.clients {
-		c.unregister()
-		delete(list.clients, i)
+		c.Unregister()
+		list.clients[i] = nil
 	}
 }
 
-//Add Add a client to the `list`.  If list is full, log it as a warning.
-func (list *ClientList) Add(c *client) {
+//Add Add a Client to the `list`.  If list is full, log it as a warning.
+func (list *ClientList) Add(c *Client) {
 	idx := list.NextIndex()
 	if idx != -1 {
 		list.clients[idx] = c
 		c.index = idx
 	} else {
-		fmt.Println("WARNING: client list appears to be full.  Could not insert new client to client list.")
+		fmt.Println("WARNING: Client list appears to be full.  Could not insert new Client to Client list.")
 	}
 }
 
-//Get(int) *client Returns the client at the specific index in the receiver ClientList.
-func (list *ClientList) Get(idx int) *client {
-	client, ok := list.clients[idx]
-	if !ok {
-		fmt.Println("WARNING: Tried to Get client that does not exist from receiver ClientList.")
+//Get(int) *Client Returns the Client at the specific index in the receiver ClientList.
+func (list *ClientList) Get(idx int) *Client {
+	c := list.clients[idx]
+	if c == nil {
+		fmt.Println("WARNING: Tried to Get Client that does not exist from receiver ClientList.")
 		return nil
 	}
-	return client
+	return c
 }
 
-//Remove Remove a client from the specified `list`, by the index of the client.
+//Remove Remove a Client from the specified `list`, by the index of the Client.
 func (list *ClientList) Remove(index int) {
-	delete(list.clients, index)
+	list.clients[index] = nil
 }

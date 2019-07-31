@@ -17,6 +17,12 @@ var (
 	kill       = make(chan struct{})
 )
 
+var Flags struct {
+	Verbose []bool `short:"v" long:"verbose" description:"Display more verbose output"`
+	Port int `short:"p" long:"port" description:"The port for the server to listen on," default:"43591"`
+	Config string  `short:"c" long:"config" description:"Specify the configuration file to load server settings from" default:"config.ini"`
+}
+
 func bind(port int) {
 	var err error
 	portS := strconv.Itoa(port)
@@ -42,14 +48,14 @@ func startConnectionService() {
 		for range connTicker.C {
 			socket, err := listener.Accept()
 			if err != nil {
-				fmt.Println("ERROR: Could not accept client from server listener.")
+				fmt.Println("ERROR: Could not accept Client from server listener.")
 				fmt.Println(err)
 				return
 			}
 
-			client := newClient(socket)
+			client := NewClient(socket)
 			ActiveClients.Add(client)
-			fmt.Println("Registered client" + client.String())
+			fmt.Println("Registered Client" + client.String())
 		}
 	}()
 
@@ -81,8 +87,8 @@ func Start(port int) {
 
 //startSynchronizedTaskService Launches a goroutine to handle updating the state of the server every 600ms in a
 // synchronized fashion.  This is known as a single game engine 'pulse'.  All mobile entities must have their position
-// updated during this pulse to be compatible with Jagex RSClassic client software.
-// TODO: Can movement be handled concurrently per-player safely on the Jagex client? Mob movement might not look right.
+// updated during this pulse to be compatible with Jagex RSClassic Client software.
+// TODO: Can movement be handled concurrently per-player safely on the Jagex Client? Mob movement might not look right.
 func startSynchronizedTaskService() {
 	go func() {
 		for range syncTicker.C {
@@ -92,7 +98,7 @@ func startSynchronizedTaskService() {
 
 //Stop This will stop the server instance, if it is running.
 func Stop() {
-	fmt.Print("Clearing active client list...")
+	fmt.Print("Clearing active Client list...")
 	ActiveClients.Clear()
 	fmt.Println("done")
 	fmt.Println("Stopping server...")

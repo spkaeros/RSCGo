@@ -1,7 +1,6 @@
 package server
 
 import (
-	rscrand "bitbucket.org/zlacki/rscgo/pkg/rand"
 	"fmt"
 	"io"
 	"net"
@@ -29,7 +28,7 @@ func timedOut() *netError {
 }
 
 func deadlineError() *netError {
-	return &netError{msg: "Could not set read deadline for client listener.", closed: true}
+	return &netError{msg: "Could not set read deadline for Client listener.", closed: true}
 }
 
 type packet struct {
@@ -50,11 +49,11 @@ type channel struct {
 func (c channel) write(b []byte) {
 	l, err := c.socket.Write(b)
 	if err != nil {
-		fmt.Println("ERROR: Could not write to client socket.")
+		fmt.Println("ERROR: Could not write to Client socket.")
 		fmt.Println(err)
 	}
 	if l != len(b) {
-		fmt.Printf("WARNING: Wrong number of bytes written to client socket.  Expected %d, got %d.\n", len(b), l)
+		fmt.Printf("WARNING: Wrong number of bytes written to Client socket.  Expected %d, got %d.\n", len(b), l)
 	}
 }
 
@@ -92,9 +91,9 @@ func (c channel) readPacket() (*packet, *netError) {
 	}
 
 	opcode := headerBuffer[2] & 0xFF
-	// Opcode is part of the length variable sent from Jagex client.
+	// Opcode is part of the length variable sent from Jagex Client.
 	// IMO, opcode is a part of the header, so I read it into the header.
-	// TODO: Check Jagex client for any cases that would break this code, e.g raw opcode-free context-based packets?
+	// TODO: Check Jagex Client for any cases that would break this code, e.g raw opcode-free context-based packets?
 	length--
 
 	payloadBuffer := make([]byte, length)
@@ -166,41 +165,6 @@ func (p *packet) addShort(s uint16) {
 func (p *packet) addByte(b uint8) {
 	p.payload = append(p.payload, b)
 	p.length++
-}
-
-var handlers = make(map[byte]func(*client, *packet))
-
-func sessionIDRequest(c *client, p *packet) {
-	c.uID = p.payload[0]
-	p1 := &packet{}
-	p1.bare = true
-	p1.addLong(rscrand.GetSecureRandomLong())
-	c.writePacket(p1)
-}
-
-func loginRequest(c *client, p *packet) {
-	// TODO: RSA decryption, blabla.
-	// Currently returns an invalid username or password response
-	p1 := &packet{}
-	p1.bare = true
-	p1.addByte(3)
-	c.writePacket(p1)
-	c.kill <- struct{}{}
-}
-
-// TODO: Maybe load this from some sort of persistent storage medium, e.g YAML/TOML/JSON file
-func init() {
-	handlers[32] = sessionIDRequest
-	handlers[0] = loginRequest
-}
-
-func (c *client) handlePacket(p *packet) {
-	handler, ok := handlers[p.opcode]
-	if !ok {
-		fmt.Printf("Unhandled packet: {opcode: %d; length: %d};\n", p.opcode, p.length)
-		return
-	}
-	handler(c, p)
 }
 
 func getIPFromConn(c net.Conn) string {
