@@ -26,49 +26,17 @@ func (c *Client) StartReader() {
 		for {
 			select {
 			default:
-				headerBuf, err := c.Read(3)
-				if err != nil {
-					if err, ok := err.(*NetError); ok {
-						if err.closed || err.ping {
-							return
-						}
-						fmt.Printf("Rejected Packet from: '%s'\n", getIPFromConn(c.socket))
+			p, err := c.NextPacket()
+			if err != nil {
+				if err, ok := err.(*NetError); ok {
+					if err.closed || err.ping {
+						return
 					}
-					continue
+					fmt.Printf("Rejected Packet from: '%s'\n", getIPFromConn(c.socket))
 				}
-
-				length := int(headerBuf[0] & 0xFF)
-				if length >= 160 {
-					length = (length-160)*256 + int(headerBuf[1]&0xFF)
-				} else {
-					// TODO: Should it be <= 160, and should it be >= 1?
-					// If the payload length is less than 160 bytes, the 2nd byte in the header is used to store the last byte
-					//  of payload data.  Subtract one from length so that we don't try to read it from the end of the payload.
-					length--
-				}
-
-				// Opcode byte is included in the length variable, but we read it into the header buffer since it should be there.
-				opcode := headerBuf[2] & 0xFF
-				length--
-
-				payloadBuf, err := c.Read(length)
-				if err != nil {
-					fmt.Println("Problem reading next packet payload:", err)
-					if err, ok := err.(*NetError); ok {
-						if err.closed || err.ping {
-							return
-						}
-					}
-					continue
-				}
-
-				if length < 160 {
-					// 1-byte length in header causes the client to put the last byte of payload data in the header
-					payloadBuf = append(payloadBuf, headerBuf[1])
-					length++
-				}
-
-				c.nextPacket <- NewPacket(opcode, payloadBuf, length)
+				continue
+			}
+			c.nextPacket <- p
 			case <-c.kill:
 				return
 			}
@@ -87,12 +55,6 @@ func (c *Client) StartReader() {
 		for {
 			select {
 			case p := <-c.nextPacket:
-				/*				if err != nil {
-								fmt.Println(err.Error())
-								if err.(*NetError).ping || err.(*NetError).closed {
-									return
-								}
-							}*/
 				if p == nil {
 					return
 				}
