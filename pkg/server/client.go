@@ -8,14 +8,14 @@ import (
 )
 
 type Client struct {
-	cipherKey   int64
-	uID         uint8
-	ip          string
-	index       int
-	kill        chan struct{}
-	player      *entity.Player
-	socket      net.Conn
-	packetQueue chan *Packet
+	decryptKey, encryptKey int64
+	uID                    uint8
+	ip                     string
+	index                  int
+	kill                   chan struct{}
+	player                 *entity.Player
+	socket                 net.Conn
+	packetQueue            chan *Packet
 }
 
 //StartReader Creates a new goroutine to handle all incoming network events for the receiver Client.
@@ -27,17 +27,18 @@ func (c *Client) StartReader() {
 		for {
 			select {
 			default:
-			p, err := c.NextPacket()
-			if err != nil {
-				if err, ok := err.(*NetError); ok {
-					if err.closed || err.ping {
-						return
+				p, err := c.ReadPacket()
+				if err != nil {
+					if err, ok := err.(*NetError); ok {
+						if err.closed || err.ping {
+							return
+						}
+						fmt.Printf("Rejected Packet from: '%s'\n", getIPFromConn(c.socket))
+						fmt.Println(err)
 					}
-					fmt.Printf("Rejected Packet from: '%s'\n", getIPFromConn(c.socket))
+					continue
 				}
-				continue
-			}
-			c.packetQueue <- p
+				c.packetQueue <- p
 			case <-c.kill:
 				return
 			}
@@ -68,7 +69,7 @@ func (c *Client) StartReader() {
 
 //NewClient Creates a new instance of a Client, registers it with the global ClientList, and returns it.
 func NewClient(socket net.Conn) *Client {
-	c := &Client{socket: socket, packetQueue: make(chan *Packet, 1), cipherKey: -1, ip: getIPFromConn(socket), index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer()}
+	c := &Client{socket: socket, packetQueue: make(chan *Packet, 1), decryptKey: -1, ip: getIPFromConn(socket), index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer()}
 	c.StartReader()
 	return c
 }

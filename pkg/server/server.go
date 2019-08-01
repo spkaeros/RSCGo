@@ -71,8 +71,7 @@ func Start(port int) {
 	fmt.Println("done")
 	fmt.Print("Attempting to start synchronized task service...")
 	startSynchronizedTaskService()
-	fmt.Println("done")
-	fmt.Printf("\nRSCGo is now running.\nListening on port %d...\n", port)
+	fmt.Printf("done\n\nRSCGo is now running.\nListening on port %d...\n", port)
 	// TODO: Probably need to handle certain signals, for usability sake.
 	// TODO: Implement some form of data store for static game data, e.g entity information, seldom-changed config
 	//  settings and the like.

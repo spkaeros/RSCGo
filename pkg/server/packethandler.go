@@ -30,14 +30,13 @@ func loginRequest(c *Client, p *Packet) {
 	}
 	recon := p.ReadByte() == 1
 	version := p.ReadInt()
-	clientSeed := p.ReadLong()
-	serverSeed := p.ReadLong()
+	c.decryptKey = p.ReadLong()
+	c.encryptKey = p.ReadLong()
 	username := strings.TrimSpace(p.ReadString(20))
 	password := strings.TrimSpace(p.ReadString(20))
-	fmt.Printf("reconnecting:%t,version:%d,clientSeed:%d,serverSeed:%d,username:%s,password:%s\n", recon, version, clientSeed, serverSeed, username, password)
-	response.AddByte(3)
+	fmt.Printf("reconnecting:%v,version:%v,clientSeed:%v,serverSeed:%v,username:%v,password:%v\n", recon, version, c.decryptKey, c.encryptKey, username, password)
+	response.AddByte(0)
 	c.WritePacket(response)
-	c.kill <- struct{}{}
 }
 
 func init() {
