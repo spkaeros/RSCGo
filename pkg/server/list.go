@@ -54,5 +54,11 @@ func (list *ClientList) Get(idx int) *Client {
 
 //Remove Remove a Client from the specified `list`, by the index of the Client.
 func (list *ClientList) Remove(index int) {
-	list.clients[index] = nil
+	c := list.clients[index]
+	if c != nil {
+		list.clients[index] = nil
+		fmt.Printf("Removed client: %v\n", c)
+	} else {
+		fmt.Printf("WARNING: Tried removing nil client at index %d\n", index)
+	}
 }

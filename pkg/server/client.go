@@ -8,13 +8,14 @@ import (
 )
 
 type Client struct {
-	Channel
-	cipherKey int64
-	uID       uint8
-	ip        string
-	index     int
-	kill      chan struct{}
-	player    *entity.Player
+	cipherKey   int64
+	uID         uint8
+	ip          string
+	index       int
+	kill        chan struct{}
+	player      *entity.Player
+	socket      net.Conn
+	packetQueue chan *Packet
 }
 
 //StartReader Creates a new goroutine to handle all incoming network events for the receiver Client.
@@ -22,7 +23,7 @@ type Client struct {
 // and disconnect the related Client appropriately.
 func (c *Client) StartReader() {
 	go func() {
-		defer close(c.nextPacket)
+		defer close(c.packetQueue)
 		for {
 			select {
 			default:
@@ -36,7 +37,7 @@ func (c *Client) StartReader() {
 				}
 				continue
 			}
-			c.nextPacket <- p
+			c.packetQueue <- p
 			case <-c.kill:
 				return
 			}
@@ -44,17 +45,16 @@ func (c *Client) StartReader() {
 	}()
 	go func() {
 		defer func() {
-			fmt.Println("Unregistering client" + c.String())
 			if err := c.socket.Close(); err != nil {
-				fmt.Printf("WARNING: Error closing listener for client%s\n", c.String())
-				fmt.Println(err)
+				// This shouldn't reasonably happen.
+				fmt.Println("WARNING: Error closing socket!", err)
 			}
 			ActiveClients.Remove(c.index)
 		}()
 		defer close(c.kill)
 		for {
 			select {
-			case p := <-c.nextPacket:
+			case p := <-c.packetQueue:
 				if p == nil {
 					return
 				}
@@ -68,7 +68,7 @@ func (c *Client) StartReader() {
 
 //NewClient Creates a new instance of a Client, registers it with the global ClientList, and returns it.
 func NewClient(socket net.Conn) *Client {
-	c := &Client{Channel: Channel{socket: socket, nextPacket: make(chan *Packet, 1)}, cipherKey: -1, ip: getIPFromConn(socket), index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer()}
+	c := &Client{socket: socket, packetQueue: make(chan *Packet, 1), cipherKey: -1, ip: getIPFromConn(socket), index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer()}
 	c.StartReader()
 	return c
 }

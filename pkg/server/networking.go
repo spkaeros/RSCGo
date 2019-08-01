@@ -1,6 +1,8 @@
 package server
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"fmt"
 	"io"
 	"net"
@@ -36,18 +38,25 @@ type Packet struct {
 	payload []byte
 	length  int
 	bare    bool
+	offset  int
 }
 
 func NewPacket(opcode byte, payload []byte, length int) *Packet {
-	return &Packet{opcode, payload, length, false}
+	return &Packet{opcode, payload, length, false, 0}
 }
 
-type Channel struct {
-	socket     net.Conn
-	nextPacket chan *Packet
+func (p *Packet) DecryptRSA() bool {
+	buf, err :=rsa.DecryptPKCS1v15(rand.Reader, RsaKey, p.payload)
+	if err != nil {
+		fmt.Println("WARNING: Could not decrypt RSA login block")
+		return false
+	}
+	p.payload = buf
+	p.length = len(buf)
+	return true
 }
 
-func (c Channel) Write(b []byte) {
+func (c *Client) Write(b []byte) {
 	l, err := c.socket.Write(b)
 	if err != nil {
 		fmt.Println("ERROR: Could not Write to Client socket.")
@@ -58,7 +67,7 @@ func (c Channel) Write(b []byte) {
 	}
 }
 
-func (c Channel) Read(len int) ([]byte, error) {
+func (c *Client) Read(len int) ([]byte, error) {
 	if err := c.socket.SetReadDeadline(time.Now().Add(time.Second * 10)); err != nil {
 		// This shouldn't happen
 		return nil, Deadline()
@@ -77,13 +86,13 @@ func (c Channel) Read(len int) ([]byte, error) {
 		}
 	}
 	if length != len {
-		return nil, &NetError{msg: "Channel.Read: unexpected length.  Expected " + strconv.Itoa(len) + ", got " + strconv.Itoa(length) + "."}
+		return nil, &NetError{msg: "Client.Read: unexpected length.  Expected " + strconv.Itoa(len) + ", got " + strconv.Itoa(length) + "."}
 	}
 
 	return buf, nil
 }
 
-func (c Channel) NextPacket() (*Packet, error) {
+func (c *Client) NextPacket() (*Packet, error) {
 	headerBuffer, err := c.Read(3)
 	if err != nil {
 		return nil, err
@@ -116,7 +125,7 @@ func (c Channel) NextPacket() (*Packet, error) {
 	return NewPacket(opcode, payloadBuffer, length), nil
 }
 
-func (c Channel) WritePacket(p *Packet) {
+func (c *Client) WritePacket(p *Packet) {
 	dataLen := len(p.payload)
 	packetLen := dataLen + 1
 	buf := make([]byte, 0)
@@ -135,6 +144,48 @@ func (c Channel) WritePacket(p *Packet) {
 	buf = append(buf, p.payload[:dataLen]...)
 
 	c.Write(buf)
+}
+
+func (p *Packet) ReadLong() int64 {
+	l := int64(p.payload[p.offset] >> 56)
+	l |= int64(p.payload[p.offset + 1] >> 48)
+	l |= int64(p.payload[p.offset + 2] >> 40)
+	l |= int64(p.payload[p.offset + 3] >> 32)
+	l |= int64(p.payload[p.offset + 4] >> 24)
+	l |= int64(p.payload[p.offset + 5] >> 16)
+	l |= int64(p.payload[p.offset + 6] >> 8)
+	l |= int64(p.payload[p.offset + 7])
+	p.offset += 8
+	return l
+}
+func (p *Packet) ReadInt() int32 {
+	i := int32(p.payload[p.offset] >> 24)
+	i |= int32(p.payload[p.offset + 1] >> 16)
+	i |= int32(p.payload[p.offset + 2] >> 8)
+	i |= int32(p.payload[p.offset + 3])
+	p.offset += 4
+	return i
+}
+func (p *Packet) ReadShort() int16 {
+	i := int16(p.payload[p.offset] >> 8)
+	i |= int16(p.payload[p.offset + 1])
+	p.offset += 2
+	return i
+}
+func (p *Packet) ReadByte() byte {
+	p.offset++
+	return p.payload[p.offset]
+}
+
+func (p *Packet) ReadString(len int) string {
+	if p.offset + len > p.length {
+		fmt.Printf("WARNING: Requested string length too long.  Requested %d, only %d left in buffer.", len, p.length-p.offset)
+		return ""
+	}
+	defer func() {
+		p.offset += len
+	}()
+	return string(p.payload[p.offset:p.offset+len])
 }
 
 func (p *Packet) AddLong(l uint64) {
