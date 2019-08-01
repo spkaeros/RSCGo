@@ -43,7 +43,8 @@ func NewPacket(opcode byte, payload []byte, length int) *Packet {
 }
 
 type Channel struct {
-	socket net.Conn
+	socket     net.Conn
+	nextPacket chan *Packet
 }
 
 func (c Channel) Write(b []byte) {
@@ -57,73 +58,54 @@ func (c Channel) Write(b []byte) {
 	}
 }
 
-func (c Channel) NextPacket() (*Packet, *NetError) {
-	headerBuffer := make([]byte, 3)
-
+func (c Channel) Read(len int) ([]byte, error) {
 	if err := c.socket.SetReadDeadline(time.Now().Add(time.Second * 10)); err != nil {
-		fmt.Printf("Rejected Packet from: '%s'\n", getIPFromConn(c.socket))
-		fmt.Println(err)
+		// This shouldn't happen
 		return nil, Deadline()
 	}
-	headerLength, err := c.socket.Read(headerBuffer)
-
-	if err == io.EOF {
-		return nil, Closed()
-	} else if err, ok := err.(net.Error); ok && err.Timeout() {
-		return nil, Timeout()
-	} else if err != nil {
-		if strings.Contains(err.Error(), "use of closed") {
-			return nil, &NetError{"Trying to read a closed socket.", true, true}
+	buf := make([]byte, len)
+	length, err := c.socket.Read(buf)
+	if err != nil {
+		if err, ok := err.(net.Error); ok && err.Timeout() {
+			return nil, Timeout()
 		}
-		if strings.Contains(err.Error(), "connection reset by peer") {
+		if strings.Contains(err.Error(), "use of closed") {
+			return nil, &NetError{msg: "Trying to read a closed socket.", closed: true}
+		}
+		if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") {
 			return nil, Closed()
 		}
-		fmt.Printf("Rejected Packet from: '%s'\n", getIPFromConn(c.socket))
-		fmt.Println(err)
-		return nil, &NetError{msg: "Unexpected I/O error encountered while reading Packet header."}
-	} else if headerLength != 3 {
-		fmt.Printf("Rejected Packet from: '%s'\n", getIPFromConn(c.socket))
-		return nil, &NetError{msg: "Packet header unexpected length.  Expected 3 bytes, got " + strconv.Itoa(headerLength) + " bytes."}
+	}
+	if length != len {
+		return nil, &NetError{msg: "Channel.Read: unexpected length.  Expected " + strconv.Itoa(len) + ", got " + strconv.Itoa(length) + "."}
+	}
+
+	return buf, nil
+}
+
+func (c Channel) NextPacket() (*Packet, error) {
+	headerBuffer, err := c.Read(3)
+	if err != nil {
+		return nil, err
 	}
 
 	length := int(headerBuffer[0] & 0xFF)
 	if length >= 160 {
 		length = (length-160)*256 + int(headerBuffer[1]&0xFF)
 	} else {
+		// TODO: Should it be <= 160, and should it be >= 1?
+		// If the payload length is less than 160 bytes, the 2nd byte in the header is used to store the last byte
+		//  of payload data.  Subtract one from length so that we don't try to read it from the end of the payload.
 		length--
 	}
 
+	// Opcode byte is included in the length variable, but we read it into the header buffer since it should be there.
 	opcode := headerBuffer[2] & 0xFF
-	// Opcode is part of the length variable sent from Jagex Client.
-	// IMO, opcode is a part of the header, so I read it into the header.
-	// TODO: Check Jagex Client for any cases that would break this code, e.g bare opcode-free context-based data?
 	length--
 
-	payloadBuffer := make([]byte, length)
-
-	if err := c.socket.SetReadDeadline(time.Now().Add(time.Second * 10)); err != nil {
-		fmt.Printf("Rejected Packet[opcode:%d, len:%d] from: '%s'\n", opcode, length, getIPFromConn(c.socket))
-		fmt.Println(err)
-		return nil, Deadline()
-	}
-	payloadLength, err := c.socket.Read(payloadBuffer)
-
-	if err == io.EOF {
-		return nil, Closed()
-	} else if err, ok := err.(net.Error); ok && err.Timeout() {
-		return nil, Timeout()
-	} else if err != nil {
-		if strings.Contains(err.Error(), "use of closed") {
-			return nil, &NetError{"Trying to read a closed socket.", true, true}
-		}
-		if strings.Contains(err.Error(), "connection reset by peer") {
-			return nil, Closed()
-		}
-		fmt.Printf("Rejected Packet[opcode:%d, len:%d] from: '%s'\n", opcode, length, getIPFromConn(c.socket))
-		return nil, &NetError{msg: "Unexpected I/O error encountered while reading Packet header."}
-	} else if payloadLength != length {
-		fmt.Printf("Rejected Packet[opcode:%d, len:%d] from: '%s'\n", opcode, length, getIPFromConn(c.socket))
-		return nil, &NetError{msg: "Packet frame unexpected length.  Expected " + strconv.Itoa(length) + " bytes, got " + strconv.Itoa(payloadLength) + " bytes."}
+	payloadBuffer, err := c.Read(length)
+	if err != nil {
+		return nil, err
 	}
 
 	if length < 160 {
@@ -135,9 +117,9 @@ func (c Channel) NextPacket() (*Packet, *NetError) {
 }
 
 func (c Channel) WritePacket(p *Packet) {
-	buf := make([]byte, p.length)
 	dataLen := len(p.payload)
 	packetLen := dataLen + 1
+	buf := make([]byte, 0)
 	if !p.bare {
 		if packetLen >= 160 {
 			buf = append(buf, byte(160+packetLen/256), byte(packetLen&0xFF))
@@ -147,10 +129,9 @@ func (c Channel) WritePacket(p *Packet) {
 				dataLen--
 				buf = append(buf, p.payload[dataLen])
 			}
-			buf = append(buf, p.opcode)
 		}
+		buf = append(buf, p.opcode&0xFF)
 	}
-
 	buf = append(buf, p.payload[:dataLen]...)
 
 	c.Write(buf)

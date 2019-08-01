@@ -15,8 +15,7 @@ var handlers = make(map[byte]func(*Client, *Packet))
 
 func sessionRequest(c *Client, p *Packet) {
 	c.uID = p.payload[0]
-	p1 := &Packet{}
-	p1.bare = true
+	p1 := &Packet{bare: true}
 	p1.AddLong(rand.GetSecureRandomLong())
 	c.WritePacket(p1)
 }
@@ -24,16 +23,15 @@ func sessionRequest(c *Client, p *Packet) {
 func loginRequest(c *Client, p *Packet) {
 	// TODO: RSA decryption, blabla.
 	// Currently returns an invalid username or password response
-	p1 := &Packet{}
-	p1.bare = true
+	p1 := &Packet{bare: true}
 	p1.AddByte(3)
 	c.WritePacket(p1)
 	c.kill <- struct{}{}
 }
 
 func init() {
-	handlers[SessionRequest] = sessionRequest
-	handlers[LoginRequest] = loginRequest
+	handlers[32] = sessionRequest
+	handlers[0] = loginRequest
 }
 
 func (c *Client) HandlePacket(p *Packet) {

@@ -26,8 +26,7 @@ func (list *ClientList) NextIndex() int {
 
 //Clear Clears the receiver ClientList instance, and unregisters all of the clients safely.
 func (list *ClientList) Clear() {
-	for i, c := range list.clients {
-		c.Unregister()
+	for i := range list.clients {
 		list.clients[i] = nil
 	}
 }
