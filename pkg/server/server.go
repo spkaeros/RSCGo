@@ -8,9 +8,7 @@ import (
 	"time"
 )
 
-var (
-	listener net.Listener
-)
+var listener net.Listener
 
 var (
 	syncTicker = time.NewTicker(time.Millisecond * 600)
@@ -19,8 +17,8 @@ var (
 
 var Flags struct {
 	Verbose []bool `short:"v" long:"verbose" description:"Display more verbose output"`
-	Port int `short:"p" long:"port" description:"The port for the server to listen on," default:"43591"`
-	Config string  `short:"c" long:"config" description:"Specify the configuration file to load server settings from" default:"config.ini"`
+	Port    int    `short:"p" long:"port" description:"The port for the server to listen on," default:"43591"`
+	Config  string `short:"c" long:"config" description:"Specify the configuration file to load server settings from" default:"config.ini"`
 }
 
 func bind(port int) {

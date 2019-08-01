@@ -9,47 +9,47 @@ import (
 	"time"
 )
 
-type netError struct {
-	msg string
-	ping bool
+type NetError struct {
+	msg    string
+	ping   bool
 	closed bool
 }
 
-func (e *netError) Error() string {
+func (e *NetError) Error() string {
 	return e.msg
 }
 
-func connectionClosed() *netError {
-	return &netError{msg: "Connection reset by peer.", closed: true}
+func Closed() *NetError {
+	return &NetError{msg: "Connection reset by peer.", closed: true}
 }
 
-func timedOut() *netError {
-	return &netError{msg: "Connection timed out.", ping: true}
+func Timeout() *NetError {
+	return &NetError{msg: "Connection timed out.", ping: true}
 }
 
-func deadlineError() *netError {
-	return &netError{msg: "Could not set read deadline for Client listener.", closed: true}
+func Deadline() *NetError {
+	return &NetError{msg: "Could not set read deadline for Client listener.", closed: true}
 }
 
-type packet struct {
+type Packet struct {
 	opcode  byte
 	payload []byte
 	length  int
 	bare    bool
 }
 
-func newPacket(opcode byte, payload []byte, length int) *packet {
-	return &packet{opcode, payload, length, false}
+func NewPacket(opcode byte, payload []byte, length int) *Packet {
+	return &Packet{opcode, payload, length, false}
 }
 
-type channel struct {
+type Channel struct {
 	socket net.Conn
 }
 
-func (c channel) write(b []byte) {
+func (c Channel) Write(b []byte) {
 	l, err := c.socket.Write(b)
 	if err != nil {
-		fmt.Println("ERROR: Could not write to Client socket.")
+		fmt.Println("ERROR: Could not Write to Client socket.")
 		fmt.Println(err)
 	}
 	if l != len(b) {
@@ -57,30 +57,33 @@ func (c channel) write(b []byte) {
 	}
 }
 
-func (c channel) readPacket() (*packet, *netError) {
+func (c Channel) NextPacket() (*Packet, *NetError) {
 	headerBuffer := make([]byte, 3)
 
 	if err := c.socket.SetReadDeadline(time.Now().Add(time.Second * 10)); err != nil {
-		fmt.Printf("Rejected packet from: '%s'\n", getIPFromConn(c.socket))
+		fmt.Printf("Rejected Packet from: '%s'\n", getIPFromConn(c.socket))
 		fmt.Println(err)
-		return nil, deadlineError()
+		return nil, Deadline()
 	}
 	headerLength, err := c.socket.Read(headerBuffer)
 
 	if err == io.EOF {
-		return nil, connectionClosed()
+		return nil, Closed()
 	} else if err, ok := err.(net.Error); ok && err.Timeout() {
-		return nil, timedOut()
+		return nil, Timeout()
 	} else if err != nil {
 		if strings.Contains(err.Error(), "use of closed") {
-			return nil, &netError{"Trying to read a closed socket.", true, true}
+			return nil, &NetError{"Trying to read a closed socket.", true, true}
 		}
-		fmt.Printf("Rejected packet from: '%s'\n", getIPFromConn(c.socket))
+		if strings.Contains(err.Error(), "connection reset by peer") {
+			return nil, Closed()
+		}
+		fmt.Printf("Rejected Packet from: '%s'\n", getIPFromConn(c.socket))
 		fmt.Println(err)
-		return nil, &netError{msg: "Unexpected I/O error encountered while reading packet header."}
+		return nil, &NetError{msg: "Unexpected I/O error encountered while reading Packet header."}
 	} else if headerLength != 3 {
-		fmt.Printf("Rejected packet from: '%s'\n", getIPFromConn(c.socket))
-		return nil, &netError{msg: "Packet header unexpected length.  Expected 3 bytes, got " + strconv.Itoa(headerLength) + " bytes."}
+		fmt.Printf("Rejected Packet from: '%s'\n", getIPFromConn(c.socket))
+		return nil, &NetError{msg: "Packet header unexpected length.  Expected 3 bytes, got " + strconv.Itoa(headerLength) + " bytes."}
 	}
 
 	length := int(headerBuffer[0] & 0xFF)
@@ -93,28 +96,34 @@ func (c channel) readPacket() (*packet, *netError) {
 	opcode := headerBuffer[2] & 0xFF
 	// Opcode is part of the length variable sent from Jagex Client.
 	// IMO, opcode is a part of the header, so I read it into the header.
-	// TODO: Check Jagex Client for any cases that would break this code, e.g raw opcode-free context-based packets?
+	// TODO: Check Jagex Client for any cases that would break this code, e.g bare opcode-free context-based data?
 	length--
 
 	payloadBuffer := make([]byte, length)
 
 	if err := c.socket.SetReadDeadline(time.Now().Add(time.Second * 10)); err != nil {
-		fmt.Printf("Rejected packet[opcode: %d, len:%d] from: '%s'\n", opcode, length, getIPFromConn(c.socket))
+		fmt.Printf("Rejected Packet[opcode:%d, len:%d] from: '%s'\n", opcode, length, getIPFromConn(c.socket))
 		fmt.Println(err)
-		return nil, deadlineError()
+		return nil, Deadline()
 	}
 	payloadLength, err := c.socket.Read(payloadBuffer)
 
 	if err == io.EOF {
-		return nil, connectionClosed()
+		return nil, Closed()
 	} else if err, ok := err.(net.Error); ok && err.Timeout() {
-		return nil, timedOut()
+		return nil, Timeout()
 	} else if err != nil {
-		fmt.Printf("Rejected packet[opcode: %d, len:%d] from: '%s'\n", opcode, length, getIPFromConn(c.socket))
-		return nil, &netError{msg: "Unexpected I/O error encountered while reading packet header."}
+		if strings.Contains(err.Error(), "use of closed") {
+			return nil, &NetError{"Trying to read a closed socket.", true, true}
+		}
+		if strings.Contains(err.Error(), "connection reset by peer") {
+			return nil, Closed()
+		}
+		fmt.Printf("Rejected Packet[opcode:%d, len:%d] from: '%s'\n", opcode, length, getIPFromConn(c.socket))
+		return nil, &NetError{msg: "Unexpected I/O error encountered while reading Packet header."}
 	} else if payloadLength != length {
-		fmt.Printf("Rejected packet[opcode: %d, len:%d] from: '%s'\n", opcode, length, getIPFromConn(c.socket))
-		return nil, &netError{msg: "Packet frame unexpected length.  Expected " + strconv.Itoa(length) + " bytes, got " + strconv.Itoa(payloadLength) + " bytes."}
+		fmt.Printf("Rejected Packet[opcode:%d, len:%d] from: '%s'\n", opcode, length, getIPFromConn(c.socket))
+		return nil, &NetError{msg: "Packet frame unexpected length.  Expected " + strconv.Itoa(length) + " bytes, got " + strconv.Itoa(payloadLength) + " bytes."}
 	}
 
 	if length < 160 {
@@ -122,11 +131,11 @@ func (c channel) readPacket() (*packet, *netError) {
 		length++
 	}
 
-	return newPacket(opcode, payloadBuffer, length), nil
+	return NewPacket(opcode, payloadBuffer, length), nil
 }
 
-func (c channel) writePacket(p *packet) {
-	buf := make([]byte, 0)
+func (c Channel) WritePacket(p *Packet) {
+	buf := make([]byte, p.length)
 	dataLen := len(p.payload)
 	packetLen := dataLen + 1
 	if !p.bare {
@@ -144,25 +153,25 @@ func (c channel) writePacket(p *packet) {
 
 	buf = append(buf, p.payload[:dataLen]...)
 
-	c.write(buf)
+	c.Write(buf)
 }
 
-func (p *packet) addLong(l uint64) {
-	p.payload = append(p.payload, byte(l >> 56), byte(l >> 48), byte(l >> 40), byte(l >> 32), byte(l >> 24), byte(l >> 16), byte(l >> 8), byte(l))
+func (p *Packet) AddLong(l uint64) {
+	p.payload = append(p.payload, byte(l>>56), byte(l>>48), byte(l>>40), byte(l>>32), byte(l>>24), byte(l>>16), byte(l>>8), byte(l))
 	p.length += 8
 }
 
-func (p *packet) addInt(i uint32) {
-	p.payload = append(p.payload, byte(i >> 24), byte(i >> 16), byte(i >> 8), byte(i))
+func (p *Packet) AddInt(i uint32) {
+	p.payload = append(p.payload, byte(i>>24), byte(i>>16), byte(i>>8), byte(i))
 	p.length += 4
 }
 
-func (p *packet) addShort(s uint16) {
-	p.payload = append(p.payload, byte(s >> 8), byte(s))
+func (p *Packet) AddShort(s uint16) {
+	p.payload = append(p.payload, byte(s>>8), byte(s))
 	p.length += 2
 }
 
-func (p *packet) addByte(b uint8) {
+func (p *Packet) AddByte(b uint8) {
 	p.payload = append(p.payload, b)
 	p.length++
 }

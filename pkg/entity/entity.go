@@ -3,8 +3,8 @@ package entity
 type Direction uint8
 
 const (
-	MAX_X = 944
-	MAX_Y = 3776
+	MAX_X           = 944
+	MAX_Y           = 3776
 	North Direction = iota
 	NorthWest
 	West

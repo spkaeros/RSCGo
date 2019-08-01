@@ -1,8 +1,8 @@
 package entity
 
 type Player struct {
-	location Location
-	state MobState
+	location  Location
+	state     MobState
 	direction Direction
 }
 

@@ -11,24 +11,23 @@ const (
 	SessionRequest = 32
 )
 
+var handlers = make(map[byte]func(*Client, *Packet))
 
-var handlers = make(map[byte]func(*Client, *packet))
-
-func sessionRequest(c *Client, p *packet) {
+func sessionRequest(c *Client, p *Packet) {
 	c.uID = p.payload[0]
-	p1 := &packet{}
+	p1 := &Packet{}
 	p1.bare = true
-	p1.addLong(rand.GetSecureRandomLong())
-	c.writePacket(p1)
+	p1.AddLong(rand.GetSecureRandomLong())
+	c.WritePacket(p1)
 }
 
-func loginRequest(c *Client, p *packet) {
+func loginRequest(c *Client, p *Packet) {
 	// TODO: RSA decryption, blabla.
 	// Currently returns an invalid username or password response
-	p1 := &packet{}
+	p1 := &Packet{}
 	p1.bare = true
-	p1.addByte(3)
-	c.writePacket(p1)
+	p1.AddByte(3)
+	c.WritePacket(p1)
 	c.kill <- struct{}{}
 }
 
@@ -37,10 +36,10 @@ func init() {
 	handlers[LoginRequest] = loginRequest
 }
 
-func (c *Client) handlePacket(p *packet) {
+func (c *Client) HandlePacket(p *Packet) {
 	handler, ok := handlers[p.opcode]
 	if !ok {
-		fmt.Printf("Unhandled packet: {opcode: %d; length: %d};\n", p.opcode, p.length)
+		fmt.Printf("Unhandled Packet: {opcode:%d; length:%d};\n", p.opcode, p.length)
 		return
 	}
 	handler(c, p)

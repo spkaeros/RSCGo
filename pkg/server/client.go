@@ -9,7 +9,7 @@ import (
 )
 
 type Client struct {
-	channel
+	Channel
 	cipherKey int64
 	uID       uint8
 	ip        string
@@ -40,14 +40,14 @@ func (c *Client) StartReader() {
 			case <-c.kill:
 				return
 			case <-time.After(time.Millisecond * 5):
-				p, err := c.readPacket()
+				p, err := c.NextPacket()
 				if err != nil {
 					fmt.Println(err.Error())
 					if err.ping || err.closed {
 						return
 					}
 				}
-				c.handlePacket(p)
+				c.HandlePacket(p)
 				continue
 			}
 		}
@@ -56,7 +56,7 @@ func (c *Client) StartReader() {
 
 //NewClient Creates a new instance of a Client, registers it with the global ClientList, and returns it.
 func NewClient(socket net.Conn) *Client {
-	c := &Client{channel: channel{socket: socket}, cipherKey: -1, ip: getIPFromConn(socket), index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer()}
+	c := &Client{Channel: Channel{socket: socket}, cipherKey: -1, ip: getIPFromConn(socket), index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer()}
 	c.StartReader()
 	return c
 }
