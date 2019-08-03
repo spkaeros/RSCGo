@@ -38,10 +38,14 @@ func loginRequest(c *Client, p *Packet) {
 	response.AddByte(0)
 	c.WritePacket(response)
 }
+func ping(c *Client, p *Packet) {
+	c.WritePacket(&Packet{opcode: 3, length:0, payload:[]byte{}})
+}
 
 func init() {
 	handlers[32] = sessionRequest
 	handlers[0] = loginRequest
+	handlers[5] = ping
 }
 
 func (c *Client) HandlePacket(p *Packet) {
