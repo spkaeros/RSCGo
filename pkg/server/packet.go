@@ -59,9 +59,8 @@ func (p *Packet) ReadByte() (val uint8) {
 }
 
 func (p *Packet) ReadString() (val string) {
-	for c := p.ReadByte(); c != 0xA; {
+	for c := p.ReadByte(); c != 0xA; c = p.ReadByte() {
 		val += string(c)
-		c = p.ReadByte()
 	}
 	return
 }

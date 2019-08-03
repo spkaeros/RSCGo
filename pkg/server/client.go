@@ -8,7 +8,7 @@ import (
 )
 
 type Client struct {
-	decryptKey, encryptKey uint64
+	isaacSeed              [4]int32
 	uID                    uint8
 	ip                     string
 	index                  int
@@ -69,7 +69,7 @@ func (c *Client) StartReader() {
 
 //NewClient Creates a new instance of a Client, registers it with the global ClientList, and returns it.
 func NewClient(socket net.Conn) *Client {
-	c := &Client{socket: socket, packetQueue: make(chan *Packet, 1), encryptKey: 0xDEADBEEF, decryptKey: 0xDEADBEEF, ip: getIPFromConn(socket), index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer()}
+	c := &Client{socket: socket, packetQueue: make(chan *Packet, 1), ip: getIPFromConn(socket), index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer()}
 	c.StartReader()
 	return c
 }
