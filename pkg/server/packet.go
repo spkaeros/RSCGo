@@ -102,7 +102,7 @@ func (c *Client) ReadPacket() (*Packet, error) {
 	if err != nil {
 		return nil, err
 	}
-	length := int(int16(buf[0]) << 8 | int16(buf[1]))
+	length := int(int16(buf[0])<<8 | int16(buf[1]))
 	opcode := buf[2] & 0xFF
 
 	payloadBuffer, err := c.Read(length)
@@ -115,7 +115,7 @@ func (c *Client) ReadPacket() (*Packet, error) {
 
 func (p *Packet) prependHeader() {
 	dataLen := len(p.payload) + 1 // opcode
-	p.payload = append([]byte{byte((dataLen>>8) & 0xFF), byte(dataLen & 0xFF), p.opcode}, p.payload...)
+	p.payload = append([]byte{byte((dataLen >> 8) & 0xFF), byte(dataLen & 0xFF), p.opcode}, p.payload...)
 }
 
 func (c *Client) WritePacket(p *Packet) {

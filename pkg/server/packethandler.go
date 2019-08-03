@@ -38,8 +38,9 @@ func loginRequest(c *Client, p *Packet) {
 	response.AddByte(0)
 	c.WritePacket(response)
 }
+
 func ping(c *Client, p *Packet) {
-	c.WritePacket(&Packet{opcode: 3, length:0, payload:[]byte{}})
+	c.WritePacket(&Packet{opcode: 3, length: 0, payload: []byte{}})
 }
 
 func init() {
