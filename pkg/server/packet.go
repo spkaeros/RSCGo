@@ -102,7 +102,7 @@ func (c *Client) ReadPacket() (*Packet, error) {
 	if err != nil {
 		return nil, err
 	}
-	length := int((buf[0]&0xFF) << 8) | int(buf[1]&0xFF)
+	length := int(int16(buf[0]) << 8 | int16(buf[1]))
 	opcode := buf[2] & 0xFF
 
 	payloadBuffer, err := c.Read(length)
