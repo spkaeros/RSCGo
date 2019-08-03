@@ -30,14 +30,22 @@ func (p *Packet) DecryptRSA() bool {
 }
 
 func (p *Packet) ReadLong() (val int64) {
-	return int64(p.ReadByte()<<56) | int64(p.ReadByte()<<48) | int64(p.ReadByte()<<40) | int64(p.ReadByte()<<32) |
-		int64(p.ReadByte()<<24) | int64(p.ReadByte()<<16) | int64(p.ReadByte()<<8) | int64(p.ReadByte())
+	for i := 7; i >= 0; i-- {
+		val |= int64(p.ReadByte()) << uint(i*8)
+	}
+	return
 }
 func (p *Packet) ReadInt() (val int32) {
-	return int32(p.ReadByte()<<24) | int32(p.ReadByte()<<16) | int32(p.ReadByte()<<8) | int32(p.ReadByte())
+	for i := 3; i >= 0; i-- {
+		val |= int32(p.ReadByte()) << uint(i*8)
+	}
+	return
 }
 func (p *Packet) ReadShort() (val int16) {
-	return int16(p.ReadByte()<<8) | int16(p.ReadByte())
+	for i := 1; i >= 0; i-- {
+		val |= int16(p.ReadByte()) << uint(i*8)
+	}
+	return
 }
 func (p *Packet) ReadByte() (val byte) {
 	if p.offset+1 >= p.length {
@@ -94,7 +102,7 @@ func (c *Client) ReadPacket() (*Packet, error) {
 	if err != nil {
 		return nil, err
 	}
-	length := (int(buf[0]&0xFF) << 8) | int(buf[1]&0xFF)
+	length := int((buf[0]&0xFF) << 8) | int(buf[1]&0xFF)
 	opcode := buf[2] & 0xFF
 
 	payloadBuffer, err := c.Read(length)
@@ -106,8 +114,8 @@ func (c *Client) ReadPacket() (*Packet, error) {
 }
 
 func (p *Packet) prependHeader() {
-	dataLen := p.length + 1 // opcode
-	p.payload = append([]byte{byte(dataLen>>8) & 0xFF, byte(dataLen & 0xFF), p.opcode}, p.payload...)
+	dataLen := len(p.payload) + 1 // opcode
+	p.payload = append([]byte{byte((dataLen>>8) & 0xFF), byte(dataLen & 0xFF), p.opcode}, p.payload...)
 }
 
 func (c *Client) WritePacket(p *Packet) {
@@ -115,6 +123,5 @@ func (c *Client) WritePacket(p *Packet) {
 		p.prependHeader()
 	}
 
-	fmt.Println(p.payload)
 	c.Write(p.payload)
 }
