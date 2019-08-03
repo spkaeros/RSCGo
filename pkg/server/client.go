@@ -8,7 +8,8 @@ import (
 )
 
 type Client struct {
-	isaacSeed              [4]int32
+	isaacSeed              [4]uint32
+	isaacStream            *IsaacSeed
 	uID                    uint8
 	ip                     string
 	index                  int

@@ -10,7 +10,6 @@ package isaac
 
 import (
 	"bytes"
-	"crypto/cipher"
 	"encoding/binary"
 )
 
@@ -143,30 +142,9 @@ func (r *ISAAC) randInit(flag bool) {
 /* there is no official method for doing this
  * the challenge code just memcpys the string to the top of the output array
  * and this is the best equivalent I could come up with in Go */
-func (r *ISAAC) Seed(key string) {
-	keyBuf := bytes.NewBuffer([]byte(key))
-
-	// this padding should be equivalent to the behavior of memcpy-ing a shorter string
-	// into a zeroed output array (per randtest.c)
-	var padding = 0
-	if keyBuf.Len()%4 != 0 {
-		padding = 4 - (keyBuf.Len() % 4)
-	}
-	for i := 0; i < padding; i++ {
-		keyBuf.WriteByte(0x00)
-	}
-
-	var count = keyBuf.Len() / 4 // separate counter since keyBuf is being consumed
-	for i := 0; i < count; i++ {
-		if i == len(r.randrsl) {
-			break
-		}
-
-		// packing
-		var num uint32
-		if err := binary.Read(keyBuf, binary.LittleEndian, &num); err == nil {
-			r.randrsl[i] = num
-		}
+func (r *ISAAC) Seed(key [4]uint32) {
+	for i, k := range key {
+		r.randrsl[i] = k
 	}
 	r.randInit(true)
 }
@@ -209,7 +187,7 @@ func safeXORBytes(dst, a, b []byte) int {
 	return n
 }
 
-func NewISAACStream(key string) cipher.Stream {
+func NewISAACStream(key [4]uint32) *ISAAC {
 	stream := new(ISAAC)
 	stream.Seed(key)
 	return stream

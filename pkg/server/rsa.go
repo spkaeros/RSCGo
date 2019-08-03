@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bitbucket.org/zlacki/rscgo/pkg/isaac"
 	"bitbucket.org/zlacki/rscgo/pkg/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -10,6 +11,10 @@ import (
 
 var rsaKeyData []byte
 var RsaKey *rsa.PrivateKey
+
+type IsaacSeed struct {
+	encoder, decoder *isaac.ISAAC
+}
 
 func init() {
 	rsaKey := new(big.Int)
@@ -21,6 +26,23 @@ func init() {
 		return
 	}
 	RsaKey = key.(*rsa.PrivateKey)
+}
+
+func (c *Client) SeedISAAC(seed [4]uint32) *IsaacSeed {
+	if seed[2] != c.isaacSeed[2] || seed[3] != c.isaacSeed[3] {
+		LogDebug(1, "WARNING: Session encryption key for command cipher received from client doesn't match the one we supplied it.\n")
+		return nil
+	}
+	for i := 0; i < 2; i++ {
+		c.isaacSeed[i] = seed[i]
+	}
+	decodingStream := isaac.NewISAACStream(seed)
+	for i := 0; i < 4; i++ {
+		seed[i] += 50
+	}
+	encodingStream := isaac.NewISAACStream(seed)
+
+	return &IsaacSeed{encodingStream, decodingStream}
 }
 
 //GenerateSessionID Generates a new 64-bit long using the systems cryptographically secure PRNG.
