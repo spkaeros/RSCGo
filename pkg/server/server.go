@@ -13,12 +13,14 @@ var listener net.Listener
 var (
 	syncTicker = time.NewTicker(time.Millisecond * 600)
 	kill       = make(chan struct{})
+	Version    = -1
 )
 
 var Flags struct {
 	Verbose []bool `short:"v" long:"verbose" description:"Display more verbose output"`
 	Port    int    `short:"p" long:"port" description:"The port for the server to listen on," default:"43591"`
 	Config  string `short:"c" long:"config" description:"Specify the configuration file to load server settings from" default:"config.ini"`
+	UseCipher bool `short:"e" long:"encryption" description:"Enable command opcode encryption using ISAAC to encrypt packet opcodes."`
 }
 
 func bind(port int) {
@@ -34,8 +36,10 @@ func bind(port int) {
 
 func startConnectionService() {
 	if listener == nil {
-		fmt.Println("WARNING: Attempted to start connection service without a listener!  This shouldn't happen.")
-		fmt.Println("Starting listener on default port...")
+		if len(Flags.Verbose) > 0 {
+			fmt.Println("WARNING: Attempted to start connection service without a listener!  This shouldn't happen.")
+			fmt.Println("Starting listener on default port...")
+		}
 		bind(43591)
 	}
 
@@ -46,8 +50,10 @@ func startConnectionService() {
 		for range connTicker.C {
 			socket, err := listener.Accept()
 			if err != nil {
-				fmt.Println("ERROR: Could not accept Client from server listener.")
-				fmt.Println(err)
+				if len(Flags.Verbose) > 0 {
+					fmt.Println("ERROR: Could not accept Client from server listener.")
+					fmt.Println(err)
+				}
 				return
 			}
 
@@ -59,19 +65,24 @@ func startConnectionService() {
 
 }
 
+func LogDebug(lvl int, s string, args ...interface{}) {
+	if len(Flags.Verbose) > lvl {
+		fmt.Printf(s, args...)
+	}
+}
+
 //Start Listens for and processes new clients connecting to the server.
 // This method blocks while the server is running.
-func Start(port int) {
+func Start() {
 	fmt.Printf("RSCGo starting up...\n\n")
-	fmt.Print("Attempting to bind to network...")
-	bind(port)
-	fmt.Println("done")
-	fmt.Print("Attempting to start connection service...")
+	LogDebug(0, "Attempting to bind to network...")
+	bind(Flags.Port)
+	LogDebug(0, "done\nAttempting to start connection service...")
 	startConnectionService()
-	fmt.Println("done")
-	fmt.Print("Attempting to start synchronized task service...")
+	LogDebug(0, "done\nAttempting to start synchronized task service...")
 	startSynchronizedTaskService()
-	fmt.Printf("done\n\nRSCGo is now running.\nListening on port %d...\n", port)
+	LogDebug(0, "done\n\n")
+	fmt.Printf("RSCGo is now running.\nListening on port %d...\n", Flags.Port)
 	// TODO: Probably need to handle certain signals, for usability sake.
 	// TODO: Implement some form of data store for static game data, e.g entity information, seldom-changed config
 	//  settings and the like.
@@ -89,15 +100,20 @@ func Start(port int) {
 func startSynchronizedTaskService() {
 	go func() {
 		for range syncTicker.C {
+			for _, c := range ActiveClients.clients {
+				if c != nil {
+					// TODO: Update movement, update client-side collections
+				}
+			}
 		}
 	}()
 }
 
 //Stop This will stop the server instance, if it is running.
 func Stop() {
-	fmt.Print("Clearing active Client list...")
+	LogDebug(0, "Clearing active Client list...")
 	ActiveClients.Clear()
-	fmt.Println("done")
+	LogDebug(0, "done\n")
 	fmt.Println("Stopping server...")
 	kill <- struct{}{}
 }

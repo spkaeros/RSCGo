@@ -18,36 +18,36 @@ func NewPacket(opcode byte, payload []byte, length int) *Packet {
 	return &Packet{opcode, payload, length, false, 0}
 }
 
-func (p *Packet) DecryptRSA() bool {
+func (p *Packet) DecryptRSA() error {
 	buf, err := rsa.DecryptPKCS1v15(rand.Reader, RsaKey, p.payload)
 	if err != nil {
 		fmt.Println("WARNING: Could not decrypt RSA login block")
-		return false
+		return err
 	}
 	p.payload = buf
 	p.length = len(buf)
-	return true
+	return nil
 }
 
-func (p *Packet) ReadLong() (val int64) {
+func (p *Packet) ReadLong() (val uint64) {
 	for i := 7; i >= 0; i-- {
-		val |= int64(p.ReadByte()) << uint(i*8)
+		val |= uint64(p.ReadByte()) << uint(i*8)
 	}
 	return
 }
-func (p *Packet) ReadInt() (val int32) {
+func (p *Packet) ReadInt() (val uint32) {
 	for i := 3; i >= 0; i-- {
-		val |= int32(p.ReadByte()) << uint(i*8)
+		val |= uint32(p.ReadByte()) << uint(i*8)
 	}
 	return
 }
-func (p *Packet) ReadShort() (val int16) {
+func (p *Packet) ReadShort() (val uint16) {
 	for i := 1; i >= 0; i-- {
-		val |= int16(p.ReadByte()) << uint(i*8)
+		val |= uint16(p.ReadByte()) << uint(i*8)
 	}
 	return
 }
-func (p *Packet) ReadByte() (val byte) {
+func (p *Packet) ReadByte() (val uint8) {
 	if p.offset+1 >= p.length {
 		fmt.Println("WARNING: Trying to read into packet with empty buffer!")
 		return 0
@@ -58,15 +58,12 @@ func (p *Packet) ReadByte() (val byte) {
 	return p.payload[p.offset] & 0xFF
 }
 
-func (p *Packet) ReadString(len int) string {
-	if p.offset+len > p.length {
-		fmt.Printf("WARNING: Requested string length too long.  Requested %d, only %d left in buffer.\n", len, p.length-p.offset)
-		len = p.length - p.offset
+func (p *Packet) ReadString() (val string) {
+	for c := p.ReadByte(); c != 0xA; {
+		val += string(c)
+		c = p.ReadByte()
 	}
-	defer func() {
-		p.offset += len
-	}()
-	return string(p.payload[p.offset : p.offset+len])
+	return
 }
 
 func (p *Packet) AddLong(l uint64) {

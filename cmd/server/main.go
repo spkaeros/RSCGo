@@ -3,6 +3,7 @@ package main
 import (
 	"bitbucket.org/zlacki/rscgo/pkg/server"
 	"fmt"
+	"github.com/go-ini/ini"
 	"github.com/jessevdk/go-flags"
 	"os"
 	"strings"
@@ -23,8 +24,18 @@ func init() {
 		fmt.Println("Setting back to default: `config.ini`")
 		server.Flags.Config = "config.ini"
 	}
+	cfg, err := ini.Load(server.Flags.Config)
+	if err != nil {
+		fmt.Printf("Failed to load server config file: %s\n%v", server.Flags.Config, err)
+		os.Exit(101)
+	}
+	server.Version, err = cfg.Section("").Key("version").Int()
+	if err != nil {
+		fmt.Println("Failed loading server version number from config file:", err)
+		os.Exit(102)
+	}
 }
 
 func main() {
-	server.Start(server.Flags.Port)
+	server.Start()
 }

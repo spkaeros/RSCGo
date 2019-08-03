@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bitbucket.org/zlacki/rscgo/pkg/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"fmt"
@@ -20,4 +21,10 @@ func init() {
 		return
 	}
 	RsaKey = key.(*rsa.PrivateKey)
+}
+
+//GenerateSessionID Generates a new 64-bit long using the systems cryptographically secure PRNG.
+// For use as a seed with the ISAAC cipher(or similar secure system) used to encrypt the packet opcodes.
+func GenerateSessionID() uint64 {
+	return rand.GetSecureRandomLong()
 }
