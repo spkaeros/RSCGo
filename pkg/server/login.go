@@ -38,10 +38,13 @@ func loginRequest(c *Client, p *Packet) {
 		return
 	}
 	c.isaacStream = cipher
-	LogDebug(1, "Testing ISAAC encode cipher{%d,%d,%d,%d}\n", c.isaacStream.encoder.Uint16(), c.isaacStream.encoder.Uint8(), c.isaacStream.encoder.Uint64(), c.isaacStream.encoder.Uint32())
-	LogDebug(1, "Testing ISAAC decode cipher{%d,%d,%d,%d}\n", c.isaacStream.decoder.Uint16(), c.isaacStream.decoder.Uint8(), c.isaacStream.decoder.Uint64(), c.isaacStream.decoder.Uint32())
 	username, password := p.ReadString(), p.ReadString()
-	LogDebug(0, "Registered Player{username:%v,password:%v,reconnecting:%v,version:%v,clientSeed:%v,serverSeed:%v}\n", username, password, recon, version, int64(seed[0]) << 32 | int64(seed[1]), int64(seed[2]) << 32 | int64(seed[3]))
+	LogDebug(0, "Registered Player{username:%v,password:%v,reconnecting:%v,version:%v}\n", username, password, recon, version)
+	LogDebug(1, "Testing ISAAC encode cipher{%d,%d,%d,%d}\n", c.isaacStream.encoder.Uint16(), c.isaacStream.encoder.Uint8(), c.isaacStream.encoder.Int63n(100), c.isaacStream.encoder.Int31n(100))
+	LogDebug(1, "Testing ISAAC decode cipher{%d,%d,%d,%d}\n", c.isaacStream.decoder.Uint16(), c.isaacStream.decoder.Uint8(), c.isaacStream.decoder.Uint64(), c.isaacStream.decoder.Uint32())
+/*	for i := 0; i < 10000; i++ {
+		LogDebug(1, "%d\n", c.isaacStream.encoder.Uint32())
+	}*/
 	c.sendLoginResponse(0)
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 )
 
 type Client struct {
@@ -34,7 +35,7 @@ func (c *Client) StartReader() {
 						if err.closed || err.ping {
 							return
 						}
-						fmt.Printf("Rejected Packet from: '%s'\n", getIPFromConn(c.socket))
+						fmt.Printf("Rejected Packet from: '%s'\n", connToIP(c.socket))
 						fmt.Println(err)
 					}
 					continue
@@ -70,7 +71,7 @@ func (c *Client) StartReader() {
 
 //NewClient Creates a new instance of a Client, registers it with the global ClientList, and returns it.
 func NewClient(socket net.Conn) *Client {
-	c := &Client{socket: socket, isaacSeed: make([]uint32, 4), packetQueue: make(chan *Packet, 1), ip: getIPFromConn(socket), index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer()}
+	c := &Client{socket: socket, isaacSeed: make([]uint32, 4), packetQueue: make(chan *Packet, 1), ip: connToIP(socket), index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer()}
 	c.StartReader()
 	return c
 }
@@ -78,4 +79,12 @@ func NewClient(socket net.Conn) *Client {
 //String Returns a string populated with some of the more identifying fields from the receiver Client.
 func (c *Client) String() string {
 	return "{idx:'" + strconv.Itoa(c.index) + "', ip:'" + c.ip + "'};"
+}
+
+func connToIP(c net.Conn) string {
+	parts := strings.Split(c.RemoteAddr().String(), ":")
+	if len(parts) < 1 {
+		return "nil"
+	}
+	return parts[0]
 }

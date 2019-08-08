@@ -1,8 +1,6 @@
 package server
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
 	"fmt"
 )
 
@@ -16,16 +14,6 @@ type Packet struct {
 
 func NewPacket(opcode byte, payload []byte, length int) *Packet {
 	return &Packet{opcode, payload, length, false, 0}
-}
-
-func (p *Packet) DecryptRSA() error {
-	buf, err := rsa.DecryptPKCS1v15(rand.Reader, RsaKey, p.Payload)
-	if err != nil {
-		return err
-	}
-	p.Payload = buf
-	p.Length = len(buf)
-	return nil
 }
 
 func (p *Packet) ReadLong() (val uint64) {

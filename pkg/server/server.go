@@ -8,12 +8,12 @@ import (
 	"time"
 )
 
-var listener net.Listener
-
 var (
-	syncTicker = time.NewTicker(time.Millisecond * 600)
-	kill       = make(chan struct{})
-	Version    = -1
+	listener      net.Listener
+	syncTicker    = time.NewTicker(time.Millisecond * 600)
+	kill          = make(chan struct{})
+	Version       = -1
+	DataDirectory = "."
 )
 
 var Flags struct {

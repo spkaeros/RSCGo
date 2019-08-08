@@ -29,11 +29,13 @@ func init() {
 		fmt.Printf("Failed to load server config file: %s\n%v", server.Flags.Config, err)
 		os.Exit(101)
 	}
-	server.Version, err = cfg.Section("").Key("version").Int()
+	server.Version, err = cfg.Section("client").Key("version").Int()
 	if err != nil {
 		fmt.Println("Failed loading server version number from config file:", err)
 		os.Exit(102)
 	}
+	server.DataDirectory += string(os.PathSeparator) + cfg.Section("server").Key("dataDir").String()
+	server.ReadRSAKeyFile(cfg.Section("server").Key("rsaKey").String())
 }
 
 func main() {

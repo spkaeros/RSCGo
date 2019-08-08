@@ -1,12 +1,23 @@
 /*
 ------------------------------------------------------------------------------
-resetRandomBuffer.go: an implementation of Bob Jenkins' random number generator ISAAC based on 'readable.c'
+isaac.go: an implementation of Bob Jenkins' random number generator ISAAC based on 'readable.c'
 * 18 Aug 2014 -- direct port of readable.c to Go
 * 10 Sep 2014 -- updated to be more idiomatic Go
 ------------------------------------------------------------------------------
 */
 
+/*
+ * I modified ISAAC to conform to what I understood to be a version of the cipher with very slightly
+ * better security, named ISAAC+
+ *
+ * I hope I did it right.
+ */
 package isaac
+
+import (
+	"fmt"
+	"math/bits"
+)
 
 type ISAAC struct {
 	// external results
@@ -16,7 +27,6 @@ type ISAAC struct {
 	// internal state
 	mm         [256]uint32
 	aa, bb, cc uint32
-
 	index int
 	remainder []byte
 }
@@ -38,9 +48,9 @@ func (r *ISAAC) resetRandomBuffer() {
 			r.aa ^= r.aa >> 16
 		}
 		r.aa += r.mm[(i+128)%256]
-		y := r.mm[(x>>2)%256] + r.aa + r.bb
+		y := r.mm[bits.RotateLeft32(x, -2)%256] + (r.aa ^ r.bb)
 		r.mm[i] = y
-		r.bb = r.mm[(y>>10)%256] + x
+		r.bb = r.mm[bits.RotateLeft32(y, -10)%256] ^ (x + r.aa)
 		r.randrsl[i] = r.bb
 	}
 
@@ -137,12 +147,12 @@ func (r *ISAAC) randInit(flag bool) {
 	r.randcnt = 256       /* reset the counter for the first set of results */
 }
 
-//Seed This method has been changed so as to reflect the Jagex style seeding the client uses.
-//  Takes a total of 16 bytes of entropy, usually half comes from the server cryptographically-secure PRNG, and the
-//  other half from the client's cryptographically secure PRNG.
-func (r *ISAAC) Seed(key []uint32) {
-	for i, k := range key {
-		r.randrsl[i] = k
+//Seed I might remove this.  I seed exactly once per instance, and I really need at least 4 times this much entropy.
+func (r *ISAAC) Seed(key int64) {
+	var rsl [256]uint32
+	for i := 0; i < 256; i += 2 {
+		rsl[i] = uint32(key >> 32)
+		rsl[i + 1] = uint32(key)
 	}
 	r.randInit(true)
 }
@@ -163,7 +173,22 @@ func (r *ISAAC) Uint32() (number uint32) {
 	return
 }
 
-func (r *ISAAC) Int31n(n int) int32 {
+//Int63 Returns the next 8 bytes as a long integer from the ISAAC CSPRNG receiver instance.
+func (r *ISAAC) Int63() (number int64) {
+	return int64(r.Uint32()) << 32 | int64(r.Uint32())
+}
+
+func (r *ISAAC) Intn(n int) int {
+	if n <= 0 {
+		panic("invalid argument to Intn")
+	}
+	if n <= 1<<31-1 {
+		return int(r.Int31n(int32(n)))
+	}
+	return int(r.Int63n(int64(n)))
+}
+
+func (r *ISAAC) Int31n(n int32) int32 {
 	v := r.Uint32()
 	prod := uint64(v) * uint64(n)
 	low := uint32(prod)
@@ -176,6 +201,29 @@ func (r *ISAAC) Int31n(n int) int32 {
 		}
 	}
 	return int32(prod >> 32)
+}
+
+// Int returns a non-negative pseudo-random int.
+func (r *ISAAC) Int() int {
+	u := uint(r.Int63())
+	return int(u << 1 >> 1) // clear sign bit if int == int32
+}
+
+// Int63n returns, as an int64, a non-negative pseudo-random number in [0,n).
+// It panics if n <= 0.
+func (r *ISAAC) Int63n(n int64) int64 {
+	if n <= 0 {
+		panic("invalid argument to Int63n")
+	}
+	if n&(n-1) == 0 { // n is power of two, can mask
+		return r.Int63() & (n - 1)
+	}
+	max := int64((1 << 63) - 1 - (1<<63)%uint64(n))
+	v := r.Int63()
+	for v > max {
+		v = r.Int63()
+	}
+	return v % n
 }
 
 func (r *ISAAC) Uint8n(bound byte) (number byte) {
@@ -208,6 +256,17 @@ func (r *ISAAC) String(len int) (ret string) {
 	return
 }
 
+func (r *ISAAC) Read(dst []byte) (n int, err error) {
+	if len(dst) > 0 {
+		n = len(dst)
+		for i, b := range r.NextBytes(n) {
+			dst[i] = b
+		}
+		return
+	}
+	return 0, &isaacError{msg: "isaac.Read([]byte): Length of `dst` buffer must be >= 0"}
+}
+
 //NextBytes Returns the next `n` bytes from the ISAAC CSPRNG receiver instance, and since ISAAC generates 4-byte words,
 //  if you request a length of bytes that is not divisible evenly by 4, it will stash the remaining bytes into a buffer
 //  to be used on your next call to this function.
@@ -221,36 +280,38 @@ func (r *ISAAC) NextBytes(n int) []byte {
 		}
 		if r.index >= n {
 			r.remainder = r.remainder[r.index:]
-		} else {
-			r.remainder = []byte{}
+			return buf
 		}
 	}
+	r.remainder = []byte{}
 
-	for ; r.index < n; {
+	for r.index < n {
 		nextInt := r.Uint32()
-		if n % 4 != 0 && n - r.index < 4 {
-			spaceLeft := n - r.index
-			for i := 0; i < spaceLeft; i++ {
-				buf[r.index] = byte(nextInt >> uint(8*(3-i)))
-				r.index++
-			}
-			r.remainder = []byte{}
-			for i := spaceLeft; i < 4; i++ {
+		for i := 0; i < 4; i++ {
+			if r.index >= n {
 				r.remainder = append(r.remainder, byte(nextInt >> uint(8*(3-i))))
+				continue
 			}
-		} else {
-			for i := 0; i < 4; i++ {
-				buf[r.index] = byte(nextInt >> uint(8*(3-i)))
-				r.index++
-			}
+			buf[r.index] = byte(nextInt >> uint(8*(3-i)))
+			r.index++
 		}
 	}
 
 	return buf
 }
 
-func NewISAACStream(key []uint32) *ISAAC {
-	stream := new(ISAAC)
-	stream.Seed(key)
+func New(key []uint32) *ISAAC {
+	var tmpRsl [256]uint32
+	for i := 0; i < len(key); i++ {
+		tmpRsl[i] = key[i]
+	}
+	if len(key) < 256 {
+		fmt.Printf("ISAAC possible weak seeding ( len(key){=%d} < 256 )\nAttempting to compensate, using 0xDEADBEEF+i...\n", len(key))
+		for i := len(key); i < 256; i++ {
+			tmpRsl[i] = 3735928559 + uint32(i)
+		}
+	}
+	stream := &ISAAC{randrsl: tmpRsl}
+	stream.randInit(true)
 	return stream
 }

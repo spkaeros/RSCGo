@@ -2,28 +2,41 @@ package server
 
 import (
 	"bitbucket.org/zlacki/rscgo/pkg/isaac"
-	"bitbucket.org/zlacki/rscgo/pkg/rand"
+	rscrand "bitbucket.org/zlacki/rscgo/pkg/rand"
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"fmt"
-	"math/big"
+	"io/ioutil"
+	"os"
 )
 
-var rsaKeyData []byte
 var RsaKey *rsa.PrivateKey
 
 type IsaacSeed struct {
 	encoder, decoder *isaac.ISAAC
 }
 
-func init() {
-	rsaKey := new(big.Int)
-	rsaKey.SetString("126389230230897930352385109045517175528919326976939639978192012327670621489047580094424093866394604083620710942258641479882605306217705080633073206358002116577711775977035174649355992840385149147227804978220431329886904749249047207172981994234190017310148273188617548379533657419013879671232142718169518429371391936849151606245205570182197305333898616362563500262673852314745836689909720746451418490347388427381974609081779036643692442896601636017446393710362921966444628494554137329105609231821252714960402427087902143625637826354987050179190296311361184976459578647089802255916487029562372894817902016349527418080110572755696829671001527629662007011502494795321796989748708894483748787746164007093796775322700601606206239680220934740393355136437625692864876018489463040975412867784876767858234777778613227623572162881295529316433265197827292214481807179049611685053128209907494051691218003161010138655935539925662842276881932027193524730598562717449099166747466602094321757382874332291191770626601705016723177033286335759178872988144726412991304849553921854275796353460611722080118921976660955130059428940619614317969278356912087565839497213220194655672243883744862866647835331423918525974671607339058850826043973690788036967549648769172496014048685165109400959786151179359607410101378890865847238149636112094448917842512853709764865360978231071734030322981843223939320472985117985802975969976688950242865772248639234517663026594659960052526081995926396802458422109485608674299402862528020107837865224663685601410678473927829", 10)
-	rsaKeyData = rsaKey.Bytes()
-	key, err := x509.ParsePKCS8PrivateKey(rsaKeyData)
+func (p *Packet) DecryptRSA() error {
+	buf, err := rsa.DecryptPKCS1v15(rand.Reader, RsaKey, p.Payload)
 	if err != nil {
-		fmt.Println("WARNING: Could not parse RSA key.", err)
-		return
+		return err
+	}
+	p.Payload = buf
+	p.Length = len(buf)
+	return nil
+}
+
+func ReadRSAKeyFile(file string) {
+	buf, err := ioutil.ReadFile(DataDirectory + string(os.PathSeparator) + file)
+	if err != nil {
+		fmt.Println("ERROR: Could not read RSA key from file:", err)
+		os.Exit(103)
+	}
+	key, err := x509.ParsePKCS8PrivateKey(buf)
+	if err != nil {
+		fmt.Println( "WARNING: Could not parse RSA key:", err)
+		os.Exit(104)
 	}
 	RsaKey = key.(*rsa.PrivateKey)
 }
@@ -36,17 +49,26 @@ func (c *Client) SeedISAAC(seed []uint32) *IsaacSeed {
 	for i := 0; i < 2; i++ {
 		c.isaacSeed[i] = seed[i]
 	}
-	decodingStream := isaac.NewISAACStream(append(append(seed, seed[2:4]...), seed[:2]...))
-	for i := 0; i < 4; i++ {
+	for i := 4; i < 256; i += 4 {
+		if i % 2 == 0 {
+			seed = append(seed, seed[2:4]...)
+			seed = append(seed, seed[:2]...)
+		} else {
+			seed = append(seed, seed[:2]...)
+			seed = append(seed, seed[2:4]...)
+		}
+	}
+	decodingStream := isaac.New(seed)
+	for i := 0; i < 256; i++ {
 		seed[i] += 50
 	}
-	encodingStream := isaac.NewISAACStream(append(append(seed, seed[2:4]...), seed[:2]...))
+	encodingStream := isaac.New(seed)
 
 	return &IsaacSeed{encodingStream, decodingStream}
 }
 
-//GenerateSessionID Generates a new 64-bit long using the systems cryptographically secure PRNG.
-// For use as a seed with the ISAAC cipher(or similar secure system) used to encrypt the packet opcodes.
+//GenerateSessionID Generates a new 64-bit long using the systems CSPRNG.
+//  For use as a seed with the ISAAC cipher (or similar secure stream cipher) used to encrypt packet data.
 func GenerateSessionID() uint64 {
-	return rand.GetSecureRandomLong()
+	return rscrand.GetSecureRandomLong()
 }
