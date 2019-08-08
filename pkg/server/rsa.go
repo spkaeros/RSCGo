@@ -8,13 +8,14 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	mr "math/rand"
 	"os"
 )
 
 var RsaKey *rsa.PrivateKey
 
 type IsaacSeed struct {
-	encoder, decoder *isaac.ISAAC
+	encoder, decoder *mr.Rand
 }
 
 func (p *Packet) DecryptRSA() error {
@@ -64,7 +65,7 @@ func (c *Client) SeedISAAC(seed []uint32) *IsaacSeed {
 	}
 	encodingStream := isaac.New(seed)
 
-	return &IsaacSeed{encodingStream, decodingStream}
+	return &IsaacSeed{mr.New(encodingStream), mr.New(decodingStream)}
 }
 
 //GenerateSessionID Generates a new 64-bit long using the systems CSPRNG.
