@@ -40,11 +40,6 @@ func loginRequest(c *Client, p *Packet) {
 	c.isaacStream = cipher
 	username, password := p.ReadString(), p.ReadString()
 	LogDebug(0, "Registered Player{username:%v,password:%v,reconnecting:%v,version:%v}\n", username, password, recon, version)
-	LogDebug(1, "Testing ISAAC encode cipher{%d,%d,%d,%d}\n", c.isaacStream.encoder.Uint64(), c.isaacStream.encoder.Uint32(), c.isaacStream.encoder.Int63(), c.isaacStream.encoder.Int31())
-	LogDebug(1, "Testing ISAAC decode cipher{%d,%d,%d,%d}\n", c.isaacStream.decoder.Uint64(), c.isaacStream.decoder.Uint32(), c.isaacStream.decoder.Int63(), c.isaacStream.decoder.Int31())
-/*	for i := 0; i < 10000; i++ {
-		LogDebug(1, "%d\n", c.isaacStream.encoder.Uint32())
-	}*/
 	c.sendLoginResponse(0)
 }
 
