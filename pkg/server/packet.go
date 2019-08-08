@@ -7,9 +7,9 @@ import (
 )
 
 type Packet struct {
-	opcode  byte
-	payload []byte
-	length  int
+	Opcode  byte
+	Payload []byte
+	Length  int
 	bare    bool
 	offset  int
 }
@@ -19,13 +19,12 @@ func NewPacket(opcode byte, payload []byte, length int) *Packet {
 }
 
 func (p *Packet) DecryptRSA() error {
-	buf, err := rsa.DecryptPKCS1v15(rand.Reader, RsaKey, p.payload)
+	buf, err := rsa.DecryptPKCS1v15(rand.Reader, RsaKey, p.Payload)
 	if err != nil {
-		fmt.Println("WARNING: Could not decrypt RSA login block")
 		return err
 	}
-	p.payload = buf
-	p.length = len(buf)
+	p.Payload = buf
+	p.Length = len(buf)
 	return nil
 }
 
@@ -48,14 +47,14 @@ func (p *Packet) ReadShort() (val uint16) {
 	return
 }
 func (p *Packet) ReadByte() (val uint8) {
-	if p.offset+1 >= p.length {
+	if p.offset+1 >= p.Length {
 		fmt.Println("WARNING: Trying to read into packet with empty buffer!")
 		return 0
 	}
 	defer func() {
 		p.offset++
 	}()
-	return p.payload[p.offset] & 0xFF
+	return p.Payload[p.offset] & 0xFF
 }
 
 func (p *Packet) ReadString() (val string) {
@@ -67,30 +66,30 @@ func (p *Packet) ReadString() (val string) {
 
 func (p *Packet) AddLong(l uint64) {
 	defer func() {
-		p.length += 8
+		p.Length += 8
 	}()
-	p.payload = append(p.payload, byte(l>>56), byte(l>>48), byte(l>>40), byte(l>>32), byte(l>>24), byte(l>>16), byte(l>>8), byte(l))
+	p.Payload = append(p.Payload, byte(l>>56), byte(l>>48), byte(l>>40), byte(l>>32), byte(l>>24), byte(l>>16), byte(l>>8), byte(l))
 }
 
 func (p *Packet) AddInt(i uint32) {
 	defer func() {
-		p.length += 4
+		p.Length += 4
 	}()
-	p.payload = append(p.payload, byte(i>>24), byte(i>>16), byte(i>>8), byte(i))
+	p.Payload = append(p.Payload, byte(i>>24), byte(i>>16), byte(i>>8), byte(i))
 }
 
 func (p *Packet) AddShort(s uint16) {
 	defer func() {
-		p.length += 2
+		p.Length += 2
 	}()
-	p.payload = append(p.payload, byte(s>>8), byte(s))
+	p.Payload = append(p.Payload, byte(s>>8), byte(s))
 }
 
 func (p *Packet) AddByte(b uint8) {
 	defer func() {
-		p.length++
+		p.Length++
 	}()
-	p.payload = append(p.payload, b)
+	p.Payload = append(p.Payload, b)
 }
 
 func (c *Client) ReadPacket() (*Packet, error) {
@@ -110,8 +109,8 @@ func (c *Client) ReadPacket() (*Packet, error) {
 }
 
 func (p *Packet) prependHeader() {
-	dataLen := len(p.payload) + 1 // opcode
-	p.payload = append([]byte{byte((dataLen >> 8) & 0xFF), byte(dataLen & 0xFF), p.opcode}, p.payload...)
+	dataLen := len(p.Payload) + 1 // opcode
+	p.Payload = append([]byte{byte((dataLen >> 8) & 0xFF), byte(dataLen & 0xFF), p.Opcode}, p.Payload...)
 }
 
 func (c *Client) WritePacket(p *Packet) {
@@ -119,5 +118,5 @@ func (c *Client) WritePacket(p *Packet) {
 		p.prependHeader()
 	}
 
-	c.Write(p.payload)
+	c.Write(p.Payload)
 }

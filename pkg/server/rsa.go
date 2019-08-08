@@ -28,7 +28,7 @@ func init() {
 	RsaKey = key.(*rsa.PrivateKey)
 }
 
-func (c *Client) SeedISAAC(seed [4]uint32) *IsaacSeed {
+func (c *Client) SeedISAAC(seed []uint32) *IsaacSeed {
 	if seed[2] != c.isaacSeed[2] || seed[3] != c.isaacSeed[3] {
 		LogDebug(1, "WARNING: Session encryption key for command cipher received from client doesn't match the one we supplied it.\n")
 		return nil
@@ -36,11 +36,11 @@ func (c *Client) SeedISAAC(seed [4]uint32) *IsaacSeed {
 	for i := 0; i < 2; i++ {
 		c.isaacSeed[i] = seed[i]
 	}
-	decodingStream := isaac.NewISAACStream(seed)
+	decodingStream := isaac.NewISAACStream(append(append(seed, seed[2:4]...), seed[:2]...))
 	for i := 0; i < 4; i++ {
 		seed[i] += 50
 	}
-	encodingStream := isaac.NewISAACStream(seed)
+	encodingStream := isaac.NewISAACStream(append(append(seed, seed[2:4]...), seed[:2]...))
 
 	return &IsaacSeed{encodingStream, decodingStream}
 }

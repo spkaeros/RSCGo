@@ -8,7 +8,7 @@ import (
 )
 
 type Client struct {
-	isaacSeed              [4]uint32
+	isaacSeed              []uint32
 	isaacStream            *IsaacSeed
 	uID                    uint8
 	ip                     string
@@ -70,7 +70,7 @@ func (c *Client) StartReader() {
 
 //NewClient Creates a new instance of a Client, registers it with the global ClientList, and returns it.
 func NewClient(socket net.Conn) *Client {
-	c := &Client{socket: socket, packetQueue: make(chan *Packet, 1), ip: getIPFromConn(socket), index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer()}
+	c := &Client{socket: socket, isaacSeed: make([]uint32, 4), packetQueue: make(chan *Packet, 1), ip: getIPFromConn(socket), index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer()}
 	c.StartReader()
 	return c
 }

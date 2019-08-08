@@ -1,6 +1,6 @@
 /*
 ------------------------------------------------------------------------------
-isaac.go: an implementation of Bob Jenkins' random number generator ISAAC based on 'readable.c'
+resetRandomBuffer.go: an implementation of Bob Jenkins' random number generator ISAAC based on 'readable.c'
 * 18 Aug 2014 -- direct port of readable.c to Go
 * 10 Sep 2014 -- updated to be more idiomatic Go
 ------------------------------------------------------------------------------
@@ -8,38 +8,36 @@ isaac.go: an implementation of Bob Jenkins' random number generator ISAAC based 
 
 package isaac
 
-import (
-	"bytes"
-	"encoding/binary"
-)
-
 type ISAAC struct {
-	/* external results */
+	// external results
 	randrsl [256]uint32
 	randcnt uint32
 
-	/* internal state */
+	// internal state
 	mm         [256]uint32
 	aa, bb, cc uint32
+
+	index int
+	remainder []byte
 }
 
-func (r *ISAAC) isaac() {
-	r.cc = r.cc + 1    /* cc just gets incremented once per 256 results */
-	r.bb = r.bb + r.cc /* then combined with bb */
+func (r *ISAAC) resetRandomBuffer() {
+	r.cc++ // cc gets incremented once per 256 results
+	r.bb += r.cc // then combined with bb
 
 	for i := 0; i < 256; i++ {
 		x := r.mm[i]
 		switch i % 4 {
 		case 0:
-			r.aa = r.aa ^ (r.aa << 13)
+			r.aa ^= r.aa << 13
 		case 1:
-			r.aa = r.aa ^ (r.aa >> 6)
+			r.aa ^= r.aa >> 6
 		case 2:
-			r.aa = r.aa ^ (r.aa << 2)
+			r.aa ^= r.aa << 2
 		case 3:
-			r.aa = r.aa ^ (r.aa >> 16)
+			r.aa ^= r.aa >> 16
 		}
-		r.aa = r.mm[(i+128)%256] + r.aa
+		r.aa += r.mm[(i+128)%256]
 		y := r.mm[(x>>2)%256] + r.aa + r.bb
 		r.mm[i] = y
 		r.bb = r.mm[(y>>10)%256] + x
@@ -135,59 +133,123 @@ func (r *ISAAC) randInit(flag bool) {
 		}
 	}
 
-	r.isaac()       /* fill in the first set of results */
-	r.randcnt = 256 /* reset the counter for the first set of results */
+	r.resetRandomBuffer() /* fill in the first set of results */
+	r.randcnt = 256       /* reset the counter for the first set of results */
 }
 
-/* there is no official method for doing this
- * the challenge code just memcpys the string to the top of the output array
- * and this is the best equivalent I could come up with in Go */
-func (r *ISAAC) Seed(key [4]uint32) {
+//Seed This method has been changed so as to reflect the Jagex style seeding the client uses.
+//  Takes a total of 16 bytes of entropy, usually half comes from the server cryptographically-secure PRNG, and the
+//  other half from the client's cryptographically secure PRNG.
+func (r *ISAAC) Seed(key []uint32) {
 	for i, k := range key {
 		r.randrsl[i] = k
 	}
 	r.randInit(true)
 }
 
-/* retrieve the next number in the sequence */
-func (r *ISAAC) Rand() (number uint32) {
+//Uint64 Returns the next 8 bytes as a long integer from the ISAAC CSPRNG receiver instance.
+func (r *ISAAC) Uint64() uint64 {
+	return uint64(r.Uint32()) << 32 | uint64(r.Uint32())
+}
+
+//Uint32 Returns the next 4 bytes as an integer from the ISAAC CSPRNG receiver instance.
+func (r *ISAAC) Uint32() (number uint32) {
 	r.randcnt--
 	number = r.randrsl[r.randcnt]
 	if r.randcnt == 0 {
-		r.isaac()
+		r.resetRandomBuffer()
 		r.randcnt = 256
 	}
-	return number
+	return
 }
 
-/* implementation based on http://golang.org/src/pkg/crypto/cipher/ctr.go */
-func (r *ISAAC) XORKeyStream(dst, src []byte) {
-	keyStream := new(bytes.Buffer)
-	for len(src) > 0 {
-		keyStream.Reset()
-
-		// unpacking
-		nextUint32 := r.Rand()
-		binary.Write(keyStream, binary.BigEndian, &nextUint32)
-		n := safeXORBytes(dst, src, keyStream.Bytes())
-
-		dst = dst[n:]
-		src = src[n:]
+func (r *ISAAC) Int31n(n int) int32 {
+	v := r.Uint32()
+	prod := uint64(v) * uint64(n)
+	low := uint32(prod)
+	if low < uint32(n) {
+		thresh := uint32(-n) % uint32(n)
+		for low < thresh {
+			v = r.Uint32()
+			prod = uint64(v) * uint64(n)
+			low = uint32(prod)
+		}
 	}
+	return int32(prod >> 32)
 }
 
-func safeXORBytes(dst, a, b []byte) int {
-	n := len(a)
-	if len(b) < n {
-		n = len(b)
-	}
-	for i := 0; i < n; i++ {
-		dst[i] = a[i] ^ b[i]
-	}
-	return n
+func (r *ISAAC) Uint8n(bound byte) (number byte) {
+	for number = r.Uint8(); number < 0 || number >= bound; number = r.Uint8() {  }
+	return
 }
 
-func NewISAACStream(key [4]uint32) *ISAAC {
+//Uint16 Returns the next 2 bytes as a short integer from the ISAAC CSPRNG receiver instance.
+func (r *ISAAC) Uint16() uint16 {
+	buf := r.NextBytes(2)
+	return uint16(buf[0]) << 8 | uint16(buf[1])
+}
+
+//Uint8 Returns the next byte from the ISAAC CSPRNG receiver instance.
+func (r *ISAAC) Uint8() byte {
+	return r.NextBytes(1)[0]
+}
+
+//NextChar Returns the next ASCII character from the ISAAC CSPRNG receiver instance.
+func (r *ISAAC) NextChar() byte {
+	return byte(r.Int31n(95)) + 32
+}
+
+//String Returns the next `len` ASCII characters from the ISAAC CSPRNG receiver instance as a Go string.
+func (r *ISAAC) String(len int) (ret string) {
+	for i := 0; i < len; i++ {
+		ret += string(r.NextChar())
+	}
+
+	return
+}
+
+//NextBytes Returns the next `n` bytes from the ISAAC CSPRNG receiver instance, and since ISAAC generates 4-byte words,
+//  if you request a length of bytes that is not divisible evenly by 4, it will stash the remaining bytes into a buffer
+//  to be used on your next call to this function.
+func (r *ISAAC) NextBytes(n int) []byte {
+	buf := make([]byte, n)
+	r.index = 0
+	if len(r.remainder) > 0 {
+		for i := 0; i < len(r.remainder) && r.index < n; i++ {
+			buf[r.index] = r.remainder[i]
+			r.index++
+		}
+		if r.index >= n {
+			r.remainder = r.remainder[r.index:]
+		} else {
+			r.remainder = []byte{}
+		}
+	}
+
+	for ; r.index < n; {
+		nextInt := r.Uint32()
+		if n % 4 != 0 && n - r.index < 4 {
+			spaceLeft := n - r.index
+			for i := 0; i < spaceLeft; i++ {
+				buf[r.index] = byte(nextInt >> uint(8*(3-i)))
+				r.index++
+			}
+			r.remainder = []byte{}
+			for i := spaceLeft; i < 4; i++ {
+				r.remainder = append(r.remainder, byte(nextInt >> uint(8*(3-i))))
+			}
+		} else {
+			for i := 0; i < 4; i++ {
+				buf[r.index] = byte(nextInt >> uint(8*(3-i)))
+				r.index++
+			}
+		}
+	}
+
+	return buf
+}
+
+func NewISAACStream(key []uint32) *ISAAC {
 	stream := new(ISAAC)
 	stream.Seed(key)
 	return stream
