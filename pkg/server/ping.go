@@ -5,5 +5,5 @@ func init() {
 }
 
 func ping(c *Client, p *Packet) {
-	c.WritePacket(&Packet{Opcode: 3, Length: 0, Payload: []byte{}})
+	c.WritePacket(NewOutgoingPacket(3))
 }

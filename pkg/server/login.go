@@ -1,27 +1,23 @@
 package server
 
+import "fmt"
+
 func init() {
 	handlers[32] = sessionRequest
 	handlers[0] = loginRequest
 }
 
 func sessionRequest(c *Client, p *Packet) {
-	c.uID = p.Payload[0]
-	p1 := &Packet{bare: true}
+	c.uID = p.ReadByte()
 	seed := GenerateSessionID()
 	c.isaacSeed[2] = uint32(seed >> 32)
 	c.isaacSeed[3] = uint32(seed)
-	p1.AddLong(seed)
-	c.WritePacket(p1)
+	c.WritePacket(NewBarePacket(nil).AddLong(seed))
 }
 
 func loginRequest(c *Client, p *Packet) {
-	if err := p.DecryptRSA(); err != nil {
-		LogDebug(1, "WARNING: Could not decrypt RSA login block.\n")
-		c.sendLoginResponse(9)
-		return
-	}
 	// TODO: Handle reconnect slightly different
+	fmt.Println(p.Payload)
 	recon, version := p.ReadByte() == 1, int(p.ReadInt())
 	if version != Version {
 		LogDebug(1, "WARNING: Player tried logging in with invalid client version. Got %d, expected %d\n", version, Version)
@@ -39,12 +35,12 @@ func loginRequest(c *Client, p *Packet) {
 	}
 	c.isaacStream = cipher
 	username, password := p.ReadString(), p.ReadString()
-	LogDebug(0, "Registered Player{username:%v,password:%v,reconnecting:%v,version:%v}\n", username, password, recon, version)
+	LogDebug(0, "Registered Player{idx:%v,ip:'%v'username:'%v',password:'%v',reconnecting:%v,version:%v}\n", c.index, c.ip, username, password, recon, version)
 	c.sendLoginResponse(0)
 }
 
-func (c *Client) sendLoginResponse(i int) {
-	c.WritePacket(&Packet{bare: true, Payload:[]byte{byte(i)}})
+func (c *Client) sendLoginResponse(i byte) {
+	c.WritePacket(NewBarePacket([]byte{i}))
 	if i != 0 {
 		c.kill <- struct{}{}
 	}

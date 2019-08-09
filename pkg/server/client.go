@@ -2,6 +2,7 @@ package server
 
 import (
 	"bitbucket.org/zlacki/rscgo/pkg/entity"
+	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -18,6 +19,7 @@ type Client struct {
 	player                 *entity.Player
 	socket                 net.Conn
 	packetQueue            chan *Packet
+	buffer                 []byte
 }
 
 //StartReader Creates a new goroutine to handle all incoming network events for the receiver Client.
@@ -31,11 +33,11 @@ func (c *Client) StartReader() {
 			default:
 				p, err := c.ReadPacket()
 				if err != nil {
-					if err, ok := err.(*NetError); ok {
-						if err.closed || err.ping {
+					if err, ok := err.(errors.NetError); ok {
+						if err.Closed || err.Ping {
 							return
 						}
-						fmt.Printf("Rejected Packet from: '%s'\n", connToIP(c.socket))
+						LogDebug(0, "Rejected Packet from: '%s'\n", c.ip)
 						fmt.Println(err)
 					}
 					continue
@@ -71,7 +73,7 @@ func (c *Client) StartReader() {
 
 //NewClient Creates a new instance of a Client, registers it with the global ClientList, and returns it.
 func NewClient(socket net.Conn) *Client {
-	c := &Client{socket: socket, isaacSeed: make([]uint32, 4), packetQueue: make(chan *Packet, 1), ip: connToIP(socket), index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer()}
+	c := &Client{socket: socket, isaacSeed: make([]uint32, 4), packetQueue: make(chan *Packet, 1), ip: strings.Split(socket.RemoteAddr().String(), ":")[0], index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer(), buffer: make([]byte, 5000)}
 	c.StartReader()
 	return c
 }
@@ -79,12 +81,4 @@ func NewClient(socket net.Conn) *Client {
 //String Returns a string populated with some of the more identifying fields from the receiver Client.
 func (c *Client) String() string {
 	return "{idx:'" + strconv.Itoa(c.index) + "', ip:'" + c.ip + "'};"
-}
-
-func connToIP(c net.Conn) string {
-	parts := strings.Split(c.RemoteAddr().String(), ":")
-	if len(parts) < 1 {
-		return "nil"
-	}
-	return parts[0]
 }

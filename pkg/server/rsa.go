@@ -3,7 +3,6 @@ package server
 import (
 	"bitbucket.org/zlacki/rscgo/pkg/isaac"
 	rscrand "bitbucket.org/zlacki/rscgo/pkg/rand"
-	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"fmt"
@@ -15,16 +14,6 @@ var RsaKey *rsa.PrivateKey
 
 type IsaacSeed struct {
 	encoder, decoder *isaac.ISAAC
-}
-
-func (p *Packet) DecryptRSA() error {
-	buf, err := rsa.DecryptPKCS1v15(rand.Reader, RsaKey, p.Payload)
-	if err != nil {
-		return err
-	}
-	p.Payload = buf
-	p.Length = len(buf)
-	return nil
 }
 
 func ReadRSAKeyFile(file string) {

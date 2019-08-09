@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
 	"fmt"
 	"io"
 	"net"
@@ -9,38 +10,34 @@ import (
 	"time"
 )
 
-func (c *Client) Write(b []byte) {
+func (c *Client) Write(b []byte) int {
 	l, err := c.socket.Write(b)
 	if err != nil {
-		fmt.Println("ERROR: Could not Write to Client socket.")
+		// TODO: Severe enough to kill the client?  More than likely, yes.
+		LogDebug(0, "ERROR: Could not Write to Client socket.\n")
 		fmt.Println(err)
 	}
 	if l != len(b) {
-		fmt.Printf("WARNING: Wrong number of bytes written to Client socket.  Expected %d, got %d.\n", len(b), l)
+		LogDebug(1, "WARNING: Wrong number of bytes written to Client socket.  Expected %d, got %d.\n", len(b), l)
 	}
+	return l
 }
 
-func (c *Client) Read(len int) ([]byte, error) {
+func (c *Client) Read(dst []byte) error {
 	if err := c.socket.SetReadDeadline(time.Now().Add(time.Second * 10)); err != nil {
 		// This shouldn't happen
-		return nil, Deadline()
+		return errors.ConnDeadline
 	}
-	buf := make([]byte, len)
-	length, err := c.socket.Read(buf)
+	length, err := c.socket.Read(dst)
 	if err != nil {
-		if err, ok := err.(net.Error); ok && err.Timeout() {
-			return nil, Timeout()
+		if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
+			return errors.ConnClosed
+		} else if e, ok := err.(net.Error); ok && e.Timeout() {
+			return errors.ConnTimedOut
 		}
-		if strings.Contains(err.Error(), "use of closed") {
-			return nil, &NetError{msg: "Trying to read a closed socket.", closed: true}
-		}
-		if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") {
-			return nil, Closed()
-		}
-	}
-	if length != len {
-		return nil, &NetError{msg: "Client.Read: unexpected length.  Expected " + strconv.Itoa(len) + ", got " + strconv.Itoa(length) + "."}
+	} else if length != len(dst) {
+		return errors.NewNetworkError("Client.Read: unexpected length.  Expected " + strconv.Itoa(len(dst)) + ", got " + strconv.Itoa(length) + ".")
 	}
 
-	return buf, nil
+	return nil
 }

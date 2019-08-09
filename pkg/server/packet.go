@@ -1,19 +1,29 @@
 package server
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"fmt"
 )
 
 type Packet struct {
-	Opcode  byte
-	Payload []byte
-	Length  int
-	bare    bool
-	offset  int
+	Opcode    byte
+	Payload   []byte
+	bare      bool
+	readIndex int
 }
 
-func NewPacket(opcode byte, payload []byte, length int) *Packet {
-	return &Packet{opcode, payload, length, false, 0}
+func NewPacket(opcode byte, payload []byte) *Packet {
+	return &Packet{opcode, payload, false, 0}
+}
+
+func NewOutgoingPacket(opcode byte) *Packet {
+	buf := []byte{ 0xA5, 0xA5, opcode }
+	return &Packet{opcode, buf, false, 0}
+}
+
+func NewBarePacket(src []byte) *Packet {
+	return &Packet{0, src, true, 0}
 }
 
 func (p *Packet) ReadLong() (val uint64) {
@@ -35,14 +45,14 @@ func (p *Packet) ReadShort() (val uint16) {
 	return
 }
 func (p *Packet) ReadByte() (val uint8) {
-	if p.offset+1 >= p.Length {
+	if p.readIndex+1 > len(p.Payload) {
 		fmt.Println("WARNING: Trying to read into packet with empty buffer!")
 		return 0
 	}
 	defer func() {
-		p.offset++
+		p.readIndex++
 	}()
-	return p.Payload[p.offset] & 0xFF
+	return p.Payload[p.readIndex] & 0xFF
 }
 
 func (p *Packet) ReadString() (val string) {
@@ -52,58 +62,59 @@ func (p *Packet) ReadString() (val string) {
 	return
 }
 
-func (p *Packet) AddLong(l uint64) {
-	defer func() {
-		p.Length += 8
-	}()
+func (p *Packet) AddLong(l uint64) *Packet {
 	p.Payload = append(p.Payload, byte(l>>56), byte(l>>48), byte(l>>40), byte(l>>32), byte(l>>24), byte(l>>16), byte(l>>8), byte(l))
+	return p
 }
 
-func (p *Packet) AddInt(i uint32) {
-	defer func() {
-		p.Length += 4
-	}()
+func (p *Packet) AddInt(i uint32) *Packet {
 	p.Payload = append(p.Payload, byte(i>>24), byte(i>>16), byte(i>>8), byte(i))
+	return p
 }
 
-func (p *Packet) AddShort(s uint16) {
-	defer func() {
-		p.Length += 2
-	}()
+func (p *Packet) AddShort(s uint16) *Packet {
 	p.Payload = append(p.Payload, byte(s>>8), byte(s))
+	return p
 }
 
-func (p *Packet) AddByte(b uint8) {
-	defer func() {
-		p.Length++
-	}()
+func (p *Packet) AddByte(b uint8) *Packet {
 	p.Payload = append(p.Payload, b)
+	return p
 }
 
 func (c *Client) ReadPacket() (*Packet, error) {
-	buf, err := c.Read(3)
-	if err != nil {
+	header := c.buffer[:3]
+	if err := c.Read(header); err != nil {
 		return nil, err
 	}
-	length := int(int16(buf[0])<<8 | int16(buf[1]))
-	opcode := buf[2] & 0xFF
+	length := int(int16(header[0])<<8 | int16(header[1]))
+	opcode := header[2] & 0xFF
 
-	payloadBuffer, err := c.Read(length)
-	if err != nil {
+	payload := c.buffer[3:length+3]
+
+	if err := c.Read(payload); err != nil {
 		return nil, err
 	}
 
-	return NewPacket(opcode, payloadBuffer, length), nil
-}
+	if opcode == 0 {
+		// Login block encrypted with block cipher using shared secret, to send/recv credentials and stream cipher key
+		buf, err := rsa.DecryptPKCS1v15(rand.Reader, RsaKey, payload)
+		if err != nil {
+			LogDebug(1, "WARNING: Could not decrypt RSA login block: `%v`\n", err.Error())
+			c.sendLoginResponse(9)
+			return nil, err
+		}
+		payload = buf
+	}
 
-func (p *Packet) prependHeader() {
-	dataLen := len(p.Payload) + 1 // opcode
-	p.Payload = append([]byte{byte((dataLen >> 8) & 0xFF), byte(dataLen & 0xFF), p.Opcode}, p.Payload...)
+	return NewPacket(opcode, payload), nil
 }
 
 func (c *Client) WritePacket(p *Packet) {
 	if !p.bare {
-		p.prependHeader()
+		l := len(p.Payload) - 2
+		p.Payload[0] = byte(l >> 8)
+		p.Payload[1] = byte(l)
 	}
 
 	c.Write(p.Payload)

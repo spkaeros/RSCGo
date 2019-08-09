@@ -59,7 +59,6 @@ func startConnectionService() {
 
 			client := NewClient(socket)
 			ActiveClients.Add(client)
-			fmt.Println("Registered Client" + client.String())
 		}
 	}()
 
