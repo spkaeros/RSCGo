@@ -22,6 +22,45 @@ func getCharCode(c rune) int {
 	return 0
 }
 
+func ModalParse(s string) []string {
+	var cur string
+	escaped := false
+	quoted := false
+	var out []string
+	for _, c := range s {
+		if c == '\\' {
+			escaped = !escaped
+			continue
+		}
+		if c == '\'' && !escaped {
+			if quoted {
+				if len(cur) > 0 {
+					out = append(out, cur)
+				}
+				cur = ""
+			}
+			quoted = !quoted
+			continue
+		}
+		if c == ' ' && !escaped && !quoted {
+			if len(cur) > 0 {
+				out = append(out, cur)
+			}
+			cur = ""
+			continue
+		}
+		if escaped {
+			escaped = false
+		}
+		cur += string(c)
+	}
+	if len(cur) > 0 {
+		out = append(out, cur)
+	}
+
+	return out
+}
+
 //DecodeBase37 Takes a long integer for input, decodes from base37 and returns it as a string.
 func DecodeBase37(l uint64) string {
 	if l < 0 || l >= MaxBase37 {

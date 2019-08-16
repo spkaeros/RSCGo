@@ -2,7 +2,7 @@ package entity
 
 //Player Represents a single player.
 type Player struct {
-	location  Location
+	location  *Location
 	state     MobState
 	direction Direction
 	Username  string
@@ -10,12 +10,12 @@ type Player struct {
 }
 
 //Location Returns the location of the player
-func (p *Player) Location() Location {
+func (p *Player) Location() *Location {
 	return p.location
 }
 
 //SetLocation Sets the players location.
-func (p *Player) SetLocation(location Location) {
+func (p *Player) SetLocation(location *Location) {
 	p.location = location
 }
 
@@ -41,5 +41,5 @@ func (p *Player) SetDirection(direction Direction) {
 
 //NewPlayer Returns a new player.
 func NewPlayer() *Player {
-	return &Player{location: Location{220, 445}, direction: North, state: Idle}
+	return &Player{location: &Location{220, 445}, direction: North, state: Idle}
 }

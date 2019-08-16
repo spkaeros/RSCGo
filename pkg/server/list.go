@@ -66,3 +66,13 @@ func (list *List) Remove(index int) {
 		LogWarning.Printf("WARNING: Tried removing value that doesn't exist at index %d\n", index)
 	}
 }
+
+//Size returns the number of non-nil elements in the list's backing slice.
+func (list *List) Size() (total int) {
+	for _, v := range list.values {
+		if v != nil {
+			total++
+		}
+	}
+	return
+}

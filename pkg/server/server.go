@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
+	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 )
 
 var (
@@ -120,6 +121,7 @@ func startSynchronizedTaskService() {
 			for _, c := range ActiveClients.values {
 				if c, ok := c.(*Client); ok {
 					c.WritePacket(packets.PlayerPositions(c.player.Location().X(), c.player.Location().Y(), int(c.player.Direction())))
+					c.WritePacket(packets.PlayerAppearances(c.index, strutil.Base37(c.player.Username)))
 					// TODO: Update movement, update client-side collections
 				}
 			}

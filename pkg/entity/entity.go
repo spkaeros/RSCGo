@@ -32,12 +32,20 @@ type Location struct {
 }
 
 //X Returns the X coordinate of this entity
-func (l Location) X() int {
+func (l *Location) X() int {
 	return l.x
 }
 
+func (l *Location) SetX(x int) {
+	l.x = x
+}
+
+func (l *Location) SetY(y int) {
+	l.y = y
+}
+
 //Y Returns the Y coordinate of this entity
-func (l Location) Y() int {
+func (l *Location) Y() int {
 	return l.y
 }
 

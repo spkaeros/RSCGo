@@ -23,6 +23,9 @@ type Packet struct {
 }
 
 var ResponsePong = NewOutgoingPacket(3)
+var ChangeAppearance = NewOutgoingPacket(207)
+var CannotLogout = NewOutgoingPacket(135)
+var Death = NewOutgoingPacket(165)
 
 var LogWarning = log.New(os.Stdout, "[WARNING] ", log.Ltime|log.Lshortfile)
 
@@ -129,6 +132,12 @@ func (p *Packet) AddShort(s uint16) *Packet {
 //AddByte Adds an 8-bit integer to the packet payload.
 func (p *Packet) AddByte(b uint8) *Packet {
 	p.Payload = append(p.Payload, b)
+	return p
+}
+
+//AddBytes Adds byte array to packet payload
+func (p *Packet) AddBytes(b []byte) *Packet {
+	p.Payload = append(p.Payload, b...)
 	return p
 }
 
