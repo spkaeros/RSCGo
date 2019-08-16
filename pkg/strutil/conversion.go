@@ -5,6 +5,9 @@ import (
 	"unicode"
 )
 
+//MaxBase37 Max username hash for 12-rune usernames.
+const MaxBase37 = 6582952005840035281
+
 // Presumably this charset is optimized to be in order of most-used in the English language.
 // Not sure how Jagex came up with this arrangement, along with their interesting bit-packing methods involved here
 var charset = []rune{' ', 'e', 't', 'a', 'o', 'i', 'h', 'n', 's', 'r', 'd', 'l', 'u', 'm', 'w', 'c', 'y', 'f', 'g', 'p', 'b', 'v', 'k', 'x', 'j', 'q', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ' ', '!', '?', '.', ',', ':', ';', '(', ')', '-', '&', '*', '\\', '\'', '@', '#', '+', '=', '\243', '$', '%', '"', '[', ']'}
@@ -19,6 +22,65 @@ func getCharCode(c rune) int {
 	return 0
 }
 
+//DecodeBase37 Takes a long integer for input, decodes from base37 and returns it as a string.
+func DecodeBase37(l uint64) string {
+	if l < 0 || l >= MaxBase37 {
+		return "invalid_name"
+	}
+	var s string
+	for l != 0 {
+		i := l % 37
+		l /= 37
+		if i == 0 {
+			s = " " + s
+		} else if i < 27 {
+			if l%37 == 0 {
+				s = string(i+64) + s
+			} else {
+				s = string(i+96) + s
+			}
+		} else {
+			s = string(i+21) + s
+		}
+	}
+
+	return s
+}
+
+//Base37 Takes a string as input, encodes it to base37, and returns it.
+func Base37(s string) uint64 {
+	s = strings.ToLower(s)
+	var buf []rune
+	for _, c := range s {
+		if c >= 'a' && c <= 'z' {
+			buf = append(buf, c)
+		} else if c >= '0' && c <= '9' {
+			buf = append(buf, c)
+		} else {
+			buf = append(buf, ' ')
+		}
+	}
+
+	s1 := strings.TrimSpace(string(buf))
+	if len(s1) > 12 {
+		s1 = s1[:12]
+	}
+	var l uint64
+	for _, c := range s1 {
+		l *= 37
+		if c >= 'a' && c <= 'z' {
+			l += 1 + uint64(c) - 97
+		} else if c >= '0' && c <= '9' {
+			l += 27 + uint64(c) - 48
+		}
+		if l >= MaxBase37 {
+			return 0xDEADBEEF
+		}
+	}
+	return l
+}
+
+//PackChatMessage Takes a string as input, and returns a packed bitstream as output.  It can fit any of the first 13 runes in the alphabet into 4 bits per rune, but for the rest of the alphabet it's 8 bits.
 func PackChatMessage(msg string) []byte {
 	var buf []byte
 	if len(msg) > 80 {

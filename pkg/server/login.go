@@ -1,10 +1,17 @@
 package server
 
-import "bitbucket.org/zlacki/rscgo/pkg/server/packets"
+import (
+	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
+	"bitbucket.org/zlacki/rscgo/pkg/strutil"
+)
 
 func init() {
 	Handlers[32] = sessionRequest
 	Handlers[0] = loginRequest
+	Handlers[145] = func(c *Client, p *packets.Packet) {
+		c.WritePacket(packets.NewOutgoingPacket(222))
+		c.kill <- struct{}{}
+	}
 }
 
 func sessionRequest(c *Client, p *packets.Packet) {
@@ -37,6 +44,7 @@ func loginRequest(c *Client, p *packets.Packet) {
 	}
 	c.isaacStream = cipher
 	c.player.Username, _ = p.ReadString()
+	c.player.Username = strutil.DecodeBase37(strutil.Base37(c.player.Username))
 	c.player.Password, _ = p.ReadString()
 	LogInfo.Printf("Registered Player{idx:%v,ip:'%v'username:'%v',password:'%v',reconnecting:%v,version:%v}\n", c.index, c.ip, c.player.Username, c.player.Password, recon, version)
 	c.sendLoginResponse(0)
