@@ -1,12 +1,13 @@
 package main
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server"
 	"fmt"
-	"github.com/go-ini/ini"
-	"github.com/jessevdk/go-flags"
 	"os"
 	"strings"
+
+	"bitbucket.org/zlacki/rscgo/pkg/server"
+	"github.com/go-ini/ini"
+	"github.com/jessevdk/go-flags"
 )
 
 func init() {

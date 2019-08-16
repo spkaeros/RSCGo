@@ -1,16 +1,12 @@
 package server
 
-import (
-	"fmt"
-)
-
 const MaxClients = 2048
 
-var ActiveClients = &ClientList{clients: make([]*Client, MaxClients)}
+var ActiveClients = &ClientList{clients: make([]interface{}, MaxClients)}
 
 //ClientList Data structure representing a single instance of a Client list.
 type ClientList struct {
-	clients []*Client
+	clients []interface{}
 }
 
 //NextIndex Returns the lowest available index in the specified receiver list.
@@ -32,24 +28,24 @@ func (list *ClientList) Clear() {
 }
 
 //Add Add a Client to the `list`.  If list is full, log it as a warning.
-func (list *ClientList) Add(c *Client) {
+func (list *ClientList) Add(c interface{}) {
 	idx := list.NextIndex()
 	if idx != -1 {
 		list.clients[idx] = c
-		c.index = idx
+		c.(*Client).index = idx
 	} else {
-		fmt.Println("WARNING: Client list appears to be full.  Could not insert new Client to Client list.")
+		LogWarning.Printf("WARNING: Client list appears to be full.  Could not insert new Client to Client list.")
 	}
 }
 
-//Get(int) *Client Returns the Client at the specific index in the receiver ClientList.
+//Get Returns the Client at the specific index in the receiver ClientList.
 func (list *ClientList) Get(idx int) *Client {
 	c := list.clients[idx]
 	if c == nil {
-		fmt.Println("WARNING: Tried to Get Client that does not exist from receiver ClientList.")
+		LogWarning.Printf("WARNING: Tried to Get Client that does not exist from receiver ClientList.")
 		return nil
 	}
-	return c
+	return c.(*Client)
 }
 
 //Remove Remove a Client from the specified `list`, by the index of the Client.
@@ -57,8 +53,8 @@ func (list *ClientList) Remove(index int) {
 	c := list.clients[index]
 	if c != nil {
 		list.clients[index] = nil
-		fmt.Printf("Removed client: %v\n", c)
+		LogWarning.Printf("Removed client: %v\n", c)
 	} else {
-		fmt.Printf("WARNING: Tried removing nil client at index %d\n", index)
+		LogWarning.Printf("WARNING: Tried removing nil client at index %d\n", index)
 	}
 }

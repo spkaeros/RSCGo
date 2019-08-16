@@ -1,13 +1,16 @@
 package server
 
+import "bitbucket.org/zlacki/rscgo/pkg/server/packets"
+
 // TODO: Maybe load this from some sort of persistent storage medium, e.g YAML/TOML/JSON file
 
-var handlers = make(map[byte]func(*Client, *Packet))
+var Handlers = make(map[byte]func(*Client, *packets.Packet))
 
-func (c *Client) HandlePacket(p *Packet) {
-	handler, ok := handlers[p.Opcode]
+//HandlePacket Finds the mapped handler function for the specified packet, and calls it with the specified parameters.
+func (c *Client) HandlePacket(p *packets.Packet) {
+	handler, ok := Handlers[p.Opcode]
 	if !ok {
-		LogDebug(0, "Unhandled Packet: {opcode:%d; length:%d};\n", p.Opcode, len(p.Payload) - 2)
+		LogInfo.Printf("Unhandled Packet: {opcode:%d; length:%d};\n", p.Opcode, len(p.Payload)-2)
 		return
 	}
 	handler(c, p)

@@ -1,25 +1,27 @@
 package server
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/entity"
-	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
 	"fmt"
 	"net"
 	"strconv"
 	"strings"
+
+	"bitbucket.org/zlacki/rscgo/pkg/entity"
+	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
+	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 )
 
 type Client struct {
-	isaacSeed              []uint32
-	isaacStream            *IsaacSeed
-	uID                    uint8
-	ip                     string
-	index                  int
-	kill                   chan struct{}
-	player                 *entity.Player
-	socket                 net.Conn
-	packetQueue            chan *Packet
-	buffer                 []byte
+	isaacSeed   []uint32
+	isaacStream *IsaacSeed
+	uID         uint8
+	ip          string
+	index       int
+	kill        chan struct{}
+	player      *entity.Player
+	socket      net.Conn
+	packetQueue chan *packets.Packet
+	buffer      []byte
 }
 
 //StartReader Creates a new goroutine to handle all incoming network events for the receiver Client.
@@ -71,9 +73,27 @@ func (c *Client) StartReader() {
 	}()
 }
 
+func (c *Client) sendLoginResponse(i byte) {
+	c.WritePacket(packets.NewBarePacket([]byte{i}))
+	if i != 0 {
+		c.kill <- struct{}{}
+	} else {
+		playerInfo := packets.NewOutgoingPacket(131)
+		playerInfo.AddShort(uint16(c.index))
+		playerInfo.AddShort(2304)
+		playerInfo.AddShort(1776)
+
+		// getY + 100 / 1000
+		playerInfo.AddShort(0)
+
+		playerInfo.AddShort(944)
+		c.WritePacket(playerInfo)
+	}
+}
+
 //NewClient Creates a new instance of a Client, registers it with the global ClientList, and returns it.
 func NewClient(socket net.Conn) *Client {
-	c := &Client{socket: socket, isaacSeed: make([]uint32, 4), packetQueue: make(chan *Packet, 1), ip: strings.Split(socket.RemoteAddr().String(), ":")[0], index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer(), buffer: make([]byte, 5000)}
+	c := &Client{socket: socket, isaacSeed: make([]uint32, 4), packetQueue: make(chan *packets.Packet, 1), ip: strings.Split(socket.RemoteAddr().String(), ":")[0], index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer(), buffer: make([]byte, 5000)}
 	c.StartReader()
 	return c
 }

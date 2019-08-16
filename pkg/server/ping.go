@@ -1,9 +1,11 @@
 package server
 
+import "bitbucket.org/zlacki/rscgo/pkg/server/packets"
+
 func init() {
-	handlers[5] = ping
+	Handlers[5] = ping
 }
 
-func ping(c *Client, p *Packet) {
-	c.WritePacket(NewOutgoingPacket(3))
+func ping(c *Client, p *packets.Packet) {
+	c.WritePacket(packets.ResponsePong)
 }

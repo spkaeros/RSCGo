@@ -1,14 +1,6 @@
 /*
-------------------------------------------------------------------------------
-isaac.go: an implementation of Bob Jenkins' random number generator ISAAC based on 'readable.c'
-* 18 Aug 2014 -- direct port of readable.c to Go
-* 10 Sep 2014 -- updated to be more idiomatic Go
-------------------------------------------------------------------------------
-*/
-
-/*
  * I modified ISAAC to conform to what I understood to be a version of the cipher with very slightly
- * better security, named ISAAC+
+ * better security, named ISAAC+.  The modifications prevent bias in certain weak keys.
  *
  * I hope I did it right.
  */
@@ -27,12 +19,12 @@ type ISAAC struct {
 	// internal state
 	mm         [256]uint32
 	aa, bb, cc uint32
-	index int
-	remainder []byte
+	index      int
+	remainder  []byte
 }
 
 func (r *ISAAC) resetRandomBuffer() {
-	r.cc++ // cc gets incremented once per 256 results
+	r.cc++       // cc gets incremented once per 256 results
 	r.bb += r.cc // then combined with bb
 
 	for i := 0; i < 256; i++ {
@@ -50,16 +42,9 @@ func (r *ISAAC) resetRandomBuffer() {
 		r.aa += r.mm[(i+128)%256]
 		y := r.mm[bits.RotateLeft32(x, -2)%256] + (r.aa ^ r.bb)
 		r.mm[i] = y
-		r.bb = r.mm[bits.RotateLeft32(y, -10)%256] ^ (x + r.aa)
+		r.bb = r.aa ^ r.mm[bits.RotateLeft32(y, -10)%256] + x
 		r.randrsl[i] = r.bb
 	}
-
-	/* Note that bits 2..9 are chosen from x but 10..17 are chosen
-	   from y.  The only important thing here is that 2..9 and 10..17
-	   don't overlap.  2..9 and 10..17 were then chosen for speed in
-	   the optimized version (rand.c) */
-	/* See http://burtleburtle.net/bob/rand/isaac.html
-	   for further explanations and analysis. */
 }
 
 func mix(a, b, c, d, e, f, g, h uint32) (uint32, uint32, uint32, uint32, uint32, uint32, uint32, uint32) {
@@ -91,57 +76,42 @@ func mix(a, b, c, d, e, f, g, h uint32) (uint32, uint32, uint32, uint32, uint32,
 }
 
 /* if (flag==true), then use the contents of randrsl[] to initialize mm[]. */
-func (r *ISAAC) randInit(flag bool) {
-	var a, b, c, d, e, f, g, h uint32
-	a, b, c, d, e, f, g, h = 0x9e3779b9, 0x9e3779b9, 0x9e3779b9, 0x9e3779b9, 0x9e3779b9, 0x9e3779b9, 0x9e3779b9, 0x9e3779b9
+func (r *ISAAC) randInit() {
+	const gold = 0x9e3779b9
+	ia := [8]uint32{gold, gold, gold, gold, gold, gold, gold, gold}
 
+	mix1 := func(i int, v uint32) {
+		ia[i] ^= v
+		ia[(i+3)%8] += ia[i]
+		ia[(i+1)%8] += ia[(i+2)%8]
+	}
+	mix := func() {
+		mix1(0, ia[1]<<11)
+		mix1(1, ia[2]>>2)
+		mix1(2, ia[3]<<8)
+		mix1(3, ia[4]>>16)
+		mix1(4, ia[5]<<10)
+		mix1(5, ia[6]>>4)
+		mix1(6, ia[7]<<8)
+		mix1(7, ia[0]>>9)
+	}
+	messify := func() {
+		for i := 0; i < 256; i += 8 { /* fill mm[] with messy stuff */
+			for i1, v := range r.randrsl[i : i+8] {
+				ia[i1] += v
+			}
+			mix()
+			for i1, v := range ia {
+				r.mm[i+i1] = v
+			}
+		}
+	}
 	for i := 0; i < 4; i++ {
-		a, b, c, d, e, f, g, h = mix(a, b, c, d, e, f, g, h)
+		mix()
 	}
 
-	for i := 0; i < 256; i += 8 { /* fill mm[] with messy stuff */
-		if flag { /* use all the information in the seed */
-			a += r.randrsl[i]
-			b += r.randrsl[i+1]
-			c += r.randrsl[i+2]
-			d += r.randrsl[i+3]
-			e += r.randrsl[i+4]
-			f += r.randrsl[i+5]
-			g += r.randrsl[i+6]
-			h += r.randrsl[i+7]
-		}
-		a, b, c, d, e, f, g, h = mix(a, b, c, d, e, f, g, h)
-		r.mm[i] = a
-		r.mm[i+1] = b
-		r.mm[i+2] = c
-		r.mm[i+3] = d
-		r.mm[i+4] = e
-		r.mm[i+5] = f
-		r.mm[i+6] = g
-		r.mm[i+7] = h
-	}
-
-	if flag { /* do a second pass to make all of the seed affect all of mm */
-		for i := 0; i < 256; i += 8 {
-			a += r.mm[i]
-			b += r.mm[i+1]
-			c += r.mm[i+2]
-			d += r.mm[i+3]
-			e += r.mm[i+4]
-			f += r.mm[i+5]
-			g += r.mm[i+6]
-			h += r.mm[i+7]
-			a, b, c, d, e, f, g, h = mix(a, b, c, d, e, f, g, h)
-			r.mm[i] = a
-			r.mm[i+1] = b
-			r.mm[i+2] = c
-			r.mm[i+3] = d
-			r.mm[i+4] = e
-			r.mm[i+5] = f
-			r.mm[i+6] = g
-			r.mm[i+7] = h
-		}
-	}
+	messify()
+	messify()
 
 	r.resetRandomBuffer() /* fill in the first set of results */
 	r.randcnt = 256       /* reset the counter for the first set of results */
@@ -152,14 +122,14 @@ func (r *ISAAC) Seed(key int64) {
 	var rsl [256]uint32
 	for i := 0; i < 256; i += 2 {
 		rsl[i] = uint32(key >> 32)
-		rsl[i + 1] = uint32(key)
+		rsl[i+1] = uint32(key)
 	}
-	r.randInit(true)
+	r.randInit()
 }
 
 //Uint64 Returns the next 8 bytes as a long integer from the ISAAC CSPRNG receiver instance.
 func (r *ISAAC) Uint64() uint64 {
-	return uint64(r.Uint32()) << 32 | uint64(r.Uint32())
+	return uint64(r.Uint32())<<32 | uint64(r.Uint32())
 }
 
 //Uint32 Returns the next 4 bytes as an integer from the ISAAC CSPRNG receiver instance.
@@ -175,7 +145,7 @@ func (r *ISAAC) Uint32() (number uint32) {
 
 //Int63 Returns the next 8 bytes as a long integer from the ISAAC CSPRNG receiver instance.
 func (r *ISAAC) Int63() (number int64) {
-	return int64(r.Uint32()) << 32 | int64(r.Uint32())
+	return int64(r.Uint32())<<32 | int64(r.Uint32())
 }
 
 func (r *ISAAC) Intn(n int) int {
@@ -227,14 +197,15 @@ func (r *ISAAC) Int63n(n int64) int64 {
 }
 
 func (r *ISAAC) Uint8n(bound byte) (number byte) {
-	for number = r.Uint8(); number < 0 || number >= bound; number = r.Uint8() {  }
+	for number = r.Uint8(); number < 0 || number >= bound; number = r.Uint8() {
+	}
 	return
 }
 
 //Uint16 Returns the next 2 bytes as a short integer from the ISAAC CSPRNG receiver instance.
 func (r *ISAAC) Uint16() uint16 {
 	buf := r.NextBytes(2)
-	return uint16(buf[0]) << 8 | uint16(buf[1])
+	return uint16(buf[0])<<8 | uint16(buf[1])
 }
 
 //Uint8 Returns the next byte from the ISAAC CSPRNG receiver instance.
@@ -289,7 +260,7 @@ func (r *ISAAC) NextBytes(n int) []byte {
 		nextInt := r.Uint32()
 		for i := 0; i < 4; i++ {
 			if r.index >= n {
-				r.remainder = append(r.remainder, byte(nextInt >> uint(8*(3-i))))
+				r.remainder = append(r.remainder, byte(nextInt>>uint(8*(3-i))))
 				continue
 			}
 			buf[r.index] = byte(nextInt >> uint(8*(3-i)))
@@ -312,6 +283,6 @@ func New(key []uint32) *ISAAC {
 		}
 	}
 	stream := &ISAAC{randrsl: tmpRsl}
-	stream.randInit(true)
+	stream.randInit()
 	return stream
 }

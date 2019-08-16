@@ -1,13 +1,13 @@
 package server
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/isaac"
-	rscrand "bitbucket.org/zlacki/rscgo/pkg/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"fmt"
 	"io/ioutil"
 	"os"
+
+	"bitbucket.org/zlacki/rscgo/pkg/isaac"
+	rscrand "bitbucket.org/zlacki/rscgo/pkg/rand"
 )
 
 var RsaKey *rsa.PrivateKey
@@ -19,12 +19,12 @@ type IsaacSeed struct {
 func ReadRSAKeyFile(file string) {
 	buf, err := ioutil.ReadFile(DataDirectory + string(os.PathSeparator) + file)
 	if err != nil {
-		fmt.Println("ERROR: Could not read RSA key from file:", err)
+		LogError.Printf("Could not read RSA key from file:%v", err)
 		os.Exit(103)
 	}
 	key, err := x509.ParsePKCS8PrivateKey(buf)
 	if err != nil {
-		fmt.Println( "WARNING: Could not parse RSA key:", err)
+		LogWarning.Printf("Could not parse RSA key:%v", err)
 		os.Exit(104)
 	}
 	RsaKey = key.(*rsa.PrivateKey)
@@ -32,14 +32,14 @@ func ReadRSAKeyFile(file string) {
 
 func (c *Client) SeedISAAC(seed []uint32) *IsaacSeed {
 	if seed[2] != c.isaacSeed[2] || seed[3] != c.isaacSeed[3] {
-		LogDebug(1, "WARNING: Session encryption key for command cipher received from client doesn't match the one we supplied it.\n")
+		LogWarning.Printf("Session encryption key for command cipher received from client doesn't match the one we supplied it.\n")
 		return nil
 	}
 	for i := 0; i < 2; i++ {
 		c.isaacSeed[i] = seed[i]
 	}
 	for i := 4; i < 256; i += 4 {
-		if i % 2 == 0 {
+		if i%2 == 0 {
 			seed = append(seed, seed[2:4]...)
 			seed = append(seed, seed[:2]...)
 		} else {

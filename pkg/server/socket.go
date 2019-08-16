@@ -1,24 +1,27 @@
 package server
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
-	"fmt"
+	"crypto/rand"
+	"crypto/rsa"
 	"io"
 	"net"
 	"strconv"
 	"strings"
 	"time"
+
+	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
+	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 )
 
 func (c *Client) Write(b []byte) int {
 	l, err := c.socket.Write(b)
 	if err != nil {
 		// TODO: Severe enough to kill the client?  More than likely, yes.
-		LogDebug(0, "ERROR: Could not Write to Client socket.\n")
-		fmt.Println(err)
+		LogError.Printf("Could not write to client socket.\n")
+		LogError.Printf(err.Error())
 	}
 	if l != len(b) {
-		LogDebug(1, "WARNING: Wrong number of bytes written to Client socket.  Expected %d, got %d.\n", len(b), l)
+		LogError.Printf("Wrong number of bytes written to Client socket.  Expected %d, got %d.\n", len(b), l)
 	}
 	return l
 }
@@ -40,4 +43,47 @@ func (c *Client) Read(dst []byte) error {
 	}
 
 	return nil
+}
+
+//ReadPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode
+//  of the next packet frame the client is sending us.
+func (c *Client) ReadPacket() (*packets.Packet, error) {
+	header := c.buffer[:3]
+	if err := c.Read(header); err != nil {
+		return nil, err
+	}
+	length := int(int16(header[0])<<8 | int16(header[1]))
+	opcode := header[2] & 0xFF
+
+	payload := c.buffer[3 : length+3]
+
+	if err := c.Read(payload); err != nil {
+		return nil, err
+	}
+
+	if opcode == 0 {
+		// Login block encrypted with block cipher using shared secret, to send/recv credentials and stream cipher key
+		buf, err := rsa.DecryptPKCS1v15(rand.Reader, RsaKey, payload)
+		if err != nil {
+			LogWarning.Printf("Could not decrypt RSA login block: `%v`\n", err.Error())
+			c.sendLoginResponse(9)
+			return nil, err
+		}
+		payload = buf
+	}
+
+	return packets.NewPacket(opcode, payload), nil
+}
+
+//WritePacket This is a method to send a packet to the client.  If this is a bare packet, the packet payload will
+//  be written as-is.  If this is not a bare packet, the packet will have the first 3 bytes changed to the
+//  appropriate values for the client to parse the length and opcode for this packet.
+func (c *Client) WritePacket(p *packets.Packet) {
+	if !p.Bare {
+		l := len(p.Payload) - 2
+		p.Payload[0] = byte(l >> 8)
+		p.Payload[1] = byte(l)
+	}
+
+	c.Write(p.Payload)
 }
