@@ -1,14 +1,9 @@
 package strutil
 
 import (
-	"fmt"
 	"strings"
 	"unicode"
 )
-
-func init() {
-	fmt.Printf("msg: %v, %v\n", PackChatMessage("lol cool story"), UnpackChatMessage(PackChatMessage("lol cool story")))
-}
 
 // Presumably this charset is optimized to be in order of most-used in the English language.
 // Not sure how Jagex came up with this arrangement, along with their interesting bit-packing methods involved here
