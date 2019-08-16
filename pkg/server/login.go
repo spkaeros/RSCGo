@@ -21,7 +21,7 @@ func loginRequest(c *Client, p *packets.Packet) {
 	version, _ := p.ReadInt()
 	if version != uint32(Version) {
 		if len(Flags.Verbose) >= 1 {
-			LogWarning.Printf("WARNING: Player tried logging in with invalid client version. Got %d, expected %d\n", version, Version)
+			LogWarning.Printf("Player tried logging in with invalid client version. Got %d, expected %d\n", version, Version)
 		}
 		c.sendLoginResponse(5)
 		return
@@ -36,8 +36,8 @@ func loginRequest(c *Client, p *packets.Packet) {
 		return
 	}
 	c.isaacStream = cipher
-	username, _ := p.ReadString()
-	password, _ := p.ReadString()
-	LogInfo.Printf("Registered Player{idx:%v,ip:'%v'username:'%v',password:'%v',reconnecting:%v,version:%v}\n", c.index, c.ip, username, password, recon, version)
+	c.player.Username, _ = p.ReadString()
+	c.player.Password, _ = p.ReadString()
+	LogInfo.Printf("Registered Player{idx:%v,ip:'%v'username:'%v',password:'%v',reconnecting:%v,version:%v}\n", c.index, c.ip, c.player.Username, c.player.Password, recon, version)
 	c.sendLoginResponse(0)
 }

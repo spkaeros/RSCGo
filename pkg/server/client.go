@@ -1,8 +1,8 @@
 package server
 
 import (
+	"fmt"
 	"net"
-	"strconv"
 	"strings"
 
 	"bitbucket.org/zlacki/rscgo/pkg/entity"
@@ -101,5 +101,5 @@ func NewClient(socket net.Conn) *Client {
 
 //String Returns a string populated with some of the more identifying fields from the receiver Client.
 func (c *Client) String() string {
-	return "{idx:'" + strconv.Itoa(c.index) + "', ip:'" + c.ip + "'};"
+	return fmt.Sprintf("Client{ username:'%v', idx:'%v', ip:'%v' }", c.player.Username, c.index, c.ip)
 }

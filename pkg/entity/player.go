@@ -5,6 +5,8 @@ type Player struct {
 	location  Location
 	state     MobState
 	direction Direction
+	Username  string
+	Password  string
 }
 
 //Location Returns the location of the player
