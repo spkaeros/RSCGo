@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"os"
@@ -12,13 +11,18 @@ import (
 )
 
 var (
-	listener      net.Listener
-	LogWarning    = log.New(os.Stdout, "[WARNING] ", log.Ltime|log.Lshortfile)
-	LogInfo       = log.New(os.Stdout, "[INFO] ", log.Ltime|log.Lshortfile)
-	LogError      = log.New(os.Stderr, "[ERROR] ", log.Ltime|log.Lshortfile)
-	syncTicker    = time.NewTicker(time.Millisecond * 600)
-	kill          = make(chan struct{})
-	Version       = -1
+	listener net.Listener
+	//LogWarning Log interface for warnings.
+	LogWarning = log.New(os.Stdout, "[WARNING] ", log.Ltime|log.Lshortfile)
+	//LogInfo Log interface for debug information.
+	LogInfo = log.New(os.Stdout, "[INFO] ", log.Ltime|log.Lshortfile)
+	//LogError Log interface for errors.
+	LogError   = log.New(os.Stderr, "[ERROR] ", log.Ltime|log.Lshortfile)
+	syncTicker = time.NewTicker(time.Millisecond * 600)
+	kill       = make(chan struct{})
+	//Version Client version.
+	Version = -1
+	//DataDirectory The directory for data files to be read from.  This should be expanded by the CLI flag parser.
 	DataDirectory = "."
 )
 
@@ -26,6 +30,7 @@ func init() {
 
 }
 
+//Flags This is used to interface with the go-flags package from some guy on github.
 var Flags struct {
 	Verbose   []bool `short:"v" long:"verbose" description:"Display more verbose output"`
 	Port      int    `short:"p" long:"port" description:"The port for the server to listen on," default:"43591"`
@@ -74,12 +79,6 @@ func startConnectionService() {
 
 }
 
-func LogDebug(lvl int, s string, args ...interface{}) {
-	if len(Flags.Verbose) > lvl {
-		LogInfo.Printf(s, args...)
-	}
-}
-
 //Start Listens for and processes new clients connecting to the server.
 // This method blocks while the server is running.
 func Start() {
@@ -118,14 +117,9 @@ func Start() {
 func startSynchronizedTaskService() {
 	go func() {
 		for range syncTicker.C {
-			for _, c := range ActiveClients.clients {
+			for _, c := range ActiveClients.values {
 				if c, ok := c.(*Client); ok {
-					p := packets.NewOutgoingPacket(145)
-					p.AddBits(220, 11)
-					p.AddBits(445, 13)
-					p.AddBits(0, 4)
-					p.AddBits(0, 8)
-					c.WritePacket(p)
+					c.WritePacket(packets.PlayerPositions(c.player.Location().X(), c.player.Location().Y(), int(c.player.Direction())))
 					// TODO: Update movement, update client-side collections
 				}
 			}
@@ -135,9 +129,9 @@ func startSynchronizedTaskService() {
 
 //Stop This will stop the server instance, if it is running.
 func Stop() {
-	LogDebug(0, "Clearing active Client list...")
+	LogInfo.Printf("Clearing active Client list...")
 	ActiveClients.Clear()
-	LogDebug(0, "done\n")
-	fmt.Println("Stopping server...")
+	LogInfo.Println("done")
+	LogInfo.Println("Stopping server...")
 	kill <- struct{}{}
 }

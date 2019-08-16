@@ -10,12 +10,15 @@ import (
 	rscrand "bitbucket.org/zlacki/rscgo/pkg/rand"
 )
 
+//RsaKey The RSA key for use in decoding the login packet
 var RsaKey *rsa.PrivateKey
 
+//IsaacSeed Container struct for 2 instances of the ISAAC+ CSPRNG, one for incoming data, the other outgoing data.
 type IsaacSeed struct {
 	encoder, decoder *isaac.ISAAC
 }
 
+//ReadRSAKeyFile Read the RSA key from the file specified, within the DataDirectory.
 func ReadRSAKeyFile(file string) {
 	buf, err := ioutil.ReadFile(DataDirectory + string(os.PathSeparator) + file)
 	if err != nil {
@@ -30,6 +33,7 @@ func ReadRSAKeyFile(file string) {
 	RsaKey = key.(*rsa.PrivateKey)
 }
 
+//SeedISAAC Initialize the ISAAC+ PRNG for use as a stream cipher for this client.
 func (c *Client) SeedISAAC(seed []uint32) *IsaacSeed {
 	if seed[2] != c.isaacSeed[2] || seed[3] != c.isaacSeed[3] {
 		LogWarning.Printf("Session encryption key for command cipher received from client doesn't match the one we supplied it.\n")

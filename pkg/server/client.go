@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 )
 
+//Client Represents a single connecting player.
 type Client struct {
 	isaacSeed   []uint32
 	isaacStream *IsaacSeed
@@ -22,6 +22,16 @@ type Client struct {
 	socket      net.Conn
 	packetQueue chan *packets.Packet
 	buffer      []byte
+}
+
+//Index Returns the clients index.
+func (c *Client) Index() int {
+	return c.index
+}
+
+//SetIndex Sets the clients index
+func (c *Client) SetIndex(i int) {
+	c.index = i
 }
 
 //StartReader Creates a new goroutine to handle all incoming network events for the receiver Client.
@@ -39,8 +49,8 @@ func (c *Client) StartReader() {
 						if err.Closed || err.Ping {
 							return
 						}
-						LogDebug(0, "Rejected Packet from: '%s'\n", c.ip)
-						fmt.Println(err)
+						LogWarning.Printf("Rejected Packet from: '%s'\n", c.ip)
+						LogWarning.Println(err)
 					}
 					continue
 				}
@@ -54,7 +64,7 @@ func (c *Client) StartReader() {
 		defer func() {
 			if err := c.socket.Close(); err != nil {
 				// This shouldn't reasonably happen.
-				fmt.Println("WARNING: Error closing socket!", err)
+				LogError.Println("Error closing socket", err)
 			}
 			ActiveClients.Remove(c.index)
 		}()
@@ -78,11 +88,11 @@ func (c *Client) sendLoginResponse(i byte) {
 	if i != 0 {
 		c.kill <- struct{}{}
 	} else {
-		c.WritePacket(packets.PlayerInfo(c.index, 0))
+		c.WritePacket(packets.PlayerInfo(c.index, (c.player.Location().Y()+100)/1000))
 	}
 }
 
-//NewClient Creates a new instance of a Client, registers it with the global ClientList, and returns it.
+//NewClient Creates a new instance of a Client, registers it with the global List, and returns it.
 func NewClient(socket net.Conn) *Client {
 	c := &Client{socket: socket, isaacSeed: make([]uint32, 4), packetQueue: make(chan *packets.Packet, 1), ip: strings.Split(socket.RemoteAddr().String(), ":")[0], index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer(), buffer: make([]byte, 5000)}
 	c.StartReader()
