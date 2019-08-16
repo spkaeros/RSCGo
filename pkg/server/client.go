@@ -78,16 +78,7 @@ func (c *Client) sendLoginResponse(i byte) {
 	if i != 0 {
 		c.kill <- struct{}{}
 	} else {
-		playerInfo := packets.NewOutgoingPacket(131)
-		playerInfo.AddShort(uint16(c.index))
-		playerInfo.AddShort(2304)
-		playerInfo.AddShort(1776)
-
-		// getY + 100 / 1000
-		playerInfo.AddShort(0)
-
-		playerInfo.AddShort(944)
-		c.WritePacket(playerInfo)
+		c.WritePacket(packets.PlayerInfo(c.index, 0))
 	}
 }
 

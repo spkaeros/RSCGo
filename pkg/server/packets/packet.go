@@ -141,6 +141,7 @@ var bitmasks = []int32{0, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff, 0x1ff, 0x3
 	0x1ffffff, 0x3ffffff, 0x7ffffff, 0xfffffff, 0x1fffffff, 0x3fffffff, 0x7fffffff, -1}
 var bitPosition = 0
 
+//AddBits Packs value into the numBits next bits of the packets byte buffer.
 func (p *Packet) AddBits(value int, numBits int) *Packet {
 	bytePos := (p.bitPosition >> 3) + 3
 	bitOffset := 8 - (p.bitPosition & 7)

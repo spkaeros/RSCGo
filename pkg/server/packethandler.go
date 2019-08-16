@@ -10,7 +10,7 @@ var Handlers = make(map[byte]func(*Client, *packets.Packet))
 func (c *Client) HandlePacket(p *packets.Packet) {
 	handler, ok := Handlers[p.Opcode]
 	if !ok {
-		LogInfo.Printf("Unhandled Packet: {opcode:%d; length:%d};\n", p.Opcode, len(p.Payload)-2)
+		LogInfo.Printf("Unhandled Packet: {opcode:%d; length:%d};\n", p.Opcode, len(p.Payload))
 		return
 	}
 	handler(c, p)

@@ -14,7 +14,7 @@ func init() {
 	if _, err := flags.Parse(&server.Flags); err != nil {
 		os.Exit(100)
 	}
-	if server.Flags.Port >= 65535 || server.Flags.Port <= 0 {
+	if server.Flags.Port > 65535 || server.Flags.Port <= 0 {
 		fmt.Println("WARNING: Invalid port number specified.  Valid port numbers are between 0 and 65535.")
 		fmt.Println("Setting back to default: `43591`")
 		server.Flags.Port = 43591
