@@ -4,10 +4,6 @@ package entity
 type Direction uint8
 
 const (
-	//MaxX Width of the game
-	MaxX = 944
-	//MaxY Height of the game
-	MaxY = 3776
 	//North Represents north.
 	North Direction = iota
 	//NorthWest Represents north-west.
@@ -24,6 +20,10 @@ const (
 	East
 	//NorthEast Represents north-east.
 	NorthEast
+	//MaxX Width of the game
+	MaxX = 944
+	//MaxY Height of the game
+	MaxY = 3776
 )
 
 //Location A tile in the game world.

@@ -2,7 +2,7 @@ package packets
 
 import "time"
 
-var epoch = uint64(time.Now().Unix())
+var epoch = uint64(time.Now().UnixNano() / int64(time.Millisecond))
 
 func ServerMessage(msg string) (p *Packet) {
 	p = NewOutgoingPacket(48)
@@ -12,7 +12,7 @@ func ServerMessage(msg string) (p *Packet) {
 
 func TeleBubble(offsetX, offsetY int) (p *Packet) {
 	p = NewOutgoingPacket(23)
-	p.AddByte(0) // type proly
+	p.AddByte(0) // type, 0 is mobs, 1 is stationary entities, e.g telegrab
 	p.AddByte(uint8(offsetX))
 	p.AddByte(uint8(offsetY))
 	return
@@ -23,7 +23,7 @@ func ServerInfo(onlineCount int) (p *Packet) {
 	p.AddLong(epoch)
 	p.AddInt(1337)
 	p.AddShort(uint16(onlineCount))
-	p.AddBytes([]byte("United States of America"))
+	p.AddBytes([]byte("USA"))
 	return p
 }
 
@@ -54,6 +54,8 @@ func BigInformationBox(msg string) (p *Packet) {
 
 func PlayerPositions(x, y, direction int) (p *Packet) {
 	p = NewOutgoingPacket(145)
+	// Note: X coords can be held in 10 bits and Y can be held in 12 bits
+	//  Presumably, Jagex used 11 and 13 to evenly fill 3 bytes of data?
 	p.AddBits(x, 11)
 	p.AddBits(y, 13)
 	p.AddBits(direction, 4)

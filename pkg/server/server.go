@@ -111,7 +111,7 @@ func Start() {
 	}
 }
 
-//startSynchronizedTaskService Launches a goroutine to handle updating the state of the server every 600ms in a
+//startSynchronizedTaskService Launches a goroutine to handle updating the state of the server every 650ms in a
 // synchronized fashion.  This is known as a single game engine 'pulse'.  All mobile entities must have their position
 // updated during this pulse to be compatible with Jagex RSClassic Client software.
 // TODO: Can movement be handled concurrently per-player safely on the Jagex Client? Mob movement might not look right.
