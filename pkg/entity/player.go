@@ -37,9 +37,6 @@ func (p *Player) TraversePath() {
 		return
 	}
 	path := p.Path
-	if path.CurrentWaypoint == -1 && p.AtLocation(path.Start()) {
-		path.CurrentWaypoint = 0
-	}
 	if p.AtLocation(path.Waypoint(path.CurrentWaypoint)) {
 		path.CurrentWaypoint++
 	}
