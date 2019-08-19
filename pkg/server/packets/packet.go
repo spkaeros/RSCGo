@@ -99,6 +99,18 @@ func (p *Packet) ReadByte() (byte, error) {
 	return p.Payload[p.readIndex] & 0xFF, nil
 }
 
+//ReadByte Read the next 8-bit integer from the packet payload.
+func (p *Packet) ReadSByte() (int8, error) {
+	if p.readIndex+1 > len(p.Payload) {
+		LogWarning.Printf("WARNING: Tried to read data from empty packet in a byte!  Rewinding offset...")
+		return int8(0), errors.BufferOverflow
+	}
+	defer func() {
+		p.readIndex++
+	}()
+	return int8(p.Payload[p.readIndex]), nil
+}
+
 //ReadString Read the next variable-length C-string from the packet payload and return it as a Go-string.
 //  This will keep reading data until it reaches a null-byte ( '\0', 0xA, 10 ).
 func (p *Packet) ReadString() (val string, err error) {

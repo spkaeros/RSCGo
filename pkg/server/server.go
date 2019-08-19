@@ -19,7 +19,7 @@ var (
 	LogInfo = log.New(os.Stdout, "[INFO] ", log.Ltime|log.Lshortfile)
 	//LogError Log interface for errors.
 	LogError   = log.New(os.Stderr, "[ERROR] ", log.Ltime|log.Lshortfile)
-	syncTicker = time.NewTicker(time.Millisecond * 600)
+	syncTicker = time.NewTicker(time.Millisecond * 650)
 	kill       = make(chan struct{})
 	//Version Client version.
 	Version = -1
@@ -120,6 +120,9 @@ func startSynchronizedTaskService() {
 		for range syncTicker.C {
 			for _, c := range ActiveClients.values {
 				if c, ok := c.(*Client); ok {
+					if c.player.Path != nil {
+						c.player.TraversePath()
+					}
 					c.WritePacket(packets.PlayerPositions(c.player.Location().X(), c.player.Location().Y(), int(c.player.Direction())))
 					c.WritePacket(packets.PlayerAppearances(c.index, strutil.Base37(c.player.Username)))
 					// TODO: Update movement, update client-side collections

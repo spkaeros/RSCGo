@@ -1,12 +1,13 @@
 package rand
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/isaac"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	nrand "math/rand"
+
+	"bitbucket.org/zlacki/rscgo/pkg/isaac"
 )
 
 var rscRand *nrand.Rand

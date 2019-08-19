@@ -89,6 +89,9 @@ func (c *Client) sendLoginResponse(i byte) {
 		c.kill <- struct{}{}
 	} else {
 		c.WritePacket(packets.PlayerInfo(c.index, (c.player.Location().Y()+100)/1000))
+		c.WritePacket(packets.ServerMessage("Welcome to RuneScape."))
+		c.WritePacket(packets.ServerInfo(ActiveClients.Size()))
+		c.WritePacket(packets.LoginBox(0, c.ip))
 	}
 }
 

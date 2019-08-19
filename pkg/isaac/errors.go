@@ -1,6 +1,6 @@
 package isaac
 
-type isaacError struct{
+type isaacError struct {
 	msg string
 }
 
