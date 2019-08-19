@@ -5,8 +5,10 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
+	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 )
@@ -118,16 +120,41 @@ func Start() {
 func startSynchronizedTaskService() {
 	go func() {
 		for range syncTicker.C {
+			// Loop once to actually move the mobs
+			var wg sync.WaitGroup
+			wg.Add(ActiveClients.Size())
 			for _, c := range ActiveClients.values {
 				if c, ok := c.(*Client); ok {
-					if c.player.Path != nil {
-						c.player.TraversePath()
-					}
-					c.WritePacket(packets.PlayerPositions(c.player.Location().X(), c.player.Location().Y(), int(c.player.Direction())))
-					c.WritePacket(packets.PlayerAppearances(c.index, strutil.Base37(c.player.Username)))
-					// TODO: Update movement, update client-side collections
+					go func() {
+						if c.player.Path != nil {
+							c.player.TraversePath()
+						}
+						wg.Done()
+					}()
 				}
 			}
+			wg.Wait()
+			// Loop again to update the clients about what the mobs have been up to in the prior loop.
+			wg.Add(ActiveClients.Size())
+			for _, c := range ActiveClients.values {
+				if c, ok := c.(*Client); ok {
+					go func() {
+						var localPlayers []*entity.Player
+						for _, r := range entity.SurroundingRegions(c.player.X(), c.player.Y()) {
+							for _, p := range r.Players {
+								if strutil.Base37(p.Username) != strutil.Base37(c.player.Username) {
+									localPlayers = append(localPlayers, p)
+								}
+							}
+						}
+						c.WritePacket(packets.PlayerPositions(c.player, localPlayers))
+						c.WritePacket(packets.PlayerAppearances(c.index, strutil.Base37(c.player.Username)))
+						// TODO: Update movement, update client-side collections
+						wg.Done()
+					}()
+				}
+			}
+			wg.Wait()
 		}
 	}()
 }

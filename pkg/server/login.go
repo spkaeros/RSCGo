@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 )
@@ -9,6 +10,7 @@ func init() {
 	Handlers[32] = sessionRequest
 	Handlers[0] = loginRequest
 	Handlers[145] = func(c *Client, p *packets.Packet) {
+		entity.GetRegion(c.player.X(), c.player.Y()).RemovePlayer(c.player)
 		c.WritePacket(packets.NewOutgoingPacket(222))
 		c.kill <- struct{}{}
 	}
@@ -46,6 +48,8 @@ func loginRequest(c *Client, p *packets.Packet) {
 	c.player.Username, _ = p.ReadString()
 	c.player.Username = strutil.DecodeBase37(strutil.Base37(c.player.Username))
 	c.player.Password, _ = p.ReadString()
+	c.player.SetCoords(220, 445)
+	c.player.Index = c.index
 	LogInfo.Printf("Registered Player{idx:%v,ip:'%v'username:'%v',password:'%v',reconnecting:%v,version:%v}\n", c.index, c.ip, c.player.Username, c.player.Password, recon, version)
 	c.sendLoginResponse(0)
 }

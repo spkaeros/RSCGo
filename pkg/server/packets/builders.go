@@ -1,6 +1,10 @@
 package packets
 
-import "time"
+import (
+	"time"
+
+	"bitbucket.org/zlacki/rscgo/pkg/entity"
+)
 
 var epoch = uint64(time.Now().UnixNano() / int64(time.Millisecond))
 
@@ -52,14 +56,29 @@ func BigInformationBox(msg string) (p *Packet) {
 	return p
 }
 
-func PlayerPositions(x, y, direction int) (p *Packet) {
+func PlayerPositions(player *entity.Player, local []*entity.Player) (p *Packet) {
 	p = NewOutgoingPacket(145)
 	// Note: X coords can be held in 10 bits and Y can be held in 12 bits
 	//  Presumably, Jagex used 11 and 13 to evenly fill 3 bytes of data?
-	p.AddBits(x, 11)
-	p.AddBits(y, 13)
-	p.AddBits(direction, 4)
+	p.AddBits(player.X(), 11)
+	p.AddBits(player.Y(), 13)
+	p.AddBits(int(player.Direction()), 4)
 	p.AddBits(0, 8)
+	for _, p1 := range local {
+		p.AddBits(p1.Index, 11)
+		offsetX := (p1.X() - player.X())
+		if offsetX < 0 {
+			offsetX += 32
+		}
+		offsetY := (p1.Y() - player.Y())
+		if offsetY < 0 {
+			offsetY += 32
+		}
+		p.AddBits(offsetX, 5)
+		p.AddBits(offsetY, 5)
+		p.AddBits(int(p1.Direction()), 4)
+		p.AddBits(0, 1)
+	}
 	return
 }
 

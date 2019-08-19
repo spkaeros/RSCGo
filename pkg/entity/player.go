@@ -1,5 +1,9 @@
 package entity
 
+import (
+	"bitbucket.org/zlacki/rscgo/pkg/strutil"
+)
+
 //Player Represents a single player.
 type Player struct {
 	location  *Location
@@ -7,6 +11,7 @@ type Player struct {
 	direction Direction
 	Username  string
 	Password  string
+	Index     int
 	Path      *Pathway
 }
 
@@ -73,13 +78,16 @@ func (p *Player) UpdateDirection(destX, destY int) {
 
 //SetLocation Sets the players location.
 func (p *Player) SetLocation(location *Location) {
-	p.UpdateDirection(location.X(), location.Y())
-	p.location.x = location.x
-	p.location.y = location.y
+	p.SetCoords(location.x, location.y)
 }
 
 //SetCoords Sets the players locations coordinates.
 func (p *Player) SetCoords(x, y int) {
+	curArea := GetRegion(p.X(), p.Y())
+	if _, ok := curArea.Players[strutil.Base37(p.Username)]; ok {
+		curArea.RemovePlayer(p)
+	}
+	GetRegion(x, y).AddPlayer(p)
 	p.UpdateDirection(x, y)
 	p.location.x = x
 	p.location.y = y
