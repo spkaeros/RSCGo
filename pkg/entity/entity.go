@@ -26,18 +26,6 @@ const (
 	MaxY = 3776
 )
 
-var mobSprites = [][]int{{3, 2, 1}, {4, -1, 0}, {5, 6, 7}}
-
-func (p *Player) UpdateDirection(destX, destY int) {
-	xIndex := p.X() - destX + 1
-	yIndex := p.Y() - destY + 1
-	if xIndex >= 0 && yIndex >= 0 && xIndex < 3 && yIndex < 3 {
-		p.direction = Direction(mobSprites[xIndex][yIndex])
-	} else {
-		p.direction = 0
-	}
-}
-
 //Location A tile in the game world.
 type Location struct {
 	x, y int

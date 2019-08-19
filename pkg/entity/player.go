@@ -10,100 +10,50 @@ type Player struct {
 	Path      *Pathway
 }
 
-type Pathway struct {
-	StartX, StartY  int
-	WaypointsX      []int
-	WaypointsY      []int
-	CurrentWaypoint int
-}
-
-func (p *Pathway) WaypointXoffset(w int) int {
-	if w >= len(p.WaypointsX) || w == -1 {
-		return 0
-	}
-	return p.WaypointsX[w]
-}
-
-func (p *Pathway) WaypointX(w int) int {
-	return p.StartX + p.WaypointXoffset(w)
-}
-
-func (p *Pathway) WaypointYoffset(w int) int {
-	if w >= len(p.WaypointsY) || w == -1 {
-		return 0
-	}
-	return p.WaypointsY[w]
-}
-
-func (p *Pathway) WaypointY(w int) int {
-	return p.StartY + p.WaypointYoffset(w)
-}
-
-func (p *Pathway) NextTile(startX, startY int) (nextCoords [2]int) {
-	destX := p.WaypointX(p.CurrentWaypoint)
-	destY := p.WaypointY(p.CurrentWaypoint)
-	nextCoords = [2]int{-1, -1}
-	if startX > destX {
-		nextCoords[0] = startX - 1
-	} else if startX < destX {
-		nextCoords[0] = startX + 1
-	} else {
-		nextCoords[0] = destX
-	}
-	if startY > destY {
-		nextCoords[1] = startY - 1
-	} else if startY < destY {
-		nextCoords[1] = startY + 1
-	} else {
-		nextCoords[1] = destY
-	}
-	return nextCoords
-}
-
+//X Shortcut for Location().X()
 func (p *Player) X() int {
 	return p.location.x
 }
 
+//Y Shortcut for Location().Y()
 func (p *Player) Y() int {
 	return p.location.y
 }
 
+//SetX Shortcut for Location().SetX(int)
 func (p *Player) SetX(x int) {
 	p.location.x = x
 }
 
+//SetY Shortcut for Location().SetY(int)
 func (p *Player) SetY(y int) {
 	p.location.y = y
 }
 
+//TraversePath If the player has a path, calling this method will change the players location to the next location
+//  described by said Path data structure.  This should be called no more than once per game tick.
 func (p *Player) TraversePath() {
-	if p.Path.CurrentWaypoint == -1 {
-		if p.Path.StartX == p.X() && p.Path.StartY == p.Y() {
-			p.Path.CurrentWaypoint = 0
-		} else {
-			nextCoords := p.Path.NextTile(p.X(), p.Y())
-			if nextCoords[0] != -1 && nextCoords[1] != -1 {
-				p.UpdateDirection(nextCoords[0], nextCoords[1])
-				p.SetX(nextCoords[0])
-				p.SetY(nextCoords[1])
-			}
-		}
+	if p == nil || p.Path == nil {
+		return
 	}
-	if p.Path.CurrentWaypoint > -1 {
-		if p.X() == p.Path.WaypointX(p.Path.CurrentWaypoint) && p.Y() == p.Path.WaypointY(p.Path.CurrentWaypoint) {
-			p.Path.CurrentWaypoint++
-		}
-		if p.Path.CurrentWaypoint < len(p.Path.WaypointsX) {
-			nextCoords := p.Path.NextTile(p.X(), p.Y())
-			if nextCoords[0] != -1 && nextCoords[1] != -1 {
-				p.UpdateDirection(nextCoords[0], nextCoords[1])
-				p.SetX(nextCoords[0])
-				p.SetY(nextCoords[1])
-			}
-		} else {
-			p.Path = nil
-		}
+	path := p.Path
+	if path.CurrentWaypoint == -1 && p.AtLocation(path.Start()) {
+		path.CurrentWaypoint = 0
 	}
+	if p.AtLocation(path.Waypoint(path.CurrentWaypoint)) {
+		path.CurrentWaypoint++
+	}
+	newLocation := path.NextTile(p.X(), p.Y())
+	if path.CurrentWaypoint >= len(path.WaypointsX) || newLocation.x == -1 || newLocation.y == -1 {
+		p.ClearPath()
+		return
+	}
+	p.SetLocation(newLocation)
+}
+
+//ClearPath Sets the players path to nil, to stop the traversal of the path instantly
+func (p *Player) ClearPath() {
+	p.Path = nil
 }
 
 //Location Returns the location of the player
@@ -111,9 +61,41 @@ func (p *Player) Location() *Location {
 	return p.location
 }
 
+//UpdateDirection Updates the direction the player is facing based on where the player is trying to move, and
+// where the player is currently at.
+func (p *Player) UpdateDirection(destX, destY int) {
+	sprites := [3][3]int{{3, 2, 1}, {4, -1, 0}, {5, 6, 7}}
+	xIndex := p.X() - destX + 1
+	yIndex := p.Y() - destY + 1
+	if xIndex >= 0 && yIndex >= 0 && xIndex < 3 && yIndex < 3 {
+		p.direction = Direction(sprites[xIndex][yIndex])
+	} else {
+		p.direction = 0
+	}
+}
+
 //SetLocation Sets the players location.
 func (p *Player) SetLocation(location *Location) {
-	p.location = location
+	p.UpdateDirection(location.X(), location.Y())
+	p.location.x = location.x
+	p.location.y = location.y
+}
+
+//SetCoords Sets the players locations coordinates.
+func (p *Player) SetCoords(x, y int) {
+	p.UpdateDirection(x, y)
+	p.location.x = x
+	p.location.y = y
+}
+
+//AtLocation Returns true if the player is at the specified location, otherwise returns false
+func (p *Player) AtLocation(location *Location) bool {
+	return p.AtCoords(location.X(), location.Y())
+}
+
+//AtCoords Returns true if the player is at the specified coordinates, otherwise returns false
+func (p *Player) AtCoords(x, y int) bool {
+	return p.X() == x && p.Y() == y
 }
 
 //State Returns the players state.
