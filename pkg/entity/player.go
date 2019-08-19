@@ -83,6 +83,7 @@ func (p *Player) TraversePath() {
 		} else {
 			nextCoords := p.Path.NextTile(p.X(), p.Y())
 			if nextCoords[0] != -1 && nextCoords[1] != -1 {
+				p.UpdateDirection(nextCoords[0], nextCoords[1])
 				p.SetX(nextCoords[0])
 				p.SetY(nextCoords[1])
 			}
@@ -95,6 +96,7 @@ func (p *Player) TraversePath() {
 		if p.Path.CurrentWaypoint < len(p.Path.WaypointsX) {
 			nextCoords := p.Path.NextTile(p.X(), p.Y())
 			if nextCoords[0] != -1 && nextCoords[1] != -1 {
+				p.UpdateDirection(nextCoords[0], nextCoords[1])
 				p.SetX(nextCoords[0])
 				p.SetY(nextCoords[1])
 			}
