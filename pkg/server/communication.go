@@ -68,13 +68,13 @@ func teleport(c *Client, args []string) {
 	}
 	newLocation := entity.NewLocation(x, y)
 	LogInfo.Printf("Teleporting %v from %v to %v\n", c.player.Username, c.player.Location(), newLocation)
-	c.player.SetLocation(newLocation)
 	c.outgoingPackets <- packets.TeleBubble(0, 0)
 	for _, p1 := range c.player.NearbyPlayers() {
-		diffX := p1.X() - c.player.X()
-		diffY := p1.Y() - c.player.Y()
+		diffX := c.player.X() - p1.X()
+		diffY := c.player.Y() - p1.Y()
 		if c1, ok := ClientList.Get(p1.Index).(*Client); c1 != nil && ok {
 			c1.outgoingPackets <- packets.TeleBubble(diffX, diffY)
 		}
 	}
+	c.player.SetLocation(newLocation)
 }
