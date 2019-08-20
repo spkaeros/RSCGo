@@ -28,29 +28,8 @@ func init() {
 			}
 		}
 	}
-	CommandHandlers["tele"] = func(c *Client, args []string) {
-		if len(args) < 2 {
-			c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /tele <x> <y>")
-			return
-		}
-		x, _ := strconv.Atoi(args[0])
-		y, _ := strconv.Atoi(args[1])
-		if x >= entity.MaxX || y >= entity.MaxY || x < 0 || y < 0 {
-			c.outgoingPackets <- packets.ServerMessage(fmt.Sprintf("@que@Invalid coordinates.  Must be between 0,0 and %v,%v", entity.MaxX, entity.MaxY))
-			return
-		}
-		newLocation := entity.NewLocation(x, y)
-		LogInfo.Printf("Teleporting %v from %v to %v\n", c.player.Username, c.player.Location(), newLocation)
-		c.player.SetLocation(newLocation)
-		c.outgoingPackets <- packets.TeleBubble(0, 0)
-		for _, p1 := range c.player.NearbyPlayers() {
-			diffX := p1.X() - c.player.X()
-			diffY := p1.Y() - c.player.Y()
-			if c1, ok := ClientList.Get(p1.Index).(*Client); c1 != nil && ok {
-				c1.outgoingPackets <- packets.TeleBubble(diffX, diffY)
-			}
-		}
-	}
+	CommandHandlers["tele"] = teleport
+	CommandHandlers["teleport"] = teleport
 	CommandHandlers["death"] = func(c *Client, args []string) {
 		c.outgoingPackets <- packets.Death
 	}
@@ -73,5 +52,29 @@ func init() {
 		}
 		LogInfo.Printf("[COMMAND] %v: /%v\n", c.player.Username, string(p.Payload))
 		handler(c, args[1:])
+	}
+}
+
+func teleport(c *Client, args []string) {
+	if len(args) < 2 {
+		c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /tele <x> <y>")
+		return
+	}
+	x, _ := strconv.Atoi(args[0])
+	y, _ := strconv.Atoi(args[1])
+	if x >= entity.MaxX || y >= entity.MaxY || x < 0 || y < 0 {
+		c.outgoingPackets <- packets.ServerMessage(fmt.Sprintf("@que@Invalid coordinates.  Must be between 0,0 and %v,%v", entity.MaxX, entity.MaxY))
+		return
+	}
+	newLocation := entity.NewLocation(x, y)
+	LogInfo.Printf("Teleporting %v from %v to %v\n", c.player.Username, c.player.Location(), newLocation)
+	c.player.SetLocation(newLocation)
+	c.outgoingPackets <- packets.TeleBubble(0, 0)
+	for _, p1 := range c.player.NearbyPlayers() {
+		diffX := p1.X() - c.player.X()
+		diffY := p1.Y() - c.player.Y()
+		if c1, ok := ClientList.Get(p1.Index).(*Client); c1 != nil && ok {
+			c1.outgoingPackets <- packets.TeleBubble(diffX, diffY)
+		}
 	}
 }
