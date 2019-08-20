@@ -11,7 +11,7 @@ func init() {
 	Handlers[0] = loginRequest
 	Handlers[145] = func(c *Client, p *packets.Packet) {
 		entity.GetRegion(c.player.X(), c.player.Y()).RemovePlayer(c.player)
-		c.WritePacket(packets.NewOutgoingPacket(222))
+		c.WritePacket(packets.Logout)
 		c.kill <- struct{}{}
 	}
 }

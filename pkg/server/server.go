@@ -143,7 +143,7 @@ func startSynchronizedTaskService() {
 						var localPlayers []*entity.Player
 						for _, r := range entity.SurroundingRegions(c.player.X(), c.player.Y()) {
 							for _, p := range r.Players {
-								if p.Index != c.index {
+								if p.Index != c.index && abs(c.player.X()-p.X()) <= 15 && abs(c.player.Y()-p.Y()) <= 15 {
 									localPlayers = append(localPlayers, p)
 								}
 							}
@@ -166,4 +166,12 @@ func Stop() {
 	LogInfo.Println("done")
 	LogInfo.Println("Stopping server...")
 	kill <- struct{}{}
+}
+
+//Abs returns the absolute value of x.
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
