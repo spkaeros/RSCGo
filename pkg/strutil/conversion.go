@@ -5,8 +5,8 @@ import (
 	"unicode"
 )
 
-//MaxBase37 Max username hash for 12-rune usernames.
-const MaxBase37 = 6582952005840035281
+//maxBase37 Max username hash for 12-rune usernames.
+const maxBase37 = 6582952005840035281
 
 // Presumably this charset is optimized to be in order of most-used in the English language.
 // Not sure how Jagex came up with this arrangement, along with their interesting bit-packing methods involved here
@@ -63,7 +63,7 @@ func ModalParse(s string) []string {
 
 //DecodeBase37 Takes a long integer for input, decodes from base37 and returns it as a string.
 func DecodeBase37(l uint64) string {
-	if l < 0 || l >= MaxBase37 {
+	if l < 0 || l >= maxBase37 {
 		return "invalid_name"
 	}
 	var s string
@@ -112,7 +112,7 @@ func Base37(s string) uint64 {
 		} else if c >= '0' && c <= '9' {
 			l += 27 + uint64(c) - 48
 		}
-		if l >= MaxBase37 {
+		if l >= maxBase37 {
 			return 0xDEADBEEF
 		}
 	}

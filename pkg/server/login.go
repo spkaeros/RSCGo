@@ -10,8 +10,7 @@ func init() {
 	Handlers[32] = sessionRequest
 	Handlers[0] = loginRequest
 	Handlers[145] = func(c *Client, p *packets.Packet) {
-		entity.GetRegion(c.player.X(), c.player.Y()).RemovePlayer(c.player)
-		c.WritePacket(packets.Logout)
+		c.outgoingPackets <- packets.Logout
 		c.kill <- struct{}{}
 	}
 }
@@ -21,7 +20,7 @@ func sessionRequest(c *Client, p *packets.Packet) {
 	seed := GenerateSessionID()
 	c.isaacSeed[2] = uint32(seed >> 32)
 	c.isaacSeed[3] = uint32(seed)
-	c.WritePacket(packets.NewBarePacket(nil).AddLong(seed))
+	c.outgoingPackets <- packets.NewBarePacket(nil).AddLong(seed)
 }
 
 func loginRequest(c *Client, p *packets.Packet) {

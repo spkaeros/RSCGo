@@ -25,10 +25,3 @@ const (
 	//Sleeping The mob is using a bed or sleeping bag, and trying to solve a CAPTCHA
 	Sleeping
 )
-
-//Mob Any data structure that represents a mobile Entity within the game world should be able to implement this
-type Mob interface {
-	// Returns the current MobState of this Mob
-	State() MobState
-	Entity
-}

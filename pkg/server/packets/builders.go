@@ -106,6 +106,11 @@ func PlayerAppearances(index int, userHash uint64) (p *Packet) {
 	return
 }
 
+//LoginResponse Builds a bare packet with the login response code.
+func LoginResponse(v int) *Packet {
+	return NewBarePacket([]byte{byte(v)})
+}
+
 //PlayerInfo Builds a packet to update information about the clients environment, e.g height, player index...
 func PlayerInfo(index int, height int) *Packet {
 	playerInfo := NewOutgoingPacket(131)

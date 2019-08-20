@@ -17,8 +17,7 @@ func (c *Client) Write(b []byte) int {
 	l, err := c.socket.Write(b)
 	if err != nil {
 		// TODO: Severe enough to kill the client?  More than likely, yes.
-		LogError.Printf("Could not write to client socket.\n")
-		LogError.Printf(err.Error())
+		LogError.Println("Could not write to client socket.", err)
 	}
 	if l != len(b) {
 		LogError.Printf("Wrong number of bytes written to Client socket.  Expected %d, got %d.\n", len(b), l)

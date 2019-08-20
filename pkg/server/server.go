@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"bitbucket.org/zlacki/rscgo/pkg/entity"
+	"bitbucket.org/zlacki/rscgo/pkg/list"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 )
@@ -27,11 +28,9 @@ var (
 	Version = -1
 	//DataDirectory The directory for data files to be read from.  This should be expanded by the CLI flag parser.
 	DataDirectory = "."
+	//ClientList List of active clients.
+	ClientList = list.New(2048)
 )
-
-func init() {
-
-}
 
 //Flags This is used to interface with the go-flags package from some guy on github.
 var Flags struct {
@@ -76,7 +75,10 @@ func startConnectionService() {
 			}
 
 			client := NewClient(socket)
-			ActiveClients.Add(client)
+			client.index = ClientList.Add(client)
+			if client.index == -1 {
+				LogWarning.Printf("Problem adding client to client list.  Current size:%d, max size:2048\n", ClientList.Size())
+			}
 		}
 	}()
 
@@ -85,23 +87,23 @@ func startConnectionService() {
 //Start Listens for and processes new clients connecting to the server.
 // This method blocks while the server is running.
 func Start() {
-	LogInfo.Printf("RSCGo starting up...")
+	LogInfo.Println("RSCGo starting up...")
 	if len(Flags.Verbose) > 0 {
 		LogInfo.Printf("Attempting to bind to network...")
 	}
 	bind(Flags.Port)
 	if len(Flags.Verbose) > 0 {
-		LogInfo.Printf("done")
+		LogInfo.Println("done")
 		LogInfo.Printf("Attempting to start connection service...")
 	}
 	startConnectionService()
 	if len(Flags.Verbose) > 0 {
-		LogInfo.Printf("done")
+		LogInfo.Println("done")
 		LogInfo.Printf("Attempting to start synchronized task service...")
 	}
 	startSynchronizedTaskService()
 	LogInfo.Printf("done\n\n")
-	LogInfo.Printf("RSCGo is now running.\n")
+	LogInfo.Println("RSCGo is now running.")
 	LogInfo.Printf("Listening on port %d...\n", Flags.Port)
 	// TODO: Probably need to handle certain signals, for usability sake.
 	// TODO: Implement some form of data store for static game data, e.g entity information, seldom-changed config
@@ -122,34 +124,32 @@ func startSynchronizedTaskService() {
 		for range syncTicker.C {
 			// Loop once to actually move the mobs
 			var wg sync.WaitGroup
-			wg.Add(ActiveClients.Size())
-			for _, c := range ActiveClients.values {
+			wg.Add(ClientList.Size())
+			for _, c := range ClientList.Values {
 				if c, ok := c.(*Client); ok {
 					go func() {
 						defer wg.Done()
-						if c.player.Path != nil {
-							c.player.TraversePath()
-						}
+						c.player.TraversePath()
 					}()
 				}
 			}
 			wg.Wait()
 			// Loop again to update the clients about what the mobs have been up to in the prior loop.
-			wg.Add(ActiveClients.Size())
-			for _, c := range ActiveClients.values {
+			wg.Add(ClientList.Size())
+			for _, c := range ClientList.Values {
 				if c, ok := c.(*Client); ok {
 					go func() {
 						defer wg.Done()
 						var localPlayers []*entity.Player
 						for _, r := range entity.SurroundingRegions(c.player.X(), c.player.Y()) {
 							for _, p := range r.Players {
-								if p.Index != c.index && abs(c.player.X()-p.X()) <= 15 && abs(c.player.Y()-p.Y()) <= 15 {
+								if p.Index != c.index && c.player.Location().LongestDelta(p.Location()) <= 15 {
 									localPlayers = append(localPlayers, p)
 								}
 							}
 						}
-						c.WritePacket(packets.PlayerPositions(c.player, localPlayers))
-						c.WritePacket(packets.PlayerAppearances(c.index, strutil.Base37(c.player.Username)))
+						c.outgoingPackets <- packets.PlayerPositions(c.player, localPlayers)
+						c.outgoingPackets <- packets.PlayerAppearances(c.index, strutil.Base37(c.player.Username))
 						// TODO: Update movement, update client-side collections
 					}()
 				}
@@ -161,17 +161,9 @@ func startSynchronizedTaskService() {
 
 //Stop This will stop the server instance, if it is running.
 func Stop() {
-	LogInfo.Printf("Clearing active Client list...")
-	ActiveClients.Clear()
+	LogInfo.Printf("Clearing client list...")
+	ClientList.Clear()
 	LogInfo.Println("done")
 	LogInfo.Println("Stopping server...")
 	kill <- struct{}{}
-}
-
-//Abs returns the absolute value of x.
-func abs(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
 }

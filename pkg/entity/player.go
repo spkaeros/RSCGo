@@ -13,22 +13,12 @@ type Player struct {
 
 //X Shortcut for Location().X()
 func (p *Player) X() int {
-	return p.location.x
+	return p.location.X
 }
 
 //Y Shortcut for Location().Y()
 func (p *Player) Y() int {
-	return p.location.y
-}
-
-//SetX Shortcut for Location().SetX(int)
-func (p *Player) SetX(x int) {
-	p.location.x = x
-}
-
-//SetY Shortcut for Location().SetY(int)
-func (p *Player) SetY(y int) {
-	p.location.y = y
+	return p.location.Y
 }
 
 //TraversePath If the player has a path, calling this method will change the players location to the next location
@@ -42,11 +32,23 @@ func (p *Player) TraversePath() {
 		path.CurrentWaypoint++
 	}
 	newLocation := path.NextTile(p.X(), p.Y())
-	if path.CurrentWaypoint >= len(path.WaypointsX) || newLocation.x == -1 || newLocation.y == -1 {
+	if path.CurrentWaypoint >= len(path.WaypointsX) || newLocation.X == -1 || newLocation.Y == -1 {
 		p.ClearPath()
 		return
 	}
 	p.SetLocation(newLocation)
+}
+
+func (p *Player) NearbyPlayers() (players []*Player) {
+	for _, r := range SurroundingRegions(p.X(), p.Y()) {
+		for _, p1 := range r.Players {
+			if p1.Index != p.Index && p.location.LongestDelta(p1.location) <= 15 {
+				players = append(players, p1)
+			}
+		}
+	}
+
+	return
 }
 
 //ClearPath Sets the players path to nil, to stop the traversal of the path instantly
@@ -74,7 +76,7 @@ func (p *Player) UpdateDirection(destX, destY int) {
 
 //SetLocation Sets the players location.
 func (p *Player) SetLocation(location *Location) {
-	p.SetCoords(location.x, location.y)
+	p.SetCoords(location.X, location.Y)
 }
 
 //SetCoords Sets the players locations coordinates.
@@ -88,18 +90,18 @@ func (p *Player) SetCoords(x, y int) {
 		newArea.AddPlayer(p)
 	}
 	p.UpdateDirection(x, y)
-	p.location.x = x
-	p.location.y = y
+	p.location.X = x
+	p.location.Y = y
 }
 
 //AtLocation Returns true if the player is at the specified location, otherwise returns false
 func (p *Player) AtLocation(location *Location) bool {
-	return p.AtCoords(location.X(), location.Y())
+	return p.AtCoords(location.X, location.Y)
 }
 
 //AtCoords Returns true if the player is at the specified coordinates, otherwise returns false
 func (p *Player) AtCoords(x, y int) bool {
-	return p.X() == x && p.Y() == y
+	return p.location.X == x && p.location.Y == y
 }
 
 //State Returns the players state.
@@ -122,7 +124,7 @@ func (p *Player) SetDirection(direction Direction) {
 	p.direction = direction
 }
 
-//NewPlayer Returns a new player.
+//NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
-	return &Player{location: &Location{220, 445}, direction: North, state: Idle}
+	return &Player{location: &Location{0, 0}, direction: North, state: Idle}
 }

@@ -51,7 +51,7 @@ func (p *Packet) ReadLong() (val uint64, err error) {
 	for i := 7; i >= 0; i-- {
 		b, err := p.ReadByte()
 		if err == errors.BufferOverflow {
-			LogWarning.Printf("WARNING: Tried to read data from empty packet in a long!  Rewinding offset...")
+			LogWarning.Printf("Tried to read data from empty packet in a long!  Rewinding offset...")
 			p.readIndex -= 7 - i
 			return 0, err
 		}
@@ -65,7 +65,7 @@ func (p *Packet) ReadInt() (val uint32, err error) {
 	for i := 3; i >= 0; i-- {
 		b, err := p.ReadByte()
 		if err == errors.BufferOverflow {
-			LogWarning.Printf("WARNING: Tried to read data from empty packet in a int!  Rewinding offset...")
+			LogWarning.Printf("Tried to read data from empty packet in a int!  Rewinding offset...")
 			p.readIndex -= 3 - i
 			return 0, err
 		}
@@ -79,7 +79,7 @@ func (p *Packet) ReadShort() (val uint16, err error) {
 	for i := 1; i >= 0; i-- {
 		b, err := p.ReadByte()
 		if err == errors.BufferOverflow {
-			LogWarning.Printf("WARNING: Tried to read data from empty packet in a short!  Rewinding offset...")
+			LogWarning.Printf("Tried to read data from empty packet in a short!  Rewinding offset...")
 			p.readIndex -= 1 - i
 			return 0, err
 		}
@@ -91,7 +91,7 @@ func (p *Packet) ReadShort() (val uint16, err error) {
 //ReadByte Read the next 8-bit integer from the packet payload.
 func (p *Packet) ReadByte() (byte, error) {
 	if p.readIndex+1 > len(p.Payload) {
-		LogWarning.Printf("WARNING: Tried to read data from empty packet in a byte!  Rewinding offset...")
+		LogWarning.Printf("Tried to read data from empty packet in a byte!  Rewinding offset...")
 		return byte(0), errors.BufferOverflow
 	}
 	defer func() {
@@ -103,7 +103,7 @@ func (p *Packet) ReadByte() (byte, error) {
 //ReadByte Read the next 8-bit integer from the packet payload.
 func (p *Packet) ReadSByte() (int8, error) {
 	if p.readIndex+1 > len(p.Payload) {
-		LogWarning.Printf("WARNING: Tried to read data from empty packet in a byte!  Rewinding offset...")
+		LogWarning.Printf("Tried to read data from empty packet in a byte!  Rewinding offset...")
 		return int8(0), errors.BufferOverflow
 	}
 	defer func() {
@@ -158,13 +158,11 @@ func (p *Packet) String() string {
 	return fmt.Sprintf("Packet{opcode='%d',len='%d',payload={ %v }}", p.Opcode, len(p.Payload), p.Payload)
 }
 
-var bitmasks = []int32{0, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff, 0x1ff, 0x3ff, 0x7ff, 0xfff, 0x1fff,
-	0x3fff, 0x7fff, 0xffff, 0x1ffff, 0x3ffff, 0x7ffff, 0xfffff, 0x1fffff, 0x3fffff, 0x7fffff, 0xffffff,
-	0x1ffffff, 0x3ffffff, 0x7ffffff, 0xfffffff, 0x1fffffff, 0x3fffffff, 0x7fffffff, -1}
-var bitPosition = 0
-
 //AddBits Packs value into the numBits next bits of the packets byte buffer.
 func (p *Packet) AddBits(value int, numBits int) *Packet {
+	bitmasks := []int32{0, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff, 0x1ff, 0x3ff, 0x7ff, 0xfff, 0x1fff,
+		0x3fff, 0x7fff, 0xffff, 0x1ffff, 0x3ffff, 0x7ffff, 0xfffff, 0x1fffff, 0x3fffff, 0x7fffff, 0xffffff,
+		0x1ffffff, 0x3ffffff, 0x7ffffff, 0xfffffff, 0x1fffffff, 0x3fffffff, 0x7fffffff, -1}
 	bytePos := (p.bitPosition >> 3) + 3
 	bitOffset := 8 - (p.bitPosition & 7)
 	p.bitPosition += numBits
