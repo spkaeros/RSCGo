@@ -1,33 +1,29 @@
 package entity
 
-import (
-	"bitbucket.org/zlacki/rscgo/pkg/strutil"
-)
-
 type Region struct {
-	Players map[uint64]*Player
+	Players map[int]*Player
 }
 
 var regions [20][79]*Region
 
 func (r *Region) AddPlayer(p *Player) {
-	r.Players[strutil.Base37(p.Username)] = p
+	r.Players[p.Index] = p
 }
 
 func (r *Region) RemovePlayer(p *Player) {
-	delete(r.Players, strutil.Base37(p.Username))
+	delete(r.Players, p.Index)
 }
 
 func regionGet(x, y int) *Region {
 	if regions[x][y] == nil {
-		regions[x][y] = &Region{Players: make(map[uint64]*Player)}
+		regions[x][y] = &Region{Players: make(map[int]*Player)}
 	}
 	return regions[x][y]
 }
 
 func GetRegion(x, y int) *Region {
 	if regions[x/48][y/48] == nil {
-		regions[x/48][y/48] = &Region{Players: make(map[uint64]*Player)}
+		regions[x/48][y/48] = &Region{Players: make(map[int]*Player)}
 	}
 	return regions[x/48][y/48]
 }

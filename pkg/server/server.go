@@ -126,10 +126,10 @@ func startSynchronizedTaskService() {
 			for _, c := range ActiveClients.values {
 				if c, ok := c.(*Client); ok {
 					go func() {
+						defer wg.Done()
 						if c.player.Path != nil {
 							c.player.TraversePath()
 						}
-						wg.Done()
 					}()
 				}
 			}
@@ -139,10 +139,11 @@ func startSynchronizedTaskService() {
 			for _, c := range ActiveClients.values {
 				if c, ok := c.(*Client); ok {
 					go func() {
+						defer wg.Done()
 						var localPlayers []*entity.Player
 						for _, r := range entity.SurroundingRegions(c.player.X(), c.player.Y()) {
 							for _, p := range r.Players {
-								if strutil.Base37(p.Username) != strutil.Base37(c.player.Username) {
+								if p.Index != c.index {
 									localPlayers = append(localPlayers, p)
 								}
 							}
@@ -150,7 +151,6 @@ func startSynchronizedTaskService() {
 						c.WritePacket(packets.PlayerPositions(c.player, localPlayers))
 						c.WritePacket(packets.PlayerAppearances(c.index, strutil.Base37(c.player.Username)))
 						// TODO: Update movement, update client-side collections
-						wg.Done()
 					}()
 				}
 			}
