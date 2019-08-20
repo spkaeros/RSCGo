@@ -97,7 +97,7 @@ func (c *Client) sendLoginResponse(i byte) {
 
 //NewClient Creates a new instance of a Client, registers it with the global List, and returns it.
 func NewClient(socket net.Conn) *Client {
-	c := &Client{socket: socket, isaacSeed: make([]uint32, 4), packetQueue: make(chan *packets.Packet, 1), ip: strings.Split(socket.RemoteAddr().String(), ":")[0], index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer(), buffer: make([]byte, 5000)}
+	c := &Client{socket: socket, isaacSeed: make([]uint32, 4), packetQueue: make(chan *packets.Packet, 25), ip: strings.Split(socket.RemoteAddr().String(), ":")[0], index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer(), buffer: make([]byte, 5000)}
 	c.StartReader()
 	return c
 }
