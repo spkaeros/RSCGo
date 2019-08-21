@@ -39,6 +39,8 @@ func (c *Client) StartNetworking() {
 				if err != nil {
 					if err, ok := err.(errors.NetError); ok {
 						if err.Closed || err.Ping {
+							// TODO: I need to make sure this doesn't cause a panic due to kill being closed already
+							c.kill <- struct{}{}
 							return
 						}
 						LogError.Printf("Rejected Packet from: '%s'\n", c.ip)
