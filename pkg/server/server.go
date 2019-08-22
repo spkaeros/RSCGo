@@ -88,7 +88,12 @@ func startConnectionService() {
 // This method blocks while the server is running.
 func Start() {
 	LogInfo.Println("RSCGo starting up...")
+	success := LoadObjects()
 	if len(Flags.Verbose) > 0 {
+		if success {
+			LogInfo.Printf("Loaded %d game objects.\n", Objects.Size())
+		}
+		LogInfo.Println("done")
 		LogInfo.Printf("Attempting to bind to network...")
 	}
 	bind(Flags.Port)
@@ -140,15 +145,23 @@ func startSynchronizedTaskService() {
 				if c, ok := c.(*Client); ok {
 					go func() {
 						defer wg.Done()
+						localRegions := entity.SurroundingRegions(c.player.X(), c.player.Y())
 						var localPlayers []*entity.Player
-						for _, r := range entity.SurroundingRegions(c.player.X(), c.player.Y()) {
+						var localObjects []*entity.Object
+						for _, r := range localRegions {
 							for _, p := range r.Players {
 								if p.Index != c.index && c.player.Location().LongestDelta(p.Location()) <= 15 {
 									localPlayers = append(localPlayers, p)
 								}
 							}
+							for _, o := range r.Objects {
+								if c.player.Location().LongestDelta(o.Location()) <= 20 {
+									localObjects = append(localObjects, o)
+								}
+							}
 						}
 						c.outgoingPackets <- packets.PlayerPositions(c.player, localPlayers)
+						c.outgoingPackets <- packets.ObjectLocations(c.player, localObjects)
 						c.outgoingPackets <- packets.PlayerAppearances(c.index, strutil.Base37(c.player.Username))
 						// TODO: Update movement, update client-side collections
 					}()

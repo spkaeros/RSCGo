@@ -14,6 +14,7 @@ const (
 //Region Represents a 48x48 section of map.  The purpose of this is to keep track of entities in the entire world without having to allocate tiles individually, which would make search algorithms slower and utilizes a great deal of memory.
 type Region struct {
 	Players map[int]*Player
+	Objects []*Object
 }
 
 var regions [HorizontalPlanes][VerticalPlanes]*Region
@@ -26,6 +27,11 @@ func (r *Region) AddPlayer(p *Player) {
 //RemovePlayer Remove a player from the region.
 func (r *Region) RemovePlayer(p *Player) {
 	delete(r.Players, p.Index)
+}
+
+//AddPlayer Add a player to the region.
+func (r *Region) AddObject(o *Object) {
+	r.Objects[o.Index] = o
 }
 
 //getRegionFromIndex internal function to get a region by its row amd column indexes

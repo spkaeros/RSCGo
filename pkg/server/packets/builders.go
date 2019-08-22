@@ -106,6 +106,20 @@ func PlayerAppearances(index int, userHash uint64) (p *Packet) {
 	return
 }
 
+func ObjectLocations(player *entity.Player, newObjects []*entity.Object) (p *Packet) {
+	p = NewOutgoingPacket(27)
+	for _, o := range newObjects {
+		if o.Boundary {
+			continue
+		}
+		p.AddShort(uint16(o.ID))
+		p.AddByte(byte(o.X() - player.X()))
+		p.AddByte(byte(o.Y() - player.Y()))
+		p.AddByte(byte(o.Direction))
+	}
+	return
+}
+
 //LoginResponse Builds a bare packet with the login response code.
 func LoginResponse(v int) *Packet {
 	return NewBarePacket([]byte{byte(v)})
