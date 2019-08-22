@@ -156,6 +156,7 @@ func startSynchronizedTaskService() {
 						defer wg.Done()
 						localRegions := entity.SurroundingRegions(c.player.X(), c.player.Y())
 						var localPlayers []*entity.Player
+						var localAppearances []*entity.Player
 						var removingPlayers []*entity.Player
 						var localObjects []*entity.Object
 						for _, r := range localRegions {
@@ -163,6 +164,9 @@ func startSynchronizedTaskService() {
 								if c.player.LocalPlayers.ContainsPlayer(p) {
 									if c.player.Location().LongestDelta(p.Location()) > 15 || p.Removing {
 										removingPlayers = append(removingPlayers, p)
+									} else if p.Removing && c.player.Location().LongestDelta(p.Location()) <= 15 {
+										removingPlayers = append(removingPlayers, p)
+										localPlayers = append(localPlayers, p)
 									}
 								} else if p.Index != c.index && c.player.Location().LongestDelta(p.Location()) <= 15 {
 									localPlayers = append(localPlayers, p)
@@ -174,13 +178,33 @@ func startSynchronizedTaskService() {
 								}
 							}
 						}
-						c.outgoingPackets <- packets.PlayerPositions(c.player, localPlayers, removingPlayers)
-						if c.player.AppearanceChanged {
-							localPlayers = append(localPlayers, c.player)
+						// TODO: Clean up appearance list code.
+						for _, index := range c.player.Appearances {
+							v := ClientList.Get(index)
+							if v, ok := v.(*Client); ok {
+								localAppearances = append(localAppearances, v.player)
+							}
 						}
-						c.outgoingPackets <- packets.PlayerAppearances(localPlayers)
+						localAppearances = append(localAppearances, localPlayers...)
+						c.player.Appearances = c.player.Appearances[:0]
+						c.outgoingPackets <- packets.PlayerPositions(c.player, localPlayers, removingPlayers)
+						appearances := packets.PlayerAppearances(c.player, localAppearances)
+						if appearances != nil {
+							c.outgoingPackets <- appearances
+						}
 						c.outgoingPackets <- packets.ObjectLocations(c.player, localObjects)
 						// TODO: Update movement, update client-side collections
+					}()
+				}
+			}
+			wg.Wait()
+			wg.Add(ClientList.Size())
+			for _, c := range ClientList.Values {
+				if c, ok := c.(*Client); ok {
+					go func() {
+						defer wg.Done()
+						c.player.Removing = false
+						c.player.AppearanceChanged = false
 					}()
 				}
 			}

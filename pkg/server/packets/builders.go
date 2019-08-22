@@ -153,8 +153,14 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 	return
 }
 
-func PlayerAppearances(local []*entity.Player) (p *Packet) {
+func PlayerAppearances(ourPlayer *entity.Player, local []*entity.Player) (p *Packet) {
 	p = NewOutgoingPacket(53)
+	if ourPlayer.AppearanceChanged {
+		local = append(local, ourPlayer)
+	}
+	if len(local) <= 0 {
+		return nil
+	}
 	p.AddShort(uint16(len(local))) // Update size
 	for _, player := range local {
 		p.AddShort(uint16(player.Index))

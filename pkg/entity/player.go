@@ -27,6 +27,7 @@ type Player struct {
 	HasMoved          bool
 	Removing          bool
 	AppearanceChanged bool
+	Appearances       []int
 	Attributes        map[string]interface{}
 }
 

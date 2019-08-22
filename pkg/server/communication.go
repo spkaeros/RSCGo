@@ -64,6 +64,10 @@ func init() {
 		LogInfo.Printf("[COMMAND] %v: /%v\n", c.player.Username, string(p.Payload))
 		handler(c, args[1:])
 	}
+	Handlers[84] = func(c *Client, p *packets.Packet) {
+		index, _ := p.ReadShort()
+		c.player.Appearances = append(c.player.Appearances, int(index))
+	}
 }
 
 func teleport(c *Client, args []string) {
@@ -87,5 +91,6 @@ func teleport(c *Client, args []string) {
 			c1.outgoingPackets <- packets.TeleBubble(diffX, diffY)
 		}
 	}
+	c.player.Removing = true
 	c.player.SetLocation(newLocation)
 }
