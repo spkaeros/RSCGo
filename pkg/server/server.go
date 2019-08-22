@@ -22,7 +22,6 @@ import (
 	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/list"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
-	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 )
 
 var (
@@ -176,8 +175,11 @@ func startSynchronizedTaskService() {
 							}
 						}
 						c.outgoingPackets <- packets.PlayerPositions(c.player, localPlayers, removingPlayers)
+						if c.player.AppearanceChanged {
+							localPlayers = append(localPlayers, c.player)
+						}
+						c.outgoingPackets <- packets.PlayerAppearances(localPlayers)
 						c.outgoingPackets <- packets.ObjectLocations(c.player, localObjects)
-						c.outgoingPackets <- packets.PlayerAppearances(c.index, strutil.Base37(c.player.Username))
 						// TODO: Update movement, update client-side collections
 					}()
 				}

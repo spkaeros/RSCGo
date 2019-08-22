@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"bitbucket.org/zlacki/rscgo/pkg/entity"
+	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 )
 
 var epoch = uint64(time.Now().UnixNano() / int64(time.Millisecond))
@@ -152,27 +153,29 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 	return
 }
 
-func PlayerAppearances(index int, userHash uint64) (p *Packet) {
+func PlayerAppearances(local []*entity.Player) (p *Packet) {
 	p = NewOutgoingPacket(53)
-	p.AddShort(1) // Update size
-	p.AddShort(uint16(index))
-	p.AddByte(5)  // Player appearances
-	p.AddShort(0) // Appearance ID wtf is it, changes every time we change appearance!
-	p.AddLong(userHash)
-	p.AddByte(12) // worn items length
-	p.AddByte(1)  // head
-	p.AddByte(2)  // body
-	p.AddByte(3)  // unknown, always 3
-	for i := 0; i < 9; i++ {
-		p.AddByte(0)
+	p.AddShort(uint16(len(local))) // Update size
+	for _, player := range local {
+		p.AddShort(uint16(player.Index))
+		p.AddByte(5)  // Player appearances
+		p.AddShort(0) // Appearance ID wtf is it, changes every time we change appearance!
+		p.AddLong(strutil.Base37(player.Username))
+		p.AddByte(12) // worn items length
+		p.AddByte(1)  // head
+		p.AddByte(2)  // body
+		p.AddByte(3)  // unknown, always 3
+		for i := 0; i < 9; i++ {
+			p.AddByte(0)
+		}
+		p.AddByte(2)  // Hair
+		p.AddByte(8)  // Top
+		p.AddByte(14) // Bottom
+		p.AddByte(0)  // Skin
+		p.AddShort(3) // Combat lvl
+		p.AddByte(0)  // skulled
+		p.AddByte(2)  // Rank 2=admin,1=mod,0=normal
 	}
-	p.AddByte(2)  // Hair
-	p.AddByte(8)  // Top
-	p.AddByte(14) // Bottom
-	p.AddByte(0)  // Skin
-	p.AddShort(3) // Combat lvl
-	p.AddByte(0)  // skulled
-	p.AddByte(2)  // Rank 2=admin,1=mod,0=normal
 	return
 }
 

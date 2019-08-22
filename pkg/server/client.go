@@ -113,6 +113,7 @@ func (c *Client) sendLoginResponse(i byte) {
 	if i != 0 {
 		c.kill <- struct{}{}
 	} else {
+		c.player.AppearanceChanged = true
 		c.player.SetCoords(220, 445)
 		c.outgoingPackets <- packets.PlayerInfo(c.player)
 		c.outgoingPackets <- packets.EquipmentStats(c.player)

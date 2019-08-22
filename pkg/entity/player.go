@@ -13,20 +13,21 @@ package entity
 
 //Player Represents a single player.
 type Player struct {
-	location     *Location
-	state        MobState
-	direction    Direction
-	Username     string
-	UserBase37   uint64
-	Password     string
-	Index        int
-	Path         *Pathway
-	FriendList   []uint64
-	LocalPlayers *LocatableList
-	LocalObjects *LocatableList
-	HasMoved     bool
-	Removing     bool
-	Attributes   map[string]interface{}
+	location          *Location
+	state             MobState
+	direction         Direction
+	Username          string
+	UserBase37        uint64
+	Password          string
+	Index             int
+	Path              *Pathway
+	FriendList        []uint64
+	LocalPlayers      *LocatableList
+	LocalObjects      *LocatableList
+	HasMoved          bool
+	Removing          bool
+	AppearanceChanged bool
+	Attributes        map[string]interface{}
 }
 
 func (p *Player) ArmourPoints() int {
