@@ -19,6 +19,8 @@ import (
 
 var epoch = uint64(time.Now().UnixNano() / int64(time.Millisecond))
 
+var WelcomeMessage = ServerMessage("Welcome to RuneScape")
+
 func ServerMessage(msg string) (p *Packet) {
 	p = NewOutgoingPacket(48)
 	p.AddBytes([]byte(msg))
@@ -49,9 +51,9 @@ func LoginBox(inactiveDays int, lastIP string) (p *Packet) {
 	return p
 }
 
-func FightMode(mode int) (p *Packet) {
+func FightMode(player *entity.Player) (p *Packet) {
 	p = NewOutgoingPacket(132)
-	p.AddByte(byte(mode))
+	p.AddByte(byte(player.FightMode()))
 	return p
 }
 
@@ -63,20 +65,74 @@ func Fatigue(player *entity.Player) (p *Packet) {
 	return p
 }
 
+func FriendList(player *entity.Player) (p *Packet) {
+	p = NewOutgoingPacket(249)
+	p.AddByte(byte(len(player.FriendList)))
+	for _, hash := range player.FriendList {
+		p.AddLong(hash)
+		// TODO: Online status
+		p.AddByte(0) // 99 for online, 0 for offline.
+	}
+	return p
+}
+
+func FriendUpdate(player *entity.Player, hash uint64, online bool) (p *Packet) {
+	p = NewOutgoingPacket(25)
+	p.AddLong(hash)
+	if online {
+		p.AddByte(99)
+	} else {
+		p.AddByte(0)
+	}
+	return
+}
+
+func ClientSettings(player *entity.Player) (p *Packet) {
+	p = NewOutgoingPacket(152)
+	p.AddByte(0) // Camera auto/manual?
+	p.AddByte(0) // Mouse buttons 1 or 2?
+	p.AddByte(1) // Sound effects on/off?
+	return
+}
+
 func BigInformationBox(msg string) (p *Packet) {
 	p = NewOutgoingPacket(64)
 	p.AddBytes([]byte(msg))
 	return p
 }
 
-func PlayerPositions(player *entity.Player, local []*entity.Player) (p *Packet) {
+func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*entity.Player) (p *Packet) {
 	p = NewOutgoingPacket(145)
 	// Note: X coords can be held in 10 bits and Y can be held in 12 bits
 	//  Presumably, Jagex used 11 and 13 to evenly fill 3 bytes of data?
 	p.AddBits(player.X(), 11)
 	p.AddBits(player.Y(), 13)
 	p.AddBits(int(player.Direction()), 4)
-	p.AddBits(0, 8)
+	p.AddBits(len(player.LocalPlayers.List), 8)
+	for _, p1 := range removing {
+		p.AddBits(1, 1)
+		p.AddBits(1, 1)
+		p.AddBits(3, 2)
+		player.LocalPlayers.RemovePlayer(p1)
+	}
+	for _, p1 := range player.LocalPlayers.List {
+		p1, ok := p1.(*entity.Player)
+		if ok {
+			if p1.Removing {
+				p.AddBits(1, 1)
+				p.AddBits(1, 1)
+				p.AddBits(3, 2)
+				player.LocalPlayers.RemovePlayer(p1)
+			} else if p1.HasMoved {
+				p.AddBits(1, 1)
+				p.AddBits(0, 1)
+				p.AddBits(int(p1.Direction()), 3)
+				p1.HasMoved = false
+			} else {
+				p.AddBits(0, 1)
+			}
+		}
+	}
 	for _, p1 := range local {
 		p.AddBits(p1.Index, 11)
 		offsetX := (p1.X() - player.X())
@@ -90,7 +146,8 @@ func PlayerPositions(player *entity.Player, local []*entity.Player) (p *Packet) 
 		p.AddBits(offsetX, 5)
 		p.AddBits(offsetY, 5)
 		p.AddBits(int(p1.Direction()), 4)
-		p.AddBits(0, 1)
+		p.AddBits(1, 1)
+		player.LocalPlayers.AddPlayer(p1)
 	}
 	return
 }
@@ -150,14 +207,13 @@ func LoginResponse(v int) *Packet {
 }
 
 //PlayerInfo Builds a packet to update information about the clients environment, e.g height, player index...
-func PlayerInfo(index int, height int) *Packet {
+func PlayerInfo(player *entity.Player) *Packet {
 	playerInfo := NewOutgoingPacket(131)
-	playerInfo.AddShort(uint16(index))
+	playerInfo.AddShort(uint16(player.Index))
 	playerInfo.AddShort(2304)
 	playerInfo.AddShort(1776)
 
-	// getY + 100 / 1000
-	playerInfo.AddShort(uint16(height))
+	playerInfo.AddShort(uint16((player.Y() + 100) / 1000))
 
 	playerInfo.AddShort(944)
 	return playerInfo

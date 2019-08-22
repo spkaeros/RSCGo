@@ -13,14 +13,20 @@ package entity
 
 //Player Represents a single player.
 type Player struct {
-	location   *Location
-	state      MobState
-	direction  Direction
-	Username   string
-	Password   string
-	Index      int
-	Path       *Pathway
-	Attributes map[string]interface{}
+	location     *Location
+	state        MobState
+	direction    Direction
+	Username     string
+	UserBase37   uint64
+	Password     string
+	Index        int
+	Path         *Pathway
+	FriendList   []uint64
+	LocalPlayers *LocatableList
+	LocalObjects *LocatableList
+	HasMoved     bool
+	Removing     bool
+	Attributes   map[string]interface{}
 }
 
 func (p *Player) ArmourPoints() int {
@@ -100,6 +106,17 @@ func (p *Player) SetFatigue(i int) {
 	p.Attributes["fatigue"] = i
 }
 
+func (p *Player) FightMode() int {
+	if _, ok := p.Attributes["fight_mode"]; !ok {
+		p.Attributes["fight_mode"] = 0
+	}
+	return p.Attributes["fight_mode"].(int)
+}
+
+func (p *Player) SetFightMode(i int) {
+	p.Attributes["fight_mode"] = i
+}
+
 //X Shortcut for Location().X()
 func (p *Player) X() int {
 	return p.location.X
@@ -125,6 +142,7 @@ func (p *Player) TraversePath() {
 		p.ClearPath()
 		return
 	}
+	p.HasMoved = true
 	p.SetLocation(newLocation)
 }
 
@@ -173,9 +191,7 @@ func (p *Player) SetCoords(x, y int) {
 	curArea := GetRegion(p.X(), p.Y())
 	newArea := GetRegion(x, y)
 	if newArea != curArea {
-		if _, ok := curArea.Players[p.Index]; ok {
-			curArea.RemovePlayer(p)
-		}
+		curArea.RemovePlayer(p)
 		newArea.AddPlayer(p)
 	}
 	p.UpdateDirection(x, y)
@@ -215,5 +231,5 @@ func (p *Player) SetDirection(direction Direction) {
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
-	return &Player{location: &Location{0, 0}, direction: North, state: Idle, Attributes: make(map[string]interface{})}
+	return &Player{location: &Location{0, 0}, direction: North, state: Idle, Attributes: make(map[string]interface{}), LocalPlayers: &LocatableList{}, LocalObjects: &LocatableList{}}
 }

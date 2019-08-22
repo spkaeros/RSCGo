@@ -40,11 +40,9 @@ func LoadObjects() int {
 	counter := 0
 	for rows.Next() {
 		rows.Scan(&id, &direction, &kind, &x, &y)
-		o := entity.NewObject(id, direction, x, y, kind == 1)
-		o.Index = counter
-		counter++
-		objects := entity.GetRegion(x, y).Objects
-		entity.GetRegion(x, y).Objects = append(objects, o)
+		o := entity.NewObject(id, direction, x, y, kind != 0)
+		o.Index = Objects.Add(o)
+		entity.GetRegion(x, y).AddObject(o)
 	}
 	return counter
 }

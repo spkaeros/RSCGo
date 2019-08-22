@@ -157,10 +157,15 @@ func startSynchronizedTaskService() {
 						defer wg.Done()
 						localRegions := entity.SurroundingRegions(c.player.X(), c.player.Y())
 						var localPlayers []*entity.Player
+						var removingPlayers []*entity.Player
 						var localObjects []*entity.Object
 						for _, r := range localRegions {
 							for _, p := range r.Players {
-								if p.Index != c.index && c.player.Location().LongestDelta(p.Location()) <= 15 {
+								if c.player.LocalPlayers.ContainsPlayer(p) {
+									if c.player.Location().LongestDelta(p.Location()) > 15 || p.Removing {
+										removingPlayers = append(removingPlayers, p)
+									}
+								} else if p.Index != c.index && c.player.Location().LongestDelta(p.Location()) <= 15 {
 									localPlayers = append(localPlayers, p)
 								}
 							}
@@ -170,7 +175,7 @@ func startSynchronizedTaskService() {
 								}
 							}
 						}
-						c.outgoingPackets <- packets.PlayerPositions(c.player, localPlayers)
+						c.outgoingPackets <- packets.PlayerPositions(c.player, localPlayers, removingPlayers)
 						c.outgoingPackets <- packets.ObjectLocations(c.player, localObjects)
 						c.outgoingPackets <- packets.PlayerAppearances(c.index, strutil.Base37(c.player.Username))
 						// TODO: Update movement, update client-side collections

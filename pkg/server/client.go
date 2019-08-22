@@ -83,6 +83,7 @@ func (c *Client) StartNetworking() {
 		defer func() {
 			waitForTermination.Wait()
 			entity.GetRegion(c.player.X(), c.player.Y()).RemovePlayer(c.player)
+			c.player.Removing = true
 			close(c.outgoingPackets)
 			close(c.packetQueue)
 			if err := c.socket.Close(); err != nil {
@@ -112,10 +113,14 @@ func (c *Client) sendLoginResponse(i byte) {
 	if i != 0 {
 		c.kill <- struct{}{}
 	} else {
-		c.outgoingPackets <- packets.PlayerInfo(c.index, (c.player.Y()+100)/1000)
+		c.player.SetCoords(220, 445)
+		c.outgoingPackets <- packets.PlayerInfo(c.player)
 		c.outgoingPackets <- packets.EquipmentStats(c.player)
+		c.outgoingPackets <- packets.FightMode(c.player)
+		c.outgoingPackets <- packets.FriendList(c.player)
+		c.outgoingPackets <- packets.ClientSettings(c.player)
 		c.outgoingPackets <- packets.Fatigue(c.player)
-		c.outgoingPackets <- packets.ServerMessage("Welcome to RuneScape")
+		c.outgoingPackets <- packets.WelcomeMessage
 		c.outgoingPackets <- packets.ServerInfo(ClientList.Size())
 		c.outgoingPackets <- packets.LoginBox(0, c.ip)
 	}

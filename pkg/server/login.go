@@ -12,7 +12,6 @@
 package server
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 )
@@ -59,8 +58,7 @@ func loginRequest(c *Client, p *packets.Packet) {
 	c.player.Username = strutil.DecodeBase37(strutil.Base37(c.player.Username))
 	c.player.Password, _ = p.ReadString()
 	c.player.Index = c.index
-	c.player.SetCoords(220, 445)
-	entity.GetRegion(c.player.X(), c.player.Y()).AddPlayer(c.player)
+	//	entity.GetRegion(c.player.X(), c.player.Y()).AddPlayer(c.player)
 	LogInfo.Printf("Registered Player{idx:%v,ip:'%v'username:'%v',password:'%v',reconnecting:%v,version:%v}\n", c.index, c.ip, c.player.Username, c.player.Password, recon, version)
 	c.sendLoginResponse(0)
 }
