@@ -1,3 +1,14 @@
+/**
+ * @Author: Zachariah Knight <zach>
+ * @Date:   08-22-2019
+ * @Email:  aeros.storkpk@gmail.com
+ * @Project: RSCGo
+ * @Last modified by:   zach
+ * @Last modified time: 08-22-2019
+ * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
+ * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ */
+
 package packets
 
 import (
@@ -44,9 +55,11 @@ func FightMode(mode int) (p *Packet) {
 	return p
 }
 
-func Fatigue(percent int) (p *Packet) {
+func Fatigue(player *entity.Player) (p *Packet) {
 	p = NewOutgoingPacket(244)
-	p.AddShort(uint16(percent))
+	// Fatigue is converted to percentage differently in the client.
+	// 100% clientside is 750, serverside is 75000.  Needs the extra precision on the server to match RSC
+	p.AddShort(uint16(player.Fatigue() / 100))
 	return p
 }
 
@@ -117,6 +130,17 @@ func ObjectLocations(player *entity.Player, newObjects []*entity.Object) (p *Pac
 		p.AddByte(byte(o.Y() - player.Y()))
 		p.AddByte(byte(o.Direction))
 	}
+	return
+}
+
+func EquipmentStats(player *entity.Player) (p *Packet) {
+	p = NewOutgoingPacket(177)
+	p.AddShort(uint16(player.ArmourPoints()))
+	p.AddShort(uint16(player.AimPoints()))
+	p.AddShort(uint16(player.PowerPoints()))
+	p.AddShort(uint16(player.MagicPoints()))
+	p.AddShort(uint16(player.PrayerPoints()))
+	p.AddShort(uint16(player.RangedPoints()))
 	return
 }
 

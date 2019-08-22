@@ -1,14 +1,103 @@
+/**
+ * @Author: Zachariah Knight <zach>
+ * @Date:   08-22-2019
+ * @Email:  aeros.storkpk@gmail.com
+ * @Project: RSCGo
+ * @Last modified by:   zach
+ * @Last modified time: 08-22-2019
+ * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
+ * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ */
+
 package entity
 
 //Player Represents a single player.
 type Player struct {
-	location  *Location
-	state     MobState
-	direction Direction
-	Username  string
-	Password  string
-	Index     int
-	Path      *Pathway
+	location   *Location
+	state      MobState
+	direction  Direction
+	Username   string
+	Password   string
+	Index      int
+	Path       *Pathway
+	Attributes map[string]interface{}
+}
+
+func (p *Player) ArmourPoints() int {
+	if _, ok := p.Attributes["armour_points"]; !ok {
+		p.Attributes["armour_points"] = 1
+	}
+	return p.Attributes["armour_points"].(int)
+}
+
+func (p *Player) SetArmourPoints(i int) {
+	p.Attributes["armour_points"] = i
+}
+
+func (p *Player) PowerPoints() int {
+	if _, ok := p.Attributes["power_points"]; !ok {
+		p.Attributes["power_points"] = 1
+	}
+	return p.Attributes["power_points"].(int)
+}
+
+func (p *Player) SetPowerPoints(i int) {
+	p.Attributes["power_points"] = i
+}
+
+func (p *Player) AimPoints() int {
+	if _, ok := p.Attributes["aim_points"]; !ok {
+		p.Attributes["aim_points"] = 1
+	}
+	return p.Attributes["aim_points"].(int)
+}
+
+func (p *Player) SetAimPoints(i int) {
+	p.Attributes["aim_points"] = i
+}
+
+func (p *Player) MagicPoints() int {
+	if _, ok := p.Attributes["magic_points"]; !ok {
+		p.Attributes["magic_points"] = 1
+	}
+	return p.Attributes["magic_points"].(int)
+}
+
+func (p *Player) SetMagicPoints(i int) {
+	p.Attributes["magic_points"] = i
+}
+
+func (p *Player) PrayerPoints() int {
+	if _, ok := p.Attributes["prayer_points"]; !ok {
+		p.Attributes["prayer_points"] = 1
+	}
+	return p.Attributes["prayer_points"].(int)
+}
+
+func (p *Player) SetPrayerPoints(i int) {
+	p.Attributes["prayer_points"] = i
+}
+
+func (p *Player) RangedPoints() int {
+	if _, ok := p.Attributes["ranged_points"]; !ok {
+		p.Attributes["ranged_points"] = 1
+	}
+	return p.Attributes["ranged_points"].(int)
+}
+
+func (p *Player) SetRangedPoints(i int) {
+	p.Attributes["ranged_points"] = i
+}
+
+func (p *Player) Fatigue() int {
+	if _, ok := p.Attributes["fatigue"]; !ok {
+		p.Attributes["fatigue"] = 0
+	}
+	return p.Attributes["fatigue"].(int)
+}
+
+func (p *Player) SetFatigue(i int) {
+	p.Attributes["fatigue"] = i
 }
 
 //X Shortcut for Location().X()
@@ -126,5 +215,5 @@ func (p *Player) SetDirection(direction Direction) {
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
-	return &Player{location: &Location{0, 0}, direction: North, state: Idle}
+	return &Player{location: &Location{0, 0}, direction: North, state: Idle, Attributes: make(map[string]interface{})}
 }

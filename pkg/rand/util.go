@@ -1,3 +1,14 @@
+/**
+ * @Author: Zachariah Knight <zach>
+ * @Date:   08-22-2019
+ * @Email:  aeros.storkpk@gmail.com
+ * @Project: RSCGo
+ * @Last modified by:   zach
+ * @Last modified time: 08-22-2019
+ * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
+ * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ */
+
 package rand
 
 import (
@@ -5,19 +16,18 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
-	nrand "math/rand"
 
 	"bitbucket.org/zlacki/rscgo/pkg/isaac"
 )
 
-var rscRand *nrand.Rand
+var rscRand *isaac.ISAAC
 
 func init() {
 	initRsl := make([]uint32, 256)
 	if err := binary.Read(rand.Reader, binary.BigEndian, initRsl); err != nil {
 		fmt.Println("ERROR: Could not read ints fully into init slice.", err)
 	}
-	rscRand = nrand.New(isaac.New(initRsl))
+	rscRand = isaac.New(initRsl)
 }
 
 //getRandomData Reads n random bytes from the system-specific PRNG and returns them in a byte slice

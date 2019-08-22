@@ -1,6 +1,6 @@
 /**
  * @Author: Zachariah Knight <zach>
- * @Date:   08-20-2019
+ * @Date:   08-22-2019
  * @Email:  aeros.storkpk@gmail.com
  * @Project: RSCGo
  * @Last modified by:   zach
@@ -9,12 +9,10 @@
  * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
  */
 
-package server
+package strutil
 
-import "bitbucket.org/zlacki/rscgo/pkg/server/packets"
-
-func init() {
-	Handlers[5] = func(c *Client, p *packets.Packet) {
-		c.outgoingPackets <- packets.ResponsePong
-	}
-}
+/**
+ * Package strutil contains functions for performing some common operations on strings within the RSClassic
+ * game server.  This includes unpacking bit-packed chat messages, converting to and from base 37 word values,
+ * filtering out extraneous characters from chat messages, and etc.
+ */

@@ -1,6 +1,6 @@
 /**
  * @Author: Zachariah Knight <zach>
- * @Date:   08-20-2019
+ * @Date:   08-22-2019
  * @Email:  aeros.storkpk@gmail.com
  * @Project: RSCGo
  * @Last modified by:   zach
@@ -9,12 +9,12 @@
  * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
  */
 
-package server
+package rand
 
-import "bitbucket.org/zlacki/rscgo/pkg/server/packets"
-
-func init() {
-	Handlers[5] = func(c *Client, p *packets.Packet) {
-		c.outgoingPackets <- packets.ResponsePong
-	}
-}
+/**
+ * Package rand implements some utility functions that make using the random APIs in the Go standard library
+ * easier.  Truthfully, this package is likely getting removed in an upcoming revision.  It can probably be merged
+ * with the isaac package.
+ *
+ * TODO: Merge with ISAAC package.
+ */

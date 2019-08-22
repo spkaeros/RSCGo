@@ -1,3 +1,14 @@
+/**
+ * @Author: Zachariah Knight <zach>
+ * @Date:   08-22-2019
+ * @Email:  aeros.storkpk@gmail.com
+ * @Project: RSCGo
+ * @Last modified by:   zach
+ * @Last modified time: 08-22-2019
+ * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
+ * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ */
+
 package entity
 
 import "fmt"
@@ -42,16 +53,29 @@ func (l *Location) String() string {
 	return fmt.Sprintf("[%d,%d]", l.X, l.Y)
 }
 
+//DeltaX Returns the difference between this locations X coord and the other locations X coord
+func (l *Location) DeltaX(other *Location) (deltaX int) {
+	if l.X > other.X {
+		deltaX = l.X - other.X
+	} else if other.X > l.X {
+		deltaX = other.X - l.X
+	}
+	return
+}
+
+//DeltaY Returns the difference between this locations Y coord and the other locations Y coord
+func (l *Location) DeltaY(other *Location) (deltaY int) {
+	if l.Y > other.Y {
+		deltaY = l.Y - other.Y
+	} else if other.Y > l.Y {
+		deltaY = other.Y - l.Y
+	}
+	return
+}
+
 //LongestDelta Returns the largest difference in coordinates between receiver and other
 func (l *Location) LongestDelta(other *Location) int {
-	deltaX := l.X - other.X
-	if deltaX < 0 {
-		deltaX = -deltaX
-	}
-	deltaY := l.Y - other.Y
-	if deltaY < 0 {
-		deltaY = -deltaY
-	}
+	deltaX, deltaY := l.DeltaX(other), l.DeltaY(other)
 	if deltaX > deltaY {
 		return deltaX
 	}

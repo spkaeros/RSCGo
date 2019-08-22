@@ -1,3 +1,14 @@
+/**
+ * @Author: Zachariah Knight <zach>
+ * @Date:   08-22-2019
+ * @Email:  aeros.storkpk@gmail.com
+ * @Project: RSCGo
+ * @Last modified by:   zach
+ * @Last modified time: 08-22-2019
+ * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
+ * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ */
+
 package server
 
 import (
@@ -88,23 +99,22 @@ func startConnectionService() {
 // This method blocks while the server is running.
 func Start() {
 	LogInfo.Println("RSCGo starting up...")
-	success := LoadObjects()
+	count := LoadObjects()
 	if len(Flags.Verbose) > 0 {
-		if success {
-			LogInfo.Printf("Loaded %d game objects.\n", Objects.Size())
+		if count > 0 {
+			LogInfo.Printf("Loaded %d game objects.\n", count)
 		}
-		LogInfo.Println("done")
-		LogInfo.Printf("Attempting to bind to network...")
+		LogInfo.Print("Attempting to bind to network...")
 	}
 	bind(Flags.Port)
 	if len(Flags.Verbose) > 0 {
 		LogInfo.Println("done")
-		LogInfo.Printf("Attempting to start connection service...")
+		LogInfo.Print("Attempting to start connection service...")
 	}
 	startConnectionService()
 	if len(Flags.Verbose) > 0 {
 		LogInfo.Println("done")
-		LogInfo.Printf("Attempting to start synchronized task service...")
+		LogInfo.Print("Attempting to start synchronized task service...")
 	}
 	startSynchronizedTaskService()
 	LogInfo.Printf("done\n\n")
