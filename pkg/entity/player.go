@@ -4,7 +4,7 @@
  * @Email:  aeros.storkpk@gmail.com
  * @Project: RSCGo
  * @Last modified by:   zach
- * @Last modified time: 08-22-2019
+ * @Last modified time: 08-23-2019
  * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
  * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
  */
@@ -28,7 +28,14 @@ type Player struct {
 	Removing          bool
 	AppearanceChanged bool
 	Appearances       []int
+	Skillset          *SkillTable
 	Attributes        map[string]interface{}
+}
+
+type SkillTable struct {
+	Current    [18]int
+	Maximum    [18]int
+	Experience [18]int
 }
 
 func (p *Player) ArmourPoints() int {
@@ -233,5 +240,5 @@ func (p *Player) SetDirection(direction Direction) {
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
-	return &Player{location: &Location{0, 0}, direction: North, state: Idle, Attributes: make(map[string]interface{}), LocalPlayers: &LocatableList{}, LocalObjects: &LocatableList{}}
+	return &Player{location: &Location{0, 0}, direction: North, state: Idle, Attributes: make(map[string]interface{}), LocalPlayers: &LocatableList{}, LocalObjects: &LocatableList{}, Skillset: &SkillTable{}}
 }

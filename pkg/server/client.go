@@ -4,7 +4,7 @@
  * @Email:  aeros.storkpk@gmail.com
  * @Project: RSCGo
  * @Last modified by:   zach
- * @Last modified time: 08-22-2019
+ * @Last modified time: 08-23-2019
  * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
  * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
  */
@@ -115,7 +115,19 @@ func (c *Client) sendLoginResponse(i byte) {
 	} else {
 		c.player.AppearanceChanged = true
 		c.player.SetCoords(220, 445)
+		for i := 0; i < 18; i++ {
+			level := 1
+			exp := 0
+			if i == 3 {
+				level = 10
+				exp = 1154
+			}
+			c.player.Skillset.Current[i] = level
+			c.player.Skillset.Maximum[i] = level
+			c.player.Skillset.Experience[i] = exp
+		}
 		c.outgoingPackets <- packets.PlayerInfo(c.player)
+		c.outgoingPackets <- packets.PlayerStats(c.player)
 		c.outgoingPackets <- packets.EquipmentStats(c.player)
 		c.outgoingPackets <- packets.FightMode(c.player)
 		c.outgoingPackets <- packets.FriendList(c.player)

@@ -4,7 +4,7 @@
  * @Email:  aeros.storkpk@gmail.com
  * @Project: RSCGo
  * @Last modified by:   zach
- * @Last modified time: 08-22-2019
+ * @Last modified time: 08-23-2019
  * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
  * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
  */
@@ -14,6 +14,7 @@ package server
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
@@ -24,6 +25,12 @@ import (
 var CommandHandlers = make(map[string]func(*Client, []string))
 
 func init() {
+	CommandHandlers["item"] = notYetImplemented
+	CommandHandlers["goup"] = notYetImplemented
+	CommandHandlers["godown"] = notYetImplemented
+	CommandHandlers["npc"] = notYetImplemented
+	CommandHandlers["summon"] = summon
+	CommandHandlers["goto"] = gotoTeleport
 	CommandHandlers["say"] = func(c *Client, args []string) {
 		if len(args) < 1 {
 			c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /say <msg>")
@@ -50,8 +57,18 @@ func init() {
 		//				c1.outgoingPackets <- packets.TeleBubble(diffX, diffY)
 		//			}
 		//		}
-		// TODO: Send message to other players.
-		LogInfo.Printf("[CHAT] %v: '%v'", c.player.Username, strutil.FormatChatMessage(strutil.UnpackChatMessage(p.Payload)))
+		for _, v := range c.player.LocalPlayers.List {
+			v, ok := v.(*entity.Player)
+			if ok {
+				for _, c1 := range ClientList.Values {
+					if c1, ok := c1.(*Client); ok {
+						if c1.index == v.Index {
+							c1.outgoingPackets <- packets.PlayerChat(c.index, string(strutil.PackChatMessage(strutil.FormatChatMessage(strutil.UnpackChatMessage(p.Payload)))))
+						}
+					}
+				}
+			}
+		}
 	}
 	Handlers[120] = func(c *Client, p *packets.Packet) {
 		args := strutil.ModalParse(string(p.Payload))
@@ -93,4 +110,68 @@ func teleport(c *Client, args []string) {
 	}
 	c.player.Removing = true
 	c.player.SetLocation(newLocation)
+}
+
+func summon(c *Client, args []string) {
+	if len(args) < 1 {
+		c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /summon <player_name>")
+		return
+	}
+	var name string
+	for _, arg := range args {
+		name += arg + " "
+	}
+	name = strings.TrimSpace(name)
+	for _, c1 := range ClientList.Values {
+		if c1, ok := c1.(*Client); ok {
+			if strutil.Base37(c1.player.Username) == strutil.Base37(name) {
+				c1.outgoingPackets <- packets.TeleBubble(0, 0)
+				for _, p1 := range c1.player.NearbyPlayers() {
+					diffX := c1.player.X() - p1.X()
+					diffY := c1.player.Y() - p1.Y()
+					if c2, ok := ClientList.Get(p1.Index).(*Client); c2 != nil && ok {
+						c2.outgoingPackets <- packets.TeleBubble(diffX, diffY)
+					}
+				}
+				c1.player.SetLocation(c.player.Location())
+				c1.player.Removing = true
+				return
+			}
+		}
+	}
+	c.outgoingPackets <- packets.ServerMessage("@que@@whi@[@cya@SERVER@whi@]: @gre@Could not find player with username '" + name + "'")
+}
+
+func gotoTeleport(c *Client, args []string) {
+	if len(args) < 1 {
+		c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /goto <player_name>")
+		return
+	}
+	var name string
+	for _, arg := range args {
+		name += arg + " "
+	}
+	name = strings.TrimSpace(name)
+	for _, c1 := range ClientList.Values {
+		if c1, ok := c1.(*Client); ok {
+			if strutil.Base37(c1.player.Username) == strutil.Base37(name) {
+				c.outgoingPackets <- packets.TeleBubble(0, 0)
+				for _, p1 := range c.player.NearbyPlayers() {
+					diffX := c.player.X() - p1.X()
+					diffY := c.player.Y() - p1.Y()
+					if c2, ok := ClientList.Get(p1.Index).(*Client); c2 != nil && ok {
+						c2.outgoingPackets <- packets.TeleBubble(diffX, diffY)
+					}
+				}
+				c.player.SetLocation(c1.player.Location())
+				c.player.Removing = true
+				return
+			}
+		}
+	}
+	c.outgoingPackets <- packets.ServerMessage("@que@@whi@[@cya@SERVER@whi@]: @gre@Could not find player with username '" + name + "'")
+}
+
+func notYetImplemented(c *Client, args []string) {
+	c.outgoingPackets <- packets.ServerMessage("@que@@ora@Not yet implemented")
 }

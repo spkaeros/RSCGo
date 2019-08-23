@@ -4,7 +4,7 @@
  * @Email:  aeros.storkpk@gmail.com
  * @Project: RSCGo
  * @Last modified by:   zach
- * @Last modified time: 08-22-2019
+ * @Last modified time: 08-23-2019
  * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
  * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
  */
@@ -99,6 +99,41 @@ func ClientSettings(player *entity.Player) (p *Packet) {
 func BigInformationBox(msg string) (p *Packet) {
 	p = NewOutgoingPacket(64)
 	p.AddBytes([]byte(msg))
+	return p
+}
+
+func PlayerChat(sender int, msg string) *Packet {
+	p := NewOutgoingPacket(53)
+	p.AddShort(1)
+	p.AddShort(uint16(sender))
+	p.AddByte(1)
+	p.AddByte(uint8(len(msg)))
+	p.AddBytes([]byte(msg))
+	return p
+}
+
+func PlayerStats(player *entity.Player) *Packet {
+	p := NewOutgoingPacket(180)
+	for i := 0; i < 18; i++ {
+		p.AddShort(uint16(player.Skillset.Current[i]))
+	}
+
+	for i := 0; i < 18; i++ {
+		p.AddShort(uint16(player.Skillset.Maximum[i]))
+	}
+
+	for i := 0; i < 18; i++ {
+		p.AddLong(uint64(player.Skillset.Experience[i]))
+	}
+	return p
+}
+
+func PlayerStat(player *entity.Player, idx int) *Packet {
+	p := NewOutgoingPacket(208)
+	p.AddByte(byte(idx))
+	p.AddShort(uint16(player.Skillset.Current[idx]))
+	p.AddShort(uint16(player.Skillset.Maximum[idx]))
+	p.AddLong(uint64(player.Skillset.Experience[idx]))
 	return p
 }
 
