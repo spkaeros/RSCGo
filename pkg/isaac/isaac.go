@@ -4,7 +4,7 @@
  * @Email:  aeros.storkpk@gmail.com
  * @Project: RSCGo
  * @Last modified by:   zach
- * @Last modified time: 08-22-2019
+ * @Last modified time: 08-23-2019
  * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
  * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
  */
@@ -13,7 +13,6 @@ package isaac
 
 import (
 	"fmt"
-	"math/bits"
 )
 
 type ISAAC struct {
@@ -45,9 +44,9 @@ func (r *ISAAC) resetRandomBuffer() {
 			r.aa ^= r.aa >> 16
 		}
 		r.aa += r.mm[(i+128)%256]
-		y := r.mm[bits.RotateLeft32(x, -2)%256] + (r.aa ^ r.bb)
+		y := r.mm[(x>>2)|(x<<(30))%256] + (r.aa ^ r.bb)
 		r.mm[i] = y
-		r.bb = r.aa ^ r.mm[bits.RotateLeft32(y, -10)%256] + x
+		r.bb = r.aa ^ r.mm[(y>>10)|(y<<(22))%256] + x
 		r.randrsl[i] = r.bb
 	}
 }
