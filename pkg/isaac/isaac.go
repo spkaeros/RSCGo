@@ -4,7 +4,7 @@
  * @Email:  aeros.storkpk@gmail.com
  * @Project: RSCGo
  * @Last modified by:   zach
- * @Last modified time: 08-23-2019
+ * @Last modified time: 08-24-2019
  * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
  * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
  */
@@ -44,39 +44,11 @@ func (r *ISAAC) resetRandomBuffer() {
 			r.aa ^= r.aa >> 16
 		}
 		r.aa += r.mm[(i+128)%256]
-		y := r.mm[(x>>2)|(x<<(30))%256] + (r.aa ^ r.bb)
+		y := r.mm[((x>>2)|(x<<30))%256] + (r.aa ^ r.bb)
 		r.mm[i] = y
-		r.bb = r.aa ^ r.mm[(y>>10)|(y<<(22))%256] + x
+		r.bb = r.aa ^ r.mm[((y>>10)|(y<<22))%256] + x
 		r.randrsl[i] = r.bb
 	}
-}
-
-func mix(a, b, c, d, e, f, g, h uint32) (uint32, uint32, uint32, uint32, uint32, uint32, uint32, uint32) {
-	a ^= b << 11
-	d += a
-	b += c
-	b ^= c >> 2
-	e += b
-	c += d
-	c ^= d << 8
-	f += c
-	d += e
-	d ^= e >> 16
-	g += d
-	e += f
-	e ^= f << 10
-	h += e
-	f += g
-	f ^= g >> 4
-	a += f
-	g += h
-	g ^= h << 8
-	b += g
-	h += a
-	h ^= a >> 9
-	c += h
-	a += b
-	return a, b, c, d, e, f, g, h
 }
 
 /* if (flag==true), then use the contents of randrsl[] to initialize mm[]. */
@@ -99,23 +71,29 @@ func (r *ISAAC) randInit() {
 		mix1(6, ia[7]<<8)
 		mix1(7, ia[0]>>9)
 	}
-	messify := func() {
-		for i := 0; i < 256; i += 8 { /* fill mm[] with messy stuff */
-			for i1, v := range r.randrsl[i : i+8] {
-				ia[i1] += v
-			}
-			mix()
-			for i1, v := range ia {
-				r.mm[i+i1] = v
-			}
-		}
-	}
 	for i := 0; i < 4; i++ {
 		mix()
 	}
 
-	messify()
-	messify()
+	for i := 0; i < 256; i += 8 { /* fill mm[] with messy stuff */
+		for i1, v := range r.randrsl[i : i+8] {
+			ia[i1] += v
+		}
+		mix()
+		for i1, v := range ia {
+			r.mm[i+i1] = v
+		}
+	}
+	// make sure all of seed affects all of mm
+	for i := 0; i < 256; i += 8 { /* fill mm[] with messy stuff */
+		for i1, v := range r.mm[i : i+8] {
+			ia[i1] += v
+		}
+		mix()
+		for i1, v := range ia {
+			r.mm[i+i1] = v
+		}
+	}
 
 	r.resetRandomBuffer() /* fill in the first set of results */
 	r.randcnt = 256       /* reset the counter for the first set of results */
