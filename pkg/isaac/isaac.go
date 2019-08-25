@@ -44,9 +44,9 @@ func (r *ISAAC) generateNextSet() {
 		// ISAAC(p) cipher code, with modifications recommended by Jean-Phillipe Aumasson to avoid a discovered bias,
 		// and strengthen the result set produced
 		r.aa += r.mm[(i+128)&0xFF]                       // indirection, accumulation
-		y := r.mm[((x>>2)|(x<<30))&0xFF] + (r.aa ^ r.bb) // indirection, addition, (p) exlusive-or, (p) rotation
+		y := r.mm[((x>>2)|(x<<62))&0xFF] + (r.aa ^ r.bb) // indirection, addition, (p) exlusive-or, (p) rotation
 		r.mm[i] = y
-		r.bb = r.aa ^ r.mm[((y>>10)|(y<<22))&0xFF] + x // indirection, addition, (p) exlusive-or, (p) rotation
+		r.bb = r.aa ^ r.mm[((y>>10)|(y<<54))&0xFF] + x // indirection, addition, (p) exlusive-or, (p) rotation
 		r.randrsl[i] = r.bb
 
 		// Original ISAAC cipher code
