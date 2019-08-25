@@ -27,12 +27,13 @@ type ISAAC struct {
 	remainder  []byte
 }
 
-func (r *ISAAC) resetRandomBuffer() {
-	r.cc++       // cc gets incremented once per 256 results
-	r.bb += r.cc // then combined with bb
+func (r *ISAAC) generateNextSet() {
+	r.cc++       // count
+	r.bb += r.cc // accumulation
 
 	for i := 0; i < 256; i++ {
 		x := r.mm[i]
+		// shift
 		switch i % 4 {
 		case 0:
 			r.aa ^= r.aa << 13
@@ -43,11 +44,21 @@ func (r *ISAAC) resetRandomBuffer() {
 		case 3:
 			r.aa ^= r.aa >> 16
 		}
-		r.aa += r.mm[(i+128)%256]
-		y := r.mm[((x>>2)|(x<<30))%256] + (r.aa ^ r.bb)
+		// ISAAC(p) cipher code, with modifications recommended by Jean-Phillipe Aumasson to avoid a discovered bias,
+		// and strengthen the result set produced
+		r.aa += r.mm[(i+128)&0xFF]                       // indirection, accumulation
+		y := r.mm[((x>>2)|(x<<30))&0xFF] + (r.aa ^ r.bb) // indirection, addition, (p) exlusive-or, (p) rotation
 		r.mm[i] = y
-		r.bb = r.aa ^ r.mm[((y>>10)|(y<<22))%256] + x
+		r.bb = r.aa ^ r.mm[((y>>10)|(y<<22))&0xFF] + x // indirection, addition, (p) exlusive-or, (p) rotation
 		r.randrsl[i] = r.bb
+		/*
+		// Original ISAAC cipher code
+		r.aa += r.mm[(i+128)&0xFF]           // indirection, accumulation
+		y := r.mm[(x>>2)&0xFF] + r.aa + r.bb // indirection, addition, shifts
+		r.mm[i] = y
+		r.bb = r.mm[(y>>10)&0xFF] + x // indirection, addition, shifts
+		r.randrsl[i] = r.bb
+		 */
 	}
 }
 
@@ -74,29 +85,22 @@ func (r *ISAAC) randInit() {
 	for i := 0; i < 4; i++ {
 		mix()
 	}
-
-	for i := 0; i < 256; i += 8 { /* fill mm[] with messy stuff */
-		for i1, v := range r.randrsl[i : i+8] {
-			ia[i1] += v
-		}
-		mix()
-		for i1, v := range ia {
-			r.mm[i+i1] = v
-		}
-	}
-	// make sure all of seed affects all of mm
-	for i := 0; i < 256; i += 8 { /* fill mm[] with messy stuff */
-		for i1, v := range r.mm[i : i+8] {
-			ia[i1] += v
-		}
-		mix()
-		for i1, v := range ia {
-			r.mm[i+i1] = v
+	messify := func(ia2 [256]uint32) {
+		for i := 0; i < 256; i += 8 { // fill mm[] with messy stuff
+			for i1, v := range ia2[i : i+8] {
+				ia[i1] += v
+			}
+			mix()
+			for i1, v := range ia {
+				r.mm[i+i1] = v
+			}
 		}
 	}
+	messify(r.randrsl)
+	messify(r.mm)
 
-	r.resetRandomBuffer() /* fill in the first set of results */
-	r.randcnt = 256       /* reset the counter for the first set of results */
+	r.generateNextSet() /* fill in the first set of results */
+	r.randcnt = 0       /* reset the counter for the first set of results */
 }
 
 //Seed I might remove this.  I seed exactly once per instance, and I really need at least 4 times this much entropy.
@@ -116,11 +120,11 @@ func (r *ISAAC) Uint64() uint64 {
 
 //Uint32 Returns the next 4 bytes as an integer from the ISAAC CSPRNG receiver instance.
 func (r *ISAAC) Uint32() (number uint32) {
-	r.randcnt--
 	number = r.randrsl[r.randcnt]
-	if r.randcnt == 0 {
-		r.resetRandomBuffer()
-		r.randcnt = 256
+	r.randcnt++
+	if r.randcnt == 256 {
+		r.generateNextSet()
+		r.randcnt = 0
 	}
 	return
 }
@@ -130,6 +134,7 @@ func (r *ISAAC) Int63() (number int64) {
 	return int64(r.Uint32())<<32 | int64(r.Uint32())
 }
 
+//Intn Returns the next 4 bytes as a signed integer of at least 32 bits, with an upper bound of n from the ISAAC CSPRNG.
 func (r *ISAAC) Intn(n int) int {
 	if n <= 0 {
 		panic("invalid argument to Intn")
@@ -140,6 +145,7 @@ func (r *ISAAC) Intn(n int) int {
 	return int(r.Int63n(int64(n)))
 }
 
+//Int31n Returns the next 4 bytes as a signed integer of 32 bits, with an upper bound of n from the ISAAC CSPRNG.
 func (r *ISAAC) Int31n(n int32) int32 {
 	v := r.Uint32()
 	prod := uint64(v) * uint64(n)
@@ -178,6 +184,7 @@ func (r *ISAAC) Int63n(n int64) int64 {
 	return v % n
 }
 
+//Uint8n Returns the next byte as an unsigned 8-bit integer, with an upper bound of n from the ISAAC CSPRNG.
 func (r *ISAAC) Uint8n(bound byte) (number byte) {
 	for number = r.Uint8(); number < 0 || number >= bound; number = r.Uint8() {
 	}
@@ -253,6 +260,7 @@ func (r *ISAAC) NextBytes(n int) []byte {
 	return buf
 }
 
+//New Returns a new ISAAC CSPRNG instance.
 func New(key []uint32) *ISAAC {
 	var tmpRsl [256]uint32
 	for i := 0; i < len(key); i++ {
