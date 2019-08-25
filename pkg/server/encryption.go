@@ -45,8 +45,8 @@ func ReadRSAKeyFile(file string) {
 }
 
 //SeedISAAC Initialize the ISAAC+ PRNG for use as a stream cipher for this client.
-func (c *Client) SeedISAAC(seed []uint32) *IsaacSeed {
-	if seed[2] != c.isaacSeed[2] || seed[3] != c.isaacSeed[3] {
+func (c *Client) SeedISAAC(seed []uint64) *IsaacSeed {
+	if seed[1] != c.isaacSeed[1] {
 		LogWarning.Printf("Session encryption key for command cipher received from client doesn't match the one we supplied it.\n")
 		return nil
 	}

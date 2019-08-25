@@ -28,8 +28,7 @@ func init() {
 func sessionRequest(c *Client, p *packets.Packet) {
 	c.uID, _ = p.ReadByte()
 	seed := GenerateSessionID()
-	c.isaacSeed[2] = uint32(seed >> 32)
-	c.isaacSeed[3] = uint32(seed)
+	c.isaacSeed[1] = seed >> 32
 	c.outgoingPackets <- packets.NewBarePacket(nil).AddLong(seed)
 }
 
@@ -44,9 +43,9 @@ func loginRequest(c *Client, p *packets.Packet) {
 		c.sendLoginResponse(5)
 		return
 	}
-	seed := make([]uint32, 4)
-	for i := 0; i < 4; i++ {
-		seed[i], _ = p.ReadInt()
+	seed := make([]uint64, 2)
+	for i := 0; i < 2; i++ {
+		seed[i], _ = p.ReadLong()
 	}
 	cipher := c.SeedISAAC(seed)
 	if cipher == nil {

@@ -23,7 +23,7 @@ import (
 var rscRand *isaac.ISAAC
 
 func init() {
-	initRsl := make([]uint32, 256)
+	initRsl := make([]uint64, 256)
 	if err := binary.Read(rand.Reader, binary.BigEndian, initRsl); err != nil {
 		fmt.Println("ERROR: Could not read ints fully into init slice.", err)
 	}

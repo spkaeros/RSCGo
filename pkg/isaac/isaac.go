@@ -13,12 +13,12 @@ package isaac
 
 type ISAAC struct {
 	// external results
-	randrsl [256]uint32
-	randcnt uint32
+	randrsl [256]uint64
+	randcnt uint64
 
 	// internal state
-	mm         [256]uint32
-	aa, bb, cc uint32
+	mm         [256]uint64
+	aa, bb, cc uint64
 	index      int
 	remainder  []byte
 }
@@ -32,13 +32,14 @@ func (r *ISAAC) generateNextSet() {
 		// shift
 		switch i % 4 {
 		case 0:
-			r.aa ^= r.aa << 13
+			// complement, supposedly causes poor states to become randomized quicker.  Avalanche effect.
+			r.aa = ^(r.aa ^ r.aa << 21)
 		case 1:
-			r.aa ^= r.aa >> 6
+			r.aa ^= r.aa >> 5
 		case 2:
-			r.aa ^= r.aa << 2
+			r.aa ^= r.aa << 12
 		case 3:
-			r.aa ^= r.aa >> 16
+			r.aa ^= r.aa >> 33
 		}
 		// ISAAC(p) cipher code, with modifications recommended by Jean-Phillipe Aumasson to avoid a discovered bias,
 		// and strengthen the result set produced
@@ -59,28 +60,28 @@ func (r *ISAAC) generateNextSet() {
 
 /* if (flag==true), then use the contents of randrsl[] to initialize mm[]. */
 func (r *ISAAC) randInit() {
-	const gold = 0x9e3779b9
-	ia := [8]uint32{gold, gold, gold, gold, gold, gold, gold, gold}
+	const gold = 0x9e3779b97f4a7c13
+	ia := [8]uint64{gold, gold, gold, gold, gold, gold, gold, gold}
 
-	mix1 := func(i int, v uint32) {
-		ia[i] ^= v
-		ia[(i+3)%8] += ia[i]
-		ia[(i+1)%8] += ia[(i+2)%8]
+	mix1 := func(i int, v uint64) {
+		ia[i] -= ia[(i+4)%8]
+		ia[(i+5)%8] ^= v
+		ia[(i+7)%8] += ia[i]
 	}
 	mix := func() {
-		mix1(0, ia[1]<<11)
-		mix1(1, ia[2]>>2)
-		mix1(2, ia[3]<<8)
-		mix1(3, ia[4]>>16)
-		mix1(4, ia[5]<<10)
-		mix1(5, ia[6]>>4)
-		mix1(6, ia[7]<<8)
-		mix1(7, ia[0]>>9)
+		mix1(0, ia[7]>>9)
+		mix1(1, ia[0]<<9)
+		mix1(2, ia[1]>>23)
+		mix1(3, ia[2]<<15)
+		mix1(4, ia[3]>>14)
+		mix1(5, ia[4]<<20)
+		mix1(6, ia[5]>>17)
+		mix1(7, ia[6]<<14)
 	}
 	for i := 0; i < 4; i++ {
 		mix()
 	}
-	messify := func(ia2 [256]uint32) {
+	messify := func(ia2 [256]uint64) {
 		for i := 0; i < 256; i += 8 { // fill mm[] with messy stuff
 			for i1, v := range ia2[i : i+8] {
 				ia[i1] += v
@@ -109,12 +110,7 @@ func (r *ISAAC) Seed(key int64) {
 }
 
 //Uint64 Returns the next 8 bytes as a long integer from the ISAAC CSPRNG receiver instance.
-func (r *ISAAC) Uint64() uint64 {
-	return uint64(r.Uint32())<<32 | uint64(r.Uint32())
-}
-
-//Uint32 Returns the next 4 bytes as an integer from the ISAAC CSPRNG receiver instance.
-func (r *ISAAC) Uint32() (number uint32) {
+func (r *ISAAC) Uint64() (number uint64) {
 	number = r.randrsl[r.randcnt]
 	r.randcnt++
 	if r.randcnt == 256 {
@@ -122,6 +118,11 @@ func (r *ISAAC) Uint32() (number uint32) {
 		r.randcnt = 0
 	}
 	return
+}
+
+//Uint32 Returns the next 4 bytes as an integer from the ISAAC CSPRNG receiver instance.
+func (r *ISAAC) Uint32() (number uint32) {
+	return uint32(r.Uint64())
 }
 
 //Int63 Returns the next 8 bytes as a long integer from the ISAAC CSPRNG receiver instance.
@@ -256,14 +257,14 @@ func (r *ISAAC) NextBytes(n int) []byte {
 }
 
 //New Returns a new ISAAC CSPRNG instance.
-func New(key []uint32) *ISAAC {
-	var tmpRsl [256]uint32
+func New(key []uint64) *ISAAC {
+	var tmpRsl [256]uint64
 	for i := 0; i < len(key); i++ {
 		tmpRsl[i] = key[i]
 	}
 	if len(key) < 256 {
 		for i := len(key); i < 256; i++ {
-			tmpRsl[i] = 3735928559 + uint32(i)
+			tmpRsl[i] = 3735928559 + uint64(i)
 		}
 	}
 	stream := &ISAAC{randrsl: tmpRsl}
