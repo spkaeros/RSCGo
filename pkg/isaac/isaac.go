@@ -11,10 +11,6 @@
 
 package isaac
 
-import (
-	"fmt"
-)
-
 type ISAAC struct {
 	// external results
 	randrsl [256]uint32
@@ -51,14 +47,13 @@ func (r *ISAAC) generateNextSet() {
 		r.mm[i] = y
 		r.bb = r.aa ^ r.mm[((y>>10)|(y<<22))&0xFF] + x // indirection, addition, (p) exlusive-or, (p) rotation
 		r.randrsl[i] = r.bb
-		/*
+
 		// Original ISAAC cipher code
-		r.aa += r.mm[(i+128)&0xFF]           // indirection, accumulation
+/*		r.aa += r.mm[(i+128)&0xFF]           // indirection, accumulation
 		y := r.mm[(x>>2)&0xFF] + r.aa + r.bb // indirection, addition, shifts
 		r.mm[i] = y
 		r.bb = r.mm[(y>>10)&0xFF] + x // indirection, addition, shifts
-		r.randrsl[i] = r.bb
-		 */
+		r.randrsl[i] = r.bb*/
 	}
 }
 
@@ -267,7 +262,6 @@ func New(key []uint32) *ISAAC {
 		tmpRsl[i] = key[i]
 	}
 	if len(key) < 256 {
-		fmt.Printf("ISAAC possible weak seeding ( len(key){=%d} < 256 )\nAttempting to compensate, using 0xDEADBEEF+i...\n", len(key))
 		for i := len(key); i < 256; i++ {
 			tmpRsl[i] = 3735928559 + uint32(i)
 		}

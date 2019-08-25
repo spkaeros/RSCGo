@@ -100,7 +100,7 @@ func GetSecureRandomShort() uint16 {
 	return (uint16(b[0]) << 8) | uint16(b[1])
 }
 
-//GetSecureRandomByte Gets a single random byte of data from the CSRNG
+//GetSecureRandomByte Gets a single random byte of data from the CSPRNG
 func GetSecureRandomByte() uint8 {
 	b, err := getCryptoRandomData(1)
 	if err != nil {
