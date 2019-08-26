@@ -44,9 +44,9 @@ func (r *ISAAC) generateNextSet() {
 		// ISAAC(p) cipher code, with modifications recommended by Jean-Phillipe Aumasson to avoid a discovered bias,
 		// and strengthen the result set produced
 		r.aa += r.mm[(i+128)&0xFF]                       // indirection, accumulation
-		y := r.mm[((x>>2)|(x<<62))&0xFF] + (r.aa ^ r.bb) // indirection, addition, (p) exlusive-or, (p) rotation
+		y := r.mm[x & 1020 >> 2] + (r.aa ^ r.bb) // indirection, addition, (p) exlusive-or, (p) rotation
 		r.mm[i] = y
-		r.bb = r.aa ^ r.mm[((y>>10)|(y<<54))&0xFF] + x // indirection, addition, (p) exlusive-or, (p) rotation
+		r.bb = r.aa ^ r.mm[y >> 8 & 1020 >> 2] + x // indirection, addition, (p) exlusive-or, (p) rotation
 		r.randrsl[i] = r.bb
 
 		// Original ISAAC cipher code
@@ -58,7 +58,6 @@ func (r *ISAAC) generateNextSet() {
 	}
 }
 
-/* if (flag==true), then use the contents of randrsl[] to initialize mm[]. */
 func (r *ISAAC) randInit() {
 	const gold = 0x9e3779b97f4a7c13
 	ia := [8]uint64{gold, gold, gold, gold, gold, gold, gold, gold}
@@ -99,16 +98,6 @@ func (r *ISAAC) randInit() {
 	r.randcnt = 0       /* reset the counter for the first set of results */
 }
 
-//Seed I might remove this.  I seed exactly once per instance, and I really need at least 4 times this much entropy.
-func (r *ISAAC) Seed(key int64) {
-	var rsl [256]uint32
-	for i := 0; i < 256; i += 2 {
-		rsl[i] = uint32(key >> 32)
-		rsl[i+1] = uint32(key)
-	}
-	r.randInit()
-}
-
 //Uint64 Returns the next 8 bytes as a long integer from the ISAAC CSPRNG receiver instance.
 func (r *ISAAC) Uint64() (number uint64) {
 	number = r.randrsl[r.randcnt]
@@ -127,7 +116,7 @@ func (r *ISAAC) Uint32() (number uint32) {
 
 //Int63 Returns the next 8 bytes as a long integer from the ISAAC CSPRNG receiver instance.
 func (r *ISAAC) Int63() (number int64) {
-	return int64(r.Uint32())<<32 | int64(r.Uint32())
+	return int64(r.Uint64())
 }
 
 //Intn Returns the next 4 bytes as a signed integer of at least 32 bits, with an upper bound of n from the ISAAC CSPRNG.
@@ -242,13 +231,13 @@ func (r *ISAAC) NextBytes(n int) []byte {
 	r.remainder = []byte{}
 
 	for r.index < n {
-		nextInt := r.Uint32()
-		for i := 0; i < 4; i++ {
+		nextInt := r.Uint64()
+		for i := 0; i < 8; i++ {
 			if r.index >= n {
-				r.remainder = append(r.remainder, byte(nextInt>>uint(8*(3-i))))
+				r.remainder = append(r.remainder, byte(nextInt>>uint(8*(7-i))))
 				continue
 			}
-			buf[r.index] = byte(nextInt >> uint(8*(3-i)))
+			buf[r.index] = byte(nextInt >> uint(8*(7-i)))
 			r.index++
 		}
 	}
@@ -264,7 +253,8 @@ func New(key []uint64) *ISAAC {
 	}
 	if len(key) < 256 {
 		for i := len(key); i < 256; i++ {
-			tmpRsl[i] = 3735928559 + uint64(i)
+			k := tmpRsl[i - len(key)]
+			tmpRsl[i] = (0x6c078965 * (k ^ (k >> 30)) + uint64(i)) & 0xffffffff
 		}
 	}
 	stream := &ISAAC{randrsl: tmpRsl}
