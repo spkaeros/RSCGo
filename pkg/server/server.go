@@ -171,9 +171,6 @@ func startSynchronizedTaskService() {
 										if !c.player.LocalPlayers.ContainsPlayer(p) {
 											localPlayers = append(localPlayers, p)
 										}
-										if p.Removing {
-											removingPlayers = append(removingPlayers, p)
-										}
 									} else {
 										if c.player.LocalPlayers.ContainsPlayer(p) {
 											removingPlayers = append(removingPlayers, p)
@@ -219,6 +216,7 @@ func startSynchronizedTaskService() {
 					go func() {
 						defer wg.Done()
 						c.player.Removing = false
+						c.player.HasMoved = false
 						c.player.AppearanceChanged = false
 					}()
 				}

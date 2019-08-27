@@ -154,7 +154,7 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 	for _, p1 := range player.LocalPlayers.List {
 		p1, ok := p1.(*entity.Player)
 		if ok {
-			if p1.Removing {
+			if p1.Location().LongestDelta(player.Location()) > 15 || p1.Removing {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
@@ -163,7 +163,6 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 				p.AddBits(1, 1)
 				p.AddBits(0, 1)
 				p.AddBits(int(p1.Direction()), 3)
-				p1.HasMoved = false
 			} else {
 				p.AddBits(0, 1)
 			}
