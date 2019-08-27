@@ -4,7 +4,7 @@
  * @Email:  aeros.storkpk@gmail.com
  * @Project: RSCGo
  * @Last modified by:   zach
- * @Last modified time: 08-23-2019
+ * @Last modified time: 08-27-2019
  * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
  * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
  */
@@ -220,8 +220,18 @@ func PlayerAppearances(ourPlayer *entity.Player, local []*entity.Player) (p *Pac
 	return
 }
 
-func ObjectLocations(player *entity.Player, newObjects []*entity.Object) (p *Packet) {
+func ObjectLocations(player *entity.Player, newObjects []*entity.Object, removingObjects []*entity.Object) (p *Packet) {
 	p = NewOutgoingPacket(27)
+	for _, o := range removingObjects {
+		if o.Boundary {
+			continue
+		}
+		p.AddShort(0x8000)
+		p.AddByte(byte(o.X() - player.X()))
+		p.AddByte(byte(o.Y() - player.Y()))
+		p.AddByte(byte(o.Direction))
+		player.LocalObjects.RemoveObject(o)
+	}
 	for _, o := range newObjects {
 		if o.Boundary {
 			continue
@@ -230,6 +240,7 @@ func ObjectLocations(player *entity.Player, newObjects []*entity.Object) (p *Pac
 		p.AddByte(byte(o.X() - player.X()))
 		p.AddByte(byte(o.Y() - player.Y()))
 		p.AddByte(byte(o.Direction))
+		player.LocalObjects.AddObject(o)
 	}
 	return
 }

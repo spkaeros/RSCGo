@@ -163,6 +163,7 @@ func startSynchronizedTaskService() {
 						var localAppearances []*entity.Player
 						var removingPlayers []*entity.Player
 						var localObjects []*entity.Object
+						var removingObjects []*entity.Object
 						for _, r := range localRegions {
 							for _, p := range r.Players {
 								if c.player.LocalPlayers.ContainsPlayer(p) {
@@ -178,14 +179,12 @@ func startSynchronizedTaskService() {
 							}
 							for _, o := range r.Objects {
 								if c.player.Location().LongestDelta(o.Location()) <= 20 {
-									flag := false
-									for _, v := range localObjects {
-										if v.X() == o.X() && v.Y() == o.Y() {
-											flag = true
-										}
-									}
-									if !flag {
+									if !c.player.LocalObjects.ContainsObject(o) {
 										localObjects = append(localObjects, o)
+									}
+								} else {
+									if c.player.LocalObjects.ContainsObject(o) {
+										removingObjects = append(removingObjects, o)
 									}
 								}
 							}
@@ -204,7 +203,7 @@ func startSynchronizedTaskService() {
 						if appearances != nil {
 							c.outgoingPackets <- appearances
 						}
-						c.outgoingPackets <- packets.ObjectLocations(c.player, localObjects)
+						c.outgoingPackets <- packets.ObjectLocations(c.player, localObjects, removingObjects)
 						// TODO: Update movement, update client-side collections
 					}()
 				}
