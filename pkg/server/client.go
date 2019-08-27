@@ -4,7 +4,7 @@
  * @Email:  aeros.storkpk@gmail.com
  * @Project: RSCGo
  * @Last modified by:   zach
- * @Last modified time: 08-23-2019
+ * @Last modified time: 08-27-2019
  * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
  * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
  */
@@ -16,6 +16,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 
 	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
@@ -43,7 +44,8 @@ func (c *Client) StartNetworking() {
 	waitForTermination.Add(2)
 	go func() {
 		defer waitForTermination.Done()
-		for {
+		ticker := time.NewTicker(50 * time.Millisecond)
+		for range ticker.C {
 			select {
 			default:
 				p, err := c.ReadPacket()
@@ -67,7 +69,8 @@ func (c *Client) StartNetworking() {
 	}()
 	go func() {
 		defer waitForTermination.Done()
-		for {
+		ticker := time.NewTicker(50 * time.Millisecond)
+		for range ticker.C {
 			select {
 			case p := <-c.outgoingPackets:
 				if p == nil {

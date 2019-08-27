@@ -4,7 +4,7 @@
  * @Email:  aeros.storkpk@gmail.com
  * @Project: RSCGo
  * @Last modified by:   zach
- * @Last modified time: 08-22-2019
+ * @Last modified time: 08-27-2019
  * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
  * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
  */
@@ -53,17 +53,8 @@ func (c *Client) SeedISAAC(seed []uint64) *IsaacSeed {
 	for i := 0; i < 2; i++ {
 		c.isaacSeed[i] = seed[i]
 	}
-	for i := 4; i < 256; i += 4 {
-		if i%2 == 0 {
-			seed = append(seed, seed[2:4]...)
-			seed = append(seed, seed[:2]...)
-		} else {
-			seed = append(seed, seed[:2]...)
-			seed = append(seed, seed[2:4]...)
-		}
-	}
 	decodingStream := isaac.New(seed)
-	for i := 0; i < 256; i++ {
+	for i := 0; i < 2; i++ {
 		seed[i] += 50
 	}
 	encodingStream := isaac.New(seed)

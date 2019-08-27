@@ -4,7 +4,7 @@
  * @Email:  aeros.storkpk@gmail.com
  * @Project: RSCGo
  * @Last modified by:   zach
- * @Last modified time: 08-22-2019
+ * @Last modified time: 08-27-2019
  * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
  * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
  */
@@ -28,7 +28,7 @@ func init() {
 func sessionRequest(c *Client, p *packets.Packet) {
 	c.uID, _ = p.ReadByte()
 	seed := GenerateSessionID()
-	c.isaacSeed[1] = seed >> 32
+	c.isaacSeed[1] = seed
 	c.outgoingPackets <- packets.NewBarePacket(nil).AddLong(seed)
 }
 

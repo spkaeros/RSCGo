@@ -4,7 +4,7 @@
  * @Email:  aeros.storkpk@gmail.com
  * @Project: RSCGo
  * @Last modified by:   zach
- * @Last modified time: 08-22-2019
+ * @Last modified time: 08-27-2019
  * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
  * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
  */
@@ -63,7 +63,14 @@ func (c *Client) ReadPacket() (*packets.Packet, error) {
 		return nil, err
 	}
 	length := int(int16(header[0])<<8 | int16(header[1]))
+
 	opcode := header[2] & 0xFF
+	if c.isaacStream != nil && opcode != 0 {
+		opcode ^= c.isaacStream.decoder.Uint8()
+		if opcode <= 0 {
+			LogWarning.Printf("ERROR IN ISAAC DECODING: len=%v;opcode=%d", length, opcode)
+		}
+	}
 
 	payload := c.buffer[3 : length+3]
 
@@ -76,7 +83,9 @@ func (c *Client) ReadPacket() (*packets.Packet, error) {
 		buf, err := rsa.DecryptPKCS1v15(rand.Reader, RsaKey, payload)
 		if err != nil {
 			LogWarning.Printf("Could not decrypt RSA login block: `%v`\n", err.Error())
-			c.sendLoginResponse(9)
+			if c.isaacStream == nil {
+				c.sendLoginResponse(9)
+			}
 			return nil, err
 		}
 		payload = buf
@@ -93,6 +102,9 @@ func (c *Client) WritePacket(p *packets.Packet) {
 		l := len(p.Payload) - 2
 		p.Payload[0] = byte(l >> 8)
 		p.Payload[1] = byte(l)
+		//		if c.isaacStream != nil {
+		//			p.Payload[2] ^= c.isaacStream.decoder.Uint8()
+		//		}
 	}
 
 	c.Write(p.Payload)
