@@ -226,7 +226,7 @@ func ObjectLocations(player *entity.Player, newObjects []*entity.Object, removin
 		if o.Boundary {
 			continue
 		}
-		p.AddShort(0x8000)
+		p.AddShort(32767)
 		p.AddByte(byte(o.X() - player.X()))
 		p.AddByte(byte(o.Y() - player.Y()))
 		p.AddByte(byte(o.Direction))
