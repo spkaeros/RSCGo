@@ -166,15 +166,19 @@ func startSynchronizedTaskService() {
 						var removingObjects []*entity.Object
 						for _, r := range localRegions {
 							for _, p := range r.Players {
-								if c.player.LocalPlayers.ContainsPlayer(p) {
-									if c.player.Location().LongestDelta(p.Location()) > 15 || p.Removing {
-										removingPlayers = append(removingPlayers, p)
-									} else if p.Removing && c.player.Location().LongestDelta(p.Location()) <= 15 {
-										removingPlayers = append(removingPlayers, p)
-										localPlayers = append(localPlayers, p)
+								if p.Index != c.index {
+									if c.player.Location().LongestDelta(p.Location()) <= 15 {
+										if !c.player.LocalPlayers.ContainsPlayer(p) {
+											localPlayers = append(localPlayers, p)
+										}
+										if p.Removing {
+											removingPlayers = append(removingPlayers, p)
+										}
+									} else {
+										if c.player.LocalPlayers.ContainsPlayer(p) {
+											removingPlayers = append(removingPlayers, p)
+										}
 									}
-								} else if p.Index != c.index && c.player.Location().LongestDelta(p.Location()) <= 15 {
-									localPlayers = append(localPlayers, p)
 								}
 							}
 							for _, o := range r.Objects {
