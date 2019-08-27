@@ -4,7 +4,7 @@
  * @Email:  aeros.storkpk@gmail.com
  * @Project: RSCGo
  * @Last modified by:   zach
- * @Last modified time: 08-24-2019
+ * @Last modified time: 08-26-2019
  * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
  * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
  */
@@ -33,7 +33,7 @@ func (r *ISAAC) generateNextSet() {
 		switch i % 4 {
 		case 0:
 			// complement, supposedly causes poor states to become randomized quicker.  Avalanche effect.
-			r.aa = ^(r.aa ^ r.aa << 21)
+			r.aa = ^(r.aa ^ r.aa<<21)
 		case 1:
 			r.aa ^= r.aa >> 5
 		case 2:
@@ -43,18 +43,18 @@ func (r *ISAAC) generateNextSet() {
 		}
 		// ISAAC(p) cipher code, with modifications recommended by Jean-Phillipe Aumasson to avoid a discovered bias,
 		// and strengthen the result set produced
-		r.aa += r.mm[(i+128)&0xFF]                       // indirection, accumulation
-		y := r.mm[x & 1020 >> 2] + (r.aa ^ r.bb) // indirection, addition, (p) exlusive-or, (p) rotation
+		r.aa += r.mm[(i+128)&0xFF]           // indirection, accumulation
+		y := r.mm[x&1020>>2] + (r.aa ^ r.bb) // indirection, addition, (p) exlusive-or, (p) rotation
 		r.mm[i] = y
-		r.bb = r.aa ^ r.mm[y >> 8 & 1020 >> 2] + x // indirection, addition, (p) exlusive-or, (p) rotation
+		r.bb = r.aa ^ r.mm[y>>8&1020>>2] + x // indirection, addition, (p) exlusive-or, (p) rotation
 		r.randrsl[i] = r.bb
 
 		// Original ISAAC cipher code
-/*		r.aa += r.mm[(i+128)&0xFF]           // indirection, accumulation
-		y := r.mm[(x>>2)&0xFF] + r.aa + r.bb // indirection, addition, shifts
-		r.mm[i] = y
-		r.bb = r.mm[(y>>10)&0xFF] + x // indirection, addition, shifts
-		r.randrsl[i] = r.bb*/
+		/*		r.aa += r.mm[(i+128)&0xFF]           // indirection, accumulation
+				y := r.mm[(x>>2)&0xFF] + r.aa + r.bb // indirection, addition, shifts
+				r.mm[i] = y
+				r.bb = r.mm[(y>>10)&0xFF] + x // indirection, addition, shifts
+				r.randrsl[i] = r.bb*/
 	}
 }
 
@@ -148,7 +148,7 @@ func (r *ISAAC) Int31n(n int32) int32 {
 
 // Int returns a non-negative pseudo-random int.
 func (r *ISAAC) Int() int {
-	u := uint(r.Int63())
+	u := uint(r.Uint64())
 	return int(u << 1 >> 1) // clear sign bit if int == int32
 }
 
@@ -253,8 +253,8 @@ func New(key []uint64) *ISAAC {
 	}
 	if len(key) < 256 {
 		for i := len(key); i < 256; i++ {
-			k := tmpRsl[i - len(key)]
-			tmpRsl[i] = (0x6c078965 * (k ^ (k >> 30)) + uint64(i)) & 0xffffffff
+			k := tmpRsl[i-len(key)]
+			tmpRsl[i] = (0x6c078965*(k^(k>>30)) + uint64(i)) & 0xffffffff
 		}
 	}
 	stream := &ISAAC{randrsl: tmpRsl}
