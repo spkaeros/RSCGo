@@ -4,7 +4,7 @@
  * @Email:  aeros.storkpk@gmail.com
  * @Project: RSCGo
  * @Last modified by:   zach
- * @Last modified time: 08-22-2019
+ * @Last modified time: 08-27-2019
  * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
  * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
  */
@@ -48,6 +48,7 @@ func init() {
 	}
 	server.DataDirectory += string(os.PathSeparator) + cfg.Section("server").Key("dataDir").String()
 	server.ReadRSAKeyFile(cfg.Section("server").Key("rsaKey").String())
+	server.InitializeHashing(cfg.Section("server").Key("salt").String())
 }
 
 func main() {

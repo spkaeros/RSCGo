@@ -97,7 +97,8 @@ func (c *Client) StartNetworking() {
 			}
 		}()
 		defer close(c.kill)
-		for {
+		ticker := time.NewTicker(25 * time.Millisecond)
+		for range ticker.C {
 			select {
 			case p := <-c.packetQueue:
 				if p == nil {
@@ -114,7 +115,10 @@ func (c *Client) StartNetworking() {
 func (c *Client) sendLoginResponse(i byte) {
 	c.outgoingPackets <- packets.LoginResponse(int(i))
 	if i != 0 {
-		c.kill <- struct{}{}
+		select {
+		case <-time.After(250 * time.Millisecond):
+			c.kill <- struct{}{}
+		}
 	} else {
 		c.player.AppearanceChanged = true
 		c.player.SetCoords(220, 445)

@@ -154,6 +154,9 @@ func startSynchronizedTaskService() {
 				if c, ok := c.(*Client); ok {
 					go func() {
 						defer wg.Done()
+						if c.player.X() == 0 && c.player.Y() == 0 {
+							return
+						}
 						localRegions := entity.SurroundingRegions(c.player.X(), c.player.Y())
 						var localPlayers []*entity.Player
 						var localAppearances []*entity.Player
