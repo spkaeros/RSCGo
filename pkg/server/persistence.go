@@ -18,6 +18,7 @@ import (
 	// Necessary for sqlite3 driver
 	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/list"
+	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -80,6 +81,7 @@ func (c *Client) LoadPlayer(username string, password string) int {
 	if !rows.Next() {
 		return 3
 	}
+	Clients[strutil.Base37(username)] = c
 	rows.Scan(&c.player.DatabaseIndex, &x, &y, &c.player.Rank, &fightmode)
 	c.player.SetCoords(x, y)
 	c.player.SetFightMode(fightmode)

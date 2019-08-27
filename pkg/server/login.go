@@ -34,7 +34,7 @@ func sessionRequest(c *Client, p *packets.Packet) {
 
 func loginRequest(c *Client, p *packets.Packet) {
 	// TODO: Handle reconnect slightly different
-	recon, _ := p.ReadByte()
+	p.ReadByte()
 	version, _ := p.ReadInt()
 	if version != uint32(Version) {
 		if len(Flags.Verbose) >= 1 {
@@ -55,10 +55,14 @@ func loginRequest(c *Client, p *packets.Packet) {
 	c.isaacStream = cipher
 	c.player.Index = c.index
 	c.player.Username, _ = p.ReadString()
-	c.player.Username = strutil.DecodeBase37(strutil.Base37(c.player.Username))
+	hash := strutil.Base37(c.player.Username)
+	c.player.Username = strutil.DecodeBase37(hash)
 	password, _ := p.ReadString()
 	passHash := HashPassword(password)
 	//	entity.GetRegion(c.player.X(), c.player.Y()).AddPlayer(c.player)
-	LogInfo.Printf("Registered Player{idx:%v,ip:'%v'username:'%v',reconnecting:%v,version:%v}\n", c.index, c.ip, c.player.Username, recon, version)
+	if _, ok := Clients[hash]; ok {
+		c.sendLoginResponse(4)
+		return
+	}
 	c.sendLoginResponse(byte(c.LoadPlayer(c.player.Username, passHash)))
 }

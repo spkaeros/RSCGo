@@ -40,6 +40,7 @@ var (
 	DataDirectory = "."
 	//ClientList List of active clients.
 	ClientList = list.New(2048)
+	Clients    = make(map[uint64]*Client)
 )
 
 //Flags This is used to interface with the go-flags package from some guy on github.
