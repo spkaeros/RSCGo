@@ -26,6 +26,7 @@ type Player struct {
 	LocalObjects      *LocatableList
 	HasMoved          bool
 	Removing          bool
+	HasSelf           bool
 	AppearanceChanged bool
 	Appearances       []int
 	Skillset          *SkillTable

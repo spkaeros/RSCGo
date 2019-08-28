@@ -145,11 +145,19 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 	p.AddBits(player.Y(), 13)
 	p.AddBits(int(player.Direction()), 4)
 	p.AddBits(len(player.LocalPlayers.List), 8)
+	counter := 0
+	if player.HasMoved || !player.HasSelf {
+		counter++
+	}
+	//	if !player.HasSelf {
+	//		counter++
+	//	}
 	for _, p1 := range removing {
 		p.AddBits(1, 1)
 		p.AddBits(1, 1)
 		p.AddBits(3, 2)
 		player.LocalPlayers.RemovePlayer(p1)
+		counter++
 	}
 	for _, p1 := range player.LocalPlayers.List {
 		p1, ok := p1.(*entity.Player)
@@ -159,10 +167,12 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
 				player.LocalPlayers.RemovePlayer(p1)
+				counter++
 			} else if p1.HasMoved {
 				p.AddBits(1, 1)
 				p.AddBits(0, 1)
 				p.AddBits(int(p1.Direction()), 3)
+				counter++
 			} else {
 				p.AddBits(0, 1)
 			}
@@ -183,6 +193,10 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 		p.AddBits(int(p1.Direction()), 4)
 		p.AddBits(1, 1)
 		player.LocalPlayers.AddPlayer(p1)
+		counter++
+	}
+	if counter <= 0 {
+		return nil
 	}
 	return
 }

@@ -40,7 +40,8 @@ var (
 	DataDirectory = "."
 	//ClientList List of active clients.
 	ClientList = list.New(2048)
-	Clients    = make(map[uint64]*Client)
+	//Clients A map of base37 encoded username hashes to client references.  This is a common lookup and I consider this an optimization.
+	Clients = make(map[uint64]*Client)
 )
 
 //Flags This is used to interface with the go-flags package from some guy on github.
@@ -199,9 +200,11 @@ func startSynchronizedTaskService() {
 						}
 						localAppearances = append(localAppearances, localPlayers...)
 						c.player.Appearances = c.player.Appearances[:0]
-						c.outgoingPackets <- packets.PlayerPositions(c.player, localPlayers, removingPlayers)
-						appearances := packets.PlayerAppearances(c.player, localAppearances)
-						if appearances != nil {
+						// POSITIONS BEFORE EVERYTHING ELSE.
+						if positions := packets.PlayerPositions(c.player, localPlayers, removingPlayers); positions != nil {
+							c.outgoingPackets <- positions
+						}
+						if appearances := packets.PlayerAppearances(c.player, localAppearances); appearances != nil {
 							c.outgoingPackets <- appearances
 						}
 						c.outgoingPackets <- packets.ObjectLocations(c.player, localObjects, removingObjects)
@@ -218,6 +221,7 @@ func startSynchronizedTaskService() {
 						c.player.Removing = false
 						c.player.HasMoved = false
 						c.player.AppearanceChanged = false
+						c.player.HasSelf = true
 					}()
 				}
 			}
