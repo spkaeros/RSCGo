@@ -19,19 +19,14 @@ var RsaKey *rsa.PrivateKey
 //ShakeHash The SHA3 hashing function state and reference point.
 var ShakeHash sha3.ShakeHash
 
-//InitializeHashing Initializes global hashing function reference for future usage, with `salt` as the salt.
-func InitializeHashing(salt string) {
-	ShakeHash = sha3.NewCShake256([]byte{}, []byte(salt))
-}
-
 //IsaacSeed Container struct for 2 instances of the ISAAC+ CSPRNG, one for incoming data, the other outgoing data.
 type IsaacSeed struct {
 	encoder, decoder *isaac.ISAAC
 }
 
-//ReadRSAKeyFile Read the RSA key from the file specified, within the DataDirectory.
-func ReadRSAKeyFile(file string) {
-	buf, err := ioutil.ReadFile(TomlConfig.DataDir + file)
+//InitializeCrypto Read the RSA key into memory.
+func InitializeCrypto() {
+	buf, err := ioutil.ReadFile(TomlConfig.DataDir + TomlConfig.Crypto.RsaKeyFile)
 	if err != nil {
 		LogError.Printf("Could not read RSA key from file:%v", err)
 		os.Exit(103)
@@ -42,6 +37,7 @@ func ReadRSAKeyFile(file string) {
 		os.Exit(104)
 	}
 	RsaKey = key.(*rsa.PrivateKey)
+	ShakeHash = sha3.NewCShake256([]byte{}, []byte(TomlConfig.Crypto.HashSalt))
 }
 
 //SeedISAAC Initialize the ISAAC+ PRNG for use as a stream cipher for this client.
@@ -71,7 +67,6 @@ func GenerateSessionID() uint64 {
 //HashPassword Takes a plaintext password as input, returns a hexidecimal string representation of the SHAKE256
 //  hash of the input password.
 func HashPassword(password string) string {
-	ShakeHash.Reset()
 	if n, err := ShakeHash.Write([]byte(password)); n < len(password) || err != nil {
 		LogWarning.Printf("HashPassword(string): Write failed:")
 		if n < len(password) {

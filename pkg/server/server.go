@@ -31,13 +31,14 @@ var (
 
 //TomlConfig A data structure representing the RSCGo TOML configuration file.
 var TomlConfig struct {
-	DataDir    string `toml:"data_directory"`
-	Version    int    `toml:"version"`
-	Port       int    `toml:"port"`
-	MaxPlayers int    `toml:"max_players"`
-	Database   struct {
-		playerDB string `toml:"player_db"`
-		worldDB  string `toml:"world_db"`
+	DataDir           string `toml:"data_directory"`
+	Version           int    `toml:"version"`
+	Port              int    `toml:"port"`
+	MaxPlayers        int    `toml:"max_players"`
+	PacketHandlerFile string `toml:"packet_handler_table"`
+	Database          struct {
+		PlayerDB string `toml:"player_db"`
+		WorldDB  string `toml:"world_db"`
 	} `toml:"database"`
 	Crypto struct {
 		RsaKeyFile string `toml:"rsa_key"`

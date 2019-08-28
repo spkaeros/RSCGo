@@ -29,9 +29,8 @@ func init() {
 		fmt.Println("Error decoding TOML RSCGo general configuration file:", err)
 		os.Exit(137)
 	}
-	server.LoadPacketHandlerTable("packethandlers.toml")
-	server.ReadRSAKeyFile(server.TomlConfig.Crypto.RsaKeyFile)
-	server.InitializeHashing(server.TomlConfig.Crypto.HashSalt)
+	server.InitializeCrypto()
+	server.InitPacketHandlerTable()
 }
 
 func main() {

@@ -1,4 +1,4 @@
-handlers = [
+packets = [
 	{ name = 'sessionreq', opcode = 32 },
 	{ name = 'loginreq', opcode = 0},
 	{ name = 'logoutreq', opcode = 145},

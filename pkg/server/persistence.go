@@ -23,7 +23,7 @@ var PlayerDatabase *sql.DB
 //LoadObjects Loads the game objects into memory from the SQLite3 database.
 func LoadObjects() int {
 	if WorldDatabase == nil {
-		WorldDatabase = Database("world.db")
+		WorldDatabase = Database(TomlConfig.Database.WorldDB)
 	}
 	rows, err := WorldDatabase.Query("SELECT `id`, `direction`, `type`, `x`, `y` FROM `game_object_locations`")
 	if err != nil {
@@ -54,7 +54,7 @@ func Database(file string) *sql.DB {
 //LoadPlayer Loads a player from the SQLite3 database, returns a login response code.
 func (c *Client) LoadPlayer(username string, password string) int {
 	if PlayerDatabase == nil {
-		PlayerDatabase = Database("players.db")
+		PlayerDatabase = Database(TomlConfig.Database.PlayerDB)
 	}
 
 	stmt, err := PlayerDatabase.Prepare("SELECT `player`.`id`, `player`.`x`, `player`.`y`, `player`.`rank`, `player`.`fightmode`, `player`.`lastlogin`, `player`.`lastip`, `player`.`lastskulled`, `player`.`changingappearance`, `player`.`male`, `player`.`fatigue`, `appearance`.`haircolour`, `appearance`.`topcolour`, `appearance`.`trousercolour`, `appearance`.`skincolour`, `appearance`.`head`, `appearance`.`body` FROM `player` INNER JOIN `appearance` ON `appearance`.`playerid` = `player`.`id` WHERE `player`.`username`=? COLLATE NOCASE AND `player`.`password`=?")

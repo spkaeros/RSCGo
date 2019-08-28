@@ -7,46 +7,44 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-type packethandler struct {
-	Name   string
-	Opcode int
-}
-
-type packethandlerTable struct {
-	handlers []packethandler
-}
-
-var packethandlers packethandlerTable
-
 //PacketHandlers A map with descriptive names for the keys, and functions to run for the value.
 var PacketHandlers = make(map[string]func(*Client, *packets.Packet))
 
-//LoadPacketHandlerTable Deserializes the packet handler table into memory.
-func LoadPacketHandlerTable(file string) {
-	if _, err := toml.DecodeFile(TomlConfig.DataDir+file, &packethandlers); err != nil {
+//packetHandlerTable Represents a mapping of descriptive names to packet opcodes.
+var packetHandlerTable struct {
+	Handlers []struct {
+		Name   string `toml:"name"`
+		Opcode int    `toml:"opcode"`
+	} `toml:"packets"`
+}
+
+//InitPacketHandlerTable Deserializes the packet handler table into memory.
+func InitPacketHandlerTable() {
+	if _, err := toml.DecodeFile(TomlConfig.DataDir+TomlConfig.PacketHandlerFile, &packetHandlerTable); err != nil {
 		LogError.Fatalln("Could not open packet handler table data file:", err)
 		return
 	}
 }
 
-//HandlerName Returns a descriptive name for a packet given its opcode.
-func HandlerName(opcode int) string {
-	for _, v := range packethandlers.handlers {
+//handlerFromOpcode Returns a descriptive name for a packet given its opcode.
+func handlerFromOpcode(opcode int) func(*Client, *packets.Packet) {
+	for _, v := range packetHandlerTable.Handlers {
 		if v.Opcode == opcode {
-			return v.Name
+			return PacketHandlers[v.Name]
 		}
 	}
-	return ""
+
+	return nil
 }
 
 //HandlePacket Finds the mapped handler function for the specified packet, and calls it with the specified parameters.
 func (c *Client) HandlePacket(p *packets.Packet) {
-	name := HandlerName(int(p.Opcode))
-	if len(name) <= 0 {
+	handler := handlerFromOpcode(int(p.Opcode))
+	if handler == nil {
 		LogInfo.Printf("Unhandled Packet: {opcode:%d; length:%d};\n", p.Opcode, len(p.Payload))
 		fmt.Printf("CONTENT: %v\n", p.Payload)
 		return
 	}
-	// If the opcode maps to any name at all, it should exist here.
-	PacketHandlers[name](c, p)
+
+	handler(c, p)
 }
