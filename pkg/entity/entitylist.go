@@ -1,9 +1,11 @@
 package entity
 
+//Locatable An interface for all locatable scene entities to implement
 type Locatable interface {
 	Location() *Location
 }
 
+//LocatableList Represents a list of locatable scene entities.
 type LocatableList struct {
 	List []Locatable
 }
@@ -62,7 +64,7 @@ func (l *LocatableList) RemoveObject(p *Object) {
 	}
 }
 
-//ContainsPlayer Returns true if the receiver list contains the player specified, false otherwise.
+//ContainsObject Returns true if the receiver list contains the player specified, false otherwise.
 func (l *LocatableList) ContainsObject(o *Object) bool {
 	for _, v := range l.List {
 		if v, ok := v.(*Object); ok {

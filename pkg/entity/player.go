@@ -24,12 +24,14 @@ type Player struct {
 	Attributes        map[string]interface{}
 }
 
+//SkillTable Represents a skill table for a mob.
 type SkillTable struct {
 	Current    [18]int
 	Maximum    [18]int
 	Experience [18]int
 }
 
+//ArmourPoints Returns the players armour points.
 func (p *Player) ArmourPoints() int {
 	if _, ok := p.Attributes["armour_points"]; !ok {
 		p.Attributes["armour_points"] = 1
@@ -37,10 +39,12 @@ func (p *Player) ArmourPoints() int {
 	return p.Attributes["armour_points"].(int)
 }
 
+//SetArmourPoints Sets the players armour points to i.
 func (p *Player) SetArmourPoints(i int) {
 	p.Attributes["armour_points"] = i
 }
 
+//PowerPoints Returns the players power points.
 func (p *Player) PowerPoints() int {
 	if _, ok := p.Attributes["power_points"]; !ok {
 		p.Attributes["power_points"] = 1
@@ -48,10 +52,12 @@ func (p *Player) PowerPoints() int {
 	return p.Attributes["power_points"].(int)
 }
 
+//SetPowerPoints Sets the players power points to i
 func (p *Player) SetPowerPoints(i int) {
 	p.Attributes["power_points"] = i
 }
 
+//AimPoints Returns the players aim points
 func (p *Player) AimPoints() int {
 	if _, ok := p.Attributes["aim_points"]; !ok {
 		p.Attributes["aim_points"] = 1
@@ -59,10 +65,12 @@ func (p *Player) AimPoints() int {
 	return p.Attributes["aim_points"].(int)
 }
 
+//SetAimPoints Sets the players aim points to i.
 func (p *Player) SetAimPoints(i int) {
 	p.Attributes["aim_points"] = i
 }
 
+//MagicPoints Returns the players magic points
 func (p *Player) MagicPoints() int {
 	if _, ok := p.Attributes["magic_points"]; !ok {
 		p.Attributes["magic_points"] = 1
@@ -70,10 +78,12 @@ func (p *Player) MagicPoints() int {
 	return p.Attributes["magic_points"].(int)
 }
 
+//SetMagicPoints Sets the players magic points to i
 func (p *Player) SetMagicPoints(i int) {
 	p.Attributes["magic_points"] = i
 }
 
+//PrayerPoints Returns the players prayer points
 func (p *Player) PrayerPoints() int {
 	if _, ok := p.Attributes["prayer_points"]; !ok {
 		p.Attributes["prayer_points"] = 1
@@ -81,10 +91,12 @@ func (p *Player) PrayerPoints() int {
 	return p.Attributes["prayer_points"].(int)
 }
 
+//SetPrayerPoints Sets the players prayer points to i
 func (p *Player) SetPrayerPoints(i int) {
 	p.Attributes["prayer_points"] = i
 }
 
+//RangedPoints Returns the players ranged points.
 func (p *Player) RangedPoints() int {
 	if _, ok := p.Attributes["ranged_points"]; !ok {
 		p.Attributes["ranged_points"] = 1
@@ -92,10 +104,12 @@ func (p *Player) RangedPoints() int {
 	return p.Attributes["ranged_points"].(int)
 }
 
+//SetRangedPoints Sets the players ranged points tp i.
 func (p *Player) SetRangedPoints(i int) {
 	p.Attributes["ranged_points"] = i
 }
 
+//Fatigue Returns the players current fatigue.
 func (p *Player) Fatigue() int {
 	if _, ok := p.Attributes["fatigue"]; !ok {
 		p.Attributes["fatigue"] = 0
@@ -103,10 +117,12 @@ func (p *Player) Fatigue() int {
 	return p.Attributes["fatigue"].(int)
 }
 
+//SetFatigue Sets the players current fatigue to i.
 func (p *Player) SetFatigue(i int) {
 	p.Attributes["fatigue"] = i
 }
 
+//FightMode Returns the players current fight mode.
 func (p *Player) FightMode() int {
 	if _, ok := p.Attributes["fight_mode"]; !ok {
 		p.Attributes["fight_mode"] = 0
@@ -114,6 +130,7 @@ func (p *Player) FightMode() int {
 	return p.Attributes["fight_mode"].(int)
 }
 
+//SetFightMode Sets the players fightmode to i.  0=all,1=attack,2=defense,3=strength
 func (p *Player) SetFightMode(i int) {
 	p.Attributes["fight_mode"] = i
 }
@@ -147,6 +164,7 @@ func (p *Player) TraversePath() {
 	p.SetLocation(newLocation)
 }
 
+//NearbyPlayers Returns the nearby players from the current and nearest adjacent regions in a slice.
 func (p *Player) NearbyPlayers() (players []*Player) {
 	for _, r := range SurroundingRegions(p.X(), p.Y()) {
 		for _, p1 := range r.Players {

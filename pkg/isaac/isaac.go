@@ -1,5 +1,6 @@
 package isaac
 
+//ISAAC The state of the ISAAC CSPRNG
 type ISAAC struct {
 	// external results
 	randrsl [256]uint64

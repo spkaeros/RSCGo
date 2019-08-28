@@ -1,5 +1,6 @@
 package errors
 
+//NetError A RSCGo network-related error.
 type NetError struct {
 	msg    string
 	Ping   bool

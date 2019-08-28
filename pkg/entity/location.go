@@ -33,6 +33,7 @@ type Location struct {
 	X, Y int
 }
 
+//NewLocation Returns a reference to a new instance of the Location data structure.
 func NewLocation(x, y int) *Location {
 	return &Location{x, y}
 }

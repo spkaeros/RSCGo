@@ -22,6 +22,7 @@ func getCharCode(c rune) int {
 	return 0
 }
 
+//ModalParse Neat command argument parsing function with support for single-quotes, ported from Java
 func ModalParse(s string) []string {
 	var cur string
 	escaped := false
