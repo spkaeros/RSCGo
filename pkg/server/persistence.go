@@ -1,35 +1,24 @@
-/**
- * @Author: Zachariah Knight <zach>
- * @Date:   08-22-2019
- * @Email:  aeros.storkpk@gmail.com
- * @Project: RSCGo
- * @Last modified by:   zach
- * @Last modified time: 08-27-2019
- * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
- * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
- */
-
 package server
 
 import (
 	"database/sql"
 	"os"
 
-	// Necessary for sqlite3 driver
 	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/list"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
+
+	// Necessary for sqlite3 driver
 	_ "github.com/mattn/go-sqlite3"
 )
 
 //Objects List of the game objects in the world
 var Objects = list.New(16384)
 
-type DatabaseConnection struct {
-	db *sql.DB
-}
-
+//WorldDatabase SQLite3 connection reference for world data.
 var WorldDatabase *sql.DB
+
+//PlayerDatabase SQLite3 connection reference for player data.
 var PlayerDatabase *sql.DB
 
 //LoadObjects Loads the game objects into memory from the SQLite3 database.
@@ -53,6 +42,7 @@ func LoadObjects() int {
 	return counter
 }
 
+//Database Returns an active sqlite3 database reference for the specified database file.
 func Database(file string) *sql.DB {
 	database, err := sql.Open("sqlite3", DataDirectory+string(os.PathSeparator)+file)
 	if err != nil {
@@ -62,6 +52,7 @@ func Database(file string) *sql.DB {
 	return database
 }
 
+//LoadPlayer Loads a player from the SQLite3 database, returns a login response code.
 func (c *Client) LoadPlayer(username string, password string) int {
 	if PlayerDatabase == nil {
 		PlayerDatabase = Database("players.db")

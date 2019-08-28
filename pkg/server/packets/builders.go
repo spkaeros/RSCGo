@@ -1,14 +1,3 @@
-/**
- * @Author: Zachariah Knight <zach>
- * @Date:   08-22-2019
- * @Email:  aeros.storkpk@gmail.com
- * @Project: RSCGo
- * @Last modified by:   zach
- * @Last modified time: 08-27-2019
- * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
- * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
- */
-
 package packets
 
 import (
@@ -20,14 +9,17 @@ import (
 
 var epoch = uint64(time.Now().UnixNano() / int64(time.Millisecond))
 
+//WelcomeMessage Welcome to the game on login
 var WelcomeMessage = ServerMessage("Welcome to RuneScape")
 
+//ServerMessage Builds a packet containing a server message to display in the chat box.
 func ServerMessage(msg string) (p *Packet) {
 	p = NewOutgoingPacket(48)
 	p.AddBytes([]byte(msg))
 	return
 }
 
+//TeleBubble Builds a packet to draw a teleport bubble at the specified offsets.
 func TeleBubble(offsetX, offsetY int) (p *Packet) {
 	p = NewOutgoingPacket(23)
 	p.AddByte(0) // type, 0 is mobs, 1 is stationary entities, e.g telegrab
@@ -36,6 +28,7 @@ func TeleBubble(offsetX, offsetY int) (p *Packet) {
 	return
 }
 
+//ServerInfo Builds a packet with the server information in it.
 func ServerInfo(onlineCount int) (p *Packet) {
 	p = NewOutgoingPacket(110)
 	p.AddLong(epoch)
@@ -45,6 +38,7 @@ func ServerInfo(onlineCount int) (p *Packet) {
 	return p
 }
 
+//LoginBox Builds a packet to create a welcome box on the client with the inactiveDays since login, and lastIP connected from.
 func LoginBox(inactiveDays int, lastIP string) (p *Packet) {
 	p = NewOutgoingPacket(248)
 	p.AddShort(uint16(inactiveDays))
@@ -52,12 +46,14 @@ func LoginBox(inactiveDays int, lastIP string) (p *Packet) {
 	return p
 }
 
+//FightMode Builds a packet with the players fight mode information in it.
 func FightMode(player *entity.Player) (p *Packet) {
 	p = NewOutgoingPacket(132)
 	p.AddByte(byte(player.FightMode()))
 	return p
 }
 
+//Fatigue Builds a packet with the players fatigue percentage in it.
 func Fatigue(player *entity.Player) (p *Packet) {
 	p = NewOutgoingPacket(244)
 	// Fatigue is converted to percentage differently in the client.
@@ -66,6 +62,7 @@ func Fatigue(player *entity.Player) (p *Packet) {
 	return p
 }
 
+//FriendList Builds a packet with the players friend list information in it.
 func FriendList(player *entity.Player) (p *Packet) {
 	p = NewOutgoingPacket(249)
 	p.AddByte(byte(len(player.FriendList)))
@@ -77,6 +74,7 @@ func FriendList(player *entity.Player) (p *Packet) {
 	return p
 }
 
+//FriendUpdate Builds a packet with an online status update for the player with the specified hash
 func FriendUpdate(player *entity.Player, hash uint64, online bool) (p *Packet) {
 	p = NewOutgoingPacket(25)
 	p.AddLong(hash)
@@ -88,6 +86,7 @@ func FriendUpdate(player *entity.Player, hash uint64, online bool) (p *Packet) {
 	return
 }
 
+//ClientSettings Builds a packet containing the players client settings, e.g camera mode, mouse mode, sound fx...
 func ClientSettings(player *entity.Player) (p *Packet) {
 	p = NewOutgoingPacket(152)
 	p.AddByte(0) // Camera auto/manual?
@@ -96,12 +95,14 @@ func ClientSettings(player *entity.Player) (p *Packet) {
 	return
 }
 
+//BigInformationBox Builds a packet to trigger the opening of a large black text window with msg as its contents
 func BigInformationBox(msg string) (p *Packet) {
 	p = NewOutgoingPacket(64)
 	p.AddBytes([]byte(msg))
 	return p
 }
 
+//PlayerChat Builds a packet containing a view-area chat message from the player with the index sender and returns it.
 func PlayerChat(sender int, msg string) *Packet {
 	p := NewOutgoingPacket(53)
 	p.AddShort(1)
@@ -112,6 +113,7 @@ func PlayerChat(sender int, msg string) *Packet {
 	return p
 }
 
+//PlayerStats Builds a packet containing all the player's stat information and returns it.
 func PlayerStats(player *entity.Player) *Packet {
 	p := NewOutgoingPacket(180)
 	for i := 0; i < 18; i++ {
@@ -128,6 +130,7 @@ func PlayerStats(player *entity.Player) *Packet {
 	return p
 }
 
+//PlayerStat Builds a packet containing player's stat information for skill at idx and returns it.
 func PlayerStat(player *entity.Player, idx int) *Packet {
 	p := NewOutgoingPacket(208)
 	p.AddByte(byte(idx))
@@ -137,6 +140,8 @@ func PlayerStat(player *entity.Player, idx int) *Packet {
 	return p
 }
 
+//PlayerPositions Builds a packet containing view area player position and sprite information, including ones own information, and returns it.
+// If no players need to be updated, returns nil.
 func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*entity.Player) (p *Packet) {
 	p = NewOutgoingPacket(145)
 	// Note: X coords can be held in 10 bits and Y can be held in 12 bits
@@ -149,9 +154,6 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 	if player.HasMoved || !player.HasSelf {
 		counter++
 	}
-	//	if !player.HasSelf {
-	//		counter++
-	//	}
 	for _, p1 := range removing {
 		p.AddBits(1, 1)
 		p.AddBits(1, 1)
@@ -201,6 +203,7 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 	return
 }
 
+//PlayerAppearances Builds a packet with the view-area player appearance profiles in it.
 func PlayerAppearances(ourPlayer *entity.Player, local []*entity.Player) (p *Packet) {
 	p = NewOutgoingPacket(53)
 	if ourPlayer.AppearanceChanged {
@@ -233,6 +236,7 @@ func PlayerAppearances(ourPlayer *entity.Player, local []*entity.Player) (p *Pac
 	return
 }
 
+//ObjectLocations Builds a packet with the view-area object positions in it, relative to the player.
 func ObjectLocations(player *entity.Player, newObjects []*entity.Object, removingObjects []*entity.Object) (p *Packet) {
 	p = NewOutgoingPacket(27)
 	for _, o := range removingObjects {
@@ -258,6 +262,7 @@ func ObjectLocations(player *entity.Player, newObjects []*entity.Object, removin
 	return
 }
 
+//EquipmentStats Builds a packet with the players equipment statistics in it.
 func EquipmentStats(player *entity.Player) (p *Packet) {
 	p = NewOutgoingPacket(177)
 	p.AddShort(uint16(player.ArmourPoints()))

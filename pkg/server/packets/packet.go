@@ -1,14 +1,3 @@
-/**
- * @Author: Zachariah Knight <zach>
- * @Date:   08-20-2019
- * @Email:  aeros.storkpk@gmail.com
- * @Project: RSCGo
- * @Last modified by:   zach
- * @Last modified time: 08-22-2019
- * @License: Use of this source code is governed by the MIT license that can be found in the LICENSE file.
- * @Copyright: Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
- */
-
 package packets
 
 import (
@@ -33,12 +22,22 @@ type Packet struct {
 	length      int
 }
 
+//ResponsePong Response to a RSC protocol ping packet
 var ResponsePong = NewOutgoingPacket(3)
+
+//ChangeAppearance The appearance changing window.
 var ChangeAppearance = NewOutgoingPacket(207)
+
+//CannotLogout Message that you can not logout right now.
 var CannotLogout = NewOutgoingPacket(135)
+
+//Logout Resets client to login welcome screen
 var Logout = NewOutgoingPacket(222)
+
+//Death The 'Oh dear...You are dead' fade-to-black graphic effect when you die.
 var Death = NewOutgoingPacket(165)
 
+//LogWarning An output log for warnings.
 var LogWarning = log.New(os.Stdout, "[WARNING] ", log.Ltime|log.Lshortfile)
 
 //NewPacket Creates a new packet instance.
@@ -111,7 +110,7 @@ func (p *Packet) ReadByte() (byte, error) {
 	return p.Payload[p.readIndex] & 0xFF, nil
 }
 
-//ReadByte Read the next 8-bit integer from the packet payload.
+//ReadSByte Read the next 8-bit integer from the packet payload.
 func (p *Packet) ReadSByte() (int8, error) {
 	if p.readIndex+1 > len(p.Payload) {
 		LogWarning.Printf("Tried to read data from empty packet in a byte!  Rewinding offset...")
