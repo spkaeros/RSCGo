@@ -21,7 +21,7 @@ var (
 	LogInfo = log.New(os.Stdout, "[INFO] ", log.Ltime|log.Lshortfile)
 	//LogError Log interface for errors.
 	LogError   = log.New(os.Stderr, "[ERROR] ", log.Ltime|log.Lshortfile)
-	syncTicker = time.NewTicker(time.Millisecond * 650)
+	syncTicker = time.NewTicker(time.Millisecond * 640)
 	kill       = make(chan struct{})
 	//ClientList List of active clients.
 	ClientList = list.New(2048)
@@ -159,13 +159,12 @@ func startSynchronizedTaskService() {
 						if c.player.X() == 0 && c.player.Y() == 0 {
 							return
 						}
-						localRegions := entity.SurroundingRegions(c.player.X(), c.player.Y())
 						var localPlayers []*entity.Player
 						var localAppearances []*entity.Player
 						var removingPlayers []*entity.Player
 						var localObjects []*entity.Object
 						var removingObjects []*entity.Object
-						for _, r := range localRegions {
+						for _, r := range entity.SurroundingRegions(c.player.X(), c.player.Y()) {
 							for _, p := range r.Players {
 								if p.Index != c.index {
 									if c.player.Location().LongestDelta(p.Location()) <= 15 {
@@ -209,7 +208,6 @@ func startSynchronizedTaskService() {
 							c.outgoingPackets <- appearances
 						}
 						c.outgoingPackets <- packets.ObjectLocations(c.player, localObjects, removingObjects)
-						// TODO: Update movement, update client-side collections
 					}()
 				}
 			}
@@ -219,6 +217,7 @@ func startSynchronizedTaskService() {
 				if c, ok := c.(*Client); ok {
 					go func() {
 						defer wg.Done()
+						// Cleanup synchronization variables.
 						c.player.Removing = false
 						c.player.HasMoved = false
 						c.player.AppearanceChanged = false
