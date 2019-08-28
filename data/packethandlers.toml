@@ -3,7 +3,7 @@ packets = [
 	{ name = 'loginreq', opcode = 0},
 	{ name = 'logoutreq', opcode = 145},
 	{ name = 'pingreq', opcode = 5},
-	{ name = 'pubchat', opcode = 174},
-	{ name = 'walkreq', opcode = 186},
+	{ name = 'chatmsg', opcode = 174},
+	{ name = 'walkto', opcode = 186},
 	{ name = 'command', opcode = 120}
 ]
