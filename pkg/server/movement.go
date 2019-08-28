@@ -6,7 +6,7 @@ import (
 )
 
 func init() {
-	Handlers[186] = func(c *Client, p *packets.Packet) {
+	PacketHandlers["walkto"] = func(c *Client, p *packets.Packet) {
 		startX, _ := p.ReadShort()
 		startY, _ := p.ReadShort()
 		numWaypoints := (len(p.Payload) - 4) / 2

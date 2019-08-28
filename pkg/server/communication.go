@@ -7,7 +7,7 @@ import (
 )
 
 func init() {
-	Handlers[174] = func(c *Client, p *packets.Packet) {
+	PacketHandlers["chatmsg"] = func(c *Client, p *packets.Packet) {
 		//		for _, p1 := range c.player.NearbyPlayers() {
 		//			if c1, ok := ClientList.Get(p1.Index).(*Client); c1 != nil && ok {
 		//				c1.outgoingPackets <- packets.TeleBubble(diffX, diffY)
@@ -23,8 +23,8 @@ func init() {
 			}
 		}
 	}
-	Handlers[84] = func(c *Client, p *packets.Packet) {
-		index, _ := p.ReadShort()
-		c.player.Appearances = append(c.player.Appearances, int(index))
-	}
+	//	PacketHandlers[84] = func(c *Client, p *packets.Packet) {
+	//		index, _ := p.ReadShort()
+	//		c.player.Appearances = append(c.player.Appearances, int(index))
+	//	}
 }

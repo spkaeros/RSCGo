@@ -2,6 +2,8 @@
 4d63.com/gochecknoglobals v0.0.0-20190306162314-7c3491d2b6ec/go.mod h1:Sk40JNJmh0koZukOjJfaBNLZazbZthFfHnLHIcZNS6A=
 4d63.com/gochecknoinits v0.0.0-20180528051558-14d5915061e5 h1:h34Nn8nf6uCkNqOnLH2SVsxaFOjhMkhaVWcMCDFb4RU=
 4d63.com/gochecknoinits v0.0.0-20180528051558-14d5915061e5/go.mod h1:4o1i5aXtIF5tJFt3UD1knCVmWOXg7fLYdHVu6jeNcnM=
+github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
+github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/alexflint/go-arg v0.0.0-20160306200701-e71d6514f40a/go.mod h1:PHxo6ZWOLVMZZgWSAqBynb/KhIqoGO6WKwOVX7rM9dg=
 github.com/alexflint/go-arg v1.1.0 h1:92ADei0d3TP0mGBdJ/FNcF54X6uFY7BQfhqkrQt3CCE=
 github.com/alexflint/go-arg v1.1.0/go.mod h1:3Rj4baqzWaGGmZA2+bVTV8zQOZEjBQAPBnL5xLT+ftY=

@@ -36,6 +36,7 @@ func init() {
 		os.Exit(102)
 	}
 	server.DataDirectory += string(os.PathSeparator) + cfg.Section("server").Key("dataDir").String()
+	server.LoadPacketHandlerTable("packethandlers.toml")
 	server.ReadRSAKeyFile(cfg.Section("server").Key("rsaKey").String())
 	server.InitializeHashing(cfg.Section("server").Key("salt").String())
 }

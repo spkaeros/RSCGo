@@ -14,7 +14,7 @@ import (
 var CommandHandlers = make(map[string]func(*Client, []string))
 
 func init() {
-	Handlers[120] = func(c *Client, p *packets.Packet) {
+	PacketHandlers["command"] = func(c *Client, p *packets.Packet) {
 		args := strutil.ModalParse(string(p.Payload))
 		handler, ok := CommandHandlers[args[0]]
 		if !ok {

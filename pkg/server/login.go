@@ -6,9 +6,9 @@ import (
 )
 
 func init() {
-	Handlers[32] = sessionRequest
-	Handlers[0] = loginRequest
-	Handlers[145] = func(c *Client, p *packets.Packet) {
+	PacketHandlers["sessionreq"] = sessionRequest
+	PacketHandlers["loginreq"] = loginRequest
+	PacketHandlers["logoutreq"] = func(c *Client, p *packets.Packet) {
 		c.outgoingPackets <- packets.Logout
 		c.kill <- struct{}{}
 	}

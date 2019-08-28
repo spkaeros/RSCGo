@@ -5,6 +5,7 @@ go 1.12
 require (
 	4d63.com/gochecknoglobals v0.0.0-20190306162314-7c3491d2b6ec // indirect
 	4d63.com/gochecknoinits v0.0.0-20180528051558-14d5915061e5 // indirect
+	github.com/BurntSushi/toml v0.3.1
 	github.com/alexflint/go-arg v1.1.0 // indirect
 	github.com/alexkohler/nakedret v0.0.0-20190321114339-98ae56e4e0f3 // indirect
 	github.com/client9/misspell v0.3.4 // indirect

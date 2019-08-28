@@ -111,8 +111,6 @@ func Start() {
 	LogInfo.Println("RSCGo is now running.")
 	LogInfo.Printf("Listening on port %d...\n", Flags.Port)
 	// TODO: Probably need to handle certain signals, for usability sake.
-	// TODO: Implement some form of data store for static game data, e.g entity information, seldom-changed config
-	//  settings and the like.
 	// TODO: Implement a data store for dynamic game data, e.g player information, and so on.
 	select {
 	case <-kill:
