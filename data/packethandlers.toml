@@ -1,21 +1,9 @@
-[[handlers]]
-	name = 'sessionreq'
-	opcode = 32
-[[handlers]]
-	name = 'loginreq'
-	opcode = 0
-[[handlers]]
-	name = 'logoutreq'
-	opcode = 145
-[[handlers]]
-	name = 'pingreq'
-	opcode = 5
-[[handlers]]
-	name = 'chatmsg'
-	opcode = 174
-[[handlers]]
-	name = 'walkto'
-	opcode = 186
-[[handlers]]
-	name = 'command'
-	opcode = 120
+handlers = [
+	{ name = 'sessionreq', opcode = 32 },
+	{ name = 'loginreq', opcode = 0},
+	{ name = 'logoutreq', opcode = 145},
+	{ name = 'pingreq', opcode = 5},
+	{ name = 'pubchat', opcode = 174},
+	{ name = 'walkreq', opcode = 186},
+	{ name = 'command', opcode = 120}
+]

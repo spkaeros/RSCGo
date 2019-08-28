@@ -1,0 +1,12 @@
+data_directory = './data/'
+version = 42
+port = 43591
+max_players = 2048
+
+[database]
+player_db = "players.db"
+world_db = "world.db"
+
+[crypto]
+rsa_key = 'rsa.der'
+hash_salt = 'rscgo./GOLANG!RULES/.1994'

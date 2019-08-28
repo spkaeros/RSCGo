@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"os"
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"github.com/BurntSushi/toml"
@@ -14,7 +13,7 @@ type packethandler struct {
 }
 
 type packethandlerTable struct {
-	Handlers []packethandler
+	handlers []packethandler
 }
 
 var packethandlers packethandlerTable
@@ -24,7 +23,7 @@ var PacketHandlers = make(map[string]func(*Client, *packets.Packet))
 
 //LoadPacketHandlerTable Deserializes the packet handler table into memory.
 func LoadPacketHandlerTable(file string) {
-	if _, err := toml.DecodeFile(DataDirectory+string(os.PathSeparator)+file, &packethandlers); err != nil {
+	if _, err := toml.DecodeFile(TomlConfig.DataDir+file, &packethandlers); err != nil {
 		LogError.Fatalln("Could not open packet handler table data file:", err)
 		return
 	}
@@ -32,7 +31,7 @@ func LoadPacketHandlerTable(file string) {
 
 //HandlerName Returns a descriptive name for a packet given its opcode.
 func HandlerName(opcode int) string {
-	for _, v := range packethandlers.Handlers {
+	for _, v := range packethandlers.handlers {
 		if v.Opcode == opcode {
 			return v.Name
 		}

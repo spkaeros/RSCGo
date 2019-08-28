@@ -23,21 +23,33 @@ var (
 	LogError   = log.New(os.Stderr, "[ERROR] ", log.Ltime|log.Lshortfile)
 	syncTicker = time.NewTicker(time.Millisecond * 650)
 	kill       = make(chan struct{})
-	//Version Client version.
-	Version = -1
-	//DataDirectory The directory for data files to be read from.  This should be expanded by the CLI flag parser.
-	DataDirectory = "."
 	//ClientList List of active clients.
 	ClientList = list.New(2048)
 	//Clients A map of base37 encoded username hashes to client references.  This is a common lookup and I consider this an optimization.
 	Clients = make(map[uint64]*Client)
 )
 
+//TomlConfig A data structure representing the RSCGo TOML configuration file.
+var TomlConfig struct {
+	DataDir    string `toml:"data_directory"`
+	Version    int    `toml:"version"`
+	Port       int    `toml:"port"`
+	MaxPlayers int    `toml:"max_players"`
+	Database   struct {
+		playerDB string `toml:"player_db"`
+		worldDB  string `toml:"world_db"`
+	} `toml:"database"`
+	Crypto struct {
+		RsaKeyFile string `toml:"rsa_key"`
+		HashSalt   string `toml:"hash_salt"`
+	} `toml:"crypto"`
+}
+
 //Flags This is used to interface with the go-flags package from some guy on github.
 var Flags struct {
 	Verbose   []bool `short:"v" long:"verbose" description:"Display more verbose output"`
 	Port      int    `short:"p" long:"port" description:"The port for the server to listen on," default:"43591"`
-	Config    string `short:"c" long:"config" description:"Specify the configuration file to load server settings from" default:"config.ini"`
+	Config    string `short:"c" long:"config" description:"Specify the configuration file to load server settings from" default:"config.toml"`
 	UseCipher bool   `short:"e" long:"encryption" description:"Enable command opcode encryption using ISAAC to encrypt packet opcodes."`
 }
 

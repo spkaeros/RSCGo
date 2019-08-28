@@ -25,9 +25,9 @@ func loginRequest(c *Client, p *packets.Packet) {
 	// TODO: Handle reconnect slightly different
 	p.ReadByte()
 	version, _ := p.ReadInt()
-	if version != uint32(Version) {
+	if version != uint32(TomlConfig.Version) {
 		if len(Flags.Verbose) >= 1 {
-			LogWarning.Printf("Player tried logging in with invalid client version. Got %d, expected %d\n", version, Version)
+			LogWarning.Printf("Player tried logging in with invalid client version. Got %d, expected %d\n", version, TomlConfig.Version)
 		}
 		c.sendLoginResponse(5)
 		return

@@ -31,7 +31,7 @@ type IsaacSeed struct {
 
 //ReadRSAKeyFile Read the RSA key from the file specified, within the DataDirectory.
 func ReadRSAKeyFile(file string) {
-	buf, err := ioutil.ReadFile(DataDirectory + string(os.PathSeparator) + file)
+	buf, err := ioutil.ReadFile(TomlConfig.DataDir + file)
 	if err != nil {
 		LogError.Printf("Could not read RSA key from file:%v", err)
 		os.Exit(103)

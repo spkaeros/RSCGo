@@ -2,7 +2,6 @@ package server
 
 import (
 	"database/sql"
-	"os"
 
 	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/list"
@@ -44,7 +43,7 @@ func LoadObjects() int {
 
 //Database Returns an active sqlite3 database reference for the specified database file.
 func Database(file string) *sql.DB {
-	database, err := sql.Open("sqlite3", DataDirectory+string(os.PathSeparator)+file)
+	database, err := sql.Open("sqlite3", TomlConfig.DataDir+file)
 	if err != nil {
 		LogError.Println("Couldn't load SQLite3 database:", err)
 		return nil

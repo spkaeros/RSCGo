@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"bitbucket.org/zlacki/rscgo/pkg/server"
-	"github.com/go-ini/ini"
+	"github.com/BurntSushi/toml"
 	"github.com/jessevdk/go-flags"
 )
 
@@ -19,26 +19,19 @@ func init() {
 		fmt.Println("Setting back to default: `43591`")
 		server.Flags.Port = 43591
 	}
-	if !strings.HasSuffix(server.Flags.Config, ".ini") {
+	if !strings.HasSuffix(server.Flags.Config, ".toml") {
 		fmt.Println("WARNING: You entered an invalid configuration file extension.")
-		fmt.Println("INI is currently the only supported format for server properties.")
-		fmt.Println("Setting back to default: `config.ini`")
-		server.Flags.Config = "config.ini"
+		fmt.Println("TOML is currently the only supported format for server properties.")
+		fmt.Println("Setting back to default: `config.toml`")
+		server.Flags.Config = "config.toml"
 	}
-	cfg, err := ini.Load(server.Flags.Config)
-	if err != nil {
-		fmt.Printf("Failed to load server config file: %s\n%v", server.Flags.Config, err)
-		os.Exit(101)
+	if _, err := toml.DecodeFile("."+string(os.PathSeparator)+server.Flags.Config, &server.TomlConfig); err != nil {
+		fmt.Println("Error decoding TOML RSCGo general configuration file:", err)
+		os.Exit(137)
 	}
-	server.Version, err = cfg.Section("client").Key("version").Int()
-	if err != nil {
-		fmt.Println("Failed loading server version number from config file:", err)
-		os.Exit(102)
-	}
-	server.DataDirectory += string(os.PathSeparator) + cfg.Section("server").Key("dataDir").String()
 	server.LoadPacketHandlerTable("packethandlers.toml")
-	server.ReadRSAKeyFile(cfg.Section("server").Key("rsaKey").String())
-	server.InitializeHashing(cfg.Section("server").Key("salt").String())
+	server.ReadRSAKeyFile(server.TomlConfig.Crypto.RsaKeyFile)
+	server.InitializeHashing(server.TomlConfig.Crypto.HashSalt)
 }
 
 func main() {
