@@ -35,7 +35,7 @@ func LoadObjects() bool {
 
 //Database Returns an active sqlite3 database reference for the specified database file.
 func Database(file string) *sql.DB {
-	database, err := sql.Open("sqlite3", "file:"+TomlConfig.DataDir+file+"?cache=shared&mode=rwc")
+	database, err := sql.Open("sqlite3", "file:"+TomlConfig.DataDir+file)
 	if err != nil {
 		LogError.Println("Couldn't load SQLite3 database:", err)
 		return nil
@@ -65,6 +65,7 @@ func (c *Client) LoadPlayer(usernameHash uint64, password string) int {
 	if !rows.Next() {
 		return 3
 	}
+	c.player.UserBase37 = usernameHash
 	Clients[usernameHash] = c
 	rows.Scan(&c.player.DatabaseIndex, &x, &y, &c.player.Rank)
 	c.player.SetCoords(x, y)

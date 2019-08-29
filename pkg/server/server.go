@@ -125,6 +125,8 @@ func Start() {
 	}
 }
 
+var updatingClients = false
+
 //UpdateMobileEntities Updates all mobile scene entities that are traversing a path
 func UpdateMobileEntities() {
 	var wg sync.WaitGroup
@@ -144,6 +146,7 @@ func UpdateMobileEntities() {
 //UpdateClientState Sends the new positions to the clients
 func UpdateClientState() {
 	var wg sync.WaitGroup
+	updatingClients = true
 	wg.Add(ClientList.Size())
 	for ClientList.HasNext() {
 		if c, ok := ClientList.Next().(*Client); c != nil && ok {
@@ -207,6 +210,7 @@ func UpdateClientState() {
 	}
 	wg.Wait()
 	ClientList.ResetIterator()
+	updatingClients = false
 }
 
 //ResetUpdateFlags Resets the variables used for client updating synchronization.

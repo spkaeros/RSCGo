@@ -10,7 +10,6 @@ import (
 	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
-	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 )
 
 //Client Represents a single connecting client.
@@ -75,6 +74,9 @@ func (c *Client) StartNetworking() {
 	go func() {
 		defer func() {
 			waitForTermination.Wait()
+			for updatingClients {
+				time.Sleep(1 * time.Millisecond)
+			}
 			entity.GetRegion(c.player.X(), c.player.Y()).RemovePlayer(c.player)
 			c.player.Removing = true
 			close(c.kill)
@@ -83,10 +85,9 @@ func (c *Client) StartNetworking() {
 			if err := c.socket.Close(); err != nil {
 				LogError.Println("Couldn't close socket:", err)
 			}
-			hash := strutil.Base37(c.player.Username)
-			if c1, ok := Clients[hash]; c1 == c && ok {
+			if c1, ok := Clients[c.player.UserBase37]; c1 == c && ok {
 				c.Save()
-				delete(Clients, hash)
+				delete(Clients, c.player.UserBase37)
 			}
 			if ok := ClientList.Remove(c.Index); ok {
 				LogInfo.Printf("Unregistered: %v\n", c)
@@ -110,13 +111,13 @@ func (c *Client) StartNetworking() {
 func (c *Client) sendLoginResponse(i byte) {
 	c.outgoingPackets <- packets.LoginResponse(int(i))
 	if i != 0 {
-		LogInfo.Printf("Denied Player[%v]: {ip:'%v', username:'%v', Response='%v'}\n", c.Index, c.ip, c.player.Username, i)
+		LogInfo.Printf("Denied Client[%v]: {ip:'%v', username:'%v', Response='%v'}\n", c.Index, c.ip, c.player.Username, i)
 		select {
 		case <-time.After(100 * time.Millisecond):
 			c.kill <- struct{}{}
 		}
 	} else {
-		LogInfo.Printf("Registered Player[%v]: {ip:'%v', username:'%v'}\n", c.Index, c.ip, c.player.Username)
+		LogInfo.Printf("Registered Client[%v]: {ip:'%v', username:'%v'}\n", c.Index, c.ip, c.player.Username)
 		c.player.AppearanceChanged = true
 		for i := 0; i < 18; i++ {
 			level := 1
