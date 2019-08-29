@@ -151,7 +151,7 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 	p.AddBits(int(player.Direction()), 4)
 	p.AddBits(len(player.LocalPlayers.List), 8)
 	counter := 0
-	if player.HasMoved || !player.HasSelf {
+	if player.HasMoved || !player.HasSelf || player.Removing {
 		counter++
 	}
 	for _, p1 := range removing {
