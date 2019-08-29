@@ -18,7 +18,7 @@ func init() {
 			if ok {
 				c1, ok := ClientList.Get(v.Index).(*Client)
 				if ok {
-					c1.outgoingPackets <- packets.PlayerChat(c.index, string(strutil.PackChatMessage(strutil.FormatChatMessage(strutil.UnpackChatMessage(p.Payload)))))
+					c1.outgoingPackets <- packets.PlayerChat(c.Index, string(strutil.PackChatMessage(strutil.FormatChatMessage(strutil.UnpackChatMessage(p.Payload)))))
 				}
 			}
 		}

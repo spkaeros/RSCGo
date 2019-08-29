@@ -19,7 +19,7 @@ type Client struct {
 	isaacStream     *IsaacSeed
 	uID             uint8
 	ip              string
-	index           int
+	Index           int
 	kill            chan struct{}
 	player          *entity.Player
 	socket          net.Conn
@@ -88,7 +88,7 @@ func (c *Client) StartNetworking() {
 				c.Save()
 				delete(Clients, hash)
 			}
-			if ok := ClientList.Remove(c.index); ok {
+			if ok := ClientList.Remove(c.Index); ok {
 				LogInfo.Printf("Unregistered: %v\n", c)
 			}
 		}()
@@ -110,13 +110,13 @@ func (c *Client) StartNetworking() {
 func (c *Client) sendLoginResponse(i byte) {
 	c.outgoingPackets <- packets.LoginResponse(int(i))
 	if i != 0 {
-		LogInfo.Printf("Denied Player[%v]: {ip:'%v', username:'%v', Response='%v'}\n", c.index, c.ip, c.player.Username, i)
+		LogInfo.Printf("Denied Player[%v]: {ip:'%v', username:'%v', Response='%v'}\n", c.Index, c.ip, c.player.Username, i)
 		select {
 		case <-time.After(100 * time.Millisecond):
 			c.kill <- struct{}{}
 		}
 	} else {
-		LogInfo.Printf("Registered Player[%v]: {ip:'%v', username:'%v'}\n", c.index, c.ip, c.player.Username)
+		LogInfo.Printf("Registered Player[%v]: {ip:'%v', username:'%v'}\n", c.Index, c.ip, c.player.Username)
 		c.player.AppearanceChanged = true
 		for i := 0; i < 18; i++ {
 			level := 1
@@ -144,12 +144,12 @@ func (c *Client) sendLoginResponse(i byte) {
 
 //NewClient Creates a new instance of a Client, launches goroutines to handle I/O for it, and returns a reference to it.
 func NewClient(socket net.Conn) *Client {
-	c := &Client{socket: socket, isaacSeed: make([]uint64, 2), packetQueue: make(chan *packets.Packet, 25), ip: strings.Split(socket.RemoteAddr().String(), ":")[0], index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer(), buffer: make([]byte, 5000), outgoingPackets: make(chan *packets.Packet, 25)}
+	c := &Client{socket: socket, isaacSeed: make([]uint64, 2), packetQueue: make(chan *packets.Packet, 25), ip: strings.Split(socket.RemoteAddr().String(), ":")[0], Index: -1, kill: make(chan struct{}, 1), player: entity.NewPlayer(), buffer: make([]byte, 5000), outgoingPackets: make(chan *packets.Packet, 25)}
 	c.StartNetworking()
 	return c
 }
 
 //String Returns a string populated with some of the more identifying fields from the receiver Client.
 func (c *Client) String() string {
-	return fmt.Sprintf("Client[%v] {username:'%v', ip:'%v'}", c.index, c.player.Username, c.ip)
+	return fmt.Sprintf("Client[%v] {username:'%v', ip:'%v'}", c.Index, c.player.Username, c.ip)
 }

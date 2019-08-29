@@ -14,15 +14,13 @@ import (
 )
 
 var (
-	listener net.Listener
 	//LogWarning Log interface for warnings.
 	LogWarning = log.New(os.Stdout, "[WARNING] ", log.Ltime|log.Lshortfile)
 	//LogInfo Log interface for debug information.
 	LogInfo = log.New(os.Stdout, "[INFO] ", log.Ltime|log.Lshortfile)
 	//LogError Log interface for errors.
-	LogError   = log.New(os.Stderr, "[ERROR] ", log.Ltime|log.Lshortfile)
-	syncTicker = time.NewTicker(time.Millisecond * 640)
-	kill       = make(chan struct{})
+	LogError = log.New(os.Stderr, "[ERROR] ", log.Ltime|log.Lshortfile)
+	kill     = make(chan struct{})
 	//ClientList List of active clients.
 	ClientList = list.New(2048)
 	//Clients A map of base37 encoded username hashes to client references.  This is a common lookup and I consider this an optimization.
@@ -54,48 +52,43 @@ var Flags struct {
 	UseCipher bool   `short:"e" long:"encryption" description:"Enable command opcode encryption using ISAAC to encrypt packet opcodes."`
 }
 
-func bind(port int) {
-	var err error
-	listener, err = net.Listen("tcp", fmt.Sprintf(":%d", port))
+func startConnectionService() {
+	port := TomlConfig.Port
+	if Flags.Port > 0 {
+		port = Flags.Port
+	}
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		LogError.Printf("Can't bind to specified port: %d\n", port)
 		LogError.Println(err)
 		os.Exit(1)
 	}
-}
-
-func startConnectionService() {
-	if listener == nil {
-		if len(Flags.Verbose) > 0 {
-			LogWarning.Println("Attempted to start connection service without a listener!  This shouldn't happen.")
-			LogWarning.Println("Starting listener on default port...")
-		}
-		if Flags.Port == 0 {
-			bind(TomlConfig.Port)
-		} else {
-			bind(Flags.Port)
-		}
-	}
 
 	go func() {
+		// One client every 10ms max, stops childish flooding.
+		// TODO: Implement a packet filter of sorts to stop flooding behavior
+		connTicker := time.NewTicker(time.Millisecond * 10)
 		defer listener.Close()
-		// TODO: Can this ticker be made smaller safely?
-		connTicker := time.NewTicker(time.Millisecond * 50)
+		defer connTicker.Stop()
 		for range connTicker.C {
 			socket, err := listener.Accept()
 			if err != nil {
 				if len(Flags.Verbose) > 0 {
-					LogError.Println("Could not accept connection via server listener.")
-					LogError.Println(err)
+					LogError.Println("Error occurred attempting to accept a client:", err)
 				}
-				return
+				continue
+			}
+			if ClientList.Size() >= TomlConfig.MaxPlayers {
+				if n, err := socket.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 14}); err != nil || n != 9 {
+					if len(Flags.Verbose) > 0 {
+						LogError.Println("Could not send world is full response to rejected client:", err)
+					}
+				}
+				continue
 			}
 
 			client := NewClient(socket)
-			client.index = ClientList.Add(client)
-			if client.index == -1 {
-				LogWarning.Printf("Problem adding client to client list.  Current size:%d, max size:2048\n", ClientList.Size())
-			}
+			client.Index = ClientList.Add(client)
 		}
 	}()
 
@@ -105,11 +98,6 @@ func startConnectionService() {
 // This method blocks while the server is running.
 func Start() {
 	LogInfo.Println("RSCGo starting up...")
-	port := Flags.Port
-	if port == 0 {
-		port = TomlConfig.Port
-	}
-	bind(port)
 	startConnectionService()
 	if len(Flags.Verbose) > 0 {
 		LogInfo.Println()
@@ -124,12 +112,130 @@ func Start() {
 	}
 	LogInfo.Println()
 	LogInfo.Println("RSCGo is now running.")
+	port := TomlConfig.Port
+	if Flags.Port > 0 {
+		port = Flags.Port
+	}
 	LogInfo.Printf("Listening on port %d...\n", port)
-	// TODO: Probably need to handle certain signals
 	select {
+	// TODO: Probably need to handle certain signals
+	// TODO: Any other tasks I should handle in the main goroutine??
 	case <-kill:
 		os.Exit(0)
 	}
+}
+
+//UpdateMobileEntities Updates all mobile scene entities that are traversing a path
+func UpdateMobileEntities() {
+	var wg sync.WaitGroup
+	wg.Add(ClientList.Size())
+	for ClientList.HasNext() {
+		if c, ok := ClientList.Next().(*Client); c != nil && ok {
+			go func() {
+				defer wg.Done()
+				c.player.TraversePath()
+			}()
+		}
+	}
+	wg.Wait()
+	ClientList.ResetIterator()
+}
+
+//UpdateClientState Sends the new positions to the clients
+func UpdateClientState() {
+	var wg sync.WaitGroup
+	wg.Add(ClientList.Size())
+	for ClientList.HasNext() {
+		if c, ok := ClientList.Next().(*Client); c != nil && ok {
+			go func() {
+				defer wg.Done()
+				if c.player.Location().Equals(entity.DeathSpot) {
+					return
+				}
+				var localPlayers []*entity.Player
+				var localAppearances []*entity.Player
+				var removingPlayers []*entity.Player
+				var localObjects []*entity.Object
+				var removingObjects []*entity.Object
+				for _, r := range entity.SurroundingRegions(c.player.X(), c.player.Y()) {
+					for _, p := range r.Players {
+						if p.Index != c.Index {
+							if c.player.Location().LongestDelta(p.Location()) <= 15 {
+								if !c.player.LocalPlayers.ContainsPlayer(p) {
+									localPlayers = append(localPlayers, p)
+								}
+							} else {
+								if c.player.LocalPlayers.ContainsPlayer(p) {
+									removingPlayers = append(removingPlayers, p)
+								}
+							}
+						}
+					}
+					for _, o := range r.Objects {
+						if c.player.Location().LongestDelta(o.Location()) <= 20 {
+							if !c.player.LocalObjects.ContainsObject(o) {
+								localObjects = append(localObjects, o)
+							}
+						} else {
+							if c.player.LocalObjects.ContainsObject(o) {
+								removingObjects = append(removingObjects, o)
+							}
+						}
+					}
+				}
+				// TODO: Clean up appearance list code.
+				for _, index := range c.player.Appearances {
+					v := ClientList.Get(index)
+					if v, ok := v.(*Client); ok {
+						localAppearances = append(localAppearances, v.player)
+					}
+				}
+				localAppearances = append(localAppearances, localPlayers...)
+				c.player.Appearances = c.player.Appearances[:0]
+				// POSITIONS BEFORE EVERYTHING ELSE.
+				if positions := packets.PlayerPositions(c.player, localPlayers, removingPlayers); positions != nil {
+					c.outgoingPackets <- positions
+				}
+				if appearances := packets.PlayerAppearances(c.player, localAppearances); appearances != nil {
+					c.outgoingPackets <- appearances
+				}
+				if objectUpdates := packets.ObjectLocations(c.player, localObjects, removingObjects); objectUpdates != nil {
+					c.outgoingPackets <- objectUpdates
+				}
+			}()
+		}
+	}
+	wg.Wait()
+	ClientList.ResetIterator()
+}
+
+//ResetUpdateFlags Resets the variables used for client updating synchronization.
+func ResetUpdateFlags() {
+	var wg sync.WaitGroup
+	wg.Add(ClientList.Size())
+	for ClientList.HasNext() {
+		if c, ok := ClientList.Next().(*Client); c != nil && ok {
+			go func() {
+				defer wg.Done()
+				// Cleanup synchronization variables.
+				c.player.Removing = false
+				c.player.HasMoved = false
+				c.player.AppearanceChanged = false
+				c.player.HasSelf = true
+			}()
+		}
+	}
+	wg.Wait()
+	ClientList.ResetIterator()
+}
+
+//Tick One game engine 'tick'.  This is to handle movement, to synchronize clients, to update movement-related state variables...
+// Runs every 640ms.
+func Tick() {
+	UpdateMobileEntities()
+	// Loop again to update the clients about what the mobs have been up to in the prior loop.
+	UpdateClientState()
+	ResetUpdateFlags()
 }
 
 //startGameEngine Launches a goroutine to handle updating the state of the server every 640ms in a
@@ -138,96 +244,10 @@ func Start() {
 // TODO: Can movement be handled concurrently per-player safely on the Jagex Client? Mob movement might not look right.
 func startGameEngine() {
 	go func() {
+		syncTicker := time.NewTicker(time.Millisecond * 640)
+		defer syncTicker.Stop()
 		for range syncTicker.C {
-			// Loop once to actually move the mobs
-			var wg sync.WaitGroup
-			wg.Add(ClientList.Size())
-			for _, c := range ClientList.Values {
-				if c, ok := c.(*Client); ok {
-					go func() {
-						defer wg.Done()
-						c.player.TraversePath()
-					}()
-				}
-			}
-			wg.Wait()
-			// Loop again to update the clients about what the mobs have been up to in the prior loop.
-			wg.Add(ClientList.Size())
-			for _, c := range ClientList.Values {
-				if c, ok := c.(*Client); ok {
-					go func() {
-						defer wg.Done()
-						if c.player.X() == 0 && c.player.Y() == 0 {
-							return
-						}
-						var localPlayers []*entity.Player
-						var localAppearances []*entity.Player
-						var removingPlayers []*entity.Player
-						var localObjects []*entity.Object
-						var removingObjects []*entity.Object
-						for _, r := range entity.SurroundingRegions(c.player.X(), c.player.Y()) {
-							for _, p := range r.Players {
-								if p.Index != c.index {
-									if c.player.Location().LongestDelta(p.Location()) <= 15 {
-										if !c.player.LocalPlayers.ContainsPlayer(p) {
-											localPlayers = append(localPlayers, p)
-										}
-									} else {
-										if c.player.LocalPlayers.ContainsPlayer(p) {
-											removingPlayers = append(removingPlayers, p)
-										}
-									}
-								}
-							}
-							for _, o := range r.Objects {
-								if c.player.Location().LongestDelta(o.Location()) <= 20 {
-									if !c.player.LocalObjects.ContainsObject(o) {
-										localObjects = append(localObjects, o)
-									}
-								} else {
-									if c.player.LocalObjects.ContainsObject(o) {
-										removingObjects = append(removingObjects, o)
-									}
-								}
-							}
-						}
-						// TODO: Clean up appearance list code.
-						for _, index := range c.player.Appearances {
-							v := ClientList.Get(index)
-							if v, ok := v.(*Client); ok {
-								localAppearances = append(localAppearances, v.player)
-							}
-						}
-						localAppearances = append(localAppearances, localPlayers...)
-						c.player.Appearances = c.player.Appearances[:0]
-						// POSITIONS BEFORE EVERYTHING ELSE.
-						if positions := packets.PlayerPositions(c.player, localPlayers, removingPlayers); positions != nil {
-							c.outgoingPackets <- positions
-						}
-						if appearances := packets.PlayerAppearances(c.player, localAppearances); appearances != nil {
-							c.outgoingPackets <- appearances
-						}
-						if objectUpdates := packets.ObjectLocations(c.player, localObjects, removingObjects); objectUpdates != nil {
-							c.outgoingPackets <- objectUpdates
-						}
-					}()
-				}
-			}
-			wg.Wait()
-			wg.Add(ClientList.Size())
-			for _, c := range ClientList.Values {
-				if c, ok := c.(*Client); ok {
-					go func() {
-						defer wg.Done()
-						// Cleanup synchronization variables.
-						c.player.Removing = false
-						c.player.HasMoved = false
-						c.player.AppearanceChanged = false
-						c.player.HasSelf = true
-					}()
-				}
-			}
-			wg.Wait()
+			Tick()
 		}
 	}()
 }
@@ -236,6 +256,7 @@ func startGameEngine() {
 func Stop() {
 	LogInfo.Printf("Clearing client list...")
 	ClientList.Clear()
+	Clients = make(map[uint64]*Client)
 	LogInfo.Println("done")
 	LogInfo.Println("Stopping server...")
 	kill <- struct{}{}

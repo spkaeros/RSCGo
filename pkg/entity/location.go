@@ -33,6 +33,9 @@ type Location struct {
 	X, Y int
 }
 
+//DeathSpot The spot where mobs go to die.
+var DeathSpot = NewLocation(0, 0)
+
 //NewLocation Returns a reference to a new instance of the Location data structure.
 func NewLocation(x, y int) *Location {
 	return &Location{x, y}
@@ -41,6 +44,14 @@ func NewLocation(x, y int) *Location {
 //String Returns a string representation of the location
 func (l *Location) String() string {
 	return fmt.Sprintf("[%d,%d]", l.X, l.Y)
+}
+
+//Equals Returns true if this location points to the same location as o
+func (l *Location) Equals(o interface{}) bool {
+	if o, ok := o.(*Location); ok {
+		return l.X == o.X && l.Y == o.Y
+	}
+	return false
 }
 
 //DeltaX Returns the difference between this locations X coord and the other locations X coord

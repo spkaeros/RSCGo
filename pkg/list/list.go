@@ -11,6 +11,7 @@ var logWarning = log.New(os.Stdout, "[WARNING] ", log.Ltime|log.Lshortfile)
 //List Data structure representing a single instance of a list.
 type List struct {
 	Values []interface{}
+	offset int
 }
 
 //New Create a new instance of a List and return a reference to it.
@@ -48,12 +49,10 @@ func (list *List) Add(v interface{}) int {
 
 //Get Returns the value at the specified index in list.
 func (list *List) Get(idx int) interface{} {
-	v := list.Values[idx]
-	if v == nil {
-		logWarning.Printf("Tried to get value that does not exist from list at index %d\n", idx)
+	if idx >= len(list.Values) || idx < 0 {
 		return nil
 	}
-	return v
+	return list.Values[idx]
 }
 
 //Remove Remove a value from the specified `list`, by its index.  Returns true if removed the value at index,
@@ -76,4 +75,27 @@ func (list *List) Size() (total int) {
 		}
 	}
 	return
+}
+
+//Next Returns the next value in the list.
+func (list *List) Next() interface{} {
+	next := list.Get(list.offset)
+	list.offset++
+	return next
+}
+
+//Previous Returns the previous value in the list.
+func (list *List) Previous() interface{} {
+	list.offset--
+	return list.Get(list.offset)
+}
+
+//HasNext Returns true if there is another value after the current one in the list.
+func (list *List) HasNext() bool {
+	return list.offset != list.Size()+1
+}
+
+//ResetIterator Returns the previous value in the list.
+func (list *List) ResetIterator() {
+	list.offset = 0
 }

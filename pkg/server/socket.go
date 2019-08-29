@@ -13,19 +13,28 @@ import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 )
 
+func init() {
+	PacketHandlers["pingreq"] = func(c *Client, p *packets.Packet) {
+		c.outgoingPackets <- packets.ResponsePong
+	}
+}
+
+//Write Writes data to the client's socket from the slice of bytes `b`
+// Returns the length of the written bytes.
 func (c *Client) Write(b []byte) int {
 	l, err := c.socket.Write(b)
 	if err != nil {
-		// TODO: Severe enough to kill the client?  More than likely, yes.
 		LogError.Println("Could not write to client socket.", err)
 		c.kill <- struct{}{}
-	}
-	if l != len(b) {
+	} else if l != len(b) {
+		// Possibly non-fatal?
 		LogError.Printf("Wrong number of bytes written to Client socket.  Expected %d, got %d.\n", len(b), l)
 	}
 	return l
 }
 
+//Read Reads data off of the client's socket into the slice of bytes 'dst'
+// Returns nil upon successful read.  Otherwise, returns a meaningful error message.
 func (c *Client) Read(dst []byte) error {
 	if err := c.socket.SetReadDeadline(time.Now().Add(time.Second * 10)); err != nil {
 		// This shouldn't happen
@@ -45,8 +54,7 @@ func (c *Client) Read(dst []byte) error {
 	return nil
 }
 
-//ReadPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode
-//  of the next packet frame the client is sending us.
+//ReadPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode of the next packet frame the client is sending us.
 func (c *Client) ReadPacket() (*packets.Packet, error) {
 	header := c.buffer[:3]
 	if err := c.Read(header); err != nil {
@@ -56,7 +64,11 @@ func (c *Client) ReadPacket() (*packets.Packet, error) {
 
 	opcode := header[2] & 0xFF
 	if c.isaacStream != nil && opcode != 0 {
-		opcode ^= c.isaacStream.decoder.Uint8()
+		// FIXME: Figure out how to ensure CSPRNG state is identical for client and server.
+		// Currently, this works..But occasionally, it will stop working.  the client and
+		// server somehow seem to start reading from different offsets in the CSPRNG state.
+		// Maybe it is some odd reaction to the way Java stores its values as signed?
+		//		opcode ^= c.isaacStream.decoder.Uint8()
 		if opcode <= 0 {
 			LogWarning.Printf("ERROR IN ISAAC DECODING: len=%v;opcode=%d", length, opcode)
 		}
@@ -85,8 +97,8 @@ func (c *Client) ReadPacket() (*packets.Packet, error) {
 }
 
 //WritePacket This is a method to send a packet to the client.  If this is a bare packet, the packet payload will
-//  be written as-is.  If this is not a bare packet, the packet will have the first 3 bytes changed to the
-//  appropriate values for the client to parse the length and opcode for this packet.
+// be written as-is.  If this is not a bare packet, the packet will have the first 3 bytes changed to the
+// appropriate values for the client to parse the length and opcode for this packet.
 func (c *Client) WritePacket(p *packets.Packet) {
 	if !p.Bare {
 		l := len(p.Payload) - 2

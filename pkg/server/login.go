@@ -42,7 +42,7 @@ func loginRequest(c *Client, p *packets.Packet) {
 		return
 	}
 	c.isaacStream = cipher
-	c.player.Index = c.index
+	c.player.Index = c.Index
 	c.player.Username, _ = p.ReadString()
 	hash := strutil.Base37(c.player.Username)
 	c.player.Username = strutil.DecodeBase37(hash)

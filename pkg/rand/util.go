@@ -19,8 +19,8 @@ func init() {
 	rscRand = isaac.New(initRsl)
 }
 
-//getRandomData Reads n random bytes from the system-specific PRNG and returns them in a byte slice
-func getRandomData(n int) ([]byte, error) {
+//RandomBytes Reads n random bytes from the system-specific PRNG and returns them in a byte slice
+func RandomBytes(n int) ([]byte, error) {
 	b := make([]byte, n)
 	if _, err := rscRand.Read(b); err != nil {
 		return nil, err
@@ -29,8 +29,8 @@ func getRandomData(n int) ([]byte, error) {
 	return b, nil
 }
 
-//getCryptoRandomData Reads n random bytes from the system-specific CSPRNG and returns them in a byte slice
-func getCryptoRandomData(n int) ([]byte, error) {
+//RandomBytesS Reads n random bytes from the system-specific CSPRNG and returns them in a byte slice
+func RandomBytesS(n int) ([]byte, error) {
 	b := make([]byte, n)
 	if _, err := rand.Read(b); err != nil {
 		return nil, err
@@ -39,9 +39,9 @@ func getCryptoRandomData(n int) ([]byte, error) {
 	return b, nil
 }
 
-//GetSecureRandomString Gets n random bytes of data from the CSPRNG and returns them as a Go string
-func GetSecureRandomString(length int) string {
-	b, err := getCryptoRandomData(length)
+//StringS Gets n random bytes of data from the CSPRNG and returns them as a Go string
+func StringS(length int) string {
+	b, err := RandomBytesS(length)
 	if err != nil {
 		return "nil"
 	}
@@ -49,9 +49,9 @@ func GetSecureRandomString(length int) string {
 	return base64.URLEncoding.EncodeToString(b)
 }
 
-//GetSecureRandomLong Gets 8 random bytes of data from the CSPRNG and returns them as a single 64-bit long integer
-func GetSecureRandomLong() uint64 {
-	b, err := getCryptoRandomData(8)
+//Uint64S Gets 8 random bytes of data from the CSPRNG and returns them as a single 64-bit long integer
+func Uint64S() uint64 {
+	b, err := RandomBytesS(8)
 	if err != nil {
 		return 0
 	}
@@ -59,9 +59,9 @@ func GetSecureRandomLong() uint64 {
 	return (uint64(b[0]) << 56) | (uint64(b[1]) << 48) | (uint64(b[2]) << 40) | (uint64(b[3]) << 32) | (uint64(b[4]) << 24) | (uint64(b[5]) << 16) | (uint64(b[6]) << 8) | uint64(b[7])
 }
 
-//GetSecureRandomInt Gets 4 random bytes of data from the CSPRNG and returns them as a single 32-bit integer
-func GetSecureRandomInt() uint32 {
-	b, err := getCryptoRandomData(4)
+//Uint32S Gets 4 random bytes of data from the CSPRNG and returns them as a single 32-bit integer
+func Uint32S() uint32 {
+	b, err := RandomBytesS(4)
 	if err != nil {
 		return 0
 	}
@@ -69,9 +69,9 @@ func GetSecureRandomInt() uint32 {
 	return (uint32(b[0]) << 24) | (uint32(b[1]) << 16) | (uint32(b[2]) << 8) | uint32(b[3])
 }
 
-//GetSecureRandomSmart Gets 3 random bytes of data from the CSPRNG and returns them as a single 24-bit smart integer
-func GetSecureRandomSmart() uint32 {
-	b, err := getCryptoRandomData(3)
+//Uint24S Gets 3 random bytes of data from the CSPRNG and returns them as a single 24-bit smart integer
+func Uint24S() uint32 {
+	b, err := RandomBytesS(3)
 	if err != nil {
 		return 0
 	}
@@ -79,9 +79,9 @@ func GetSecureRandomSmart() uint32 {
 	return (uint32(b[0]) << 16) | (uint32(b[1]) << 8) | uint32(b[2])
 }
 
-//GetSecureRandomShort Gets 2 random bytes of data from the CSPRNG and returns them as a single 16-bit short integer
-func GetSecureRandomShort() uint16 {
-	b, err := getCryptoRandomData(2)
+//Uint16S Gets 2 random bytes of data from the CSPRNG and returns them as a single 16-bit short integer
+func Uint16S() uint16 {
+	b, err := RandomBytesS(2)
 	if err != nil {
 		return 0
 	}
@@ -89,9 +89,9 @@ func GetSecureRandomShort() uint16 {
 	return (uint16(b[0]) << 8) | uint16(b[1])
 }
 
-//GetSecureRandomByte Gets a single random byte of data from the CSPRNG
-func GetSecureRandomByte() uint8 {
-	b, err := getCryptoRandomData(1)
+//Uint8S Gets a single random byte of data from the CSPRNG
+func Uint8S() uint8 {
+	b, err := RandomBytesS(1)
 	if err != nil {
 		return 0
 	}
@@ -99,9 +99,9 @@ func GetSecureRandomByte() uint8 {
 	return uint8(b[0])
 }
 
-//GetRandomByte Gets a single random byte of data from the PRNG
-func GetRandomByte() uint8 {
-	b, err := getRandomData(1)
+//Uint8 Gets a single random byte of data from the PRNG
+func Uint8() uint8 {
+	b, err := RandomBytes(1)
 	if err != nil {
 		return 0
 	}
@@ -109,9 +109,9 @@ func GetRandomByte() uint8 {
 	return uint8(b[0])
 }
 
-//GetRandomShort Gets 2 random bytes of data from the PRNG and returns them as a single 16-bit short integer
-func GetRandomShort() uint16 {
-	b, err := getRandomData(2)
+//Uint16 Gets 2 random bytes of data from the PRNG and returns them as a single 16-bit short integer
+func Uint16() uint16 {
+	b, err := RandomBytes(2)
 	if err != nil {
 		return 0
 	}
@@ -119,9 +119,9 @@ func GetRandomShort() uint16 {
 	return (uint16(b[0]) << 8) | uint16(b[1])
 }
 
-//GetRandomSmart Gets 3 random bytes of data from the PRNG and returns them as a single 24-bit smart integer
-func GetRandomSmart() uint32 {
-	b, err := getRandomData(3)
+//Uint24 Gets 3 random bytes of data from the PRNG and returns them as a single 24-bit smart integer
+func Uint24() uint32 {
+	b, err := RandomBytes(3)
 	if err != nil {
 		return 0
 	}
@@ -129,9 +129,9 @@ func GetRandomSmart() uint32 {
 	return (uint32(b[0]) << 16) | (uint32(b[1]) << 8) | uint32(b[2])
 }
 
-//GetRandomInt Gets 4 random bytes of data from the PRNG and returns them as a single 32-bit integer
-func GetRandomInt() uint32 {
-	b, err := getRandomData(4)
+//Uint32 Gets 4 random bytes of data from the PRNG and returns them as a single 32-bit integer
+func Uint32() uint32 {
+	b, err := RandomBytes(4)
 	if err != nil {
 		return 0
 	}
@@ -139,9 +139,9 @@ func GetRandomInt() uint32 {
 	return (uint32(b[0]) << 24) | (uint32(b[1]) << 16) | (uint32(b[2]) << 8) | uint32(b[3])
 }
 
-//GetRandomLong Gets 8 random bytes of data from the PRNG and returns them as a single 64-bit long integer
-func GetRandomLong() uint64 {
-	b, err := getRandomData(8)
+//Uint64 Gets 8 random bytes of data from the PRNG and returns them as a single 64-bit long integer
+func Uint64() uint64 {
+	b, err := RandomBytes(8)
 	if err != nil {
 		return 0
 	}
@@ -149,9 +149,9 @@ func GetRandomLong() uint64 {
 	return (uint64(b[0]) << 56) | (uint64(b[1]) << 48) | (uint64(b[2]) << 40) | (uint64(b[3]) << 32) | (uint64(b[4]) << 24) | (uint64(b[5]) << 16) | (uint64(b[6]) << 8) | uint64(b[7])
 }
 
-//GetRandomString Gets n random bytes of data from the PRNG and returns them as a Go string
-func GetRandomString(length int) string {
-	b, err := getRandomData(length)
+//String Gets n random bytes of data from the PRNG and returns them as a Go string
+func String(length int) string {
+	b, err := RandomBytes(length)
 	if err != nil {
 		return "nil"
 	}

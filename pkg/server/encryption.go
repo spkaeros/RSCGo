@@ -61,7 +61,7 @@ func (c *Client) SeedISAAC(seed []uint64) *IsaacSeed {
 //GenerateSessionID Generates a new 64-bit long using the systems CSPRNG.
 //  For use as a seed with the ISAAC cipher (or similar secure stream cipher) used to encrypt packet data.
 func GenerateSessionID() uint64 {
-	return rscrand.GetSecureRandomLong()
+	return rscrand.Uint64S()
 }
 
 //HashPassword Takes a plaintext password as input, returns a hexidecimal string representation of the SHAKE256
