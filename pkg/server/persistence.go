@@ -5,7 +5,6 @@ import (
 
 	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/list"
-	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 
 	// Necessary for sqlite3 driver
 	_ "github.com/mattn/go-sqlite3"
@@ -14,66 +13,86 @@ import (
 //Objects List of the game objects in the world
 var Objects = list.New(16384)
 
-//WorldDatabase SQLite3 connection reference for world data.
-var WorldDatabase *sql.DB
-
-//PlayerDatabase SQLite3 connection reference for player data.
-var PlayerDatabase *sql.DB
-
 //LoadObjects Loads the game objects into memory from the SQLite3 database.
-func LoadObjects() int {
-	if WorldDatabase == nil {
-		WorldDatabase = Database(TomlConfig.Database.WorldDB)
-	}
-	rows, err := WorldDatabase.Query("SELECT `id`, `direction`, `type`, `x`, `y` FROM `game_object_locations`")
+func LoadObjects() bool {
+	database := Database(TomlConfig.Database.WorldDB)
+	defer database.Close()
+	rows, err := database.Query("SELECT `id`, `direction`, `type`, `x`, `y` FROM `game_object_locations`")
+	defer rows.Close()
 	if err != nil {
 		LogError.Println("Couldn't load SQLite3 database:", err)
-		return 0
+		return false
 	}
 	var id, direction, kind, x, y int
-	counter := 0
 	for rows.Next() {
 		rows.Scan(&id, &direction, &kind, &x, &y)
 		o := entity.NewObject(id, direction, x, y, kind != 0)
 		o.Index = Objects.Add(o)
 		entity.GetRegion(x, y).AddObject(o)
 	}
-	return counter
+	return true
 }
 
 //Database Returns an active sqlite3 database reference for the specified database file.
 func Database(file string) *sql.DB {
-	database, err := sql.Open("sqlite3", TomlConfig.DataDir+file)
+	database, err := sql.Open("sqlite3", "file:"+TomlConfig.DataDir+file+"?cache=shared&mode=rwc")
 	if err != nil {
 		LogError.Println("Couldn't load SQLite3 database:", err)
 		return nil
 	}
+	database.SetMaxOpenConns(1)
 	return database
 }
 
 //LoadPlayer Loads a player from the SQLite3 database, returns a login response code.
-func (c *Client) LoadPlayer(username string, password string) int {
-	if PlayerDatabase == nil {
-		PlayerDatabase = Database(TomlConfig.Database.PlayerDB)
-	}
+func (c *Client) LoadPlayer(usernameHash uint64, password string) int {
+	database := Database(TomlConfig.Database.PlayerDB)
+	defer database.Close()
 
-	stmt, err := PlayerDatabase.Prepare("SELECT `player`.`id`, `player`.`x`, `player`.`y`, `player`.`rank`, `player`.`fightmode`, `player`.`lastlogin`, `player`.`lastip`, `player`.`lastskulled`, `player`.`changingappearance`, `player`.`male`, `player`.`fatigue`, `appearance`.`haircolour`, `appearance`.`topcolour`, `appearance`.`trousercolour`, `appearance`.`skincolour`, `appearance`.`head`, `appearance`.`body` FROM `player` INNER JOIN `appearance` ON `appearance`.`playerid` = `player`.`id` WHERE `player`.`username`=? COLLATE NOCASE AND `player`.`password`=?")
+	stmt, err := database.Prepare("SELECT id, x, y, group_id FROM player2 WHERE userhash=? AND password=?")
+	defer stmt.Close()
 	if err != nil {
-		LogInfo.Println("LoadPlayer(string,string): Could not prepare query statement for player:", err)
+		LogInfo.Println("LoadPlayer(uint64,string): Could not prepare query statement for player:", err)
 		return 9
 	}
-	rows, err := stmt.Query(username, password)
+	rows, err := stmt.Query(usernameHash, password)
+	defer rows.Close()
 	if err != nil {
-		LogInfo.Println("LoadPlayer(string,string): Could not execute query statement for player:", err)
+		LogInfo.Println("LoadPlayer(uint64,string): Could not execute query statement for player:", err)
 		return 9
 	}
-	var x, y, fightmode int
+	var x, y int
 	if !rows.Next() {
 		return 3
 	}
-	Clients[strutil.Base37(username)] = c
-	rows.Scan(&c.player.DatabaseIndex, &x, &y, &c.player.Rank, &fightmode)
+	Clients[usernameHash] = c
+	rows.Scan(&c.player.DatabaseIndex, &x, &y, &c.player.Rank)
 	c.player.SetCoords(x, y)
-	c.player.SetFightMode(fightmode)
 	return 0
+}
+
+//Save Saves a player to the SQLite3 database.
+func (c *Client) Save() {
+	db := Database(TomlConfig.Database.PlayerDB)
+	defer db.Close()
+	tx, err := db.Begin()
+	if err != nil {
+		LogInfo.Println("Save(): Could not begin transcaction for player update.")
+		return
+	}
+	rs, err := tx.Exec("UPDATE player2 SET x=?, y=? WHERE id=?", c.player.X(), c.player.Y(), c.player.DatabaseIndex)
+	count, err := rs.RowsAffected()
+	if err != nil {
+		LogWarning.Println("Save(): UPDATE failed for player:", err)
+		if err := tx.Rollback(); err != nil {
+			LogWarning.Println("Save(): Transaction rollback failed:", err)
+		}
+		return
+	}
+	if count <= 0 {
+		LogInfo.Println("Save(): Affected nothing for player update!")
+	}
+	if err := tx.Commit(); err != nil {
+		LogWarning.Println("Save(): Error committing transaction for player update:", err)
+	}
 }

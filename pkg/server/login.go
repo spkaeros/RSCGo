@@ -53,5 +53,5 @@ func loginRequest(c *Client, p *packets.Packet) {
 		c.sendLoginResponse(4)
 		return
 	}
-	c.sendLoginResponse(byte(c.LoadPlayer(c.player.Username, passHash)))
+	c.sendLoginResponse(byte(c.LoadPlayer(hash, passHash)))
 }

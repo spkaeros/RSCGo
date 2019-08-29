@@ -1,10 +1,10 @@
 package server
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -49,15 +49,14 @@ var TomlConfig struct {
 //Flags This is used to interface with the go-flags package from some guy on github.
 var Flags struct {
 	Verbose   []bool `short:"v" long:"verbose" description:"Display more verbose output"`
-	Port      int    `short:"p" long:"port" description:"The port for the server to listen on," default:"43591"`
+	Port      int    `short:"p" long:"port" description:"The port for the server to listen on,"`
 	Config    string `short:"c" long:"config" description:"Specify the configuration file to load server settings from" default:"config.toml"`
 	UseCipher bool   `short:"e" long:"encryption" description:"Enable command opcode encryption using ISAAC to encrypt packet opcodes."`
 }
 
 func bind(port int) {
 	var err error
-	portS := strconv.Itoa(port)
-	listener, err = net.Listen("tcp", ":"+portS)
+	listener, err = net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		LogError.Printf("Can't bind to specified port: %d\n", port)
 		LogError.Println(err)
@@ -71,7 +70,11 @@ func startConnectionService() {
 			LogWarning.Println("Attempted to start connection service without a listener!  This shouldn't happen.")
 			LogWarning.Println("Starting listener on default port...")
 		}
-		bind(43591)
+		if Flags.Port == 0 {
+			bind(TomlConfig.Port)
+		} else {
+			bind(Flags.Port)
+		}
 	}
 
 	go func() {
@@ -102,40 +105,38 @@ func startConnectionService() {
 // This method blocks while the server is running.
 func Start() {
 	LogInfo.Println("RSCGo starting up...")
-	count := LoadObjects()
-	if len(Flags.Verbose) > 0 {
-		if count > 0 {
-			LogInfo.Printf("Loaded %d game objects.\n", count)
-		}
-		LogInfo.Print("Attempting to bind to network...")
+	port := Flags.Port
+	if port == 0 {
+		port = TomlConfig.Port
 	}
-	bind(Flags.Port)
-	if len(Flags.Verbose) > 0 {
-		LogInfo.Println("done")
-		LogInfo.Print("Attempting to start connection service...")
-	}
+	bind(port)
 	startConnectionService()
 	if len(Flags.Verbose) > 0 {
-		LogInfo.Println("done")
-		LogInfo.Print("Attempting to start synchronized task service...")
+		LogInfo.Println()
+		LogInfo.Println("Launched connection service.")
 	}
-	startSynchronizedTaskService()
-	LogInfo.Printf("done\n\n")
+	startGameEngine()
+	if len(Flags.Verbose) > 0 {
+		LogInfo.Println("Launched game engine.")
+	}
+	if ok := LoadObjects(); len(Flags.Verbose) > 0 && ok {
+		LogInfo.Printf("Loaded %d game objects.\n", Objects.Size())
+	}
+	LogInfo.Println()
 	LogInfo.Println("RSCGo is now running.")
-	LogInfo.Printf("Listening on port %d...\n", Flags.Port)
-	// TODO: Probably need to handle certain signals, for usability sake.
-	// TODO: Implement a data store for dynamic game data, e.g player information, and so on.
+	LogInfo.Printf("Listening on port %d...\n", port)
+	// TODO: Probably need to handle certain signals
 	select {
 	case <-kill:
 		os.Exit(0)
 	}
 }
 
-//startSynchronizedTaskService Launches a goroutine to handle updating the state of the server every 650ms in a
+//startGameEngine Launches a goroutine to handle updating the state of the server every 640ms in a
 // synchronized fashion.  This is known as a single game engine 'pulse'.  All mobile entities must have their position
 // updated during this pulse to be compatible with Jagex RSClassic Client software.
 // TODO: Can movement be handled concurrently per-player safely on the Jagex Client? Mob movement might not look right.
-func startSynchronizedTaskService() {
+func startGameEngine() {
 	go func() {
 		for range syncTicker.C {
 			// Loop once to actually move the mobs
@@ -201,13 +202,14 @@ func startSynchronizedTaskService() {
 						c.player.Appearances = c.player.Appearances[:0]
 						// POSITIONS BEFORE EVERYTHING ELSE.
 						if positions := packets.PlayerPositions(c.player, localPlayers, removingPlayers); positions != nil {
-							// Only send when needed
 							c.outgoingPackets <- positions
 						}
 						if appearances := packets.PlayerAppearances(c.player, localAppearances); appearances != nil {
 							c.outgoingPackets <- appearances
 						}
-						c.outgoingPackets <- packets.ObjectLocations(c.player, localObjects, removingObjects)
+						if objectUpdates := packets.ObjectLocations(c.player, localObjects, removingObjects); objectUpdates != nil {
+							c.outgoingPackets <- objectUpdates
+						}
 					}()
 				}
 			}

@@ -85,6 +85,7 @@ func (c *Client) StartNetworking() {
 			}
 			hash := strutil.Base37(c.player.Username)
 			if c1, ok := Clients[hash]; c1 == c && ok {
+				c.Save()
 				delete(Clients, hash)
 			}
 			if ok := ClientList.Remove(c.index); ok {
@@ -117,7 +118,6 @@ func (c *Client) sendLoginResponse(i byte) {
 	} else {
 		LogInfo.Printf("Registered Player[%v]: {ip:'%v', username:'%v'}\n", c.index, c.ip, c.player.Username)
 		c.player.AppearanceChanged = true
-		c.player.SetCoords(220, 445)
 		for i := 0; i < 18; i++ {
 			level := 1
 			exp := 0

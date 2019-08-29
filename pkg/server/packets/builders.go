@@ -237,7 +237,9 @@ func PlayerAppearances(ourPlayer *entity.Player, local []*entity.Player) (p *Pac
 }
 
 //ObjectLocations Builds a packet with the view-area object positions in it, relative to the player.
+// If no new objects are available and no existing local objects are removed from area, returns nil.
 func ObjectLocations(player *entity.Player, newObjects []*entity.Object, removingObjects []*entity.Object) (p *Packet) {
+	counter := 0
 	p = NewOutgoingPacket(27)
 	for _, o := range removingObjects {
 		if o.Boundary {
@@ -248,6 +250,7 @@ func ObjectLocations(player *entity.Player, newObjects []*entity.Object, removin
 		p.AddByte(byte(o.Y() - player.Y()))
 		p.AddByte(byte(o.Direction))
 		player.LocalObjects.RemoveObject(o)
+		counter++
 	}
 	for _, o := range newObjects {
 		if o.Boundary {
@@ -258,6 +261,10 @@ func ObjectLocations(player *entity.Player, newObjects []*entity.Object, removin
 		p.AddByte(byte(o.Y() - player.Y()))
 		p.AddByte(byte(o.Direction))
 		player.LocalObjects.AddObject(o)
+		counter++
+	}
+	if counter == 0 {
+		return nil
 	}
 	return
 }
