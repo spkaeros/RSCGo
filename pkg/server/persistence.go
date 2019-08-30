@@ -46,6 +46,20 @@ func Database(file string) *sql.DB {
 
 //LoadPlayer Loads a player from the SQLite3 database, returns a login response code.
 func (c *Client) LoadPlayer(usernameHash uint64, password string) int {
+	if i := ValidatePlayer(c.player, usernameHash, password); i != 0 {
+		return i
+	}
+	if i := PlayerAppearance(c.player); i != 0 {
+		return i
+	}
+
+	Clients[usernameHash] = c
+	return 0
+}
+
+//ValidatePlayer Sets the player's essential persistent variables from player table from base37 username and password hash.
+// Returns 0 if successful, login response code otherwise.
+func ValidatePlayer(player *entity.Player, hash uint64, password string) int {
 	database := Database(TomlConfig.Database.PlayerDB)
 	defer database.Close()
 
@@ -55,7 +69,7 @@ func (c *Client) LoadPlayer(usernameHash uint64, password string) int {
 		LogInfo.Println("LoadPlayer(uint64,string): Could not prepare query statement for player:", err)
 		return 9
 	}
-	rows, err := stmt.Query(usernameHash, password)
+	rows, err := stmt.Query(hash, password)
 	defer rows.Close()
 	if err != nil {
 		LogInfo.Println("LoadPlayer(uint64,string): Could not execute query statement for player:", err)
@@ -65,10 +79,32 @@ func (c *Client) LoadPlayer(usernameHash uint64, password string) int {
 	if !rows.Next() {
 		return 3
 	}
-	c.player.UserBase37 = usernameHash
-	Clients[usernameHash] = c
-	rows.Scan(&c.player.DatabaseIndex, &x, &y, &c.player.Rank)
-	c.player.SetCoords(x, y)
+	rows.Scan(&player.DatabaseIndex, &x, &y, &player.Rank)
+	player.SetCoords(x, y)
+	return 0
+}
+
+//PlayerAppearance Sets the player's appearance variables from a database search by the player's DatabaseIndex.
+// Returns 0 if successful, login response code otherwise.
+func PlayerAppearance(player *entity.Player) int {
+	database := Database(TomlConfig.Database.PlayerDB)
+	defer database.Close()
+	stmt, err := database.Prepare("SELECT haircolour, topcolour, trousercolour, skincolour, head, body FROM appearance WHERE playerid=?")
+	defer stmt.Close()
+	if err != nil {
+		LogInfo.Println("LoadPlayer(uint64,string): Could not prepare query statement for player appearance:", err)
+		return 9
+	}
+	rows, err := stmt.Query(player.DatabaseIndex)
+	defer rows.Close()
+	if err != nil {
+		LogInfo.Println("LoadPlayer(uint64,string): Could not execute query statement for player appearance:", err)
+		return 9
+	}
+	if !rows.Next() {
+		return 17
+	}
+	rows.Scan(&player.Appearance.Hair, &player.Appearance.Top, &player.Appearance.Bottom, &player.Appearance.Skin, &player.Appearance.Head, &player.Appearance.Body)
 	return 0
 }
 

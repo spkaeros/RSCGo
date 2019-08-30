@@ -45,6 +45,7 @@ func loginRequest(c *Client, p *packets.Packet) {
 	c.player.Index = c.Index
 	c.player.Username, _ = p.ReadString()
 	hash := strutil.Base37(c.player.Username)
+	c.player.UserBase37 = hash
 	c.player.Username = strutil.DecodeBase37(hash)
 	password, _ := p.ReadString()
 	passHash := HashPassword(password)

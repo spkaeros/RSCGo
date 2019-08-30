@@ -22,6 +22,23 @@ type Player struct {
 	DatabaseIndex     int
 	Rank              int
 	Attributes        map[string]interface{}
+	Appearance        *AppearanceTable
+}
+
+//AppearanceTable Represents a mobs appearance.
+type AppearanceTable struct {
+	Head   int
+	Body   int
+	Male   bool
+	Hair   int
+	Top    int
+	Bottom int
+	Skin   int
+}
+
+//NewAppearance Returns a reference to a new appearance with specified parameters
+func NewAppearanceTable(head, body int, male bool, hair, top, bottom, skin int) *AppearanceTable {
+	return &AppearanceTable{head, body, male, hair, top, bottom, skin}
 }
 
 //SkillTable Represents a skill table for a mob.
@@ -250,5 +267,5 @@ func (p *Player) SetDirection(direction Direction) {
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
-	return &Player{location: &Location{0, 0}, direction: North, state: Idle, Attributes: make(map[string]interface{}), LocalPlayers: &LocatableList{}, LocalObjects: &LocatableList{}, Skillset: &SkillTable{}}
+	return &Player{location: &Location{0, 0}, direction: North, state: Idle, Attributes: make(map[string]interface{}), LocalPlayers: &LocatableList{}, LocalObjects: &LocatableList{}, Skillset: &SkillTable{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0)}
 }
