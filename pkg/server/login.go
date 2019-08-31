@@ -1,6 +1,9 @@
 package server
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 )
@@ -22,6 +25,14 @@ func sessionRequest(c *Client, p *packets.Packet) {
 }
 
 func loginRequest(c *Client, p *packets.Packet) {
+	// Login block encrypted with block cipher using shared secret, to send/recv credentials and stream cipher key
+	buf, err := rsa.DecryptPKCS1v15(rand.Reader, RsaKey, p.Payload)
+	if err != nil {
+		LogWarning.Printf("Could not decrypt RSA login block: `%v`\n", err.Error())
+		c.sendLoginResponse(9)
+		return
+	}
+	p.Payload = buf
 	// TODO: Handle reconnect slightly different
 	p.ReadByte()
 	version, _ := p.ReadInt()

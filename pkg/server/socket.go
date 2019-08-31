@@ -1,8 +1,6 @@
 package server
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
 	"io"
 	"net"
 	"strconv"
@@ -69,28 +67,15 @@ func (c *Client) ReadPacket() (*packets.Packet, error) {
 		// server somehow seem to start reading from different offsets in the CSPRNG state.
 		// Maybe it is some odd reaction to the way Java stores its values as signed?
 		//		opcode ^= c.isaacStream.decoder.Uint8()
-		if opcode <= 0 {
-			LogWarning.Printf("ERROR IN ISAAC DECODING: len=%v;opcode=%d", length, opcode)
-		}
+		//		if opcode <= 0 {
+		//			LogWarning.Printf("ERROR IN ISAAC DECODING: len=%v;opcode=%d", length, opcode)
+		//		}
 	}
 
 	payload := c.buffer[3 : length+3]
 
 	if err := c.Read(payload); err != nil {
 		return nil, err
-	}
-
-	if opcode == 0 {
-		// Login block encrypted with block cipher using shared secret, to send/recv credentials and stream cipher key
-		buf, err := rsa.DecryptPKCS1v15(rand.Reader, RsaKey, payload)
-		if err != nil {
-			LogWarning.Printf("Could not decrypt RSA login block: `%v`\n", err.Error())
-			if c.isaacStream == nil {
-				c.sendLoginResponse(9)
-			}
-			return nil, err
-		}
-		payload = buf
 	}
 
 	return packets.NewPacket(opcode, payload), nil
