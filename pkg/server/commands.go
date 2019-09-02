@@ -40,8 +40,8 @@ func init() {
 		for _, arg := range args {
 			msg += " " + arg
 		}
-		for _, v := range ClientList.Values {
-			if c1, ok := v.(*Client); ok && c1 != nil {
+		for _, c1 := range Clients {
+			if c1 != nil && c1.player.Connected {
 				c1.outgoingPackets <- packets.ServerMessage(fmt.Sprintf("@que@%s", msg))
 			}
 		}
@@ -70,7 +70,7 @@ func teleport(c *Client, args []string) {
 	for _, p1 := range c.player.NearbyPlayers() {
 		diffX := c.player.X() - p1.X()
 		diffY := c.player.Y() - p1.Y()
-		if c1, ok := ClientList.Get(p1.Index).(*Client); c1 != nil && ok {
+		if c1 := Clients[p1.UserBase37]; c1 != nil {
 			c1.outgoingPackets <- packets.TeleBubble(diffX, diffY)
 		}
 	}
@@ -88,22 +88,19 @@ func summon(c *Client, args []string) {
 		name += arg + " "
 	}
 	name = strings.TrimSpace(name)
-	for _, c1 := range ClientList.Values {
-		if c1, ok := c1.(*Client); ok {
-			if strutil.Base37(c1.player.Username) == strutil.Base37(name) {
-				c1.outgoingPackets <- packets.TeleBubble(0, 0)
-				for _, p1 := range c1.player.NearbyPlayers() {
-					diffX := c1.player.X() - p1.X()
-					diffY := c1.player.Y() - p1.Y()
-					if c2, ok := ClientList.Get(p1.Index).(*Client); c2 != nil && ok {
-						c2.outgoingPackets <- packets.TeleBubble(diffX, diffY)
-					}
-				}
-				c1.player.SetLocation(c.player.Location())
-				c1.player.Removing = true
-				return
+
+	if c1 := Clients[strutil.Base37(name)]; c1 != nil {
+		c1.outgoingPackets <- packets.TeleBubble(0, 0)
+		for _, p1 := range c1.player.NearbyPlayers() {
+			diffX := c1.player.X() - p1.X()
+			diffY := c1.player.Y() - p1.Y()
+			if c2 := Clients[p1.UserBase37]; c2 != nil {
+				c2.outgoingPackets <- packets.TeleBubble(diffX, diffY)
 			}
 		}
+		c1.player.SetLocation(c.player.Location())
+		c1.player.Removing = true
+		return
 	}
 	c.outgoingPackets <- packets.ServerMessage("@que@@whi@[@cya@SERVER@whi@]: @gre@Could not find player with username '" + name + "'")
 }
@@ -118,22 +115,19 @@ func gotoTeleport(c *Client, args []string) {
 		name += arg + " "
 	}
 	name = strings.TrimSpace(name)
-	for _, c1 := range ClientList.Values {
-		if c1, ok := c1.(*Client); ok {
-			if strutil.Base37(c1.player.Username) == strutil.Base37(name) {
-				c.outgoingPackets <- packets.TeleBubble(0, 0)
-				for _, p1 := range c.player.NearbyPlayers() {
-					diffX := c.player.X() - p1.X()
-					diffY := c.player.Y() - p1.Y()
-					if c2, ok := ClientList.Get(p1.Index).(*Client); c2 != nil && ok {
-						c2.outgoingPackets <- packets.TeleBubble(diffX, diffY)
-					}
-				}
-				c.player.SetLocation(c1.player.Location())
-				c.player.Removing = true
-				return
+
+	if c1, ok := Clients[strutil.Base37(name)]; ok {
+		c.outgoingPackets <- packets.TeleBubble(0, 0)
+		for _, p1 := range c.player.NearbyPlayers() {
+			diffX := c.player.X() - p1.X()
+			diffY := c.player.Y() - p1.Y()
+			if c2, ok := Clients[p1.UserBase37]; ok {
+				c2.outgoingPackets <- packets.TeleBubble(diffX, diffY)
 			}
 		}
+		c.player.SetLocation(c1.player.Location())
+		c.player.Removing = true
+		return
 	}
 	c.outgoingPackets <- packets.ServerMessage("@que@@whi@[@cya@SERVER@whi@]: @gre@Could not find player with username '" + name + "'")
 }

@@ -74,7 +74,7 @@ func startConnectionService() {
 				}
 				continue
 			}
-			if ClientList.Size() >= TomlConfig.MaxPlayers {
+			if len(Clients) >= TomlConfig.MaxPlayers {
 				if n, err := socket.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 14}); err != nil || n != 9 {
 					if len(Flags.Verbose) > 0 {
 						LogError.Println("Could not send world is full response to rejected client:", err)
@@ -124,9 +124,9 @@ func Start() {
 //UpdateMobileEntities Updates all mobile scene entities that are traversing a path
 func UpdateMobileEntities() {
 	var wg sync.WaitGroup
-	wg.Add(ClientList.Size())
-	for ClientList.HasNext() {
-		if c, ok := ClientList.Next().(*Client); c != nil && ok {
+	wg.Add(len(Clients))
+	for _, c := range Clients {
+		if c != nil {
 			go func() {
 				defer wg.Done()
 				c.player.TraversePath()
@@ -134,15 +134,14 @@ func UpdateMobileEntities() {
 		}
 	}
 	wg.Wait()
-	ClientList.ResetIterator()
 }
 
 //UpdateClientState Sends the new positions to the clients
 func UpdateClientState() {
 	var wg sync.WaitGroup
-	wg.Add(ClientList.Size())
-	for ClientList.HasNext() {
-		if c, ok := ClientList.Next().(*Client); c != nil && ok {
+	wg.Add(len(Clients))
+	for _, c := range Clients {
+		if c != nil {
 			go func() {
 				defer wg.Done()
 				c.UpdatePositions()
@@ -150,15 +149,14 @@ func UpdateClientState() {
 		}
 	}
 	wg.Wait()
-	ClientList.ResetIterator()
 }
 
 //ResetUpdateFlags Resets the variables used for client updating synchronization.
 func ResetUpdateFlags() {
 	var wg sync.WaitGroup
-	wg.Add(ClientList.Size())
-	for ClientList.HasNext() {
-		if c, ok := ClientList.Next().(*Client); c != nil && ok {
+	wg.Add(len(Clients))
+	for _, c := range Clients {
+		if c != nil {
 			go func() {
 				defer wg.Done()
 				c.ResetUpdateFlags()
@@ -166,7 +164,6 @@ func ResetUpdateFlags() {
 		}
 	}
 	wg.Wait()
-	ClientList.ResetIterator()
 }
 
 //Tick One game engine 'tick'.  This is to handle movement, to synchronize clients, to update movement-related state variables...

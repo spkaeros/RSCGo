@@ -13,11 +13,10 @@ func init() {
 		//				c1.outgoingPackets <- packets.TeleBubble(diffX, diffY)
 		//			}
 		//		}
+
 		for _, v := range c.player.LocalPlayers.List {
-			v, ok := v.(*entity.Player)
-			if ok {
-				c1, ok := ClientList.Get(v.Index).(*Client)
-				if ok {
+			if v, ok := v.(*entity.Player); ok {
+				if c1, ok := Clients[v.UserBase37]; ok {
 					c1.outgoingPackets <- packets.PlayerChat(c.Index, string(strutil.PackChatMessage(strutil.FormatChatMessage(strutil.UnpackChatMessage(p.Payload)))))
 				}
 			}

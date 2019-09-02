@@ -202,7 +202,7 @@ func (c *Client) sendLoginResponse(i byte) {
 		c.outgoingPackets <- packets.ClientSettings(c.player)
 		c.outgoingPackets <- packets.Fatigue(c.player)
 		c.outgoingPackets <- packets.WelcomeMessage
-		c.outgoingPackets <- packets.ServerInfo(ClientList.Size())
+		c.outgoingPackets <- packets.ServerInfo(len(Clients))
 		c.outgoingPackets <- packets.LoginBox(0, c.ip)
 	}
 }
