@@ -175,6 +175,11 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 				p.AddBits(0, 1)
 				p.AddBits(int(p1.Direction()), 3)
 				counter++
+			} else if p1.AppearanceChanged {
+				p.AddBits(1, 1)
+				p.AddBits(1, 1)
+				p.AddBits(int(p1.Direction()), 4)
+				counter++
 			} else {
 				p.AddBits(0, 1)
 			}

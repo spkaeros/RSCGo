@@ -11,10 +11,13 @@ import (
 func init() {
 	PacketHandlers["sessionreq"] = sessionRequest
 	PacketHandlers["loginreq"] = loginRequest
-	PacketHandlers["logoutreq"] = func(c *Client, p *packets.Packet) {
-		c.outgoingPackets <- packets.Logout
-		c.kill <- struct{}{}
-	}
+	PacketHandlers["logoutreq"] = logout
+}
+
+func logout(c *Client, p *packets.Packet) {
+	c.outgoingPackets <- packets.Logout
+	close(c.kill)
+	//c.kill <- struct{}{}
 }
 
 func sessionRequest(c *Client, p *packets.Packet) {
@@ -55,15 +58,14 @@ func loginRequest(c *Client, p *packets.Packet) {
 	c.isaacStream = cipher
 	c.player.Index = c.Index
 	c.player.Username, _ = p.ReadString()
-	hash := strutil.Base37(c.player.Username)
-	c.player.UserBase37 = hash
-	c.player.Username = strutil.DecodeBase37(hash)
+	c.player.UserBase37 = strutil.Base37(c.player.Username)
+	c.player.Username = strutil.DecodeBase37(c.player.UserBase37)
 	password, _ := p.ReadString()
 	passHash := HashPassword(password)
 	//	entity.GetRegion(c.player.X(), c.player.Y()).AddPlayer(c.player)
-	if _, ok := Clients[hash]; ok {
+	if _, ok := Clients[c.player.UserBase37]; ok {
 		c.sendLoginResponse(4)
 		return
 	}
-	c.sendLoginResponse(byte(c.LoadPlayer(hash, passHash)))
+	c.sendLoginResponse(byte(c.LoadPlayer(c.player.UserBase37, passHash)))
 }

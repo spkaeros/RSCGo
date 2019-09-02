@@ -8,9 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/list"
-	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 )
 
 var (
@@ -67,10 +65,8 @@ func startConnectionService() {
 	go func() {
 		// One client every 10ms max, stops childish flooding.
 		// TODO: Implement a packet filter of sorts to stop flooding behavior
-		connTicker := time.NewTicker(time.Millisecond * 10)
 		defer listener.Close()
-		defer connTicker.Stop()
-		for range connTicker.C {
+		for range time.Tick(10 * time.Millisecond) {
 			socket, err := listener.Accept()
 			if err != nil {
 				if len(Flags.Verbose) > 0 {
@@ -125,8 +121,6 @@ func Start() {
 	}
 }
 
-var updatingClients = false
-
 //UpdateMobileEntities Updates all mobile scene entities that are traversing a path
 func UpdateMobileEntities() {
 	var wg sync.WaitGroup
@@ -146,71 +140,17 @@ func UpdateMobileEntities() {
 //UpdateClientState Sends the new positions to the clients
 func UpdateClientState() {
 	var wg sync.WaitGroup
-	updatingClients = true
 	wg.Add(ClientList.Size())
 	for ClientList.HasNext() {
 		if c, ok := ClientList.Next().(*Client); c != nil && ok {
 			go func() {
 				defer wg.Done()
-				if c.player.Location().Equals(entity.DeathSpot) {
-					return
-				}
-				var localPlayers []*entity.Player
-				var localAppearances []*entity.Player
-				var removingPlayers []*entity.Player
-				var localObjects []*entity.Object
-				var removingObjects []*entity.Object
-				for _, r := range entity.SurroundingRegions(c.player.X(), c.player.Y()) {
-					for _, p := range r.Players {
-						if p.Index != c.Index {
-							if c.player.Location().LongestDelta(p.Location()) <= 15 {
-								if !c.player.LocalPlayers.ContainsPlayer(p) {
-									localPlayers = append(localPlayers, p)
-								}
-							} else {
-								if c.player.LocalPlayers.ContainsPlayer(p) {
-									removingPlayers = append(removingPlayers, p)
-								}
-							}
-						}
-					}
-					for _, o := range r.Objects {
-						if c.player.Location().LongestDelta(o.Location()) <= 20 {
-							if !c.player.LocalObjects.ContainsObject(o) {
-								localObjects = append(localObjects, o)
-							}
-						} else {
-							if c.player.LocalObjects.ContainsObject(o) {
-								removingObjects = append(removingObjects, o)
-							}
-						}
-					}
-				}
-				// TODO: Clean up appearance list code.
-				for _, index := range c.player.Appearances {
-					v := ClientList.Get(index)
-					if v, ok := v.(*Client); ok {
-						localAppearances = append(localAppearances, v.player)
-					}
-				}
-				localAppearances = append(localAppearances, localPlayers...)
-				c.player.Appearances = c.player.Appearances[:0]
-				// POSITIONS BEFORE EVERYTHING ELSE.
-				if positions := packets.PlayerPositions(c.player, localPlayers, removingPlayers); positions != nil {
-					c.outgoingPackets <- positions
-				}
-				if appearances := packets.PlayerAppearances(c.player, localAppearances); appearances != nil {
-					c.outgoingPackets <- appearances
-				}
-				if objectUpdates := packets.ObjectLocations(c.player, localObjects, removingObjects); objectUpdates != nil {
-					c.outgoingPackets <- objectUpdates
-				}
+				c.UpdatePositions()
 			}()
 		}
 	}
 	wg.Wait()
 	ClientList.ResetIterator()
-	updatingClients = false
 }
 
 //ResetUpdateFlags Resets the variables used for client updating synchronization.
@@ -221,11 +161,7 @@ func ResetUpdateFlags() {
 		if c, ok := ClientList.Next().(*Client); c != nil && ok {
 			go func() {
 				defer wg.Done()
-				// Cleanup synchronization variables.
-				c.player.Removing = false
-				c.player.HasMoved = false
-				c.player.AppearanceChanged = false
-				c.player.HasSelf = true
+				c.ResetUpdateFlags()
 			}()
 		}
 	}
@@ -237,7 +173,6 @@ func ResetUpdateFlags() {
 // Runs every 640ms.
 func Tick() {
 	UpdateMobileEntities()
-	// Loop again to update the clients about what the mobs have been up to in the prior loop.
 	UpdateClientState()
 	ResetUpdateFlags()
 }
@@ -248,9 +183,7 @@ func Tick() {
 // TODO: Can movement be handled concurrently per-player safely on the Jagex Client? Mob movement might not look right.
 func startGameEngine() {
 	go func() {
-		syncTicker := time.NewTicker(time.Millisecond * 640)
-		defer syncTicker.Stop()
-		for range syncTicker.C {
+		for range time.Tick(640 * time.Millisecond) {
 			Tick()
 		}
 	}()

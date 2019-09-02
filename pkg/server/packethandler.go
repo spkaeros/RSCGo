@@ -12,7 +12,7 @@ var PacketHandlers = make(map[string]func(*Client, *packets.Packet))
 
 //packethandler Definition of a packet handler.
 type packetHandler struct {
-	Opcode uint8  `toml:"opcode"`
+	Opcode int    `toml:"opcode"`
 	Name   string `toml:"name"`
 	//	Handle func(c *Client, p *packets.Packet)
 }
@@ -26,7 +26,7 @@ var table packetHandlerTable
 
 func (p packetHandlerTable) Get(opcode byte) func(*Client, *packets.Packet) {
 	for _, handler := range p.Handlers {
-		if handler.Opcode == opcode {
+		if byte(handler.Opcode) == opcode {
 			return PacketHandlers[handler.Name]
 		}
 	}

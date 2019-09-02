@@ -5,6 +5,7 @@ import (
 
 	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/list"
+	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
 
 	// Necessary for sqlite3 driver
 	_ "github.com/mattn/go-sqlite3"
@@ -15,7 +16,7 @@ var Objects = list.New(16384)
 
 //LoadObjects Loads the game objects into memory from the SQLite3 database.
 func LoadObjects() bool {
-	database := Database(TomlConfig.Database.WorldDB)
+	database := OpenDatabase(TomlConfig.Database.WorldDB)
 	defer database.Close()
 	rows, err := database.Query("SELECT `id`, `direction`, `type`, `x`, `y` FROM `game_object_locations`")
 	defer rows.Close()
@@ -33,8 +34,8 @@ func LoadObjects() bool {
 	return true
 }
 
-//Database Returns an active sqlite3 database reference for the specified database file.
-func Database(file string) *sql.DB {
+//OpenDatabase Returns an active sqlite3 database reference for the specified database file.
+func OpenDatabase(file string) *sql.DB {
 	database, err := sql.Open("sqlite3", "file:"+TomlConfig.DataDir+file)
 	if err != nil {
 		LogError.Println("Couldn't load SQLite3 database:", err)
@@ -46,8 +47,14 @@ func Database(file string) *sql.DB {
 
 //LoadPlayer Loads a player from the SQLite3 database, returns a login response code.
 func (c *Client) LoadPlayer(usernameHash uint64, password string) int {
-	if i := ValidatePlayer(c.player, usernameHash, password); i != 0 {
-		return i
+	playerID, err := ValidatePlayer(c.player, usernameHash, password)
+	if playerID < 0 || err != nil {
+		if err.Error() == "Could not find player" {
+			// Invalid username/password
+			return 3
+		}
+		// Database error
+		return 9
 	}
 	if i := PlayerAppearance(c.player); i != 0 {
 		return i
@@ -59,35 +66,33 @@ func (c *Client) LoadPlayer(usernameHash uint64, password string) int {
 
 //ValidatePlayer Sets the player's essential persistent variables from player table from base37 username and password hash.
 // Returns 0 if successful, login response code otherwise.
-func ValidatePlayer(player *entity.Player, hash uint64, password string) int {
-	database := Database(TomlConfig.Database.PlayerDB)
+func ValidatePlayer(player *entity.Player, hash uint64, password string) (int, error) {
+	database := OpenDatabase(TomlConfig.Database.PlayerDB)
 	defer database.Close()
 
 	stmt, err := database.Prepare("SELECT id, x, y, group_id FROM player2 WHERE userhash=? AND password=?")
 	defer stmt.Close()
 	if err != nil {
-		LogInfo.Println("LoadPlayer(uint64,string): Could not prepare query statement for player:", err)
-		return 9
+		LogInfo.Println("ValidatePlayer(uint64,string): Could not prepare query statement for player:", err)
+		return -1, errors.NewDatabaseError(err.Error())
 	}
 	rows, err := stmt.Query(hash, password)
 	defer rows.Close()
 	if err != nil {
-		LogInfo.Println("LoadPlayer(uint64,string): Could not execute query statement for player:", err)
-		return 9
+		LogInfo.Println("ValidatePlayer(uint64,string): Could not execute query statement for player:", err)
+		return -1, errors.NewDatabaseError(err.Error())
 	}
-	var x, y int
 	if !rows.Next() {
-		return 3
+		return -1, errors.NewDatabaseError("Could not find player")
 	}
-	rows.Scan(&player.DatabaseIndex, &x, &y, &player.Rank)
-	player.SetCoords(x, y)
-	return 0
+	rows.Scan(&player.DatabaseIndex, &player.Location().X, &player.Location().Y, &player.Rank)
+	return player.DatabaseIndex, nil
 }
 
 //PlayerAppearance Sets the player's appearance variables from a database search by the player's DatabaseIndex.
 // Returns 0 if successful, login response code otherwise.
 func PlayerAppearance(player *entity.Player) int {
-	database := Database(TomlConfig.Database.PlayerDB)
+	database := OpenDatabase(TomlConfig.Database.PlayerDB)
 	defer database.Close()
 	stmt, err := database.Prepare("SELECT haircolour, topcolour, trousercolour, skincolour, head, body FROM appearance WHERE playerid=?")
 	defer stmt.Close()
@@ -110,7 +115,7 @@ func PlayerAppearance(player *entity.Player) int {
 
 //Save Saves a player to the SQLite3 database.
 func (c *Client) Save() {
-	db := Database(TomlConfig.Database.PlayerDB)
+	db := OpenDatabase(TomlConfig.Database.PlayerDB)
 	defer db.Close()
 	tx, err := db.Begin()
 	if err != nil {

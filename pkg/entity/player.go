@@ -15,6 +15,8 @@ type Player struct {
 	LocalObjects      *LocatableList
 	HasMoved          bool
 	Removing          bool
+	Connected         bool
+	Updating          bool
 	HasSelf           bool
 	AppearanceChanged bool
 	Appearances       []int
@@ -267,5 +269,5 @@ func (p *Player) SetDirection(direction Direction) {
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
-	return &Player{location: &Location{0, 0}, direction: North, state: Idle, Attributes: make(map[string]interface{}), LocalPlayers: &LocatableList{}, LocalObjects: &LocatableList{}, Skillset: &SkillTable{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0)}
+	return &Player{location: &Location{0, 0}, direction: North, state: Idle, Attributes: make(map[string]interface{}), LocalPlayers: &LocatableList{}, LocalObjects: &LocatableList{}, Skillset: &SkillTable{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false}
 }

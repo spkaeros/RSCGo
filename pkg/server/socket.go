@@ -23,7 +23,8 @@ func (c *Client) Write(b []byte) int {
 	l, err := c.socket.Write(b)
 	if err != nil {
 		LogError.Println("Could not write to client socket.", err)
-		c.kill <- struct{}{}
+		//c.kill <- struct{}{}
+		close(c.kill)
 	} else if l != len(b) {
 		// Possibly non-fatal?
 		LogError.Printf("Wrong number of bytes written to Client socket.  Expected %d, got %d.\n", len(b), l)
@@ -59,18 +60,7 @@ func (c *Client) ReadPacket() (*packets.Packet, error) {
 		return nil, err
 	}
 	length := int(int16(header[0])<<8 | int16(header[1]))
-
-	opcode := header[2] & 0xFF
-	if c.isaacStream != nil && opcode != 0 {
-		// FIXME: Figure out how to ensure CSPRNG state is identical for client and server.
-		// Currently, this works..But occasionally, it will stop working.  the client and
-		// server somehow seem to start reading from different offsets in the CSPRNG state.
-		// Maybe it is some odd reaction to the way Java stores its values as signed?
-		//		opcode ^= c.isaacStream.decoder.Uint8()
-		//		if opcode <= 0 {
-		//			LogWarning.Printf("ERROR IN ISAAC DECODING: len=%v;opcode=%d", length, opcode)
-		//		}
-	}
+	opcode := header[2]
 
 	payload := c.buffer[3 : length+3]
 
