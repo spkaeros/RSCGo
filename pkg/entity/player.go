@@ -216,9 +216,9 @@ func (p *Player) UpdateDirection(destX, destY int) {
 	xIndex := p.X() - destX + 1
 	yIndex := p.Y() - destY + 1
 	if xIndex >= 0 && yIndex >= 0 && xIndex < 3 && yIndex < 3 {
-		p.SetDirection(Direction(sprites[xIndex][yIndex]))
+		p.SetDirection(sprites[xIndex][yIndex])
 	} else {
-		p.SetDirection(North)
+		p.SetDirection(int(North))
 	}
 }
 
@@ -261,12 +261,12 @@ func (p *Player) SetState(state MobState) {
 }
 
 //Direction Returns the players direction.
-func (p *Player) Direction() Direction {
-	return Direction(p.Attributes.VarInt("direction", 0))
+func (p *Player) Direction() int {
+	return p.Attributes.VarInt("direction", 0)
 }
 
 //SetDirection Sets the players direction.
-func (p *Player) SetDirection(direction Direction) {
+func (p *Player) SetDirection(direction int) {
 	p.Attributes["direction"] = direction
 }
 
