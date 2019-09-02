@@ -98,6 +98,15 @@ func (p *Packet) ReadShort() (val uint16, err error) {
 	return val, nil
 }
 
+//ReadBool Reads the next byte, if it is 1 returns true, else returns false.
+func (p *Packet) ReadBool() (val bool, err error) {
+	b, err := p.ReadByte()
+	if err == nil {
+		return false, err
+	}
+	return b == 1, nil
+}
+
 //ReadByte Read the next 8-bit integer from the packet payload.
 func (p *Packet) ReadByte() (byte, error) {
 	if p.readIndex+1 > len(p.Payload) {

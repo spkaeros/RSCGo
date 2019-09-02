@@ -1,10 +1,12 @@
 package entity
 
+type Attribute string
+type AttributeList map[Attribute]interface{}
+
 //Player Represents a single player.
 type Player struct {
 	location          *Location
 	state             MobState
-	direction         Direction
 	Username          string
 	UserBase37        uint64
 	Password          string
@@ -23,8 +25,22 @@ type Player struct {
 	Skillset          *SkillTable
 	DatabaseIndex     int
 	Rank              int
-	Attributes        map[string]interface{}
+	Attributes        AttributeList
+	SyncAttributes    AttributeList
 	Appearance        *AppearanceTable
+}
+
+//SetVar Sets the attribute mapped at name to value in the attribute map.
+func (attributes AttributeList) SetVar(name Attribute, value interface{}) {
+	attributes[name] = value
+}
+
+//VarInt If there is an attribute assigned to the specified name, returns it.  Otherwise, returns -1337
+func (attributes AttributeList) VarInt(name Attribute, zero int) int {
+	if _, ok := attributes[name].(int); !ok {
+		attributes[name] = zero
+	}
+	return attributes[name].(int)
 }
 
 //AppearanceTable Represents a mobs appearance.
@@ -50,20 +66,24 @@ type SkillTable struct {
 	Experience [18]int
 }
 
+//Index Returns the server index for convenient fast unique lookups.
 func (p *Player) Index() int {
 	return p.index
 }
 
+//SetIndex Sets the server index to idx
 func (p *Player) SetIndex(idx int) {
 	p.index = idx
 }
 
+//VarEquipment Returns the attribute mapped to by name, and if it doesn't exist, returns 1.
+func (p *Player) VarEquipment(name Attribute) int {
+	return p.Attributes.VarInt(name, 1)
+}
+
 //ArmourPoints Returns the players armour points.
 func (p *Player) ArmourPoints() int {
-	if _, ok := p.Attributes["armour_points"]; !ok {
-		p.Attributes["armour_points"] = 1
-	}
-	return p.Attributes["armour_points"].(int)
+	return p.VarEquipment("armour_points")
 }
 
 //SetArmourPoints Sets the players armour points to i.
@@ -73,10 +93,7 @@ func (p *Player) SetArmourPoints(i int) {
 
 //PowerPoints Returns the players power points.
 func (p *Player) PowerPoints() int {
-	if _, ok := p.Attributes["power_points"]; !ok {
-		p.Attributes["power_points"] = 1
-	}
-	return p.Attributes["power_points"].(int)
+	return p.VarEquipment("power_points")
 }
 
 //SetPowerPoints Sets the players power points to i
@@ -86,10 +103,7 @@ func (p *Player) SetPowerPoints(i int) {
 
 //AimPoints Returns the players aim points
 func (p *Player) AimPoints() int {
-	if _, ok := p.Attributes["aim_points"]; !ok {
-		p.Attributes["aim_points"] = 1
-	}
-	return p.Attributes["aim_points"].(int)
+	return p.VarEquipment("aim_points")
 }
 
 //SetAimPoints Sets the players aim points to i.
@@ -99,10 +113,7 @@ func (p *Player) SetAimPoints(i int) {
 
 //MagicPoints Returns the players magic points
 func (p *Player) MagicPoints() int {
-	if _, ok := p.Attributes["magic_points"]; !ok {
-		p.Attributes["magic_points"] = 1
-	}
-	return p.Attributes["magic_points"].(int)
+	return p.VarEquipment("magic_points")
 }
 
 //SetMagicPoints Sets the players magic points to i
@@ -112,10 +123,7 @@ func (p *Player) SetMagicPoints(i int) {
 
 //PrayerPoints Returns the players prayer points
 func (p *Player) PrayerPoints() int {
-	if _, ok := p.Attributes["prayer_points"]; !ok {
-		p.Attributes["prayer_points"] = 1
-	}
-	return p.Attributes["prayer_points"].(int)
+	return p.VarEquipment("prayer_points")
 }
 
 //SetPrayerPoints Sets the players prayer points to i
@@ -125,10 +133,7 @@ func (p *Player) SetPrayerPoints(i int) {
 
 //RangedPoints Returns the players ranged points.
 func (p *Player) RangedPoints() int {
-	if _, ok := p.Attributes["ranged_points"]; !ok {
-		p.Attributes["ranged_points"] = 1
-	}
-	return p.Attributes["ranged_points"].(int)
+	return p.VarEquipment("ranged_points")
 }
 
 //SetRangedPoints Sets the players ranged points tp i.
@@ -138,10 +143,7 @@ func (p *Player) SetRangedPoints(i int) {
 
 //Fatigue Returns the players current fatigue.
 func (p *Player) Fatigue() int {
-	if _, ok := p.Attributes["fatigue"]; !ok {
-		p.Attributes["fatigue"] = 0
-	}
-	return p.Attributes["fatigue"].(int)
+	return p.Attributes.VarInt("fatigue", 0)
 }
 
 //SetFatigue Sets the players current fatigue to i.
@@ -151,10 +153,7 @@ func (p *Player) SetFatigue(i int) {
 
 //FightMode Returns the players current fight mode.
 func (p *Player) FightMode() int {
-	if _, ok := p.Attributes["fight_mode"]; !ok {
-		p.Attributes["fight_mode"] = 0
-	}
-	return p.Attributes["fight_mode"].(int)
+	return p.Attributes.VarInt("fight_mode", 0)
 }
 
 //SetFightMode Sets the players fightmode to i.  0=all,1=attack,2=defense,3=strength
@@ -217,9 +216,9 @@ func (p *Player) UpdateDirection(destX, destY int) {
 	xIndex := p.X() - destX + 1
 	yIndex := p.Y() - destY + 1
 	if xIndex >= 0 && yIndex >= 0 && xIndex < 3 && yIndex < 3 {
-		p.direction = Direction(sprites[xIndex][yIndex])
+		p.SetDirection(Direction(sprites[xIndex][yIndex]))
 	} else {
-		p.direction = 0
+		p.SetDirection(North)
 	}
 }
 
@@ -263,15 +262,15 @@ func (p *Player) SetState(state MobState) {
 
 //Direction Returns the players direction.
 func (p *Player) Direction() Direction {
-	return p.direction
+	return Direction(p.Attributes.VarInt("direction", 0))
 }
 
 //SetDirection Sets the players direction.
 func (p *Player) SetDirection(direction Direction) {
-	p.direction = direction
+	p.Attributes["direction"] = direction
 }
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
-	return &Player{location: &Location{0, 0}, direction: North, state: Idle, Attributes: make(map[string]interface{}), LocalPlayers: &EntityList{}, LocalObjects: &EntityList{}, Skillset: &SkillTable{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false}
+	return &Player{location: &Location{0, 0}, state: Idle, Attributes: make(AttributeList), SyncAttributes: make(AttributeList), LocalPlayers: &EntityList{}, LocalObjects: &EntityList{}, Skillset: &SkillTable{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false}
 }

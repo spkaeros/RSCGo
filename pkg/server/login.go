@@ -28,7 +28,6 @@ func sessionRequest(c *Client, p *packets.Packet) {
 }
 
 func loginRequest(c *Client, p *packets.Packet) {
-	// Login block encrypted with block cipher using shared secret, to send/recv credentials and stream cipher key
 	buf, err := rsa.DecryptPKCS1v15(rand.Reader, RsaKey, p.Payload)
 	if err != nil {
 		LogWarning.Printf("Could not decrypt RSA login block: `%v`\n", err.Error())
@@ -36,35 +35,49 @@ func loginRequest(c *Client, p *packets.Packet) {
 		return
 	}
 	p.Payload = buf
+	player := c.player
+	// Login block encrypted with block cipher using shared secret, to send/recv credentials and stream cipher key
 	// TODO: Handle reconnect slightly different
-	p.ReadByte()
-	version, _ := p.ReadInt()
-	if version != uint32(TomlConfig.Version) {
-		if len(Flags.Verbose) >= 1 {
-			LogWarning.Printf("Player tried logging in with invalid client version. Got %d, expected %d\n", version, TomlConfig.Version)
-		}
+	c.reconnecting, err = p.ReadBool()
+	if err != nil {
+		c.sendLoginResponse(6)
+		return
+	}
+	version, err := p.ReadInt()
+	if err != nil {
+		c.sendLoginResponse(6)
+		return
+	}
+	if int(version) != TomlConfig.Version {
 		c.sendLoginResponse(5)
 		return
 	}
-	seed := make([]uint64, 2)
-	for i := 0; i < 2; i++ {
-		seed[i], _ = p.ReadLong()
-	}
-	cipher := c.SeedISAAC(seed)
-	if cipher == nil {
-		c.sendLoginResponse(5)
+	clientSeed, err := p.ReadLong()
+	if err != nil {
+		c.sendLoginResponse(6)
 		return
 	}
-	c.isaacStream = cipher
-	c.player.SetIndex(c.Index)
-	c.player.Username, _ = p.ReadString()
-	c.player.UserBase37 = strutil.Base37(c.player.Username)
-	c.player.Username = strutil.DecodeBase37(c.player.UserBase37)
-	password, _ := p.ReadString()
-	passHash := HashPassword(password)
-	if _, ok := Clients[c.player.UserBase37]; ok {
+	serverSeed, err := p.ReadLong()
+	if err != nil {
+		c.sendLoginResponse(6)
+		return
+	}
+	c.isaacStream = c.SeedISAAC(clientSeed, serverSeed)
+	username, err := p.ReadString()
+	if err != nil {
+		c.sendLoginResponse(6)
+		return
+	}
+	player.UserBase37 = strutil.Base37(username)
+	player.Username = strutil.DecodeBase37(player.UserBase37)
+	if _, ok := Clients[player.UserBase37]; ok {
 		c.sendLoginResponse(4)
 		return
 	}
-	c.sendLoginResponse(byte(c.LoadPlayer(c.player.UserBase37, passHash)))
+	password, err := p.ReadString()
+	if err != nil {
+		c.sendLoginResponse(6)
+		return
+	}
+	c.sendLoginResponse(byte(c.LoadPlayer(player.UserBase37, HashPassword(password))))
 }

@@ -127,7 +127,7 @@ func Start() {
 //UpdateMobileEntities Updates all mobile scene entities that are traversing a path
 func UpdateMobileEntities() {
 	var wg sync.WaitGroup
-	wg.Add(len(Clients))
+	wg.Add(len(ClientsIdx))
 	for i := 0; i < len(ClientsIdx); i++ {
 		if c, ok := ClientsIdx[i]; ok {
 			go func() {
@@ -142,7 +142,7 @@ func UpdateMobileEntities() {
 //UpdateClientState Sends the new positions to the clients
 func UpdateClientState() {
 	var wg sync.WaitGroup
-	wg.Add(len(Clients))
+	wg.Add(len(ClientsIdx))
 	for i := 0; i < len(ClientsIdx); i++ {
 		if c, ok := ClientsIdx[i]; ok {
 			go func() {
@@ -157,7 +157,7 @@ func UpdateClientState() {
 //ResetUpdateFlags Resets the variables used for client updating synchronization.
 func ResetUpdateFlags() {
 	var wg sync.WaitGroup
-	wg.Add(len(Clients))
+	wg.Add(len(ClientsIdx))
 	for i := 0; i < len(ClientsIdx); i++ {
 		if c, ok := ClientsIdx[i]; ok {
 			go func() {

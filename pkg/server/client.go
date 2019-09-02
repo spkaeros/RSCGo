@@ -26,6 +26,7 @@ type Client struct {
 	packetQueue      chan *packets.Packet
 	outgoingPackets  chan *packets.Packet
 	buffer           []byte
+	reconnecting     bool
 }
 
 //StartReader Starts the clients socket reader goroutine.  Takes a waitgroup as an argument to facilitate synchronous destruction.
@@ -90,6 +91,7 @@ func (c *Client) Destroy() {
 	}
 }
 
+//ResetUpdateFlags Resets the players movement updating synchronization variables.
 func (c *Client) ResetUpdateFlags() {
 	c.player.Removing = false
 	c.player.HasMoved = false

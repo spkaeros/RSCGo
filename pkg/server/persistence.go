@@ -2,6 +2,7 @@ package server
 
 import (
 	"database/sql"
+	"strconv"
 
 	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/list"
@@ -47,26 +48,23 @@ func OpenDatabase(file string) *sql.DB {
 
 //LoadPlayer Loads a player from the SQLite3 database, returns a login response code.
 func (c *Client) LoadPlayer(usernameHash uint64, password string) int {
-	playerID, err := ValidatePlayer(c.player, usernameHash, password)
-	if playerID < 0 || err != nil {
+	if err := ValidatePlayer(c.player, usernameHash, password); err != nil {
 		if err.Error() == "Could not find player" {
 			// Invalid username/password
 			return 3
 		}
 		// Database error
-		return 9
-	}
-	if i := PlayerAppearance(c.player); i != 0 {
-		return i
+		return 8
 	}
 
 	Clients[usernameHash] = c
+	c.player.SetIndex(c.Index)
 	return 0
 }
 
 //ValidatePlayer Sets the player's essential persistent variables from player table from base37 username and password hash.
 // Returns 0 if successful, login response code otherwise.
-func ValidatePlayer(player *entity.Player, hash uint64, password string) (int, error) {
+func ValidatePlayer(player *entity.Player, hash uint64, password string) error {
 	database := OpenDatabase(TomlConfig.Database.PlayerDB)
 	defer database.Close()
 
@@ -74,43 +72,80 @@ func ValidatePlayer(player *entity.Player, hash uint64, password string) (int, e
 	defer stmt.Close()
 	if err != nil {
 		LogInfo.Println("ValidatePlayer(uint64,string): Could not prepare query statement for player:", err)
-		return -1, errors.NewDatabaseError(err.Error())
+		return errors.NewDatabaseError(err.Error())
 	}
 	rows, err := stmt.Query(hash, password)
 	defer rows.Close()
 	if err != nil {
 		LogInfo.Println("ValidatePlayer(uint64,string): Could not execute query statement for player:", err)
-		return -1, errors.NewDatabaseError(err.Error())
+		return errors.NewDatabaseError(err.Error())
 	}
 	if !rows.Next() {
-		return -1, errors.NewDatabaseError("Could not find player")
+		return errors.NewDatabaseError("Could not find player")
 	}
 	rows.Scan(&player.DatabaseIndex, &player.Location().X, &player.Location().Y, &player.Rank)
-	return player.DatabaseIndex, nil
+	if err := PlayerAppearance(player); err != nil {
+		return err
+	}
+	if err := PlayerAttributes(player); err != nil {
+		return err
+	}
+	return nil
 }
 
 //PlayerAppearance Sets the player's appearance variables from a database search by the player's DatabaseIndex.
-// Returns 0 if successful, login response code otherwise.
-func PlayerAppearance(player *entity.Player) int {
+// Returns nil upon success.
+func PlayerAppearance(player *entity.Player) error {
 	database := OpenDatabase(TomlConfig.Database.PlayerDB)
 	defer database.Close()
 	stmt, err := database.Prepare("SELECT haircolour, topcolour, trousercolour, skincolour, head, body FROM appearance WHERE playerid=?")
 	defer stmt.Close()
 	if err != nil {
 		LogInfo.Println("LoadPlayer(uint64,string): Could not prepare query statement for player appearance:", err)
-		return 9
+		return errors.NewDatabaseError("Statement could not be prepared.")
 	}
 	rows, err := stmt.Query(player.DatabaseIndex)
 	defer rows.Close()
 	if err != nil {
 		LogInfo.Println("LoadPlayer(uint64,string): Could not execute query statement for player appearance:", err)
-		return 9
+		return errors.NewDatabaseError("Statement could not execute.")
 	}
 	if !rows.Next() {
-		return 17
+		return errors.NewDatabaseError("Could not find player")
 	}
 	rows.Scan(&player.Appearance.Hair, &player.Appearance.Top, &player.Appearance.Bottom, &player.Appearance.Skin, &player.Appearance.Head, &player.Appearance.Body)
-	return 0
+	return nil
+}
+
+//PlayerAttributes Sets the player's attribute variables from a database search by the player's DatabaseIndex.
+func PlayerAttributes(player *entity.Player) error {
+	database := OpenDatabase(TomlConfig.Database.PlayerDB)
+	defer database.Close()
+	stmt, err := database.Prepare("SELECT name, value FROM player_attr WHERE player_id=?")
+	defer stmt.Close()
+	if err != nil {
+		LogInfo.Println("LoadPlayer(uint64,string): Could not prepare query statement for player attributes:", err)
+		return errors.NewDatabaseError("Statement could not be prepared.")
+	}
+	rows, err := stmt.Query(player.DatabaseIndex)
+	defer rows.Close()
+	if err != nil {
+		LogInfo.Println("LoadPlayer(uint64,string): Could not execute query statement for player attributes:", err)
+		return errors.NewDatabaseError("Statement could not execute.")
+	}
+	for rows.Next() {
+		var name, value string
+		rows.Scan(&name, &value)
+		if value[:1] == "i" {
+			player.Attributes[entity.Attribute(name)], err = strconv.Atoi(value[1:])
+			if err != nil {
+				LogInfo.Printf("Error loading attribute[%v]: value=%v\n", name, value[1:])
+				LogInfo.Println(err)
+			}
+			LogInfo.Printf("attr[%v]=%v\n", name, player.Attributes[entity.Attribute(name)])
+		}
+	}
+	return nil
 }
 
 //Save Saves a player to the SQLite3 database.
@@ -122,18 +157,69 @@ func (c *Client) Save() {
 		LogInfo.Println("Save(): Could not begin transcaction for player update.")
 		return
 	}
-	rs, err := tx.Exec("UPDATE player2 SET x=?, y=? WHERE id=?", c.player.X(), c.player.Y(), c.player.DatabaseIndex)
-	count, err := rs.RowsAffected()
-	if err != nil {
-		LogWarning.Println("Save(): UPDATE failed for player:", err)
-		if err := tx.Rollback(); err != nil {
-			LogWarning.Println("Save(): Transaction rollback failed:", err)
+	saveLocation := func() {
+		rs, err := tx.Exec("UPDATE player2 SET x=?, y=? WHERE id=?", c.player.X(), c.player.Y(), c.player.DatabaseIndex)
+		count, err := rs.RowsAffected()
+		if err != nil {
+			LogWarning.Println("Save(): UPDATE failed for player location:", err)
+			if err := tx.Rollback(); err != nil {
+				LogWarning.Println("Save(): Transaction location rollback failed:", err)
+			}
+			return
 		}
-		return
+
+		if count <= 0 {
+			LogInfo.Println("Save(): Affected nothing for location update!")
+		}
 	}
-	if count <= 0 {
-		LogInfo.Println("Save(): Affected nothing for player update!")
+	saveLocation()
+	saveAppearance := func() {
+		appearance := c.player.Appearance
+		rs, _ := tx.Exec("UPDATE appearance SET haircolour=?, topcolour=?, trousercolour=?, skincolour=?, head=?, body=? WHERE playerid=?", appearance.Hair, appearance.Top, appearance.Bottom, appearance.Skin, appearance.Head, appearance.Body, c.player.DatabaseIndex)
+		count, err := rs.RowsAffected()
+		if err != nil {
+			LogWarning.Println("Save(): UPDATE failed for player appearance:", err)
+			if err := tx.Rollback(); err != nil {
+				LogWarning.Println("Save(): Transaction appearance rollback failed:", err)
+			}
+			return
+		}
+
+		if count <= 0 {
+			LogInfo.Println("Save(): Affected nothing for appearance update!")
+		}
 	}
+	saveAppearance()
+	saveAttributes := func() {
+		if _, err := tx.Exec("DELETE FROM player_attr WHERE player_id=?", c.player.DatabaseIndex); err != nil {
+			LogWarning.Println("Save(): DELETE failed for player attribute:", err)
+			if err := tx.Rollback(); err != nil {
+				LogWarning.Println("Save(): Transaction delete attributes rollback failed:", err)
+			}
+			return
+		}
+		for k, v := range c.player.Attributes {
+			switch v.(type) {
+			case int:
+				rs, _ := tx.Exec("INSERT INTO player_attr(player_id, name, value) VALUES(?, ?, ?)", c.player.DatabaseIndex, string(k), "i"+strconv.Itoa(v.(int)))
+				count, err := rs.RowsAffected()
+				if err != nil {
+					LogWarning.Println("Save(): INSERT failed for player attribute:", err)
+					if err := tx.Rollback(); err != nil {
+						LogWarning.Println("Save(): Transaction insert appearance rollback failed:", err)
+					}
+					return
+				}
+
+				if count <= 0 {
+					LogInfo.Println("Save(): Affected nothing for attribute insertion!")
+				}
+				break
+			}
+		}
+	}
+	saveAttributes()
+
 	if err := tx.Commit(); err != nil {
 		LogWarning.Println("Save(): Error committing transaction for player update:", err)
 	}
