@@ -15,46 +15,30 @@ const (
 
 //Region Represents a 48x48 section of map.  The purpose of this is to keep track of entities in the entire world without having to allocate tiles individually, which would make search algorithms slower and utilizes a great deal of memory.
 type Region struct {
-	Players []*Player
-	Objects []*Object
+	Players *EntityList
+	Objects *EntityList
 }
 
 var regions [HorizontalPlanes][VerticalPlanes]*Region
 
 //AddPlayer Add a player to the region.
 func (r *Region) AddPlayer(p *Player) {
-	r.Players = append(r.Players, p)
+	r.Players.AddPlayer(p)
 }
 
 //RemovePlayer Remove a player from the region.
 func (r *Region) RemovePlayer(p *Player) {
-	players := r.Players
-	for i, v := range players {
-		if v.Index == p.Index {
-			last := len(players) - 1
-			players[i] = players[last]
-			r.Players = players[:last]
-			return
-		}
-	}
+	r.Players.RemovePlayer(p)
 }
 
 //AddObject Add an object to the region.
 func (r *Region) AddObject(o *Object) {
-	r.Objects = append(r.Objects, o)
+	r.Objects.AddObject(o)
 }
 
 //RemoveObject Remove an object from the region.
 func (r *Region) RemoveObject(o *Object) {
-	objects := r.Objects
-	for i, v := range objects {
-		if v.Index == o.Index {
-			last := len(objects) - 1
-			objects[i] = objects[last]
-			r.Objects = objects[:last]
-			return
-		}
-	}
+	r.Objects.RemoveObject(o)
 }
 
 //getRegionFromIndex internal function to get a region by its row amd column indexes
@@ -68,7 +52,7 @@ func getRegionFromIndex(areaX, areaY int) *Region {
 		return &Region{}
 	}
 	if regions[areaX][areaY] == nil {
-		regions[areaX][areaY] = &Region{}
+		regions[areaX][areaY] = &Region{&EntityList{}, &EntityList{}}
 	}
 	return regions[areaX][areaY]
 }

@@ -8,11 +8,11 @@ type Player struct {
 	Username          string
 	UserBase37        uint64
 	Password          string
-	Index             int
+	index             int
 	Path              *Pathway
 	FriendList        []uint64
-	LocalPlayers      *LocatableList
-	LocalObjects      *LocatableList
+	LocalPlayers      *EntityList
+	LocalObjects      *EntityList
 	HasMoved          bool
 	Removing          bool
 	Connected         bool
@@ -48,6 +48,14 @@ type SkillTable struct {
 	Current    [18]int
 	Maximum    [18]int
 	Experience [18]int
+}
+
+func (p *Player) Index() int {
+	return p.index
+}
+
+func (p *Player) SetIndex(idx int) {
+	p.index = idx
 }
 
 //ArmourPoints Returns the players armour points.
@@ -186,11 +194,7 @@ func (p *Player) TraversePath() {
 //NearbyPlayers Returns the nearby players from the current and nearest adjacent regions in a slice.
 func (p *Player) NearbyPlayers() (players []*Player) {
 	for _, r := range SurroundingRegions(p.X(), p.Y()) {
-		for _, p1 := range r.Players {
-			if p1.Index != p.Index && p.location.LongestDelta(p1.location) <= 15 {
-				players = append(players, p1)
-			}
-		}
+		players = append(players, r.Players.NearbyPlayers(p)...)
 	}
 
 	return
@@ -229,8 +233,8 @@ func (p *Player) SetCoords(x, y int) {
 	curArea := GetRegion(p.X(), p.Y())
 	newArea := GetRegion(x, y)
 	if newArea != curArea {
-		curArea.RemovePlayer(p)
-		newArea.AddPlayer(p)
+		curArea.Players.RemovePlayer(p)
+		newArea.Players.AddPlayer(p)
 	}
 	p.UpdateDirection(x, y)
 	p.location.X = x
@@ -269,5 +273,5 @@ func (p *Player) SetDirection(direction Direction) {
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
-	return &Player{location: &Location{0, 0}, direction: North, state: Idle, Attributes: make(map[string]interface{}), LocalPlayers: &LocatableList{}, LocalObjects: &LocatableList{}, Skillset: &SkillTable{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false}
+	return &Player{location: &Location{0, 0}, direction: North, state: Idle, Attributes: make(map[string]interface{}), LocalPlayers: &EntityList{}, LocalObjects: &EntityList{}, Skillset: &SkillTable{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false}
 }

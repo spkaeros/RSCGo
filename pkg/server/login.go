@@ -56,13 +56,12 @@ func loginRequest(c *Client, p *packets.Packet) {
 		return
 	}
 	c.isaacStream = cipher
-	c.player.Index = c.Index
+	c.player.SetIndex(c.Index)
 	c.player.Username, _ = p.ReadString()
 	c.player.UserBase37 = strutil.Base37(c.player.Username)
 	c.player.Username = strutil.DecodeBase37(c.player.UserBase37)
 	password, _ := p.ReadString()
 	passHash := HashPassword(password)
-	//	entity.GetRegion(c.player.X(), c.player.Y()).AddPlayer(c.player)
 	if _, ok := Clients[c.player.UserBase37]; ok {
 		c.sendLoginResponse(4)
 		return

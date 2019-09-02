@@ -28,7 +28,7 @@ func LoadObjects() bool {
 	for rows.Next() {
 		rows.Scan(&id, &direction, &kind, &x, &y)
 		o := entity.NewObject(id, direction, x, y, kind != 0)
-		o.Index = Objects.Add(o)
+		o.SetIndex(Objects.Add(o))
 		entity.GetRegion(x, y).AddObject(o)
 	}
 	return true

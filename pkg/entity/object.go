@@ -6,7 +6,15 @@ type Object struct {
 	Direction int
 	Boundary  bool
 	location  *Location
-	Index     int
+	index     int
+}
+
+func (o *Object) Index() int {
+	return o.index
+}
+
+func (o *Object) SetIndex(idx int) {
+	o.index = idx
 }
 
 //X Returns the objects X coordinate.

@@ -80,11 +80,12 @@ func (c *Client) Destroy() {
 	if err := c.socket.Close(); err != nil {
 		LogError.Println("Couldn't close socket:", err)
 	}
+	if c1, ok := ClientsIdx[c.Index]; c1 == c && ok {
+		delete(ClientsIdx, c.Index)
+	}
 	if c1, ok := Clients[c.player.UserBase37]; c1 == c && ok {
 		c.Save()
 		delete(Clients, c.player.UserBase37)
-	}
-	if ok := ClientList.Remove(c.Index); ok {
 		LogInfo.Printf("Unregistered: %v\n", c)
 	}
 }
@@ -106,8 +107,8 @@ func (c *Client) UpdatePositions() {
 	var localObjects []*entity.Object
 	var removingObjects []*entity.Object
 	for _, r := range entity.SurroundingRegions(c.player.X(), c.player.Y()) {
-		for _, p := range r.Players {
-			if p.Index != c.Index {
+		for _, p := range r.Players.List {
+			if p, ok := p.(*entity.Player); ok && p.Index() != c.Index {
 				if c.player.Location().LongestDelta(p.Location()) <= 15 {
 					if !c.player.LocalPlayers.ContainsPlayer(p) {
 						localPlayers = append(localPlayers, p)
@@ -119,22 +120,23 @@ func (c *Client) UpdatePositions() {
 				}
 			}
 		}
-		for _, o := range r.Objects {
-			if c.player.Location().LongestDelta(o.Location()) <= 20 {
-				if !c.player.LocalObjects.ContainsObject(o) {
-					localObjects = append(localObjects, o)
-				}
-			} else {
-				if c.player.LocalObjects.ContainsObject(o) {
-					removingObjects = append(removingObjects, o)
+		for _, o := range r.Objects.List {
+			if o, ok := o.(*entity.Object); ok {
+				if c.player.Location().LongestDelta(o.Location()) <= 20 {
+					if !c.player.LocalObjects.ContainsObject(o) {
+						localObjects = append(localObjects, o)
+					}
+				} else {
+					if c.player.LocalObjects.ContainsObject(o) {
+						removingObjects = append(removingObjects, o)
+					}
 				}
 			}
 		}
 	}
 	// TODO: Clean up appearance list code.
 	for _, index := range c.player.Appearances {
-		v := ClientList.Get(index)
-		if v, ok := v.(*Client); ok {
+		if v, ok := ClientsIdx[index]; ok {
 			localAppearances = append(localAppearances, v.player)
 		}
 	}
@@ -180,7 +182,7 @@ func (c *Client) sendLoginResponse(i byte) {
 		close(c.kill)
 	} else {
 		LogInfo.Printf("Registered Client[%v]: {ip:'%v', username:'%v'}\n", c.Index, c.ip, c.player.Username)
-		entity.GetRegionFromLocation(c.player.Location()).AddPlayer(c.player)
+		entity.GetRegionFromLocation(c.player.Location()).Players.AddPlayer(c.player)
 		c.player.AppearanceChanged = true
 		c.player.Connected = true
 		for i := 0; i < 18; i++ {
@@ -209,7 +211,13 @@ func (c *Client) sendLoginResponse(i byte) {
 
 //NewClient Creates a new instance of a Client, launches goroutines to handle I/O for it, and returns a reference to it.
 func NewClient(socket net.Conn) *Client {
-	c := &Client{socket: socket, isaacSeed: make([]uint64, 2), packetQueue: make(chan *packets.Packet, 25), ip: strings.Split(socket.RemoteAddr().String(), ":")[0], Index: -1, kill: make(chan struct{}), player: entity.NewPlayer(), buffer: make([]byte, 5000), outgoingPackets: make(chan *packets.Packet, 25)}
+	c := &Client{socket: socket, isaacSeed: make([]uint64, 2), packetQueue: make(chan *packets.Packet, 20), ip: strings.Split(socket.RemoteAddr().String(), ":")[0], Index: -1, kill: make(chan struct{}), player: entity.NewPlayer(), buffer: make([]byte, 5000), outgoingPackets: make(chan *packets.Packet, 20)}
+	for lastIdx := 0; lastIdx < 2048; lastIdx++ {
+		if _, ok := ClientsIdx[lastIdx]; !ok {
+			c.Index = lastIdx
+			break
+		}
+	}
 	c.StartNetworking()
 	return c
 }

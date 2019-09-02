@@ -1,25 +1,81 @@
 package entity
 
-//Locatable An interface for all locatable scene entities to implement
-type Locatable interface {
+type Entity interface {
+	Index() int
 	Location() *Location
 }
 
-//LocatableList Represents a list of locatable scene entities.
-type LocatableList struct {
-	List []Locatable
+//EntityList Represents a list of Entity scene entities.
+type EntityList struct {
+	List []Entity
+}
+
+func (l *EntityList) AddEntity(e Entity) {
+	l.List = append(l.List, e)
+}
+
+func (l *EntityList) RemoveEntity(e Entity) {
+	entitys := l.List
+	for i, v := range l.List {
+		if v.Index() == e.Index() {
+			last := len(entitys) - 1
+			entitys[i] = entitys[last]
+			l.List = entitys[:last]
+			return
+		}
+	}
 }
 
 //AddPlayer Add a player to the region.
-func (l *LocatableList) AddPlayer(p *Player) {
+func (l *EntityList) AddPlayer(p *Player) {
 	l.List = append(l.List, p)
 }
 
+func (l *EntityList) NearbyPlayers(p *Player) []*Player {
+	var players []*Player
+	for _, p1 := range l.List {
+		if p1, ok := p1.(*Player); ok && p1.Index() != p.Index() && p.location.LongestDelta(p1.location) <= 15 {
+			players = append(players, p1)
+		}
+	}
+	return players
+}
+
+func (l *EntityList) RemovingPlayers(p *Player) []*Player {
+	var players []*Player
+	for _, p1 := range l.List {
+		if p1, ok := p1.(*Player); ok && p1.Index() != p.Index() && p.location.LongestDelta(p1.location) > 15 {
+			players = append(players, p1)
+		}
+	}
+	return players
+}
+
+func (l *EntityList) NearbyObjects(p *Player) []*Object {
+	var objects []*Object
+	for _, o1 := range l.List {
+		if o1, ok := o1.(*Object); ok && o1.Index() != p.Index() && p.location.LongestDelta(o1.location) <= 20 {
+			objects = append(objects, o1)
+		}
+	}
+	return objects
+}
+
+func (l *EntityList) RemovingObjects(p *Player) []*Object {
+	var objects []*Object
+	for _, o1 := range l.List {
+		if o1, ok := o1.(*Object); ok && o1.Index() != p.Index() && p.location.LongestDelta(o1.location) > 20 {
+			objects = append(objects, o1)
+		}
+	}
+	return objects
+}
+
 //ContainsPlayer Returns true if the receiver list contains the player specified, false otherwise.
-func (l *LocatableList) ContainsPlayer(p *Player) bool {
+func (l *EntityList) ContainsPlayer(p *Player) bool {
 	for _, v := range l.List {
 		if v, ok := v.(*Player); ok {
-			if v.Index == p.Index {
+			if v.Index() == p.Index() {
 				return true
 			}
 		}
@@ -28,12 +84,11 @@ func (l *LocatableList) ContainsPlayer(p *Player) bool {
 }
 
 //RemovePlayer Remove a player from the region.
-func (l *LocatableList) RemovePlayer(p *Player) {
+func (l *EntityList) RemovePlayer(p *Player) {
 	players := l.List
 	for i, v := range players {
-		v, ok := v.(*Player)
-		if ok {
-			if v.Index == p.Index {
+		if v, ok := v.(*Player); ok {
+			if v.Index() == p.Index() {
 				last := len(players) - 1
 				players[i] = players[last]
 				l.List = players[:last]
@@ -44,17 +99,16 @@ func (l *LocatableList) RemovePlayer(p *Player) {
 }
 
 //AddObject Add an object to the list.
-func (l *LocatableList) AddObject(p *Object) {
+func (l *EntityList) AddObject(p *Object) {
 	l.List = append(l.List, p)
 }
 
 //RemoveObject Remove an object from the list.
-func (l *LocatableList) RemoveObject(p *Object) {
+func (l *EntityList) RemoveObject(p *Object) {
 	objects := l.List
 	for i, v := range objects {
-		v, ok := v.(*Object)
-		if ok {
-			if v.Index == p.Index {
+		if v, ok := v.(*Object); ok {
+			if v.Location().LongestDelta(v.Location()) == 0 {
 				last := len(objects) - 1
 				objects[i] = objects[last]
 				l.List = objects[:last]
@@ -65,7 +119,7 @@ func (l *LocatableList) RemoveObject(p *Object) {
 }
 
 //ContainsObject Returns true if the receiver list contains the player specified, false otherwise.
-func (l *LocatableList) ContainsObject(o *Object) bool {
+func (l *EntityList) ContainsObject(o *Object) bool {
 	for _, v := range l.List {
 		if v, ok := v.(*Object); ok {
 			if v.Location().LongestDelta(o.Location()) == 0 {

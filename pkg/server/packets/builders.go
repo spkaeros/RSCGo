@@ -186,7 +186,7 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 		}
 	}
 	for _, p1 := range local {
-		p.AddBits(p1.Index, 11)
+		p.AddBits(p1.Index(), 11)
 		offsetX := (p1.X() - player.X())
 		if offsetX < 0 {
 			offsetX += 32
@@ -219,7 +219,7 @@ func PlayerAppearances(ourPlayer *entity.Player, local []*entity.Player) (p *Pac
 	}
 	p.AddShort(uint16(len(local))) // Update size
 	for _, player := range local {
-		p.AddShort(uint16(player.Index))
+		p.AddShort(uint16(player.Index()))
 		p.AddByte(5)  // Player appearances
 		p.AddShort(0) // Appearance ID wtf is it, changes every time we change appearance!
 		p.AddLong(strutil.Base37(player.Username))
@@ -294,7 +294,7 @@ func LoginResponse(v int) *Packet {
 //PlayerInfo Builds a packet to update information about the clients environment, e.g height, player index...
 func PlayerInfo(player *entity.Player) *Packet {
 	playerInfo := NewOutgoingPacket(131)
-	playerInfo.AddShort(uint16(player.Index))
+	playerInfo.AddShort(uint16(player.Index()))
 	playerInfo.AddShort(2304)
 	playerInfo.AddShort(1776)
 

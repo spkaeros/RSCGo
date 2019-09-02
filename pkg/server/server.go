@@ -7,8 +7,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"bitbucket.org/zlacki/rscgo/pkg/list"
 )
 
 var (
@@ -19,10 +17,9 @@ var (
 	//LogError Log interface for errors.
 	LogError = log.New(os.Stderr, "[ERROR] ", log.Ltime|log.Lshortfile)
 	kill     = make(chan struct{})
-	//ClientList List of active clients.
-	ClientList = list.New(2048)
 	//Clients A map of base37 encoded username hashes to client references.  This is a common lookup and I consider this an optimization.
-	Clients = make(map[uint64]*Client)
+	Clients    = make(map[uint64]*Client)
+	ClientsIdx = make(map[int]*Client)
 )
 
 //TomlConfig A data structure representing the RSCGo TOML configuration file.
@@ -84,7 +81,13 @@ func startConnectionService() {
 			}
 
 			client := NewClient(socket)
-			client.Index = ClientList.Add(client)
+			for i := 0; i < TomlConfig.MaxPlayers; i++ {
+				if c, ok := ClientsIdx[i]; c == nil || !ok {
+					client.Index = i
+					ClientsIdx[i] = client
+					break
+				}
+			}
 		}
 	}()
 
@@ -125,8 +128,8 @@ func Start() {
 func UpdateMobileEntities() {
 	var wg sync.WaitGroup
 	wg.Add(len(Clients))
-	for _, c := range Clients {
-		if c != nil {
+	for i := 0; i < len(ClientsIdx); i++ {
+		if c, ok := ClientsIdx[i]; ok {
 			go func() {
 				defer wg.Done()
 				c.player.TraversePath()
@@ -140,8 +143,8 @@ func UpdateMobileEntities() {
 func UpdateClientState() {
 	var wg sync.WaitGroup
 	wg.Add(len(Clients))
-	for _, c := range Clients {
-		if c != nil {
+	for i := 0; i < len(ClientsIdx); i++ {
+		if c, ok := ClientsIdx[i]; ok {
 			go func() {
 				defer wg.Done()
 				c.UpdatePositions()
@@ -155,8 +158,8 @@ func UpdateClientState() {
 func ResetUpdateFlags() {
 	var wg sync.WaitGroup
 	wg.Add(len(Clients))
-	for _, c := range Clients {
-		if c != nil {
+	for i := 0; i < len(ClientsIdx); i++ {
+		if c, ok := ClientsIdx[i]; ok {
 			go func() {
 				defer wg.Done()
 				c.ResetUpdateFlags()
@@ -189,8 +192,8 @@ func startGameEngine() {
 //Stop This will stop the server instance, if it is running.
 func Stop() {
 	LogInfo.Printf("Clearing client list...")
-	ClientList.Clear()
 	Clients = make(map[uint64]*Client)
+	ClientsIdx = make(map[int]*Client)
 	LogInfo.Println("done")
 	LogInfo.Println("Stopping server...")
 	kill <- struct{}{}
