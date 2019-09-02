@@ -74,18 +74,18 @@ func (c *Client) StartWriter() {
 func (c *Client) Destroy() {
 	c.awaitTermination.Wait()
 	entity.GetRegion(c.player.X, c.player.Y).RemovePlayer(c.player)
-	c.player.Removing = true
+	c.player.TransAttrs["plrremove"] = true
 	c.player.Connected = false
 	close(c.outgoingPackets)
 	close(c.packetQueue)
 	if err := c.socket.Close(); err != nil {
 		LogError.Println("Couldn't close socket:", err)
 	}
-	if c1, ok := ClientsIdx[c.Index]; c1 == c && ok {
+	if _, ok := ClientsIdx[c.Index]; ok {
 		delete(ClientsIdx, c.Index)
 	}
-	if c1, ok := Clients[c.player.UserBase37]; c1 == c && ok {
-		c.Save()
+	if _, ok := Clients[c.player.UserBase37]; ok {
+		go c.Save()
 		delete(Clients, c.player.UserBase37)
 		LogInfo.Printf("Unregistered: %v\n", c)
 	}
@@ -93,10 +93,10 @@ func (c *Client) Destroy() {
 
 //ResetUpdateFlags Resets the players movement updating synchronization variables.
 func (c *Client) ResetUpdateFlags() {
-	c.player.Removing = false
-	c.player.HasMoved = false
-	c.player.AppearanceChanged = false
-	c.player.HasSelf = true
+	c.player.TransAttrs["plrremove"] = false
+	c.player.TransAttrs["plrmoved"] = false
+	c.player.TransAttrs["plrchanged"] = false
+	c.player.TransAttrs["plrself"] = true
 }
 
 func (c *Client) UpdatePositions() {
@@ -185,7 +185,7 @@ func (c *Client) sendLoginResponse(i byte) {
 	} else {
 		LogInfo.Printf("Registered Client[%v]: {ip:'%v', username:'%v'}\n", c.Index, c.ip, c.player.Username)
 		entity.GetRegionFromLocation(c.player.Location).Players.AddPlayer(c.player)
-		c.player.AppearanceChanged = true
+		c.player.TransAttrs["plrchanged"] = true
 		c.player.Connected = true
 		for i := 0; i < 18; i++ {
 			level := 1

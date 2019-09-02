@@ -74,7 +74,7 @@ func teleport(c *Client, args []string) {
 			c1.outgoingPackets <- packets.TeleBubble(diffX, diffY)
 		}
 	}
-	c.player.Removing = true
+	c.player.TransAttrs["plrremove"] = true
 	c.player.SetLocation(*newLocation)
 }
 
@@ -98,7 +98,7 @@ func summon(c *Client, args []string) {
 				c2.outgoingPackets <- packets.TeleBubble(diffX, diffY)
 			}
 		}
-		c1.player.Removing = true
+		c1.player.TransAttrs["plrremove"] = true
 		c1.player.SetLocation(c.player.Location)
 		return
 	}
@@ -125,7 +125,7 @@ func gotoTeleport(c *Client, args []string) {
 				c2.outgoingPackets <- packets.TeleBubble(diffX, diffY)
 			}
 		}
-		c.player.Removing = true
+		c.player.TransAttrs["plrremove"] = true
 		c.player.SetLocation(c1.player.Location)
 		return
 	}

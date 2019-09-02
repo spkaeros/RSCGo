@@ -151,7 +151,7 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 	p.AddBits(player.Direction(), 4)
 	p.AddBits(len(player.LocalPlayers.List), 8)
 	counter := 0
-	if player.HasMoved || !player.HasSelf || player.Removing {
+	if player.TransAttrs.VarBool("plrremove", false) || !player.TransAttrs.VarBool("plrself", false) || player.TransAttrs.VarBool("plrmoved", false) || player.TransAttrs.VarBool("plrchanged", true) {
 		counter++
 	}
 	for _, p1 := range removing {
@@ -164,18 +164,18 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 	for _, p1 := range player.LocalPlayers.List {
 		p1, ok := p1.(*entity.Player)
 		if ok {
-			if p1.LongestDelta(player.Location) > 15 || p1.Removing {
+			if p1.LongestDelta(player.Location) > 15 || p1.TransAttrs.VarBool("plrremove", false) {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
 				player.LocalPlayers.RemovePlayer(p1)
 				counter++
-			} else if p1.HasMoved {
+			} else if p1.TransAttrs.VarBool("plrmoved", false) {
 				p.AddBits(1, 1)
 				p.AddBits(0, 1)
 				p.AddBits(p1.Direction(), 3)
 				counter++
-			} else if p1.AppearanceChanged {
+			} else if p1.TransAttrs.VarBool("plrchanged", false) {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(p1.Direction(), 4)
@@ -211,7 +211,7 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 //PlayerAppearances Builds a packet with the view-area player appearance profiles in it.
 func PlayerAppearances(ourPlayer *entity.Player, local []*entity.Player) (p *Packet) {
 	p = NewOutgoingPacket(53)
-	if ourPlayer.AppearanceChanged {
+	if ourPlayer.TransAttrs.VarBool("plrchanged", true) {
 		local = append(local, ourPlayer)
 	}
 	if len(local) <= 0 {

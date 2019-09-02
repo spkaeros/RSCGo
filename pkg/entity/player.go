@@ -5,27 +5,23 @@ type AttributeList map[Attribute]interface{}
 
 //Player Represents a single player.
 type Player struct {
-	state             MobState
-	Username          string
-	UserBase37        uint64
-	Password          string
-	Path              *Pathway
-	FriendList        []uint64
-	LocalPlayers      *EntityList
-	LocalObjects      *EntityList
-	HasMoved          bool
-	Removing          bool
-	Connected         bool
-	Updating          bool
-	HasSelf           bool
-	AppearanceChanged bool
-	Appearances       []int
-	Skillset          *SkillTable
-	DatabaseIndex     int
-	Rank              int
-	Attributes        AttributeList
-	SyncAttributes    AttributeList
-	Appearance        *AppearanceTable
+	state         MobState
+	Username      string
+	UserBase37    uint64
+	Password      string
+	Path          *Pathway
+	FriendList    []uint64
+	LocalPlayers  *EntityList
+	LocalObjects  *EntityList
+	Connected     bool
+	Updating      bool
+	Appearances   []int
+	Skillset      *SkillTable
+	DatabaseIndex int
+	Rank          int
+	Attributes    AttributeList
+	TransAttrs    AttributeList
+	Appearance    *AppearanceTable
 	Entity
 }
 
@@ -34,12 +30,22 @@ func (attributes AttributeList) SetVar(name Attribute, value interface{}) {
 	attributes[name] = value
 }
 
-//VarInt If there is an attribute assigned to the specified name, returns it.  Otherwise, returns -1337
+//VarInt If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
 func (attributes AttributeList) VarInt(name Attribute, zero int) int {
 	if _, ok := attributes[name].(int); !ok {
 		attributes[name] = zero
 	}
+
 	return attributes[name].(int)
+}
+
+//VarBool If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
+func (attributes AttributeList) VarBool(name Attribute, zero bool) bool {
+	if _, ok := attributes[name].(bool); !ok {
+		attributes[name] = zero
+	}
+
+	return attributes[name].(bool)
 }
 
 //AppearanceTable Represents a mobs appearance.
@@ -170,7 +176,7 @@ func (p *Player) TraversePath() {
 		p.ClearPath()
 		return
 	}
-	p.HasMoved = true
+	p.TransAttrs["plrmoved"] = true
 	p.SetLocation(newLocation)
 }
 
@@ -251,5 +257,5 @@ func (p *Player) SetDirection(direction int) {
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
-	return &Player{Entity: Entity{Index: -1}, state: Idle, Attributes: make(AttributeList), SyncAttributes: make(AttributeList), LocalPlayers: &EntityList{}, LocalObjects: &EntityList{}, Skillset: &SkillTable{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false}
+	return &Player{Entity: Entity{Index: -1}, state: Idle, Attributes: make(AttributeList), TransAttrs: make(AttributeList), LocalPlayers: &EntityList{}, LocalObjects: &EntityList{}, Skillset: &SkillTable{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false}
 }

@@ -82,7 +82,7 @@ func startConnectionService() {
 
 			client := NewClient(socket)
 			for i := 0; i < TomlConfig.MaxPlayers; i++ {
-				if c, ok := ClientsIdx[i]; c == nil || !ok {
+				if _, ok := ClientsIdx[i]; !ok {
 					client.Index = i
 					ClientsIdx[i] = client
 					break
