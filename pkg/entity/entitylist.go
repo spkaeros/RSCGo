@@ -1,23 +1,23 @@
 package entity
 
-type Entity interface {
-	Index() int
-	Location() *Location
+type Entity struct {
+	Location
+	Index int
 }
 
 //EntityList Represents a list of Entity scene entities.
 type EntityList struct {
-	List []Entity
+	List []interface{}
 }
 
-func (l *EntityList) AddEntity(e Entity) {
+func (l *EntityList) AddEntity(e *Entity) {
 	l.List = append(l.List, e)
 }
 
 func (l *EntityList) RemoveEntity(e Entity) {
 	entitys := l.List
 	for i, v := range l.List {
-		if v.Index() == e.Index() {
+		if v, ok := v.(Entity); ok && v.Index == e.Index {
 			last := len(entitys) - 1
 			entitys[i] = entitys[last]
 			l.List = entitys[:last]
@@ -33,9 +33,9 @@ func (l *EntityList) AddPlayer(p *Player) {
 
 func (l *EntityList) NearbyPlayers(p *Player) []*Player {
 	var players []*Player
-	for _, p1 := range l.List {
-		if p1, ok := p1.(*Player); ok && p1.Index() != p.Index() && p.location.LongestDelta(p1.location) <= 15 {
-			players = append(players, p1)
+	for _, v := range l.List {
+		if v, ok := v.(*Player); ok && v.Index != p.Index && p.LongestDelta(v.Location) <= 15 {
+			players = append(players, v)
 		}
 	}
 	return players
@@ -43,9 +43,9 @@ func (l *EntityList) NearbyPlayers(p *Player) []*Player {
 
 func (l *EntityList) RemovingPlayers(p *Player) []*Player {
 	var players []*Player
-	for _, p1 := range l.List {
-		if p1, ok := p1.(*Player); ok && p1.Index() != p.Index() && p.location.LongestDelta(p1.location) > 15 {
-			players = append(players, p1)
+	for _, v := range l.List {
+		if v, ok := v.(*Player); ok && v.Index != p.Index && p.LongestDelta(v.Location) > 15 {
+			players = append(players, p)
 		}
 	}
 	return players
@@ -54,7 +54,7 @@ func (l *EntityList) RemovingPlayers(p *Player) []*Player {
 func (l *EntityList) NearbyObjects(p *Player) []*Object {
 	var objects []*Object
 	for _, o1 := range l.List {
-		if o1, ok := o1.(*Object); ok && o1.Index() != p.Index() && p.location.LongestDelta(o1.location) <= 20 {
+		if o1, ok := o1.(*Object); ok && o1.Index() != p.Index && p.LongestDelta(*o1.location) <= 20 {
 			objects = append(objects, o1)
 		}
 	}
@@ -64,7 +64,7 @@ func (l *EntityList) NearbyObjects(p *Player) []*Object {
 func (l *EntityList) RemovingObjects(p *Player) []*Object {
 	var objects []*Object
 	for _, o1 := range l.List {
-		if o1, ok := o1.(*Object); ok && o1.Index() != p.Index() && p.location.LongestDelta(o1.location) > 20 {
+		if o1, ok := o1.(*Object); ok && p.LongestDelta(*o1.location) > 20 {
 			objects = append(objects, o1)
 		}
 	}
@@ -75,7 +75,7 @@ func (l *EntityList) RemovingObjects(p *Player) []*Object {
 func (l *EntityList) ContainsPlayer(p *Player) bool {
 	for _, v := range l.List {
 		if v, ok := v.(*Player); ok {
-			if v.Index() == p.Index() {
+			if v.Index == p.Index {
 				return true
 			}
 		}
@@ -88,7 +88,7 @@ func (l *EntityList) RemovePlayer(p *Player) {
 	players := l.List
 	for i, v := range players {
 		if v, ok := v.(*Player); ok {
-			if v.Index() == p.Index() {
+			if v.Index == p.Index {
 				last := len(players) - 1
 				players[i] = players[last]
 				l.List = players[:last]
@@ -108,7 +108,7 @@ func (l *EntityList) RemoveObject(p *Object) {
 	objects := l.List
 	for i, v := range objects {
 		if v, ok := v.(*Object); ok {
-			if v.Location().LongestDelta(v.Location()) == 0 {
+			if v.Location().LongestDelta(*p.location) == 0 {
 				last := len(objects) - 1
 				objects[i] = objects[last]
 				l.List = objects[:last]
@@ -122,7 +122,7 @@ func (l *EntityList) RemoveObject(p *Object) {
 func (l *EntityList) ContainsObject(o *Object) bool {
 	for _, v := range l.List {
 		if v, ok := v.(*Object); ok {
-			if v.Location().LongestDelta(o.Location()) == 0 {
+			if v.Location().LongestDelta(*o.location) == 0 {
 				return true
 			}
 		}

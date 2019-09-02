@@ -5,12 +5,10 @@ type AttributeList map[Attribute]interface{}
 
 //Player Represents a single player.
 type Player struct {
-	location          *Location
 	state             MobState
 	Username          string
 	UserBase37        uint64
 	Password          string
-	index             int
 	Path              *Pathway
 	FriendList        []uint64
 	LocalPlayers      *EntityList
@@ -28,6 +26,7 @@ type Player struct {
 	Attributes        AttributeList
 	SyncAttributes    AttributeList
 	Appearance        *AppearanceTable
+	Entity
 }
 
 //SetVar Sets the attribute mapped at name to value in the attribute map.
@@ -66,14 +65,9 @@ type SkillTable struct {
 	Experience [18]int
 }
 
-//Index Returns the server index for convenient fast unique lookups.
-func (p *Player) Index() int {
-	return p.index
-}
-
 //SetIndex Sets the server index to idx
 func (p *Player) SetIndex(idx int) {
-	p.index = idx
+	p.Index = idx
 }
 
 //VarEquipment Returns the attribute mapped to by name, and if it doesn't exist, returns 1.
@@ -161,16 +155,6 @@ func (p *Player) SetFightMode(i int) {
 	p.Attributes["fight_mode"] = i
 }
 
-//X Shortcut for Location().X()
-func (p *Player) X() int {
-	return p.location.X
-}
-
-//Y Shortcut for Location().Y()
-func (p *Player) Y() int {
-	return p.location.Y
-}
-
 //TraversePath If the player has a path, calling this method will change the players location to the next location
 //  described by said Path data structure.  This should be called no more than once per game tick.
 func (p *Player) TraversePath() {
@@ -181,7 +165,7 @@ func (p *Player) TraversePath() {
 	if p.AtLocation(path.Waypoint(path.CurrentWaypoint)) {
 		path.CurrentWaypoint++
 	}
-	newLocation := path.NextTile(p.X(), p.Y())
+	newLocation := path.NextTile(p.X, p.Y)
 	if path.CurrentWaypoint >= len(path.WaypointsX) || newLocation.X == -1 || newLocation.Y == -1 {
 		p.ClearPath()
 		return
@@ -192,7 +176,7 @@ func (p *Player) TraversePath() {
 
 //NearbyPlayers Returns the nearby players from the current and nearest adjacent regions in a slice.
 func (p *Player) NearbyPlayers() (players []*Player) {
-	for _, r := range SurroundingRegions(p.X(), p.Y()) {
+	for _, r := range SurroundingRegions(p.X, p.Y) {
 		players = append(players, r.Players.NearbyPlayers(p)...)
 	}
 
@@ -204,17 +188,12 @@ func (p *Player) ClearPath() {
 	p.Path = nil
 }
 
-//Location Returns the location of the player
-func (p *Player) Location() *Location {
-	return p.location
-}
-
 //UpdateDirection Updates the direction the player is facing based on where the player is trying to move, and
 // where the player is currently at.
 func (p *Player) UpdateDirection(destX, destY int) {
 	sprites := [3][3]int{{3, 2, 1}, {4, -1, 0}, {5, 6, 7}}
-	xIndex := p.X() - destX + 1
-	yIndex := p.Y() - destY + 1
+	xIndex := p.X - destX + 1
+	yIndex := p.Y - destY + 1
 	if xIndex >= 0 && yIndex >= 0 && xIndex < 3 && yIndex < 3 {
 		p.SetDirection(sprites[xIndex][yIndex])
 	} else {
@@ -223,21 +202,21 @@ func (p *Player) UpdateDirection(destX, destY int) {
 }
 
 //SetLocation Sets the players location.
-func (p *Player) SetLocation(location *Location) {
+func (p *Player) SetLocation(location Location) {
 	p.SetCoords(location.X, location.Y)
 }
 
 //SetCoords Sets the players locations coordinates.
 func (p *Player) SetCoords(x, y int) {
-	curArea := GetRegion(p.X(), p.Y())
+	curArea := GetRegion(p.X, p.Y)
 	newArea := GetRegion(x, y)
 	if newArea != curArea {
 		curArea.Players.RemovePlayer(p)
 		newArea.Players.AddPlayer(p)
 	}
 	p.UpdateDirection(x, y)
-	p.location.X = x
-	p.location.Y = y
+	p.X = x
+	p.Y = y
 }
 
 //AtLocation Returns true if the player is at the specified location, otherwise returns false
@@ -247,7 +226,7 @@ func (p *Player) AtLocation(location *Location) bool {
 
 //AtCoords Returns true if the player is at the specified coordinates, otherwise returns false
 func (p *Player) AtCoords(x, y int) bool {
-	return p.location.X == x && p.location.Y == y
+	return p.X == x && p.Y == y
 }
 
 //State Returns the players state.
@@ -272,5 +251,5 @@ func (p *Player) SetDirection(direction int) {
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
-	return &Player{location: &Location{0, 0}, state: Idle, Attributes: make(AttributeList), SyncAttributes: make(AttributeList), LocalPlayers: &EntityList{}, LocalObjects: &EntityList{}, Skillset: &SkillTable{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false}
+	return &Player{Entity: Entity{Index: -1}, state: Idle, Attributes: make(AttributeList), SyncAttributes: make(AttributeList), LocalPlayers: &EntityList{}, LocalObjects: &EntityList{}, Skillset: &SkillTable{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false}
 }

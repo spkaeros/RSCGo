@@ -146,9 +146,9 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 	p = NewOutgoingPacket(145)
 	// Note: X coords can be held in 10 bits and Y can be held in 12 bits
 	//  Presumably, Jagex used 11 and 13 to evenly fill 3 bytes of data?
-	p.AddBits(player.X(), 11)
-	p.AddBits(player.Y(), 13)
-	p.AddBits(int(player.Direction()), 4)
+	p.AddBits(player.X, 11)
+	p.AddBits(player.Y, 13)
+	p.AddBits(player.Direction(), 4)
 	p.AddBits(len(player.LocalPlayers.List), 8)
 	counter := 0
 	if player.HasMoved || !player.HasSelf || player.Removing {
@@ -164,7 +164,7 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 	for _, p1 := range player.LocalPlayers.List {
 		p1, ok := p1.(*entity.Player)
 		if ok {
-			if p1.Location().LongestDelta(player.Location()) > 15 || p1.Removing {
+			if p1.LongestDelta(player.Location) > 15 || p1.Removing {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
@@ -173,12 +173,12 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 			} else if p1.HasMoved {
 				p.AddBits(1, 1)
 				p.AddBits(0, 1)
-				p.AddBits(int(p1.Direction()), 3)
+				p.AddBits(p1.Direction(), 3)
 				counter++
 			} else if p1.AppearanceChanged {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
-				p.AddBits(int(p1.Direction()), 4)
+				p.AddBits(p1.Direction(), 4)
 				counter++
 			} else {
 				p.AddBits(0, 1)
@@ -186,18 +186,18 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 		}
 	}
 	for _, p1 := range local {
-		p.AddBits(p1.Index(), 11)
-		offsetX := (p1.X() - player.X())
+		p.AddBits(p1.Index, 11)
+		offsetX := (p1.X - player.X)
 		if offsetX < 0 {
 			offsetX += 32
 		}
-		offsetY := (p1.Y() - player.Y())
+		offsetY := (p1.Y - player.Y)
 		if offsetY < 0 {
 			offsetY += 32
 		}
 		p.AddBits(offsetX, 5)
 		p.AddBits(offsetY, 5)
-		p.AddBits(int(p1.Direction()), 4)
+		p.AddBits(p1.Direction(), 4)
 		p.AddBits(1, 1)
 		player.LocalPlayers.AddPlayer(p1)
 		counter++
@@ -219,7 +219,7 @@ func PlayerAppearances(ourPlayer *entity.Player, local []*entity.Player) (p *Pac
 	}
 	p.AddShort(uint16(len(local))) // Update size
 	for _, player := range local {
-		p.AddShort(uint16(player.Index()))
+		p.AddShort(uint16(player.Index))
 		p.AddByte(5)  // Player appearances
 		p.AddShort(0) // Appearance ID wtf is it, changes every time we change appearance!
 		p.AddLong(strutil.Base37(player.Username))
@@ -251,8 +251,8 @@ func ObjectLocations(player *entity.Player, newObjects []*entity.Object, removin
 			continue
 		}
 		p.AddShort(32767)
-		p.AddByte(byte(o.X() - player.X()))
-		p.AddByte(byte(o.Y() - player.Y()))
+		p.AddByte(byte(o.X() - player.X))
+		p.AddByte(byte(o.Y() - player.Y))
 		p.AddByte(byte(o.Direction))
 		player.LocalObjects.RemoveObject(o)
 		counter++
@@ -262,8 +262,8 @@ func ObjectLocations(player *entity.Player, newObjects []*entity.Object, removin
 			continue
 		}
 		p.AddShort(uint16(o.ID))
-		p.AddByte(byte(o.X() - player.X()))
-		p.AddByte(byte(o.Y() - player.Y()))
+		p.AddByte(byte(o.X() - player.X))
+		p.AddByte(byte(o.Y() - player.Y))
 		p.AddByte(byte(o.Direction))
 		player.LocalObjects.AddObject(o)
 		counter++
@@ -294,11 +294,11 @@ func LoginResponse(v int) *Packet {
 //PlayerInfo Builds a packet to update information about the clients environment, e.g height, player index...
 func PlayerInfo(player *entity.Player) *Packet {
 	playerInfo := NewOutgoingPacket(131)
-	playerInfo.AddShort(uint16(player.Index()))
+	playerInfo.AddShort(uint16(player.Index))
 	playerInfo.AddShort(2304)
 	playerInfo.AddShort(1776)
 
-	playerInfo.AddShort(uint16((player.Y() + 100) / 1000))
+	playerInfo.AddShort(uint16((player.Y + 100) / 1000))
 
 	playerInfo.AddShort(944)
 	return playerInfo

@@ -2,12 +2,9 @@ package entity
 
 import "fmt"
 
-//Direction Direction within gameworld.
-type Direction uint8
-
 const (
 	//North Represents north.
-	North Direction = iota
+	North int = iota
 	//NorthWest Represents north-west.
 	NorthWest
 	//West Represents west.
@@ -51,11 +48,14 @@ func (l *Location) Equals(o interface{}) bool {
 	if o, ok := o.(*Location); ok {
 		return l.X == o.X && l.Y == o.Y
 	}
+	if o, ok := o.(Location); ok {
+		return l.X == o.X && l.Y == o.Y
+	}
 	return false
 }
 
 //DeltaX Returns the difference between this locations X coord and the other locations X coord
-func (l *Location) DeltaX(other *Location) (deltaX int) {
+func (l *Location) DeltaX(other Location) (deltaX int) {
 	if l.X > other.X {
 		deltaX = l.X - other.X
 	} else if other.X > l.X {
@@ -65,7 +65,7 @@ func (l *Location) DeltaX(other *Location) (deltaX int) {
 }
 
 //DeltaY Returns the difference between this locations Y coord and the other locations Y coord
-func (l *Location) DeltaY(other *Location) (deltaY int) {
+func (l *Location) DeltaY(other Location) (deltaY int) {
 	if l.Y > other.Y {
 		deltaY = l.Y - other.Y
 	} else if other.Y > l.Y {
@@ -75,7 +75,7 @@ func (l *Location) DeltaY(other *Location) (deltaY int) {
 }
 
 //LongestDelta Returns the largest difference in coordinates between receiver and other
-func (l *Location) LongestDelta(other *Location) int {
+func (l *Location) LongestDelta(other Location) int {
 	deltaX, deltaY := l.DeltaX(other), l.DeltaY(other)
 	if deltaX > deltaY {
 		return deltaX

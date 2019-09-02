@@ -73,7 +73,7 @@ func (c *Client) StartWriter() {
 //Destroy Safely tears down a client, saves it to the database, and removes it from server-wide collections.
 func (c *Client) Destroy() {
 	c.awaitTermination.Wait()
-	entity.GetRegion(c.player.X(), c.player.Y()).RemovePlayer(c.player)
+	entity.GetRegion(c.player.X, c.player.Y).RemovePlayer(c.player)
 	c.player.Removing = true
 	c.player.Connected = false
 	close(c.outgoingPackets)
@@ -100,7 +100,7 @@ func (c *Client) ResetUpdateFlags() {
 }
 
 func (c *Client) UpdatePositions() {
-	if c.player.Location().Equals(entity.DeathSpot) || !c.player.Connected {
+	if c.player.Location.Equals(entity.DeathSpot) || !c.player.Connected {
 		return
 	}
 	var localPlayers []*entity.Player
@@ -108,10 +108,10 @@ func (c *Client) UpdatePositions() {
 	var removingPlayers []*entity.Player
 	var localObjects []*entity.Object
 	var removingObjects []*entity.Object
-	for _, r := range entity.SurroundingRegions(c.player.X(), c.player.Y()) {
+	for _, r := range entity.SurroundingRegions(c.player.X, c.player.Y) {
 		for _, p := range r.Players.List {
-			if p, ok := p.(*entity.Player); ok && p.Index() != c.Index {
-				if c.player.Location().LongestDelta(p.Location()) <= 15 {
+			if p, ok := p.(*entity.Player); ok && p.Index != c.Index {
+				if c.player.LongestDelta(p.Location) <= 15 {
 					if !c.player.LocalPlayers.ContainsPlayer(p) {
 						localPlayers = append(localPlayers, p)
 					}
@@ -124,7 +124,7 @@ func (c *Client) UpdatePositions() {
 		}
 		for _, o := range r.Objects.List {
 			if o, ok := o.(*entity.Object); ok {
-				if c.player.Location().LongestDelta(o.Location()) <= 20 {
+				if c.player.LongestDelta(*o.Location()) <= 20 {
 					if !c.player.LocalObjects.ContainsObject(o) {
 						localObjects = append(localObjects, o)
 					}
@@ -184,7 +184,7 @@ func (c *Client) sendLoginResponse(i byte) {
 		close(c.kill)
 	} else {
 		LogInfo.Printf("Registered Client[%v]: {ip:'%v', username:'%v'}\n", c.Index, c.ip, c.player.Username)
-		entity.GetRegionFromLocation(c.player.Location()).Players.AddPlayer(c.player)
+		entity.GetRegionFromLocation(c.player.Location).Players.AddPlayer(c.player)
 		c.player.AppearanceChanged = true
 		c.player.Connected = true
 		for i := 0; i < 18; i++ {

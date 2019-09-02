@@ -63,7 +63,7 @@ func GetRegion(x, y int) *Region {
 }
 
 //GetRegionFromLocation Returns the region that corresponds with the given location.  If it does not exist yet, it will allocate a new onr and store it for the lifetime of the application in the regions map.
-func GetRegionFromLocation(loc *Location) *Region {
+func GetRegionFromLocation(loc Location) *Region {
 	return getRegionFromIndex(loc.X/RegionSize, loc.Y/RegionSize)
 }
 

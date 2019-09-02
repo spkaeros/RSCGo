@@ -83,7 +83,7 @@ func ValidatePlayer(player *entity.Player, hash uint64, password string) error {
 	if !rows.Next() {
 		return errors.NewDatabaseError("Could not find player")
 	}
-	rows.Scan(&player.DatabaseIndex, &player.Location().X, &player.Location().Y, &player.Rank)
+	rows.Scan(&player.DatabaseIndex, &player.X, &player.Y, &player.Rank)
 	if err := PlayerAppearance(player); err != nil {
 		return err
 	}
@@ -142,7 +142,6 @@ func PlayerAttributes(player *entity.Player) error {
 				LogInfo.Printf("Error loading attribute[%v]: value=%v\n", name, value[1:])
 				LogInfo.Println(err)
 			}
-			LogInfo.Printf("attr[%v]=%v\n", name, player.Attributes[entity.Attribute(name)])
 		}
 	}
 	return nil
@@ -158,7 +157,7 @@ func (c *Client) Save() {
 		return
 	}
 	saveLocation := func() {
-		rs, err := tx.Exec("UPDATE player2 SET x=?, y=? WHERE id=?", c.player.X(), c.player.Y(), c.player.DatabaseIndex)
+		rs, err := tx.Exec("UPDATE player2 SET x=?, y=? WHERE id=?", c.player.X, c.player.Y, c.player.DatabaseIndex)
 		count, err := rs.RowsAffected()
 		if err != nil {
 			LogWarning.Println("Save(): UPDATE failed for player location:", err)

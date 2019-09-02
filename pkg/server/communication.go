@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 )
@@ -14,8 +15,10 @@ func init() {
 		//		}
 
 		for _, v := range c.player.LocalPlayers.List {
-			if c1, ok := ClientsIdx[v.Index()]; ok {
-				c1.outgoingPackets <- packets.PlayerChat(c.Index, string(strutil.PackChatMessage(strutil.FormatChatMessage(strutil.UnpackChatMessage(p.Payload)))))
+			if v, ok := v.(*entity.Player); ok {
+				if c1, ok := ClientsIdx[v.Index]; ok {
+					c1.outgoingPackets <- packets.PlayerChat(c.Index, string(strutil.PackChatMessage(strutil.FormatChatMessage(strutil.UnpackChatMessage(p.Payload)))))
+				}
 			}
 		}
 	}

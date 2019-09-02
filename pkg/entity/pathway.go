@@ -45,7 +45,7 @@ func (p *Pathway) Start() *Location {
 }
 
 //NextTile Returns the next tile for the mob to move to in the pathway.
-func (p *Pathway) NextTile(startX, startY int) *Location {
+func (p *Pathway) NextTile(startX, startY int) Location {
 	destX := p.waypointX(p.CurrentWaypoint)
 	destY := p.waypointY(p.CurrentWaypoint)
 	newLocation := &Location{destX, destY}
@@ -65,5 +65,5 @@ func (p *Pathway) NextTile(startX, startY int) *Location {
 		newLocation.Y = startY + 1
 		break
 	}
-	return newLocation
+	return *newLocation
 }
