@@ -19,8 +19,8 @@ var RsaKey *rsa.PrivateKey
 //ShakeHash The SHA3 hashing function state and reference point.
 var ShakeHash sha3.ShakeHash
 
-//IsaacSeed Container struct for 2 instances of the ISAAC+ CSPRNG, one for incoming data, the other outgoing data.
-type IsaacSeed struct {
+//IsaacStream Container struct for 2 instances of the ISAAC+ CSPRNG, one for incoming data, the other outgoing data.
+type IsaacStream struct {
 	encoder, decoder *isaac.ISAAC
 }
 
@@ -41,16 +41,16 @@ func InitializeCrypto() {
 }
 
 //SeedISAAC Initialize the ISAAC+ PRNG for use as a stream cipher for this client.
-func (c *Client) SeedISAAC(clientSeed uint64, serverSeed uint64) *IsaacSeed {
-	if serverSeed != c.isaacSeed[1] {
+func (c *Client) SeedISAAC(clientSeed uint64, serverSeed uint64) *IsaacStream {
+	if serverSeed != c.serverSeed {
 		LogWarning.Printf("Session encryption key for command cipher received from client doesn't match the one we supplied it.\n")
 		return nil
 	}
-	c.isaacSeed[0] = clientSeed
+	c.clientSeed = clientSeed
 	decodingStream := isaac.New([]uint64{clientSeed, serverSeed})
 	encodingStream := isaac.New([]uint64{clientSeed + 50, serverSeed + 50})
 
-	return &IsaacSeed{encodingStream, decodingStream}
+	return &IsaacStream{encodingStream, decodingStream}
 }
 
 //GenerateSessionID Generates a new 64-bit long using the systems CSPRNG.

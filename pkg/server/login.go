@@ -16,15 +16,16 @@ func init() {
 
 func logout(c *Client, p *packets.Packet) {
 	c.outgoingPackets <- packets.Logout
-	close(c.kill)
-	//c.kill <- struct{}{}
+
+	if !c.destroying {
+		close(c.Kill)
+	}
 }
 
 func sessionRequest(c *Client, p *packets.Packet) {
 	c.uID, _ = p.ReadByte()
-	seed := GenerateSessionID()
-	c.isaacSeed[1] = seed
-	c.outgoingPackets <- packets.NewBarePacket(nil).AddLong(seed)
+	c.serverSeed = GenerateSessionID()
+	c.outgoingPackets <- packets.NewBarePacket(nil).AddLong(c.serverSeed)
 }
 
 func loginRequest(c *Client, p *packets.Packet) {

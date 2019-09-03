@@ -14,19 +14,19 @@ import (
 
 //Client Represents a single connecting client.
 type Client struct {
-	isaacSeed        []uint64
-	isaacStream      *IsaacSeed
-	uID              uint8
-	ip               string
-	Index            int
-	kill             chan struct{}
-	awaitTermination sync.WaitGroup
-	player           *entity.Player
-	socket           net.Conn
-	packetQueue      chan *packets.Packet
-	outgoingPackets  chan *packets.Packet
-	buffer           []byte
-	reconnecting     bool
+	ip                               string
+	uID                              uint8
+	Index                            int
+	serverSeed                       uint64
+	clientSeed                       uint64
+	isaacStream                      *IsaacStream
+	Kill                             chan struct{}
+	awaitTermination                 sync.WaitGroup
+	player                           *entity.Player
+	socket                           net.Conn
+	incomingPackets, outgoingPackets chan *packets.Packet
+	destroying, reconnecting         bool
+	buffer                           []byte
 }
 
 //StartReader Starts the clients socket reader goroutine.  Takes a waitgroup as an argument to facilitate synchronous destruction.
@@ -47,8 +47,18 @@ func (c *Client) StartReader() {
 				}
 				continue
 			}
-			c.packetQueue <- p
-		case <-c.kill:
+			if p.Opcode != 32 && p.Opcode != 0 {
+				if !c.player.Connected {
+					LogInfo.Printf("Unauthorized packet from:\nclient[%v] {\n\tip='%v';\n\tusername:'%v'\n\tpacket[%v]: {\n\t\tlen=%v\n\t\tpayload:'%v'\n\t};\n};", c.Index, c.ip, c.player.Username, p.Opcode, len(p.Payload), p.Payload)
+
+					if !c.destroying {
+						close(c.Kill)
+					}
+					return
+				}
+			}
+			c.incomingPackets <- p
+		case <-c.Kill:
 			return
 		}
 	}
@@ -64,7 +74,7 @@ func (c *Client) StartWriter() {
 				return
 			}
 			c.WritePacket(p)
-		case <-c.kill:
+		case <-c.Kill:
 			return
 		}
 	}
@@ -72,12 +82,14 @@ func (c *Client) StartWriter() {
 
 //Destroy Safely tears down a client, saves it to the database, and removes it from server-wide collections.
 func (c *Client) Destroy() {
+	c.destroying = true
 	c.awaitTermination.Wait()
 	entity.GetRegion(c.player.X, c.player.Y).RemovePlayer(c.player)
 	c.player.TransAttrs["plrremove"] = true
 	c.player.Connected = false
 	close(c.outgoingPackets)
-	close(c.packetQueue)
+	close(c.incomingPackets)
+	c.buffer = []byte{}
 	if err := c.socket.Close(); err != nil {
 		LogError.Println("Couldn't close socket:", err)
 	}
@@ -168,12 +180,12 @@ func (c *Client) StartNetworking() {
 		defer c.Destroy()
 		for {
 			select {
-			case p := <-c.packetQueue:
+			case p := <-c.incomingPackets:
 				if p == nil {
 					return
 				}
 				c.HandlePacket(p)
-			case <-c.kill:
+			case <-c.Kill:
 				return
 			}
 		}
@@ -184,7 +196,9 @@ func (c *Client) sendLoginResponse(i byte) {
 	c.outgoingPackets <- packets.LoginResponse(int(i))
 	if i != 0 {
 		LogInfo.Printf("Denied Client[%v]: {ip:'%v', username:'%v', Response='%v'}\n", c.Index, c.ip, c.player.Username, i)
-		close(c.kill)
+		if !c.destroying {
+			close(c.Kill)
+		}
 	} else {
 		LogInfo.Printf("Registered Client[%v]: {ip:'%v', username:'%v'}\n", c.Index, c.ip, c.player.Username)
 		entity.GetRegionFromLocation(c.player.Location).Players.AddPlayer(c.player)
@@ -216,7 +230,7 @@ func (c *Client) sendLoginResponse(i byte) {
 
 //NewClient Creates a new instance of a Client, launches goroutines to handle I/O for it, and returns a reference to it.
 func NewClient(socket net.Conn) *Client {
-	c := &Client{socket: socket, isaacSeed: make([]uint64, 2), packetQueue: make(chan *packets.Packet, 20), ip: strings.Split(socket.RemoteAddr().String(), ":")[0], Index: -1, kill: make(chan struct{}), player: entity.NewPlayer(), buffer: make([]byte, 5000), outgoingPackets: make(chan *packets.Packet, 20)}
+	c := &Client{socket: socket, incomingPackets: make(chan *packets.Packet, 20), ip: strings.Split(socket.RemoteAddr().String(), ":")[0], Index: -1, Kill: make(chan struct{}), player: entity.NewPlayer(), buffer: make([]byte, 5000), outgoingPackets: make(chan *packets.Packet, 20)}
 	for lastIdx := 0; lastIdx < 2048; lastIdx++ {
 		if _, ok := ClientsIdx[lastIdx]; !ok {
 			c.Index = lastIdx
