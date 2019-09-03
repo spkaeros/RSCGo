@@ -62,6 +62,14 @@ func (c *Client) ReadPacket() (*packets.Packet, error) {
 	length := int(int16(header[0])<<8 | int16(header[1]))
 	opcode := header[2]
 
+	if length+3 >= 5000 || length+3 <= 3 {
+		if len(Flags.Verbose) > 0 {
+			LogWarning.Printf("Packet length:%d; must be between 4 and 4999\n", length+3)
+		}
+		close(c.kill)
+		return nil, errors.NewNetworkError("Packet length in header out of bounds for buffer; must be between 4 and 4999")
+	}
+
 	payload := c.buffer[3 : length+3]
 
 	if err := c.Read(payload); err != nil {

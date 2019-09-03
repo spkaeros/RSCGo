@@ -85,6 +85,8 @@ func (c *Client) Destroy() {
 		delete(ClientsIdx, c.Index)
 	}
 	if _, ok := Clients[c.player.UserBase37]; ok {
+		// Always try to launch I/O-heavy functions in their own goroutine.
+		// Goroutines are light-weight and made for this kind of thing.
 		go c.Save()
 		delete(Clients, c.player.UserBase37)
 		LogInfo.Printf("Unregistered: %v\n", c)
@@ -99,6 +101,7 @@ func (c *Client) ResetUpdateFlags() {
 	c.player.TransAttrs["plrself"] = true
 }
 
+//UpdatePositions Updates the client about entities in it's view-area (16x16 tiles in the game world surrounding the player).  Should be run every game engine tick.
 func (c *Client) UpdatePositions() {
 	if c.player.Location.Equals(entity.DeathSpot) || !c.player.Connected {
 		return

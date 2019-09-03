@@ -18,8 +18,10 @@ var (
 	LogError = log.New(os.Stderr, "[ERROR] ", log.Ltime|log.Lshortfile)
 	kill     = make(chan struct{})
 	//Clients A map of base37 encoded username hashes to client references.  This is a common lookup and I consider this an optimization.
-	Clients    = make(map[uint64]*Client)
+	Clients = make(map[uint64]*Client)
+	//ClientsIdx A map of server indexes to client references.  Also a common lookup.
 	ClientsIdx = make(map[int]*Client)
+	// TODO: Combine the two collections above to one custom collection type.
 )
 
 //TomlConfig A data structure representing the RSCGo TOML configuration file.
@@ -48,13 +50,12 @@ var Flags struct {
 }
 
 func startConnectionService() {
-	port := TomlConfig.Port
 	if Flags.Port > 0 {
-		port = Flags.Port
+		TomlConfig.Port = Flags.Port
 	}
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", TomlConfig.Port))
 	if err != nil {
-		LogError.Printf("Can't bind to specified port: %d\n", port)
+		LogError.Printf("Can't bind to specified port: %d\n", TomlConfig.Port)
 		LogError.Println(err)
 		os.Exit(1)
 	}
@@ -97,25 +98,35 @@ func startConnectionService() {
 // This method blocks while the server is running.
 func Start() {
 	LogInfo.Println("RSCGo starting up...")
-	startConnectionService()
-	if len(Flags.Verbose) > 0 {
-		LogInfo.Println()
-		LogInfo.Println("Launched connection service.")
-	}
-	startGameEngine()
-	if len(Flags.Verbose) > 0 {
-		LogInfo.Println("Launched game engine.")
-	}
-	if ok := LoadObjects(); len(Flags.Verbose) > 0 && ok {
-		LogInfo.Printf("Loaded %d game objects.\n", Objects.Size())
-	}
+	LogInfo.Println()
+	var awaitLaunchJobs sync.WaitGroup
+	awaitLaunchJobs.Add(3)
+	go func() {
+		defer awaitLaunchJobs.Done()
+		startConnectionService()
+		if len(Flags.Verbose) > 0 {
+			LogInfo.Println("Launched connection service.")
+		}
+	}()
+	go func() {
+		defer awaitLaunchJobs.Done()
+		startGameEngine()
+		if len(Flags.Verbose) > 0 {
+			LogInfo.Println("Launched game engine.")
+		}
+	}()
+	go func() {
+		defer awaitLaunchJobs.Done()
+		// I/O, gets its own goroutine.  Goroutines are light enough for this.
+		// This runs once on startup so the gain is honestly negligible, but it will launch mildly quicker.
+		if ok := LoadObjects(); len(Flags.Verbose) > 0 && ok {
+			LogInfo.Printf("Loaded %d game objects.\n", Objects.Size())
+		}
+	}()
+	awaitLaunchJobs.Wait()
 	LogInfo.Println()
 	LogInfo.Println("RSCGo is now running.")
-	port := TomlConfig.Port
-	if Flags.Port > 0 {
-		port = Flags.Port
-	}
-	LogInfo.Printf("Listening on port %d...\n", port)
+	LogInfo.Printf("Listening on port %d...\n", TomlConfig.Port)
 	select {
 	// TODO: Probably need to handle certain signals
 	// TODO: Any other tasks I should handle in the main goroutine??
