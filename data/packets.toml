@@ -21,4 +21,5 @@ packets = [
 	{ name = 'removeignore', opcode = 173},
 	{ name = 'clientsetting', opcode = 247},
 	{ name = 'privacysettings', opcode = 191},
+	{ name = 'objectaction2', opcode = 75},
 ]

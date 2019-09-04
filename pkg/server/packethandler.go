@@ -7,14 +7,17 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-//PacketHandlers A map with descriptive names for the keys, and functions to run for the value.
-var PacketHandlers = make(map[string]func(*Client, *packets.Packet))
+//handlerFunc Represents a function for handling incoming packets.
+type handlerFunc func(*Client, *packets.Packet)
 
-//packethandler Definition of a packet handler.
+//PacketHandlers A map with descriptive names for the keys, and functions to run for the value.
+var PacketHandlers = make(map[string]handlerFunc)
+
+//packetHandler Definition of a packet handler.
 type packetHandler struct {
 	Opcode int    `toml:"opcode"`
 	Name   string `toml:"name"`
-	//	Handle func(c *Client, p *packets.Packet)
+	//	Handler handlerFunc
 }
 
 //packetHandlerTable Represents a mapping of descriptive names to packet opcodes.
@@ -24,7 +27,7 @@ type packetHandlerTable struct {
 
 var table packetHandlerTable
 
-func (p packetHandlerTable) Get(opcode byte) func(*Client, *packets.Packet) {
+func (p packetHandlerTable) Get(opcode byte) handlerFunc {
 	for _, handler := range p.Handlers {
 		if byte(handler.Opcode) == opcode {
 			return PacketHandlers[handler.Name]
@@ -33,17 +36,8 @@ func (p packetHandlerTable) Get(opcode byte) func(*Client, *packets.Packet) {
 	return nil
 }
 
-func (p packetHandlerTable) GetName(opcode byte) string {
-	for _, handler := range p.Handlers {
-		if byte(handler.Opcode) == opcode {
-			return handler.Name
-		}
-	}
-	return "Unhandled"
-}
-
-//InitPacketHandlerTable Deserializes the packet handler table into memory.
-func InitPacketHandlerTable() {
+//initPacketHandlerTable Deserializes the packet handler table into memory.
+func initPacketHandlerTable() {
 	if _, err := toml.DecodeFile(TomlConfig.DataDir+TomlConfig.PacketHandlerFile, &table); err != nil {
 		LogError.Fatalln("Could not open packet handler table data file:", err)
 		return

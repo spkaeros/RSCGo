@@ -5,11 +5,14 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
 	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
+	"github.com/BurntSushi/toml"
+	"github.com/jessevdk/go-flags"
 )
 
 var (
@@ -101,31 +104,69 @@ func startConnectionService() {
 // This method blocks while the server is running.
 func Start() {
 	LogInfo.Println("RSCGo starting up...")
+	if _, err := flags.Parse(&Flags); err != nil {
+		LogError.Println(err)
+		return
+	}
+	if Flags.Port > 65535 || Flags.Port < 0 {
+		LogWarning.Println("Invalid port number specified.  Valid port numbers are between 0 and 65535.")
+		return
+	}
+	if !strings.HasSuffix(Flags.Config, ".toml") {
+		LogWarning.Println("You entered an invalid configuration file extension.")
+		LogWarning.Println("TOML is currently the only supported format for server properties.")
+		LogWarning.Println()
+		LogInfo.Println("Setting back to default: `config.toml`")
+		Flags.Config = "config.toml"
+	}
+	if Flags.UseCipher {
+		LogInfo.Println("TODO: Figure out why ISAAC cipher sometimes works, yet eventually desynchronizes from client.")
+		LogInfo.Println("Cipher will remain disabled until such time as this issue gets resolved.")
+		Flags.UseCipher = false
+	}
+
+	if _, err := toml.DecodeFile("."+string(os.PathSeparator)+Flags.Config, &TomlConfig); err != nil {
+		LogWarning.Println("Error decoding TOML RSCGo general configuration file:", err)
+		return
+	}
+	if len(Flags.Verbose) > 0 {
+		LogInfo.Println()
+		LogInfo.Println("Loaded TOML configuration file.")
+	}
+
 	var awaitLaunchJobs sync.WaitGroup
-	awaitLaunchJobs.Add(3)
-	go func() {
-		defer awaitLaunchJobs.Done()
-		startConnectionService()
-		if len(Flags.Verbose) > 0 {
-			LogInfo.Println()
-			LogInfo.Println("Launched connection service.")
-		}
-	}()
-	go func() {
-		defer awaitLaunchJobs.Done()
-		startGameEngine()
-		if len(Flags.Verbose) > 0 {
-			LogInfo.Println("Launched game engine.")
-		}
-	}()
-	go func() {
-		defer awaitLaunchJobs.Done()
+	awaitLaunchJobs.Add(5)
+	asyncExecute(&awaitLaunchJobs, func() {
 		// I/O, gets its own goroutine.  Goroutines are light enough for this.
 		// This runs once on startup so the gain is honestly negligible, but it will launch mildly quicker.
 		if ok := LoadObjects(); len(Flags.Verbose) > 0 && ok {
 			LogInfo.Printf("Loaded %d game objects.\n", Objects.Size())
 		}
-	}()
+	})
+	asyncExecute(&awaitLaunchJobs, func() {
+		initPacketHandlerTable()
+		if len(Flags.Verbose) > 0 {
+			LogInfo.Printf("Initialized %d packet handlers.\n", len(table.Handlers))
+		}
+	})
+	asyncExecute(&awaitLaunchJobs, func() {
+		initCrypto()
+		if len(Flags.Verbose) > 0 {
+			LogInfo.Println("Launched cryptographic subsystem.")
+		}
+	})
+	asyncExecute(&awaitLaunchJobs, func() {
+		startConnectionService()
+		if len(Flags.Verbose) > 0 {
+			LogInfo.Println("Launched connection service.")
+		}
+	})
+	asyncExecute(&awaitLaunchJobs, func() {
+		startGameEngine()
+		if len(Flags.Verbose) > 0 {
+			LogInfo.Println("Launched game engine.")
+		}
+	})
 	awaitLaunchJobs.Wait()
 	LogInfo.Println()
 	LogInfo.Println("RSCGo is now running.")
@@ -136,6 +177,13 @@ func Start() {
 	case <-kill:
 		os.Exit(0)
 	}
+}
+
+func asyncExecute(wg *sync.WaitGroup, fn func()) {
+	go func() {
+		defer (*wg).Done()
+		fn()
+	}()
 }
 
 //UpdateMobileEntities Updates all mobile scene entities that are traversing a path
