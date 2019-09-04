@@ -7,6 +7,9 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"bitbucket.org/zlacki/rscgo/pkg/entity"
+	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 )
 
 var (
@@ -22,6 +25,7 @@ var (
 	//ClientsIdx A map of server indexes to client references.  Also a common lookup.
 	ClientsIdx = make(map[int]*Client)
 	// TODO: Combine the two collections above to one custom collection type.
+	ClientCounter = 0
 )
 
 //TomlConfig A data structure representing the RSCGo TOML configuration file.
@@ -86,6 +90,9 @@ func startConnectionService() {
 				if _, ok := ClientsIdx[i]; !ok {
 					client.Index = i
 					ClientsIdx[i] = client
+					if i >= ClientCounter {
+						ClientCounter = i + 1
+					}
 					break
 				}
 			}
@@ -137,47 +144,39 @@ func Start() {
 
 //UpdateMobileEntities Updates all mobile scene entities that are traversing a path
 func UpdateMobileEntities() {
-	var wg sync.WaitGroup
-	wg.Add(len(ClientsIdx))
-	for i := 0; i < len(ClientsIdx); i++ {
-		if c, ok := ClientsIdx[i]; ok {
-			go func() {
-				defer wg.Done()
-				c.player.TraversePath()
-			}()
+	for _, c := range Clients {
+		if c != nil && c.player.Connected {
+			if followIndex := c.player.TransVarInt("plrfollowing"); followIndex != -1 {
+				followingClient := ClientFromIndex(followIndex)
+				if followingClient == nil || !c.player.Location.WithinRange(followingClient.player.Location, 15) {
+					c.player.ResetFollowing()
+				} else if !c.player.FinishedPath() && c.player.WithinRange(followingClient.player.Location, 2) {
+					c.player.ClearPath()
+				} else if c.player.FinishedPath() && !c.player.WithinRange(followingClient.player.Location, 2) {
+					c.player.SetPath(entity.NewPathway(followingClient.player.X, followingClient.player.Y))
+				}
+			}
+			c.player.TraversePath()
 		}
 	}
-	wg.Wait()
 }
 
 //UpdateClientState Sends the new positions to the clients
 func UpdateClientState() {
-	var wg sync.WaitGroup
-	wg.Add(len(ClientsIdx))
-	for i := 0; i < len(ClientsIdx); i++ {
-		if c, ok := ClientsIdx[i]; ok {
-			go func() {
-				defer wg.Done()
-				c.UpdatePositions()
-			}()
+	for _, c := range Clients {
+		if c != nil && c.player.Connected {
+			c.UpdatePositions()
 		}
 	}
-	wg.Wait()
 }
 
 //ResetUpdateFlags Resets the variables used for client updating synchronization.
 func ResetUpdateFlags() {
-	var wg sync.WaitGroup
-	wg.Add(len(ClientsIdx))
-	for i := 0; i < len(ClientsIdx); i++ {
-		if c, ok := ClientsIdx[i]; ok {
-			go func() {
-				defer wg.Done()
-				c.ResetUpdateFlags()
-			}()
+	for _, c := range Clients {
+		if c != nil && c.player.Connected {
+			c.ResetUpdateFlags()
 		}
 	}
-	wg.Wait()
 }
 
 //Tick One game engine 'tick'.  This is to handle movement, to synchronize clients, to update movement-related state variables...
@@ -198,6 +197,29 @@ func startGameEngine() {
 			Tick()
 		}
 	}()
+}
+
+//ClientFromIndex Helper function to find a specific client reference from its assigned server index.  If there is no player with the index, returns nil.
+func ClientFromIndex(index int) *Client {
+	if c, ok := ClientsIdx[index]; c != nil && c.player.Connected && ok {
+		return c
+	}
+
+	return nil
+}
+
+//ClientFromHash Helper function to find a specific client reference from its base37 encoded username.  If there is no player with the username, returns nil.
+func ClientFromHash(userHash uint64) *Client {
+	if c, ok := Clients[userHash]; c != nil && c.player.Connected && ok {
+		return c
+	}
+
+	return nil
+}
+
+//ClientFromUsername Helper function to find a specific client reference from its username.  If there is no player with the username, returns nil.
+func ClientFromUsername(username string) *Client {
+	return ClientFromHash(strutil.Base37(username))
 }
 
 //Stop This will stop the server instance, if it is running.

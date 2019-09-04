@@ -33,6 +33,15 @@ func (p packetHandlerTable) Get(opcode byte) func(*Client, *packets.Packet) {
 	return nil
 }
 
+func (p packetHandlerTable) GetName(opcode byte) string {
+	for _, handler := range p.Handlers {
+		if byte(handler.Opcode) == opcode {
+			return handler.Name
+		}
+	}
+	return "Unhandled"
+}
+
 //InitPacketHandlerTable Deserializes the packet handler table into memory.
 func InitPacketHandlerTable() {
 	if _, err := toml.DecodeFile(TomlConfig.DataDir+TomlConfig.PacketHandlerFile, &table); err != nil {

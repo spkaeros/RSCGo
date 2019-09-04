@@ -7,6 +7,7 @@ import (
 	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/list"
 	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
+	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 
 	// Necessary for sqlite3 driver
 	_ "github.com/mattn/go-sqlite3"
@@ -47,19 +48,24 @@ func OpenDatabase(file string) *sql.DB {
 }
 
 //LoadPlayer Loads a player from the SQLite3 database, returns a login response code.
-func (c *Client) LoadPlayer(usernameHash uint64, password string) int {
+func (c *Client) LoadPlayer(usernameHash uint64, password string, loginReply chan byte) {
 	if err := ValidatePlayer(c.player, usernameHash, password); err != nil {
 		if err.Error() == "Could not find player" {
 			// Invalid username/password
-			return 3
+			loginReply <- byte(3)
+			return
 		}
 		// Database error
-		return 8
+		loginReply <- byte(8)
+		return
 	}
 
-	Clients[usernameHash] = c
+	c.player.UserBase37 = usernameHash
+	c.player.Username = strutil.DecodeBase37(usernameHash)
 	c.player.SetIndex(c.Index)
-	return 0
+	Clients[usernameHash] = c
+	loginReply <- byte(0)
+	return
 }
 
 //ValidatePlayer Sets the player's essential persistent variables from player table from base37 username and password hash.

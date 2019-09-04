@@ -81,6 +81,52 @@ func (p *Player) VarEquipment(name Attribute) int {
 	return p.Attributes.VarInt(name, 1)
 }
 
+//TransVarInt Returns the transient attribute mapped to by name as an int, and if it doesn't exist, returns -1.
+func (p *Player) TransVarInt(name Attribute) int {
+	return p.TransAttrs.VarInt(name, -1)
+}
+
+//SetPath Sets the player's current pathway to path.  If path is nil, effectively clears the players path.
+func (p *Player) SetPath(path *Pathway) {
+	p.Path = path
+}
+
+//IsFollowing Returns true if the player is following another mob, otherwise false.
+func (p *Player) IsFollowing() bool {
+	return p.TransVarInt("plrfollowing") != -1
+}
+
+//SetFollowing Sets the transient attribute for storing the server index of the player we want to follow to index.
+func (p *Player) SetFollowing(index int) {
+	if index != -1 {
+		p.TransAttrs.SetVar("plrfollowing", index)
+		p.TransAttrs.SetVar("followrad", 2)
+	} else {
+		delete(p.TransAttrs, "plrfollowing")
+		delete(p.TransAttrs, "followrad")
+	}
+}
+
+//FollowRadius Returns the radius within which we should follow whatever mob we are following, or -1 if we aren't following anyone.
+func (p *Player) FollowRadius() int {
+	return p.TransVarInt("followrad")
+}
+
+//ResetFollowing Resets the transient attribute for storing the server index of the player we want to follow.
+func (p *Player) ResetFollowing() {
+	p.SetFollowing(-1)
+	p.ClearPath()
+}
+
+//FinishedPath Returns true if the players path is nil or if we are already on the path's next tile.
+func (p *Player) FinishedPath() bool {
+	if p.Path == nil {
+		return true
+	}
+	next := p.Path.NextTile(p.X, p.Y)
+	return p.AtLocation(&next)
+}
+
 //ArmourPoints Returns the players armour points.
 func (p *Player) ArmourPoints() int {
 	return p.VarEquipment("armour_points")
@@ -164,7 +210,7 @@ func (p *Player) SetFightMode(i int) {
 //TraversePath If the player has a path, calling this method will change the players location to the next location
 //  described by said Path data structure.  This should be called no more than once per game tick.
 func (p *Player) TraversePath() {
-	if p == nil || p.Path == nil {
+	if p.Path == nil {
 		return
 	}
 	path := p.Path
@@ -191,7 +237,7 @@ func (p *Player) NearbyPlayers() (players []*Player) {
 
 //ClearPath Sets the players path to nil, to stop the traversal of the path instantly
 func (p *Player) ClearPath() {
-	p.Path = nil
+	p.SetPath(nil)
 }
 
 //UpdateDirection Updates the direction the player is facing based on where the player is trying to move, and

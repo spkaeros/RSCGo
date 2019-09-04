@@ -82,3 +82,8 @@ func (l *Location) LongestDelta(other Location) int {
 	}
 	return deltaY
 }
+
+//WithinRange Returns true if the other location is within radius tiles of the receiver location, otherwise false.
+func (l *Location) WithinRange(other Location, radius int) bool {
+	return l.LongestDelta(other) <= radius
+}

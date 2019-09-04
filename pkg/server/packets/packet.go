@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-
-	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
+	"strconv"
 )
 
 //Packet The definition of a game packet.  Generally, these are commands, indexed by their Opcode(0-255), with
@@ -57,90 +56,76 @@ func NewBarePacket(src []byte) *Packet {
 }
 
 //ReadLong Read the next 64-bit integer from the packet payload.
-func (p *Packet) ReadLong() (val uint64, err error) {
+func (p *Packet) ReadLong() uint64 {
+	var val uint64
 	for i := 7; i >= 0; i-- {
-		b, err := p.ReadByte()
-		if err == errors.BufferOverflow {
-			LogWarning.Printf("Tried to read data from empty packet in a long!  Rewinding offset...")
-			p.readIndex -= 7 - i
-			return 0, err
-		}
-		val |= uint64(b) << uint(i*8)
+		val |= uint64(p.ReadByte()) << uint(i*8)
 	}
-	return val, nil
+	return val
 }
 
 //ReadInt Read the next 32-bit integer from the packet payload.
-func (p *Packet) ReadInt() (val uint32, err error) {
+func (p *Packet) ReadInt() int {
+	var val uint32
 	for i := 3; i >= 0; i-- {
-		b, err := p.ReadByte()
-		if err == errors.BufferOverflow {
-			LogWarning.Printf("Tried to read data from empty packet in a int!  Rewinding offset...")
-			p.readIndex -= 3 - i
-			return 0, err
-		}
-		val |= uint32(b) << uint(i*8)
+		val |= uint32(p.ReadByte()) << uint(i*8)
 	}
-	return val, nil
+	return int(val)
 }
 
 //ReadShort Read the next 16-bit integer from the packet payload.
-func (p *Packet) ReadShort() (val uint16, err error) {
+func (p *Packet) ReadShort() int {
+	var val uint16
 	for i := 1; i >= 0; i-- {
-		b, err := p.ReadByte()
-		if err == errors.BufferOverflow {
-			LogWarning.Printf("Tried to read data from empty packet in a short!  Rewinding offset...")
-			p.readIndex -= 1 - i
-			return 0, err
-		}
-		val |= uint16(b) << uint(i*8)
+		val |= uint16(p.ReadByte()) << uint(i*8)
 	}
-	return val, nil
+	return int(val)
 }
 
 //ReadBool Reads the next byte, if it is 1 returns true, else returns false.
-func (p *Packet) ReadBool() (val bool, err error) {
-	b, err := p.ReadByte()
-	if err == nil {
-		return false, err
+func (p *Packet) ReadBool() bool {
+	return p.ReadByte() == 1
+}
+
+func (p *Packet) checkError(err error) bool {
+	if err != nil {
+		return false
 	}
-	return b == 1, nil
+	return true
 }
 
 //ReadByte Read the next 8-bit integer from the packet payload.
-func (p *Packet) ReadByte() (byte, error) {
+func (p *Packet) ReadByte() byte {
 	if p.readIndex+1 > len(p.Payload) {
-		LogWarning.Printf("Tried to read data from empty packet in a byte!  Rewinding offset...")
-		return byte(0), errors.BufferOverflow
+		LogWarning.Println("Error parsing packet arguments: { opcode=" + strconv.Itoa(int(p.Opcode)) + "; offset=" + strconv.Itoa(p.readIndex) + " };")
+		return byte(0)
 	}
 	defer func() {
 		p.readIndex++
 	}()
-	return p.Payload[p.readIndex] & 0xFF, nil
+	return p.Payload[p.readIndex] & 0xFF
 }
 
 //ReadSByte Read the next 8-bit integer from the packet payload.
-func (p *Packet) ReadSByte() (int8, error) {
+func (p *Packet) ReadSByte() int8 {
 	if p.readIndex+1 > len(p.Payload) {
-		LogWarning.Printf("Tried to read data from empty packet in a byte!  Rewinding offset...")
-		return int8(0), errors.BufferOverflow
+		LogWarning.Println("Error parsing packet arguments: { opcode=" + strconv.Itoa(int(p.Opcode)) + "; offset=" + strconv.Itoa(p.readIndex) + " };")
+		return int8(0)
 	}
 	defer func() {
 		p.readIndex++
 	}()
-	return int8(p.Payload[p.readIndex]), nil
+	return int8(p.Payload[p.readIndex])
 }
 
 //ReadString Read the next variable-length C-string from the packet payload and return it as a Go-string.
-//  This will keep reading data until it reaches a null-byte ( '\0', 0xA, 10 ).
-func (p *Packet) ReadString() (val string, err error) {
-	for c, err := p.ReadByte(); err == nil && c != 0xA; c, err = p.ReadByte() {
-		if err == errors.BufferOverflow {
-			return "", err
-		}
+//  This will keep reading data until it reaches a null-byte or a new-line character ( '\0', 0xA, 0, 10 ).
+func (p *Packet) ReadString() string {
+	var val string
+	for c := p.ReadByte(); c != 0 && c != 0xA; c = p.ReadByte() {
 		val += string(c)
 	}
-	return val, nil
+	return val
 }
 
 //AddLong Adds a 64-bit integer to the packet payload.

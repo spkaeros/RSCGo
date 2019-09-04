@@ -84,12 +84,10 @@ func (c *Client) StartWriter() {
 func (c *Client) Destroy() {
 	c.destroying = true
 	c.awaitTermination.Wait()
-	entity.GetRegion(c.player.X, c.player.Y).RemovePlayer(c.player)
-	c.player.TransAttrs["plrremove"] = true
 	c.player.Connected = false
 	close(c.outgoingPackets)
 	close(c.incomingPackets)
-	c.buffer = []byte{}
+	c.buffer = []byte{} // try to collect this early it's 5KB
 	if err := c.socket.Close(); err != nil {
 		LogError.Println("Couldn't close socket:", err)
 	}
@@ -100,6 +98,8 @@ func (c *Client) Destroy() {
 		// Always try to launch I/O-heavy functions in their own goroutine.
 		// Goroutines are light-weight and made for this kind of thing.
 		go c.Save()
+		entity.GetRegion(c.player.X, c.player.Y).RemovePlayer(c.player)
+		c.player.TransAttrs["plrremove"] = true
 		delete(Clients, c.player.UserBase37)
 		LogInfo.Printf("Unregistered: %v\n", c)
 	}
@@ -115,7 +115,7 @@ func (c *Client) ResetUpdateFlags() {
 
 //UpdatePositions Updates the client about entities in it's view-area (16x16 tiles in the game world surrounding the player).  Should be run every game engine tick.
 func (c *Client) UpdatePositions() {
-	if c.player.Location.Equals(entity.DeathSpot) || !c.player.Connected {
+	if c.player.Location.Equals(entity.DeathSpot) {
 		return
 	}
 	var localPlayers []*entity.Player
@@ -225,6 +225,18 @@ func (c *Client) sendLoginResponse(i byte) {
 		c.outgoingPackets <- packets.WelcomeMessage
 		c.outgoingPackets <- packets.ServerInfo(len(Clients))
 		c.outgoingPackets <- packets.LoginBox(0, c.ip)
+	}
+}
+
+func (c *Client) HandleLogin(reply chan byte) {
+	defer close(reply)
+	select {
+	case r := <-reply:
+		c.sendLoginResponse(r)
+		return
+	case <-time.After(time.Second * 10):
+		c.sendLoginResponse(8)
+		return
 	}
 }
 

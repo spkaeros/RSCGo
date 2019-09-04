@@ -5,5 +5,9 @@ packets = [
 	{ name = 'pingreq', opcode = 5},
 	{ name = 'chatmsg', opcode = 174},
 	{ name = 'walkto', opcode = 186},
-	{ name = 'command', opcode = 120}
+	{ name = 'command', opcode = 120},
+	{ name = 'followreq', opcode = 76},
+	{ name = 'tradereq', opcode = 251},
+	{ name = 'duelreq', opcode = 98},
+	{ name = 'objectaction', opcode = 13},
 ]

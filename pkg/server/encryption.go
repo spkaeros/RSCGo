@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/hex"
@@ -79,4 +80,14 @@ func HashPassword(password string) string {
 	ShakeHash.Reset()
 
 	return hex.EncodeToString(dst)
+}
+
+//DecryptRSABlock Attempts to decrypt the payload buffer.  Returns the decrypted buffer upon success, otherwise returns nil.
+func DecryptRSABlock(payload []byte) []byte {
+	buf, err := rsa.DecryptPKCS1v15(rand.Reader, RsaKey, payload)
+	if err != nil {
+		LogWarning.Println("Could not decrypt RSA block:", err)
+		return nil
+	}
+	return buf
 }
