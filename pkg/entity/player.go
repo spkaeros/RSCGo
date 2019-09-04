@@ -93,7 +93,7 @@ func (p *Player) SetPath(path *Pathway) {
 
 //IsFollowing Returns true if the player is following another mob, otherwise false.
 func (p *Player) IsFollowing() bool {
-	return p.TransVarInt("plrfollowing") != -1
+	return p.FollowIndex() != -1
 }
 
 //SetFollowing Sets the transient attribute for storing the server index of the player we want to follow to index.
@@ -110,6 +110,11 @@ func (p *Player) SetFollowing(index int) {
 //FollowRadius Returns the radius within which we should follow whatever mob we are following, or -1 if we aren't following anyone.
 func (p *Player) FollowRadius() int {
 	return p.TransVarInt("followrad")
+}
+
+//FollowIndex Returns the index of the mob we are following, or -1 if we aren't following anyone.
+func (p *Player) FollowIndex() int {
+	return p.TransVarInt("plrfollowing")
 }
 
 //ResetFollowing Resets the transient attribute for storing the server index of the player we want to follow.

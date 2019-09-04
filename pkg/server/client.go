@@ -169,6 +169,9 @@ func (c *Client) UpdatePositions() {
 	if objectUpdates := packets.ObjectLocations(c.player, localObjects, removingObjects); objectUpdates != nil {
 		c.outgoingPackets <- objectUpdates
 	}
+	if boundaryUpdates := packets.BoundaryLocations(c.player, localObjects, removingObjects); boundaryUpdates != nil {
+		c.outgoingPackets <- boundaryUpdates
+	}
 }
 
 //StartNetworking Starts up 3 new goroutines; one for reading incoming data from the socket, one for writing outgoing data to the socket, and one for client state updates and parsing plus handling incoming packets.  When the clients kill signal is sent through the kill channel, the state update and packet handling goroutine will wait for both the reader and writer goroutines to complete their operations before unregistering the client.
@@ -228,6 +231,7 @@ func (c *Client) sendLoginResponse(i byte) {
 	}
 }
 
+//HandleLogin This method will block until a byte is sent down the reply channel with the login response to send to the client.
 func (c *Client) HandleLogin(reply chan byte) {
 	defer close(reply)
 	select {

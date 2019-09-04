@@ -25,7 +25,6 @@ var (
 	//ClientsIdx A map of server indexes to client references.  Also a common lookup.
 	ClientsIdx = make(map[int]*Client)
 	// TODO: Combine the two collections above to one custom collection type.
-	ClientCounter = 0
 )
 
 //TomlConfig A data structure representing the RSCGo TOML configuration file.
@@ -90,9 +89,6 @@ func startConnectionService() {
 				if _, ok := ClientsIdx[i]; !ok {
 					client.Index = i
 					ClientsIdx[i] = client
-					if i >= ClientCounter {
-						ClientCounter = i + 1
-					}
 					break
 				}
 			}
@@ -105,13 +101,13 @@ func startConnectionService() {
 // This method blocks while the server is running.
 func Start() {
 	LogInfo.Println("RSCGo starting up...")
-	LogInfo.Println()
 	var awaitLaunchJobs sync.WaitGroup
 	awaitLaunchJobs.Add(3)
 	go func() {
 		defer awaitLaunchJobs.Done()
 		startConnectionService()
 		if len(Flags.Verbose) > 0 {
+			LogInfo.Println()
 			LogInfo.Println("Launched connection service.")
 		}
 	}()
@@ -146,8 +142,8 @@ func Start() {
 func UpdateMobileEntities() {
 	for _, c := range Clients {
 		if c != nil && c.player.Connected {
-			if followIndex := c.player.TransVarInt("plrfollowing"); followIndex != -1 {
-				followingClient := ClientFromIndex(followIndex)
+			if c.player.IsFollowing() {
+				followingClient := ClientFromIndex(c.player.FollowIndex())
 				if followingClient == nil || !c.player.Location.WithinRange(followingClient.player.Location, 15) {
 					c.player.ResetFollowing()
 				} else if !c.player.FinishedPath() && c.player.WithinRange(followingClient.player.Location, 2) {

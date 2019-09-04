@@ -274,6 +274,39 @@ func ObjectLocations(player *entity.Player, newObjects []*entity.Object, removin
 	return
 }
 
+//BoundaryLocations Builds a packet with the view-area boundary positions in it, relative to the player.
+// If no new objects are available and no existing local boundarys are removed from area, returns nil.
+func BoundaryLocations(player *entity.Player, newObjects []*entity.Object, removingObjects []*entity.Object) (p *Packet) {
+	counter := 0
+	p = NewOutgoingPacket(95)
+	for _, o := range removingObjects {
+		if !o.Boundary {
+			continue
+		}
+		p.AddShort(32767)
+		p.AddByte(byte(o.X() - player.X))
+		p.AddByte(byte(o.Y() - player.Y))
+		p.AddByte(byte(o.Direction))
+		player.LocalObjects.RemoveObject(o)
+		counter++
+	}
+	for _, o := range newObjects {
+		if !o.Boundary {
+			continue
+		}
+		p.AddShort(uint16(o.ID))
+		p.AddByte(byte(o.X() - player.X))
+		p.AddByte(byte(o.Y() - player.Y))
+		p.AddByte(byte(o.Direction))
+		player.LocalObjects.AddObject(o)
+		counter++
+	}
+	if counter == 0 {
+		return nil
+	}
+	return
+}
+
 //EquipmentStats Builds a packet with the players equipment statistics in it.
 func EquipmentStats(player *entity.Player) (p *Packet) {
 	p = NewOutgoingPacket(177)
