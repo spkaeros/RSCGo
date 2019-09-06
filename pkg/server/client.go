@@ -196,7 +196,7 @@ func (c *Client) sendLoginResponse(i byte) {
 		LogInfo.Printf("Denied Client[%v]: {ip:'%v', username:'%v', Response='%v'}\n", c.Index, c.ip, c.player.Username, i)
 		c.Destroy()
 	} else {
-		LogInfo.Printf("Registered Client[%v]: {ip:'%v', username:'%v'}\n", c.Index, c.ip, c.player.Username)
+		LogInfo.Printf("Registered: %v\n", c)
 		entity.GetRegionFromLocation(c.player.Location).Players.AddPlayer(c.player)
 		c.player.TransAttrs["plrchanged"] = true
 		c.player.Connected = true
