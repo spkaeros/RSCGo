@@ -139,8 +139,8 @@ func Start() {
 	asyncExecute(&awaitLaunchJobs, func() {
 		// I/O, gets its own goroutine.  Goroutines are light enough for this.
 		// This runs once on startup so the gain is honestly negligible, but it will launch mildly quicker.
-		if ok := LoadObjects(); len(Flags.Verbose) > 0 && ok {
-			LogInfo.Printf("Loaded %d game objects.\n", Objects.Size())
+		if count := LoadObjects(); len(Flags.Verbose) > 0 && count > 0 {
+			LogInfo.Printf("Loaded %d game objects.\n", count)
 		}
 	})
 	asyncExecute(&awaitLaunchJobs, func() {
@@ -224,20 +224,20 @@ func ResetUpdateFlags() {
 }
 
 //Tick One game engine 'tick'.  This is to handle movement, to synchronize clients, to update movement-related state variables...
-// Runs every 640ms.
+// Runs every 600ms.
 func Tick() {
 	UpdateMobileEntities()
 	UpdateClientState()
 	ResetUpdateFlags()
 }
 
-//startGameEngine Launches a goroutine to handle updating the state of the server every 640ms in a
+//startGameEngine Launches a goroutine to handle updating the state of the server every 600ms in a
 // synchronized fashion.  This is known as a single game engine 'pulse'.  All mobile entities must have their position
 // updated during this pulse to be compatible with Jagex RSClassic Client software.
 // TODO: Can movement be handled concurrently per-player safely on the Jagex Client? Mob movement might not look right.
 func startGameEngine() {
 	go func() {
-		for range time.Tick(640 * time.Millisecond) {
+		for range time.Tick(600 * time.Millisecond) {
 			Tick()
 		}
 	}()

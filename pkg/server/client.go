@@ -17,11 +17,9 @@ type Client struct {
 	ip                               string
 	uID                              uint8
 	Index                            int
-	serverSeed                       uint64
-	clientSeed                       uint64
 	isaacStream                      *IsaacStream
 	Kill                             chan struct{}
-	awaitTermination                 sync.WaitGroup
+	networkingGroup                  sync.WaitGroup
 	player                           *entity.Player
 	socket                           net.Conn
 	incomingPackets, outgoingPackets chan *packets.Packet
@@ -31,31 +29,19 @@ type Client struct {
 
 //StartReader Starts the clients socket reader goroutine.  Takes a waitgroup as an argument to facilitate synchronous destruction.
 func (c *Client) StartReader() {
-	defer c.awaitTermination.Done()
+	defer c.networkingGroup.Done()
+	// 50ms for 20pps per client--is this too much?  Practically I don't think we need more than maybe 10.
 	for range time.Tick(50 * time.Millisecond) {
 		select {
 		default:
 			p, err := c.ReadPacket()
 			if err != nil {
-				if err, ok := err.(errors.NetError); ok {
-					if err.Closed || err.Ping {
-						// TODO: I need to make sure this doesn't cause a panic due to kill being closed already
-						return
-					}
-					LogError.Printf("Rejected Packet from: '%s'\n", c.ip)
-					LogError.Println(err)
+				if err, ok := err.(errors.NetError); ok && err.Error() != "Connection closed." {
+					LogWarning.Printf("Rejected Packet from: %s\n", c)
+					LogWarning.Println(err)
 				}
-				continue
-			}
-			if p.Opcode != 32 && p.Opcode != 0 {
-				if !c.player.Connected {
-					LogInfo.Printf("Unauthorized packet from:\nclient[%v] {\n\tip='%v';\n\tusername:'%v'\n\tpacket[%v]: {\n\t\tlen=%v\n\t\tpayload:'%v'\n\t};\n};", c.Index, c.ip, c.player.Username, p.Opcode, len(p.Payload), p.Payload)
-
-					if !c.destroying {
-						close(c.Kill)
-					}
-					return
-				}
+				c.Destroy()
+				return
 			}
 			c.incomingPackets <- p
 		case <-c.Kill:
@@ -66,7 +52,8 @@ func (c *Client) StartReader() {
 
 //StartWriter Starts the clients socket writer goroutine.  Takes a waitgroup as an argument to facilitate synchronous destruction.
 func (c *Client) StartWriter() {
-	defer c.awaitTermination.Done()
+	defer c.networkingGroup.Done()
+	// 50ms for 20pps per client--is this too much?  Practically I don't think we need more than maybe 10.
 	for range time.Tick(50 * time.Millisecond) {
 		select {
 		case p := <-c.outgoingPackets:
@@ -80,10 +67,18 @@ func (c *Client) StartWriter() {
 	}
 }
 
-//Destroy Safely tears down a client, saves it to the database, and removes it from server-wide collections.
+//Destroy Wrapper around Client.destroy to prevent multiple channel closes causing a panic.
 func (c *Client) Destroy() {
-	c.destroying = true
-	c.awaitTermination.Wait()
+	if !c.destroying {
+		close(c.Kill)
+		c.destroying = true
+	}
+}
+
+//destroy Safely tears down a client, saves it to the database, and removes it from server-wide collections.
+func (c *Client) destroy() {
+	// Wait for network goroutines to finish.
+	c.networkingGroup.Wait()
 	c.player.Connected = false
 	close(c.outgoingPackets)
 	close(c.incomingPackets)
@@ -176,11 +171,11 @@ func (c *Client) UpdatePositions() {
 
 //StartNetworking Starts up 3 new goroutines; one for reading incoming data from the socket, one for writing outgoing data to the socket, and one for client state updates and parsing plus handling incoming packets.  When the clients kill signal is sent through the kill channel, the state update and packet handling goroutine will wait for both the reader and writer goroutines to complete their operations before unregistering the client.
 func (c *Client) StartNetworking() {
-	c.awaitTermination.Add(2)
+	c.networkingGroup.Add(2)
 	go c.StartReader()
 	go c.StartWriter()
 	go func() {
-		defer c.Destroy()
+		defer c.destroy()
 		for {
 			select {
 			case p := <-c.incomingPackets:
@@ -199,9 +194,7 @@ func (c *Client) sendLoginResponse(i byte) {
 	c.outgoingPackets <- packets.LoginResponse(int(i))
 	if i != 0 {
 		LogInfo.Printf("Denied Client[%v]: {ip:'%v', username:'%v', Response='%v'}\n", c.Index, c.ip, c.player.Username, i)
-		if !c.destroying {
-			close(c.Kill)
-		}
+		c.Destroy()
 	} else {
 		LogInfo.Printf("Registered Client[%v]: {ip:'%v', username:'%v'}\n", c.Index, c.ip, c.player.Username)
 		entity.GetRegionFromLocation(c.player.Location).Players.AddPlayer(c.player)
@@ -244,9 +237,13 @@ func (c *Client) HandleLogin(reply chan byte) {
 	}
 }
 
+func (c *Client) IP() string {
+	return strings.Split(c.socket.RemoteAddr().String(), ":")[0]
+}
+
 //NewClient Creates a new instance of a Client, launches goroutines to handle I/O for it, and returns a reference to it.
 func NewClient(socket net.Conn) *Client {
-	c := &Client{socket: socket, incomingPackets: make(chan *packets.Packet, 20), ip: strings.Split(socket.RemoteAddr().String(), ":")[0], Index: -1, Kill: make(chan struct{}), player: entity.NewPlayer(), buffer: make([]byte, 5000), outgoingPackets: make(chan *packets.Packet, 20)}
+	c := &Client{socket: socket, incomingPackets: make(chan *packets.Packet, 20), outgoingPackets: make(chan *packets.Packet, 20), Index: -1, Kill: make(chan struct{}), player: entity.NewPlayer(), buffer: make([]byte, 5000), ip: strings.Split(socket.RemoteAddr().String(), ":")[0]}
 	for lastIdx := 0; lastIdx < 2048; lastIdx++ {
 		if _, ok := ClientsIdx[lastIdx]; !ok {
 			c.Index = lastIdx

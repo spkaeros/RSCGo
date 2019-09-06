@@ -11,9 +11,7 @@ func (e DatabaseError) Error() string {
 
 //NetError A RSCGo network-related error.
 type NetError struct {
-	msg    string
-	Ping   bool
-	Closed bool
+	msg string
 }
 
 func (e NetError) Error() string {
@@ -22,7 +20,7 @@ func (e NetError) Error() string {
 
 //NewNetworkError Returns a new NetError struct with the specified message.
 func NewNetworkError(s string) error {
-	return NetError{msg: s, Closed: true}
+	return NetError{msg: s}
 }
 
 //NewDatabaseError Returns a new database-related error.

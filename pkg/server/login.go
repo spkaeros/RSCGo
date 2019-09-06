@@ -13,16 +13,13 @@ func init() {
 
 func logout(c *Client, p *packets.Packet) {
 	c.outgoingPackets <- packets.Logout
-
-	if !c.destroying {
-		close(c.Kill)
-	}
+	c.Destroy()
 }
 
 func sessionRequest(c *Client, p *packets.Packet) {
 	c.uID = p.ReadByte()
-	c.serverSeed = GenerateSessionID()
-	c.outgoingPackets <- packets.NewBarePacket(nil).AddLong(c.serverSeed)
+	c.player.SetServerSeed(GenerateSessionID())
+	c.outgoingPackets <- packets.NewBarePacket(nil).AddLong(c.player.ServerSeed())
 }
 
 func loginRequest(c *Client, p *packets.Packet) {
@@ -35,8 +32,7 @@ func loginRequest(c *Client, p *packets.Packet) {
 		loginReply <- byte(9)
 		return
 	}
-	// TODO: Handle reconnect slightly different
-	c.reconnecting = p.ReadBool()
+	c.player.SetReconnecting(p.ReadBool())
 	if p.ReadInt() != TomlConfig.Version {
 		loginReply <- byte(5)
 		return

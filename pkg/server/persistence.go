@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"bitbucket.org/zlacki/rscgo/pkg/entity"
-	"bitbucket.org/zlacki/rscgo/pkg/list"
 	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 
@@ -13,27 +12,26 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-//Objects List of the game objects in the world
-var Objects = list.New(16384)
-
 //LoadObjects Loads the game objects into memory from the SQLite3 database.
-func LoadObjects() bool {
+func LoadObjects() int {
+	objectCounter := 0
 	database := OpenDatabase(TomlConfig.Database.WorldDB)
 	defer database.Close()
 	rows, err := database.Query("SELECT `id`, `direction`, `type`, `x`, `y` FROM `game_object_locations`")
 	defer rows.Close()
 	if err != nil {
 		LogError.Println("Couldn't load SQLite3 database:", err)
-		return false
+		return 0
 	}
 	var id, direction, kind, x, y int
 	for rows.Next() {
 		rows.Scan(&id, &direction, &kind, &x, &y)
 		o := entity.NewObject(id, direction, x, y, kind != 0)
-		o.SetIndex(Objects.Add(o))
+		o.SetIndex(objectCounter)
+		objectCounter++
 		entity.GetRegion(x, y).AddObject(o)
 	}
-	return true
+	return objectCounter
 }
 
 //OpenDatabase Returns an active sqlite3 database reference for the specified database file.

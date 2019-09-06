@@ -39,6 +39,15 @@ func (attributes AttributeList) VarInt(name Attribute, zero int) int {
 	return attributes[name].(int)
 }
 
+//VarLong If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
+func (attributes AttributeList) VarLong(name Attribute, zero uint64) uint64 {
+	if _, ok := attributes[name].(uint64); !ok {
+		attributes[name] = zero
+	}
+
+	return attributes[name].(uint64)
+}
+
 //VarBool If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
 func (attributes AttributeList) VarBool(name Attribute, zero bool) bool {
 	if _, ok := attributes[name].(bool); !ok {
@@ -94,6 +103,26 @@ func (p *Player) SetPath(path *Pathway) {
 //IsFollowing Returns true if the player is following another mob, otherwise false.
 func (p *Player) IsFollowing() bool {
 	return p.FollowIndex() != -1
+}
+
+//ServerSeed Returns the seed for the ISAAC cipher provided by the server for this player, if set, otherwise returns 0
+func (p *Player) ServerSeed() uint64 {
+	return p.TransAttrs.VarLong("server_seed", 0)
+}
+
+//SetServerSeed Sets the player's stored server seed to seed for later comparison to ensure we decrypted the login block properly and the player received the proper seed.
+func (p *Player) SetServerSeed(seed uint64) {
+	p.TransAttrs.SetVar("server_seed", seed)
+}
+
+//Reconnecting Returns true if the player is reconnecting, false otherwise.
+func (p *Player) Reconnecting() bool {
+	return p.TransAttrs.VarBool("reconnecting", false)
+}
+
+//SetReconnecting Sets the player's reconnection status to flag.
+func (p *Player) SetReconnecting(flag bool) {
+	p.TransAttrs.SetVar("reconnecting", flag)
 }
 
 //SetFollowing Sets the transient attribute for storing the server index of the player we want to follow to index.

@@ -43,11 +43,10 @@ func initCrypto() {
 
 //SeedISAAC Initialize the ISAAC+ PRNG for use as a stream cipher for this client.
 func (c *Client) SeedISAAC(clientSeed uint64, serverSeed uint64) *IsaacStream {
-	if serverSeed != c.serverSeed {
+	if serverSeed != c.player.ServerSeed() {
 		LogWarning.Printf("Session encryption key for command cipher received from client doesn't match the one we supplied it.\n")
 		return nil
 	}
-	c.clientSeed = clientSeed
 	decodingStream := isaac.New([]uint64{clientSeed, serverSeed})
 	encodingStream := isaac.New([]uint64{clientSeed + 50, serverSeed + 50})
 
