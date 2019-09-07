@@ -1,5 +1,7 @@
 package entity
 
+import "strconv"
+
 type Attribute string
 type AttributeList map[Attribute]interface{}
 
@@ -93,6 +95,54 @@ func (p *Player) VarEquipment(name Attribute) int {
 //TransVarInt Returns the transient attribute mapped to by name as an int, and if it doesn't exist, returns -1.
 func (p *Player) TransVarInt(name Attribute) int {
 	return p.TransAttrs.VarInt(name, -1)
+}
+
+//FriendsWith Returns true if specified username is in our friend list.
+func (p *Player) FriendsWith(hash uint64) bool {
+	for _, v := range p.FriendList {
+		if v == hash {
+			return true
+		}
+	}
+	return false
+}
+
+//ChatBlocked Returns true if public chat is blocked for this player.
+func (p *Player) ChatBlocked() bool {
+	return p.Attributes.VarBool("chat_block", false)
+}
+
+//FriendBlocked Returns true if private chat is blocked for this player.
+func (p *Player) FriendBlocked() bool {
+	return p.Attributes.VarBool("friend_block", false)
+}
+
+//TradeBlocked Returns true if trade requests are blocked for this player.
+func (p *Player) TradeBlocked() bool {
+	return p.Attributes.VarBool("trade_block", false)
+}
+
+//DuelBlocked Returns true if duel requests are blocked for this player.
+func (p *Player) DuelBlocked() bool {
+	return p.Attributes.VarBool("duel_block", false)
+}
+
+//SetPrivacySettings Sets privacy settings.
+func (p *Player) SetPrivacySettings(b, b1, b2, b3 bool) {
+	p.Attributes.SetVar(Attribute("chat_block"), b)    // General?
+	p.Attributes.SetVar(Attribute("friend_block"), b1) // Privacy?
+	p.Attributes.SetVar(Attribute("trade_block"), b2)  // Trade?
+	p.Attributes.SetVar(Attribute("duel_block"), b3)   // Duel?
+}
+
+//SetClientSetting Sets the specified client setting to flag.
+func (p *Player) SetClientSetting(id int, flag bool) {
+	p.Attributes.SetVar(Attribute("client_setting_"+strconv.Itoa(id)), flag)
+}
+
+//GetClientSetting Looks up the client setting with the specified ID, and returns it.  If it can't be found, returns false.
+func (p *Player) GetClientSetting(id int) bool {
+	return p.Attributes.VarBool(Attribute("client_setting_"+strconv.Itoa(id)), false)
 }
 
 //SetPath Sets the player's current pathway to path.  If path is nil, effectively clears the players path.

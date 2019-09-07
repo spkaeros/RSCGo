@@ -140,12 +140,31 @@ func PlayerAttributes(player *entity.Player) error {
 	for rows.Next() {
 		var name, value string
 		rows.Scan(&name, &value)
-		if value[:1] == "i" {
-			player.Attributes[entity.Attribute(name)], err = strconv.Atoi(value[1:])
+		switch value[0] {
+		case 'i':
+			val, err := strconv.ParseInt(value[1:], 10, 64)
 			if err != nil {
-				LogInfo.Printf("Error loading attribute[%v]: value=%v\n", name, value[1:])
+				LogInfo.Printf("Error loading int attribute[%v]: value=%v\n", name, value[1:])
 				LogInfo.Println(err)
 			}
+			player.Attributes[entity.Attribute(name)] = int(val)
+			break
+		case 'l':
+			val, err := strconv.ParseUint(value[1:], 10, 64)
+			if err != nil {
+				LogInfo.Printf("Error loading long int attribute[%v]: value=%v\n", name, value[1:])
+				LogInfo.Println(err)
+			}
+			player.Attributes[entity.Attribute(name)] = uint(val)
+			break
+		case 'b':
+			val, err := strconv.ParseBool(value[1:])
+			if err != nil {
+				LogInfo.Printf("Error loading boolean attribute[%v]: value=%v\n", name, value[1:])
+				LogInfo.Println(err)
+			}
+			player.Attributes[entity.Attribute(name)] = val
+			break
 		}
 	}
 	return nil
@@ -204,7 +223,41 @@ func (c *Client) Save() {
 		for k, v := range c.player.Attributes {
 			switch v.(type) {
 			case int:
-				rs, _ := tx.Exec("INSERT INTO player_attr(player_id, name, value) VALUES(?, ?, ?)", c.player.DatabaseIndex, string(k), "i"+strconv.Itoa(v.(int)))
+				rs, _ := tx.Exec("INSERT INTO player_attr(player_id, name, value) VALUES(?, ?, ?)", c.player.DatabaseIndex, string(k), "i"+strconv.FormatInt(int64(v.(int)), 10))
+				count, err := rs.RowsAffected()
+				if err != nil {
+					LogWarning.Println("Save(): INSERT failed for player attribute:", err)
+					if err := tx.Rollback(); err != nil {
+						LogWarning.Println("Save(): Transaction insert appearance rollback failed:", err)
+					}
+					return
+				}
+
+				if count <= 0 {
+					LogInfo.Println("Save(): Affected nothing for attribute insertion!")
+				}
+				break
+			case uint:
+				rs, _ := tx.Exec("INSERT INTO player_attr(player_id, name, value) VALUES(?, ?, ?)", c.player.DatabaseIndex, string(k), "l"+strconv.FormatUint(uint64(v.(uint)), 10))
+				count, err := rs.RowsAffected()
+				if err != nil {
+					LogWarning.Println("Save(): INSERT failed for player attribute:", err)
+					if err := tx.Rollback(); err != nil {
+						LogWarning.Println("Save(): Transaction insert appearance rollback failed:", err)
+					}
+					return
+				}
+
+				if count <= 0 {
+					LogInfo.Println("Save(): Affected nothing for attribute insertion!")
+				}
+				break
+			case bool:
+				val := "b0"
+				if v, ok := v.(bool); v && ok {
+					val = "b1"
+				}
+				rs, _ := tx.Exec("INSERT INTO player_attr(player_id, name, value) VALUES(?, ?, ?)", c.player.DatabaseIndex, string(k), val)
 				count, err := rs.RowsAffected()
 				if err != nil {
 					LogWarning.Println("Save(): INSERT failed for player attribute:", err)
