@@ -222,6 +222,7 @@ func (c *Client) sendLoginResponse(i byte) {
 		c.outgoingPackets <- packets.WelcomeMessage
 		c.outgoingPackets <- packets.ServerInfo(len(Clients))
 		c.outgoingPackets <- packets.LoginBox(0, c.ip)
+		BroadcastLogin(c.player.UserBase37, true)
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"bitbucket.org/zlacki/rscgo/pkg/entity"
+	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 	"github.com/BurntSushi/toml"
 	"github.com/jessevdk/go-flags"
@@ -241,6 +242,19 @@ func startGameEngine() {
 			Tick()
 		}
 	}()
+}
+
+//BroadcastLogin Broadcasts the login status of the user with hash as their base37 username
+func BroadcastLogin(hash uint64, online bool) {
+	for _, v := range Clients {
+		if v.player.FriendsWith(hash) {
+			if loginClient, ok := Clients[hash]; ok {
+				if !loginClient.player.FriendBlocked() || loginClient.player.FriendsWith(v.player.UserBase37) {
+					v.outgoingPackets <- packets.FriendUpdate(hash, online)
+				}
+			}
+		}
+	}
 }
 
 //ClientFromIndex Helper function to find a specific client reference from its assigned server index.  If there is no player with the index, returns nil.
