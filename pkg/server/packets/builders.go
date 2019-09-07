@@ -66,10 +66,14 @@ func Fatigue(player *entity.Player) (p *Packet) {
 func FriendList(player *entity.Player) (p *Packet) {
 	p = NewOutgoingPacket(249)
 	p.AddByte(byte(len(player.FriendList)))
-	for _, hash := range player.FriendList {
+	for hash, online := range player.FriendList {
 		p.AddLong(hash)
 		// TODO: Online status
-		p.AddByte(0) // 99 for online, 0 for offline.
+		status := 0
+		if online {
+			status = 99
+		}
+		p.AddByte(byte(status)) // 99 for online, 0 for offline.
 	}
 	return p
 }

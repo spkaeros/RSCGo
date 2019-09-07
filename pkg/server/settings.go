@@ -12,6 +12,25 @@ func init() {
 		c.player.SetClientSetting(int(p.ReadByte()), p.ReadBool())
 	}
 	PacketHandlers["privacysettings"] = func(c *Client, p *packets.Packet) {
-		c.player.SetPrivacySettings(p.ReadBool(), p.ReadBool(), p.ReadBool(), p.ReadBool())
+		chatBlocked := p.ReadBool()
+		friendBlocked := p.ReadBool()
+		tradeBlocked := p.ReadBool()
+		duelBlocked := p.ReadBool()
+		if c.player.FriendBlocked() && !friendBlocked {
+			// turning off private chat block
+			for hash, c1 := range Clients {
+				if c1.player.FriendsWith(c.player.UserBase37) && !c.player.FriendsWith(hash) {
+					c1.outgoingPackets <- packets.FriendUpdate(c.player.UserBase37, true)
+				}
+			}
+		} else if !c.player.FriendBlocked() && friendBlocked {
+			// turning on private chat block
+			for hash, c1 := range Clients {
+				if c1.player.FriendsWith(c.player.UserBase37) && !c.player.FriendsWith(hash) {
+					c1.outgoingPackets <- packets.FriendUpdate(c.player.UserBase37, false)
+				}
+			}
+		}
+		c.player.ResetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, duelBlocked)
 	}
 }

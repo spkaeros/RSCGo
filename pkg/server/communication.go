@@ -30,7 +30,11 @@ func init() {
 			c.outgoingPackets <- packets.ServerMessage("@que@Please remove '" + strutil.DecodeBase37(hash) + "' from your ignore list before friending them.")
 			return
 		}
-		c.player.FriendList = append(c.player.FriendList, hash)
+		if c1, ok := Clients[hash]; ok && c.player.FriendBlocked() {
+			c1.outgoingPackets <- packets.FriendUpdate(c.player.UserBase37, true)
+		}
+		c.player.FriendList[hash] = ClientFromHash(hash) != nil
+		//		c.player.FriendList = append(c.player.FriendList, hash)
 	}
 	PacketHandlers["removefriend"] = func(c *Client, p *packets.Packet) {
 		hash := p.ReadLong()
@@ -41,14 +45,10 @@ func init() {
 			c.outgoingPackets <- packets.ServerMessage("@que@You are not friends with that person!")
 			return
 		}
-		for i, v := range c.player.FriendList {
-			if v == hash {
-				newSize := len(c.player.FriendList) - 1
-				c.player.FriendList[i] = c.player.FriendList[newSize]
-				c.player.FriendList = c.player.FriendList[:newSize]
-				return
-			}
+		if c1, ok := Clients[hash]; ok && c.player.FriendBlocked() {
+			c1.outgoingPackets <- packets.FriendUpdate(c.player.UserBase37, false)
 		}
+		delete(c.player.FriendList, hash)
 	}
 	PacketHandlers["addignore"] = func(c *Client, p *packets.Packet) {
 		hash := p.ReadLong()

@@ -196,7 +196,7 @@ func UpdateMobileEntities() {
 				if followingClient == nil || !c.player.Location.WithinRange(followingClient.player.Location, 15) {
 					c.player.ResetFollowing()
 				} else if !c.player.FinishedPath() && c.player.WithinRange(followingClient.player.Location, 2) {
-					c.player.ClearPath()
+					c.player.ResetPath()
 				} else if c.player.FinishedPath() && !c.player.WithinRange(followingClient.player.Location, 2) {
 					c.player.SetPath(entity.NewPathway(followingClient.player.X, followingClient.player.Y))
 				}

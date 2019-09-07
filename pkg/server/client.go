@@ -95,6 +95,7 @@ func (c *Client) destroy() {
 		go c.Save()
 		entity.GetRegion(c.player.X, c.player.Y).RemovePlayer(c.player)
 		c.player.TransAttrs["plrremove"] = true
+		BroadcastLogin(c.player.UserBase37, false)
 		delete(Clients, c.player.UserBase37)
 		LogInfo.Printf("Unregistered: %v\n", c)
 	}

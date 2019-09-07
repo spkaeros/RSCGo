@@ -47,14 +47,45 @@ func OpenDatabase(file string) *sql.DB {
 
 //LoadPlayer Loads a player from the SQLite3 database, returns a login response code.
 func (c *Client) LoadPlayer(usernameHash uint64, password string, loginReply chan byte) {
-	if err := ValidatePlayer(c.player, usernameHash, password); err != nil {
-		if err.Error() == "Could not find player" {
-			// Invalid username/password
+	validateCredentials := func() error {
+
+		database := OpenDatabase(TomlConfig.Database.PlayerDB)
+		defer database.Close()
+
+		stmt, err := database.Prepare("SELECT player.id, player.x, player.y, player.group_id, appearance.haircolour, appearance.topcolour, appearance.trousercolour, appearance.skincolour, appearance.head, appearance.body FROM player2 AS player INNER JOIN appearance AS appearance WHERE appearance.playerid=player.id AND player.userhash=? AND player.password=?")
+		defer stmt.Close()
+		if err != nil {
+			LogInfo.Println("ValidatePlayer(uint64,string): Could not prepare query statement for player:", err)
 			loginReply <- byte(3)
-			return
+			return errors.NewDatabaseError(err.Error())
 		}
-		// Database error
-		loginReply <- byte(8)
+		rows, err := stmt.Query(usernameHash, password)
+		defer rows.Close()
+		if err != nil {
+			LogInfo.Println("ValidatePlayer(uint64,string): Could not execute query statement for player:", err)
+			loginReply <- byte(8)
+			return errors.NewDatabaseError(err.Error())
+		}
+		if !rows.Next() {
+			loginReply <- byte(3)
+			return errors.NewDatabaseError("Could not find player")
+		}
+		rows.Scan(&c.player.DatabaseIndex, &c.player.X, &c.player.Y, &c.player.Rank, &c.player.Appearance.Hair, &c.player.Appearance.Top, &c.player.Appearance.Bottom, &c.player.Appearance.Skin, &c.player.Appearance.Head, &c.player.Appearance.Body)
+		return nil
+	}
+	if err := validateCredentials(); err != nil {
+		return
+	}
+	/*	if err := PlayerAppearance(c.player); err != nil {
+		return
+	}*/
+	if err := PlayerAttributes(c.player); err != nil {
+		return
+	}
+	if err := PlayerFriends(c.player); err != nil {
+		return
+	}
+	if err := PlayerIgnore(c.player); err != nil {
 		return
 	}
 
@@ -88,18 +119,6 @@ func ValidatePlayer(player *entity.Player, hash uint64, password string) error {
 		return errors.NewDatabaseError("Could not find player")
 	}
 	rows.Scan(&player.DatabaseIndex, &player.X, &player.Y, &player.Rank)
-	if err := PlayerAppearance(player); err != nil {
-		return err
-	}
-	if err := PlayerAttributes(player); err != nil {
-		return err
-	}
-	if err := PlayerFriends(player); err != nil {
-		return err
-	}
-	if err := PlayerIgnore(player); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -195,7 +214,8 @@ func PlayerFriends(player *entity.Player) error {
 	for rows.Next() {
 		var hash uint64
 		rows.Scan(&hash)
-		player.FriendList = append(player.FriendList, hash)
+		player.FriendList[hash] = ClientFromHash(hash) != nil
+		//		player.FriendList = append(player.FriendList, hash)
 	}
 	return nil
 }
@@ -248,8 +268,8 @@ func (c *Client) Save() {
 			LogInfo.Println("Save(): Affected nothing for location update!")
 		}
 	}
-	saveLocation()
 	saveAppearance := func() {
+		// TODO: Should this just be attributes too??  Is that abusing the attributes table?
 		appearance := c.player.Appearance
 		rs, _ := tx.Exec("UPDATE appearance SET haircolour=?, topcolour=?, trousercolour=?, skincolour=?, head=?, body=? WHERE playerid=?", appearance.Hair, appearance.Top, appearance.Bottom, appearance.Skin, appearance.Head, appearance.Body, c.player.DatabaseIndex)
 		count, err := rs.RowsAffected()
@@ -265,8 +285,7 @@ func (c *Client) Save() {
 			LogInfo.Println("Save(): Affected nothing for appearance update!")
 		}
 	}
-	saveAppearance()
-	saveAttributes := func() {
+	clearAttributes := func() {
 		if _, err := tx.Exec("DELETE FROM player_attr WHERE player_id=?", c.player.DatabaseIndex); err != nil {
 			LogWarning.Println("Save(): DELETE failed for player attribute:", err)
 			if err := tx.Rollback(); err != nil {
@@ -274,63 +293,37 @@ func (c *Client) Save() {
 			}
 			return
 		}
-		for k, v := range c.player.Attributes {
-			switch v.(type) {
-			case int:
-				rs, _ := tx.Exec("INSERT INTO player_attr(player_id, name, value) VALUES(?, ?, ?)", c.player.DatabaseIndex, string(k), "i"+strconv.FormatInt(int64(v.(int)), 10))
-				count, err := rs.RowsAffected()
-				if err != nil {
-					LogWarning.Println("Save(): INSERT failed for player attribute:", err)
-					if err := tx.Rollback(); err != nil {
-						LogWarning.Println("Save(): Transaction insert appearance rollback failed:", err)
-					}
-					return
-				}
-
-				if count <= 0 {
-					LogInfo.Println("Save(): Affected nothing for attribute insertion!")
-				}
-				break
-			case uint:
-				rs, _ := tx.Exec("INSERT INTO player_attr(player_id, name, value) VALUES(?, ?, ?)", c.player.DatabaseIndex, string(k), "l"+strconv.FormatUint(uint64(v.(uint)), 10))
-				count, err := rs.RowsAffected()
-				if err != nil {
-					LogWarning.Println("Save(): INSERT failed for player attribute:", err)
-					if err := tx.Rollback(); err != nil {
-						LogWarning.Println("Save(): Transaction insert appearance rollback failed:", err)
-					}
-					return
-				}
-
-				if count <= 0 {
-					LogInfo.Println("Save(): Affected nothing for attribute insertion!")
-				}
-				break
-			case bool:
-				val := "b0"
-				if v, ok := v.(bool); v && ok {
-					val = "b1"
-				}
-				rs, _ := tx.Exec("INSERT INTO player_attr(player_id, name, value) VALUES(?, ?, ?)", c.player.DatabaseIndex, string(k), val)
-				count, err := rs.RowsAffected()
-				if err != nil {
-					LogWarning.Println("Save(): INSERT failed for player attribute:", err)
-					if err := tx.Rollback(); err != nil {
-						LogWarning.Println("Save(): Transaction insert appearance rollback failed:", err)
-					}
-					return
-				}
-
-				if count <= 0 {
-					LogInfo.Println("Save(): Affected nothing for attribute insertion!")
-				}
-				break
+	}
+	insertAttribute := func(name string, value interface{}) {
+		var val string
+		switch value.(type) {
+		case int:
+			val = "i" + strconv.FormatInt(int64(value.(int)), 10)
+		case uint:
+			val = "l" + strconv.FormatUint(uint64(value.(uint)), 10)
+		case bool:
+			if v, ok := value.(bool); v && ok {
+				val = "b1"
+			} else {
+				val = "b0"
 			}
 		}
+		rs, _ := tx.Exec("INSERT INTO player_attr(player_id, name, value) VALUES(?, ?, ?)", c.player.DatabaseIndex, name, val)
+		count, err := rs.RowsAffected()
+		if err != nil {
+			LogWarning.Println("Save(): INSERT failed for player attribute:", err)
+			if err := tx.Rollback(); err != nil {
+				LogWarning.Println("Save(): Transaction insert attribute rollback failed:", err)
+			}
+			return
+		}
+
+		if count <= 0 {
+			LogInfo.Println("Save(): Affected nothing for attribute insertion!")
+		}
 	}
-	saveAttributes()
-	clearList := func(which string) {
-		if _, err := tx.Exec("DELETE FROM playerlist WHERE playerid=? AND type=?", c.player.DatabaseIndex, which); err != nil {
+	clearContactList := func(contactType string) {
+		if _, err := tx.Exec("DELETE FROM playerlist WHERE playerid=? AND type=?", c.player.DatabaseIndex, contactType); err != nil {
 			LogWarning.Println("Save(): DELETE failed for player friends:", err)
 			if err := tx.Rollback(); err != nil {
 				LogWarning.Println("Save(): Transaction delete friends rollback failed:", err)
@@ -338,45 +331,35 @@ func (c *Client) Save() {
 			return
 		}
 	}
-	saveFriends := func() {
-		clearList("friend")
-		for _, v := range c.player.FriendList {
-			rs, _ := tx.Exec("INSERT INTO playerlist(playerid, playerhash, type) VALUES(?, ?, 'friend')", c.player.DatabaseIndex, v)
-			count, err := rs.RowsAffected()
-			if err != nil {
-				LogWarning.Println("Save(): INSERT failed for player friends:", err)
-				if err := tx.Rollback(); err != nil {
-					LogWarning.Println("Save(): Transaction insert friend rollback failed:", err)
-				}
-				return
+	insertContactList := func(contactType string, hash uint64) {
+		rs, _ := tx.Exec("INSERT INTO playerlist(playerid, playerhash, type) VALUES(?, ?, ?)", c.player.DatabaseIndex, hash, contactType)
+		count, err := rs.RowsAffected()
+		if err != nil {
+			LogWarning.Println("Save(): INSERT failed for player friends:", err)
+			if err := tx.Rollback(); err != nil {
+				LogWarning.Println("Save(): Transaction insert friend rollback failed:", err)
 			}
+			return
+		}
 
-			if count <= 0 {
-				LogInfo.Println("Save(): Affected nothing for friend insertion!")
-			}
+		if count <= 0 {
+			LogInfo.Println("Save(): Affected nothing for friend insertion!")
 		}
 	}
-	saveFriends()
-	saveIgnore := func() {
-		clearList("ignore")
-		for _, v := range c.player.IgnoreList {
-			LogInfo.Println(v)
-			rs, _ := tx.Exec("INSERT INTO playerlist(playerid, playerhash, type) VALUES(?, ?, 'ignore')", c.player.DatabaseIndex, v)
-			count, err := rs.RowsAffected()
-			if err != nil {
-				LogWarning.Println("Save(): INSERT failed for player ignore:", err)
-				if err := tx.Rollback(); err != nil {
-					LogWarning.Println("Save(): Transaction insert ignore rollback failed:", err)
-				}
-				return
-			}
-
-			if count <= 0 {
-				LogInfo.Println("Save(): Affected nothing for ignore insertion!")
-			}
-		}
+	saveLocation()
+	saveAppearance()
+	clearAttributes()
+	for name, value := range c.player.Attributes {
+		insertAttribute(string(name), value)
 	}
-	saveIgnore()
+	clearContactList("friend")
+	clearContactList("ignore")
+	for hash := range c.player.FriendList {
+		insertContactList("friend", hash)
+	}
+	for _, hash := range c.player.IgnoreList {
+		insertContactList("ignore", hash)
+	}
 
 	if err := tx.Commit(); err != nil {
 		LogWarning.Println("Save(): Error committing transaction for player update:", err)

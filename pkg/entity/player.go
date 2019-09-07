@@ -2,7 +2,11 @@ package entity
 
 import "strconv"
 
+//TODO: Probably remove the Attribute type-alias.
+//Attribute Type-alias for attribute names.  Might not need this, was just so to provide methods for them, don't think I'm doing it anymore
 type Attribute string
+
+//AttributeList A type alias for a map of strings to empty interfaces, to hold generic player information for easy serialization and to provide dynamic insertion/deletion of new player properties easily
 type AttributeList map[Attribute]interface{}
 
 //Player Represents a single player.
@@ -12,7 +16,7 @@ type Player struct {
 	UserBase37    uint64
 	Password      string
 	Path          *Pathway
-	FriendList    []uint64
+	FriendList    map[uint64]bool
 	IgnoreList    []uint64
 	LocalPlayers  *EntityList
 	LocalObjects  *EntityList
@@ -71,7 +75,7 @@ type AppearanceTable struct {
 	Skin   int
 }
 
-//NewAppearance Returns a reference to a new appearance with specified parameters
+//NewAppearanceTable Returns a reference to a new appearance table with specified parameters
 func NewAppearanceTable(head, body int, male bool, hair, top, bottom, skin int) *AppearanceTable {
 	return &AppearanceTable{head, body, male, hair, top, bottom, skin}
 }
@@ -99,9 +103,9 @@ func (p *Player) TransVarInt(name Attribute) int {
 }
 
 //FriendsWith Returns true if specified username is in our friend list.
-func (p *Player) FriendsWith(hash uint64) bool {
-	for _, v := range p.FriendList {
-		if v == hash {
+func (p *Player) FriendsWith(other uint64) bool {
+	for hash := range p.FriendList {
+		if hash == other {
 			return true
 		}
 	}
@@ -138,12 +142,12 @@ func (p *Player) DuelBlocked() bool {
 	return p.Attributes.VarBool("duel_block", false)
 }
 
-//SetPrivacySettings Sets privacy settings.
-func (p *Player) SetPrivacySettings(b, b1, b2, b3 bool) {
-	p.Attributes.SetVar(Attribute("chat_block"), b)    // General?
-	p.Attributes.SetVar(Attribute("friend_block"), b1) // Privacy?
-	p.Attributes.SetVar(Attribute("trade_block"), b2)  // Trade?
-	p.Attributes.SetVar(Attribute("duel_block"), b3)   // Duel?
+//ResetPrivacySettings Resets privacy settings to specified values.
+func (p *Player) ResetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, duelBlocked bool) {
+	p.Attributes.SetVar(Attribute("chat_block"), chatBlocked)     // General?
+	p.Attributes.SetVar(Attribute("friend_block"), friendBlocked) // Privacy?
+	p.Attributes.SetVar(Attribute("trade_block"), tradeBlocked)   // Trade?
+	p.Attributes.SetVar(Attribute("duel_block"), duelBlocked)     // Duel?
 }
 
 //SetClientSetting Sets the specified client setting to flag.
@@ -210,7 +214,7 @@ func (p *Player) FollowIndex() int {
 //ResetFollowing Resets the transient attribute for storing the server index of the player we want to follow.
 func (p *Player) ResetFollowing() {
 	p.SetFollowing(-1)
-	p.ClearPath()
+	p.ResetPath()
 }
 
 //FinishedPath Returns true if the players path is nil or if we are already on the path's next tile.
@@ -314,7 +318,7 @@ func (p *Player) TraversePath() {
 	}
 	newLocation := path.NextTile(p.X, p.Y)
 	if path.CurrentWaypoint >= len(path.WaypointsX) || newLocation.X == -1 || newLocation.Y == -1 {
-		p.ClearPath()
+		p.ResetPath()
 		return
 	}
 	p.TransAttrs["plrmoved"] = true
@@ -330,8 +334,8 @@ func (p *Player) NearbyPlayers() (players []*Player) {
 	return
 }
 
-//ClearPath Sets the players path to nil, to stop the traversal of the path instantly
-func (p *Player) ClearPath() {
+//ResetPath Sets the players path to nil, to stop the traversal of the path instantly
+func (p *Player) ResetPath() {
 	p.SetPath(nil)
 }
 
@@ -398,5 +402,5 @@ func (p *Player) SetDirection(direction int) {
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
-	return &Player{Entity: Entity{Index: -1}, state: Idle, Attributes: make(AttributeList), TransAttrs: make(AttributeList), LocalPlayers: &EntityList{}, LocalObjects: &EntityList{}, Skillset: &SkillTable{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false}
+	return &Player{Entity: Entity{Index: -1}, state: Idle, Attributes: make(AttributeList), TransAttrs: make(AttributeList), LocalPlayers: &EntityList{}, LocalObjects: &EntityList{}, Skillset: &SkillTable{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false, FriendList: make(map[uint64]bool)}
 }
