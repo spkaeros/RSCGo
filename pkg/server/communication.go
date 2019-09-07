@@ -36,6 +36,25 @@ func init() {
 			}
 		}
 	}
+	PacketHandlers["addignore"] = func(c *Client, p *packets.Packet) {
+		hash := p.ReadLong()
+		if hash <= strutil.MaxBase37 && hash > 0 && !c.player.Ignored(hash) {
+			c.player.IgnoreList = append(c.player.IgnoreList, hash)
+		}
+	}
+	PacketHandlers["removeignore"] = func(c *Client, p *packets.Packet) {
+		hash := p.ReadLong()
+		if hash <= strutil.MaxBase37 && hash > 0 && c.player.Ignored(hash) {
+			for i, v := range c.player.IgnoreList {
+				if v == hash {
+					newSize := len(c.player.IgnoreList) - 1
+					c.player.IgnoreList[i] = c.player.IgnoreList[newSize]
+					c.player.IgnoreList = c.player.IgnoreList[:newSize]
+					return
+				}
+			}
+		}
+	}
 	//	PacketHandlers[84] = func(c *Client, p *packets.Packet) {
 	//		index, _ := p.ReadShort()
 	//		c.player.Appearances = append(c.player.Appearances, int(index))

@@ -97,6 +97,9 @@ func ValidatePlayer(player *entity.Player, hash uint64, password string) error {
 	if err := PlayerFriends(player); err != nil {
 		return err
 	}
+	if err := PlayerIgnore(player); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -177,7 +180,7 @@ func PlayerAttributes(player *entity.Player) error {
 func PlayerFriends(player *entity.Player) error {
 	database := OpenDatabase(TomlConfig.Database.PlayerDB)
 	defer database.Close()
-	stmt, err := database.Prepare("SELECT playerhash FROM playerlist WHERE playerid=? AND type='friend'")
+	stmt, err := database.Prepare("SELECT playerhash FROM playerlist WHERE playerid=? AND `type`='friend'")
 	defer stmt.Close()
 	if err != nil {
 		LogInfo.Println("LoadPlayer(uint64,string): Could not prepare query statement for player friends:", err)
@@ -193,6 +196,30 @@ func PlayerFriends(player *entity.Player) error {
 		var hash uint64
 		rows.Scan(&hash)
 		player.FriendList = append(player.FriendList, hash)
+	}
+	return nil
+}
+
+//PlayerIgnore Loads the player's ignore list
+func PlayerIgnore(player *entity.Player) error {
+	database := OpenDatabase(TomlConfig.Database.PlayerDB)
+	defer database.Close()
+	stmt, err := database.Prepare("SELECT playerhash FROM playerlist WHERE playerid=? AND `type`='ignore'")
+	defer stmt.Close()
+	if err != nil {
+		LogInfo.Println("LoadPlayer(uint64,string): Could not prepare query statement for player ignore:", err)
+		return errors.NewDatabaseError("Statement could not be prepared.")
+	}
+	rows, err := stmt.Query(player.DatabaseIndex)
+	defer rows.Close()
+	if err != nil {
+		LogInfo.Println("LoadPlayer(uint64,string): Could not execute query statement for player ignores:", err)
+		return errors.NewDatabaseError("Statement could not execute.")
+	}
+	for rows.Next() {
+		var hash uint64
+		rows.Scan(&hash)
+		player.IgnoreList = append(player.IgnoreList, hash)
 	}
 	return nil
 }
@@ -302,14 +329,17 @@ func (c *Client) Save() {
 		}
 	}
 	saveAttributes()
-	saveFriends := func() {
-		if _, err := tx.Exec("DELETE FROM playerlist WHERE playerid=?", c.player.DatabaseIndex); err != nil {
+	clearList := func(which string) {
+		if _, err := tx.Exec("DELETE FROM playerlist WHERE playerid=? AND type=?", c.player.DatabaseIndex, which); err != nil {
 			LogWarning.Println("Save(): DELETE failed for player friends:", err)
 			if err := tx.Rollback(); err != nil {
 				LogWarning.Println("Save(): Transaction delete friends rollback failed:", err)
 			}
 			return
 		}
+	}
+	saveFriends := func() {
+		clearList("friend")
 		for _, v := range c.player.FriendList {
 			rs, _ := tx.Exec("INSERT INTO playerlist(playerid, playerhash, type) VALUES(?, ?, 'friend')", c.player.DatabaseIndex, v)
 			count, err := rs.RowsAffected()
@@ -328,6 +358,26 @@ func (c *Client) Save() {
 		}
 	}
 	saveFriends()
+	saveIgnore := func() {
+		clearList("ignore")
+		for _, v := range c.player.IgnoreList {
+			rs, _ := tx.Exec("INSERT INTO playerlist(playerid, playerhash, type) VALUES(?, ?, 'ignore')", c.player.DatabaseIndex, v)
+			count, err := rs.RowsAffected()
+			if err != nil {
+				LogWarning.Println("Save(): INSERT failed for player ignore:", err)
+				if err := tx.Rollback(); err != nil {
+					LogWarning.Println("Save(): Transaction insert ignore rollback failed:", err)
+				}
+				return
+			}
+
+			if count <= 0 {
+				LogInfo.Println("Save(): Affected nothing for ignore insertion!")
+			}
+			break
+		}
+	}
+	saveIgnore()
 
 	if err := tx.Commit(); err != nil {
 		LogWarning.Println("Save(): Error committing transaction for player update:", err)

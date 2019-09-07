@@ -74,6 +74,16 @@ func FriendList(player *entity.Player) (p *Packet) {
 	return p
 }
 
+//IgnoreList Builds a packet with the players ignore list information in it.
+func IgnoreList(player *entity.Player) (p *Packet) {
+	p = NewOutgoingPacket(2)
+	p.AddByte(byte(len(player.IgnoreList)))
+	for _, hash := range player.IgnoreList {
+		p.AddLong(hash)
+	}
+	return p
+}
+
 //FriendUpdate Builds a packet with an online status update for the player with the specified hash
 func FriendUpdate(player *entity.Player, hash uint64, online bool) (p *Packet) {
 	p = NewOutgoingPacket(25)

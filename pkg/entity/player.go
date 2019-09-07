@@ -13,6 +13,7 @@ type Player struct {
 	Password      string
 	Path          *Pathway
 	FriendList    []uint64
+	IgnoreList    []uint64
 	LocalPlayers  *EntityList
 	LocalObjects  *EntityList
 	Connected     bool
@@ -100,6 +101,16 @@ func (p *Player) TransVarInt(name Attribute) int {
 //FriendsWith Returns true if specified username is in our friend list.
 func (p *Player) FriendsWith(hash uint64) bool {
 	for _, v := range p.FriendList {
+		if v == hash {
+			return true
+		}
+	}
+	return false
+}
+
+//Ignored Returns true if specified username is in our ignore list.
+func (p *Player) Ignored(hash uint64) bool {
+	for _, v := range p.IgnoreList {
 		if v == hash {
 			return true
 		}
