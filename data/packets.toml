@@ -22,4 +22,5 @@ packets = [
 	{ name = 'clientsetting', opcode = 247},
 	{ name = 'privacysettings', opcode = 191},
 	{ name = 'objectaction2', opcode = 75},
+	{ name = 'privmsg', opcode = 192},
 ]

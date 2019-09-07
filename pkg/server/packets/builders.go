@@ -78,6 +78,16 @@ func FriendList(player *entity.Player) (p *Packet) {
 	return p
 }
 
+//PrivateMessage Builds a packet with a private message from hash with content msg.
+func PrivateMessage(hash uint64, msg string) (p *Packet) {
+	p = NewOutgoingPacket(170)
+	p.AddLong(hash)
+	for _, c := range strutil.PackChatMessage(msg) {
+		p.AddByte(byte(c))
+	}
+	return p
+}
+
 //IgnoreList Builds a packet with the players ignore list information in it.
 func IgnoreList(player *entity.Player) (p *Packet) {
 	p = NewOutgoingPacket(2)
