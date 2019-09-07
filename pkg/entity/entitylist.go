@@ -118,6 +118,18 @@ func (l *EntityList) RemoveObject(p *Object) {
 	}
 }
 
+//GetObject Looks for an object at given coordinates.  If found, returns a reference to it.  Otherwise, returns nil
+func (l *EntityList) GetObject(x, y int) *Object {
+	for _, v := range l.List {
+		if v, ok := v.(*Object); ok {
+			if v.Location().X == x && v.Location().Y == y {
+				return v
+			}
+		}
+	}
+	return nil
+}
+
 //ContainsObject Returns true if the receiver list contains the player specified, false otherwise.
 func (l *EntityList) ContainsObject(o *Object) bool {
 	for _, v := range l.List {

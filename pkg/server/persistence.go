@@ -12,8 +12,29 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+var objectDefCmd = make(map[int]string)
+
+func LoadObjectDefs() {
+	database := OpenDatabase(TomlConfig.Database.WorldDB)
+	defer database.Close()
+	rows, err := database.Query("SELECT `command_one` FROM `game_objects`")
+	defer rows.Close()
+	if err != nil {
+		LogError.Println("Couldn't load SQLite3 database:", err)
+		return
+	}
+	idx := 0
+	for rows.Next() {
+		var cmd string
+		rows.Scan(&cmd)
+		objectDefCmd[idx] = cmd
+		idx++
+	}
+}
+
 //LoadObjects Loads the game objects into memory from the SQLite3 database.
 func LoadObjects() int {
+	LoadObjectDefs()
 	objectCounter := 0
 	database := OpenDatabase(TomlConfig.Database.WorldDB)
 	defer database.Close()
@@ -26,7 +47,7 @@ func LoadObjects() int {
 	var id, direction, kind, x, y int
 	for rows.Next() {
 		rows.Scan(&id, &direction, &kind, &x, &y)
-		o := entity.NewObject(id, direction, x, y, kind != 0)
+		o := entity.NewObject(id, direction, x, y, kind != 0, objectDefCmd[id])
 		o.SetIndex(objectCounter)
 		objectCounter++
 		entity.GetRegion(x, y).AddObject(o)
