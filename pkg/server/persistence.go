@@ -354,13 +354,13 @@ func (c *Client) Save() {
 			if count <= 0 {
 				LogInfo.Println("Save(): Affected nothing for friend insertion!")
 			}
-			break
 		}
 	}
 	saveFriends()
 	saveIgnore := func() {
 		clearList("ignore")
 		for _, v := range c.player.IgnoreList {
+			LogInfo.Println(v)
 			rs, _ := tx.Exec("INSERT INTO playerlist(playerid, playerhash, type) VALUES(?, ?, 'ignore')", c.player.DatabaseIndex, v)
 			count, err := rs.RowsAffected()
 			if err != nil {
@@ -374,7 +374,6 @@ func (c *Client) Save() {
 			if count <= 0 {
 				LogInfo.Println("Save(): Affected nothing for ignore insertion!")
 			}
-			break
 		}
 	}
 	saveIgnore()
