@@ -94,6 +94,9 @@ func ValidatePlayer(player *entity.Player, hash uint64, password string) error {
 	if err := PlayerAttributes(player); err != nil {
 		return err
 	}
+	if err := PlayerFriends(player); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -166,6 +169,30 @@ func PlayerAttributes(player *entity.Player) error {
 			player.Attributes[entity.Attribute(name)] = val
 			break
 		}
+	}
+	return nil
+}
+
+//PlayerFriends Loads the player's friends list
+func PlayerFriends(player *entity.Player) error {
+	database := OpenDatabase(TomlConfig.Database.PlayerDB)
+	defer database.Close()
+	stmt, err := database.Prepare("SELECT playerhash FROM playerlist WHERE playerid=? AND type='friend'")
+	defer stmt.Close()
+	if err != nil {
+		LogInfo.Println("LoadPlayer(uint64,string): Could not prepare query statement for player friends:", err)
+		return errors.NewDatabaseError("Statement could not be prepared.")
+	}
+	rows, err := stmt.Query(player.DatabaseIndex)
+	defer rows.Close()
+	if err != nil {
+		LogInfo.Println("LoadPlayer(uint64,string): Could not execute query statement for player friends:", err)
+		return errors.NewDatabaseError("Statement could not execute.")
+	}
+	for rows.Next() {
+		var hash uint64
+		rows.Scan(&hash)
+		player.FriendList = append(player.FriendList, hash)
 	}
 	return nil
 }
@@ -275,6 +302,32 @@ func (c *Client) Save() {
 		}
 	}
 	saveAttributes()
+	saveFriends := func() {
+		if _, err := tx.Exec("DELETE FROM playerlist WHERE playerid=?", c.player.DatabaseIndex); err != nil {
+			LogWarning.Println("Save(): DELETE failed for player friends:", err)
+			if err := tx.Rollback(); err != nil {
+				LogWarning.Println("Save(): Transaction delete friends rollback failed:", err)
+			}
+			return
+		}
+		for _, v := range c.player.FriendList {
+			rs, _ := tx.Exec("INSERT INTO playerlist(playerid, playerhash, type) VALUES(?, ?, 'friend')", c.player.DatabaseIndex, v)
+			count, err := rs.RowsAffected()
+			if err != nil {
+				LogWarning.Println("Save(): INSERT failed for player friends:", err)
+				if err := tx.Rollback(); err != nil {
+					LogWarning.Println("Save(): Transaction insert friend rollback failed:", err)
+				}
+				return
+			}
+
+			if count <= 0 {
+				LogInfo.Println("Save(): Affected nothing for friend insertion!")
+			}
+			break
+		}
+	}
+	saveFriends()
 
 	if err := tx.Commit(); err != nil {
 		LogWarning.Println("Save(): Error committing transaction for player update:", err)
