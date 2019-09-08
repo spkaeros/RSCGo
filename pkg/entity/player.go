@@ -11,24 +11,25 @@ type AttributeList map[Attribute]interface{}
 
 //Player Represents a single player.
 type Player struct {
-	state         MobState
-	Username      string
-	UserBase37    uint64
-	Password      string
-	Path          *Pathway
-	FriendList    map[uint64]bool
-	IgnoreList    []uint64
-	LocalPlayers  *EntityList
-	LocalObjects  *EntityList
-	Connected     bool
-	Updating      bool
-	Appearances   []int
-	Skillset      *SkillTable
-	DatabaseIndex int
-	Rank          int
-	Attributes    AttributeList
-	TransAttrs    AttributeList
-	Appearance    *AppearanceTable
+	state           MobState
+	Username        string
+	UserBase37      uint64
+	Password        string
+	Path            *Pathway
+	FriendList      map[uint64]bool
+	IgnoreList      []uint64
+	LocalPlayers    *EntityList
+	LocalObjects    *EntityList
+	Connected       bool
+	Updating        bool
+	Appearances     []int
+	Skillset        *SkillTable
+	DatabaseIndex   int
+	Rank            int
+	Attributes      AttributeList
+	TransAttrs      AttributeList
+	DistancedAction func()
+	Appearance      *AppearanceTable
 	Entity
 }
 
@@ -90,6 +91,12 @@ type SkillTable struct {
 //SetIndex Sets the server index to idx
 func (p *Player) SetIndex(idx int) {
 	p.Index = idx
+}
+
+//ResetDistancedAction Resets the players path and distanced action callback.
+func (p *Player) ResetDistancedAction() {
+	p.ResetPath()
+	p.DistancedAction = nil
 }
 
 //VarEquipment Returns the attribute mapped to by name, and if it doesn't exist, returns 1.

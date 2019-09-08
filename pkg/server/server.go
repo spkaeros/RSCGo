@@ -139,15 +139,11 @@ func Start() {
 	awaitLaunchJobs.Add(6)
 	asyncExecute(&awaitLaunchJobs, func() {
 		LoadObjectDefinitions()
-		// I/O, gets its own goroutine.  Goroutines are light enough for this.
-		// This runs once on startup so the gain is honestly negligible, but it will launch mildly quicker.
 		if count := len(ObjectDefinitions); len(Flags.Verbose) > 0 && count > 0 {
 			LogInfo.Printf("Loaded %d game object definitions.\n", count)
 		}
 	})
 	asyncExecute(&awaitLaunchJobs, func() {
-		// I/O, gets its own goroutine.  Goroutines are light enough for this.
-		// This runs once on startup so the gain is honestly negligible, but it will launch mildly quicker.
 		if count := LoadObjects(); len(Flags.Verbose) > 0 && count > 0 {
 			LogInfo.Printf("Loaded %d game objects.\n", count)
 		}
@@ -208,6 +204,9 @@ func UpdateMobileEntities() {
 				} else if c.player.FinishedPath() && !c.player.WithinRange(followingClient.player.Location, 2) {
 					c.player.SetPath(entity.NewPathway(followingClient.player.X, followingClient.player.Y))
 				}
+			}
+			if c.player.DistancedAction != nil {
+				c.player.DistancedAction()
 			}
 			c.player.TraversePath()
 		}

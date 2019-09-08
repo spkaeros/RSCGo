@@ -134,7 +134,7 @@ func (l *EntityList) GetObject(x, y int) *Object {
 func (l *EntityList) ContainsObject(o *Object) bool {
 	for _, v := range l.List {
 		if v, ok := v.(*Object); ok {
-			if v.Location().LongestDelta(*o.location) == 0 {
+			if v.Location().LongestDelta(*o.location) == 0 && v.ID == o.ID && v.Direction == o.Direction {
 				return true
 			}
 		}

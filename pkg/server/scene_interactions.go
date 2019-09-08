@@ -9,7 +9,15 @@ var ObjectCommands = make(map[string]func(p *entity.Player, o *entity.Object))
 
 func init() {
 	ObjectCommands["open"] = func(p *entity.Player, o *entity.Object) {
-		LogInfo.Printf("Object with command 'open' interacted with at %v...\n", o.Location())
+		p.DistancedAction = func() {
+			if p.WithinRange(*o.Location(), 1) {
+				newDoor := entity.NewObject(58, o.Direction, o.X(), o.Y(), false)
+				region := entity.GetRegionFromLocation(*o.Location())
+				region.Objects.RemoveObject(o)
+				region.Objects.AddObject(newDoor)
+				p.ResetDistancedAction()
+			}
+		}
 	}
 	PacketHandlers["objectaction"] = func(c *Client, p *packets.Packet) {
 		targetObject := c.player.LocalObjects.GetObject(p.ReadShort(), p.ReadShort())
