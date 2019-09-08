@@ -14,7 +14,7 @@ func init() {
 	PacketHandlers["objectaction"] = func(c *Client, p *packets.Packet) {
 		targetObject := c.player.LocalObjects.GetObject(p.ReadShort(), p.ReadShort())
 		if targetObject != nil {
-			if handler, ok := ObjectCommands[targetObject.Command]; ok {
+			if handler, ok := ObjectCommands[ObjectDefinitions[targetObject.ID].Commands[0]]; ok {
 				handler(c.player, targetObject)
 			}
 		}

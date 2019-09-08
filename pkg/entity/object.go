@@ -7,7 +7,6 @@ type Object struct {
 	Boundary  bool
 	location  *Location
 	index     int
-	Command   string
 }
 
 func (o *Object) Index() int {
@@ -34,6 +33,6 @@ func (o *Object) Location() *Location {
 }
 
 //NewObject Returns a reference to a new instance of a game object.
-func NewObject(id, direction, x, y int, boundary bool, command string) *Object {
-	return &Object{id, direction, boundary, &Location{x, y}, -1, command}
+func NewObject(id, direction, x, y int, boundary bool) *Object {
+	return &Object{id, direction, boundary, &Location{x, y}, -1}
 }

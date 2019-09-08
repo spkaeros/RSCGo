@@ -13,28 +13,38 @@ import (
 )
 
 var objectDefCmd = make(map[int]string)
+var ObjectDefinitions []ObjectDefinition
 
-func LoadObjectDefs() {
+//ObjectDefinition This represents a single definition for a single object in the game.
+type ObjectDefinition struct {
+	ID            int
+	Name          string
+	Commands      []string
+	Description   string
+	Type          int
+	Width, Height int
+	Length        int
+}
+
+//LoadObjectDefinitions Loads game object data into memory for quick access.
+func LoadObjectDefinitions() {
 	database := OpenDatabase(TomlConfig.Database.WorldDB)
 	defer database.Close()
-	rows, err := database.Query("SELECT `command_one` FROM `game_objects`")
+	rows, err := database.Query("SELECT id, name, description, command_one, command_two, type, width, height, ground_item_var FROM `game_objects`")
 	defer rows.Close()
 	if err != nil {
 		LogError.Println("Couldn't load SQLite3 database:", err)
 		return
 	}
-	idx := 0
 	for rows.Next() {
-		var cmd string
-		rows.Scan(&cmd)
-		objectDefCmd[idx] = cmd
-		idx++
+		nextDef := ObjectDefinition{Commands: make([]string, 2)}
+		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.Type, &nextDef.Width, &nextDef.Height, &nextDef.Length)
+		ObjectDefinitions = append(ObjectDefinitions, nextDef)
 	}
 }
 
 //LoadObjects Loads the game objects into memory from the SQLite3 database.
 func LoadObjects() int {
-	LoadObjectDefs()
 	objectCounter := 0
 	database := OpenDatabase(TomlConfig.Database.WorldDB)
 	defer database.Close()
@@ -47,7 +57,7 @@ func LoadObjects() int {
 	var id, direction, kind, x, y int
 	for rows.Next() {
 		rows.Scan(&id, &direction, &kind, &x, &y)
-		o := entity.NewObject(id, direction, x, y, kind != 0, objectDefCmd[id])
+		o := entity.NewObject(id, direction, x, y, kind != 0)
 		o.SetIndex(objectCounter)
 		objectCounter++
 		entity.GetRegion(x, y).AddObject(o)
