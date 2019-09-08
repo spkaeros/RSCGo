@@ -138,6 +138,9 @@ func (c *Client) UpdatePositions() {
 				if c.player.LongestDelta(*o.Location()) <= 20 {
 					if !c.player.LocalObjects.ContainsObject(o) {
 						localObjects = append(localObjects, o)
+					} else if regionObj := c.player.LocalObjects.GetObject(o.X(), o.Y()); regionObj != o {
+						removingObjects = append(removingObjects, regionObj)
+						localObjects = append(localObjects, o)
 					}
 				} else {
 					if c.player.LocalObjects.ContainsObject(o) {
@@ -148,13 +151,13 @@ func (c *Client) UpdatePositions() {
 		}
 	}
 	// TODO: Clean up appearance list code.
-	for _, index := range c.player.Appearances {
-		if v, ok := ClientsIdx[index]; ok {
-			localAppearances = append(localAppearances, v.player)
-		}
-	}
-	localAppearances = append(localAppearances, localPlayers...)
-	c.player.Appearances = c.player.Appearances[:0]
+	//	for _, index := range c.player.Appearances {
+	//		if v, ok := ClientsIdx[index]; ok {
+	//			localAppearances = append(localAppearances, v.player)
+	//		}
+	//	}
+	//	localAppearances = append(localAppearances, localPlayers...)
+	//	c.player.Appearances = c.player.Appearances[:0]
 	// POSITIONS BEFORE EVERYTHING ELSE.
 	if positions := packets.PlayerPositions(c.player, localPlayers, removingPlayers); positions != nil {
 		c.outgoingPackets <- positions

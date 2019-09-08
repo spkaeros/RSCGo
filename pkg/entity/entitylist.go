@@ -108,7 +108,7 @@ func (l *EntityList) RemoveObject(p *Object) {
 	objects := l.List
 	for i, v := range objects {
 		if v, ok := v.(*Object); ok {
-			if v.Location().LongestDelta(*p.location) == 0 {
+			if v.ID == p.ID && v.X() == p.X() && v.Y() == p.Y() && v.Direction == p.Direction {
 				last := len(objects) - 1
 				objects[i] = objects[last]
 				l.List = objects[:last]
@@ -134,7 +134,7 @@ func (l *EntityList) GetObject(x, y int) *Object {
 func (l *EntityList) ContainsObject(o *Object) bool {
 	for _, v := range l.List {
 		if v, ok := v.(*Object); ok {
-			if v.Location().LongestDelta(*o.location) == 0 && v.ID == o.ID && v.Direction == o.Direction {
+			if v.ID == o.ID && v.X() == o.X() && v.Y() == o.Y() && v.Direction == o.Direction {
 				return true
 			}
 		}

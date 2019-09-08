@@ -1,6 +1,8 @@
 package entity
 
-import "strconv"
+import (
+	"strconv"
+)
 
 //TODO: Probably remove the Attribute type-alias.
 //Attribute Type-alias for attribute names.  Might not need this, was just so to provide methods for them, don't think I'm doing it anymore
@@ -9,27 +11,36 @@ type Attribute string
 //AttributeList A type alias for a map of strings to empty interfaces, to hold generic player information for easy serialization and to provide dynamic insertion/deletion of new player properties easily
 type AttributeList map[Attribute]interface{}
 
+type DistancedAction struct {
+	Destination Location
+	Arrived     func()
+}
+
+func NewDistancedAction(dst Location) *DistancedAction {
+	return &DistancedAction{Destination: dst}
+}
+
 //Player Represents a single player.
 type Player struct {
-	state           MobState
-	Username        string
-	UserBase37      uint64
-	Password        string
-	Path            *Pathway
-	FriendList      map[uint64]bool
-	IgnoreList      []uint64
-	LocalPlayers    *EntityList
-	LocalObjects    *EntityList
-	Connected       bool
-	Updating        bool
-	Appearances     []int
-	Skillset        *SkillTable
-	DatabaseIndex   int
-	Rank            int
-	Attributes      AttributeList
-	TransAttrs      AttributeList
-	DistancedAction func()
-	Appearance      *AppearanceTable
+	State         MobState
+	Username      string
+	UserBase37    uint64
+	Password      string
+	Path          *Pathway
+	FriendList    map[uint64]bool
+	IgnoreList    []uint64
+	LocalPlayers  *EntityList
+	LocalObjects  *EntityList
+	Connected     bool
+	Updating      bool
+	Appearances   []int
+	Skillset      *SkillTable
+	DatabaseIndex int
+	Rank          int
+	Attributes    AttributeList
+	TransAttrs    AttributeList
+	WalkAction    *DistancedAction
+	Appearance    *AppearanceTable
 	Entity
 }
 
@@ -96,7 +107,6 @@ func (p *Player) SetIndex(idx int) {
 //ResetDistancedAction Resets the players path and distanced action callback.
 func (p *Player) ResetDistancedAction() {
 	p.ResetPath()
-	p.DistancedAction = nil
 }
 
 //VarEquipment Returns the attribute mapped to by name, and if it doesn't exist, returns 1.
@@ -387,16 +397,6 @@ func (p *Player) AtCoords(x, y int) bool {
 	return p.X == x && p.Y == y
 }
 
-//State Returns the players state.
-func (p *Player) State() MobState {
-	return p.state
-}
-
-//SetState Sets the players state.
-func (p *Player) SetState(state MobState) {
-	p.state = state
-}
-
 //Direction Returns the players direction.
 func (p *Player) Direction() int {
 	return p.Attributes.VarInt("direction", 0)
@@ -409,5 +409,5 @@ func (p *Player) SetDirection(direction int) {
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
-	return &Player{Entity: Entity{Index: -1}, state: Idle, Attributes: make(AttributeList), TransAttrs: make(AttributeList), LocalPlayers: &EntityList{}, LocalObjects: &EntityList{}, Skillset: &SkillTable{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false, FriendList: make(map[uint64]bool)}
+	return &Player{Entity: Entity{Index: -1}, State: Idle, Attributes: make(AttributeList), TransAttrs: make(AttributeList), LocalPlayers: &EntityList{}, LocalObjects: &EntityList{}, Skillset: &SkillTable{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false, FriendList: make(map[uint64]bool)}
 }

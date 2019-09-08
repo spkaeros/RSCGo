@@ -12,45 +12,71 @@ var object2Handlers = make(map[int]func(p *entity.Player, o *entity.Object))
 
 func init() {
 	objectHandlers[57] = func(p *entity.Player, o *entity.Object) {
-		p.DistancedAction = func() {
-			if p.WithinRange(*o.Location(), 1) {
-				newDoor := entity.NewObject(58, o.Direction, o.X(), o.Y(), false)
-				region := entity.GetRegionFromLocation(*o.Location())
-				region.Objects.RemoveObject(o)
-				region.Objects.AddObject(newDoor)
-				p.ResetDistancedAction()
-			}
+		if p.WithinRange(*o.Location(), 1) {
+			region := entity.GetRegionFromLocation(*o.Location())
+			region.Objects.RemoveObject(o)
+			region.Objects.AddObject(entity.NewObject(58, o.Direction, o.X(), o.Y(), false))
+			return
 		}
 	}
 	object2Handlers[58] = func(p *entity.Player, o *entity.Object) {
-		p.DistancedAction = func() {
-			if p.WithinRange(*o.Location(), 1) {
-				newDoor := entity.NewObject(57, o.Direction, o.X(), o.Y(), false)
-				region := entity.GetRegionFromLocation(*o.Location())
-				region.Objects.RemoveObject(o)
-				region.Objects.AddObject(newDoor)
-				p.ResetDistancedAction()
-			}
+		if p.WithinRange(*o.Location(), 1) {
+			region := entity.GetRegionFromLocation(*o.Location())
+			region.Objects.RemoveObject(o)
+			region.Objects.AddObject(entity.NewObject(57, o.Direction, o.X(), o.Y(), false))
+			return
 		}
 	}
 	PacketHandlers["objectaction"] = func(c *Client, p *packets.Packet) {
-		targetObject := c.player.LocalObjects.GetObject(p.ReadShort(), p.ReadShort())
-		if targetObject != nil {
-			if handler, ok := objectHandlers[targetObject.ID]; ok {
-				handler(c.player, targetObject)
-			} else if handler, ok := objectCommandHandlers[ObjectDefinitions[targetObject.ID].Commands[0]]; ok {
-				handler(c.player, targetObject)
-			}
+		x := p.ReadShort()
+		y := p.ReadShort()
+		if object := entity.GetRegion(x, y).Objects.GetObject(x, y); object != nil {
+			c.player.WalkAction = &entity.DistancedAction{Destination: *object.Location(), Arrived: func() {
+				target := entity.GetRegionFromLocation(*object.Location()).Objects.GetObject(object.X(), object.Y())
+				if c.player.State != entity.Idle || target != object || !c.player.WithinRange(*target.Location(), 1) {
+					return
+				}
+				c.player.ResetPath()
+				handler, ok := objectHandlers[target.ID]
+				if ok {
+					// If there is a handler for this specific ID, call it
+					handler(c.player, target)
+					return
+				}
+				// Otherwise, check for handlers associated by commands, and then by names, before giving up.
+				handler, ok = objectCommandHandlers[ObjectDefinitions[target.ID].Commands[0]]
+				if ok {
+					handler(c.player, target)
+					return
+				}
+				c.outgoingPackets <- packets.ServerMessage("Nothing interesting happens.")
+			}}
 		}
 	}
 	PacketHandlers["objectaction2"] = func(c *Client, p *packets.Packet) {
-		targetObject := c.player.LocalObjects.GetObject(p.ReadShort(), p.ReadShort())
-		if targetObject != nil {
-			if handler, ok := object2Handlers[targetObject.ID]; ok {
-				handler(c.player, targetObject)
-			} else if handler, ok := objectCommand2Handlers[ObjectDefinitions[targetObject.ID].Commands[1]]; ok {
-				handler(c.player, targetObject)
-			}
+		x := p.ReadShort()
+		y := p.ReadShort()
+		if object := entity.GetRegion(x, y).Objects.GetObject(x, y); object != nil {
+			c.player.WalkAction = &entity.DistancedAction{Destination: *object.Location(), Arrived: func() {
+				target := entity.GetRegionFromLocation(*object.Location()).Objects.GetObject(object.X(), object.Y())
+				if c.player.State != entity.Idle || target != object || !c.player.WithinRange(*target.Location(), 1) {
+					return
+				}
+				c.player.ResetPath()
+				handler, ok := object2Handlers[target.ID]
+				if ok {
+					// If there is a handler for this specific ID, call it
+					handler(c.player, target)
+					return
+				}
+				// Otherwise, check for handlers associated by commands, and then by names, before giving up.
+				handler, ok = objectCommand2Handlers[ObjectDefinitions[target.ID].Commands[1]]
+				if ok {
+					handler(c.player, target)
+					return
+				}
+				c.outgoingPackets <- packets.ServerMessage("Nothing interesting happens.")
+			}}
 		}
 	}
 }

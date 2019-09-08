@@ -205,8 +205,11 @@ func UpdateMobileEntities() {
 					c.player.SetPath(entity.NewPathway(followingClient.player.X, followingClient.player.Y))
 				}
 			}
-			if c.player.DistancedAction != nil {
-				c.player.DistancedAction()
+			if c.player.WalkAction != nil {
+				if c.player.WithinRange(c.player.WalkAction.Destination, 1) {
+					c.player.WalkAction.Arrived()
+					c.player.WalkAction = nil
+				}
 			}
 			c.player.TraversePath()
 		}
