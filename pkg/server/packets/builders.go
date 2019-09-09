@@ -12,6 +12,9 @@ var epoch = uint64(time.Now().UnixNano() / int64(time.Millisecond))
 //WelcomeMessage Welcome to the game on login
 var WelcomeMessage = ServerMessage("Welcome to RuneScape")
 
+//DefaultActionMessage This is a message to inform the player that the action they were trying to perform didn't do anything.
+var DefaultActionMessage = ServerMessage("Nothing interesting happens.")
+
 //ServerMessage Builds a packet containing a server message to display in the chat box.
 func ServerMessage(msg string) (p *Packet) {
 	p = NewOutgoingPacket(48)
