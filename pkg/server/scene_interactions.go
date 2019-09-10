@@ -10,21 +10,15 @@ type actionHandler func(p *entity.Player, args ...interface{})
 var objectHandlers = make(map[interface{}]actionHandler)
 var object2Handlers = make(map[interface{}]actionHandler)
 
-//replaceObject Replaces object with a new game object having all of the same attributes, except its ID will be newID.
-func replaceObject(object *entity.Object, newID int) {
-	region := entity.GetRegionFromLocation(object.Location)
-	region.Objects.Remove(object)
-	region.Objects.Add(entity.NewObject(newID, object.Direction, object.X, object.Y, object.Boundary))
-}
-
 func init() {
 	doors := make(map[int]int)
 	doors[59] = 60
-	doors[60] = 59
 	doors[57] = 58
-	doors[58] = 57
 	doors[63] = 64
-	doors[64] = 63
+	for k, v := range doors {
+		// Add value->key to handle close as well as open.
+		doors[v] = k
+	}
 	objectHandlers["open"] = func(p *entity.Player, args ...interface{}) {
 		if len(args) <= 0 {
 			LogWarning.Println("Must provide at least 1 argument to action handlers.")
@@ -37,7 +31,7 @@ func init() {
 			return
 		}
 		if newID, ok := doors[object.ID]; ok {
-			replaceObject(object, newID)
+			entity.ReplaceObject(object, newID)
 		}
 	}
 	object2Handlers["close"] = func(p *entity.Player, args ...interface{}) {
@@ -52,7 +46,7 @@ func init() {
 			return
 		}
 		if newID, ok := doors[object.ID]; ok {
-			replaceObject(object, newID)
+			entity.ReplaceObject(object, newID)
 		}
 	}
 	PacketHandlers["objectaction"] = func(c *Client, p *packets.Packet) {

@@ -95,7 +95,7 @@ func (c *Client) destroy() {
 		go c.Save()
 		entity.RemovePlayer(c.player)
 		c.player.TransAttrs["plrremove"] = true
-		BroadcastLogin(c.player.UserBase37, false)
+		BroadcastLogin(c.player, false)
 		delete(Clients, c.player.UserBase37)
 		LogInfo.Printf("Unregistered: %v\n", c)
 	}
@@ -114,37 +114,16 @@ func (c *Client) UpdatePositions() {
 	var localPlayers []*entity.Player
 	var localAppearances []*entity.Player
 	var localObjects []*entity.Object
-	for _, p := range c.player.NearbyPlayers() {
-		if !c.player.LocalPlayers.Contains(p) {
-			localPlayers = append(localPlayers, p)
-		}
-		if len(localPlayers) >= 25 {
-			// Max of 25 new players per tick, prevents huge packets.
+	for _, p := range c.player.NewPlayers() {
+		if len(c.player.LocalPlayers.List) >= 255 || len(localPlayers) >= 25 {
+			// No more than 255 players in view at once, no more than 25 new players at once.
 			break
 		}
+		localPlayers = append(localPlayers, p)
 	}
-	for _, o := range c.player.NearbyObjects() {
-		if !c.player.LocalObjects.Contains(o) {
-			localObjects = append(localObjects, o)
-		}
+	for _, o := range c.player.NewObjects() {
+		localObjects = append(localObjects, o)
 	}
-	/*
-		for _, r := range entity.SurroundingRegions(c.player.X, c.player.Y) {
-			for _, o := range r.Objects.List {
-				if o, ok := o.(*entity.Object); ok {
-					if c.player.LongestDelta(o.Location) <= 20 {
-						if !c.player.LocalObjects.Contains(o) {
-							localObjects = append(localObjects, o)
-						}
-					} else {
-						if c.player.LocalObjects.Contains(o) {
-							removingObjects = append(removingObjects, o)
-						}
-					}
-				}
-			}
-		}
-	*/
 	// TODO: Clean up appearance list code.
 	//	for _, index := range c.player.Appearances {
 	//		if v, ok := ClientsIdx[index]; ok {
@@ -210,7 +189,7 @@ func (c *Client) sendLoginResponse(i byte) {
 			c.player.Skillset.Maximum[i] = level
 			c.player.Skillset.Experience[i] = exp
 		}
-		c.outgoingPackets <- packets.PlayerInfo(c.player)
+		c.outgoingPackets <- packets.PlaneInfo(c.player)
 		c.outgoingPackets <- packets.PlayerStats(c.player)
 		c.outgoingPackets <- packets.EquipmentStats(c.player)
 		c.outgoingPackets <- packets.FightMode(c.player)
@@ -221,7 +200,7 @@ func (c *Client) sendLoginResponse(i byte) {
 		c.outgoingPackets <- packets.WelcomeMessage
 		c.outgoingPackets <- packets.ServerInfo(len(Clients))
 		c.outgoingPackets <- packets.LoginBox(0, c.ip)
-		BroadcastLogin(c.player.UserBase37, true)
+		BroadcastLogin(c.player, true)
 	}
 }
 

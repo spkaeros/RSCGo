@@ -237,7 +237,7 @@ func (p *Player) SetFightMode(i int) {
 	p.Attributes["fight_mode"] = i
 }
 
-//NearbyPlayers Returns the nearby players from the current and nearest adjacent regions in a slice.
+//NearbyPlayers Returns nearby players.
 func (p *Player) NearbyPlayers() (players []*Player) {
 	for _, r := range SurroundingRegions(p.X, p.Y) {
 		players = append(players, r.Players.NearbyPlayers(p)...)
@@ -246,13 +246,57 @@ func (p *Player) NearbyPlayers() (players []*Player) {
 	return
 }
 
-//NearbyObjects Returns the nearby objects from the current and nearest adjacent regions in a slice.
+//NearbyObjects Returns nearby objects.
 func (p *Player) NearbyObjects() (objects []*Object) {
 	for _, r := range SurroundingRegions(p.X, p.Y) {
 		objects = append(objects, r.Objects.NearbyObjects(p)...)
 	}
 
 	return
+}
+
+//NewObjects Returns nearby objects that this player is unaware of.
+func (p *Player) NewObjects() (objects []*Object) {
+	for _, r := range SurroundingRegions(p.X, p.Y) {
+		for _, o := range r.Objects.NearbyObjects(p) {
+			if !p.LocalObjects.Contains(o) {
+				objects = append(objects, o)
+			}
+		}
+	}
+
+	return
+}
+
+//NewPlayers Returns nearby players that this player is unaware of.
+func (p *Player) NewPlayers() (players []*Player) {
+	for _, r := range SurroundingRegions(p.X, p.Y) {
+		for _, p1 := range r.Players.NearbyPlayers(p) {
+			if !p.LocalPlayers.Contains(p1) {
+				players = append(players, p1)
+			}
+		}
+	}
+
+	return
+}
+
+//SetLocation Sets the mobs location.
+func (p *Player) SetLocation(location Location) {
+	p.SetCoords(location.X, location.Y)
+}
+
+//SetCoords Sets the mobs locations coordinates.
+func (p *Player) SetCoords(x, y int) {
+	curArea := GetRegion(p.X, p.Y)
+	newArea := GetRegion(x, y)
+	if newArea != curArea {
+		if curArea.Players.Contains(p) {
+			curArea.Players.Remove(p)
+		}
+		newArea.Players.Add(p)
+	}
+	p.Mob.SetCoords(x, y)
 }
 
 //NewPlayer Returns a reference to a new player.

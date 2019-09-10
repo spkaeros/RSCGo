@@ -101,12 +101,6 @@ func (m *Mob) SetLocation(location Location) {
 
 //SetCoords Sets the mobs locations coordinates.
 func (m *Mob) SetCoords(x, y int) {
-	curArea := GetRegion(m.X, m.Y)
-	newArea := GetRegion(x, y)
-	if newArea != curArea {
-		curArea.Players.Remove(m)
-		newArea.Players.Add(m)
-	}
 	m.UpdateDirection(x, y)
 	m.X = x
 	m.Y = y

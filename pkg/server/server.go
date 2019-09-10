@@ -240,16 +240,14 @@ func startGameEngine() {
 }
 
 //BroadcastLogin Broadcasts the login status of the user with hash as their base37 username
-func BroadcastLogin(hash uint64, online bool) {
-	for _, v := range Clients {
-		if v.player.Friends(hash) {
-			if loginClient, ok := Clients[hash]; ok {
-				if !loginClient.player.FriendBlocked() || loginClient.player.Friends(v.player.UserBase37) {
-					v.outgoingPackets <- packets.FriendUpdate(hash, online)
-				}
+func BroadcastLogin(player *entity.Player, online bool) {
+	Broadcast(func(c *Client) {
+		if c.player.Friends(player.UserBase37) {
+			if !player.FriendBlocked() || player.Friends(c.player.UserBase37) {
+				c.outgoingPackets <- packets.FriendUpdate(player.UserBase37, online)
 			}
 		}
-	}
+	})
 }
 
 //ClientFromIndex Helper function to find a specific client reference from its assigned server index.  If there is no player with the index, returns nil.

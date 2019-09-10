@@ -352,8 +352,8 @@ func LoginResponse(v int) *Packet {
 	return NewBarePacket([]byte{byte(v)})
 }
 
-//PlayerInfo Builds a packet to update information about the clients environment, e.g height, player index...
-func PlayerInfo(player *entity.Player) *Packet {
+//PlaneInfo Builds a packet to update information about the clients environment, e.g height, player index...
+func PlaneInfo(player *entity.Player) *Packet {
 	playerInfo := NewOutgoingPacket(131)
 	playerInfo.AddShort(uint16(player.Index))
 	playerInfo.AddShort(2304)
