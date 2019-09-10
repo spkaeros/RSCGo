@@ -93,7 +93,7 @@ func (c *Client) destroy() {
 		// Always try to launch I/O-heavy functions in their own goroutine.
 		// Goroutines are light-weight and made for this kind of thing.
 		go c.Save()
-		entity.GetRegion(c.player.X, c.player.Y).RemovePlayer(c.player)
+		entity.RemovePlayer(c.player)
 		c.player.TransAttrs["plrremove"] = true
 		BroadcastLogin(c.player.UserBase37, false)
 		delete(Clients, c.player.UserBase37)
@@ -123,11 +123,11 @@ func (c *Client) UpdatePositions() {
 		for _, p := range r.Players.List {
 			if p, ok := p.(*entity.Player); ok && p.Index != c.Index {
 				if c.player.LongestDelta(p.Location) <= 15 {
-					if !c.player.LocalPlayers.ContainsPlayer(p) {
+					if !c.player.LocalPlayers.Contains(p) {
 						localPlayers = append(localPlayers, p)
 					}
 				} else {
-					if c.player.LocalPlayers.ContainsPlayer(p) {
+					if c.player.LocalPlayers.Contains(p) {
 						removingPlayers = append(removingPlayers, p)
 					}
 				}
@@ -135,15 +135,12 @@ func (c *Client) UpdatePositions() {
 		}
 		for _, o := range r.Objects.List {
 			if o, ok := o.(*entity.Object); ok {
-				if c.player.LongestDelta(*o.Location()) <= 20 {
-					if !c.player.LocalObjects.ContainsObject(o) {
-						localObjects = append(localObjects, o)
-					} else if regionObj := c.player.LocalObjects.GetObject(o.X(), o.Y()); regionObj != o {
-						removingObjects = append(removingObjects, regionObj)
+				if c.player.LongestDelta(o.Location) <= 20 {
+					if !c.player.LocalObjects.Contains(o) {
 						localObjects = append(localObjects, o)
 					}
 				} else {
-					if c.player.LocalObjects.ContainsObject(o) {
+					if c.player.LocalObjects.Contains(o) {
 						removingObjects = append(removingObjects, o)
 					}
 				}
@@ -156,7 +153,7 @@ func (c *Client) UpdatePositions() {
 	//			localAppearances = append(localAppearances, v.player)
 	//		}
 	//	}
-	//	localAppearances = append(localAppearances, localPlayers...)
+	localAppearances = append(localAppearances, localPlayers...)
 	//	c.player.Appearances = c.player.Appearances[:0]
 	// POSITIONS BEFORE EVERYTHING ELSE.
 	if positions := packets.PlayerPositions(c.player, localPlayers, removingPlayers); positions != nil {
@@ -201,7 +198,7 @@ func (c *Client) sendLoginResponse(i byte) {
 		c.Destroy()
 	} else {
 		LogInfo.Printf("Registered: %v\n", c)
-		entity.GetRegionFromLocation(c.player.Location).Players.AddPlayer(c.player)
+		entity.GetRegionFromLocation(c.player.Location).Players.Add(c.player)
 		c.player.TransAttrs["plrchanged"] = true
 		c.player.Connected = true
 		for i := 0; i < 18; i++ {
@@ -243,6 +240,7 @@ func (c *Client) HandleLogin(reply chan byte) {
 	}
 }
 
+//IP Parses the players remote IP address and returns it as a go string.  TODO: Should I remove this?
 func (c *Client) IP() string {
 	return strings.Split(c.socket.RemoteAddr().String(), ":")[0]
 }

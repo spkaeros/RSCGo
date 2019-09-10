@@ -9,7 +9,7 @@ import (
 func init() {
 	PacketHandlers["chatmsg"] = func(c *Client, p *packets.Packet) {
 		for _, v := range c.player.LocalPlayers.List {
-			if v, ok := v.(*entity.Player); ok && (!v.ChatBlocked() || v.FriendsWith(c.player.UserBase37)) {
+			if v, ok := v.(*entity.Player); ok && (!v.ChatBlocked() || v.Friends(c.player.UserBase37)) {
 				c1 := ClientFromIndex(v.Index)
 				if c1 != nil {
 					c1.outgoingPackets <- packets.PlayerChat(c.Index, string(p.Payload))
@@ -22,11 +22,11 @@ func init() {
 		defer func() {
 			c.outgoingPackets <- packets.FriendList(c.player)
 		}()
-		if c.player.FriendsWith(hash) {
+		if c.player.Friends(hash) {
 			c.outgoingPackets <- packets.ServerMessage("@que@You are already friends with that person!")
 			return
 		}
-		if c.player.Ignored(hash) {
+		if c.player.Ignoring(hash) {
 			c.outgoingPackets <- packets.ServerMessage("@que@Please remove '" + strutil.DecodeBase37(hash) + "' from your ignore list before friending them.")
 			return
 		}
@@ -37,7 +37,7 @@ func init() {
 	}
 	PacketHandlers["privmsg"] = func(c *Client, p *packets.Packet) {
 		if c1, ok := Clients[p.ReadLong()]; ok {
-			if !c1.player.FriendBlocked() || c1.player.FriendsWith(c.player.UserBase37) {
+			if !c1.player.FriendBlocked() || c1.player.Friends(c.player.UserBase37) {
 				c1.outgoingPackets <- packets.PrivateMessage(c.player.UserBase37, strutil.FormatChatMessage(strutil.UnpackChatMessage(p.Payload[8:])))
 			}
 		}
@@ -47,7 +47,7 @@ func init() {
 		defer func() {
 			c.outgoingPackets <- packets.FriendList(c.player)
 		}()
-		if !c.player.FriendsWith(hash) {
+		if !c.player.Friends(hash) {
 			c.outgoingPackets <- packets.ServerMessage("@que@You are not friends with that person!")
 			return
 		}
@@ -61,11 +61,11 @@ func init() {
 		defer func() {
 			c.outgoingPackets <- packets.IgnoreList(c.player)
 		}()
-		if c.player.FriendsWith(hash) {
+		if c.player.Friends(hash) {
 			c.outgoingPackets <- packets.ServerMessage("@que@Please remove '" + strutil.DecodeBase37(hash) + "' from your friend list before ignoring them.")
 			return
 		}
-		if c.player.Ignored(hash) {
+		if c.player.Ignoring(hash) {
 			c.outgoingPackets <- packets.ServerMessage("@que@You are already ignoring that person!")
 			return
 		}
@@ -76,7 +76,7 @@ func init() {
 		defer func() {
 			c.outgoingPackets <- packets.IgnoreList(c.player)
 		}()
-		if !c.player.Ignored(hash) {
+		if !c.player.Ignoring(hash) {
 			c.outgoingPackets <- packets.ServerMessage("@que@You are not ignoring that person!")
 			return
 		}

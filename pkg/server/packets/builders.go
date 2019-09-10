@@ -185,7 +185,7 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 		p.AddBits(1, 1)
 		p.AddBits(1, 1)
 		p.AddBits(3, 2)
-		player.LocalPlayers.RemovePlayer(p1)
+		player.LocalPlayers.Remove(p1)
 		counter++
 	}
 	for _, p1 := range player.LocalPlayers.List {
@@ -195,7 +195,7 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
-				player.LocalPlayers.RemovePlayer(p1)
+				player.LocalPlayers.Remove(p1)
 				counter++
 			} else if p1.TransAttrs.VarBool("plrmoved", false) {
 				p.AddBits(1, 1)
@@ -226,7 +226,7 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 		p.AddBits(offsetY, 5)
 		p.AddBits(p1.Direction(), 4)
 		p.AddBits(1, 1)
-		player.LocalPlayers.AddPlayer(p1)
+		player.LocalPlayers.Add(p1)
 		counter++
 	}
 	if counter <= 0 {
@@ -278,10 +278,10 @@ func ObjectLocations(player *entity.Player, newObjects []*entity.Object, removin
 			continue
 		}
 		p.AddShort(32767)
-		p.AddByte(byte(o.X() - player.X))
-		p.AddByte(byte(o.Y() - player.Y))
+		p.AddByte(byte(o.X - player.X))
+		p.AddByte(byte(o.Y - player.Y))
 		p.AddByte(byte(o.Direction))
-		player.LocalObjects.RemoveObject(o)
+		player.LocalObjects.Remove(o)
 		counter++
 	}
 	for _, o := range newObjects {
@@ -289,10 +289,10 @@ func ObjectLocations(player *entity.Player, newObjects []*entity.Object, removin
 			continue
 		}
 		p.AddShort(uint16(o.ID))
-		p.AddByte(byte(o.X() - player.X))
-		p.AddByte(byte(o.Y() - player.Y))
+		p.AddByte(byte(o.X - player.X))
+		p.AddByte(byte(o.Y - player.Y))
 		p.AddByte(byte(o.Direction))
-		player.LocalObjects.AddObject(o)
+		player.LocalObjects.Add(o)
 		counter++
 	}
 	if counter == 0 {
@@ -311,10 +311,10 @@ func BoundaryLocations(player *entity.Player, newObjects []*entity.Object, remov
 			continue
 		}
 		p.AddShort(32767)
-		p.AddByte(byte(o.X() - player.X))
-		p.AddByte(byte(o.Y() - player.Y))
+		p.AddByte(byte(o.X - player.X))
+		p.AddByte(byte(o.Y - player.Y))
 		p.AddByte(byte(o.Direction))
-		player.LocalObjects.RemoveObject(o)
+		player.LocalObjects.Remove(o)
 		counter++
 	}
 	for _, o := range newObjects {
@@ -322,10 +322,10 @@ func BoundaryLocations(player *entity.Player, newObjects []*entity.Object, remov
 			continue
 		}
 		p.AddShort(uint16(o.ID))
-		p.AddByte(byte(o.X() - player.X))
-		p.AddByte(byte(o.Y() - player.Y))
+		p.AddByte(byte(o.X - player.X))
+		p.AddByte(byte(o.Y - player.Y))
 		p.AddByte(byte(o.Direction))
-		player.LocalObjects.AddObject(o)
+		player.LocalObjects.Add(o)
 		counter++
 	}
 	if counter == 0 {

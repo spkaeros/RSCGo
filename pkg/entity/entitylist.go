@@ -1,37 +1,25 @@
 package entity
 
+import (
+	"log"
+	"os"
+)
+
+//Entity A stationary scene entity within the game world.
 type Entity struct {
 	Location
 	Index int
 }
 
-//EntityList Represents a list of Entity scene entities.
-type EntityList struct {
+//LogWarning Log interface for warnings.
+var LogWarning = log.New(os.Stdout, "[WARNING] ", log.Ltime|log.Lshortfile)
+
+//List Represents a list of Entity scene entities.
+type List struct {
 	List []interface{}
 }
 
-func (l *EntityList) AddEntity(e *Entity) {
-	l.List = append(l.List, e)
-}
-
-func (l *EntityList) RemoveEntity(e Entity) {
-	entitys := l.List
-	for i, v := range l.List {
-		if v, ok := v.(Entity); ok && v.Index == e.Index {
-			last := len(entitys) - 1
-			entitys[i] = entitys[last]
-			l.List = entitys[:last]
-			return
-		}
-	}
-}
-
-//AddPlayer Add a player to the region.
-func (l *EntityList) AddPlayer(p *Player) {
-	l.List = append(l.List, p)
-}
-
-func (l *EntityList) NearbyPlayers(p *Player) []*Player {
+func (l *List) NearbyPlayers(p *Player) []*Player {
 	var players []*Player
 	for _, v := range l.List {
 		if v, ok := v.(*Player); ok && v.Index != p.Index && p.LongestDelta(v.Location) <= 15 {
@@ -41,7 +29,7 @@ func (l *EntityList) NearbyPlayers(p *Player) []*Player {
 	return players
 }
 
-func (l *EntityList) RemovingPlayers(p *Player) []*Player {
+func (l *List) RemovingPlayers(p *Player) []*Player {
 	var players []*Player
 	for _, v := range l.List {
 		if v, ok := v.(*Player); ok && v.Index != p.Index && p.LongestDelta(v.Location) > 15 {
@@ -51,93 +39,52 @@ func (l *EntityList) RemovingPlayers(p *Player) []*Player {
 	return players
 }
 
-func (l *EntityList) NearbyObjects(p *Player) []*Object {
+func (l *List) NearbyObjects(p *Player) []*Object {
 	var objects []*Object
 	for _, o1 := range l.List {
-		if o1, ok := o1.(*Object); ok && o1.Index() != p.Index && p.LongestDelta(*o1.location) <= 20 {
+		if o1, ok := o1.(*Object); ok && p.LongestDelta(o1.Location) <= 20 {
 			objects = append(objects, o1)
 		}
 	}
 	return objects
 }
 
-func (l *EntityList) RemovingObjects(p *Player) []*Object {
+func (l *List) RemovingObjects(p *Player) []*Object {
 	var objects []*Object
 	for _, o1 := range l.List {
-		if o1, ok := o1.(*Object); ok && p.LongestDelta(*o1.location) > 20 {
+		if o1, ok := o1.(*Object); ok && p.LongestDelta(o1.Location) > 20 {
 			objects = append(objects, o1)
 		}
 	}
 	return objects
 }
 
-//ContainsPlayer Returns true if the receiver list contains the player specified, false otherwise.
-func (l *EntityList) ContainsPlayer(p *Player) bool {
+//Add Add an entity to the list.
+func (l *List) Add(e interface{}) {
+	l.List = append(l.List, e)
+}
+
+//Contains Returns true if e is an element of l, otherwise returns false.
+func (l *List) Contains(e interface{}) bool {
 	for _, v := range l.List {
-		if v, ok := v.(*Player); ok {
-			if v.Index == p.Index {
-				return true
-			}
+		if v == e {
+			// Pointers should be comparable?
+			return true
 		}
 	}
+
 	return false
 }
 
-//RemovePlayer Remove a player from the region.
-func (l *EntityList) RemovePlayer(p *Player) {
-	players := l.List
-	for i, v := range players {
-		if v, ok := v.(*Player); ok {
-			if v.Index == p.Index {
-				last := len(players) - 1
-				players[i] = players[last]
-				l.List = players[:last]
-				return
-			}
+//Remove Removes Entity e from List l.
+func (l *List) Remove(e interface{}) {
+	elems := l.List
+	for i, v := range elems {
+		if v == e {
+			last := len(elems) - 1
+			elems[i] = elems[last]
+			l.List = elems[:last]
+			return
 		}
 	}
-}
-
-//AddObject Add an object to the list.
-func (l *EntityList) AddObject(p *Object) {
-	l.List = append(l.List, p)
-}
-
-//RemoveObject Remove an object from the list.
-func (l *EntityList) RemoveObject(p *Object) {
-	objects := l.List
-	for i, v := range objects {
-		if v, ok := v.(*Object); ok {
-			if v.ID == p.ID && v.X() == p.X() && v.Y() == p.Y() && v.Direction == p.Direction {
-				last := len(objects) - 1
-				objects[i] = objects[last]
-				l.List = objects[:last]
-				return
-			}
-		}
-	}
-}
-
-//GetObject Looks for an object at given coordinates.  If found, returns a reference to it.  Otherwise, returns nil
-func (l *EntityList) GetObject(x, y int) *Object {
-	for _, v := range l.List {
-		if v, ok := v.(*Object); ok {
-			if v.Location().X == x && v.Location().Y == y {
-				return v
-			}
-		}
-	}
-	return nil
-}
-
-//ContainsObject Returns true if the receiver list contains the player specified, false otherwise.
-func (l *EntityList) ContainsObject(o *Object) bool {
-	for _, v := range l.List {
-		if v, ok := v.(*Object); ok {
-			if v.ID == o.ID && v.X() == o.X() && v.Y() == o.Y() && v.Direction == o.Direction {
-				return true
-			}
-		}
-	}
-	return false
 }

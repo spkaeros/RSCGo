@@ -15,30 +15,50 @@ const (
 
 //Region Represents a 48x48 section of map.  The purpose of this is to keep track of entities in the entire world without having to allocate tiles individually, which would make search algorithms slower and utilizes a great deal of memory.
 type Region struct {
-	Players *EntityList
-	Objects *EntityList
+	Players *List
+	Objects *List
 }
 
 var regions [HorizontalPlanes][VerticalPlanes]*Region
 
 //AddPlayer Add a player to the region.
-func (r *Region) AddPlayer(p *Player) {
-	r.Players.AddPlayer(p)
+func AddPlayer(p *Player) {
+	GetRegion(p.X, p.Y).Players.Add(p)
 }
 
 //RemovePlayer Remove a player from the region.
-func (r *Region) RemovePlayer(p *Player) {
-	r.Players.RemovePlayer(p)
+func RemovePlayer(p *Player) {
+	GetRegion(p.X, p.Y).Players.Remove(p)
 }
 
 //AddObject Add an object to the region.
-func (r *Region) AddObject(o *Object) {
-	r.Objects.AddObject(o)
+func AddObject(o *Object) {
+	GetRegion(o.X, o.Y).Objects.Add(o)
 }
 
 //RemoveObject Remove an object from the region.
-func (r *Region) RemoveObject(o *Object) {
-	r.Objects.RemoveObject(o)
+func RemoveObject(o *Object) {
+	GetRegion(o.X, o.Y).Objects.Remove(o)
+}
+
+//ReplaceObject Replaces old with a new game object with all of the same characteristics, except it's ID set to newID.
+func ReplaceObject(old *Object, newID int) {
+	r := GetRegionFromLocation(old.Location)
+	r.Objects.Remove(old)
+	r.Objects.Add(NewObject(newID, old.Direction, old.X, old.Y, old.Boundary))
+}
+
+//GetObject If there is an object at these coordinates, returns it.  Otherwise, returns nil.
+func GetObject(x, y int) *Object {
+	for _, o := range GetRegion(x, y).Objects.List {
+		if o, ok := o.(*Object); ok {
+			if o.X == x && o.Y == y {
+				return o
+			}
+		}
+	}
+
+	return nil
 }
 
 //getRegionFromIndex internal function to get a region by its row amd column indexes
@@ -52,7 +72,7 @@ func getRegionFromIndex(areaX, areaY int) *Region {
 		return &Region{}
 	}
 	if regions[areaX][areaY] == nil {
-		regions[areaX][areaY] = &Region{&EntityList{}, &EntityList{}}
+		regions[areaX][areaY] = &Region{&List{}, &List{}}
 	}
 	return regions[areaX][areaY]
 }

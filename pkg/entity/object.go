@@ -5,34 +5,20 @@ type Object struct {
 	ID        int
 	Direction int
 	Boundary  bool
-	location  *Location
-	index     int
+	Entity
 }
 
-func (o *Object) Index() int {
-	return o.index
-}
+//Equals Returns true if o1 is an object reference with identical characteristics to o.
+func (o *Object) Equals(o1 interface{}) bool {
+	if o1, ok := o1.(*Object); ok {
+		// We can ignore index, right?
+		return o1.ID == o.ID && o1.X == o.X && o1.Y == o.Y && o1.Direction == o.Direction && o1.Boundary == o.Boundary
+	}
 
-func (o *Object) SetIndex(idx int) {
-	o.index = idx
-}
-
-//X Returns the objects X coordinate.
-func (o *Object) X() int {
-	return o.location.X
-}
-
-//Y Returns the objects Y coordinate.
-func (o *Object) Y() int {
-	return o.location.Y
-}
-
-//Location Returns the objects location in the game world.
-func (o *Object) Location() *Location {
-	return o.location
+	return false
 }
 
 //NewObject Returns a reference to a new instance of a game object.
 func NewObject(id, direction, x, y int, boundary bool) *Object {
-	return &Object{id, direction, boundary, &Location{x, y}, -1}
+	return &Object{id, direction, boundary, Entity{Location{x, y}, -1}}
 }

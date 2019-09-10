@@ -205,12 +205,6 @@ func UpdateMobileEntities() {
 					c.player.SetPath(entity.NewPathway(followingClient.player.X, followingClient.player.Y))
 				}
 			}
-			if c.player.WalkAction != nil {
-				if c.player.WithinRange(c.player.WalkAction.Destination, 1) {
-					c.player.WalkAction.Arrived()
-					c.player.WalkAction = nil
-				}
-			}
 			c.player.TraversePath()
 		}
 	}
@@ -257,9 +251,9 @@ func startGameEngine() {
 //BroadcastLogin Broadcasts the login status of the user with hash as their base37 username
 func BroadcastLogin(hash uint64, online bool) {
 	for _, v := range Clients {
-		if v.player.FriendsWith(hash) {
+		if v.player.Friends(hash) {
 			if loginClient, ok := Clients[hash]; ok {
-				if !loginClient.player.FriendBlocked() || loginClient.player.FriendsWith(v.player.UserBase37) {
+				if !loginClient.player.FriendBlocked() || loginClient.player.Friends(v.player.UserBase37) {
 					v.outgoingPackets <- packets.FriendUpdate(hash, online)
 				}
 			}

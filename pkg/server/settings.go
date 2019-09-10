@@ -19,18 +19,18 @@ func init() {
 		if c.player.FriendBlocked() && !friendBlocked {
 			// turning off private chat block
 			for hash, c1 := range Clients {
-				if c1.player.FriendsWith(c.player.UserBase37) && !c.player.FriendsWith(hash) {
+				if c1.player.Friends(c.player.UserBase37) && !c.player.Friends(hash) {
 					c1.outgoingPackets <- packets.FriendUpdate(c.player.UserBase37, true)
 				}
 			}
 		} else if !c.player.FriendBlocked() && friendBlocked {
 			// turning on private chat block
 			for hash, c1 := range Clients {
-				if c1.player.FriendsWith(c.player.UserBase37) && !c.player.FriendsWith(hash) {
+				if c1.player.Friends(c.player.UserBase37) && !c.player.Friends(hash) {
 					c1.outgoingPackets <- packets.FriendUpdate(c.player.UserBase37, false)
 				}
 			}
 		}
-		c.player.ResetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, duelBlocked)
+		c.player.SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, duelBlocked)
 	}
 }

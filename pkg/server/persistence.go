@@ -12,7 +12,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var objectDefCmd = make(map[int]string)
+//ObjectDefinitions This holds the defining characteristics for all of the game's scene objects, ordered by ID.
 var ObjectDefinitions []ObjectDefinition
 
 //ObjectDefinition This represents a single definition for a single object in the game.
@@ -58,9 +58,9 @@ func LoadObjects() int {
 	for rows.Next() {
 		rows.Scan(&id, &direction, &kind, &x, &y)
 		o := entity.NewObject(id, direction, x, y, kind != 0)
-		o.SetIndex(objectCounter)
+		o.Index = objectCounter
 		objectCounter++
-		entity.GetRegion(x, y).AddObject(o)
+		entity.AddObject(o)
 	}
 	return objectCounter
 }
@@ -122,7 +122,7 @@ func (c *Client) LoadPlayer(usernameHash uint64, password string, loginReply cha
 
 	c.player.UserBase37 = usernameHash
 	c.player.Username = strutil.DecodeBase37(usernameHash)
-	c.player.SetIndex(c.Index)
+	c.player.Index = c.Index
 	Clients[usernameHash] = c
 	loginReply <- byte(0)
 	return
