@@ -11,6 +11,16 @@ type Entity struct {
 	Index int
 }
 
+//AtLocation Returns true if the entity is at the specified location, otherwise returns false
+func (e *Entity) AtLocation(location *Location) bool {
+	return e.AtCoords(location.X, location.Y)
+}
+
+//AtCoords Returns true if the entity is at the specified coordinates, otherwise returns false
+func (e *Entity) AtCoords(x, y int) bool {
+	return e.X == x && e.Y == y
+}
+
 //LogWarning Log interface for warnings.
 var LogWarning = log.New(os.Stdout, "[WARNING] ", log.Ltime|log.Lshortfile)
 

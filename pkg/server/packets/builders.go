@@ -169,7 +169,7 @@ func PlayerStat(player *entity.Player, idx int) *Packet {
 
 //PlayerPositions Builds a packet containing view area player position and sprite information, including ones own information, and returns it.
 // If no players need to be updated, returns nil.
-func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*entity.Player) (p *Packet) {
+func PlayerPositions(player *entity.Player, newPlayers []*entity.Player) (p *Packet) {
 	p = NewOutgoingPacket(145)
 	// Note: X coords can be held in 10 bits and Y can be held in 12 bits
 	//  Presumably, Jagex used 11 and 13 to evenly fill 3 bytes of data?
@@ -178,14 +178,7 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 	p.AddBits(player.Direction(), 4)
 	p.AddBits(len(player.LocalPlayers.List), 8)
 	counter := 0
-	if player.TransAttrs.VarBool("plrremove", false) || !player.TransAttrs.VarBool("plrself", false) || player.TransAttrs.VarBool("plrmoved", false) || player.TransAttrs.VarBool("plrchanged", true) {
-		counter++
-	}
-	for _, p1 := range removing {
-		p.AddBits(1, 1)
-		p.AddBits(1, 1)
-		p.AddBits(3, 2)
-		player.LocalPlayers.Remove(p1)
+	if player.TransAttrs.VarBool("plrremove", false) || !player.TransAttrs.VarBool("plrself", false) || player.TransAttrs.VarBool("plrmoved", false) || player.TransAttrs.VarBool("plrchanged", false) {
 		counter++
 	}
 	for _, p1 := range player.LocalPlayers.List {
@@ -197,22 +190,22 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 				p.AddBits(3, 2)
 				player.LocalPlayers.Remove(p1)
 				counter++
-			} else if p1.TransAttrs.VarBool("plrmoved", false) {
+			} else if p1.TransAttrs.VarBool("plrmoved", false) || p1.TransAttrs.VarBool("plrchanged", false) {
 				p.AddBits(1, 1)
-				p.AddBits(0, 1)
-				p.AddBits(p1.Direction(), 3)
-				counter++
-			} else if p1.TransAttrs.VarBool("plrchanged", false) {
-				p.AddBits(1, 1)
-				p.AddBits(1, 1)
-				p.AddBits(p1.Direction(), 4)
+				if p1.TransAttrs.VarBool("plrmoved", false) {
+					p.AddBits(0, 1)
+					p.AddBits(p1.Direction(), 3)
+				} else {
+					p.AddBits(1, 1)
+					p.AddBits(p1.Direction(), 4)
+				}
 				counter++
 			} else {
 				p.AddBits(0, 1)
 			}
 		}
 	}
-	for _, p1 := range local {
+	for _, p1 := range newPlayers {
 		p.AddBits(p1.Index, 11)
 		offsetX := (p1.X - player.X)
 		if offsetX < 0 {
@@ -225,7 +218,7 @@ func PlayerPositions(player *entity.Player, local []*entity.Player, removing []*
 		p.AddBits(offsetX, 5)
 		p.AddBits(offsetY, 5)
 		p.AddBits(p1.Direction(), 4)
-		p.AddBits(1, 1)
+		p.AddBits(0, 1)
 		player.LocalPlayers.Add(p1)
 		counter++
 	}
@@ -270,19 +263,23 @@ func PlayerAppearances(ourPlayer *entity.Player, local []*entity.Player) (p *Pac
 
 //ObjectLocations Builds a packet with the view-area object positions in it, relative to the player.
 // If no new objects are available and no existing local objects are removed from area, returns nil.
-func ObjectLocations(player *entity.Player, newObjects []*entity.Object, removingObjects []*entity.Object) (p *Packet) {
+func ObjectLocations(player *entity.Player, newObjects []*entity.Object) (p *Packet) {
 	counter := 0
 	p = NewOutgoingPacket(27)
-	for _, o := range removingObjects {
-		if o.Boundary {
-			continue
+	for _, o := range player.LocalObjects.List {
+		if o, ok := o.(*entity.Object); ok {
+			if o.Boundary {
+				continue
+			}
+			if !player.WithinRange(o.Location, 21) {
+				p.AddShort(32767)
+				p.AddByte(byte(o.X - player.X))
+				p.AddByte(byte(o.Y - player.Y))
+				p.AddByte(byte(o.Direction))
+				player.LocalObjects.Remove(o)
+				counter++
+			}
 		}
-		p.AddShort(32767)
-		p.AddByte(byte(o.X - player.X))
-		p.AddByte(byte(o.Y - player.Y))
-		p.AddByte(byte(o.Direction))
-		player.LocalObjects.Remove(o)
-		counter++
 	}
 	for _, o := range newObjects {
 		if o.Boundary {
@@ -303,19 +300,23 @@ func ObjectLocations(player *entity.Player, newObjects []*entity.Object, removin
 
 //BoundaryLocations Builds a packet with the view-area boundary positions in it, relative to the player.
 // If no new objects are available and no existing local boundarys are removed from area, returns nil.
-func BoundaryLocations(player *entity.Player, newObjects []*entity.Object, removingObjects []*entity.Object) (p *Packet) {
+func BoundaryLocations(player *entity.Player, newObjects []*entity.Object) (p *Packet) {
 	counter := 0
 	p = NewOutgoingPacket(95)
-	for _, o := range removingObjects {
-		if !o.Boundary {
-			continue
+	for _, o := range player.LocalObjects.List {
+		if o, ok := o.(*entity.Object); ok {
+			if !o.Boundary {
+				continue
+			}
+			if !player.WithinRange(o.Location, 21) {
+				p.AddShort(32767)
+				p.AddByte(byte(o.X - player.X))
+				p.AddByte(byte(o.Y - player.Y))
+				p.AddByte(byte(o.Direction))
+				player.LocalObjects.Remove(o)
+				counter++
+			}
 		}
-		p.AddShort(32767)
-		p.AddByte(byte(o.X - player.X))
-		p.AddByte(byte(o.Y - player.Y))
-		p.AddByte(byte(o.Direction))
-		player.LocalObjects.Remove(o)
-		counter++
 	}
 	for _, o := range newObjects {
 		if !o.Boundary {

@@ -203,7 +203,7 @@ func PlayerAttributes(player *entity.Player) error {
 				LogInfo.Printf("Error loading int attribute[%v]: value=%v\n", name, value[1:])
 				LogInfo.Println(err)
 			}
-			player.Attributes[entity.Attribute(name)] = int(val)
+			player.Attributes[name] = int(val)
 			break
 		case 'l':
 			val, err := strconv.ParseUint(value[1:], 10, 64)
@@ -211,7 +211,7 @@ func PlayerAttributes(player *entity.Player) error {
 				LogInfo.Printf("Error loading long int attribute[%v]: value=%v\n", name, value[1:])
 				LogInfo.Println(err)
 			}
-			player.Attributes[entity.Attribute(name)] = uint(val)
+			player.Attributes[name] = uint(val)
 			break
 		case 'b':
 			val, err := strconv.ParseBool(value[1:])
@@ -219,7 +219,7 @@ func PlayerAttributes(player *entity.Player) error {
 				LogInfo.Printf("Error loading boolean attribute[%v]: value=%v\n", name, value[1:])
 				LogInfo.Println(err)
 			}
-			player.Attributes[entity.Attribute(name)] = val
+			player.Attributes[name] = val
 			break
 		}
 	}

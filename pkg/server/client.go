@@ -103,50 +103,48 @@ func (c *Client) destroy() {
 
 //ResetUpdateFlags Resets the players movement updating synchronization variables.
 func (c *Client) ResetUpdateFlags() {
-	c.player.TransAttrs["plrremove"] = false
-	c.player.TransAttrs["plrmoved"] = false
-	c.player.TransAttrs["plrchanged"] = false
-	c.player.TransAttrs["plrself"] = true
+	delete(c.player.TransAttrs, "plrremove")
+	delete(c.player.TransAttrs, "plrmoved")
+	delete(c.player.TransAttrs, "plrchanged")
+	delete(c.player.TransAttrs, "plrself")
 }
 
 //UpdatePositions Updates the client about entities in it's view-area (16x16 tiles in the game world surrounding the player).  Should be run every game engine tick.
 func (c *Client) UpdatePositions() {
-	if c.player.Location.Equals(entity.DeathSpot) {
-		return
-	}
 	var localPlayers []*entity.Player
 	var localAppearances []*entity.Player
-	var removingPlayers []*entity.Player
 	var localObjects []*entity.Object
-	var removingObjects []*entity.Object
-	for _, r := range entity.SurroundingRegions(c.player.X, c.player.Y) {
-		for _, p := range r.Players.List {
-			if p, ok := p.(*entity.Player); ok && p.Index != c.Index {
-				if c.player.LongestDelta(p.Location) <= 15 {
-					if !c.player.LocalPlayers.Contains(p) {
-						localPlayers = append(localPlayers, p)
-					}
-				} else {
-					if c.player.LocalPlayers.Contains(p) {
-						removingPlayers = append(removingPlayers, p)
-					}
-				}
-			}
+	for _, p := range c.player.NearbyPlayers() {
+		if !c.player.LocalPlayers.Contains(p) {
+			localPlayers = append(localPlayers, p)
 		}
-		for _, o := range r.Objects.List {
-			if o, ok := o.(*entity.Object); ok {
-				if c.player.LongestDelta(o.Location) <= 20 {
-					if !c.player.LocalObjects.Contains(o) {
-						localObjects = append(localObjects, o)
-					}
-				} else {
-					if c.player.LocalObjects.Contains(o) {
-						removingObjects = append(removingObjects, o)
-					}
-				}
-			}
+		if len(localPlayers) >= 25 {
+			// Max of 25 new players per tick, prevents huge packets.
+			break
 		}
 	}
+	for _, o := range c.player.NearbyObjects() {
+		if !c.player.LocalObjects.Contains(o) {
+			localObjects = append(localObjects, o)
+		}
+	}
+	/*
+		for _, r := range entity.SurroundingRegions(c.player.X, c.player.Y) {
+			for _, o := range r.Objects.List {
+				if o, ok := o.(*entity.Object); ok {
+					if c.player.LongestDelta(o.Location) <= 20 {
+						if !c.player.LocalObjects.Contains(o) {
+							localObjects = append(localObjects, o)
+						}
+					} else {
+						if c.player.LocalObjects.Contains(o) {
+							removingObjects = append(removingObjects, o)
+						}
+					}
+				}
+			}
+		}
+	*/
 	// TODO: Clean up appearance list code.
 	//	for _, index := range c.player.Appearances {
 	//		if v, ok := ClientsIdx[index]; ok {
@@ -156,16 +154,16 @@ func (c *Client) UpdatePositions() {
 	localAppearances = append(localAppearances, localPlayers...)
 	//	c.player.Appearances = c.player.Appearances[:0]
 	// POSITIONS BEFORE EVERYTHING ELSE.
-	if positions := packets.PlayerPositions(c.player, localPlayers, removingPlayers); positions != nil {
+	if positions := packets.PlayerPositions(c.player, localPlayers); positions != nil {
 		c.outgoingPackets <- positions
 	}
 	if appearances := packets.PlayerAppearances(c.player, localAppearances); appearances != nil {
 		c.outgoingPackets <- appearances
 	}
-	if objectUpdates := packets.ObjectLocations(c.player, localObjects, removingObjects); objectUpdates != nil {
+	if objectUpdates := packets.ObjectLocations(c.player, localObjects); objectUpdates != nil {
 		c.outgoingPackets <- objectUpdates
 	}
-	if boundaryUpdates := packets.BoundaryLocations(c.player, localObjects, removingObjects); boundaryUpdates != nil {
+	if boundaryUpdates := packets.BoundaryLocations(c.player, localObjects); boundaryUpdates != nil {
 		c.outgoingPackets <- boundaryUpdates
 	}
 }

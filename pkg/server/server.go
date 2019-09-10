@@ -191,39 +191,11 @@ func asyncExecute(wg *sync.WaitGroup, fn func()) {
 	}()
 }
 
-//UpdateMobileEntities Updates all mobile scene entities that are traversing a path
-func UpdateMobileEntities() {
+//Broadcast Call action passing in every active client to perform a task on everyone playing.
+func Broadcast(action func(c *Client)) {
 	for _, c := range Clients {
 		if c != nil && c.player.Connected {
-			if c.player.IsFollowing() {
-				followingClient := ClientFromIndex(c.player.FollowIndex())
-				if followingClient == nil || !c.player.Location.WithinRange(followingClient.player.Location, 15) {
-					c.player.ResetFollowing()
-				} else if !c.player.FinishedPath() && c.player.WithinRange(followingClient.player.Location, 2) {
-					c.player.ResetPath()
-				} else if c.player.FinishedPath() && !c.player.WithinRange(followingClient.player.Location, 2) {
-					c.player.SetPath(entity.NewPathway(followingClient.player.X, followingClient.player.Y))
-				}
-			}
-			c.player.TraversePath()
-		}
-	}
-}
-
-//UpdateClientState Sends the new positions to the clients
-func UpdateClientState() {
-	for _, c := range Clients {
-		if c != nil && c.player.Connected {
-			c.UpdatePositions()
-		}
-	}
-}
-
-//ResetUpdateFlags Resets the variables used for client updating synchronization.
-func ResetUpdateFlags() {
-	for _, c := range Clients {
-		if c != nil && c.player.Connected {
-			c.ResetUpdateFlags()
+			action(c)
 		}
 	}
 }
@@ -231,9 +203,28 @@ func ResetUpdateFlags() {
 //Tick One game engine 'tick'.  This is to handle movement, to synchronize clients, to update movement-related state variables...
 // Runs every 600ms.
 func Tick() {
-	UpdateMobileEntities()
-	UpdateClientState()
-	ResetUpdateFlags()
+	//	UpdateMobileEntities()
+	Broadcast(func(c *Client) {
+		if c.player.IsFollowing() {
+			followingClient := ClientFromIndex(c.player.FollowIndex())
+			if followingClient == nil || !c.player.Location.WithinRange(followingClient.player.Location, 15) {
+				c.player.ResetFollowing()
+			} else if !c.player.FinishedPath() && c.player.WithinRange(followingClient.player.Location, 2) {
+				c.player.ResetPath()
+			} else if c.player.FinishedPath() && !c.player.WithinRange(followingClient.player.Location, 2) {
+				c.player.SetPath(entity.NewPathway(followingClient.player.X, followingClient.player.Y))
+			}
+		}
+		c.player.TraversePath()
+	})
+	//	UpdateClientState()
+	Broadcast(func(c *Client) {
+		c.UpdatePositions()
+	})
+	//	ResetUpdateFlags()
+	Broadcast(func(c *Client) {
+		c.ResetUpdateFlags()
+	})
 }
 
 //startGameEngine Launches a goroutine to handle updating the state of the server every 600ms in a

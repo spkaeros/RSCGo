@@ -20,6 +20,7 @@ type Player struct {
 	DatabaseIndex int
 	Rank          int
 	Appearance    *AppearanceTable
+	Attributes    AttributeList
 	Mob
 }
 
@@ -86,22 +87,22 @@ func (p *Player) DuelBlocked() bool {
 
 //SetPrivacySettings Sets privacy settings to specified values.
 func (p *Player) SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, duelBlocked bool) {
-	p.Attributes.SetVar(Attribute("chat_block"), chatBlocked)
-	p.Attributes.SetVar(Attribute("friend_block"), friendBlocked)
-	p.Attributes.SetVar(Attribute("trade_block"), tradeBlocked)
-	p.Attributes.SetVar(Attribute("duel_block"), duelBlocked)
+	p.Attributes.SetVar("chat_block", chatBlocked)
+	p.Attributes.SetVar("friend_block", friendBlocked)
+	p.Attributes.SetVar("trade_block", tradeBlocked)
+	p.Attributes.SetVar("duel_block", duelBlocked)
 }
 
 //SetClientSetting Sets the specified client setting to flag.
 func (p *Player) SetClientSetting(id int, flag bool) {
 	// TODO: Meaningful names mapped to IDs
-	p.Attributes.SetVar(Attribute("client_setting_"+strconv.Itoa(id)), flag)
+	p.Attributes.SetVar("client_setting_"+strconv.Itoa(id), flag)
 }
 
 //GetClientSetting Looks up the client setting with the specified ID, and returns it.  If it can't be found, returns false.
 func (p *Player) GetClientSetting(id int) bool {
 	// TODO: Meaningful names mapped to IDs
-	return p.Attributes.VarBool(Attribute("client_setting_"+strconv.Itoa(id)), false)
+	return p.Attributes.VarBool("client_setting_"+strconv.Itoa(id), false)
 }
 
 //IsFollowing Returns true if the player is following another mob, otherwise false.
@@ -245,7 +246,16 @@ func (p *Player) NearbyPlayers() (players []*Player) {
 	return
 }
 
+//NearbyObjects Returns the nearby objects from the current and nearest adjacent regions in a slice.
+func (p *Player) NearbyObjects() (objects []*Object) {
+	for _, r := range SurroundingRegions(p.X, p.Y) {
+		objects = append(objects, r.Objects.NearbyObjects(p)...)
+	}
+
+	return
+}
+
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
-	return &Player{Mob: Mob{Entity: Entity{Index: -1}, Skillset: &SkillTable{}, State: Idle, Attributes: make(AttributeList), TransAttrs: make(AttributeList)}, LocalPlayers: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false, FriendList: make(map[uint64]bool)}
+	return &Player{Mob: Mob{Entity: Entity{Index: -1}, Skillset: &SkillTable{}, State: Idle, TransAttrs: make(AttributeList)}, Attributes: make(AttributeList), LocalPlayers: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false, FriendList: make(map[uint64]bool)}
 }

@@ -32,18 +32,17 @@ type Mob struct {
 	State      MobState
 	Skillset   *SkillTable
 	Path       *Pathway
-	Attributes AttributeList
 	TransAttrs AttributeList
 }
 
 //Direction Returns the mobs direction.
 func (m *Mob) Direction() int {
-	return m.Attributes.VarInt("direction", 0)
+	return m.TransAttrs.VarInt("direction", 0)
 }
 
 //SetDirection Sets the mobs direction.
 func (m *Mob) SetDirection(direction int) {
-	m.Attributes["direction"] = direction
+	m.TransAttrs["direction"] = direction
 }
 
 //SetPath Sets the mob's current pathway to path.  If path is nil, effectively resets the mobs path.
@@ -53,7 +52,7 @@ func (m *Mob) SetPath(path *Pathway) {
 
 //ResetPath Sets the mobs path to nil, to stop the traversal of the path instantly
 func (m *Mob) ResetPath() {
-	m.SetPath(nil)
+	m.Path = nil
 }
 
 //TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
@@ -81,16 +80,6 @@ func (m *Mob) FinishedPath() bool {
 	}
 	next := m.Path.NextTile(m.X, m.Y)
 	return m.AtLocation(&next)
-}
-
-//AtLocation Returns true if the mob is at the specified location, otherwise returns false
-func (m *Mob) AtLocation(location *Location) bool {
-	return m.AtCoords(location.X, location.Y)
-}
-
-//AtCoords Returns true if the mob is at the specified coordinates, otherwise returns false
-func (m *Mob) AtCoords(x, y int) bool {
-	return m.X == x && m.Y == y
 }
 
 //UpdateDirection Updates the direction the mob is facing based on where the mob is trying to move, and where the mob is currently at.
@@ -123,20 +112,16 @@ func (m *Mob) SetCoords(x, y int) {
 	m.Y = y
 }
 
-//TODO: Probably remove the Attribute type-alias.
-//Attribute Type-alias for attribute names.  Might not need this, was just so to provide methods for them, don't think I'm doing it anymore
-type Attribute string
-
 //AttributeList A type alias for a map of strings to empty interfaces, to hold generic mob information for easy serialization and to provide dynamic insertion/deletion of new mob properties easily
-type AttributeList map[Attribute]interface{}
+type AttributeList map[string]interface{}
 
 //SetVar Sets the attribute mapped at name to value in the attribute map.
-func (attributes AttributeList) SetVar(name Attribute, value interface{}) {
+func (attributes AttributeList) SetVar(name string, value interface{}) {
 	attributes[name] = value
 }
 
 //VarInt If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
-func (attributes AttributeList) VarInt(name Attribute, zero int) int {
+func (attributes AttributeList) VarInt(name string, zero int) int {
 	if _, ok := attributes[name].(int); !ok {
 		attributes[name] = zero
 	}
@@ -145,7 +130,7 @@ func (attributes AttributeList) VarInt(name Attribute, zero int) int {
 }
 
 //VarLong If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
-func (attributes AttributeList) VarLong(name Attribute, zero uint64) uint64 {
+func (attributes AttributeList) VarLong(name string, zero uint64) uint64 {
 	if _, ok := attributes[name].(uint64); !ok {
 		attributes[name] = zero
 	}
@@ -154,7 +139,7 @@ func (attributes AttributeList) VarLong(name Attribute, zero uint64) uint64 {
 }
 
 //VarBool If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
-func (attributes AttributeList) VarBool(name Attribute, zero bool) bool {
+func (attributes AttributeList) VarBool(name string, zero bool) bool {
 	if _, ok := attributes[name].(bool); !ok {
 		attributes[name] = zero
 	}
