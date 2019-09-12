@@ -29,7 +29,7 @@ func (p *Player) RunDistancedAction(dest Location, action func()) {
 	go func() {
 		// TODO: Is checking 10 times per second good enough?  Probably.
 		for range time.Tick(100 * time.Millisecond) {
-			if p.State != MS_Idle {
+			if p.State != MSIdle {
 				// We became busy somehow, so cancel
 				return
 			}
@@ -301,5 +301,5 @@ func (p *Player) SetCoords(x, y int) {
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
-	return &Player{Mob: Mob{Entity: Entity{Index: -1}, Skillset: &SkillTable{}, State: MS_Idle, TransAttrs: make(AttributeList)}, Attributes: make(AttributeList), LocalPlayers: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false, FriendList: make(map[uint64]bool)}
+	return &Player{Mob: Mob{Entity: Entity{Index: -1}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: make(AttributeList)}, Attributes: make(AttributeList), LocalPlayers: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false, FriendList: make(map[uint64]bool)}
 }
