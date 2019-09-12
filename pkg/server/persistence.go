@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"strconv"
 
-	"bitbucket.org/zlacki/rscgo/pkg/entity"
+	"bitbucket.org/zlacki/rscgo/pkg/world"
 	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 
@@ -43,8 +43,8 @@ func LoadObjectDefinitions() {
 	}
 }
 
-//LoadObjects Loads the game objects into memory from the SQLite3 database.
-func LoadObjects() int {
+//LoadObjectLocations Loads the game objects into memory from the SQLite3 database.
+func LoadObjectLocations() int {
 	objectCounter := 0
 	database := OpenDatabase(TomlConfig.Database.WorldDB)
 	defer database.Close()
@@ -54,13 +54,10 @@ func LoadObjects() int {
 		LogError.Println("Couldn't load SQLite3 database:", err)
 		return 0
 	}
-	var id, direction, kind, x, y int
+	var id, direction, boundary, x, y int
 	for rows.Next() {
-		rows.Scan(&id, &direction, &kind, &x, &y)
-		o := entity.NewObject(id, direction, x, y, kind != 0)
-		o.Index = objectCounter
-		objectCounter++
-		entity.AddObject(o)
+		rows.Scan(&id, &direction, &boundary, &x, &y)
+		world.AddObject(world.NewObject(id, direction, x, y, boundary != 0))
 	}
 	return objectCounter
 }
@@ -102,9 +99,6 @@ func (c *Client) LoadPlayer(usernameHash uint64, password string, loginReply cha
 		}
 		rows.Scan(&c.player.DatabaseIndex, &c.player.X, &c.player.Y, &c.player.Rank, &c.player.Appearance.Hair, &c.player.Appearance.Top, &c.player.Appearance.Bottom, &c.player.Appearance.Skin, &c.player.Appearance.Head, &c.player.Appearance.Body)
 		return nil
-	}
-	if err := validateCredentials(); err != nil {
-		return
 	}
 	loadAttributes := func() error {
 		database := OpenDatabase(TomlConfig.Database.PlayerDB)
@@ -178,6 +172,10 @@ func (c *Client) LoadPlayer(usernameHash uint64, password string, loginReply cha
 			}
 		}
 		return nil
+	}
+	// If this fails, then the login information was incorrect, and we don't need to do anything else
+	if err := validateCredentials(); err != nil {
+		return
 	}
 	if err := loadAttributes(); err != nil {
 		return

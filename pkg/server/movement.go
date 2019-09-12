@@ -1,7 +1,7 @@
 package server
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/entity"
+	"bitbucket.org/zlacki/rscgo/pkg/world"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 )
 
@@ -18,7 +18,7 @@ func init() {
 		if c.player.IsFollowing() {
 			c.player.ResetFollowing()
 		}
-		c.player.SetPath(entity.NewPathwayComplete(startX, startY, waypointsX, waypointsY))
+		c.player.SetPath(world.NewPathwayComplete(startX, startY, waypointsX, waypointsY))
 	}
 	PacketHandlers["walktoentity"] = func(c *Client, p *packets.Packet) {
 		startX := p.ReadShort()
@@ -32,7 +32,7 @@ func init() {
 		if c.player.IsFollowing() {
 			c.player.ResetFollowing()
 		}
-		c.player.SetPath(entity.NewPathwayComplete(startX, startY, waypointsX, waypointsY))
+		c.player.SetPath(world.NewPathwayComplete(startX, startY, waypointsX, waypointsY))
 	}
 	PacketHandlers["followreq"] = func(c *Client, p *packets.Packet) {
 		playerID := p.ReadShort()

@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
+	"bitbucket.org/zlacki/rscgo/pkg/world"
 )
 
 //Client Represents a single connecting client.
@@ -20,7 +20,7 @@ type Client struct {
 	isaacStream                      *IsaacStream
 	Kill                             chan struct{}
 	networkingGroup                  sync.WaitGroup
-	player                           *entity.Player
+	player                           *world.Player
 	socket                           net.Conn
 	incomingPackets, outgoingPackets chan *packets.Packet
 	destroying, reconnecting         bool
@@ -91,7 +91,7 @@ func (c *Client) destroy() {
 		// Always try to launch I/O-heavy functions in their own goroutine.
 		// Goroutines are light-weight and made for this kind of thing.
 		go c.Save()
-		entity.RemovePlayer(c.player)
+		world.RemovePlayer(c.player)
 		c.player.TransAttrs["plrremove"] = true
 		BroadcastLogin(c.player, false)
 		delete(Clients, c.player.UserBase37)
@@ -109,9 +109,9 @@ func (c *Client) ResetUpdateFlags() {
 
 //UpdatePositions Updates the client about entities in it's view-area (16x16 tiles in the game world surrounding the player).  Should be run every game engine tick.
 func (c *Client) UpdatePositions() {
-	var localPlayers []*entity.Player
-	var localAppearances []*entity.Player
-	var localObjects []*entity.Object
+	var localPlayers []*world.Player
+	var localAppearances []*world.Player
+	var localObjects []*world.Object
 	for _, p := range c.player.NewPlayers() {
 		if len(c.player.LocalPlayers.List) >= 255 || len(localPlayers) >= 25 {
 			// No more than 255 players in view at once, no more than 25 new players at once.
@@ -173,7 +173,7 @@ func (c *Client) sendLoginResponse(i byte) {
 		c.Destroy()
 	} else {
 		LogInfo.Printf("Registered: %v\n", c)
-		entity.AddPlayer(c.player)
+		world.AddPlayer(c.player)
 		c.player.TransAttrs["plrchanged"] = true
 		c.player.Connected = true
 		for i := 0; i < 18; i++ {
@@ -222,7 +222,7 @@ func (c *Client) IP() string {
 
 //NewClient Creates a new instance of a Client, launches goroutines to handle I/O for it, and returns a reference to it.
 func NewClient(socket net.Conn) *Client {
-	c := &Client{socket: socket, incomingPackets: make(chan *packets.Packet, 20), outgoingPackets: make(chan *packets.Packet, 20), Index: -1, Kill: make(chan struct{}), player: entity.NewPlayer(), buffer: make([]byte, 5000), ip: strings.Split(socket.RemoteAddr().String(), ":")[0]}
+	c := &Client{socket: socket, incomingPackets: make(chan *packets.Packet, 20), outgoingPackets: make(chan *packets.Packet, 20), Index: -1, Kill: make(chan struct{}), player: world.NewPlayer(), buffer: make([]byte, 5000), ip: strings.Split(socket.RemoteAddr().String(), ":")[0]}
 	for lastIdx := 0; lastIdx < 2048; lastIdx++ {
 		if _, ok := ClientsIdx[lastIdx]; !ok {
 			c.Index = lastIdx

@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
+	"bitbucket.org/zlacki/rscgo/pkg/world"
 )
 
 //CommandHandlers A map to assign in-game commands to the functions they should execute.
@@ -60,14 +60,14 @@ func teleport(c *Client, args []string) {
 	}
 	x, _ := strconv.Atoi(args[0])
 	y, _ := strconv.Atoi(args[1])
-	if x >= entity.MaxX || y >= entity.MaxY || x < 0 || y < 0 {
-		c.outgoingPackets <- packets.ServerMessage(fmt.Sprintf("@que@Invalid coordinates.  Must be between 0,0 and %v,%v", entity.MaxX, entity.MaxY))
+	if x >= world.MaxX || y >= world.MaxY || x < 0 || y < 0 {
+		c.outgoingPackets <- packets.ServerMessage(fmt.Sprintf("@que@Invalid coordinates.  Must be between 0,0 and %v,%v", world.MaxX, world.MaxY))
 		return
 	}
-	newLocation := entity.NewLocation(x, y)
+	newLocation := world.NewLocation(x, y)
 	LogInfo.Printf("Teleporting %v from %v to %v\n", c.player.Username, c.player, newLocation)
 	c.outgoingPackets <- packets.TeleBubble(0, 0)
-	for _, p1 := range entity.GetRegionFromLocation(c.player.Location).Players.NearbyPlayers(c.player) {
+	for _, p1 := range world.GetRegionFromLocation(c.player.Location).Players.NearbyPlayers(c.player) {
 		diffX := c.player.X - p1.X
 		diffY := c.player.Y - p1.Y
 		if c1, ok := ClientsIdx[p1.Index]; ok {
@@ -91,7 +91,7 @@ func summon(c *Client, args []string) {
 
 	if c1, ok := Clients[strutil.Base37(name)]; ok {
 		c1.outgoingPackets <- packets.TeleBubble(0, 0)
-		for _, p1 := range entity.GetRegionFromLocation(c1.player.Location).Players.NearbyPlayers(c1.player) {
+		for _, p1 := range world.GetRegionFromLocation(c1.player.Location).Players.NearbyPlayers(c1.player) {
 			diffX := c1.player.X - p1.X
 			diffY := c1.player.Y - p1.Y
 			if c2, ok := ClientsIdx[p1.Index]; ok {
@@ -118,7 +118,7 @@ func gotoTeleport(c *Client, args []string) {
 
 	if c1, ok := Clients[strutil.Base37(name)]; ok {
 		c.outgoingPackets <- packets.TeleBubble(0, 0)
-		for _, p1 := range entity.GetRegionFromLocation(c.player.Location).Players.NearbyPlayers(c.player) {
+		for _, p1 := range world.GetRegionFromLocation(c.player.Location).Players.NearbyPlayers(c.player) {
 			diffX := c.player.X - p1.X
 			diffY := c.player.Y - p1.Y
 			if c2, ok := Clients[p1.UserBase37]; ok {

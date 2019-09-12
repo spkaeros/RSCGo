@@ -1,7 +1,7 @@
-package entity
+package world
 
 /**
- * Package entity contains all of the code that has to do with the actual game world, and the entities within
+ * Package world contains all of the code that has to do with the actual game world, and the entities within
  * said game world.  It may undergo a renaming in the near future to world, or something like that.
  *
  * It contains code that splits up the entire map into 48x48 chunks of 2304 tiles, as holding every tile in

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"bitbucket.org/zlacki/rscgo/pkg/entity"
+	"bitbucket.org/zlacki/rscgo/pkg/world"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 	"github.com/BurntSushi/toml"
@@ -136,7 +136,7 @@ func Start() {
 		}
 	})
 	asyncExecute(&awaitLaunchJobs, func() {
-		if count := LoadObjects(); len(Flags.Verbose) > 0 && count > 0 {
+		if count := LoadObjectLocations(); len(Flags.Verbose) > 0 && count > 0 {
 			LogInfo.Printf("Loaded %d game objects.\n", count)
 		}
 	})
@@ -204,7 +204,7 @@ func Tick() {
 			} else if !c.player.FinishedPath() && c.player.WithinRange(followingClient.player.Location, 2) {
 				c.player.ResetPath()
 			} else if c.player.FinishedPath() && !c.player.WithinRange(followingClient.player.Location, 2) {
-				c.player.SetPath(entity.NewPathway(followingClient.player.X, followingClient.player.Y))
+				c.player.SetPath(world.NewPathway(followingClient.player.X, followingClient.player.Y))
 			}
 		}
 		c.player.TraversePath()
@@ -232,7 +232,7 @@ func startGameEngine() {
 }
 
 //BroadcastLogin Broadcasts the login status of the user with hash as their base37 username
-func BroadcastLogin(player *entity.Player, online bool) {
+func BroadcastLogin(player *world.Player, online bool) {
 	Broadcast(func(c *Client) {
 		if c.player.Friends(player.UserBase37) {
 			if !player.FriendBlocked() || player.Friends(c.player.UserBase37) {

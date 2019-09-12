@@ -1,4 +1,4 @@
-package entity
+package world
 
 //Object Represents a game object in the world.
 type Object struct {

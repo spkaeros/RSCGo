@@ -1,4 +1,4 @@
-package entity
+package world
 
 //MobState Mob state.
 type MobState uint8

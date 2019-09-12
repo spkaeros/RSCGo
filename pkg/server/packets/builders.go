@@ -3,7 +3,7 @@ package packets
 import (
 	"time"
 
-	"bitbucket.org/zlacki/rscgo/pkg/entity"
+	"bitbucket.org/zlacki/rscgo/pkg/world"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 )
 
@@ -50,14 +50,14 @@ func LoginBox(inactiveDays int, lastIP string) (p *Packet) {
 }
 
 //FightMode Builds a packet with the players fight mode information in it.
-func FightMode(player *entity.Player) (p *Packet) {
+func FightMode(player *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(132)
 	p.AddByte(byte(player.FightMode()))
 	return p
 }
 
 //Fatigue Builds a packet with the players fatigue percentage in it.
-func Fatigue(player *entity.Player) (p *Packet) {
+func Fatigue(player *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(244)
 	// Fatigue is converted to percentage differently in the client.
 	// 100% clientside is 750, serverside is 75000.  Needs the extra precision on the server to match RSC
@@ -66,7 +66,7 @@ func Fatigue(player *entity.Player) (p *Packet) {
 }
 
 //FriendList Builds a packet with the players friend list information in it.
-func FriendList(player *entity.Player) (p *Packet) {
+func FriendList(player *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(249)
 	p.AddByte(byte(len(player.FriendList)))
 	for hash, online := range player.FriendList {
@@ -92,7 +92,7 @@ func PrivateMessage(hash uint64, msg string) (p *Packet) {
 }
 
 //IgnoreList Builds a packet with the players ignore list information in it.
-func IgnoreList(player *entity.Player) (p *Packet) {
+func IgnoreList(player *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(2)
 	p.AddByte(byte(len(player.IgnoreList)))
 	for _, hash := range player.IgnoreList {
@@ -114,7 +114,7 @@ func FriendUpdate(hash uint64, online bool) (p *Packet) {
 }
 
 //ClientSettings Builds a packet containing the players client settings, e.g camera mode, mouse mode, sound fx...
-func ClientSettings(player *entity.Player) (p *Packet) {
+func ClientSettings(player *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(152)
 	p.AddByte(0) // Camera auto/manual?
 	p.AddByte(0) // Mouse buttons 1 or 2?
@@ -141,7 +141,7 @@ func PlayerChat(sender int, msg string) *Packet {
 }
 
 //PlayerStats Builds a packet containing all the player's stat information and returns it.
-func PlayerStats(player *entity.Player) *Packet {
+func PlayerStats(player *world.Player) *Packet {
 	p := NewOutgoingPacket(180)
 	for i := 0; i < 18; i++ {
 		p.AddShort(uint16(player.Skillset.Current[i]))
@@ -158,7 +158,7 @@ func PlayerStats(player *entity.Player) *Packet {
 }
 
 //PlayerStat Builds a packet containing player's stat information for skill at idx and returns it.
-func PlayerStat(player *entity.Player, idx int) *Packet {
+func PlayerStat(player *world.Player, idx int) *Packet {
 	p := NewOutgoingPacket(208)
 	p.AddByte(byte(idx))
 	p.AddShort(uint16(player.Skillset.Current[idx]))
@@ -169,7 +169,7 @@ func PlayerStat(player *entity.Player, idx int) *Packet {
 
 //PlayerPositions Builds a packet containing view area player position and sprite information, including ones own information, and returns it.
 // If no players need to be updated, returns nil.
-func PlayerPositions(player *entity.Player, newPlayers []*entity.Player) (p *Packet) {
+func PlayerPositions(player *world.Player, newPlayers []*world.Player) (p *Packet) {
 	p = NewOutgoingPacket(145)
 	// Note: X coords can be held in 10 bits and Y can be held in 12 bits
 	//  Presumably, Jagex used 11 and 13 to evenly fill 3 bytes of data?
@@ -182,7 +182,7 @@ func PlayerPositions(player *entity.Player, newPlayers []*entity.Player) (p *Pac
 		counter++
 	}
 	for _, p1 := range player.LocalPlayers.List {
-		p1, ok := p1.(*entity.Player)
+		p1, ok := p1.(*world.Player)
 		if ok {
 			if p1.LongestDelta(player.Location) > 15 || p1.TransAttrs.VarBool("plrremove", false) {
 				p.AddBits(1, 1)
@@ -229,7 +229,7 @@ func PlayerPositions(player *entity.Player, newPlayers []*entity.Player) (p *Pac
 }
 
 //PlayerAppearances Builds a packet with the view-area player appearance profiles in it.
-func PlayerAppearances(ourPlayer *entity.Player, local []*entity.Player) (p *Packet) {
+func PlayerAppearances(ourPlayer *world.Player, local []*world.Player) (p *Packet) {
 	p = NewOutgoingPacket(53)
 	if ourPlayer.TransAttrs.VarBool("plrchanged", true) {
 		local = append(local, ourPlayer)
@@ -263,11 +263,11 @@ func PlayerAppearances(ourPlayer *entity.Player, local []*entity.Player) (p *Pac
 
 //ObjectLocations Builds a packet with the view-area object positions in it, relative to the player.
 // If no new objects are available and no existing local objects are removed from area, returns nil.
-func ObjectLocations(player *entity.Player, newObjects []*entity.Object) (p *Packet) {
+func ObjectLocations(player *world.Player, newObjects []*world.Object) (p *Packet) {
 	counter := 0
 	p = NewOutgoingPacket(27)
 	for _, o := range player.LocalObjects.List {
-		if o, ok := o.(*entity.Object); ok {
+		if o, ok := o.(*world.Object); ok {
 			if o.Boundary {
 				continue
 			}
@@ -300,11 +300,11 @@ func ObjectLocations(player *entity.Player, newObjects []*entity.Object) (p *Pac
 
 //BoundaryLocations Builds a packet with the view-area boundary positions in it, relative to the player.
 // If no new objects are available and no existing local boundarys are removed from area, returns nil.
-func BoundaryLocations(player *entity.Player, newObjects []*entity.Object) (p *Packet) {
+func BoundaryLocations(player *world.Player, newObjects []*world.Object) (p *Packet) {
 	counter := 0
 	p = NewOutgoingPacket(95)
 	for _, o := range player.LocalObjects.List {
-		if o, ok := o.(*entity.Object); ok {
+		if o, ok := o.(*world.Object); ok {
 			if !o.Boundary {
 				continue
 			}
@@ -336,7 +336,7 @@ func BoundaryLocations(player *entity.Player, newObjects []*entity.Object) (p *P
 }
 
 //EquipmentStats Builds a packet with the players equipment statistics in it.
-func EquipmentStats(player *entity.Player) (p *Packet) {
+func EquipmentStats(player *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(177)
 	p.AddShort(uint16(player.ArmourPoints()))
 	p.AddShort(uint16(player.AimPoints()))
@@ -353,7 +353,7 @@ func LoginResponse(v int) *Packet {
 }
 
 //PlaneInfo Builds a packet to update information about the clients environment, e.g height, player index...
-func PlaneInfo(player *entity.Player) *Packet {
+func PlaneInfo(player *world.Player) *Packet {
 	playerInfo := NewOutgoingPacket(131)
 	playerInfo.AddShort(uint16(player.Index))
 	playerInfo.AddShort(2304)

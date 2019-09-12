@@ -1,17 +1,15 @@
 package server
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/entity"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 )
 
 func init() {
 	PacketHandlers["chatmsg"] = func(c *Client, p *packets.Packet) {
-		for _, v := range c.player.LocalPlayers.List {
-			if v, ok := v.(*entity.Player); ok && (!v.ChatBlocked() || v.Friends(c.player.UserBase37)) {
-				c1 := ClientFromIndex(v.Index)
-				if c1 != nil {
+		for _, v := range c.player.NearbyPlayers() {
+			if !v.ChatBlocked() || v.Friends(c.player.UserBase37) {
+				if c1 := ClientFromIndex(v.Index); c1 != nil {
 					c1.outgoingPackets <- packets.PlayerChat(c.Index, string(p.Payload))
 				}
 			}

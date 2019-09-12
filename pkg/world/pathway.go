@@ -1,4 +1,4 @@
-package entity
+package world
 
 //Pathway Represents a path for a mobile entity to traverse across the virtual world.
 type Pathway struct {
