@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"strconv"
 
-	"bitbucket.org/zlacki/rscgo/pkg/world"
 	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
+	"bitbucket.org/zlacki/rscgo/pkg/world"
 
 	// Necessary for sqlite3 driver
 	_ "github.com/mattn/go-sqlite3"
@@ -24,6 +24,35 @@ type ObjectDefinition struct {
 	Type          int
 	Width, Height int
 	Length        int
+}
+
+//BoundaryDefinitions This holds the defining characteristics for all of the game's boundary scene objects, ordered by ID.
+var BoundaryDefinitions []BoundaryDefinition
+
+//BoundaryDefinition This represents a single definition for a single boundary object in the game.
+type BoundaryDefinition struct {
+	ID          int
+	Name        string
+	Commands    []string
+	Description string
+}
+
+//LoadBoundaryDefinitions Loads game boundary object data into memory for quick access.
+func LoadBoundaryDefinitions() {
+	database := OpenDatabase(TomlConfig.Database.WorldDB)
+	defer database.Close()
+	// TODO: Seem to be missing a lot of door data.
+	rows, err := database.Query("SELECT id, name, description, command_one, command_two FROM `doors`")
+	defer rows.Close()
+	if err != nil {
+		LogError.Println("Couldn't load SQLite3 database:", err)
+		return
+	}
+	for rows.Next() {
+		nextDef := BoundaryDefinition{Commands: make([]string, 2)}
+		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1])
+		BoundaryDefinitions = append(BoundaryDefinitions, nextDef)
+	}
 }
 
 //LoadObjectDefinitions Loads game object data into memory for quick access.

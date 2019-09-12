@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"bitbucket.org/zlacki/rscgo/pkg/world"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
+	"bitbucket.org/zlacki/rscgo/pkg/world"
 	"github.com/BurntSushi/toml"
 	"github.com/jessevdk/go-flags"
 )
@@ -128,11 +128,17 @@ func Start() {
 	}
 
 	var awaitLaunchJobs sync.WaitGroup
-	awaitLaunchJobs.Add(6)
+	awaitLaunchJobs.Add(7)
 	asyncExecute(&awaitLaunchJobs, func() {
 		LoadObjectDefinitions()
 		if count := len(ObjectDefinitions); len(Flags.Verbose) > 0 && count > 0 {
 			LogInfo.Printf("Loaded %d game object definitions.\n", count)
+		}
+	})
+	asyncExecute(&awaitLaunchJobs, func() {
+		LoadBoundaryDefinitions()
+		if count := len(BoundaryDefinitions); len(Flags.Verbose) > 0 && count > 0 {
+			LogInfo.Printf("Loaded %d boundary definitions.\n", count)
 		}
 	})
 	asyncExecute(&awaitLaunchJobs, func() {
