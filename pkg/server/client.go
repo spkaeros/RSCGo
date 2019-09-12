@@ -79,15 +79,13 @@ func (c *Client) Destroy() {
 func (c *Client) destroy() {
 	// Wait for network goroutines to finish.
 	c.networkingGroup.Wait()
+	delete(ClientsIdx, c.Index)
 	c.player.Connected = false
 	close(c.outgoingPackets)
 	close(c.incomingPackets)
 	c.buffer = []byte{} // try to collect this early it's 5KB
 	if err := c.socket.Close(); err != nil {
 		LogError.Println("Couldn't close socket:", err)
-	}
-	if _, ok := ClientsIdx[c.Index]; ok {
-		delete(ClientsIdx, c.Index)
 	}
 	if _, ok := Clients[c.player.UserBase37]; ok {
 		// Always try to launch I/O-heavy functions in their own goroutine.
@@ -171,11 +169,11 @@ func (c *Client) StartNetworking() {
 func (c *Client) sendLoginResponse(i byte) {
 	c.outgoingPackets <- packets.LoginResponse(int(i))
 	if i != 0 {
-		LogInfo.Printf("Denied Client[%v]: {ip:'%v', username:'%v', Response='%v'}\n", c.Index, c.ip, c.player.Username, i)
+		LogInfo.Printf("Denied Client: {ip:'%v', username:'%v', Response='%v'}\n", c.ip, c.player.Username, i)
 		c.Destroy()
 	} else {
 		LogInfo.Printf("Registered: %v\n", c)
-		entity.GetRegionFromLocation(c.player.Location).Players.Add(c.player)
+		entity.AddPlayer(c.player)
 		c.player.TransAttrs["plrchanged"] = true
 		c.player.Connected = true
 		for i := 0; i < 18; i++ {
@@ -231,6 +229,7 @@ func NewClient(socket net.Conn) *Client {
 			break
 		}
 	}
+	ClientsIdx[c.Index] = c
 	c.StartNetworking()
 	return c
 }

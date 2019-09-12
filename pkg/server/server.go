@@ -68,10 +68,9 @@ func startConnectionService() {
 	}
 
 	go func() {
-		// One client every 10ms max, stops childish flooding.
 		// TODO: Implement a packet filter of sorts to stop flooding behavior
 		defer listener.Close()
-		for range time.Tick(10 * time.Millisecond) {
+		for range time.Tick(50 * time.Millisecond) {
 			socket, err := listener.Accept()
 			if err != nil {
 				if len(Flags.Verbose) > 0 {
@@ -88,14 +87,7 @@ func startConnectionService() {
 				continue
 			}
 
-			client := NewClient(socket)
-			for i := 0; i < TomlConfig.MaxPlayers; i++ {
-				if _, ok := ClientsIdx[i]; !ok {
-					client.Index = i
-					ClientsIdx[i] = client
-					break
-				}
-			}
+			NewClient(socket)
 		}
 	}()
 

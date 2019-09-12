@@ -79,7 +79,6 @@ func OpenDatabase(file string) *sql.DB {
 //LoadPlayer Loads a player from the SQLite3 database, returns a login response code.
 func (c *Client) LoadPlayer(usernameHash uint64, password string, loginReply chan byte) {
 	validateCredentials := func() error {
-
 		database := OpenDatabase(TomlConfig.Database.PlayerDB)
 		defer database.Close()
 
@@ -107,16 +106,86 @@ func (c *Client) LoadPlayer(usernameHash uint64, password string, loginReply cha
 	if err := validateCredentials(); err != nil {
 		return
 	}
-	/*	if err := PlayerAppearance(c.player); err != nil {
-		return
-	}*/
-	if err := PlayerAttributes(c.player); err != nil {
+	loadAttributes := func() error {
+		database := OpenDatabase(TomlConfig.Database.PlayerDB)
+		defer database.Close()
+		stmt, err := database.Prepare("SELECT name, value FROM player_attr WHERE player_id=?")
+		defer stmt.Close()
+		if err != nil {
+			LogInfo.Println("LoadPlayer(uint64,string): Could not prepare query statement for player attributes:", err)
+			return errors.NewDatabaseError("Statement could not be prepared.")
+		}
+		rows, err := stmt.Query(c.player.DatabaseIndex)
+		defer rows.Close()
+		if err != nil {
+			LogInfo.Println("LoadPlayer(uint64,string): Could not execute query statement for player attributes:", err)
+			return errors.NewDatabaseError("Statement could not execute.")
+		}
+		for rows.Next() {
+			var name, value string
+			rows.Scan(&name, &value)
+			switch value[0] {
+			case 'i':
+				val, err := strconv.ParseInt(value[1:], 10, 64)
+				if err != nil {
+					LogInfo.Printf("Error loading int attribute[%v]: value=%v\n", name, value[1:])
+					LogInfo.Println(err)
+				}
+				c.player.Attributes[name] = int(val)
+				break
+			case 'l':
+				val, err := strconv.ParseUint(value[1:], 10, 64)
+				if err != nil {
+					LogInfo.Printf("Error loading long int attribute[%v]: value=%v\n", name, value[1:])
+					LogInfo.Println(err)
+				}
+				c.player.Attributes[name] = uint(val)
+				break
+			case 'b':
+				val, err := strconv.ParseBool(value[1:])
+				if err != nil {
+					LogInfo.Printf("Error loading boolean attribute[%v]: value=%v\n", name, value[1:])
+					LogInfo.Println(err)
+				}
+				c.player.Attributes[name] = val
+				break
+			}
+		}
+		return nil
+	}
+	loadUserList := func(listType string) error {
+		database := OpenDatabase(TomlConfig.Database.PlayerDB)
+		defer database.Close()
+		stmt, err := database.Prepare("SELECT playerhash FROM playerlist WHERE playerid=? AND `type`=?")
+		defer stmt.Close()
+		if err != nil {
+			LogInfo.Println("LoadPlayer(uint64,string): Could not prepare query statement for player friends:", err)
+			return errors.NewDatabaseError("Statement could not be prepared.")
+		}
+		rows, err := stmt.Query(c.player.DatabaseIndex, listType)
+		defer rows.Close()
+		if err != nil {
+			LogInfo.Println("LoadPlayer(uint64,string): Could not execute query statement for player friends:", err)
+			return errors.NewDatabaseError("Statement could not execute.")
+		}
+		for rows.Next() {
+			var hash uint64
+			rows.Scan(&hash)
+			if listType == "friend" {
+				c.player.FriendList[hash] = ClientFromHash(hash) != nil
+			} else {
+				c.player.IgnoreList = append(c.player.IgnoreList, hash)
+			}
+		}
+		return nil
+	}
+	if err := loadAttributes(); err != nil {
 		return
 	}
-	if err := PlayerFriends(c.player); err != nil {
+	if err := loadUserList("friend"); err != nil {
 		return
 	}
-	if err := PlayerIgnore(c.player); err != nil {
+	if err := loadUserList("ignore"); err != nil {
 		return
 	}
 
@@ -126,153 +195,6 @@ func (c *Client) LoadPlayer(usernameHash uint64, password string, loginReply cha
 	Clients[usernameHash] = c
 	loginReply <- byte(0)
 	return
-}
-
-//ValidatePlayer Sets the player's essential persistent variables from player table from base37 username and password hash.
-// Returns 0 if successful, login response code otherwise.
-func ValidatePlayer(player *entity.Player, hash uint64, password string) error {
-	database := OpenDatabase(TomlConfig.Database.PlayerDB)
-	defer database.Close()
-
-	stmt, err := database.Prepare("SELECT id, x, y, group_id FROM player2 WHERE userhash=? AND password=?")
-	defer stmt.Close()
-	if err != nil {
-		LogInfo.Println("ValidatePlayer(uint64,string): Could not prepare query statement for player:", err)
-		return errors.NewDatabaseError(err.Error())
-	}
-	rows, err := stmt.Query(hash, password)
-	defer rows.Close()
-	if err != nil {
-		LogInfo.Println("ValidatePlayer(uint64,string): Could not execute query statement for player:", err)
-		return errors.NewDatabaseError(err.Error())
-	}
-	if !rows.Next() {
-		return errors.NewDatabaseError("Could not find player")
-	}
-	rows.Scan(&player.DatabaseIndex, &player.X, &player.Y, &player.Rank)
-	return nil
-}
-
-//PlayerAppearance Sets the player's appearance variables from a database search by the player's DatabaseIndex.
-// Returns nil upon success.
-func PlayerAppearance(player *entity.Player) error {
-	database := OpenDatabase(TomlConfig.Database.PlayerDB)
-	defer database.Close()
-	stmt, err := database.Prepare("SELECT haircolour, topcolour, trousercolour, skincolour, head, body FROM appearance WHERE playerid=?")
-	defer stmt.Close()
-	if err != nil {
-		LogInfo.Println("LoadPlayer(uint64,string): Could not prepare query statement for player appearance:", err)
-		return errors.NewDatabaseError("Statement could not be prepared.")
-	}
-	rows, err := stmt.Query(player.DatabaseIndex)
-	defer rows.Close()
-	if err != nil {
-		LogInfo.Println("LoadPlayer(uint64,string): Could not execute query statement for player appearance:", err)
-		return errors.NewDatabaseError("Statement could not execute.")
-	}
-	if !rows.Next() {
-		return errors.NewDatabaseError("Could not find player")
-	}
-	rows.Scan(&player.Appearance.Hair, &player.Appearance.Top, &player.Appearance.Bottom, &player.Appearance.Skin, &player.Appearance.Head, &player.Appearance.Body)
-	return nil
-}
-
-//PlayerAttributes Sets the player's attribute variables from a database search by the player's DatabaseIndex.
-func PlayerAttributes(player *entity.Player) error {
-	database := OpenDatabase(TomlConfig.Database.PlayerDB)
-	defer database.Close()
-	stmt, err := database.Prepare("SELECT name, value FROM player_attr WHERE player_id=?")
-	defer stmt.Close()
-	if err != nil {
-		LogInfo.Println("LoadPlayer(uint64,string): Could not prepare query statement for player attributes:", err)
-		return errors.NewDatabaseError("Statement could not be prepared.")
-	}
-	rows, err := stmt.Query(player.DatabaseIndex)
-	defer rows.Close()
-	if err != nil {
-		LogInfo.Println("LoadPlayer(uint64,string): Could not execute query statement for player attributes:", err)
-		return errors.NewDatabaseError("Statement could not execute.")
-	}
-	for rows.Next() {
-		var name, value string
-		rows.Scan(&name, &value)
-		switch value[0] {
-		case 'i':
-			val, err := strconv.ParseInt(value[1:], 10, 64)
-			if err != nil {
-				LogInfo.Printf("Error loading int attribute[%v]: value=%v\n", name, value[1:])
-				LogInfo.Println(err)
-			}
-			player.Attributes[name] = int(val)
-			break
-		case 'l':
-			val, err := strconv.ParseUint(value[1:], 10, 64)
-			if err != nil {
-				LogInfo.Printf("Error loading long int attribute[%v]: value=%v\n", name, value[1:])
-				LogInfo.Println(err)
-			}
-			player.Attributes[name] = uint(val)
-			break
-		case 'b':
-			val, err := strconv.ParseBool(value[1:])
-			if err != nil {
-				LogInfo.Printf("Error loading boolean attribute[%v]: value=%v\n", name, value[1:])
-				LogInfo.Println(err)
-			}
-			player.Attributes[name] = val
-			break
-		}
-	}
-	return nil
-}
-
-//PlayerFriends Loads the player's friends list
-func PlayerFriends(player *entity.Player) error {
-	database := OpenDatabase(TomlConfig.Database.PlayerDB)
-	defer database.Close()
-	stmt, err := database.Prepare("SELECT playerhash FROM playerlist WHERE playerid=? AND `type`='friend'")
-	defer stmt.Close()
-	if err != nil {
-		LogInfo.Println("LoadPlayer(uint64,string): Could not prepare query statement for player friends:", err)
-		return errors.NewDatabaseError("Statement could not be prepared.")
-	}
-	rows, err := stmt.Query(player.DatabaseIndex)
-	defer rows.Close()
-	if err != nil {
-		LogInfo.Println("LoadPlayer(uint64,string): Could not execute query statement for player friends:", err)
-		return errors.NewDatabaseError("Statement could not execute.")
-	}
-	for rows.Next() {
-		var hash uint64
-		rows.Scan(&hash)
-		player.FriendList[hash] = ClientFromHash(hash) != nil
-		//		player.FriendList = append(player.FriendList, hash)
-	}
-	return nil
-}
-
-//PlayerIgnore Loads the player's ignore list
-func PlayerIgnore(player *entity.Player) error {
-	database := OpenDatabase(TomlConfig.Database.PlayerDB)
-	defer database.Close()
-	stmt, err := database.Prepare("SELECT playerhash FROM playerlist WHERE playerid=? AND `type`='ignore'")
-	defer stmt.Close()
-	if err != nil {
-		LogInfo.Println("LoadPlayer(uint64,string): Could not prepare query statement for player ignore:", err)
-		return errors.NewDatabaseError("Statement could not be prepared.")
-	}
-	rows, err := stmt.Query(player.DatabaseIndex)
-	defer rows.Close()
-	if err != nil {
-		LogInfo.Println("LoadPlayer(uint64,string): Could not execute query statement for player ignores:", err)
-		return errors.NewDatabaseError("Statement could not execute.")
-	}
-	for rows.Next() {
-		var hash uint64
-		rows.Scan(&hash)
-		player.IgnoreList = append(player.IgnoreList, hash)
-	}
-	return nil
 }
 
 //Save Saves a player to the SQLite3 database.
