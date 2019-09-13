@@ -198,11 +198,10 @@ func Broadcast(action func(c *Client)) {
 	}
 }
 
-//Tick One game engine 'tick'.  This is to handle movement, to synchronize clients, to update movement-related state variables...
-// Runs every 600ms.
+//Tick One game engine 'tick'.  This is to handle movement, to synchronize clients, to update movement-related state variables... Runs once per 600ms.
 func Tick() {
-	//	UpdateMobileEntities()
 	Broadcast(func(c *Client) {
+		//TODO: Handle this in a less hacky way.  Sticks out like a sore thumb.
 		if c.player.IsFollowing() {
 			followingClient := ClientFromIndex(c.player.FollowIndex())
 			if followingClient == nil || !c.player.Location.WithinRange(followingClient.player.Location, 15) {
@@ -215,20 +214,15 @@ func Tick() {
 		}
 		c.player.TraversePath()
 	})
-	//	UpdateClientState()
 	Broadcast(func(c *Client) {
 		c.UpdatePositions()
 	})
-	//	ResetUpdateFlags()
 	Broadcast(func(c *Client) {
 		c.ResetUpdateFlags()
 	})
 }
 
-//startGameEngine Launches a goroutine to handle updating the state of the server every 600ms in a
-// synchronized fashion.  This is known as a single game engine 'pulse'.  All mobile entities must have their position
-// updated during this pulse to be compatible with Jagex RSClassic Client software.
-// TODO: Can movement be handled concurrently per-player safely on the Jagex Client? Mob movement might not look right.
+//startGameEngine Launches a goroutine to handle updating the state of the server every 600ms in a synchronized fashion.  This is known as a single game engine 'pulse'.
 func startGameEngine() {
 	go func() {
 		for range time.Tick(600 * time.Millisecond) {
@@ -237,7 +231,7 @@ func startGameEngine() {
 	}()
 }
 
-//BroadcastLogin Broadcasts the login status of the user with hash as their base37 username
+//BroadcastLogin Broadcasts the login status of player to the whole server.
 func BroadcastLogin(player *world.Player, online bool) {
 	Broadcast(func(c *Client) {
 		if c.player.Friends(player.UserBase37) {

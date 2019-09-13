@@ -146,7 +146,7 @@ func init() {
 		default:
 			msg += "@yel@"
 		}
-		msg += c.player.Username + "@whi@:@yel@"
+		msg += c.player.Username + "@yel@:"
 		for _, word := range args {
 			msg += " " + word
 		}
