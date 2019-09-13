@@ -27,6 +27,28 @@ type Client struct {
 	buffer                           []byte
 }
 
+//Message Builds a new game packet to display a message in the clients chat box with msg as its contents, and queues it in the outgoing packet queue.
+func (c *Client) Message(msg string) {
+	c.outgoingPackets <- packets.ServerMessage(msg)
+}
+
+//TeleBubble Queues a new packet to create a teleport bubble at the given offsets relative to our player.
+func (c *Client) TeleBubble(diffX, diffY int) {
+	c.outgoingPackets <- packets.TeleBubble(diffX, diffY)
+}
+
+//Teleport Moves the client's player to x,y in the game world, and sends a teleport bubble animation packet to all of the view-area clients.
+func (c *Client) Teleport(x, y int) {
+	if !world.WithinWorld(x, y) {
+		return
+	}
+	for _, nearbyPlayer := range c.player.NearbyPlayers() {
+		ClientFromIndex(nearbyPlayer.Index).TeleBubble(c.player.X-nearbyPlayer.X, c.player.Y-nearbyPlayer.Y)
+	}
+	c.TeleBubble(0, 0)
+	c.player.Teleport(x, y)
+}
+
 //StartReader Starts the clients socket reader goroutine.  Takes a waitgroup as an argument to facilitate synchronous destruction.
 func (c *Client) StartReader() {
 	defer c.networkingGroup.Done()

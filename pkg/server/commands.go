@@ -2,6 +2,8 @@ package server
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"strconv"
 	"strings"
 
@@ -13,57 +15,67 @@ import (
 //CommandHandlers A map to assign in-game commands to the functions they should execute.
 var CommandHandlers = make(map[string]func(*Client, []string))
 
+//LogCommands Log commands to their own file.
+var LogCommands = log.New(os.Stdout, "[COMMAND] ", log.Ltime)
+
 func init() {
+	if f, err := os.OpenFile("logs"+string(os.PathSeparator)+"cmd.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666); err != nil {
+		LogError.Println("Could not open commands log file for writing:", err)
+	} else {
+		LogCommands.SetOutput(f)
+	}
 	PacketHandlers["command"] = func(c *Client, p *packets.Packet) {
 		args := strutil.ModalParse(string(p.Payload))
 		handler, ok := CommandHandlers[args[0]]
 		if !ok {
-			c.outgoingPackets <- packets.ServerMessage("@que@Invalid command.")
-			LogInfo.Printf("[COMMAND] %v sent invalid command: /%v\n", c.player.Username, string(p.Payload))
+			c.Message("@que@Invalid command.")
+			LogCommands.Printf("[COMMAND] %v sent invalid command: /%v\n", c.player.Username, string(p.Payload))
 			return
 		}
-		LogInfo.Printf("[COMMAND] %v: /%v\n", c.player.Username, string(p.Payload))
+		LogCommands.Printf("%v: /%v\n", c.player.Username, string(p.Payload))
 		handler(c, args[1:])
 	}
 	CommandHandlers["dobj"] = func(c *Client, args []string) {
 		if len(args) != 2 {
-			c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /dobj <x> <y>")
+			c.Message("@que@Invalid args.  Usage: /dobj <x> <y>")
 			return
 		}
 		x, err := strconv.Atoi(args[0])
 		if err != nil {
-			c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /dobj <x> <y>")
+			c.Message("@que@Invalid args.  Usage: /dobj <x> <y>")
 			return
 		}
 		y, err := strconv.Atoi(args[1])
 		if err != nil {
-			c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /dobj <x> <y>")
+			c.Message("@que@Invalid args.  Usage: /dobj <x> <y>")
 			return
 		}
 		if !world.WithinWorld(x, y) {
-			c.outgoingPackets <- packets.ServerMessage("@que@Coordinates out of world boundaries.")
+			c.Message("@que@Coordinates out of world boundaries.")
 			return
 		}
 		object := world.GetObject(x, y)
 		if object == nil {
-			c.outgoingPackets <- packets.ServerMessage(fmt.Sprintf("@que@Can not find object at coords %d,%d", x, y))
+			c.Message(fmt.Sprintf("@que@Can not find object at coords %d,%d", x, y))
 			return
 		}
 
+		LogCommands.Printf("'%v' deleted object{id: %v; dir:%v} at %v,%v\n", c.player.Username, object.ID, object.Direction, x, y)
 		world.RemoveObject(object)
 	}
 	CommandHandlers["kick"] = func(c *Client, args []string) {
 		if len(args) < 1 {
-			c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /kick <player>")
+			c.Message("@que@Invalid args.  Usage: /kick <player>")
 			return
 		}
 		if pID, err := strconv.Atoi(args[0]); err == nil {
 			affectedClient := ClientFromIndex(pID)
 			if affectedClient == nil {
-				c.outgoingPackets <- packets.ServerMessage("@que@Could not find player.")
+				c.Message("@que@Could not find player.")
 				return
 			}
-			c.outgoingPackets <- packets.ServerMessage("@que@Kicked: '" + affectedClient.player.Username + "'")
+			LogCommands.Printf("'%v' kicked other player '%v'\n", c.player.Username, affectedClient.player.Username)
+			c.Message("@que@Kicked: '" + affectedClient.player.Username + "'")
 			affectedClient.outgoingPackets <- packets.Logout
 			affectedClient.Destroy()
 		} else {
@@ -75,59 +87,43 @@ func init() {
 
 			affectedClient := ClientFromHash(strutil.Base37(name))
 			if affectedClient == nil {
-				c.outgoingPackets <- packets.ServerMessage("@que@Could not find player: '" + name + "'")
+				c.Message("@que@Could not find player: '" + name + "'")
 				return
 			}
 
-			c.outgoingPackets <- packets.ServerMessage("@que@Kicked: '" + affectedClient.player.Username + "'")
+			LogCommands.Printf("'%v' kicked other player '%v'\n", c.player.Username, affectedClient.player.Username)
+			c.Message("@que@Kicked: '" + affectedClient.player.Username + "'")
 			affectedClient.outgoingPackets <- packets.Logout
 			affectedClient.Destroy()
 		}
 	}
 	CommandHandlers["object"] = func(c *Client, args []string) {
 		if len(args) < 1 {
-			c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /object <id> <dir>, eg: /object 1154 north")
+			c.Message("@que@Invalid args.  Usage: /object <id> <dir>, eg: /object 1154 north")
 			return
 		}
 		if world.GetObject(c.player.X, c.player.Y) != nil {
-			c.outgoingPackets <- packets.ServerMessage("@que@You must remove the old object at this location first!")
+			c.Message("@que@You must remove the old object at this location first!")
 			return
 		}
 		id, err := strconv.Atoi(args[0])
 		if err != nil {
-			c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /object <id>")
+			c.Message("@que@Invalid args.  Usage: /object <id> <dir>, eg: /object 1154 north")
 			return
 		}
 		direction := world.North
 		if len(args) > 1 {
-			switch args[1] {
-			case "northeast":
-			case "ne":
-				direction = world.NorthEast
-			case "northwest":
-			case "nw":
-				direction = world.NorthWest
-			case "east":
-			case "e":
-				direction = world.East
-			case "west":
-			case "w":
-				direction = world.West
-			case "south":
-			case "s":
-				direction = world.South
-			case "southeast":
-			case "se":
-				direction = world.SouthEast
-			case "southwest":
-			case "sw":
-				direction = world.SouthWest
-			case "north":
-			case "n":
-			default:
-				direction = world.North
+			if d, err := strconv.Atoi(args[1]); err == nil {
+				if d < world.North || d > world.NorthEast {
+					c.Message("@que@Invalid direction; must be between 0 and 8, or simply spell out the direction or its initials.")
+					return
+				}
+				direction = d
+			} else {
+				direction = world.ParseDirection(args[1])
 			}
 		}
+		LogCommands.Printf("'%v' spawned new object{id: %v; dir:%v} at %v,%v\n", c.player.Username, id, direction, c.player.X, c.player.Y)
 		world.AddObject(world.NewObject(id, direction, c.player.X, c.player.Y, false))
 	}
 	CommandHandlers["item"] = notYetImplemented
@@ -138,18 +134,25 @@ func init() {
 	CommandHandlers["goto"] = gotoTeleport
 	CommandHandlers["say"] = func(c *Client, args []string) {
 		if len(args) < 1 {
-			c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /say <msg>")
+			c.Message("@que@Invalid args.  Usage: /say <msg>")
 			return
 		}
-		msg := "@whi@[@cya@GLOBAL@whi@] @yel@" + c.player.Username + "@whi@:@yel@"
-		for _, arg := range args {
-			msg += " " + arg
+		msg := "@whi@[@cya@GLOBAL@whi@] "
+		switch c.player.Rank {
+		case 2:
+			msg += "@red@~"
+		case 1:
+			msg += "@blu@@"
+		default:
+			msg += "@yel@"
 		}
-		for _, c1 := range Clients {
-			if c1.player.Connected {
-				c1.outgoingPackets <- packets.ServerMessage(fmt.Sprintf("@que@%s", msg))
-			}
+		msg += c.player.Username + "@whi@:@yel@"
+		for _, word := range args {
+			msg += " " + word
 		}
+		Broadcast(func(c1 *Client) {
+			c1.Message("@que@" + msg)
+		})
 	}
 	CommandHandlers["tele"] = teleport
 	CommandHandlers["teleport"] = teleport
@@ -159,33 +162,31 @@ func init() {
 }
 
 func teleport(c *Client, args []string) {
-	if len(args) < 2 {
-		c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /tele <x> <y>")
+	if len(args) != 2 {
+		c.Message("@que@Invalid args.  Usage: /tele <x> <y>")
 		return
 	}
-	x, _ := strconv.Atoi(args[0])
-	y, _ := strconv.Atoi(args[1])
-	if x >= world.MaxX || y >= world.MaxY || x < 0 || y < 0 {
-		c.outgoingPackets <- packets.ServerMessage(fmt.Sprintf("@que@Invalid coordinates.  Must be between 0,0 and %v,%v", world.MaxX, world.MaxY))
+	x, err := strconv.Atoi(args[0])
+	if err != nil {
+		c.Message("@que@Invalid args.  Usage: /tele <x> <y>")
 		return
 	}
-	newLocation := world.NewLocation(x, y)
-	LogInfo.Printf("Teleporting %v from %v to %v\n", c.player.Username, c.player, newLocation)
-	c.outgoingPackets <- packets.TeleBubble(0, 0)
-	for _, p1 := range world.GetRegionFromLocation(c.player.Location).Players.NearbyPlayers(c.player) {
-		diffX := c.player.X - p1.X
-		diffY := c.player.Y - p1.Y
-		if c1, ok := ClientsIdx[p1.Index]; ok {
-			c1.outgoingPackets <- packets.TeleBubble(diffX, diffY)
-		}
+	y, err := strconv.Atoi(args[1])
+	if err != nil {
+		c.Message("@que@Invalid args.  Usage: /tele <x> <y>")
+		return
 	}
-	c.player.TransAttrs["plrremove"] = true
-	c.player.SetLocation(*newLocation)
+	if !world.WithinWorld(x, y) {
+		c.Message("@que@Coordinates out of world boundaries.")
+		return
+	}
+	LogCommands.Printf("Teleporting %v from %v,%v to %v,%v\n", c.player.Username, c.player.X, c.player.Y, x, y)
+	c.Teleport(x, y)
 }
 
 func summon(c *Client, args []string) {
 	if len(args) < 1 {
-		c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /summon <player_name>")
+		c.Message("@que@Invalid args.  Usage: /summon <player_name>")
 		return
 	}
 	var name string
@@ -194,25 +195,19 @@ func summon(c *Client, args []string) {
 	}
 	name = strings.TrimSpace(name)
 
-	if c1, ok := Clients[strutil.Base37(name)]; ok {
-		c1.outgoingPackets <- packets.TeleBubble(0, 0)
-		for _, p1 := range world.GetRegionFromLocation(c1.player.Location).Players.NearbyPlayers(c1.player) {
-			diffX := c1.player.X - p1.X
-			diffY := c1.player.Y - p1.Y
-			if c2, ok := ClientsIdx[p1.Index]; ok {
-				c2.outgoingPackets <- packets.TeleBubble(diffX, diffY)
-			}
-		}
-		c1.player.TransAttrs["plrremove"] = true
-		c1.player.SetLocation(c.player.Location)
+	c1 := ClientFromHash(strutil.Base37(name))
+	if c1 == nil {
+		c.Message("@que@@whi@[@cya@SERVER@whi@]: @gre@Could not find player: '" + name + "'")
 		return
 	}
-	c.outgoingPackets <- packets.ServerMessage("@que@@whi@[@cya@SERVER@whi@]: @gre@Could not find player with username '" + name + "'")
+
+	LogCommands.Printf("Summoning '%v' from %v,%v to '%v' at %v,%v\n", c1.player.Username, c1.player.X, c1.player.Y, c.player.Username, c.player.X, c.player.Y)
+	c1.Teleport(c.player.X, c.player.Y)
 }
 
 func gotoTeleport(c *Client, args []string) {
 	if len(args) < 1 {
-		c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /goto <player_name>")
+		c.Message("@que@Invalid args.  Usage: /goto <player_name>")
 		return
 	}
 	var name string
@@ -221,22 +216,16 @@ func gotoTeleport(c *Client, args []string) {
 	}
 	name = strings.TrimSpace(name)
 
-	if c1, ok := Clients[strutil.Base37(name)]; ok {
-		c.outgoingPackets <- packets.TeleBubble(0, 0)
-		for _, p1 := range world.GetRegionFromLocation(c.player.Location).Players.NearbyPlayers(c.player) {
-			diffX := c.player.X - p1.X
-			diffY := c.player.Y - p1.Y
-			if c2, ok := Clients[p1.UserBase37]; ok {
-				c2.outgoingPackets <- packets.TeleBubble(diffX, diffY)
-			}
-		}
-		c.player.TransAttrs["plrremove"] = true
-		c.player.SetLocation(c1.player.Location)
+	c1 := ClientFromHash(strutil.Base37(name))
+	if c1 == nil {
+		c.Message("@que@@whi@[@cya@SERVER@whi@]: @gre@Could not find player: '" + name + "'")
 		return
 	}
-	c.outgoingPackets <- packets.ServerMessage("@que@@whi@[@cya@SERVER@whi@]: @gre@Could not find player with username '" + name + "'")
+
+	LogCommands.Printf("Teleporting '%v' from %v,%v to '%v' at %v,%v\n", c.player.Username, c.player.X, c.player.Y, c1.player.Username, c1.player.X, c1.player.Y)
+	c.Teleport(c1.player.X, c1.player.Y)
 }
 
 func notYetImplemented(c *Client, args []string) {
-	c.outgoingPackets <- packets.ServerMessage("@que@@ora@Not yet implemented")
+	c.Message("@que@@ora@Not yet implemented")
 }

@@ -87,3 +87,43 @@ func (l *Location) LongestDelta(other Location) int {
 func (l *Location) WithinRange(other Location, radius int) bool {
 	return l.LongestDelta(other) <= radius
 }
+
+//ParseDirection Tries to parse the direction indicated in s.  If it can not match any direction, returns the zero-value for direction: north.
+func ParseDirection(s string) int {
+	switch s {
+	case "northeast":
+		return NorthEast
+	case "ne":
+		return NorthEast
+	case "northwest":
+		return NorthWest
+	case "nw":
+		return NorthWest
+	case "east":
+		return East
+	case "e":
+		return East
+	case "west":
+		return West
+	case "w":
+		return West
+	case "south":
+		return South
+	case "s":
+		return South
+	case "southeast":
+		return SouthEast
+	case "se":
+		return SouthEast
+	case "southwest":
+		return SouthWest
+	case "sw":
+		return SouthWest
+	case "n":
+		return North
+	case "north":
+		return North
+	}
+
+	return North
+}

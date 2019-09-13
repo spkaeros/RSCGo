@@ -29,6 +29,7 @@ type List struct {
 	List []interface{}
 }
 
+//NearbyPlayers Might remove
 func (l *List) NearbyPlayers(p *Player) []*Player {
 	var players []*Player
 	for _, v := range l.List {
@@ -39,6 +40,7 @@ func (l *List) NearbyPlayers(p *Player) []*Player {
 	return players
 }
 
+//RemovingPlayers Might remove
 func (l *List) RemovingPlayers(p *Player) []*Player {
 	var players []*Player
 	for _, v := range l.List {
@@ -49,6 +51,7 @@ func (l *List) RemovingPlayers(p *Player) []*Player {
 	return players
 }
 
+//NearbyObjects Might remove
 func (l *List) NearbyObjects(p *Player) []*Object {
 	var objects []*Object
 	for _, o1 := range l.List {
@@ -59,6 +62,7 @@ func (l *List) NearbyObjects(p *Player) []*Object {
 	return objects
 }
 
+//RemovingObjects Might remove
 func (l *List) RemovingObjects(p *Player) []*Object {
 	var objects []*Object
 	for _, o1 := range l.List {

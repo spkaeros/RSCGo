@@ -301,6 +301,12 @@ func (p *Player) SetCoords(x, y int) {
 	p.Mob.SetCoords(x, y)
 }
 
+//Teleport Moves the player to x,y and sets a flag to remove said player from the local players list of every nearby player.
+func (p *Player) Teleport(x, y int) {
+	p.SetCoords(x, y)
+	p.TransAttrs["plrremove"] = true
+}
+
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
 	return &Player{Mob: Mob{Entity: Entity{Index: -1}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: make(AttributeList)}, Attributes: make(AttributeList), LocalPlayers: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false, FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int)}
