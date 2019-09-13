@@ -109,29 +109,17 @@ func (c *Client) ResetUpdateFlags() {
 
 //UpdatePositions Updates the client about entities in it's view-area (16x16 tiles in the game world surrounding the player).  Should be run every game engine tick.
 func (c *Client) UpdatePositions() {
-	var localPlayers []*world.Player
-	var localAppearances []*world.Player
 	var localObjects []*world.Object
-	for _, p := range c.player.NewPlayers() {
-		if len(c.player.LocalPlayers.List) >= 255 || len(localPlayers) >= 25 {
-			// No more than 255 players in view at once, no more than 25 new players at once.
-			break
-		}
-		if ticket, ok := c.player.KnownAppearances[p.Index]; !ok || ticket != p.AppearanceTicket {
-			localAppearances = append(localAppearances, p)
-		}
-		localPlayers = append(localPlayers, p)
-	}
 
 	for _, o := range c.player.NewObjects() {
 		localObjects = append(localObjects, o)
 	}
 
 	// POSITIONS BEFORE EVERYTHING ELSE.
-	if positions := packets.PlayerPositions(c.player, localPlayers); positions != nil {
+	if positions := packets.PlayerPositions(c.player); positions != nil {
 		c.outgoingPackets <- positions
 	}
-	if appearances := packets.PlayerAppearances(c.player, localAppearances); appearances != nil {
+	if appearances := packets.PlayerAppearances(c.player); appearances != nil {
 		c.outgoingPackets <- appearances
 	}
 	if objectUpdates := packets.ObjectLocations(c.player, localObjects); objectUpdates != nil {

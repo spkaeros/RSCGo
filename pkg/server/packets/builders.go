@@ -169,7 +169,7 @@ func PlayerStat(player *world.Player, idx int) *Packet {
 
 //PlayerPositions Builds a packet containing view area player position and sprite information, including ones own information, and returns it.
 // If no players need to be updated, returns nil.
-func PlayerPositions(player *world.Player, newPlayers []*world.Player) (p *Packet) {
+func PlayerPositions(player *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(145)
 	// Note: X coords can be held in 10 bits and Y can be held in 12 bits
 	//  Presumably, Jagex used 11 and 13 to evenly fill 3 bytes of data?
@@ -205,7 +205,13 @@ func PlayerPositions(player *world.Player, newPlayers []*world.Player) (p *Packe
 			}
 		}
 	}
-	for _, p1 := range newPlayers {
+	newPlayerCount := 0
+	for _, p1 := range player.NewPlayers() {
+		if len(player.LocalPlayers.List) >= 255 || newPlayerCount >= 25 {
+			// No more than 255 players in view at once, no more than 25 new players at once.
+			break
+		}
+		newPlayerCount++
 		p.AddBits(p1.Index, 11)
 		offsetX := (p1.X - player.X)
 		if offsetX < 0 {
@@ -229,16 +235,24 @@ func PlayerPositions(player *world.Player, newPlayers []*world.Player) (p *Packe
 }
 
 //PlayerAppearances Builds a packet with the view-area player appearance profiles in it.
-func PlayerAppearances(ourPlayer *world.Player, local []*world.Player) (p *Packet) {
+func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(53)
+	var appearanceList []*world.Player
 	if !ourPlayer.TransAttrs.VarBool("plrself", false) {
-		local = append(local, ourPlayer)
+		appearanceList = append(appearanceList, ourPlayer)
 	}
-	if len(local) <= 0 {
+	for _, p1 := range ourPlayer.LocalPlayers.List {
+		if p1, ok := p1.(*world.Player); ok {
+			if ticket, ok := ourPlayer.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket {
+				appearanceList = append(appearanceList, p1)
+			}
+		}
+	}
+	if len(appearanceList) <= 0 {
 		return nil
 	}
-	p.AddShort(uint16(len(local))) // Update size
-	for _, player := range local {
+	p.AddShort(uint16(len(appearanceList))) // Update size
+	for _, player := range appearanceList {
 		ourPlayer.KnownAppearances[player.Index] = player.AppearanceTicket
 		p.AddShort(uint16(player.Index))
 		p.AddByte(5) // Player appearances

@@ -28,10 +28,16 @@ func init() {
 			c.outgoingPackets <- packets.ServerMessage("@que@Please remove '" + strutil.DecodeBase37(hash) + "' from your ignore list before friending them.")
 			return
 		}
-		if c1, ok := Clients[hash]; ok && c1.player.Friends(c.player.UserBase37) && c.player.FriendBlocked() {
-			c1.outgoingPackets <- packets.FriendUpdate(c.player.UserBase37, true)
+		if c1, ok := Clients[hash]; ok {
+			if c1.player.Friends(c.player.UserBase37) && c.player.FriendBlocked() {
+				c1.outgoingPackets <- packets.FriendUpdate(c.player.UserBase37, true)
+			}
+			if !c1.player.FriendBlocked() || c1.player.Friends(c.player.UserBase37) {
+				c.player.FriendList[hash] = true
+				return
+			}
 		}
-		c.player.FriendList[hash] = ClientFromHash(hash) != nil
+		c.player.FriendList[hash] = false
 	}
 	PacketHandlers["privmsg"] = func(c *Client, p *packets.Packet) {
 		if c1, ok := Clients[p.ReadLong()]; ok {
