@@ -25,6 +25,111 @@ func init() {
 		LogInfo.Printf("[COMMAND] %v: /%v\n", c.player.Username, string(p.Payload))
 		handler(c, args[1:])
 	}
+	CommandHandlers["dobj"] = func(c *Client, args []string) {
+		if len(args) != 2 {
+			c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /dobj <x> <y>")
+			return
+		}
+		x, err := strconv.Atoi(args[0])
+		if err != nil {
+			c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /dobj <x> <y>")
+			return
+		}
+		y, err := strconv.Atoi(args[1])
+		if err != nil {
+			c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /dobj <x> <y>")
+			return
+		}
+		if !world.WithinWorld(x, y) {
+			c.outgoingPackets <- packets.ServerMessage("@que@Coordinates out of world boundaries.")
+			return
+		}
+		object := world.GetObject(x, y)
+		if object == nil {
+			c.outgoingPackets <- packets.ServerMessage(fmt.Sprintf("@que@Can not find object at coords %d,%d", x, y))
+			return
+		}
+
+		world.RemoveObject(object)
+	}
+	CommandHandlers["kick"] = func(c *Client, args []string) {
+		if len(args) < 1 {
+			c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /kick <player>")
+			return
+		}
+		if pID, err := strconv.Atoi(args[0]); err == nil {
+			affectedClient := ClientFromIndex(pID)
+			if affectedClient == nil {
+				c.outgoingPackets <- packets.ServerMessage("@que@Could not find player.")
+				return
+			}
+			c.outgoingPackets <- packets.ServerMessage("@que@Kicked: '" + affectedClient.player.Username + "'")
+			affectedClient.outgoingPackets <- packets.Logout
+			affectedClient.Destroy()
+		} else {
+			var name string
+			for _, arg := range args {
+				name += arg + " "
+			}
+			name = strings.TrimSpace(name)
+
+			affectedClient := ClientFromHash(strutil.Base37(name))
+			if affectedClient == nil {
+				c.outgoingPackets <- packets.ServerMessage("@que@Could not find player: '" + name + "'")
+				return
+			}
+
+			c.outgoingPackets <- packets.ServerMessage("@que@Kicked: '" + affectedClient.player.Username + "'")
+			affectedClient.outgoingPackets <- packets.Logout
+			affectedClient.Destroy()
+		}
+	}
+	CommandHandlers["object"] = func(c *Client, args []string) {
+		if len(args) < 1 {
+			c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /object <id> <dir>, eg: /object 1154 north")
+			return
+		}
+		if world.GetObject(c.player.X, c.player.Y) != nil {
+			c.outgoingPackets <- packets.ServerMessage("@que@You must remove the old object at this location first!")
+			return
+		}
+		id, err := strconv.Atoi(args[0])
+		if err != nil {
+			c.outgoingPackets <- packets.ServerMessage("@que@Invalid args.  Usage: /object <id>")
+			return
+		}
+		direction := world.North
+		if len(args) > 1 {
+			switch args[1] {
+			case "northeast":
+			case "ne":
+				direction = world.NorthEast
+			case "northwest":
+			case "nw":
+				direction = world.NorthWest
+			case "east":
+			case "e":
+				direction = world.East
+			case "west":
+			case "w":
+				direction = world.West
+			case "south":
+			case "s":
+				direction = world.South
+			case "southeast":
+			case "se":
+				direction = world.SouthEast
+			case "southwest":
+			case "sw":
+				direction = world.SouthWest
+			case "north":
+			case "n":
+			default:
+				direction = world.North
+			}
+		}
+		world.AddObject(world.NewObject(id, direction, c.player.X, c.player.Y, false))
+	}
 	CommandHandlers["item"] = notYetImplemented
 	CommandHandlers["goup"] = notYetImplemented
 	CommandHandlers["godown"] = notYetImplemented

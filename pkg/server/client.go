@@ -110,12 +110,13 @@ func (c *Client) ResetUpdateFlags() {
 //UpdatePositions Updates the client about entities in it's view-area (16x16 tiles in the game world surrounding the player).  Should be run every game engine tick.
 func (c *Client) UpdatePositions() {
 	var localObjects []*world.Object
-
+	//TODO: Maybe move this to inside the packet building function?
+	// It's like this right now because boundaries and objects are not distinct types.
 	for _, o := range c.player.NewObjects() {
 		localObjects = append(localObjects, o)
 	}
 
-	// POSITIONS BEFORE EVERYTHING ELSE.
+	// Everything is updated relative to our player's position, so player position packet comes first
 	if positions := packets.PlayerPositions(c.player); positions != nil {
 		c.outgoingPackets <- positions
 	}

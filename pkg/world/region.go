@@ -21,6 +21,11 @@ type Region struct {
 
 var regions [HorizontalPlanes][VerticalPlanes]*Region
 
+//WithinWorld Returns true if the tile at x,y is within world boundaries, false otherwise.
+func WithinWorld(x, y int) bool {
+	return x <= MaxX && x >= 0 && y >= 0 && y <= MaxY
+}
+
 //AddPlayer Add a player to the region.
 func AddPlayer(p *Player) {
 	GetRegion(p.X, p.Y).Players.Add(p)
