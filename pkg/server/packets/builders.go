@@ -286,7 +286,7 @@ func ObjectLocations(player *world.Player, newObjects []*world.Object) (p *Packe
 			if o.Boundary {
 				continue
 			}
-			if !player.WithinRange(o.Location, 21) {
+			if !player.WithinRange(o.Location, 21) || world.GetObject(o.X, o.Y) != o {
 				p.AddShort(32767)
 				p.AddByte(byte(o.X - player.X))
 				p.AddByte(byte(o.Y - player.Y))
