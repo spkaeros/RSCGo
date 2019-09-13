@@ -9,12 +9,12 @@ import (
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
-	"bitbucket.org/zlacki/rscgo/pkg/world"
+	"bitbucket.org/zlacki/rscgo/pkg/server/world" 
 )
 
 //CommandHandlers A map to assign in-game commands to the functions they should execute.
 var CommandHandlers = make(map[string]func(*Client, []string))
-
+ 
 //LogCommands Log commands to their own file.
 var LogCommands = log.New(os.Stdout, "[COMMAND] ", log.Ltime)
 

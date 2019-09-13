@@ -2,7 +2,7 @@ package server
 
 import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
-	"bitbucket.org/zlacki/rscgo/pkg/world"
+	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 )
 
 type actionHandler func(p *world.Player, args ...interface{})
@@ -15,6 +15,7 @@ var boundaryHandlers = make(actionsMap)
 var boundary2Handlers = make(actionsMap)
 
 func init() {
+	//TODO: This whole entire file is messy and could use tidying.
 	oDoors := make(map[int]int)
 	oDoors[59] = 60
 	oDoors[57] = 58
@@ -182,7 +183,6 @@ func boundaryAction(c *Client, object *world.Object, rightClick bool) {
 		handler(c.player, object)
 		return
 	}
-	LogInfo.Println(command)
 	if handler, ok := handlers[command]; ok {
 		// Otherwise, check for handlers associated by commands.
 		handler(c.player, object)

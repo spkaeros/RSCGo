@@ -6,7 +6,7 @@ import (
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
-	"bitbucket.org/zlacki/rscgo/pkg/world"
+	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 
 	// Necessary for sqlite3 driver
 	_ "github.com/mattn/go-sqlite3"

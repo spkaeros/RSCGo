@@ -11,7 +11,7 @@ import (
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
-	"bitbucket.org/zlacki/rscgo/pkg/world"
+	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 	"github.com/BurntSushi/toml"
 	"github.com/jessevdk/go-flags"
 )

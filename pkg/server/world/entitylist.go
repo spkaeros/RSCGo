@@ -24,7 +24,7 @@ func (e *Entity) AtCoords(x, y int) bool {
 //LogWarning Log interface for warnings.
 var LogWarning = log.New(os.Stdout, "[WARNING] ", log.Ltime|log.Lshortfile)
 
-//List Represents a list of Entity scene entities.
+//List Represents a list of scene entities.
 type List struct {
 	List []interface{}
 }

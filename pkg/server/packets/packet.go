@@ -106,7 +106,7 @@ func (p *Packet) ReadByte() byte {
 	return p.Payload[p.readIndex] & 0xFF
 }
 
-//ReadSByte Read the next 8-bit integer from the packet payload.
+//ReadSByte Read the next 8-bit integer from the packet payload, as a signed byte.
 func (p *Packet) ReadSByte() int8 {
 	if p.readIndex+1 > len(p.Payload) {
 		LogWarning.Println("Error parsing packet arguments: { opcode=" + strconv.Itoa(int(p.Opcode)) + "; offset=" + strconv.Itoa(p.readIndex) + " };")

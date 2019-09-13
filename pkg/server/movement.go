@@ -1,7 +1,7 @@
 package server
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/world"
+	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 )
 

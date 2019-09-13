@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
-	"bitbucket.org/zlacki/rscgo/pkg/world"
+	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 )
 
 var epoch = uint64(time.Now().UnixNano() / int64(time.Millisecond))
