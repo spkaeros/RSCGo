@@ -7,20 +7,22 @@ import (
 
 //Player Represents a single player.
 type Player struct {
-	Username      string
-	UserBase37    uint64
-	Password      string
-	FriendList    map[uint64]bool
-	IgnoreList    []uint64
-	LocalPlayers  *List
-	LocalObjects  *List
-	Connected     bool
-	Updating      bool
-	Appearances   []int
-	DatabaseIndex int
-	Rank          int
-	Appearance    *AppearanceTable
-	Attributes    AttributeList
+	Username         string
+	UserBase37       uint64
+	Password         string
+	FriendList       map[uint64]bool
+	IgnoreList       []uint64
+	LocalPlayers     *List
+	LocalObjects     *List
+	Connected        bool
+	Updating         bool
+	Appearances      []int
+	DatabaseIndex    int
+	Rank             int
+	Appearance       *AppearanceTable
+	AppearanceTicket int
+	KnownAppearances map[int]int
+	Attributes       AttributeList
 	Mob
 }
 
@@ -301,5 +303,5 @@ func (p *Player) SetCoords(x, y int) {
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
-	return &Player{Mob: Mob{Entity: Entity{Index: -1}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: make(AttributeList)}, Attributes: make(AttributeList), LocalPlayers: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false, FriendList: make(map[uint64]bool)}
+	return &Player{Mob: Mob{Entity: Entity{Index: -1}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: make(AttributeList)}, Attributes: make(AttributeList), LocalPlayers: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false, FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int)}
 }

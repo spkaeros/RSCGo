@@ -220,6 +220,16 @@ func (c *Client) LoadPlayer(usernameHash uint64, password string, loginReply cha
 	c.player.Username = strutil.DecodeBase37(usernameHash)
 	c.player.Index = c.Index
 	Clients[usernameHash] = c
+	if c.player.Rank == 2 {
+		// Administrator
+		loginReply <- byte(25)
+		return
+	}
+	if c.player.Rank == 1 {
+		// Moderator
+		loginReply <- byte(24)
+		return
+	}
 	loginReply <- byte(0)
 	return
 }

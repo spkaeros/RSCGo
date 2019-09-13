@@ -42,6 +42,7 @@ func (m *Mob) Direction() int {
 
 //SetDirection Sets the mobs direction.
 func (m *Mob) SetDirection(direction int) {
+	m.TransAttrs["plrchanged"] = true
 	m.TransAttrs["direction"] = direction
 }
 

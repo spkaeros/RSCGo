@@ -3,8 +3,8 @@ package packets
 import (
 	"time"
 
-	"bitbucket.org/zlacki/rscgo/pkg/world"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
+	"bitbucket.org/zlacki/rscgo/pkg/world"
 )
 
 var epoch = uint64(time.Now().UnixNano() / int64(time.Millisecond))
@@ -182,13 +182,13 @@ func PlayerPositions(player *world.Player, newPlayers []*world.Player) (p *Packe
 		counter++
 	}
 	for _, p1 := range player.LocalPlayers.List {
-		p1, ok := p1.(*world.Player)
-		if ok {
+		if p1, ok := p1.(*world.Player); ok {
 			if p1.LongestDelta(player.Location) > 15 || p1.TransAttrs.VarBool("plrremove", false) {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
 				player.LocalPlayers.Remove(p1)
+				delete(player.KnownAppearances, p1.Index)
 				counter++
 			} else if p1.TransAttrs.VarBool("plrmoved", false) || p1.TransAttrs.VarBool("plrchanged", false) {
 				p.AddBits(1, 1)
@@ -231,7 +231,7 @@ func PlayerPositions(player *world.Player, newPlayers []*world.Player) (p *Packe
 //PlayerAppearances Builds a packet with the view-area player appearance profiles in it.
 func PlayerAppearances(ourPlayer *world.Player, local []*world.Player) (p *Packet) {
 	p = NewOutgoingPacket(53)
-	if ourPlayer.TransAttrs.VarBool("plrchanged", true) {
+	if !ourPlayer.TransAttrs.VarBool("plrself", false) {
 		local = append(local, ourPlayer)
 	}
 	if len(local) <= 0 {
@@ -239,9 +239,10 @@ func PlayerAppearances(ourPlayer *world.Player, local []*world.Player) (p *Packe
 	}
 	p.AddShort(uint16(len(local))) // Update size
 	for _, player := range local {
+		ourPlayer.KnownAppearances[player.Index] = player.AppearanceTicket
 		p.AddShort(uint16(player.Index))
-		p.AddByte(5)  // Player appearances
-		p.AddShort(0) // Appearance ID wtf is it, changes every time we change appearance!
+		p.AddByte(5) // Player appearances
+		p.AddShort(uint16(player.AppearanceTicket))
 		p.AddLong(strutil.Base37(player.Username))
 		p.AddByte(12) // worn items length
 		p.AddByte(1)  // head
@@ -250,13 +251,13 @@ func PlayerAppearances(ourPlayer *world.Player, local []*world.Player) (p *Packe
 		for i := 0; i < 9; i++ {
 			p.AddByte(0)
 		}
-		p.AddByte(2)  // Hair
-		p.AddByte(8)  // Top
-		p.AddByte(14) // Bottom
-		p.AddByte(0)  // Skin
-		p.AddShort(3) // Combat lvl
-		p.AddByte(0)  // skulled
-		p.AddByte(2)  // Rank 2=admin,1=mod,0=normal
+		p.AddByte(2)                 // Hair
+		p.AddByte(8)                 // Top
+		p.AddByte(14)                // Bottom
+		p.AddByte(0)                 // Skin
+		p.AddShort(3)                // Combat lvl
+		p.AddByte(0)                 // skulled
+		p.AddByte(byte(player.Rank)) // Rank 2=admin,1=mod,0=normal
 	}
 	return
 }

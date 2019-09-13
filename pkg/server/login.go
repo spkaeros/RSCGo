@@ -37,7 +37,9 @@ func loginRequest(c *Client, p *packets.Packet) {
 		loginReply <- byte(5)
 		return
 	}
-	c.isaacStream = c.SeedISAAC(p.ReadLong(), p.ReadLong())
+	//	c.isaacStream = c.SeedISAAC(p.ReadLong(), p.ReadLong())
+	p.ReadLong()
+	p.ReadLong()
 	usernameHash := strutil.Base37(p.ReadString())
 	if _, ok := Clients[usernameHash]; ok {
 		loginReply <- byte(4)

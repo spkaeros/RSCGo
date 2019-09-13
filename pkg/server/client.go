@@ -104,7 +104,7 @@ func (c *Client) ResetUpdateFlags() {
 	delete(c.player.TransAttrs, "plrremove")
 	delete(c.player.TransAttrs, "plrmoved")
 	delete(c.player.TransAttrs, "plrchanged")
-	delete(c.player.TransAttrs, "plrself")
+	c.player.TransAttrs["plrself"] = true
 }
 
 //UpdatePositions Updates the client about entities in it's view-area (16x16 tiles in the game world surrounding the player).  Should be run every game engine tick.
@@ -117,19 +117,16 @@ func (c *Client) UpdatePositions() {
 			// No more than 255 players in view at once, no more than 25 new players at once.
 			break
 		}
+		if ticket, ok := c.player.KnownAppearances[p.Index]; !ok || ticket != p.AppearanceTicket {
+			localAppearances = append(localAppearances, p)
+		}
 		localPlayers = append(localPlayers, p)
 	}
+
 	for _, o := range c.player.NewObjects() {
 		localObjects = append(localObjects, o)
 	}
-	// TODO: Clean up appearance list code.
-	//	for _, index := range c.player.Appearances {
-	//		if v, ok := ClientsIdx[index]; ok {
-	//			localAppearances = append(localAppearances, v.player)
-	//		}
-	//	}
-	localAppearances = append(localAppearances, localPlayers...)
-	//	c.player.Appearances = c.player.Appearances[:0]
+
 	// POSITIONS BEFORE EVERYTHING ELSE.
 	if positions := packets.PlayerPositions(c.player, localPlayers); positions != nil {
 		c.outgoingPackets <- positions
@@ -168,7 +165,7 @@ func (c *Client) StartNetworking() {
 
 func (c *Client) sendLoginResponse(i byte) {
 	c.outgoingPackets <- packets.LoginResponse(int(i))
-	if i != 0 {
+	if i != 0 && i != 25 && i != 24 {
 		LogInfo.Printf("Denied Client: {ip:'%v', username:'%v', Response='%v'}\n", c.ip, c.player.Username, i)
 		c.Destroy()
 	} else {
