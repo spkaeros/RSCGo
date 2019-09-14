@@ -71,6 +71,14 @@ func init() {
 			LogWarning.Println("Handler for this argument type not found.")
 			return
 		}
+		if object.ID == 109 {
+			// Quest hut by wilderness in between edgeville and varrock
+			dest := world.Location{161, 465}
+			if p.Y >= 465 {
+				dest.Y--
+			}
+			go p.EnterDoor(object, dest)
+		}
 		if newID, ok := bDoors[object.ID]; ok {
 			world.ReplaceObject(object, newID)
 		}

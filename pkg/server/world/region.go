@@ -1,6 +1,9 @@
 package world
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 const (
 	//RegionSize Represents the size of the region
@@ -44,6 +47,14 @@ func AddObject(o *Object) {
 //RemoveObject Remove an object from the region.
 func RemoveObject(o *Object) {
 	GetRegion(o.X, o.Y).Objects.Remove(o)
+}
+
+//EnterDoor Replaces door object with an open door, sleeps for one second, and returns the closed door.
+func (player *Player) EnterDoor(door *Object, dest Location) {
+	ReplaceObject(door, 11)
+	player.SetLocation(dest)
+	time.Sleep(time.Second)
+	ReplaceObject(GetObject(door.X, door.Y), door.ID)
 }
 
 //ReplaceObject Replaces old with a new game object with all of the same characteristics, except it's ID set to newID.
