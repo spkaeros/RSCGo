@@ -21,11 +21,11 @@ func init() {
 			c.outgoingPackets <- packets.FriendList(c.player)
 		}()
 		if c.player.Friends(hash) {
-			c.outgoingPackets <- packets.ServerMessage("@que@You are already friends with that person!")
+			c.Message("@que@You are already friends with that person!")
 			return
 		}
 		if c.player.Ignoring(hash) {
-			c.outgoingPackets <- packets.ServerMessage("@que@Please remove '" + strutil.DecodeBase37(hash) + "' from your ignore list before friending them.")
+			c.Message("@que@Please remove '" + strutil.DecodeBase37(hash) + "' from your ignore list before friending them.")
 			return
 		}
 		if c1, ok := Clients[hash]; ok {
@@ -52,7 +52,7 @@ func init() {
 			c.outgoingPackets <- packets.FriendList(c.player)
 		}()
 		if !c.player.Friends(hash) {
-			c.outgoingPackets <- packets.ServerMessage("@que@You are not friends with that person!")
+			c.Message("@que@You are not friends with that person!")
 			return
 		}
 		if c1, ok := Clients[hash]; ok && c1.player.Friends(c.player.UserBase37) && c.player.FriendBlocked() {
@@ -66,11 +66,11 @@ func init() {
 			c.outgoingPackets <- packets.IgnoreList(c.player)
 		}()
 		if c.player.Friends(hash) {
-			c.outgoingPackets <- packets.ServerMessage("@que@Please remove '" + strutil.DecodeBase37(hash) + "' from your friend list before ignoring them.")
+			c.Message("@que@Please remove '" + strutil.DecodeBase37(hash) + "' from your friend list before ignoring them.")
 			return
 		}
 		if c.player.Ignoring(hash) {
-			c.outgoingPackets <- packets.ServerMessage("@que@You are already ignoring that person!")
+			c.Message("@que@You are already ignoring that person!")
 			return
 		}
 		c.player.IgnoreList = append(c.player.IgnoreList, hash)
@@ -81,7 +81,7 @@ func init() {
 			c.outgoingPackets <- packets.IgnoreList(c.player)
 		}()
 		if !c.player.Ignoring(hash) {
-			c.outgoingPackets <- packets.ServerMessage("@que@You are not ignoring that person!")
+			c.Message("@que@You are not ignoring that person!")
 			return
 		}
 		for i, v := range c.player.IgnoreList {

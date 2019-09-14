@@ -1,8 +1,8 @@
 package server
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
+	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 )
 
 func init() {
@@ -38,13 +38,10 @@ func init() {
 		playerID := p.ReadShort()
 		affectedClient := ClientFromIndex(playerID)
 		if affectedClient == nil {
-			c.outgoingPackets <- packets.ServerMessage("@que@Could not find the player you're looking for.")
+			c.Message("@que@Could not find the player you're looking for.")
 			return
 		}
 		c.player.SetFollowing(playerID)
-		c.outgoingPackets <- packets.ServerMessage("@que@Following " + affectedClient.player.Username)
+		c.Message("@que@Following " + affectedClient.player.Username)
 	}
-	// 157 is gay.  Walk to other entity with distanced action
-	//	Handlers[157] = func(c *Client, p *packets.Packet) {
-	//	}
 }

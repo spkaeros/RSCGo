@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"bitbucket.org/zlacki/rscgo/pkg/server/errors" 
+	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 )
@@ -72,7 +72,7 @@ func (c *Client) StartReader() {
 	}
 }
 
-//StartWriter Starts the clients socket writer goroutine.  Takes a waitgroup as an argument to facilitate synchronous destruction.
+//StartWriter Starts the clients socket writer goroutine.
 func (c *Client) StartWriter() {
 	defer c.networkingGroup.Done()
 	// 50ms for 20pps per client--is this too much?  Practically I don't think we need more than maybe 10.
