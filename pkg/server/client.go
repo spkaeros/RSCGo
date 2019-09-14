@@ -52,8 +52,7 @@ func (c *Client) Teleport(x, y int) {
 //StartReader Starts the clients socket reader goroutine.  Takes a waitgroup as an argument to facilitate synchronous destruction.
 func (c *Client) StartReader() {
 	defer c.networkingGroup.Done()
-	// 50ms for 20pps per client--is this too much?  Practically I don't think we need more than maybe 10.
-	for range time.Tick(50 * time.Millisecond) {
+	for {
 		select {
 		default:
 			p, err := c.ReadPacket()
@@ -75,8 +74,7 @@ func (c *Client) StartReader() {
 //StartWriter Starts the clients socket writer goroutine.
 func (c *Client) StartWriter() {
 	defer c.networkingGroup.Done()
-	// 50ms for 20pps per client--is this too much?  Practically I don't think we need more than maybe 10.
-	for range time.Tick(50 * time.Millisecond) {
+	for {
 		select {
 		case p := <-c.outgoingPackets:
 			if p == nil {

@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
-	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
+	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 	"github.com/BurntSushi/toml"
 	"github.com/jessevdk/go-flags"
 )

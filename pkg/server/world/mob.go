@@ -164,3 +164,15 @@ type SkillTable struct {
 	Maximum    [18]int
 	Experience [18]int
 }
+
+//CombatLevel Calculates and returns the combat level for this skill table.
+func (s *SkillTable) CombatLevel() int {
+	aggressiveTotal := float32(s.Maximum[0] + s.Maximum[2])
+	defensiveTotal := float32(s.Maximum[1] + s.Maximum[3])
+	spiritualTotal := float32((s.Maximum[5] + s.Maximum[6]) / 8)
+	ranged := float32(s.Maximum[4])
+	if aggressiveTotal < ranged*1.5 {
+		return int((defensiveTotal / 4) + (ranged * 0.375) + spiritualTotal)
+	}
+	return int((aggressiveTotal / 4) + (defensiveTotal / 4) + spiritualTotal)
+}
