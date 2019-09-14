@@ -18,18 +18,18 @@ func init() {
 		duelBlocked := p.ReadBool()
 		if c.player.FriendBlocked() && !friendBlocked {
 			// turning off private chat block
-			for hash, c1 := range Clients {
-				if c1.player.Friends(c.player.UserBase37) && !c.player.Friends(hash) {
+			Clients.Broadcast(func(c1 *Client) {
+				if c1.player.Friends(c.player.UserBase37) && !c.player.Friends(c1.player.UserBase37) {
 					c1.outgoingPackets <- packets.FriendUpdate(c.player.UserBase37, true)
 				}
-			}
+			})
 		} else if !c.player.FriendBlocked() && friendBlocked {
 			// turning on private chat block
-			for hash, c1 := range Clients {
-				if c1.player.Friends(c.player.UserBase37) && !c.player.Friends(hash) {
+			Clients.Broadcast(func(c1 *Client) {
+				if c1.player.Friends(c.player.UserBase37) && !c.player.Friends(c1.player.UserBase37) {
 					c1.outgoingPackets <- packets.FriendUpdate(c.player.UserBase37, false)
 				}
-			}
+			})
 		}
 		c.player.SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, duelBlocked)
 	}

@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
-	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
+	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 
 	// Necessary for sqlite3 driver
 	_ "github.com/mattn/go-sqlite3"
@@ -195,7 +195,7 @@ func (c *Client) LoadPlayer(usernameHash uint64, password string, loginReply cha
 			var hash uint64
 			rows.Scan(&hash)
 			if listType == "friend" {
-				c.player.FriendList[hash] = ClientFromHash(hash) != nil
+				c.player.FriendList[hash] = Clients.ContainsHash(hash)
 			} else {
 				c.player.IgnoreList = append(c.player.IgnoreList, hash)
 			}
@@ -219,7 +219,7 @@ func (c *Client) LoadPlayer(usernameHash uint64, password string, loginReply cha
 	c.player.UserBase37 = usernameHash
 	c.player.Username = strutil.DecodeBase37(usernameHash)
 	c.player.Index = c.Index
-	Clients[usernameHash] = c
+	Clients.Put(c)
 	if c.player.Rank == 2 {
 		// Administrator
 		loginReply <- byte(25)

@@ -9,7 +9,7 @@ func init() {
 	PacketHandlers["chatmsg"] = func(c *Client, p *packets.Packet) {
 		for _, p1 := range c.player.NearbyPlayers() {
 			if !p1.ChatBlocked() || p1.Friends(c.player.UserBase37) {
-				if c1 := ClientFromIndex(p1.Index); c1 != nil && !p1.Ignoring(c.player.UserBase37) {
+				if c1, ok := Clients.FromIndex(p1.Index); ok && !p1.Ignoring(c.player.UserBase37) {
 					c1.outgoingPackets <- packets.PlayerChat(c.Index, string(p.Payload))
 				}
 			}
@@ -28,7 +28,7 @@ func init() {
 			c.Message("@que@Please remove '" + strutil.DecodeBase37(hash) + "' from your ignore list before friending them.")
 			return
 		}
-		if c1, ok := Clients[hash]; ok {
+		if c1, ok := Clients.FromUserHash(hash); ok {
 			if c1.player.Friends(c.player.UserBase37) && c.player.FriendBlocked() {
 				c1.outgoingPackets <- packets.FriendUpdate(c.player.UserBase37, true)
 			}
@@ -40,7 +40,7 @@ func init() {
 		c.player.FriendList[hash] = false
 	}
 	PacketHandlers["privmsg"] = func(c *Client, p *packets.Packet) {
-		if c1, ok := Clients[p.ReadLong()]; ok {
+		if c1, ok := Clients.FromUserHash(p.ReadLong()); ok {
 			if !c1.player.FriendBlocked() || c1.player.Friends(c.player.UserBase37) {
 				c1.outgoingPackets <- packets.PrivateMessage(c.player.UserBase37, strutil.FormatChatMessage(strutil.UnpackChatMessage(p.Payload[8:])))
 			}
@@ -55,7 +55,7 @@ func init() {
 			c.Message("@que@You are not friends with that person!")
 			return
 		}
-		if c1, ok := Clients[hash]; ok && c1.player.Friends(c.player.UserBase37) && c.player.FriendBlocked() {
+		if c1, ok := Clients.FromUserHash(hash); ok && c1.player.Friends(c.player.UserBase37) && c.player.FriendBlocked() {
 			c1.outgoingPackets <- packets.FriendUpdate(c.player.UserBase37, false)
 		}
 		delete(c.player.FriendList, hash)

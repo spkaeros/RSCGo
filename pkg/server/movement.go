@@ -36,8 +36,8 @@ func init() {
 	}
 	PacketHandlers["followreq"] = func(c *Client, p *packets.Packet) {
 		playerID := p.ReadShort()
-		affectedClient := ClientFromIndex(playerID)
-		if affectedClient == nil {
+		affectedClient, ok := Clients.FromIndex(playerID)
+		if !ok {
 			c.Message("@que@Could not find the player you're looking for.")
 			return
 		}

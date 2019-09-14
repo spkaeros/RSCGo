@@ -8,13 +8,13 @@ import (
 	"strings"
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
+	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
-	"bitbucket.org/zlacki/rscgo/pkg/server/world" 
 )
 
 //CommandHandlers A map to assign in-game commands to the functions they should execute.
 var CommandHandlers = make(map[string]func(*Client, []string))
- 
+
 //LogCommands Log commands to their own file.
 var LogCommands = log.New(os.Stdout, "[COMMAND] ", log.Ltime)
 
@@ -69,8 +69,8 @@ func init() {
 			return
 		}
 		if pID, err := strconv.Atoi(args[0]); err == nil {
-			affectedClient := ClientFromIndex(pID)
-			if affectedClient == nil {
+			affectedClient, ok := Clients.FromIndex(pID)
+			if !ok {
 				c.Message("@que@Could not find player.")
 				return
 			}
@@ -85,8 +85,8 @@ func init() {
 			}
 			name = strings.TrimSpace(name)
 
-			affectedClient := ClientFromHash(strutil.Base37(name))
-			if affectedClient == nil {
+			affectedClient, ok := Clients.FromUserHash(strutil.Base37(name))
+			if !ok {
 				c.Message("@que@Could not find player: '" + name + "'")
 				return
 			}
@@ -150,7 +150,7 @@ func init() {
 		for _, word := range args {
 			msg += " " + word
 		}
-		Broadcast(func(c1 *Client) {
+		Clients.Broadcast(func(c1 *Client) {
 			c1.Message("@que@" + msg)
 		})
 	}
@@ -195,8 +195,8 @@ func summon(c *Client, args []string) {
 	}
 	name = strings.TrimSpace(name)
 
-	c1 := ClientFromHash(strutil.Base37(name))
-	if c1 == nil {
+	c1, ok := Clients.FromUserHash(strutil.Base37(name))
+	if !ok {
 		c.Message("@que@@whi@[@cya@SERVER@whi@]: @gre@Could not find player: '" + name + "'")
 		return
 	}
@@ -216,8 +216,8 @@ func gotoTeleport(c *Client, args []string) {
 	}
 	name = strings.TrimSpace(name)
 
-	c1 := ClientFromHash(strutil.Base37(name))
-	if c1 == nil {
+	c1, ok := Clients.FromUserHash(strutil.Base37(name))
+	if !ok {
 		c.Message("@que@@whi@[@cya@SERVER@whi@]: @gre@Could not find player: '" + name + "'")
 		return
 	}

@@ -43,7 +43,9 @@ func (c *Client) Teleport(x, y int) {
 		return
 	}
 	for _, nearbyPlayer := range c.player.NearbyPlayers() {
-		ClientFromIndex(nearbyPlayer.Index).TeleBubble(c.player.X-nearbyPlayer.X, c.player.Y-nearbyPlayer.Y)
+		if c1, ok := Clients.FromIndex(nearbyPlayer.Index); ok {
+			c1.TeleBubble(c.player.X-nearbyPlayer.X, c.player.Y-nearbyPlayer.Y)
+		}
 	}
 	c.TeleBubble(0, 0)
 	c.player.Teleport(x, y)
@@ -99,7 +101,6 @@ func (c *Client) Destroy() {
 func (c *Client) destroy() {
 	// Wait for network goroutines to finish.
 	c.networkingGroup.Wait()
-	delete(ClientsIdx, c.Index)
 	c.player.Connected = false
 	close(c.outgoingPackets)
 	close(c.incomingPackets)
@@ -107,14 +108,14 @@ func (c *Client) destroy() {
 	if err := c.socket.Close(); err != nil {
 		LogError.Println("Couldn't close socket:", err)
 	}
-	if _, ok := Clients[c.player.UserBase37]; ok {
+	if _, ok := Clients.FromUserHash(c.player.UserBase37); ok {
 		// Always try to launch I/O-heavy functions in their own goroutine.
 		// Goroutines are light-weight and made for this kind of thing.
 		go c.Save()
 		world.RemovePlayer(c.player)
 		c.player.TransAttrs["plrremove"] = true
 		BroadcastLogin(c.player, false)
-		delete(Clients, c.player.UserBase37)
+		Clients.Remove(c)
 		LogInfo.Printf("Unregistered: %v\n", c)
 	}
 }
@@ -202,7 +203,7 @@ func (c *Client) sendLoginResponse(i byte) {
 		c.outgoingPackets <- packets.ClientSettings(c.player)
 		c.outgoingPackets <- packets.Fatigue(c.player)
 		c.outgoingPackets <- packets.WelcomeMessage
-		c.outgoingPackets <- packets.ServerInfo(len(Clients))
+		c.outgoingPackets <- packets.ServerInfo(Clients.Size())
 		c.outgoingPackets <- packets.LoginBox(0, c.ip)
 		BroadcastLogin(c.player, true)
 	}
@@ -228,14 +229,7 @@ func (c *Client) IP() string {
 
 //NewClient Creates a new instance of a Client, launches goroutines to handle I/O for it, and returns a reference to it.
 func NewClient(socket net.Conn) *Client {
-	c := &Client{socket: socket, incomingPackets: make(chan *packets.Packet, 20), outgoingPackets: make(chan *packets.Packet, 20), Index: -1, Kill: make(chan struct{}), player: world.NewPlayer(), buffer: make([]byte, 5000), ip: strings.Split(socket.RemoteAddr().String(), ":")[0]}
-	for lastIdx := 0; lastIdx < 2048; lastIdx++ {
-		if _, ok := ClientsIdx[lastIdx]; !ok {
-			c.Index = lastIdx
-			break
-		}
-	}
-	ClientsIdx[c.Index] = c
+	c := &Client{socket: socket, incomingPackets: make(chan *packets.Packet, 20), outgoingPackets: make(chan *packets.Packet, 20), Index: Clients.NextIndex(), Kill: make(chan struct{}), player: world.NewPlayer(), buffer: make([]byte, 5000), ip: strings.Split(socket.RemoteAddr().String(), ":")[0]}
 	c.StartNetworking()
 	return c
 }

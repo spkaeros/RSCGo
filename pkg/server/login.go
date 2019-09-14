@@ -41,7 +41,7 @@ func loginRequest(c *Client, p *packets.Packet) {
 	p.ReadLong()
 	p.ReadLong()
 	usernameHash := strutil.Base37(p.ReadString())
-	if _, ok := Clients[usernameHash]; ok {
+	if _, ok := Clients.FromUserHash(usernameHash); ok {
 		loginReply <- byte(4)
 		return
 	}

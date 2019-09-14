@@ -11,7 +11,6 @@ import (
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
-	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 	"github.com/BurntSushi/toml"
 	"github.com/jessevdk/go-flags"
 )
@@ -24,12 +23,84 @@ var (
 	//LogError Log interface for errors.
 	LogError = log.New(os.Stderr, "[ERROR] ", log.Ltime|log.Lshortfile)
 	kill     = make(chan struct{})
-	//Clients A map of base37 encoded username hashes to client references.  This is a common lookup and I consider this an optimization.
-	Clients = make(map[uint64]*Client)
-	//ClientsIdx A map of server indexes to client references.  Also a common lookup.
-	ClientsIdx = make(map[int]*Client)
-	// TODO: Combine the two collections above to one custom collection type.
 )
+
+//ClientMap A thread-safe concurrent collection type for storing client references.
+type ClientMap struct {
+	usernames map[uint64]*Client
+	indices   map[int]*Client
+	lock      sync.RWMutex
+}
+
+//Clients Collection containing all of the active clients, by index and username hash, guarded by a mutex
+var Clients = &ClientMap{usernames: make(map[uint64]*Client), indices: make(map[int]*Client)}
+
+//FromUserHash Returns the client with the base37 username `hash` if it exists and true, otherwise returns nil and false.
+func (m *ClientMap) FromUserHash(hash uint64) (*Client, bool) {
+	m.lock.RLock()
+	result, ok := m.usernames[hash]
+	m.lock.RUnlock()
+	return result, ok
+}
+
+//ContainsHash Returns true if there is a client mapped to this username hash is in this collection, otherwise returns false.
+func (m *ClientMap) ContainsHash(hash uint64) bool {
+	_, ret := m.FromUserHash(hash)
+	return ret
+}
+
+//FromIndex Returns the client with the index `index` if it exists and true, otherwise returns nil and false.
+func (m *ClientMap) FromIndex(index int) (*Client, bool) {
+	m.lock.RLock()
+	result, ok := m.indices[index]
+	m.lock.RUnlock()
+	return result, ok
+}
+
+//Put Puts a client into the map.
+func (m *ClientMap) Put(c *Client) {
+	m.lock.Lock()
+	m.usernames[c.player.UserBase37] = c
+	m.indices[c.Index] = c
+	m.lock.Unlock()
+}
+
+//Remove Removes a client from the map.
+func (m *ClientMap) Remove(c *Client) {
+	m.lock.Lock()
+	delete(m.usernames, c.player.UserBase37)
+	delete(m.indices, c.Index)
+	m.lock.Unlock()
+}
+
+//Broadcast Calls action for every active client in the collection.
+func (m *ClientMap) Broadcast(action func(*Client)) {
+	m.lock.RLock()
+	for _, c := range m.indices {
+		if c != nil && c.player.Connected {
+			action(c)
+		}
+	}
+	m.lock.RUnlock()
+}
+
+//Size Returns the size of the active client collection.
+func (m *ClientMap) Size() int {
+	// TODO: IDK if I need to rlock this?
+	return len(m.usernames)
+}
+
+//NextIndex Returns the lowest available index for the client to be mapped to.
+func (m *ClientMap) NextIndex() int {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+	for i := 0; i < TomlConfig.MaxPlayers; i++ {
+		if _, ok := m.indices[i]; !ok {
+			return i
+		}
+	}
+	return -1
+}
 
 //TomlConfig A data structure representing the RSCGo TOML configuration file.
 var TomlConfig struct {
@@ -78,7 +149,7 @@ func startConnectionService() {
 				}
 				continue
 			}
-			if len(Clients) >= TomlConfig.MaxPlayers {
+			if Clients.Size() >= TomlConfig.MaxPlayers {
 				if n, err := socket.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 14}); err != nil || n != 9 {
 					if len(Flags.Verbose) > 0 {
 						LogError.Println("Could not send world is full response to rejected client:", err)
@@ -189,22 +260,13 @@ func asyncExecute(wg *sync.WaitGroup, fn func()) {
 	}()
 }
 
-//Broadcast Call action passing in every active client to perform a task on everyone playing.
-func Broadcast(action func(c *Client)) {
-	for _, c := range Clients {
-		if c != nil && c.player.Connected {
-			action(c)
-		}
-	}
-}
-
 //Tick One game engine 'tick'.  This is to handle movement, to synchronize clients, to update movement-related state variables... Runs once per 600ms.
 func Tick() {
-	Broadcast(func(c *Client) {
+	Clients.Broadcast(func(c *Client) {
 		//TODO: Handle this in a less hacky way.  Sticks out like a sore thumb.
 		if c.player.IsFollowing() {
-			followingClient := ClientFromIndex(c.player.FollowIndex())
-			if followingClient == nil || !c.player.Location.WithinRange(followingClient.player.Location, 15) {
+			followingClient, ok := Clients.FromIndex(c.player.FollowIndex())
+			if followingClient == nil || !ok || !c.player.Location.WithinRange(followingClient.player.Location, 15) {
 				c.player.ResetFollowing()
 			} else if !c.player.FinishedPath() && c.player.WithinRange(followingClient.player.Location, 2) {
 				c.player.ResetPath()
@@ -214,10 +276,10 @@ func Tick() {
 		}
 		c.player.TraversePath()
 	})
-	Broadcast(func(c *Client) {
+	Clients.Broadcast(func(c *Client) {
 		c.UpdatePositions()
 	})
-	Broadcast(func(c *Client) {
+	Clients.Broadcast(func(c *Client) {
 		c.ResetUpdateFlags()
 	})
 }
@@ -233,7 +295,7 @@ func startGameEngine() {
 
 //BroadcastLogin Broadcasts the login status of player to the whole server.
 func BroadcastLogin(player *world.Player, online bool) {
-	Broadcast(func(c *Client) {
+	Clients.Broadcast(func(c *Client) {
 		if c.player.Friends(player.UserBase37) {
 			if !player.FriendBlocked() || player.Friends(c.player.UserBase37) {
 				c.outgoingPackets <- packets.FriendUpdate(player.UserBase37, online)
@@ -242,35 +304,8 @@ func BroadcastLogin(player *world.Player, online bool) {
 	})
 }
 
-//ClientFromIndex Helper function to find a specific client reference from its assigned server index.  If there is no player with the index, returns nil.
-func ClientFromIndex(index int) *Client {
-	if c, ok := ClientsIdx[index]; c != nil && c.player.Connected && ok {
-		return c
-	}
-
-	return nil
-}
-
-//ClientFromHash Helper function to find a specific client reference from its base37 encoded username.  If there is no player with the username, returns nil.
-func ClientFromHash(userHash uint64) *Client {
-	if c, ok := Clients[userHash]; c != nil && c.player.Connected && ok {
-		return c
-	}
-
-	return nil
-}
-
-//ClientFromUsername Helper function to find a specific client reference from its username.  If there is no player with the username, returns nil.
-func ClientFromUsername(username string) *Client {
-	return ClientFromHash(strutil.Base37(username))
-}
-
 //Stop This will stop the server instance, if it is running.
 func Stop() {
-	LogInfo.Printf("Clearing client list...")
-	Clients = make(map[uint64]*Client)
-	ClientsIdx = make(map[int]*Client)
-	LogInfo.Println("done")
 	LogInfo.Println("Stopping server...")
 	kill <- struct{}{}
 }
