@@ -16,6 +16,7 @@ var boundary2Handlers = make(actionsMap)
 
 func init() {
 	//TODO: This whole entire file is messy and could use tidying.
+	// Actually, to that end, I will be implementing a scripting language of some sort, so I'll leave it for now.
 	oDoors := make(map[int]int)
 	oDoors[59] = 60
 	oDoors[57] = 58
@@ -29,6 +30,19 @@ func init() {
 	for k, v := range bDoors {
 		// Add value->key to handle close as well as open.
 		bDoors[v] = k
+	}
+	objectHandlers[19] = func(p *world.Player, args ...interface{}) {
+		if len(args) <= 0 {
+			LogWarning.Println("Must provide at least 1 argument to action handlers.")
+			return
+		}
+
+		if p.Skillset.Current[5] < p.Skillset.Maximum[5] {
+			c, _ := Clients.FromIndex(p.Index)
+			p.Skillset.Current[5] = p.Skillset.Maximum[5]
+			c.UpdateStat(5)
+			c.Message("You recharge your prayer points at the altar.")
+		}
 	}
 	objectHandlers["open"] = func(p *world.Player, args ...interface{}) {
 		if len(args) <= 0 {

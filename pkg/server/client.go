@@ -32,6 +32,11 @@ func (c *Client) Message(msg string) {
 	c.outgoingPackets <- packets.ServerMessage(msg)
 }
 
+//UpdateStat Builds and queues for sending a new packet containing our players stat information for given skill ID
+func (c *Client) UpdateStat(id int) {
+	c.outgoingPackets <- packets.PlayerStat(c.player, id)
+}
+
 //TeleBubble Queues a new packet to create a teleport bubble at the given offsets relative to our player.
 func (c *Client) TeleBubble(diffX, diffY int) {
 	c.outgoingPackets <- packets.TeleBubble(diffX, diffY)

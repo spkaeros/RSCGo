@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 
@@ -95,6 +96,42 @@ func init() {
 			c.Message("@que@Kicked: '" + affectedClient.player.Username + "'")
 			affectedClient.outgoingPackets <- packets.Logout
 			affectedClient.Destroy()
+		}
+	}
+	CommandHandlers["memdump"] = func(c *Client, args []string) {
+		file, err := os.Create("rscgo.mprof")
+		if err != nil {
+			LogWarning.Println("Could not open file to dump memory profile:", err)
+			c.Message("Error encountered opening profile output file.")
+			return
+		}
+		pprof.WriteHeapProfile(file)
+		file.Close()
+		LogCommands.Println(c.player.Username + " dumped memory profile of the server to rscgo.mprof")
+		c.Message("Dumped memory profile.")
+	}
+	CommandHandlers["pprof"] = func(c *Client, args []string) {
+		if len(args) < 1 {
+			c.Message("Invalid args.  Usage: /pprof <start|stop>")
+			return
+		}
+		switch args[0] {
+		case "start":
+			file, err := os.Create("rscgo.pprof")
+			if err != nil {
+				LogWarning.Println("Could not open file to dump CPU profile:", err)
+				c.Message("Error encountered opening profile output file.")
+				return
+			}
+			pprof.StartCPUProfile(file)
+			LogCommands.Println(c.player.Username + " began profiling CPU time.")
+			c.Message("CPU profiling started.")
+		case "stop":
+			pprof.StopCPUProfile()
+			LogCommands.Println(c.player.Username + " has finished profiling CPU time, output should be in rscgo.pprof")
+			c.Message("CPU profiling finished.")
+		default:
+			c.Message("Invalid args.  Usage: /pprof <start|stop>")
 		}
 	}
 	CommandHandlers["object"] = func(c *Client, args []string) {
