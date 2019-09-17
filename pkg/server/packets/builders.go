@@ -374,7 +374,7 @@ func PlaneInfo(player *world.Player) *Packet {
 	playerInfo.AddShort(2304)
 	playerInfo.AddShort(1776)
 
-	playerInfo.AddShort(uint16((player.Y + 100) / 1000))
+	playerInfo.AddShort(uint16(player.Plane()))
 
 	playerInfo.AddShort(944)
 	return playerInfo

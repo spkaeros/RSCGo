@@ -42,6 +42,11 @@ func (c *Client) TeleBubble(diffX, diffY int) {
 	c.outgoingPackets <- packets.TeleBubble(diffX, diffY)
 }
 
+//UpdatePlane Updates the client about the plane that its player is on.
+func (c *Client) UpdatePlane() {
+	c.outgoingPackets <- packets.PlaneInfo(c.player)
+}
+
 //Teleport Moves the client's player to x,y in the game world, and sends a teleport bubble animation packet to all of the view-area clients.
 func (c *Client) Teleport(x, y int) {
 	if !world.WithinWorld(x, y) {
@@ -127,10 +132,10 @@ func (c *Client) destroy() {
 
 //ResetUpdateFlags Resets the players movement updating synchronization variables.
 func (c *Client) ResetUpdateFlags() {
-	delete(c.player.TransAttrs, "plrremove")
-	delete(c.player.TransAttrs, "plrmoved")
-	delete(c.player.TransAttrs, "plrchanged")
 	c.player.TransAttrs["plrself"] = true
+	c.player.TransAttrs["plrchanged"] = false
+	c.player.TransAttrs["plrmoved"] = false
+	c.player.TransAttrs["plrremove"] = false
 }
 
 //UpdatePositions Updates the client about entities in it's view-area (16x16 tiles in the game world surrounding the player).  Should be run every game engine tick.

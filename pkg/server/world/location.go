@@ -25,6 +25,17 @@ const (
 	MaxY = 3776
 )
 
+const (
+	//PlaneGround Represents the value for the ground-level plane
+	PlaneGround int = iota
+	//PlaneSecond Represents the value for the second-story plane
+	PlaneSecond
+	//PlaneThird Represents the value for the third-story plane
+	PlaneThird
+	//PlaneBasement Represents the value for the basement plane
+	PlaneBasement
+)
+
 //Location A tile in the game world.
 type Location struct {
 	X, Y int
@@ -86,6 +97,47 @@ func (l *Location) LongestDelta(other Location) int {
 //WithinRange Returns true if the other location is within radius tiles of the receiver location, otherwise false.
 func (l *Location) WithinRange(other Location, radius int) bool {
 	return l.LongestDelta(other) <= radius
+}
+
+//Plane Calculates and returns the plane that this location is on.
+func (l *Location) Plane() int {
+	return (l.Y + 100) / 944 // / 1000
+}
+
+//Above Returns the location directly above this one, if any.  Otherwise, if we are on the top floor, returns itself.
+func (l *Location) Above() Location {
+	return Location{l.X, l.PlaneY(true)}
+}
+
+//Below Returns the location directly below this one, if any.  Otherwise, if we are on the bottom floor, returns itself.
+func (l *Location) Below() Location {
+	return Location{l.X, l.PlaneY(false)}
+}
+
+//PlaneY Updates the location's Y coordinate, going up by one plane if up is true, else going down by one plane.  Valid planes: ground=0, 2nd story=1, 3rd story=2, basement=3
+func (l *Location) PlaneY(up bool) int {
+	curPlane := l.Plane()
+	var newPlane int
+	if up {
+		switch curPlane {
+		case PlaneBasement:
+			newPlane = 0
+		case PlaneThird:
+			newPlane = curPlane
+		default:
+			newPlane = curPlane + 1
+		}
+	} else {
+		switch curPlane {
+		case PlaneGround:
+			newPlane = PlaneBasement
+		case PlaneBasement:
+			newPlane = curPlane
+		default:
+			newPlane = curPlane - 1
+		}
+	}
+	return (newPlane * 944) + (l.Y % 944)
 }
 
 //ParseDirection Tries to parse the direction indicated in s.  If it can not match any direction, returns the zero-value for direction: north.

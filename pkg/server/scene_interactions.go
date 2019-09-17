@@ -44,6 +44,30 @@ func init() {
 			c.Message("You recharge your prayer points at the altar.")
 		}
 	}
+	objectHandlers["climb-up"] = func(p *world.Player, args ...interface{}) {
+		if len(args) <= 0 {
+			LogWarning.Println("Must provide at least 1 argument to action handlers.")
+			return
+		}
+
+		if nextLocation := p.Above(); !nextLocation.Equals(p.Location) {
+			c, _ := Clients.FromIndex(p.Index)
+			p.SetLocation(nextLocation)
+			c.UpdatePlane()
+		}
+	}
+	objectHandlers["climb-down"] = func(p *world.Player, args ...interface{}) {
+		if len(args) <= 0 {
+			LogWarning.Println("Must provide at least 1 argument to action handlers.")
+			return
+		}
+
+		if nextLocation := p.Below(); !nextLocation.Equals(p.Location) {
+			c, _ := Clients.FromIndex(p.Index)
+			p.SetLocation(nextLocation)
+			c.UpdatePlane()
+		}
+	}
 	objectHandlers["open"] = func(p *world.Player, args ...interface{}) {
 		if len(args) <= 0 {
 			LogWarning.Println("Must provide at least 1 argument to action handlers.")

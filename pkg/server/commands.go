@@ -164,8 +164,18 @@ func init() {
 		world.AddObject(world.NewObject(id, direction, c.player.X, c.player.Y, false))
 	}
 	CommandHandlers["item"] = notYetImplemented
-	CommandHandlers["goup"] = notYetImplemented
-	CommandHandlers["godown"] = notYetImplemented
+	CommandHandlers["goup"] = func(c *Client, args []string) {
+		if nextLocation := c.player.Above(); !nextLocation.Equals(c.player.Location) {
+			c.player.SetLocation(nextLocation)
+			c.UpdatePlane()
+		}
+	}
+	CommandHandlers["godown"] = func(c *Client, args []string) {
+		if nextLocation := c.player.Below(); !nextLocation.Equals(c.player.Location) {
+			c.player.SetLocation(nextLocation)
+			c.UpdatePlane()
+		}
+	}
 	CommandHandlers["npc"] = notYetImplemented
 	CommandHandlers["summon"] = summon
 	CommandHandlers["goto"] = gotoTeleport
