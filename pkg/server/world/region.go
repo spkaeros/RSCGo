@@ -64,6 +64,23 @@ func ReplaceObject(old *Object, newID int) {
 	r.Objects.Add(NewObject(newID, old.Direction, old.X, old.Y, old.Boundary))
 }
 
+//GetAllObjects Returns a slice containing all objects in the game world.
+func GetAllObjects() (list []*Object) {
+	for x := 0; x < MaxX; x += RegionSize {
+		for y := 0; y < MaxY; y += RegionSize {
+			if r := regions[x/RegionSize][y/RegionSize]; r != nil {
+				for _, o := range r.Objects.List {
+					if o, ok := o.(*Object); ok {
+						list = append(list, o)
+					}
+				}
+			}
+		}
+	}
+
+	return
+}
+
 //GetObject If there is an object at these coordinates, returns it.  Otherwise, returns nil.
 func GetObject(x, y int) *Object {
 	for _, o := range GetRegion(x, y).Objects.List {

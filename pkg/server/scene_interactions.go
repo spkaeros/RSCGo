@@ -112,7 +112,7 @@ func init() {
 		if object.ID == 109 {
 			// Quest hut by wilderness in between edgeville and varrock
 			dest := world.Location{161, 465}
-			if p.Y >= 465 {
+			if p.Y >= dest.Y {
 				dest.Y--
 			}
 			go p.EnterDoor(object, dest)

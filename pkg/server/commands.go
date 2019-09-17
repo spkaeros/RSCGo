@@ -163,6 +163,17 @@ func init() {
 		LogCommands.Printf("'%v' spawned new object{id: %v; dir:%v} at %v,%v\n", c.player.Username, id, direction, c.player.X, c.player.Y)
 		world.AddObject(world.NewObject(id, direction, c.player.X, c.player.Y, false))
 	}
+	CommandHandlers["saveobjects"] = func(c *Client, args []string) {
+		go func() {
+			if count := SaveObjectLocations(); count > 0 {
+				c.Message("Saved " + strconv.Itoa(count) + " game objects to world.db")
+				LogCommands.Println(c.player.Username + " saved " + strconv.Itoa(count) + " game objects to world.db")
+			} else {
+				c.Message("Appears to have been an issue saving game objects to world.db.  Check server logs.")
+				LogCommands.Println(c.player.Username + " failed to save game objects; count=" + strconv.Itoa(count))
+			}
+		}()
+	}
 	CommandHandlers["item"] = notYetImplemented
 	CommandHandlers["goup"] = func(c *Client, args []string) {
 		if nextLocation := c.player.Above(); !nextLocation.Equals(c.player.Location) {

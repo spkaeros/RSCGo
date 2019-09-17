@@ -91,6 +91,57 @@ func LoadObjectLocations() int {
 	return objectCounter
 }
 
+//SaveObjectLocations Clears world.db game object locations and repopulates it with the current server locations.
+func SaveObjectLocations() int {
+	database := OpenDatabase(TomlConfig.Database.WorldDB)
+	defer database.Close()
+	tx, err := database.Begin()
+	if err != nil {
+		LogInfo.Println("Error starting transaction for saving object locations:", err)
+		return -1
+	}
+
+	stmt, err := tx.Exec("DELETE FROM game_object_locations")
+	if err != nil {
+		tx.Rollback()
+		LogInfo.Println("Error clearing object locations to save new ones:", err)
+		return -1
+	}
+	if count, err := stmt.RowsAffected(); count < 1 || err != nil {
+		if err != nil {
+			LogWarning.Println("Error inserting new game object location to world.db:", err)
+			return -1
+		}
+		LogWarning.Printf("Rows affected < 1 in game object location insert:%d\n", count)
+		return -1
+	}
+
+	totalInserts := 0
+	for _, v := range world.GetAllObjects() {
+		stmt, err := tx.Exec("INSERT INTO game_object_locations(id, direction, x, y, type) VALUES(?, ?, ?, ?, ?)", v.ID, v.Direction, v.X, v.Y, v.Boundary)
+		if err != nil {
+			LogWarning.Println("Error inserting game object location to database:", err)
+			continue
+		}
+		if count, err := stmt.RowsAffected(); count < 1 || err != nil {
+			if err != nil {
+				LogWarning.Println("Error inserting new game object location to world.db:", err)
+				continue
+			}
+			LogWarning.Printf("Rows affected < 1 in game object location insert:%d\n", count)
+			continue
+		}
+		totalInserts++
+	}
+
+	if err := tx.Commit(); err != nil {
+		LogWarning.Println("Couldn't commit game object locations:", err)
+		return -1
+	}
+
+	return totalInserts
+}
+
 //OpenDatabase Returns an active sqlite3 database reference for the specified database file.
 func OpenDatabase(file string) *sql.DB {
 	database, err := sql.Open("sqlite3", "file:"+TomlConfig.DataDir+file)
