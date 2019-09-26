@@ -19,7 +19,6 @@ type Client struct {
 	Index                            int
 	isaacStream                      *IsaacStream
 	Kill                             chan struct{}
-	networkingGroup                  sync.WaitGroup
 	player                           *world.Player
 	socket                           net.Conn
 	incomingPackets, outgoingPackets chan *packets.Packet
@@ -63,7 +62,6 @@ func (c *Client) Teleport(x, y int) {
 
 //StartReader Starts the clients socket reader goroutine.  Takes a waitgroup as an argument to facilitate synchronous destruction.
 func (c *Client) StartReader() {
-	defer c.networkingGroup.Done()
 	for {
 		select {
 		default:
@@ -85,7 +83,6 @@ func (c *Client) StartReader() {
 
 //StartWriter Starts the clients socket writer goroutine.
 func (c *Client) StartWriter() {
-	defer c.networkingGroup.Done()
 	for {
 		select {
 		case p := <-c.outgoingPackets:
@@ -108,9 +105,9 @@ func (c *Client) Destroy() {
 }
 
 //destroy Safely tears down a client, saves it to the database, and removes it from server-wide collections.
-func (c *Client) destroy() {
+func (c *Client) destroy(wg *sync.WaitGroup) {
 	// Wait for network goroutines to finish.
-	c.networkingGroup.Wait()
+	(*wg).Wait()
 	c.player.Connected = false
 	close(c.outgoingPackets)
 	close(c.incomingPackets)
@@ -123,7 +120,7 @@ func (c *Client) destroy() {
 		// Goroutines are light-weight and made for this kind of thing.
 		go c.Save()
 		world.RemovePlayer(c.player)
-		c.player.TransAttrs["plrremove"] = true
+		c.player.TransAttrs.SetVar("plrremove", true)
 		BroadcastLogin(c.player, false)
 		Clients.Remove(c)
 		LogInfo.Printf("Unregistered: %v\n", c)
@@ -132,10 +129,10 @@ func (c *Client) destroy() {
 
 //ResetUpdateFlags Resets the players movement updating synchronization variables.
 func (c *Client) ResetUpdateFlags() {
-	c.player.TransAttrs["plrself"] = true
-	c.player.TransAttrs["plrchanged"] = false
-	c.player.TransAttrs["plrmoved"] = false
-	c.player.TransAttrs["plrremove"] = false
+	c.player.TransAttrs.SetVar("plrself", true)
+	c.player.TransAttrs.SetVar("plrremove", false)
+	c.player.TransAttrs.SetVar("plrmoved", false)
+	c.player.TransAttrs.SetVar("plrchanged", false)
 }
 
 //UpdatePositions Updates the client about entities in it's view-area (16x16 tiles in the game world surrounding the player).  Should be run every game engine tick.
@@ -164,11 +161,11 @@ func (c *Client) UpdatePositions() {
 
 //StartNetworking Starts up 3 new goroutines; one for reading incoming data from the socket, one for writing outgoing data to the socket, and one for client state updates and parsing plus handling incoming packets.  When the clients kill signal is sent through the kill channel, the state update and packet handling goroutine will wait for both the reader and writer goroutines to complete their operations before unregistering the client.
 func (c *Client) StartNetworking() {
-	c.networkingGroup.Add(2)
-	go c.StartReader()
-	go c.StartWriter()
+	var nwg sync.WaitGroup
+	asyncExecute(&nwg, c.StartReader)
+	asyncExecute(&nwg, c.StartWriter)
 	go func() {
-		defer c.destroy()
+		defer c.destroy(&nwg)
 		for {
 			select {
 			case p := <-c.incomingPackets:
@@ -191,7 +188,7 @@ func (c *Client) sendLoginResponse(i byte) {
 	} else {
 		LogInfo.Printf("Registered: %v\n", c)
 		world.AddPlayer(c.player)
-		c.player.TransAttrs["plrchanged"] = true
+		c.player.TransAttrs.SetVar("plrchanged", true)
 		c.player.Connected = true
 		for i := 0; i < 18; i++ {
 			level := 1
@@ -219,7 +216,7 @@ func (c *Client) sendLoginResponse(i byte) {
 	}
 }
 
-//HandleLogin This method will block until a byte is sent down the reply channel with the login response to send to the client.
+//HandleLogin This method will block until a byte is sent down the reply channel with the login response to send to the client, or if this doesn't occur, it will timeout after 10 seconds.
 func (c *Client) HandleLogin(reply chan byte) {
 	defer close(reply)
 	select {

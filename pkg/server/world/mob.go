@@ -1,5 +1,7 @@
 package world
 
+import "sync"
+
 //MobState Mob state.
 type MobState uint8
 
@@ -32,7 +34,12 @@ type Mob struct {
 	State      MobState
 	Skillset   *SkillTable
 	Path       *Pathway
-	TransAttrs AttributeList
+	TransAttrs *AttributeList
+}
+
+//Busy Returns true if this mobs state is anything other than idle. otherwise returns false.
+func (m *Mob) Busy() bool {
+	return m.State != MSIdle
 }
 
 //Direction Returns the mobs direction.
@@ -42,8 +49,8 @@ func (m *Mob) Direction() int {
 
 //SetDirection Sets the mobs direction.
 func (m *Mob) SetDirection(direction int) {
-	m.TransAttrs["plrchanged"] = true
-	m.TransAttrs["direction"] = direction
+	m.TransAttrs.SetVar("plrchanged", true)
+	m.TransAttrs.SetVar("direction", direction)
 }
 
 //SetPath Sets the mob's current pathway to path.  If path is nil, effectively resets the mobs path.
@@ -70,7 +77,7 @@ func (m *Mob) TraversePath() {
 		m.ResetPath()
 		return
 	}
-	m.TransAttrs["plrmoved"] = true
+	m.TransAttrs.SetVar("plrmoved", true)
 	m.SetLocation(newLocation)
 }
 
@@ -107,39 +114,69 @@ func (m *Mob) SetCoords(x, y int) {
 	m.Y = y
 }
 
-//AttributeList A type alias for a map of strings to empty interfaces, to hold generic mob information for easy serialization and to provide dynamic insertion/deletion of new mob properties easily
-type AttributeList map[string]interface{}
+//AttrList A type alias for a map of strings to empty interfaces, to hold generic mob information for easy serialization and to provide dynamic insertion/deletion of new mob properties easily
+type AttrList map[string]interface{}
+
+//AttributeList A concurrency-safe collection data type for storing misc. variables by a descriptive name.
+type AttributeList struct {
+	Set  map[string]interface{}
+	Lock sync.RWMutex
+}
+
+//Range Runs fn(key, value) for every entry in this attribute list.
+func (attributes *AttributeList) Range(fn func(string, interface{})) {
+	attributes.Lock.RLock()
+	defer attributes.Lock.RUnlock()
+	for k, v := range attributes.Set {
+		fn(k, v)
+	}
+}
 
 //SetVar Sets the attribute mapped at name to value in the attribute map.
-func (attributes AttributeList) SetVar(name string, value interface{}) {
-	attributes[name] = value
+func (attributes *AttributeList) SetVar(name string, value interface{}) {
+	attributes.Lock.Lock()
+	defer attributes.Lock.Unlock()
+	attributes.Set[name] = value
+}
+
+//UnsetVar Removes the attribute with the key `name` from this attribute set.
+func (attributes *AttributeList) UnsetVar(name string) {
+	attributes.Lock.Lock()
+	defer attributes.Lock.Unlock()
+	delete(attributes.Set, name)
 }
 
 //VarInt If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
-func (attributes AttributeList) VarInt(name string, zero int) int {
-	if _, ok := attributes[name].(int); !ok {
-		attributes[name] = zero
+func (attributes *AttributeList) VarInt(name string, zero int) int {
+	attributes.Lock.RLock()
+	defer attributes.Lock.RUnlock()
+	if _, ok := attributes.Set[name].(int); !ok {
+		attributes.Set[name] = zero
 	}
 
-	return attributes[name].(int)
+	return attributes.Set[name].(int)
 }
 
 //VarLong If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
-func (attributes AttributeList) VarLong(name string, zero uint64) uint64 {
-	if _, ok := attributes[name].(uint64); !ok {
-		attributes[name] = zero
+func (attributes *AttributeList) VarLong(name string, zero uint64) uint64 {
+	attributes.Lock.RLock()
+	defer attributes.Lock.RUnlock()
+	if _, ok := attributes.Set[name].(uint64); !ok {
+		attributes.Set[name] = zero
 	}
 
-	return attributes[name].(uint64)
+	return attributes.Set[name].(uint64)
 }
 
 //VarBool If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
-func (attributes AttributeList) VarBool(name string, zero bool) bool {
-	if _, ok := attributes[name].(bool); !ok {
-		attributes[name] = zero
+func (attributes *AttributeList) VarBool(name string, zero bool) bool {
+	attributes.Lock.RLock()
+	defer attributes.Lock.RUnlock()
+	if _, ok := attributes.Set[name].(bool); !ok {
+		attributes.Set[name] = zero
 	}
 
-	return attributes[name].(bool)
+	return attributes.Set[name].(bool)
 }
 
 //AppearanceTable Represents a mobs appearance.

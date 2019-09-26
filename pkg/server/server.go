@@ -141,7 +141,7 @@ func startConnectionService() {
 	go func() {
 		// TODO: Implement a packet filter of sorts to stop flooding behavior
 		defer listener.Close()
-		for range time.Tick(50 * time.Millisecond) {
+		for {
 			socket, err := listener.Accept()
 			if err != nil {
 				if len(Flags.Verbose) > 0 {
@@ -199,7 +199,6 @@ func Start() {
 	}
 
 	var awaitLaunchJobs sync.WaitGroup
-	awaitLaunchJobs.Add(7)
 	asyncExecute(&awaitLaunchJobs, func() {
 		LoadObjectDefinitions()
 		if count := len(ObjectDefinitions); len(Flags.Verbose) > 0 && count > 0 {
@@ -253,7 +252,9 @@ func Start() {
 	}
 }
 
+//asyncExecute First this will add 1 task to the specified waitgroup, then it will execute the function fn in its own goroutine, and upon exiting this goroutine will indicate to wg that the task we added is finished.
 func asyncExecute(wg *sync.WaitGroup, fn func()) {
+	(*wg).Add(1)
 	go func() {
 		defer (*wg).Done()
 		fn()

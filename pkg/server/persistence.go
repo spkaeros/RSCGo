@@ -205,7 +205,7 @@ func (c *Client) LoadPlayer(usernameHash uint64, password string, loginReply cha
 					LogInfo.Printf("Error loading int attribute[%v]: value=%v\n", name, value[1:])
 					LogInfo.Println(err)
 				}
-				c.player.Attributes[name] = int(val)
+				c.player.Attributes.SetVar(name, int(val))
 				break
 			case 'l':
 				val, err := strconv.ParseUint(value[1:], 10, 64)
@@ -213,7 +213,7 @@ func (c *Client) LoadPlayer(usernameHash uint64, password string, loginReply cha
 					LogInfo.Printf("Error loading long int attribute[%v]: value=%v\n", name, value[1:])
 					LogInfo.Println(err)
 				}
-				c.player.Attributes[name] = uint(val)
+				c.player.Attributes.SetVar(name, uint(val))
 				break
 			case 'b':
 				val, err := strconv.ParseBool(value[1:])
@@ -221,7 +221,7 @@ func (c *Client) LoadPlayer(usernameHash uint64, password string, loginReply cha
 					LogInfo.Printf("Error loading boolean attribute[%v]: value=%v\n", name, value[1:])
 					LogInfo.Println(err)
 				}
-				c.player.Attributes[name] = val
+				c.player.Attributes.SetVar(name, val)
 				break
 			}
 		}
@@ -390,9 +390,7 @@ func (c *Client) Save() {
 	saveLocation()
 	saveAppearance()
 	clearAttributes()
-	for name, value := range c.player.Attributes {
-		insertAttribute(string(name), value)
-	}
+	c.player.Attributes.Range(insertAttribute)
 	clearContactList("friend")
 	clearContactList("ignore")
 	for hash := range c.player.FriendList {

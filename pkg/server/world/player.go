@@ -22,24 +22,20 @@ type Player struct {
 	Appearance       *AppearanceTable
 	AppearanceTicket int
 	KnownAppearances map[int]int
-	Attributes       AttributeList
+	Attributes       *AttributeList
 	Mob
 }
 
 //RunDistancedAction Creates a distanced action belonging to this player, that runs action once the player arrives at dest, or cancels if we become busy, or we become unreasonably far from dest.
 func (p *Player) RunDistancedAction(dest Location, action func()) {
 	go func() {
-		// TODO: Is checking 10 times per second good enough?  Probably.
-		for range time.Tick(100 * time.Millisecond) {
-			if p.State != MSIdle {
-				// We became busy somehow, so cancel
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+		for range ticker.C {
+			if !p.WithinRange(dest, 16) || p.Busy() {
+				// We became busy somehow, or we are miles from our destination somehow, so cancel
 				return
-			}
-			if !p.WithinRange(dest, 16) {
-				// Somehow our destination is no longer in our view area, so cancel.
-				return
-			}
-			if p.WithinRange(dest, 1) {
+			} else if p.WithinRange(dest, 1) {
 				action()
 				return
 			}
@@ -138,8 +134,8 @@ func (p *Player) SetFollowing(index int) {
 		p.TransAttrs.SetVar("plrfollowing", index)
 		p.TransAttrs.SetVar("followrad", 2)
 	} else {
-		delete(p.TransAttrs, "plrfollowing")
-		delete(p.TransAttrs, "followrad")
+		p.TransAttrs.UnsetVar("plrfollowing")
+		p.TransAttrs.UnsetVar("followrad")
 	}
 }
 
@@ -166,7 +162,7 @@ func (p *Player) ArmourPoints() int {
 
 //SetArmourPoints Sets the players armour points to i.
 func (p *Player) SetArmourPoints(i int) {
-	p.TransAttrs["armour_points"] = i
+	p.TransAttrs.SetVar("armour_points", i)
 }
 
 //PowerPoints Returns the players power points.
@@ -176,7 +172,7 @@ func (p *Player) PowerPoints() int {
 
 //SetPowerPoints Sets the players power points to i
 func (p *Player) SetPowerPoints(i int) {
-	p.TransAttrs["power_points"] = i
+	p.TransAttrs.SetVar("power_points", i)
 }
 
 //AimPoints Returns the players aim points
@@ -186,7 +182,7 @@ func (p *Player) AimPoints() int {
 
 //SetAimPoints Sets the players aim points to i.
 func (p *Player) SetAimPoints(i int) {
-	p.TransAttrs["aim_points"] = i
+	p.TransAttrs.SetVar("aim_points", i)
 }
 
 //MagicPoints Returns the players magic points
@@ -196,7 +192,7 @@ func (p *Player) MagicPoints() int {
 
 //SetMagicPoints Sets the players magic points to i
 func (p *Player) SetMagicPoints(i int) {
-	p.TransAttrs["magic_points"] = i
+	p.TransAttrs.SetVar("magic_points", i)
 }
 
 //PrayerPoints Returns the players prayer points
@@ -206,7 +202,7 @@ func (p *Player) PrayerPoints() int {
 
 //SetPrayerPoints Sets the players prayer points to i
 func (p *Player) SetPrayerPoints(i int) {
-	p.TransAttrs["prayer_points"] = i
+	p.TransAttrs.SetVar("prayer_points", i)
 }
 
 //RangedPoints Returns the players ranged points.
@@ -216,7 +212,7 @@ func (p *Player) RangedPoints() int {
 
 //SetRangedPoints Sets the players ranged points tp i.
 func (p *Player) SetRangedPoints(i int) {
-	p.TransAttrs["ranged_points"] = i
+	p.TransAttrs.SetVar("ranged_points", i)
 }
 
 //Fatigue Returns the players current fatigue.
@@ -226,7 +222,7 @@ func (p *Player) Fatigue() int {
 
 //SetFatigue Sets the players current fatigue to i.
 func (p *Player) SetFatigue(i int) {
-	p.Attributes["fatigue"] = i
+	p.Attributes.SetVar("fatigue", i)
 }
 
 //FightMode Returns the players current fight mode.
@@ -236,7 +232,7 @@ func (p *Player) FightMode() int {
 
 //SetFightMode Sets the players fightmode to i.  0=all,1=attack,2=defense,3=strength
 func (p *Player) SetFightMode(i int) {
-	p.Attributes["fight_mode"] = i
+	p.Attributes.SetVar("fight_mode", i)
 }
 
 //NearbyPlayers Returns nearby players.
@@ -304,10 +300,10 @@ func (p *Player) SetCoords(x, y int) {
 //Teleport Moves the player to x,y and sets a flag to remove said player from the local players list of every nearby player.
 func (p *Player) Teleport(x, y int) {
 	p.SetCoords(x, y)
-	p.TransAttrs["plrremove"] = true
+	p.TransAttrs.SetVar("plrremove", true)
 }
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
-	return &Player{Mob: Mob{Entity: Entity{Index: -1}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: make(AttributeList)}, Attributes: make(AttributeList), LocalPlayers: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false, FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int)}
+	return &Player{Mob: Mob{Entity: Entity{Index: -1}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})}, LocalPlayers: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), Connected: false, FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int)}
 }
