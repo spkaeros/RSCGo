@@ -36,6 +36,7 @@ func (p *Player) RunDistancedAction(dest Location, action func()) {
 				// We became busy somehow, or we are miles from our destination somehow, so cancel
 				return
 			} else if p.WithinRange(dest, 1) {
+				// We have arrived.
 				action()
 				return
 			}

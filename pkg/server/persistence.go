@@ -86,6 +86,10 @@ func LoadObjectLocations() int {
 	var id, direction, boundary, x, y int
 	for rows.Next() {
 		rows.Scan(&id, &direction, &boundary, &x, &y)
+		if world.GetObject(x, y) != nil {
+			continue
+		}
+		objectCounter++
 		world.AddObject(world.NewObject(id, direction, x, y, boundary != 0))
 	}
 	return objectCounter
