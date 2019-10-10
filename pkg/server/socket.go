@@ -58,8 +58,12 @@ func (c *Client) ReadPacket() (*packets.Packet, error) {
 		// This could happen legitimately, under certain strange circumstances.  Not proof of malicious intent.
 		return nil, err
 	}
-	// TODO: Should I fit this into a byte?  Maybe use bit-packing for a custom header protocol?
-	length := int(int16(header[0])<<8 | int16(header[1]))
+	length := int(header[0])
+	bigLength := length >= 160
+	if bigLength {
+		length = (length-160)*256 + int(header[1])
+	}
+	length-- // opcode is part of length
 	opcode := header[2]
 
 	if length+3 >= 5000 || length+3 < 3 {
@@ -78,11 +82,21 @@ func (c *Client) ReadPacket() (*packets.Packet, error) {
 		return nil, errors.NewNetworkError("Unauthorized packet received.")
 	}
 
-	payload := c.buffer[3 : length+3]
+	if bigLength {
+		payload := c.buffer[3 : length+3]
 
-	if l, err := c.Read(payload); err != nil || l != length {
+		if l, err := c.Read(payload); err != nil || l != length {
+			return nil, err
+		}
+
+		return packets.NewPacket(opcode, payload), nil
+	}
+	payload := c.buffer[3 : length+2]
+
+	if l, err := c.Read(payload); err != nil || l != length-1 {
 		return nil, err
 	}
+	payload = append(payload, header[1])
 
 	return packets.NewPacket(opcode, payload), nil
 }
@@ -93,11 +107,18 @@ func (c *Client) ReadPacket() (*packets.Packet, error) {
 func (c *Client) WritePacket(p *packets.Packet) {
 	if !p.Bare {
 		l := len(p.Payload) - 2
-		p.Payload[0] = byte(l >> 8)
-		p.Payload[1] = byte(l)
-		//		if c.isaacStream != nil {
-		//			p.Payload[2] ^= c.isaacStream.decoder.Uint8()
-		//		}
+		if l >= 160 {
+			p.Payload[0] = byte(160 + l/256)
+			p.Payload[1] = byte(l)
+		} else {
+			p.Payload[0] = byte(l)
+			p.Payload[1] = p.Payload[l+1]
+			p.Payload = p.Payload[:l+1]
+		}
+
+		// FIXME: Custom header for old custom client
+		// p.Payload[0] = byte(l >> 8)
+		// p.Payload[1] = byte(l)
 	}
 
 	c.Write(p.Payload)

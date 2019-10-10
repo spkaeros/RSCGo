@@ -70,6 +70,7 @@ func (c *Client) StartReader() {
 				if err, ok := err.(errors.NetError); ok && err.Error() != "Connection closed." {
 					LogWarning.Printf("Rejected Packet from: %s\n", c)
 					LogWarning.Println(err)
+					continue
 				}
 				c.Destroy()
 				return
@@ -201,18 +202,18 @@ func (c *Client) sendLoginResponse(i byte) {
 			c.player.Skillset.Maximum[i] = level
 			c.player.Skillset.Experience[i] = exp
 		}
-		c.outgoingPackets <- packets.PlaneInfo(c.player)
 		c.outgoingPackets <- packets.PlayerStats(c.player)
 		c.outgoingPackets <- packets.EquipmentStats(c.player)
-		c.outgoingPackets <- packets.FightMode(c.player)
+		//		c.outgoingPackets <- packets.FightMode(c.player)
 		c.outgoingPackets <- packets.FriendList(c.player)
 		c.outgoingPackets <- packets.IgnoreList(c.player)
 		c.outgoingPackets <- packets.ClientSettings(c.player)
 		c.outgoingPackets <- packets.Fatigue(c.player)
 		c.outgoingPackets <- packets.WelcomeMessage
-		c.outgoingPackets <- packets.ServerInfo(Clients.Size())
-		c.outgoingPackets <- packets.LoginBox(0, c.ip)
-		BroadcastLogin(c.player, true)
+		c.outgoingPackets <- packets.PlaneInfo(c.player)
+		//		c.outgoingPackets <- packets.ServerInfo(Clients.Size())
+		//		c.outgoingPackets <- packets.LoginBox(0, c.ip)
+		//		BroadcastLogin(c.player, true)
 	}
 }
 

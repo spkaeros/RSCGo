@@ -1,6 +1,6 @@
 data_directory = './data/'
-version = 42
-port = 43591
+version = 203
+port = 43594
 max_players = 2048
 packet_handler_table = 'packets.toml'
 
