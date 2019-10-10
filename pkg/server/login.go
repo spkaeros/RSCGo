@@ -15,7 +15,6 @@ func init() {
 
 func logout(c *Client, p *packets.Packet) {
 	c.outgoingPackets <- packets.Logout
-	LogInfo.Println("Logout")
 	c.Destroy()
 }
 
