@@ -75,6 +75,14 @@ func (c *Client) StartReader() {
 				c.Destroy()
 				return
 			}
+			if !c.player.Connected && p.Opcode != 32 && p.Opcode != 0 {
+				// This should only happen if someone is either editing their outgoing network data, or using a modified client.
+				if len(Flags.Verbose) > 0 {
+					LogWarning.Printf("Unauthorized packet{opcode:%v,len:%v] rejected from: %v\n", p.Opcode, len(p.Payload), c)
+				}
+				c.Destroy()
+				return
+			}
 			c.incomingPackets <- p
 		case <-c.Kill:
 			return
@@ -90,7 +98,7 @@ func (c *Client) StartWriter() {
 			if p == nil {
 				return
 			}
-			c.WritePacket(p)
+			c.WritePacket(*p)
 		case <-c.Kill:
 			return
 		}
@@ -204,15 +212,15 @@ func (c *Client) sendLoginResponse(i byte) {
 		}
 		c.outgoingPackets <- packets.PlayerStats(c.player)
 		c.outgoingPackets <- packets.EquipmentStats(c.player)
+		c.outgoingPackets <- packets.Fatigue(c.player)
 		//		c.outgoingPackets <- packets.FightMode(c.player)
 		c.outgoingPackets <- packets.FriendList(c.player)
 		c.outgoingPackets <- packets.IgnoreList(c.player)
 		c.outgoingPackets <- packets.ClientSettings(c.player)
-		c.outgoingPackets <- packets.Fatigue(c.player)
 		c.outgoingPackets <- packets.WelcomeMessage
 		c.outgoingPackets <- packets.PlaneInfo(c.player)
 		//		c.outgoingPackets <- packets.ServerInfo(Clients.Size())
-		//		c.outgoingPackets <- packets.LoginBox(0, c.ip)
+		c.outgoingPackets <- packets.LoginBox(0, c.ip)
 		//		BroadcastLogin(c.player, true)
 	}
 }

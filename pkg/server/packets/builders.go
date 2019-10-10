@@ -163,15 +163,15 @@ func PlayerChat(sender int, msg string) *Packet {
 func PlayerStats(player *world.Player) *Packet {
 	p := NewOutgoingPacket(156)
 	for i := 0; i < 18; i++ {
-		p.AddShort(uint16(player.Skillset.Current[i]))
+		p.AddByte(uint8(player.Skillset.Current[i]))
 	}
 
 	for i := 0; i < 18; i++ {
-		p.AddShort(uint16(player.Skillset.Maximum[i]))
+		p.AddByte(uint8(player.Skillset.Maximum[i]))
 	}
 
 	for i := 0; i < 18; i++ {
-		p.AddLong(uint64(player.Skillset.Experience[i]))
+		p.AddInt(uint32(player.Skillset.Experience[i]))
 	}
 	return p
 }
@@ -180,9 +180,7 @@ func PlayerStats(player *world.Player) *Packet {
 func PlayerStat(player *world.Player, idx int) *Packet {
 	p := NewOutgoingPacket(159)
 	p.AddByte(byte(idx))
-	p.AddShort(uint16(player.Skillset.Current[idx]))
-	p.AddShort(uint16(player.Skillset.Maximum[idx]))
-	p.AddLong(uint64(player.Skillset.Experience[idx]))
+	p.AddInt(uint32(player.Skillset.Experience[idx]))
 	return p
 }
 
