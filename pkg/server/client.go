@@ -221,7 +221,7 @@ func (c *Client) sendLoginResponse(i byte) {
 		c.outgoingPackets <- packets.PlaneInfo(c.player)
 		//		c.outgoingPackets <- packets.ServerInfo(Clients.Size())
 		c.outgoingPackets <- packets.LoginBox(0, c.ip)
-		//		BroadcastLogin(c.player, true)
+		BroadcastLogin(c.player, true)
 	}
 }
 

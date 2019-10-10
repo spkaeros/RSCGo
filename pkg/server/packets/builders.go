@@ -282,13 +282,13 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 		for i := 0; i < 9; i++ {
 			p.AddByte(0)
 		}
-		p.AddByte(2)                 // Hair
-		p.AddByte(8)                 // Top
-		p.AddByte(14)                // Bottom
-		p.AddByte(0)                 // Skin
-		p.AddShort(3)                // Combat lvl
-		p.AddByte(0)                 // skulled
-		p.AddByte(byte(player.Rank)) // Rank 2=admin,1=mod,0=normal
+		p.AddByte(2)  // Hair
+		p.AddByte(8)  // Top
+		p.AddByte(14) // Bottom
+		p.AddByte(0)  // Skin
+		p.AddByte(3)  // Combat lvl
+		p.AddByte(0)  // skulled
+		//		p.AddByte(byte(player.Rank)) // Rank 2=admin,1=mod,0=normal
 	}
 	return
 }
