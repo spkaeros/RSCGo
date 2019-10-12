@@ -35,7 +35,7 @@ func newPlayer(c *Client, p *packets.Packet) {
 		reply <- 0
 		return
 	}
-	if UsernameTaken(username) {
+	if UsernameExists(username) {
 		LogInfo.Printf("New player denied: [ Reason:'Username is taken'; username='%s'; ip='%s' ]\n", username, c.ip)
 		reply <- 3
 		return
@@ -91,6 +91,10 @@ func loginRequest(c *Client, p *packets.Packet) {
 	p.ReadInt()
 
 	usernameHash := strutil.Base37(strings.TrimSpace(p.ReadString(20)))
+	if !UsernameExists(strutil.DecodeBase37(usernameHash)) {
+		loginReply <- 3
+		return
+	}
 	if _, ok := Clients.FromUserHash(usernameHash); ok {
 		loginReply <- byte(4)
 		return

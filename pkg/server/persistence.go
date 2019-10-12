@@ -157,8 +157,8 @@ func OpenDatabase(file string) *sql.DB {
 	return database
 }
 
-//UsernameTaken Returns true if there is a player with the name 'username' in the player database, otherwise returns false.
-func UsernameTaken(username string) bool {
+//UsernameExists Returns true if there is a player with the name 'username' in the player database, otherwise returns false.
+func UsernameExists(username string) bool {
 	database := OpenDatabase(TomlConfig.Database.PlayerDB)
 	defer database.Close()
 	s, err := database.Query("SELECT id FROM player2 WHERE userhash=?", strutil.Base37(username))
