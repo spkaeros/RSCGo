@@ -67,7 +67,7 @@ func (c *Client) StartReader() {
 		default:
 			p, err := c.ReadPacket()
 			if err != nil {
-				if err, ok := err.(errors.NetError); ok && err.Error() != "Connection closed." {
+				if err, ok := err.(errors.NetError); ok && err.Error() != "Connection closed." && err.Error() != "Connection timed out." {
 					LogWarning.Printf("Rejected Packet from: %s\n", c)
 					LogWarning.Println(err)
 					continue

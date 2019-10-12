@@ -189,7 +189,6 @@ func CreatePlayer(username, password string) bool {
 	}
 
 	s, err := tx.Exec("INSERT INTO player2(username, userhash, password, x, y, group_id) VALUES(?, ?, ?, 220, 445, 0)", username, strutil.Base37(username), HashPassword(password))
-
 	if err != nil {
 		LogInfo.Println("CreatePlayer(): Could not insert new player profile information:", err)
 		return false
