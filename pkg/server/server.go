@@ -114,8 +114,11 @@ var TomlConfig struct {
 		WorldDB  string `toml:"world_db"`
 	} `toml:"database"`
 	Crypto struct {
-		RsaKeyFile string `toml:"rsa_key"`
-		HashSalt   string `toml:"hash_salt"`
+		RsaKeyFile     string `toml:"rsa_key"`
+		HashSalt       string `toml:"hash_salt"`
+		HashComplexity int    `toml:"hash_complexity"`
+		HashMemory     int    `toml:"hash_memory"`
+		HashLength     int    `toml:"hash_length"`
 	} `toml:"crypto"`
 }
 
@@ -222,12 +225,15 @@ func Start() {
 			LogInfo.Printf("Initialized %d packet handlers.\n", len(table.Handlers))
 		}
 	})
-	asyncExecute(&awaitLaunchJobs, func() {
-		initCrypto()
-		if len(Flags.Verbose) > 0 {
-			LogInfo.Println("Launched cryptographic subsystem.")
-		}
-	})
+	// TODO: Re-enable RSA
+	/*
+		asyncExecute(&awaitLaunchJobs, func() {
+			loadRsaKey()
+			if len(Flags.Verbose) > 0 {
+				LogInfo.Println("Loaded RSA key data.")
+			}
+		})
+	*/
 	asyncExecute(&awaitLaunchJobs, func() {
 		startConnectionService()
 		if len(Flags.Verbose) > 0 {
