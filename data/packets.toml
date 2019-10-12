@@ -1,6 +1,7 @@
 packets = [
 	{ name = 'sessionreq', opcode = 32 },
 	{ name = 'loginreq', opcode = 0},
+	{ name = 'newplayer', opcode = 2},
 	{ name = 'logoutreq', opcode = 102},
 	{ name = 'pingreq', opcode = 67},
 	{ name = 'chatmsg', opcode = 216},

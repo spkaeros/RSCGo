@@ -11,11 +11,44 @@ func init() {
 	PacketHandlers["sessionreq"] = sessionRequest
 	PacketHandlers["loginreq"] = loginRequest
 	PacketHandlers["logoutreq"] = logout
+	PacketHandlers["newplayer"] = newPlayer
 }
 
 func logout(c *Client, p *packets.Packet) {
 	c.outgoingPackets <- packets.Logout
 	c.Destroy()
+}
+
+func newPlayer(c *Client, p *packets.Packet) {
+	reply := make(chan byte)
+	go c.HandleRegister(reply)
+	if version := p.ReadShort(); version != TomlConfig.Version {
+		LogInfo.Printf("New player denied: [ Reason:'Wrong client version'; ip='%s'; version=%d ]\n", c.ip, version)
+		reply <- 5
+		return
+	}
+	username := strutil.DecodeBase37(strutil.Base37(strings.TrimSpace(p.ReadString(20))))
+	password := strings.TrimSpace(p.ReadString(20))
+	if userLen, passLen := len(username), len(password); userLen < 2 || userLen > 12 || passLen < 5 || passLen > 20 {
+		// TODO: log it, it's suspicious.  Client should prevent this under normal circumstances.
+		LogInfo.Printf("New player denied: [ Reason:'username or password invalid length'; username='%s'; ip='%s'; passLen=%d ]\n", username, c.ip, passLen)
+		reply <- 0
+		return
+	}
+	if UsernameTaken(username) {
+		LogInfo.Printf("New player denied: [ Reason:'Username is taken'; username='%s'; ip='%s' ]\n", username, c.ip)
+		reply <- 3
+		return
+	}
+
+	if CreatePlayer(username, password) {
+		LogInfo.Printf("New player accepted: [ username='%s'; ip='%s' ]", username, c.ip)
+		reply <- 2
+		return
+	}
+	LogInfo.Printf("New player denied: [ Reason:'Most probably database related.  Debug required'; username='%s'; ip='%s' ]\n", username, c.ip)
+	reply <- 0
+	return
 }
 
 func sessionRequest(c *Client, p *packets.Packet) {
@@ -38,13 +71,6 @@ func loginRequest(c *Client, p *packets.Packet) {
 		}
 	*/
 	c.player.SetReconnecting(p.ReadBool())
-	// TODO: 204 sends version as short.
-	/*
-		if p.ReadInt() != TomlConfig.Version {
-			loginReply <- byte(5)
-			return
-		}
-	*/
 	if ver := p.ReadShort(); ver != TomlConfig.Version {
 		LogInfo.Printf("Invalid client version attempted to login: %d\n", ver)
 		loginReply <- byte(5)

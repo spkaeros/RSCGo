@@ -75,7 +75,7 @@ func (c *Client) StartReader() {
 				c.Destroy()
 				return
 			}
-			if !c.player.Connected && p.Opcode != 32 && p.Opcode != 0 {
+			if !c.player.Connected && p.Opcode != 32 && p.Opcode != 0 && p.Opcode != 2 {
 				// This should only happen if someone is either editing their outgoing network data, or using a modified client.
 				if len(Flags.Verbose) > 0 {
 					LogWarning.Printf("Unauthorized packet{opcode:%v,len:%v] rejected from: %v\n", p.Opcode, len(p.Payload), c)
@@ -234,6 +234,20 @@ func (c *Client) HandleLogin(reply chan byte) {
 		return
 	case <-time.After(time.Second * 10):
 		c.sendLoginResponse(8)
+		return
+	}
+}
+
+//HandleRegister This method will block until a byte is sent down the reply channel with the registration response to send to the client, or if this doesn't occur, it will timeout after 10 seconds.
+func (c *Client) HandleRegister(reply chan byte) {
+	defer c.Destroy()
+	defer close(reply)
+	select {
+	case r := <-reply:
+		c.Write([]byte{r})
+		return
+	case <-time.After(time.Second * 10):
+		c.Write([]byte{0})
 		return
 	}
 }

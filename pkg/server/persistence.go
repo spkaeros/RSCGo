@@ -157,6 +157,61 @@ func OpenDatabase(file string) *sql.DB {
 	return database
 }
 
+//UsernameTaken Returns true if there is a player with the name 'username' in the player database, otherwise returns false.
+func UsernameTaken(username string) bool {
+	database := OpenDatabase(TomlConfig.Database.PlayerDB)
+	defer database.Close()
+	s, err := database.Query("SELECT id FROM player2 WHERE userhash=?", strutil.Base37(username))
+	defer s.Close()
+	if err != nil {
+		LogInfo.Println("UsernameTaken: Could not query player profile information:", err)
+		// return true just to be safe since we could not check
+		return true
+	}
+	if s.Next() {
+		// Found a user with this username
+		return true
+	}
+	// Good to go
+	return false
+}
+
+//CreatePlayer Creates a new entry in the player SQLite3 database with the specified credentials.
+// Returns true if successful, otherwise returns false.
+func CreatePlayer(username, password string) bool {
+	database := OpenDatabase(TomlConfig.Database.PlayerDB)
+	defer database.Close()
+
+	tx, err := database.Begin()
+	if err != nil {
+		LogInfo.Println("CreatePlayer(): Could not begin transaction for new player.")
+		return false
+	}
+
+	s, err := tx.Exec("INSERT INTO player2(username, userhash, password, x, y, group_id) VALUES(?, ?, ?, 220, 445, 0)", username, strutil.Base37(username), HashPassword(password))
+
+	if err != nil {
+		LogInfo.Println("CreatePlayer(): Could not insert new player profile information:", err)
+		return false
+	}
+	playerID, err := s.LastInsertId()
+	if err != nil || playerID < 0 {
+		LogInfo.Printf("CreatePlayer(): Could not retrieve player database ID(got %d):\n%v", playerID, err)
+		return false
+	}
+	_, err = tx.Exec("INSERT INTO appearance VALUES(?, 2, 8, 14, 0, 1, 2)", playerID)
+	if err != nil {
+		LogInfo.Println("CreatePlayer(): Could not insert new player profile information:", err)
+		return false
+	}
+	if err := tx.Commit(); err != nil {
+		LogWarning.Println("CreatePlayer(): Error committing transaction for new player:", err)
+		return false
+	}
+
+	return true
+}
+
 //LoadPlayer Loads a player from the SQLite3 database, returns a login response code.
 func (c *Client) LoadPlayer(usernameHash uint64, password string, loginReply chan byte) {
 	validateCredentials := func() error {
