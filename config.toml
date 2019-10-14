@@ -1,13 +1,28 @@
+# The directory that holds any subsequent files mentioned.
 data_directory = './data/'
-version = 42
-port = 43591
+# The version number of the latest client release.
+version = 203
+# TCP/IP port number to listen for incoming connections on.
+port = 43594
+# Maximum number of players that this server can support.
 max_players = 2048
+# The TOML file containing incoming packet definitions.
 packet_handler_table = 'packets.toml'
 
 [database]
+# The SQLite3 database containing player data.
 player_db = "players.db"
+# The SQLite3 database containing game world/entity data.
 world_db = "world.db"
 
 [crypto]
-rsa_key = 'rsa.der'
+# Length of hash output
+hash_length = 32
+# How many passes to do over the memory
+hash_complexity = 1
+# How much memory to use, in MiB
+hash_memory = 64
+# Salt to make hash output unique
 hash_salt = 'rscgo./GOLANG!RULES/.1994'
+# The RSA key file, for decrypting the login/newplayer blocks.
+rsa_key = 'rsa.der'

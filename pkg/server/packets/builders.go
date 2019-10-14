@@ -17,14 +17,14 @@ var DefaultActionMessage = ServerMessage("Nothing interesting happens.")
 
 //ServerMessage Builds a packet containing a server message to display in the chat box.
 func ServerMessage(msg string) (p *Packet) {
-	p = NewOutgoingPacket(48)
+	p = NewOutgoingPacket(131)
 	p.AddBytes([]byte(msg))
 	return
 }
 
 //TeleBubble Builds a packet to draw a teleport bubble at the specified offsets.
 func TeleBubble(offsetX, offsetY int) (p *Packet) {
-	p = NewOutgoingPacket(23)
+	p = NewOutgoingPacket(36)
 	p.AddByte(0) // type, 0 is mobs, 1 is stationary entities, e.g telegrab
 	p.AddByte(uint8(offsetX))
 	p.AddByte(uint8(offsetY))
@@ -33,6 +33,7 @@ func TeleBubble(offsetX, offsetY int) (p *Packet) {
 
 //ServerInfo Builds a packet with the server information in it.
 func ServerInfo(onlineCount int) (p *Packet) {
+	// TODO: Real 204 RSC doesn't have this?
 	p = NewOutgoingPacket(110)
 	p.AddLong(epoch)
 	p.AddInt(1337)
@@ -43,7 +44,7 @@ func ServerInfo(onlineCount int) (p *Packet) {
 
 //LoginBox Builds a packet to create a welcome box on the client with the inactiveDays since login, and lastIP connected from.
 func LoginBox(inactiveDays int, lastIP string) (p *Packet) {
-	p = NewOutgoingPacket(248)
+	p = NewOutgoingPacket(182)
 	p.AddShort(uint16(inactiveDays))
 	p.AddBytes([]byte(lastIP))
 	return p
@@ -51,6 +52,7 @@ func LoginBox(inactiveDays int, lastIP string) (p *Packet) {
 
 //FightMode Builds a packet with the players fight mode information in it.
 func FightMode(player *world.Player) (p *Packet) {
+	// TODO: 204
 	p = NewOutgoingPacket(132)
 	p.AddByte(byte(player.FightMode()))
 	return p
@@ -58,7 +60,7 @@ func FightMode(player *world.Player) (p *Packet) {
 
 //Fatigue Builds a packet with the players fatigue percentage in it.
 func Fatigue(player *world.Player) (p *Packet) {
-	p = NewOutgoingPacket(244)
+	p = NewOutgoingPacket(114)
 	// Fatigue is converted to percentage differently in the client.
 	// 100% clientside is 750, serverside is 75000.  Needs the extra precision on the server to match RSC
 	p.AddShort(uint16(player.Fatigue() / 100))
@@ -67,7 +69,7 @@ func Fatigue(player *world.Player) (p *Packet) {
 
 //FriendList Builds a packet with the players friend list information in it.
 func FriendList(player *world.Player) (p *Packet) {
-	p = NewOutgoingPacket(249)
+	p = NewOutgoingPacket(71)
 	p.AddByte(byte(len(player.FriendList)))
 	for hash, online := range player.FriendList {
 		p.AddLong(hash)
@@ -83,7 +85,7 @@ func FriendList(player *world.Player) (p *Packet) {
 
 //PrivateMessage Builds a packet with a private message from hash with content msg.
 func PrivateMessage(hash uint64, msg string) (p *Packet) {
-	p = NewOutgoingPacket(170)
+	p = NewOutgoingPacket(120)
 	p.AddLong(hash)
 	for _, c := range strutil.PackChatMessage(msg) {
 		p.AddByte(byte(c))
@@ -93,7 +95,7 @@ func PrivateMessage(hash uint64, msg string) (p *Packet) {
 
 //IgnoreList Builds a packet with the players ignore list information in it.
 func IgnoreList(player *world.Player) (p *Packet) {
-	p = NewOutgoingPacket(2)
+	p = NewOutgoingPacket(109)
 	p.AddByte(byte(len(player.IgnoreList)))
 	for _, hash := range player.IgnoreList {
 		p.AddLong(hash)
@@ -103,7 +105,7 @@ func IgnoreList(player *world.Player) (p *Packet) {
 
 //FriendUpdate Builds a packet with an online status update for the player with the specified hash
 func FriendUpdate(hash uint64, online bool) (p *Packet) {
-	p = NewOutgoingPacket(25)
+	p = NewOutgoingPacket(149)
 	p.AddLong(hash)
 	if online {
 		p.AddByte(99)
@@ -115,23 +117,40 @@ func FriendUpdate(hash uint64, online bool) (p *Packet) {
 
 //ClientSettings Builds a packet containing the players client settings, e.g camera mode, mouse mode, sound fx...
 func ClientSettings(player *world.Player) (p *Packet) {
-	p = NewOutgoingPacket(152)
-	p.AddByte(0) // Camera auto/manual?
-	p.AddByte(0) // Mouse buttons 1 or 2?
-	p.AddByte(1) // Sound effects on/off?
+	p = NewOutgoingPacket(240)
+	// TODO: Right IDs?
+	if player.GetClientSetting(0) {
+		p.AddByte(1)
+	} else {
+		p.AddByte(0)
+	}
+	if player.GetClientSetting(2) {
+		p.AddByte(1)
+	} else {
+		p.AddByte(0)
+	}
+	if player.GetClientSetting(3) {
+		p.AddByte(1)
+	} else {
+		p.AddByte(0)
+	}
+
+	//	p.AddByte(0) // Camera auto/manual?
+	//	p.AddByte(0) // Mouse buttons 1 or 2?
+	//	p.AddByte(1) // Sound effects on/off?
 	return
 }
 
 //BigInformationBox Builds a packet to trigger the opening of a large black text window with msg as its contents
 func BigInformationBox(msg string) (p *Packet) {
-	p = NewOutgoingPacket(64)
+	p = NewOutgoingPacket(222)
 	p.AddBytes([]byte(msg))
 	return p
 }
 
 //PlayerChat Builds a packet containing a view-area chat message from the player with the index sender and returns it.
 func PlayerChat(sender int, msg string) *Packet {
-	p := NewOutgoingPacket(53)
+	p := NewOutgoingPacket(234)
 	p.AddShort(1)
 	p.AddShort(uint16(sender))
 	p.AddByte(1)
@@ -142,35 +161,33 @@ func PlayerChat(sender int, msg string) *Packet {
 
 //PlayerStats Builds a packet containing all the player's stat information and returns it.
 func PlayerStats(player *world.Player) *Packet {
-	p := NewOutgoingPacket(180)
+	p := NewOutgoingPacket(156)
 	for i := 0; i < 18; i++ {
-		p.AddShort(uint16(player.Skillset.Current[i]))
+		p.AddByte(uint8(player.Skillset.Current[i]))
 	}
 
 	for i := 0; i < 18; i++ {
-		p.AddShort(uint16(player.Skillset.Maximum[i]))
+		p.AddByte(uint8(player.Skillset.Maximum[i]))
 	}
 
 	for i := 0; i < 18; i++ {
-		p.AddLong(uint64(player.Skillset.Experience[i]))
+		p.AddInt(uint32(player.Skillset.Experience[i]))
 	}
 	return p
 }
 
 //PlayerStat Builds a packet containing player's stat information for skill at idx and returns it.
 func PlayerStat(player *world.Player, idx int) *Packet {
-	p := NewOutgoingPacket(208)
+	p := NewOutgoingPacket(159)
 	p.AddByte(byte(idx))
-	p.AddShort(uint16(player.Skillset.Current[idx]))
-	p.AddShort(uint16(player.Skillset.Maximum[idx]))
-	p.AddLong(uint64(player.Skillset.Experience[idx]))
+	p.AddInt(uint32(player.Skillset.Experience[idx]))
 	return p
 }
 
 //PlayerPositions Builds a packet containing view area player position and sprite information, including ones own information, and returns it.
 // If no players need to be updated, returns nil.
 func PlayerPositions(player *world.Player) (p *Packet) {
-	p = NewOutgoingPacket(145)
+	p = NewOutgoingPacket(191)
 	// Note: X coords can be held in 10 bits and Y can be held in 12 bits
 	//  Presumably, Jagex used 11 and 13 to evenly fill 3 bytes of data?
 	p.AddBits(player.X, 11)
@@ -236,7 +253,7 @@ func PlayerPositions(player *world.Player) (p *Packet) {
 
 //PlayerAppearances Builds a packet with the view-area player appearance profiles in it.
 func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
-	p = NewOutgoingPacket(53)
+	p = NewOutgoingPacket(234)
 	var appearanceList []*world.Player
 	if !ourPlayer.TransAttrs.VarBool("plrself", false) {
 		appearanceList = append(appearanceList, ourPlayer)
@@ -265,13 +282,13 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 		for i := 0; i < 9; i++ {
 			p.AddByte(0)
 		}
-		p.AddByte(2)                 // Hair
-		p.AddByte(8)                 // Top
-		p.AddByte(14)                // Bottom
-		p.AddByte(0)                 // Skin
-		p.AddShort(3)                // Combat lvl
-		p.AddByte(0)                 // skulled
-		p.AddByte(byte(player.Rank)) // Rank 2=admin,1=mod,0=normal
+		p.AddByte(2)  // Hair
+		p.AddByte(8)  // Top
+		p.AddByte(14) // Bottom
+		p.AddByte(0)  // Skin
+		p.AddByte(3)  // Combat lvl
+		p.AddByte(0)  // skulled
+		//		p.AddByte(byte(player.Rank)) // Rank 2=admin,1=mod,0=normal
 	}
 	return
 }
@@ -280,17 +297,17 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 // If no new objects are available and no existing local objects are removed from area, returns nil.
 func ObjectLocations(player *world.Player, newObjects []*world.Object) (p *Packet) {
 	counter := 0
-	p = NewOutgoingPacket(27)
+	p = NewOutgoingPacket(48)
 	for _, o := range player.LocalObjects.List {
 		if o, ok := o.(*world.Object); ok {
 			if o.Boundary {
 				continue
 			}
 			if !player.WithinRange(o.Location, 21) || world.GetObject(o.X, o.Y) != o {
-				p.AddShort(32767)
+				p.AddShort(60000)
 				p.AddByte(byte(o.X - player.X))
 				p.AddByte(byte(o.Y - player.Y))
-				p.AddByte(byte(o.Direction))
+				//				p.AddByte(byte(o.Direction))
 				player.LocalObjects.Remove(o)
 				counter++
 			}
@@ -303,7 +320,7 @@ func ObjectLocations(player *world.Player, newObjects []*world.Object) (p *Packe
 		p.AddShort(uint16(o.ID))
 		p.AddByte(byte(o.X - player.X))
 		p.AddByte(byte(o.Y - player.Y))
-		p.AddByte(byte(o.Direction))
+		//		p.AddByte(byte(o.Direction))
 		player.LocalObjects.Add(o)
 		counter++
 	}
@@ -317,17 +334,18 @@ func ObjectLocations(player *world.Player, newObjects []*world.Object) (p *Packe
 // If no new objects are available and no existing local boundarys are removed from area, returns nil.
 func BoundaryLocations(player *world.Player, newObjects []*world.Object) (p *Packet) {
 	counter := 0
-	p = NewOutgoingPacket(95)
+	p = NewOutgoingPacket(91)
 	for _, o := range player.LocalObjects.List {
 		if o, ok := o.(*world.Object); ok {
 			if !o.Boundary {
 				continue
 			}
 			if !player.WithinRange(o.Location, 21) {
-				p.AddShort(32767)
+				//				p.AddShort(65535)
+				p.AddByte(255)
 				p.AddByte(byte(o.X - player.X))
 				p.AddByte(byte(o.Y - player.Y))
-				p.AddByte(byte(o.Direction))
+				//				p.AddByte(byte(o.Direction))
 				player.LocalObjects.Remove(o)
 				counter++
 			}
@@ -352,7 +370,7 @@ func BoundaryLocations(player *world.Player, newObjects []*world.Object) (p *Pac
 
 //EquipmentStats Builds a packet with the players equipment statistics in it.
 func EquipmentStats(player *world.Player) (p *Packet) {
-	p = NewOutgoingPacket(177)
+	p = NewOutgoingPacket(153)
 	p.AddShort(uint16(player.ArmourPoints()))
 	p.AddShort(uint16(player.AimPoints()))
 	p.AddShort(uint16(player.PowerPoints()))
@@ -369,7 +387,7 @@ func LoginResponse(v int) *Packet {
 
 //PlaneInfo Builds a packet to update information about the clients environment, e.g height, player index...
 func PlaneInfo(player *world.Player) *Packet {
-	playerInfo := NewOutgoingPacket(131)
+	playerInfo := NewOutgoingPacket(25)
 	playerInfo.AddShort(uint16(player.Index))
 	playerInfo.AddShort(2304)
 	playerInfo.AddShort(1776)

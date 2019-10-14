@@ -22,19 +22,19 @@ type Packet struct {
 }
 
 //ResponsePong Response to a RSC protocol ping packet
-var ResponsePong = NewOutgoingPacket(3)
+var ResponsePong = NewOutgoingPacket(9)
 
 //ChangeAppearance The appearance changing window.
-var ChangeAppearance = NewOutgoingPacket(207)
+var ChangeAppearance = NewOutgoingPacket(59)
 
 //CannotLogout Message that you can not logout right now.
-var CannotLogout = NewOutgoingPacket(135)
+var CannotLogout = NewOutgoingPacket(183)
 
 //Logout Resets client to login welcome screen
-var Logout = NewOutgoingPacket(222)
+var Logout = NewOutgoingPacket(4)
 
 //Death The 'Oh dear...You are dead' fade-to-black graphic effect when you die.
-var Death = NewOutgoingPacket(165)
+var Death = NewOutgoingPacket(83)
 
 //LogWarning An output log for warnings.
 var LogWarning = log.New(os.Stdout, "[WARNING] ", log.Ltime|log.Lshortfile)
@@ -118,8 +118,18 @@ func (p *Packet) ReadSByte() int8 {
 	return int8(p.Payload[p.readIndex])
 }
 
+//ReadString Read the next n bytes from the packet payload and return it as a Go-string.
+func (p *Packet) ReadString(n int) (val string) {
+	for i := 0; i < n; i++ {
+		val += string(p.ReadByte())
+	}
+	return
+}
+
+// FIXME: Below is custom, non-jagex, better ReadString for use in modified client
+/*
 //ReadString Read the next variable-length C-string from the packet payload and return it as a Go-string.
-//  This will keep reading data until it reaches a null-byte or a new-line character ( '\0', 0xA, 0, 10 ).
+// This will keep reading data until it reaches a null-byte or a new-line character ( '\0', 0xA, 0, 10 ).
 func (p *Packet) ReadString() string {
 	var val string
 	for c := p.ReadByte(); c != 0 && c != 0xA; c = p.ReadByte() {
@@ -127,6 +137,7 @@ func (p *Packet) ReadString() string {
 	}
 	return val
 }
+*/
 
 //AddLong Adds a 64-bit integer to the packet payload.
 func (p *Packet) AddLong(l uint64) *Packet {

@@ -53,16 +53,18 @@ func (c *Client) Read(dst []byte) (int, error) {
 //ReadPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode of the next packet frame the client is sending us.
 func (c *Client) ReadPacket() (*packets.Packet, error) {
 	// I'm using a pre-allocated buffer for incoming packet data, to avoid allocation overhead.
-	header := c.buffer[:3]
-	if l, err := c.Read(header); err != nil || l != 3 {
+	header := c.buffer[:2]
+	if l, err := c.Read(header); err != nil || l != 2 {
 		// This could happen legitimately, under certain strange circumstances.  Not proof of malicious intent.
 		return nil, err
 	}
-	// TODO: Should I fit this into a byte?  Maybe use bit-packing for a custom header protocol?
-	length := int(int16(header[0])<<8 | int16(header[1]))
-	opcode := header[2]
+	length := int(header[0])
+	bigLength := length >= 160
+	if bigLength {
+		length = (length-160)*256 + int(header[1])
+	}
 
-	if length+3 >= 5000 || length+3 < 3 {
+	if length >= 5000 || length < 0 {
 		// This should only happen if someone is either editing their outgoing network data, or using a modified client.
 		if len(Flags.Verbose) > 0 {
 			LogWarning.Printf("Packet length out of bounds; got %d, expected between 4 and 5000\n", length+3)
@@ -70,34 +72,47 @@ func (c *Client) ReadPacket() (*packets.Packet, error) {
 		return nil, errors.NewNetworkError("Packet length out of bounds; must be between 4 and 5000.")
 	}
 
-	if !c.player.Connected && opcode != 32 && opcode != 0 {
-		// This should only happen if someone is either editing their outgoing network data, or using a modified client.
-		if len(Flags.Verbose) > 0 {
-			LogWarning.Printf("Unauthorized packet{opcode:%v,len:%v] rejected from: %v\n", opcode, length+3, c)
+	if bigLength {
+		payload := c.buffer[2 : length+2]
+
+		if l, err := c.Read(payload); err != nil || l != length {
+			return nil, err
 		}
-		return nil, errors.NewNetworkError("Unauthorized packet received.")
+
+		return packets.NewPacket(payload[0], payload[1:]), nil
 	}
+	payload := c.buffer[2 : length+1]
 
-	payload := c.buffer[3 : length+3]
-
-	if l, err := c.Read(payload); err != nil || l != length {
+	if l, err := c.Read(payload); err != nil || l != length-1 {
 		return nil, err
 	}
+	payload = append(payload, header[1])
 
-	return packets.NewPacket(opcode, payload), nil
+	return packets.NewPacket(payload[0], payload[1:]), nil
 }
 
 //WritePacket This is a method to send a packet to the client.  If this is a bare packet, the packet payload will
 // be written as-is.  If this is not a bare packet, the packet will have the first 3 bytes changed to the
 // appropriate values for the client to parse the length and opcode for this packet.
-func (c *Client) WritePacket(p *packets.Packet) {
+func (c *Client) WritePacket(p packets.Packet) {
 	if !p.Bare {
 		l := len(p.Payload) - 2
-		p.Payload[0] = byte(l >> 8)
-		p.Payload[1] = byte(l)
-		//		if c.isaacStream != nil {
-		//			p.Payload[2] ^= c.isaacStream.decoder.Uint8()
-		//		}
+		if l >= 160 {
+			p.Payload[0] = byte(160 + l/256)
+			p.Payload[1] = byte(l)
+		} else {
+			p.Payload[0] = byte(l)
+			if l == 0 {
+				p.Payload[1] = 0
+			} else {
+				p.Payload[1] = p.Payload[l+1]
+				p.Payload = p.Payload[:l+1]
+			}
+		}
+
+		// FIXME: Custom header for old custom client
+		// p.Payload[0] = byte(l >> 8)
+		// p.Payload[1] = byte(l)
 	}
 
 	c.Write(p.Payload)

@@ -67,9 +67,18 @@ func (c *Client) StartReader() {
 		default:
 			p, err := c.ReadPacket()
 			if err != nil {
-				if err, ok := err.(errors.NetError); ok && err.Error() != "Connection closed." {
+				if err, ok := err.(errors.NetError); ok && err.Error() != "Connection closed." && err.Error() != "Connection timed out." {
 					LogWarning.Printf("Rejected Packet from: %s\n", c)
 					LogWarning.Println(err)
+					continue
+				}
+				c.Destroy()
+				return
+			}
+			if !c.player.Connected && p.Opcode != 32 && p.Opcode != 0 && p.Opcode != 2 {
+				// This should only happen if someone is either editing their outgoing network data, or using a modified client.
+				if len(Flags.Verbose) > 0 {
+					LogWarning.Printf("Unauthorized packet{opcode:%v,len:%v] rejected from: %v\n", p.Opcode, len(p.Payload), c)
 				}
 				c.Destroy()
 				return
@@ -89,7 +98,7 @@ func (c *Client) StartWriter() {
 			if p == nil {
 				return
 			}
-			c.WritePacket(p)
+			c.WritePacket(*p)
 		case <-c.Kill:
 			return
 		}
@@ -201,16 +210,16 @@ func (c *Client) sendLoginResponse(i byte) {
 			c.player.Skillset.Maximum[i] = level
 			c.player.Skillset.Experience[i] = exp
 		}
-		c.outgoingPackets <- packets.PlaneInfo(c.player)
 		c.outgoingPackets <- packets.PlayerStats(c.player)
 		c.outgoingPackets <- packets.EquipmentStats(c.player)
-		c.outgoingPackets <- packets.FightMode(c.player)
+		c.outgoingPackets <- packets.Fatigue(c.player)
+		//		c.outgoingPackets <- packets.FightMode(c.player)
 		c.outgoingPackets <- packets.FriendList(c.player)
 		c.outgoingPackets <- packets.IgnoreList(c.player)
 		c.outgoingPackets <- packets.ClientSettings(c.player)
-		c.outgoingPackets <- packets.Fatigue(c.player)
 		c.outgoingPackets <- packets.WelcomeMessage
-		c.outgoingPackets <- packets.ServerInfo(Clients.Size())
+		c.outgoingPackets <- packets.PlaneInfo(c.player)
+		//		c.outgoingPackets <- packets.ServerInfo(Clients.Size())
 		c.outgoingPackets <- packets.LoginBox(0, c.ip)
 		BroadcastLogin(c.player, true)
 	}
@@ -225,6 +234,20 @@ func (c *Client) HandleLogin(reply chan byte) {
 		return
 	case <-time.After(time.Second * 10):
 		c.sendLoginResponse(8)
+		return
+	}
+}
+
+//HandleRegister This method will block until a byte is sent down the reply channel with the registration response to send to the client, or if this doesn't occur, it will timeout after 10 seconds.
+func (c *Client) HandleRegister(reply chan byte) {
+	defer c.Destroy()
+	defer close(reply)
+	select {
+	case r := <-reply:
+		c.Write([]byte{r})
+		return
+	case <-time.After(time.Second * 10):
+		c.Write([]byte{0})
 		return
 	}
 }

@@ -37,7 +37,10 @@ func init() {
 		handler(c, args[1:])
 	}
 	CommandHandlers["dobj"] = func(c *Client, args []string) {
-		if len(args) != 2 {
+		if len(args) == 0 {
+			args = []string{strconv.Itoa(c.player.X), strconv.Itoa(c.player.Y)}
+		}
+		if len(args) < 2 {
 			c.Message("@que@Invalid args.  Usage: /dobj <x> <y>")
 			return
 		}
@@ -162,6 +165,35 @@ func init() {
 		}
 		LogCommands.Printf("'%v' spawned new object{id: %v; dir:%v} at %v,%v\n", c.player.Username, id, direction, c.player.X, c.player.Y)
 		world.AddObject(world.NewObject(id, direction, c.player.X, c.player.Y, false))
+	}
+	CommandHandlers["boundary"] = func(c *Client, args []string) {
+		if len(args) < 1 {
+			c.Message("@que@Invalid args.  Usage: /boundary <id> <dir>, eg: /boundary 1 north")
+			return
+		}
+		if world.GetObject(c.player.X, c.player.Y) != nil {
+			c.Message("@que@You must remove the old boundary at this location first!")
+			return
+		}
+		id, err := strconv.Atoi(args[0])
+		if err != nil {
+			c.Message("@que@Invalid args.  Usage: /boundary <id> <dir>, eg: /boundary 1154 north")
+			return
+		}
+		direction := world.North
+		if len(args) > 1 {
+			if d, err := strconv.Atoi(args[1]); err == nil {
+				if d < world.North || d > world.NorthEast {
+					c.Message("@que@Invalid direction; must be between 0 and 8, or simply spell out the direction or its initials.")
+					return
+				}
+				direction = d
+			} else {
+				direction = world.ParseDirection(args[1])
+			}
+		}
+		LogCommands.Printf("'%v' spawned new boundary{id: %v; dir:%v} at %v,%v\n", c.player.Username, id, direction, c.player.X, c.player.Y)
+		world.AddObject(world.NewObject(id, direction, c.player.X, c.player.Y, true))
 	}
 	CommandHandlers["saveobjects"] = func(c *Client, args []string) {
 		go func() {

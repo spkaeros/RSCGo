@@ -6,27 +6,25 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"io/ioutil"
+	"runtime"
 
 	"os"
 
 	"bitbucket.org/zlacki/rscgo/pkg/isaac"
 	rscrand "bitbucket.org/zlacki/rscgo/pkg/rand"
-	"golang.org/x/crypto/sha3"
+	"golang.org/x/crypto/argon2"
 )
 
 //RsaKey The RSA key for use in decoding the login packet
 var RsaKey *rsa.PrivateKey
-
-//ShakeHash The SHA3 hashing function state and reference point.
-var ShakeHash sha3.ShakeHash
 
 //IsaacStream Container struct for 2 instances of the ISAAC+ CSPRNG, one for incoming data, the other outgoing data.
 type IsaacStream struct {
 	encoder, decoder *isaac.ISAAC
 }
 
-//initCrypto Read the RSA key into memory.
-func initCrypto() {
+//loadRsaKey Read the RSA key into memory.
+func loadRsaKey() {
 	buf, err := ioutil.ReadFile(TomlConfig.DataDir + TomlConfig.Crypto.RsaKeyFile)
 	if err != nil {
 		LogError.Printf("Could not read RSA key from file:%v", err)
@@ -38,11 +36,10 @@ func initCrypto() {
 		os.Exit(104)
 	}
 	RsaKey = key.(*rsa.PrivateKey)
-	ShakeHash = sha3.NewCShake256([]byte{}, []byte(TomlConfig.Crypto.HashSalt))
 }
 
-//SeedISAAC Initialize the ISAAC+ PRNG for use as a stream cipher for this client.
-func (c *Client) SeedISAAC(clientSeed uint64, serverSeed uint64) *IsaacStream {
+//SeedOpcodeCipher Initialize the ISAAC+ PRNG for use as a stream cipher for this client.
+func (c *Client) SeedOpcodeCipher(clientSeed uint64, serverSeed uint64) *IsaacStream {
 	if serverSeed != c.player.ServerSeed() {
 		LogWarning.Printf("Session encryption key for command cipher received from client doesn't match the one we supplied it.\n")
 		return nil
@@ -61,23 +58,7 @@ func GenerateSessionID() uint64 {
 
 //HashPassword Takes a plaintext password as input, returns a hexidecimal string representation of the SHAKE256 hash as output.
 func HashPassword(password string) string {
-	if n, err := ShakeHash.Write([]byte(password)); n < len(password) || err != nil {
-		LogWarning.Printf("HashPassword(string): Write failed:")
-		if n < len(password) {
-			LogWarning.Printf("Invalid length.  Expected %v, got %v\n", len(password), n)
-			return "nil"
-		}
-		LogWarning.Printf("Error: %v", err.Error())
-		return "nil"
-	}
-	dst := make([]byte, 64)
-	if n, err := ShakeHash.Read(dst); n != 64 || err != nil {
-		LogWarning.Println("HashPassword(string): Could not read hash back from shake function.", err)
-		return "nil"
-	}
-	ShakeHash.Reset()
-
-	return hex.EncodeToString(dst)
+	return hex.EncodeToString(argon2.IDKey([]byte(password), []byte(TomlConfig.Crypto.HashSalt), uint32(TomlConfig.Crypto.HashComplexity), uint32(TomlConfig.Crypto.HashMemory*1024), uint8(runtime.NumCPU()), uint32(TomlConfig.Crypto.HashLength)))
 }
 
 //DecryptRSABlock Attempts to decrypt the payload buffer.  Returns the decrypted buffer upon success, otherwise returns nil.
