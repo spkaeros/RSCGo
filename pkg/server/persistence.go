@@ -311,6 +311,28 @@ func (c *Client) LoadPlayer(usernameHash uint64, password string, loginReply cha
 		}
 		return nil
 	}
+	loadInventory := func() error {
+		database := OpenDatabase(TomlConfig.Database.PlayerDB)
+		defer database.Close()
+		stmt, err := database.Prepare("SELECT itemid, amount, position FROM inventory WHERE playerid=?")
+		defer stmt.Close()
+		if err != nil {
+			LogInfo.Println("LoadPlayer(uint64,string): Could not prepare query statement for player inventory:", err)
+			return errors.NewDatabaseError("Statement could not be prepared.")
+		}
+		rows, err := stmt.Query(c.player.DatabaseIndex)
+		defer rows.Close()
+		if err != nil {
+			LogInfo.Println("LoadPlayer(uint64,string): Could not execute query statement for player inventory:", err)
+			return errors.NewDatabaseError("Statement could not execute.")
+		}
+		for rows.Next() {
+			var id, amt, index int
+			rows.Scan(&id, &amt, &index)
+			c.player.Items.Put(id, amt)
+		}
+		return nil
+	}
 	// If this fails, then the login information was incorrect, and we don't need to do anything else
 	if err := validateCredentials(); err != nil {
 		return
@@ -322,6 +344,9 @@ func (c *Client) LoadPlayer(usernameHash uint64, password string, loginReply cha
 		return
 	}
 	if err := loadUserList("ignore"); err != nil {
+		return
+	}
+	if err := loadInventory(); err != nil {
 		return
 	}
 
@@ -445,6 +470,30 @@ func (c *Client) Save() {
 			LogInfo.Println("Save(): Affected nothing for friend insertion!")
 		}
 	}
+	clearItems := func() {
+		if _, err := tx.Exec("DELETE FROM inventory WHERE playerid=?", c.player.DatabaseIndex); err != nil {
+			LogWarning.Println("Save(): DELETE failed for player inventory:", err)
+			if err := tx.Rollback(); err != nil {
+				LogWarning.Println("Save(): Transaction delete inventory rollback failed:", err)
+			}
+			return
+		}
+	}
+	insertItem := func(id, amt, index int) {
+		rs, _ := tx.Exec("INSERT INTO inventory(playerid, itemid, amount, position) VALUES(?, ?, ?, ?)", c.player.DatabaseIndex, id, amt, index)
+		count, err := rs.RowsAffected()
+		if err != nil {
+			LogWarning.Println("Save(): INSERT failed for player items:", err)
+			if err := tx.Rollback(); err != nil {
+				LogWarning.Println("Save(): Transaction insert item rollback failed:", err)
+			}
+			return
+		}
+
+		if count <= 0 {
+			LogInfo.Println("Save(): Affected nothing for item insertion!")
+		}
+	}
 	saveLocation()
 	saveAppearance()
 	clearAttributes()
@@ -456,6 +505,10 @@ func (c *Client) Save() {
 	}
 	for _, hash := range c.player.IgnoreList {
 		insertContactList("ignore", hash)
+	}
+	clearItems()
+	for _, item := range c.player.Items.List {
+		insertItem(item.ID, item.Amount, item.Index)
 	}
 
 	if err := tx.Commit(); err != nil {

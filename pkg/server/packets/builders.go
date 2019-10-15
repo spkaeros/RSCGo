@@ -31,6 +31,17 @@ func TeleBubble(offsetX, offsetY int) (p *Packet) {
 	return
 }
 
+//InventoryItems Builds a packet containing the players inventory items.
+func InventoryItems(player *world.Player) (p *Packet) {
+	p = NewOutgoingPacket(53)
+	p.AddByte(uint8(len(player.Items.List)))
+	for _, item := range player.Items.List {
+		p.AddShort(uint16(item.ID)) // TODO: + 32768 if wielded.
+		// TODO: Stackables, quantity
+	}
+	return
+}
+
 //ServerInfo Builds a packet with the server information in it.
 func ServerInfo(onlineCount int) (p *Packet) {
 	// TODO: Real 204 RSC doesn't have this?

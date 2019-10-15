@@ -206,7 +206,23 @@ func init() {
 			}
 		}()
 	}
-	CommandHandlers["item"] = notYetImplemented
+	CommandHandlers["item"] = func(c *Client, args []string) {
+		if len(args) < 1 {
+			c.Message("@que@Invalid args.  Usage: /item <id> <quantity>")
+			return
+		}
+		id, err := strconv.Atoi(args[0])
+		if err != nil {
+			c.Message("@que@Invalid args.  Usage: /item <id> <quantity>")
+			return
+		}
+		if id > 1289 || id < 0 {
+			c.Message("@que@Invalid args.  Usage: /item <id> <quantity>")
+			return
+		}
+		c.player.Items.Put(id, 1)
+		c.outgoingPackets <- packets.InventoryItems(c.player)
+	}
 	CommandHandlers["goup"] = func(c *Client, args []string) {
 		if nextLocation := c.player.Above(); !nextLocation.Equals(c.player.Location) {
 			c.player.SetLocation(nextLocation)

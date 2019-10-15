@@ -213,6 +213,7 @@ func (c *Client) sendLoginResponse(i byte) {
 		c.outgoingPackets <- packets.PlayerStats(c.player)
 		c.outgoingPackets <- packets.EquipmentStats(c.player)
 		c.outgoingPackets <- packets.Fatigue(c.player)
+		c.outgoingPackets <- packets.InventoryItems(c.player)
 		//		c.outgoingPackets <- packets.FightMode(c.player)
 		c.outgoingPackets <- packets.FriendList(c.player)
 		c.outgoingPackets <- packets.IgnoreList(c.player)
