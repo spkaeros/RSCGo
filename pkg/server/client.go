@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
+	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 )
@@ -68,8 +69,8 @@ func (c *Client) StartReader() {
 			p, err := c.ReadPacket()
 			if err != nil {
 				if err, ok := err.(errors.NetError); ok && err.Error() != "Connection closed." && err.Error() != "Connection timed out." {
-					LogWarning.Printf("Rejected Packet from: %s\n", c)
-					LogWarning.Println(err)
+					log.Warning.Printf("Rejected Packet from: %s\n", c)
+					log.Warning.Println(err)
 					continue
 				}
 				c.Destroy()
@@ -78,7 +79,7 @@ func (c *Client) StartReader() {
 			if !c.player.Connected && p.Opcode != 32 && p.Opcode != 0 && p.Opcode != 2 {
 				// This should only happen if someone is either editing their outgoing network data, or using a modified client.
 				if len(Flags.Verbose) > 0 {
-					LogWarning.Printf("Unauthorized packet{opcode:%v,len:%v] rejected from: %v\n", p.Opcode, len(p.Payload), c)
+					log.Warning.Printf("Unauthorized packet{opcode:%v,len:%v] rejected from: %v\n", p.Opcode, len(p.Payload), c)
 				}
 				c.Destroy()
 				return
@@ -122,7 +123,7 @@ func (c *Client) destroy(wg *sync.WaitGroup) {
 	close(c.incomingPackets)
 	c.buffer = []byte{} // try to collect this early it's 5KB
 	if err := c.socket.Close(); err != nil {
-		LogError.Println("Couldn't close socket:", err)
+		log.Error.Println("Couldn't close socket:", err)
 	}
 	if _, ok := Clients.FromUserHash(c.player.UserBase37); ok {
 		// Always try to launch I/O-heavy functions in their own goroutine.
@@ -132,7 +133,7 @@ func (c *Client) destroy(wg *sync.WaitGroup) {
 		c.player.TransAttrs.SetVar("plrremove", true)
 		BroadcastLogin(c.player, false)
 		Clients.Remove(c)
-		LogInfo.Printf("Unregistered: %v\n", c)
+		log.Info.Printf("Unregistered: %v\n", c)
 	}
 }
 
@@ -192,10 +193,10 @@ func (c *Client) StartNetworking() {
 func (c *Client) sendLoginResponse(i byte) {
 	c.outgoingPackets <- packets.LoginResponse(int(i))
 	if i != 0 && i != 25 && i != 24 {
-		LogInfo.Printf("Denied Client: {ip:'%v', username:'%v', Response='%v'}\n", c.ip, c.player.Username, i)
+		log.Info.Printf("Denied Client: {ip:'%v', username:'%v', Response='%v'}\n", c.ip, c.player.Username, i)
 		c.Destroy()
 	} else {
-		LogInfo.Printf("Registered: %v\n", c)
+		log.Info.Printf("Registered: %v\n", c)
 		world.AddPlayer(c.player)
 		c.player.TransAttrs.SetVar("plrchanged", true)
 		c.player.Connected = true

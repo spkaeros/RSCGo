@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
+	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 )
 
@@ -21,11 +22,11 @@ func init() {
 func (c *Client) Write(b []byte) int {
 	l, err := c.socket.Write(b)
 	if err != nil {
-		LogError.Println("Could not write to client socket.", err)
+		log.Error.Println("Could not write to client socket.", err)
 		c.Destroy()
 	} else if l != len(b) {
 		// Possibly non-fatal?
-		LogError.Printf("Wrong number of bytes written to Client socket.  Expected %d, got %d.\n", len(b), l)
+		log.Error.Printf("Wrong number of bytes written to Client socket.  Expected %d, got %d.\n", len(b), l)
 	}
 	return l
 }
@@ -67,7 +68,7 @@ func (c *Client) ReadPacket() (*packets.Packet, error) {
 	if length >= 5000 || length < 0 {
 		// This should only happen if someone is either editing their outgoing network data, or using a modified client.
 		if len(Flags.Verbose) > 0 {
-			LogWarning.Printf("Packet length out of bounds; got %d, expected between 4 and 5000\n", length+3)
+			log.Warning.Printf("Packet length out of bounds; got %d, expected between 4 and 5000\n", length+3)
 		}
 		return nil, errors.NewNetworkError("Packet length out of bounds; must be between 4 and 5000.")
 	}

@@ -3,6 +3,7 @@ package packets
 import (
 	"time"
 
+	"bitbucket.org/zlacki/rscgo/pkg/server/db"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 )
@@ -38,6 +39,9 @@ func InventoryItems(player *world.Player) (p *Packet) {
 	for _, item := range player.Items.List {
 		p.AddShort(uint16(item.ID)) // TODO: + 32768 if wielded.
 		// TODO: Stackables, quantity
+		if db.Items[item.ID].Stackable {
+			p.AddInt2(uint32(item.Amount))
+		}
 	}
 	return
 }

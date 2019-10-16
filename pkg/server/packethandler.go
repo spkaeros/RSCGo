@@ -3,6 +3,8 @@ package server
 import (
 	"fmt"
 
+	"bitbucket.org/zlacki/rscgo/pkg/server/config"
+	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"github.com/BurntSushi/toml"
 )
@@ -38,8 +40,8 @@ func (p packetHandlerTable) Get(opcode byte) handlerFunc {
 
 //initPacketHandlerTable Deserializes the packet handler table into memory.
 func initPacketHandlerTable() {
-	if _, err := toml.DecodeFile(TomlConfig.DataDir+TomlConfig.PacketHandlerFile, &table); err != nil {
-		LogError.Fatalln("Could not open packet handler table data file:", err)
+	if _, err := toml.DecodeFile(config.DataDir()+config.PacketHandlers(), &table); err != nil {
+		log.Error.Fatalln("Could not open packet handler table data file:", err)
 		return
 	}
 }
@@ -48,7 +50,7 @@ func initPacketHandlerTable() {
 func (c *Client) HandlePacket(p *packets.Packet) {
 	handler := table.Get(p.Opcode)
 	if handler == nil {
-		LogInfo.Printf("Unhandled Packet: {opcode:%d; length:%d};\n", p.Opcode, len(p.Payload))
+		log.Info.Printf("Unhandled Packet: {opcode:%d; length:%d};\n", p.Opcode, len(p.Payload))
 		fmt.Printf("CONTENT: %v\n", p.Payload)
 		return
 	}

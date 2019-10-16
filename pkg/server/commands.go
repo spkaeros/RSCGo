@@ -2,12 +2,12 @@ package server
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"runtime/pprof"
 	"strconv"
 	"strings"
 
+	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
@@ -16,24 +16,21 @@ import (
 //CommandHandlers A map to assign in-game commands to the functions they should execute.
 var CommandHandlers = make(map[string]func(*Client, []string))
 
-//LogCommands Log commands to their own file.
-var LogCommands = log.New(os.Stdout, "[COMMAND] ", log.Ltime)
-
 func init() {
 	if f, err := os.OpenFile("logs"+string(os.PathSeparator)+"cmd.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666); err != nil {
-		LogError.Println("Could not open commands log file for writing:", err)
+		log.Error.Println("Could not open commands log file for writing:", err)
 	} else {
-		LogCommands.SetOutput(f)
+		log.Commands.SetOutput(f)
 	}
 	PacketHandlers["command"] = func(c *Client, p *packets.Packet) {
 		args := strutil.ModalParse(string(p.Payload))
 		handler, ok := CommandHandlers[args[0]]
 		if !ok {
 			c.Message("@que@Invalid command.")
-			LogCommands.Printf("[COMMAND] %v sent invalid command: /%v\n", c.player.Username, string(p.Payload))
+			log.Commands.Printf("[COMMAND] %v sent invalid command: /%v\n", c.player.Username, string(p.Payload))
 			return
 		}
-		LogCommands.Printf("%v: /%v\n", c.player.Username, string(p.Payload))
+		log.Commands.Printf("%v: /%v\n", c.player.Username, string(p.Payload))
 		handler(c, args[1:])
 	}
 	CommandHandlers["dobj"] = func(c *Client, args []string) {
@@ -64,7 +61,7 @@ func init() {
 			return
 		}
 
-		LogCommands.Printf("'%v' deleted object{id: %v; dir:%v} at %v,%v\n", c.player.Username, object.ID, object.Direction, x, y)
+		log.Commands.Printf("'%v' deleted object{id: %v; dir:%v} at %v,%v\n", c.player.Username, object.ID, object.Direction, x, y)
 		world.RemoveObject(object)
 	}
 	CommandHandlers["kick"] = func(c *Client, args []string) {
@@ -78,7 +75,7 @@ func init() {
 				c.Message("@que@Could not find player.")
 				return
 			}
-			LogCommands.Printf("'%v' kicked other player '%v'\n", c.player.Username, affectedClient.player.Username)
+			log.Commands.Printf("'%v' kicked other player '%v'\n", c.player.Username, affectedClient.player.Username)
 			c.Message("@que@Kicked: '" + affectedClient.player.Username + "'")
 			affectedClient.outgoingPackets <- packets.Logout
 			affectedClient.Destroy()
@@ -95,7 +92,7 @@ func init() {
 				return
 			}
 
-			LogCommands.Printf("'%v' kicked other player '%v'\n", c.player.Username, affectedClient.player.Username)
+			log.Commands.Printf("'%v' kicked other player '%v'\n", c.player.Username, affectedClient.player.Username)
 			c.Message("@que@Kicked: '" + affectedClient.player.Username + "'")
 			affectedClient.outgoingPackets <- packets.Logout
 			affectedClient.Destroy()
@@ -104,13 +101,13 @@ func init() {
 	CommandHandlers["memdump"] = func(c *Client, args []string) {
 		file, err := os.Create("rscgo.mprof")
 		if err != nil {
-			LogWarning.Println("Could not open file to dump memory profile:", err)
+			log.Warning.Println("Could not open file to dump memory profile:", err)
 			c.Message("Error encountered opening profile output file.")
 			return
 		}
 		pprof.WriteHeapProfile(file)
 		file.Close()
-		LogCommands.Println(c.player.Username + " dumped memory profile of the server to rscgo.mprof")
+		log.Commands.Println(c.player.Username + " dumped memory profile of the server to rscgo.mprof")
 		c.Message("Dumped memory profile.")
 	}
 	CommandHandlers["pprof"] = func(c *Client, args []string) {
@@ -122,16 +119,16 @@ func init() {
 		case "start":
 			file, err := os.Create("rscgo.pprof")
 			if err != nil {
-				LogWarning.Println("Could not open file to dump CPU profile:", err)
+				log.Warning.Println("Could not open file to dump CPU profile:", err)
 				c.Message("Error encountered opening profile output file.")
 				return
 			}
 			pprof.StartCPUProfile(file)
-			LogCommands.Println(c.player.Username + " began profiling CPU time.")
+			log.Commands.Println(c.player.Username + " began profiling CPU time.")
 			c.Message("CPU profiling started.")
 		case "stop":
 			pprof.StopCPUProfile()
-			LogCommands.Println(c.player.Username + " has finished profiling CPU time, output should be in rscgo.pprof")
+			log.Commands.Println(c.player.Username + " has finished profiling CPU time, output should be in rscgo.pprof")
 			c.Message("CPU profiling finished.")
 		default:
 			c.Message("Invalid args.  Usage: /pprof <start|stop>")
@@ -163,7 +160,7 @@ func init() {
 				direction = world.ParseDirection(args[1])
 			}
 		}
-		LogCommands.Printf("'%v' spawned new object{id: %v; dir:%v} at %v,%v\n", c.player.Username, id, direction, c.player.X, c.player.Y)
+		log.Commands.Printf("'%v' spawned new object{id: %v; dir:%v} at %v,%v\n", c.player.Username, id, direction, c.player.X, c.player.Y)
 		world.AddObject(world.NewObject(id, direction, c.player.X, c.player.Y, false))
 	}
 	CommandHandlers["boundary"] = func(c *Client, args []string) {
@@ -192,17 +189,17 @@ func init() {
 				direction = world.ParseDirection(args[1])
 			}
 		}
-		LogCommands.Printf("'%v' spawned new boundary{id: %v; dir:%v} at %v,%v\n", c.player.Username, id, direction, c.player.X, c.player.Y)
+		log.Commands.Printf("'%v' spawned new boundary{id: %v; dir:%v} at %v,%v\n", c.player.Username, id, direction, c.player.X, c.player.Y)
 		world.AddObject(world.NewObject(id, direction, c.player.X, c.player.Y, true))
 	}
 	CommandHandlers["saveobjects"] = func(c *Client, args []string) {
 		go func() {
 			if count := SaveObjectLocations(); count > 0 {
 				c.Message("Saved " + strconv.Itoa(count) + " game objects to world.db")
-				LogCommands.Println(c.player.Username + " saved " + strconv.Itoa(count) + " game objects to world.db")
+				log.Commands.Println(c.player.Username + " saved " + strconv.Itoa(count) + " game objects to world.db")
 			} else {
 				c.Message("Appears to have been an issue saving game objects to world.db.  Check server logs.")
-				LogCommands.Println(c.player.Username + " failed to save game objects; count=" + strconv.Itoa(count))
+				log.Commands.Println(c.player.Username + " failed to save game objects; count=" + strconv.Itoa(count))
 			}
 		}()
 	}
@@ -286,7 +283,7 @@ func teleport(c *Client, args []string) {
 		c.Message("@que@Coordinates out of world boundaries.")
 		return
 	}
-	LogCommands.Printf("Teleporting %v from %v,%v to %v,%v\n", c.player.Username, c.player.X, c.player.Y, x, y)
+	log.Commands.Printf("Teleporting %v from %v,%v to %v,%v\n", c.player.Username, c.player.X, c.player.Y, x, y)
 	c.Teleport(x, y)
 }
 
@@ -307,7 +304,7 @@ func summon(c *Client, args []string) {
 		return
 	}
 
-	LogCommands.Printf("Summoning '%v' from %v,%v to '%v' at %v,%v\n", c1.player.Username, c1.player.X, c1.player.Y, c.player.Username, c.player.X, c.player.Y)
+	log.Commands.Printf("Summoning '%v' from %v,%v to '%v' at %v,%v\n", c1.player.Username, c1.player.X, c1.player.Y, c.player.Username, c.player.X, c.player.Y)
 	c1.Teleport(c.player.X, c.player.Y)
 }
 
@@ -328,7 +325,7 @@ func gotoTeleport(c *Client, args []string) {
 		return
 	}
 
-	LogCommands.Printf("Teleporting '%v' from %v,%v to '%v' at %v,%v\n", c.player.Username, c.player.X, c.player.Y, c1.player.Username, c1.player.X, c1.player.Y)
+	log.Commands.Printf("Teleporting '%v' from %v,%v to '%v' at %v,%v\n", c.player.Username, c.player.X, c.player.Y, c1.player.Username, c1.player.X, c1.player.Y)
 	c.Teleport(c1.player.X, c1.player.Y)
 }
 

@@ -3,6 +3,8 @@ package server
 import (
 	"strings"
 
+	"bitbucket.org/zlacki/rscgo/pkg/server/config"
+	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 )
@@ -22,8 +24,8 @@ func logout(c *Client, p *packets.Packet) {
 func newPlayer(c *Client, p *packets.Packet) {
 	reply := make(chan byte)
 	go c.HandleRegister(reply)
-	if version := p.ReadShort(); version != TomlConfig.Version {
-		LogInfo.Printf("New player denied: [ Reason:'Wrong client version'; ip='%s'; version=%d ]\n", c.ip, version)
+	if version := p.ReadShort(); version != config.Version() {
+		log.Info.Printf("New player denied: [ Reason:'Wrong client version'; ip='%s'; version=%d ]\n", c.ip, version)
 		reply <- 5
 		return
 	}
@@ -31,22 +33,22 @@ func newPlayer(c *Client, p *packets.Packet) {
 	password := strings.TrimSpace(p.ReadString(20))
 	if userLen, passLen := len(username), len(password); userLen < 2 || userLen > 12 || passLen < 5 || passLen > 20 {
 		// TODO: log it, it's suspicious.  Client should prevent this under normal circumstances.
-		LogInfo.Printf("New player denied: [ Reason:'username or password invalid length'; username='%s'; ip='%s'; passLen=%d ]\n", username, c.ip, passLen)
+		log.Info.Printf("New player denied: [ Reason:'username or password invalid length'; username='%s'; ip='%s'; passLen=%d ]\n", username, c.ip, passLen)
 		reply <- 0
 		return
 	}
 	if UsernameExists(username) {
-		LogInfo.Printf("New player denied: [ Reason:'Username is taken'; username='%s'; ip='%s' ]\n", username, c.ip)
+		log.Info.Printf("New player denied: [ Reason:'Username is taken'; username='%s'; ip='%s' ]\n", username, c.ip)
 		reply <- 3
 		return
 	}
 
 	if CreatePlayer(username, password) {
-		LogInfo.Printf("New player accepted: [ username='%s'; ip='%s' ]", username, c.ip)
+		log.Info.Printf("New player accepted: [ username='%s'; ip='%s' ]", username, c.ip)
 		reply <- 2
 		return
 	}
-	LogInfo.Printf("New player denied: [ Reason:'Most probably database related.  Debug required'; username='%s'; ip='%s' ]\n", username, c.ip)
+	log.Info.Printf("New player denied: [ Reason:'Most probably database related.  Debug required'; username='%s'; ip='%s' ]\n", username, c.ip)
 	reply <- 0
 	return
 }
@@ -71,8 +73,8 @@ func loginRequest(c *Client, p *packets.Packet) {
 		}
 	*/
 	c.player.SetReconnecting(p.ReadBool())
-	if ver := p.ReadShort(); ver != TomlConfig.Version {
-		LogInfo.Printf("Invalid client version attempted to login: %d\n", ver)
+	if ver := p.ReadShort(); ver != config.Version() {
+		log.Info.Printf("Invalid client version attempted to login: %d\n", ver)
 		loginReply <- byte(5)
 		return
 	}

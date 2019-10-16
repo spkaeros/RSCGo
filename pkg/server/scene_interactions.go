@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bitbucket.org/zlacki/rscgo/pkg/server/db"
+	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 )
@@ -33,7 +35,7 @@ func init() {
 	}
 	objectHandlers[19] = func(p *world.Player, args ...interface{}) {
 		if len(args) <= 0 {
-			LogWarning.Println("Must provide at least 1 argument to action handlers.")
+			log.Warning.Println("Must provide at least 1 argument to action handlers.")
 			return
 		}
 
@@ -46,7 +48,7 @@ func init() {
 	}
 	objectHandlers["climb-up"] = func(p *world.Player, args ...interface{}) {
 		if len(args) <= 0 {
-			LogWarning.Println("Must provide at least 1 argument to action handlers.")
+			log.Warning.Println("Must provide at least 1 argument to action handlers.")
 			return
 		}
 
@@ -58,7 +60,7 @@ func init() {
 	}
 	objectHandlers["climb-down"] = func(p *world.Player, args ...interface{}) {
 		if len(args) <= 0 {
-			LogWarning.Println("Must provide at least 1 argument to action handlers.")
+			log.Warning.Println("Must provide at least 1 argument to action handlers.")
 			return
 		}
 
@@ -70,13 +72,13 @@ func init() {
 	}
 	objectHandlers["open"] = func(p *world.Player, args ...interface{}) {
 		if len(args) <= 0 {
-			LogWarning.Println("Must provide at least 1 argument to action handlers.")
+			log.Warning.Println("Must provide at least 1 argument to action handlers.")
 			return
 		}
 
 		object, ok := args[0].(*world.Object)
 		if !ok {
-			LogWarning.Println("Handler for this argument type not found.")
+			log.Warning.Println("Handler for this argument type not found.")
 			return
 		}
 		if newID, ok := oDoors[object.ID]; ok {
@@ -85,13 +87,13 @@ func init() {
 	}
 	object2Handlers["close"] = func(p *world.Player, args ...interface{}) {
 		if len(args) <= 0 {
-			LogWarning.Println("Must provide at least 1 argument to action handlers.")
+			log.Warning.Println("Must provide at least 1 argument to action handlers.")
 			return
 		}
 
 		object, ok := args[0].(*world.Object)
 		if !ok {
-			LogWarning.Println("Handler for this argument type not found.")
+			log.Warning.Println("Handler for this argument type not found.")
 			return
 		}
 		if newID, ok := oDoors[object.ID]; ok {
@@ -100,13 +102,13 @@ func init() {
 	}
 	boundaryHandlers["open"] = func(p *world.Player, args ...interface{}) {
 		if len(args) <= 0 {
-			LogWarning.Println("Must provide at least 1 argument to action handlers.")
+			log.Warning.Println("Must provide at least 1 argument to action handlers.")
 			return
 		}
 
 		object, ok := args[0].(*world.Object)
 		if !ok {
-			LogWarning.Println("Handler for this argument type not found.")
+			log.Warning.Println("Handler for this argument type not found.")
 			return
 		}
 		if object.ID == 109 {
@@ -123,13 +125,13 @@ func init() {
 	}
 	boundary2Handlers["close"] = func(p *world.Player, args ...interface{}) {
 		if len(args) <= 0 {
-			LogWarning.Println("Must provide at least 1 argument to action handlers.")
+			log.Warning.Println("Must provide at least 1 argument to action handlers.")
 			return
 		}
 
 		object, ok := args[0].(*world.Object)
 		if !ok {
-			LogWarning.Println("Handler for this argument type not found.")
+			log.Warning.Println("Handler for this argument type not found.")
 			return
 		}
 		if newID, ok := bDoors[object.ID]; ok {
@@ -141,7 +143,7 @@ func init() {
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
 		if object == nil {
-			LogInfo.Println("Object not found.")
+			log.Info.Println("Object not found.")
 			return
 		}
 		c.player.RunDistancedAction(object.Location, func() {
@@ -153,7 +155,7 @@ func init() {
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
 		if object == nil {
-			LogInfo.Println("Object not found.")
+			log.Info.Println("Object not found.")
 			return
 		}
 		c.player.RunDistancedAction(object.Location, func() {
@@ -165,7 +167,7 @@ func init() {
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
 		if object == nil {
-			LogInfo.Println("Boundary not found.")
+			log.Info.Println("Boundary not found.")
 			return
 		}
 		c.player.RunDistancedAction(object.Location, func() {
@@ -177,7 +179,7 @@ func init() {
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
 		if object == nil {
-			LogInfo.Println("Boundary not found.")
+			log.Info.Println("Boundary not found.")
 			return
 		}
 		c.player.RunDistancedAction(object.Location, func() {
@@ -193,10 +195,10 @@ func objectAction(c *Client, object *world.Object, rightClick bool) {
 		return
 	}
 	handlers := objectHandlers
-	command := ObjectDefinitions[object.ID].Commands[0]
+	command := db.Objects[object.ID].Commands[0]
 	if rightClick {
 		handlers = object2Handlers
-		command = ObjectDefinitions[object.ID].Commands[1]
+		command = db.Objects[object.ID].Commands[1]
 	}
 	if handler, ok := handlers[object.ID]; ok {
 		// If there is a handler for this specific ID, call it, and that's all we have to do.
@@ -219,10 +221,10 @@ func boundaryAction(c *Client, object *world.Object, rightClick bool) {
 		return
 	}
 	handlers := boundaryHandlers
-	command := BoundaryDefinitions[object.ID].Commands[0]
+	command := db.Boundarys[object.ID].Commands[0]
 	if rightClick {
 		handlers = boundary2Handlers
-		command = BoundaryDefinitions[object.ID].Commands[1]
+		command = db.Boundarys[object.ID].Commands[1]
 	}
 	if handler, ok := handlers[object.ID]; ok {
 		// If there is a handler for this specific ID, call it, and that's all we have to do.

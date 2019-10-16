@@ -2,13 +2,15 @@ package server
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
+	"bitbucket.org/zlacki/rscgo/pkg/server/config"
+	"bitbucket.org/zlacki/rscgo/pkg/server/db"
+	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 	"github.com/BurntSushi/toml"
@@ -16,13 +18,7 @@ import (
 )
 
 var (
-	//LogWarning Log interface for warnings.
-	LogWarning = log.New(os.Stdout, "[WARNING] ", log.Ltime|log.Lshortfile)
-	//LogInfo Log interface for debug information.
-	LogInfo = log.New(os.Stdout, "[INFO] ", log.Ltime|log.Lshortfile)
-	//LogError Log interface for errors.
-	LogError = log.New(os.Stderr, "[ERROR] ", log.Ltime|log.Lshortfile)
-	kill     = make(chan struct{})
+	kill = make(chan struct{})
 )
 
 //ClientMap A thread-safe concurrent collection type for storing client references.
@@ -94,32 +90,12 @@ func (m *ClientMap) Size() int {
 func (m *ClientMap) NextIndex() int {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
-	for i := 0; i < TomlConfig.MaxPlayers; i++ {
+	for i := 0; i < config.MaxPlayers(); i++ {
 		if _, ok := m.indices[i]; !ok {
 			return i
 		}
 	}
 	return -1
-}
-
-//TomlConfig A data structure representing the RSCGo TOML configuration file.
-var TomlConfig struct {
-	DataDir           string `toml:"data_directory"`
-	Version           int    `toml:"version"`
-	Port              int    `toml:"port"`
-	MaxPlayers        int    `toml:"max_players"`
-	PacketHandlerFile string `toml:"packet_handler_table"`
-	Database          struct {
-		PlayerDB string `toml:"player_db"`
-		WorldDB  string `toml:"world_db"`
-	} `toml:"database"`
-	Crypto struct {
-		RsaKeyFile     string `toml:"rsa_key"`
-		HashSalt       string `toml:"hash_salt"`
-		HashComplexity int    `toml:"hash_complexity"`
-		HashMemory     int    `toml:"hash_memory"`
-		HashLength     int    `toml:"hash_length"`
-	} `toml:"crypto"`
 }
 
 //Flags This is used to interface with the go-flags package from some guy on github.
@@ -132,12 +108,12 @@ var Flags struct {
 
 func startConnectionService() {
 	if Flags.Port > 0 {
-		TomlConfig.Port = Flags.Port
+		config.TomlConfig.Port = Flags.Port
 	}
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", TomlConfig.Port))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", config.Port()))
 	if err != nil {
-		LogError.Printf("Can't bind to specified port: %d\n", TomlConfig.Port)
-		LogError.Println(err)
+		log.Error.Printf("Can't bind to specified port: %d\n", config.Port())
+		log.Error.Println(err)
 		os.Exit(1)
 	}
 
@@ -148,14 +124,14 @@ func startConnectionService() {
 			socket, err := listener.Accept()
 			if err != nil {
 				if len(Flags.Verbose) > 0 {
-					LogError.Println("Error occurred attempting to accept a client:", err)
+					log.Error.Println("Error occurred attempting to accept a client:", err)
 				}
 				continue
 			}
-			if Clients.Size() >= TomlConfig.MaxPlayers {
+			if Clients.Size() >= config.MaxPlayers() {
 				if n, err := socket.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 14}); err != nil || n != 9 {
 					if len(Flags.Verbose) > 0 {
-						LogError.Println("Could not send world is full response to rejected client:", err)
+						log.Error.Println("Could not send world is full response to rejected client:", err)
 					}
 				}
 				continue
@@ -170,64 +146,70 @@ func startConnectionService() {
 //Start Listens for and processes new clients connecting to the server.
 // This method blocks while the server is running.
 func Start() {
-	LogInfo.Println("RSCGo starting up...")
+	log.Info.Println("RSCGo starting up...")
 	if _, err := flags.Parse(&Flags); err != nil {
-		LogError.Println(err)
+		log.Error.Println(err)
 		return
 	}
 	if Flags.Port > 65535 || Flags.Port < 0 {
-		LogWarning.Println("Invalid port number specified.  Valid port numbers are between 0 and 65535.")
+		log.Warning.Println("Invalid port number specified.  Valid port numbers are between 0 and 65535.")
 		return
 	}
 	if !strings.HasSuffix(Flags.Config, ".toml") {
-		LogWarning.Println("You entered an invalid configuration file extension.")
-		LogWarning.Println("TOML is currently the only supported format for server properties.")
-		LogWarning.Println()
-		LogInfo.Println("Setting back to default: `config.toml`")
+		log.Warning.Println("You entered an invalid configuration file extension.")
+		log.Warning.Println("TOML is currently the only supported format for server properties.")
+		log.Warning.Println()
+		log.Info.Println("Setting back to default: `config.toml`")
 		Flags.Config = "config.toml"
 	}
 	if Flags.UseCipher {
-		LogInfo.Println("TODO: Figure out why ISAAC cipher sometimes works, yet eventually desynchronizes from client.")
-		LogInfo.Println("Cipher will remain disabled until such time as this issue gets resolved.")
+		log.Info.Println("TODO: Figure out why ISAAC cipher sometimes works, yet eventually desynchronizes from client.")
+		log.Info.Println("Cipher will remain disabled until such time as this issue gets resolved.")
 		Flags.UseCipher = false
 	}
 
-	if _, err := toml.DecodeFile("."+string(os.PathSeparator)+Flags.Config, &TomlConfig); err != nil {
-		LogWarning.Println("Error decoding TOML RSCGo general configuration file:", err)
+	if _, err := toml.DecodeFile("."+string(os.PathSeparator)+Flags.Config, &config.TomlConfig); err != nil {
+		log.Warning.Println("Error decoding TOML RSCGo general configuration file:", err)
 		return
 	}
 	if len(Flags.Verbose) > 0 {
-		LogInfo.Println()
-		LogInfo.Println("Loaded TOML configuration file.")
+		log.Info.Println()
+		log.Info.Println("Loaded TOML configuration file.")
 	}
 	/*
 		start := time.Now()
 		HashPassword("lols")
-		LogInfo.Println(time.Since(start))
+		log.Info.Println(time.Since(start))
 	*/
 
 	var awaitLaunchJobs sync.WaitGroup
 	asyncExecute(&awaitLaunchJobs, func() {
-		LoadObjectDefinitions()
-		if count := len(ObjectDefinitions); len(Flags.Verbose) > 0 && count > 0 {
-			LogInfo.Printf("Loaded %d game object definitions.\n", count)
+		db.LoadItemDefinitions()
+		if count := len(db.Items); len(Flags.Verbose) > 0 && count > 0 {
+			log.Info.Printf("Loaded %d item definitions.\n", count)
 		}
 	})
 	asyncExecute(&awaitLaunchJobs, func() {
-		LoadBoundaryDefinitions()
-		if count := len(BoundaryDefinitions); len(Flags.Verbose) > 0 && count > 0 {
-			LogInfo.Printf("Loaded %d boundary definitions.\n", count)
+		db.LoadObjectDefinitions()
+		if count := len(db.Objects); len(Flags.Verbose) > 0 && count > 0 {
+			log.Info.Printf("Loaded %d game object definitions.\n", count)
+		}
+	})
+	asyncExecute(&awaitLaunchJobs, func() {
+		db.LoadBoundaryDefinitions()
+		if count := len(db.Boundarys); len(Flags.Verbose) > 0 && count > 0 {
+			log.Info.Printf("Loaded %d boundary definitions.\n", count)
 		}
 	})
 	asyncExecute(&awaitLaunchJobs, func() {
 		if count := LoadObjectLocations(); len(Flags.Verbose) > 0 && count > 0 {
-			LogInfo.Printf("Loaded %d game objects.\n", count)
+			log.Info.Printf("Loaded %d game objects.\n", count)
 		}
 	})
 	asyncExecute(&awaitLaunchJobs, func() {
 		initPacketHandlerTable()
 		if len(Flags.Verbose) > 0 {
-			LogInfo.Printf("Initialized %d packet handlers.\n", len(table.Handlers))
+			log.Info.Printf("Initialized %d packet handlers.\n", len(table.Handlers))
 		}
 	})
 	// TODO: Re-enable RSA
@@ -235,26 +217,26 @@ func Start() {
 		asyncExecute(&awaitLaunchJobs, func() {
 			loadRsaKey()
 			if len(Flags.Verbose) > 0 {
-				LogInfo.Println("Loaded RSA key data.")
+				log.Info.Println("Loaded RSA key data.")
 			}
 		})
 	*/
 	asyncExecute(&awaitLaunchJobs, func() {
 		startConnectionService()
 		if len(Flags.Verbose) > 0 {
-			LogInfo.Println("Launched connection service.")
+			log.Info.Println("Launched connection service.")
 		}
 	})
 	asyncExecute(&awaitLaunchJobs, func() {
 		startGameEngine()
 		if len(Flags.Verbose) > 0 {
-			LogInfo.Println("Launched game engine.")
+			log.Info.Println("Launched game engine.")
 		}
 	})
 	awaitLaunchJobs.Wait()
-	LogInfo.Println()
-	LogInfo.Println("RSCGo is now running.")
-	LogInfo.Printf("Listening on port %d...\n", TomlConfig.Port)
+	log.Info.Println()
+	log.Info.Println("RSCGo is now running.")
+	log.Info.Printf("Listening on port %d...\n", config.Port())
 	select {
 	// TODO: Probably need to handle certain signals
 	// TODO: Any other tasks I should handle in the main goroutine??
@@ -318,6 +300,6 @@ func BroadcastLogin(player *world.Player, online bool) {
 
 //Stop This will stop the server instance, if it is running.
 func Stop() {
-	LogInfo.Println("Stopping server...")
+	log.Info.Println("Stopping server...")
 	kill <- struct{}{}
 }

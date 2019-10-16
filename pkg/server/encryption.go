@@ -12,6 +12,8 @@ import (
 
 	"bitbucket.org/zlacki/rscgo/pkg/isaac"
 	rscrand "bitbucket.org/zlacki/rscgo/pkg/rand"
+	"bitbucket.org/zlacki/rscgo/pkg/server/config"
+	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -25,14 +27,14 @@ type IsaacStream struct {
 
 //loadRsaKey Read the RSA key into memory.
 func loadRsaKey() {
-	buf, err := ioutil.ReadFile(TomlConfig.DataDir + TomlConfig.Crypto.RsaKeyFile)
+	buf, err := ioutil.ReadFile(config.DataDir() + config.RsaKey())
 	if err != nil {
-		LogError.Printf("Could not read RSA key from file:%v", err)
+		log.Error.Printf("Could not read RSA key from file:%v", err)
 		os.Exit(103)
 	}
 	key, err := x509.ParsePKCS8PrivateKey(buf)
 	if err != nil {
-		LogWarning.Printf("Could not parse RSA key:%v", err)
+		log.Warning.Printf("Could not parse RSA key:%v", err)
 		os.Exit(104)
 	}
 	RsaKey = key.(*rsa.PrivateKey)
@@ -41,7 +43,7 @@ func loadRsaKey() {
 //SeedOpcodeCipher Initialize the ISAAC+ PRNG for use as a stream cipher for this client.
 func (c *Client) SeedOpcodeCipher(clientSeed uint64, serverSeed uint64) *IsaacStream {
 	if serverSeed != c.player.ServerSeed() {
-		LogWarning.Printf("Session encryption key for command cipher received from client doesn't match the one we supplied it.\n")
+		log.Warning.Printf("Session encryption key for command cipher received from client doesn't match the one we supplied it.\n")
 		return nil
 	}
 	decodingStream := isaac.New([]uint64{clientSeed, serverSeed})
@@ -58,14 +60,14 @@ func GenerateSessionID() uint64 {
 
 //HashPassword Takes a plaintext password as input, returns a hexidecimal string representation of the SHAKE256 hash as output.
 func HashPassword(password string) string {
-	return hex.EncodeToString(argon2.IDKey([]byte(password), []byte(TomlConfig.Crypto.HashSalt), uint32(TomlConfig.Crypto.HashComplexity), uint32(TomlConfig.Crypto.HashMemory*1024), uint8(runtime.NumCPU()), uint32(TomlConfig.Crypto.HashLength)))
+	return hex.EncodeToString(argon2.IDKey([]byte(password), []byte(config.HashSalt()), uint32(config.HashComplexity()), uint32(config.HashMemory()*1024), uint8(runtime.NumCPU()), uint32(config.HashLength())))
 }
 
 //DecryptRSABlock Attempts to decrypt the payload buffer.  Returns the decrypted buffer upon success, otherwise returns nil.
 func DecryptRSABlock(payload []byte) []byte {
 	buf, err := rsa.DecryptPKCS1v15(rand.Reader, RsaKey, payload)
 	if err != nil {
-		LogWarning.Println("Could not decrypt RSA block:", err)
+		log.Warning.Println("Could not decrypt RSA block:", err)
 		return nil
 	}
 	return buf

@@ -151,6 +151,16 @@ func (p *Packet) AddInt(i uint32) *Packet {
 	return p
 }
 
+//AddInt2 Adds a 32-bit integer or an 8-byte integer to the packet payload, depending on value.
+func (p *Packet) AddInt2(i uint32) *Packet {
+	if i < 128 {
+		p.Payload = append(p.Payload, uint8(i))
+		return p
+	}
+	p.Payload = append(p.Payload, byte((i-128)>>24), byte(i>>16), byte(i>>8), byte(i))
+	return p
+}
+
 //AddShort Adds a 16-bit integer to the packet payload.
 func (p *Packet) AddShort(s uint16) *Packet {
 	p.Payload = append(p.Payload, byte(s>>8), byte(s))
