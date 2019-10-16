@@ -157,7 +157,7 @@ func (p *Packet) AddInt2(i uint32) *Packet {
 		p.Payload = append(p.Payload, uint8(i))
 		return p
 	}
-	p.Payload = append(p.Payload, byte((i-128)>>24), byte(i>>16), byte(i>>8), byte(i))
+	p.Payload = append(p.Payload, byte((i>>24)+128), byte(i>>16), byte(i>>8), byte(i))
 	return p
 }
 
