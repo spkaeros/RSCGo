@@ -19,3 +19,22 @@ implementation had.
 Currently, RSCGo supports logging in, supports multiple players, chat works, walking works, objects are where they should be, etc.
 
 Here is a progress update picture: https://i.imgur.com/ZjzgBcE.png
+
+Please note, to run or install this software, you must have a working Go 1.11+ compiler installed, and a working C compiler, as this project uses CGo for its SQLite3 driver.
+I use GCC 7.4.0 on my test machine, and Go 1.13.1, on AMD64 Linux 5.0.0-23 kernel.
+## Usage
+    go run cmd/server/main.go (-vv)
+
+The -vv flags are optional and provide more verbose logging output.
+I would only recommend using the run command to test it out, and would advise you to produce a binary and run that instead in production environments.
+
+## Compilation
+    go build -o bin/RSCGo(.exe) cmd/server/main.go
+    
+On Windows you will want to add the .exe, but on any UNIX-likes you would leave it out.
+You can also make the binary significantly smaller by stripping debug symbols, e.g:
+    go build -ldflags="-s -w" -o ./bin/RSCGo cmd/server/main.go
+
+This software is distributed under the terms of the ISC license, which basically permits you to do as you please with this software, as long as, with any distribution, you provide my copyright/permission notice from the license, and give me proper credit.
+
+Enjoy!
