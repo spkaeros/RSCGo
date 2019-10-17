@@ -23,3 +23,13 @@ func (i *Inventory) Put(id int, qty int) int {
 	i.List = append(i.List, newItem)
 	return newItem.Index
 }
+
+func (i *Inventory) Remove(index int) bool {
+	curSize := len(i.List)
+	if curSize < index {
+		return false
+	}
+
+	i.List = append(i.List[:index], i.List[index+1:]...)
+	return true
+}

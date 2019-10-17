@@ -186,6 +186,12 @@ func init() {
 			boundaryAction(c, object, false)
 		})
 	}
+	PacketHandlers["dropitem"] = func(c *Client, p *packets.Packet) {
+		index := p.ReadShort()
+		if c.player.Items.Remove(index) {
+			c.outgoingPackets <- packets.InventoryItems(c.player)
+		}
+	}
 }
 
 func objectAction(c *Client, object *world.Object, rightClick bool) {

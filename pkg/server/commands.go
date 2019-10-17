@@ -209,15 +209,19 @@ func init() {
 			return
 		}
 		id, err := strconv.Atoi(args[0])
-		if err != nil {
+		if err != nil || id > 1289 || id < 0 {
 			c.Message("@que@Invalid args.  Usage: /item <id> <quantity>")
 			return
 		}
-		if id > 1289 || id < 0 {
-			c.Message("@que@Invalid args.  Usage: /item <id> <quantity>")
-			return
+		amount := 1
+		if len(args) > 1 {
+			amount, err = strconv.Atoi(args[1])
+			if err != nil || amount <= 0 {
+				c.Message("@que@Invalid args.  Usage: /item <id> <quantity>")
+				return
+			}
 		}
-		c.player.Items.Put(id, 1)
+		c.player.Items.Put(id, amount)
 		c.outgoingPackets <- packets.InventoryItems(c.player)
 	}
 	CommandHandlers["goup"] = func(c *Client, args []string) {
