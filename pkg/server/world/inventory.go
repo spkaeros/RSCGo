@@ -24,12 +24,15 @@ func (i *Inventory) Put(id int, qty int) int {
 	return newItem.Index
 }
 
+//Remove Removes item at index from this inventory.
 func (i *Inventory) Remove(index int) bool {
-	curSize := len(i.List)
-	if curSize < index {
+	if len(i.List)-1 < index {
 		return false
 	}
-
-	i.List = append(i.List[:index], i.List[index+1:]...)
+	if index < len(i.List)-1 {
+		copy(i.List[index:], i.List[index+1:])
+	}
+	i.List[len(i.List)-1] = nil
+	i.List = i.List[:len(i.List)-1]
 	return true
 }
