@@ -10,8 +10,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-//OpenDatabase Returns an active sqlite3 database reference for the specified database file.
-func OpenDatabase(file string) *sql.DB {
+//Open Returns an active sqlite3 database reference for the specified database file.
+func Open(file string) *sql.DB {
 	database, err := sql.Open("sqlite3", "file:"+config.DataDir()+file)
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)

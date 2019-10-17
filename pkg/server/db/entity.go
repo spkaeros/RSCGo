@@ -50,7 +50,7 @@ var Boundarys []BoundaryDefinition
 
 //LoadObjectDefinitions Loads game object data into memory for quick access.
 func LoadObjectDefinitions() error {
-	database := OpenDatabase(config.WorldDB())
+	database := Open(config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT id, name, description, command_one, command_two, type, width, height, ground_item_var FROM `game_objects`")
 	defer rows.Close()
@@ -68,7 +68,7 @@ func LoadObjectDefinitions() error {
 
 //LoadBoundaryDefinitions Loads game boundary object data into memory for quick access.
 func LoadBoundaryDefinitions() {
-	database := OpenDatabase(config.WorldDB())
+	database := Open(config.WorldDB())
 	defer database.Close()
 	// TODO: Seem to be missing a lot of door data.
 	rows, err := database.Query("SELECT id, name, description, command_one, command_two FROM `doors`")
@@ -86,7 +86,7 @@ func LoadBoundaryDefinitions() {
 
 //LoadItemDefinitions Loads game item data into memory for quick access.
 func LoadItemDefinitions() {
-	database := OpenDatabase(config.WorldDB())
+	database := Open(config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT id, name, description, command, base_price, stackable, special, members FROM `items` ORDER BY id")
 	defer rows.Close()

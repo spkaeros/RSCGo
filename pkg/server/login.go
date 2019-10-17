@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/config"
+	"bitbucket.org/zlacki/rscgo/pkg/server/db"
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
@@ -37,13 +38,13 @@ func newPlayer(c *Client, p *packets.Packet) {
 		reply <- 0
 		return
 	}
-	if UsernameExists(username) {
+	if db.UsernameExists(username) {
 		log.Info.Printf("New player denied: [ Reason:'Username is taken'; username='%s'; ip='%s' ]\n", username, c.ip)
 		reply <- 3
 		return
 	}
 
-	if CreatePlayer(username, password) {
+	if db.CreatePlayer(username, HashPassword(password)) {
 		log.Info.Printf("New player accepted: [ username='%s'; ip='%s' ]", username, c.ip)
 		reply <- 2
 		return
@@ -93,7 +94,7 @@ func loginRequest(c *Client, p *packets.Packet) {
 	p.ReadInt()
 
 	usernameHash := strutil.Base37(strings.TrimSpace(p.ReadString(20)))
-	if !UsernameExists(strutil.DecodeBase37(usernameHash)) {
+	if !db.UsernameExists(strutil.DecodeBase37(usernameHash)) {
 		loginReply <- 3
 		return
 	}
