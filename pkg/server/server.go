@@ -73,7 +73,7 @@ func (m *ClientMap) Remove(c *Client) {
 func (m *ClientMap) Broadcast(action func(*Client)) {
 	m.lock.RLock()
 	for _, c := range m.indices {
-		if c != nil && c.player.Connected {
+		if c != nil && c.player.TransAttrs.VarBool("connected", false) {
 			action(c)
 		}
 	}
@@ -82,7 +82,8 @@ func (m *ClientMap) Broadcast(action func(*Client)) {
 
 //Size Returns the size of the active client collection.
 func (m *ClientMap) Size() int {
-	// TODO: IDK if I need to rlock this?
+	m.lock.RLock()
+	defer m.lock.RUnlock()
 	return len(m.usernames)
 }
 

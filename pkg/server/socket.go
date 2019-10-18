@@ -53,8 +53,7 @@ func (c *Client) Read(dst []byte) (int, error) {
 
 //ReadPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode of the next packet frame the client is sending us.
 func (c *Client) ReadPacket() (*packets.Packet, error) {
-	// I'm using a pre-allocated buffer for incoming packet data, to avoid allocation overhead.
-	header := c.buffer[:2]
+	header := make([]byte, 2)
 	if l, err := c.Read(header); err != nil || l != 2 {
 		// This could happen legitimately, under certain strange circumstances.  Not proof of malicious intent.
 		return nil, err
@@ -74,7 +73,7 @@ func (c *Client) ReadPacket() (*packets.Packet, error) {
 	}
 
 	if bigLength {
-		payload := c.buffer[2 : length+2]
+		payload := make([]byte, length)
 
 		if l, err := c.Read(payload); err != nil || l != length {
 			return nil, err
@@ -82,7 +81,7 @@ func (c *Client) ReadPacket() (*packets.Packet, error) {
 
 		return packets.NewPacket(payload[0], payload[1:]), nil
 	}
-	payload := c.buffer[2 : length+1]
+	payload := make([]byte, length-1)
 
 	if l, err := c.Read(payload); err != nil || l != length-1 {
 		return nil, err

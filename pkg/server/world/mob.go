@@ -34,6 +34,7 @@ type Mob struct {
 	State      MobState
 	Skillset   *SkillTable
 	Path       *Pathway
+	PathLock   sync.RWMutex
 	TransAttrs *AttributeList
 }
 
@@ -55,20 +56,27 @@ func (m *Mob) SetDirection(direction int) {
 
 //SetPath Sets the mob's current pathway to path.  If path is nil, effectively resets the mobs path.
 func (m *Mob) SetPath(path *Pathway) {
+	m.PathLock.Lock()
 	m.Path = path
+	m.PathLock.Unlock()
 }
 
 //ResetPath Sets the mobs path to nil, to stop the traversal of the path instantly
 func (m *Mob) ResetPath() {
+	m.PathLock.Lock()
 	m.Path = nil
+	m.PathLock.Unlock()
 }
 
 //TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
 func (m *Mob) TraversePath() {
+	m.PathLock.RLock()
 	if m.Path == nil {
+		m.PathLock.RUnlock()
 		return
 	}
 	path := m.Path
+	m.PathLock.RUnlock()
 	if m.AtLocation(path.Waypoint(path.CurrentWaypoint)) {
 		path.CurrentWaypoint++
 	}
@@ -83,6 +91,8 @@ func (m *Mob) TraversePath() {
 
 //FinishedPath Returns true if the mobs path is nil or if we are already on the path's next tile.
 func (m *Mob) FinishedPath() bool {
+	m.PathLock.RLock()
+	defer m.PathLock.RUnlock()
 	if m.Path == nil {
 		return true
 	}
@@ -135,15 +145,15 @@ func (attributes *AttributeList) Range(fn func(string, interface{})) {
 //SetVar Sets the attribute mapped at name to value in the attribute map.
 func (attributes *AttributeList) SetVar(name string, value interface{}) {
 	attributes.Lock.Lock()
-	defer attributes.Lock.Unlock()
 	attributes.Set[name] = value
+	attributes.Lock.Unlock()
 }
 
 //UnsetVar Removes the attribute with the key `name` from this attribute set.
 func (attributes *AttributeList) UnsetVar(name string) {
 	attributes.Lock.Lock()
-	defer attributes.Lock.Unlock()
 	delete(attributes.Set, name)
+	attributes.Lock.Unlock()
 }
 
 //VarInt If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
@@ -151,7 +161,7 @@ func (attributes *AttributeList) VarInt(name string, zero int) int {
 	attributes.Lock.RLock()
 	defer attributes.Lock.RUnlock()
 	if _, ok := attributes.Set[name].(int); !ok {
-		attributes.Set[name] = zero
+		return zero
 	}
 
 	return attributes.Set[name].(int)
@@ -162,7 +172,7 @@ func (attributes *AttributeList) VarLong(name string, zero uint64) uint64 {
 	attributes.Lock.RLock()
 	defer attributes.Lock.RUnlock()
 	if _, ok := attributes.Set[name].(uint64); !ok {
-		attributes.Set[name] = zero
+		return zero
 	}
 
 	return attributes.Set[name].(uint64)
@@ -173,7 +183,7 @@ func (attributes *AttributeList) VarBool(name string, zero bool) bool {
 	attributes.Lock.RLock()
 	defer attributes.Lock.RUnlock()
 	if _, ok := attributes.Set[name].(bool); !ok {
-		attributes.Set[name] = zero
+		return zero
 	}
 
 	return attributes.Set[name].(bool)

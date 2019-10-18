@@ -23,7 +23,7 @@ type Client struct {
 	player                           *world.Player
 	socket                           net.Conn
 	incomingPackets, outgoingPackets chan *packets.Packet
-	destroying, reconnecting         bool
+	reconnecting                     bool
 	buffer                           []byte
 }
 
@@ -76,7 +76,7 @@ func (c *Client) StartReader() {
 				c.Destroy()
 				return
 			}
-			if !c.player.Connected && p.Opcode != 32 && p.Opcode != 0 && p.Opcode != 2 {
+			if !c.player.TransAttrs.VarBool("connected", false) && p.Opcode != 32 && p.Opcode != 0 && p.Opcode != 2 {
 				// This should only happen if someone is either editing their outgoing network data, or using a modified client.
 				if len(Flags.Verbose) > 0 {
 					log.Warning.Printf("Unauthorized packet{opcode:%v,len:%v] rejected from: %v\n", p.Opcode, len(p.Payload), c)
@@ -108,9 +108,9 @@ func (c *Client) StartWriter() {
 
 //Destroy Wrapper around Client.destroy to prevent multiple channel closes causing a panic.
 func (c *Client) Destroy() {
-	if !c.destroying {
+	if !c.player.TransAttrs.VarBool("destroying", false) {
 		close(c.Kill)
-		c.destroying = true
+		c.player.TransAttrs.SetVar("destroying", true)
 	}
 }
 
@@ -118,7 +118,7 @@ func (c *Client) Destroy() {
 func (c *Client) destroy(wg *sync.WaitGroup) {
 	// Wait for network goroutines to finish.
 	(*wg).Wait()
-	c.player.Connected = false
+	c.player.TransAttrs.UnsetVar("connected")
 	close(c.outgoingPackets)
 	close(c.incomingPackets)
 	c.buffer = []byte{} // try to collect this early it's 5KB
@@ -199,7 +199,7 @@ func (c *Client) sendLoginResponse(i byte) {
 		log.Info.Printf("Registered: %v\n", c)
 		world.AddPlayer(c.player)
 		c.player.TransAttrs.SetVar("plrchanged", true)
-		c.player.Connected = true
+		c.player.TransAttrs.SetVar("connected", true)
 		for i := 0; i < 18; i++ {
 			level := 1
 			exp := 0
