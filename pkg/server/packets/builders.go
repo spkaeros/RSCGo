@@ -355,11 +355,11 @@ func BoundaryLocations(player *world.Player, newObjects []*world.Object) (p *Pac
 				continue
 			}
 			if !player.WithinRange(&o.Location, 21) {
-				p.AddShort(65535)
-				//p.AddByte(255)
+				//p.AddShort(65535)
+				p.AddByte(255)
 				p.AddByte(byte(o.X - player.X))
 				p.AddByte(byte(o.Y - player.Y))
-				p.AddByte(byte(o.Direction))
+				//p.AddByte(byte(o.Direction))
 				player.LocalObjects.Remove(o)
 				counter++
 			}
