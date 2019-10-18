@@ -53,6 +53,7 @@ func (c *Client) Read(dst []byte) (int, error) {
 
 //ReadPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode of the next packet frame the client is sending us.
 func (c *Client) ReadPacket() (*packets.Packet, error) {
+	// TODO: Is allocation overhead more expensive than mutex locks?  If so, I must change this back to pre-allocated, and guard it with a RWMutex
 	header := make([]byte, 2)
 	if l, err := c.Read(header); err != nil || l != 2 {
 		// This could happen legitimately, under certain strange circumstances.  Not proof of malicious intent.

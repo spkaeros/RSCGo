@@ -69,6 +69,8 @@ func GetAllObjects() (list []*Object) {
 	for x := 0; x < MaxX; x += RegionSize {
 		for y := 0; y < MaxY; y += RegionSize {
 			if r := regions[x/RegionSize][y/RegionSize]; r != nil {
+				r.Objects.lock.RLock()
+				defer r.Objects.lock.RUnlock()
 				for _, o := range r.Objects.List {
 					if o, ok := o.(*Object); ok {
 						list = append(list, o)
@@ -83,7 +85,10 @@ func GetAllObjects() (list []*Object) {
 
 //GetObject If there is an object at these coordinates, returns it.  Otherwise, returns nil.
 func GetObject(x, y int) *Object {
-	for _, o := range GetRegion(x, y).Objects.List {
+	r := GetRegion(x, y)
+	r.Objects.lock.RLock()
+	defer r.Objects.lock.RUnlock()
+	for _, o := range r.Objects.List {
 		if o, ok := o.(*Object); ok {
 			if o.X == x && o.Y == y {
 				return o

@@ -51,19 +51,19 @@ func (p *Pathway) waypointY(w int) int {
 
 //Waypoint Returns the locattion of the specified waypoint
 func (p *Pathway) Waypoint(w int) *Location {
-	return &Location{p.waypointX(w), p.waypointY(w)}
+	return &Location{X: p.waypointX(w), Y: p.waypointY(w)}
 }
 
 //Start Returns the location of the start of the path
 func (p *Pathway) Start() *Location {
-	return &Location{p.StartX, p.StartY}
+	return &Location{X: p.StartX, Y: p.StartY}
 }
 
 //NextTile Returns the next tile for the mob to move to in the pathway.
 func (p *Pathway) NextTile(startX, startY int) Location {
 	destX := p.waypointX(p.CurrentWaypoint)
 	destY := p.waypointY(p.CurrentWaypoint)
-	newLocation := &Location{destX, destY}
+	newLocation := &Location{X: destX, Y: destY}
 	switch {
 	case startX > destX:
 		newLocation.X = startX - 1

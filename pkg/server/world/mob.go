@@ -71,12 +71,11 @@ func (m *Mob) ResetPath() {
 //TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
 func (m *Mob) TraversePath() {
 	m.PathLock.RLock()
-	if m.Path == nil {
-		m.PathLock.RUnlock()
-		return
-	}
 	path := m.Path
 	m.PathLock.RUnlock()
+	if path == nil {
+		return
+	}
 	if m.AtLocation(path.Waypoint(path.CurrentWaypoint)) {
 		path.CurrentWaypoint++
 	}
@@ -120,8 +119,10 @@ func (m *Mob) SetLocation(location Location) {
 //SetCoords Sets the mobs locations coordinates.
 func (m *Mob) SetCoords(x, y int) {
 	m.UpdateDirection(x, y)
+	m.lock.Lock()
 	m.X = x
 	m.Y = y
+	m.lock.Unlock()
 }
 
 //AttrList A type alias for a map of strings to empty interfaces, to hold generic mob information for easy serialization and to provide dynamic insertion/deletion of new mob properties easily

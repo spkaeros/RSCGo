@@ -214,7 +214,7 @@ func PlayerPositions(player *world.Player) (p *Packet) {
 	}
 	for _, p1 := range player.LocalPlayers.List {
 		if p1, ok := p1.(*world.Player); ok {
-			if p1.LongestDelta(player.Location) > 15 || p1.TransAttrs.VarBool("plrremove", false) {
+			if p1.LongestDelta(&player.Location) > 15 || p1.TransAttrs.VarBool("plrremove", false) {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
@@ -317,7 +317,7 @@ func ObjectLocations(player *world.Player, newObjects []*world.Object) (p *Packe
 			if o.Boundary {
 				continue
 			}
-			if !player.WithinRange(o.Location, 21) || world.GetObject(o.X, o.Y) != o {
+			if !player.WithinRange(&o.Location, 21) || world.GetObject(o.X, o.Y) != o {
 				p.AddShort(60000)
 				p.AddByte(byte(o.X - player.X))
 				p.AddByte(byte(o.Y - player.Y))
@@ -354,12 +354,12 @@ func BoundaryLocations(player *world.Player, newObjects []*world.Object) (p *Pac
 			if !o.Boundary {
 				continue
 			}
-			if !player.WithinRange(o.Location, 21) {
-				//				p.AddShort(65535)
-				p.AddByte(255)
+			if !player.WithinRange(&o.Location, 21) {
+				p.AddShort(65535)
+				//p.AddByte(255)
 				p.AddByte(byte(o.X - player.X))
 				p.AddByte(byte(o.Y - player.Y))
-				//				p.AddByte(byte(o.Direction))
+				p.AddByte(byte(o.Direction))
 				player.LocalObjects.Remove(o)
 				counter++
 			}

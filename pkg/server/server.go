@@ -261,11 +261,11 @@ func Tick() {
 		//TODO: Handle this in a less hacky way.  Sticks out like a sore thumb.
 		if c.player.IsFollowing() {
 			followingClient, ok := Clients.FromIndex(c.player.FollowIndex())
-			if followingClient == nil || !ok || !c.player.Location.WithinRange(followingClient.player.Location, 15) {
+			if followingClient == nil || !ok || !c.player.Location.WithinRange(&followingClient.player.Location, 15) {
 				c.player.ResetFollowing()
-			} else if !c.player.FinishedPath() && c.player.WithinRange(followingClient.player.Location, 2) {
+			} else if !c.player.FinishedPath() && c.player.WithinRange(&followingClient.player.Location, 2) {
 				c.player.ResetPath()
-			} else if c.player.FinishedPath() && !c.player.WithinRange(followingClient.player.Location, 2) {
+			} else if c.player.FinishedPath() && !c.player.WithinRange(&followingClient.player.Location, 2) {
 				c.player.SetPath(world.NewPathway(followingClient.player.X, followingClient.player.Y))
 			}
 		}

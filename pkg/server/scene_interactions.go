@@ -113,7 +113,7 @@ func init() {
 		}
 		if object.ID == 109 {
 			// Quest hut by wilderness in between edgeville and varrock
-			dest := world.Location{161, 465}
+			dest := world.Location{X: 161, Y: 465}
 			if p.Y >= dest.Y {
 				dest.Y--
 			}
@@ -146,7 +146,7 @@ func init() {
 			log.Info.Println("Object not found.")
 			return
 		}
-		c.player.RunDistancedAction(object.Location, func() {
+		c.player.RunDistancedAction(&object.Location, func() {
 			objectAction(c, object, false)
 		})
 	}
@@ -158,7 +158,7 @@ func init() {
 			log.Info.Println("Object not found.")
 			return
 		}
-		c.player.RunDistancedAction(object.Location, func() {
+		c.player.RunDistancedAction(&object.Location, func() {
 			objectAction(c, object, true)
 		})
 	}
@@ -170,7 +170,7 @@ func init() {
 			log.Info.Println("Boundary not found.")
 			return
 		}
-		c.player.RunDistancedAction(object.Location, func() {
+		c.player.RunDistancedAction(&object.Location, func() {
 			boundaryAction(c, object, true)
 		})
 	}
@@ -182,7 +182,7 @@ func init() {
 			log.Info.Println("Boundary not found.")
 			return
 		}
-		c.player.RunDistancedAction(object.Location, func() {
+		c.player.RunDistancedAction(&object.Location, func() {
 			boundaryAction(c, object, false)
 		})
 	}
@@ -196,7 +196,7 @@ func init() {
 
 func objectAction(c *Client, object *world.Object, rightClick bool) {
 	c.player.ResetPath()
-	if c.player.State != world.MSIdle || world.GetObject(object.X, object.Y) != object || !c.player.WithinRange(object.Location, 1) {
+	if c.player.State != world.MSIdle || world.GetObject(object.X, object.Y) != object || !c.player.WithinRange(&object.Location, 1) {
 		// If somehow we became busy, the object changed before arriving, or somehow this action fired without actually arriving at the object, we do nothing.
 		return
 	}
@@ -222,7 +222,7 @@ func objectAction(c *Client, object *world.Object, rightClick bool) {
 
 func boundaryAction(c *Client, object *world.Object, rightClick bool) {
 	c.player.ResetPath()
-	if c.player.State != world.MSIdle || world.GetObject(object.X, object.Y) != object || !c.player.WithinRange(object.Location, 1) {
+	if c.player.State != world.MSIdle || world.GetObject(object.X, object.Y) != object || !c.player.WithinRange(&object.Location, 1) {
 		// If somehow we became busy, the object changed before arriving, or somehow this action fired without actually arriving at the object, we do nothing.
 		return
 	}
