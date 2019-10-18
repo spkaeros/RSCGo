@@ -50,7 +50,7 @@ func RemoveObject(o *Object) {
 }
 
 //EnterDoor Replaces door object with an open door, sleeps for one second, and returns the closed door.
-func (player *Player) EnterDoor(door *Object, dest Location) {
+func (player *Player) EnterDoor(door *Object, dest *Location) {
 	ReplaceObject(door, 11)
 	player.SetLocation(dest)
 	time.Sleep(time.Second)
@@ -59,7 +59,7 @@ func (player *Player) EnterDoor(door *Object, dest Location) {
 
 //ReplaceObject Replaces old with a new game object with all of the same characteristics, except it's ID set to newID.
 func ReplaceObject(old *Object, newID int) {
-	r := GetRegionFromLocation(old.Location)
+	r := GetRegionFromLocation(&old.Location)
 	r.Objects.Remove(old)
 	r.Objects.Add(NewObject(newID, old.Direction, old.X, old.Y, old.Boundary))
 }
@@ -121,7 +121,7 @@ func GetRegion(x, y int) *Region {
 }
 
 //GetRegionFromLocation Returns the region that corresponds with the given location.  If it does not exist yet, it will allocate a new onr and store it for the lifetime of the application in the regions map.
-func GetRegionFromLocation(loc Location) *Region {
+func GetRegionFromLocation(loc *Location) *Region {
 	return getRegionFromIndex(loc.X/RegionSize, loc.Y/RegionSize)
 }
 

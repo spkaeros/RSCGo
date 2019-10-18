@@ -281,7 +281,7 @@ func (p *Player) NewPlayers() (players []*Player) {
 }
 
 //SetLocation Sets the mobs location.
-func (p *Player) SetLocation(location Location) {
+func (p *Player) SetLocation(location *Location) {
 	p.SetCoords(location.X, location.Y)
 }
 

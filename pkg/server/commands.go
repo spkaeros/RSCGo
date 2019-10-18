@@ -226,13 +226,13 @@ func init() {
 	}
 	CommandHandlers["goup"] = func(c *Client, args []string) {
 		if nextLocation := c.player.Above(); !nextLocation.Equals(c.player.Location) {
-			c.player.SetLocation(nextLocation)
+			c.player.SetLocation(&nextLocation)
 			c.UpdatePlane()
 		}
 	}
 	CommandHandlers["godown"] = func(c *Client, args []string) {
 		if nextLocation := c.player.Below(); !nextLocation.Equals(c.player.Location) {
-			c.player.SetLocation(nextLocation)
+			c.player.SetLocation(&nextLocation)
 			c.UpdatePlane()
 		}
 	}

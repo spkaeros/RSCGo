@@ -54,7 +54,7 @@ func init() {
 
 		if nextLocation := p.Above(); !nextLocation.Equals(p.Location) {
 			c, _ := Clients.FromIndex(p.Index)
-			p.SetLocation(nextLocation)
+			p.SetLocation(&nextLocation)
 			c.UpdatePlane()
 		}
 	}
@@ -66,7 +66,7 @@ func init() {
 
 		if nextLocation := p.Below(); !nextLocation.Equals(p.Location) {
 			c, _ := Clients.FromIndex(p.Index)
-			p.SetLocation(nextLocation)
+			p.SetLocation(&nextLocation)
 			c.UpdatePlane()
 		}
 	}
@@ -117,7 +117,7 @@ func init() {
 			if p.Y >= dest.Y {
 				dest.Y--
 			}
-			go p.EnterDoor(object, dest)
+			go p.EnterDoor(object, &dest)
 		}
 		if newID, ok := bDoors[object.ID]; ok {
 			world.ReplaceObject(object, newID)

@@ -96,7 +96,7 @@ func (m *Mob) FinishedPath() bool {
 		return true
 	}
 	next := m.Path.NextTile(m.X, m.Y)
-	return m.AtLocation(&next)
+	return m.AtLocation(next)
 }
 
 //UpdateDirection Updates the direction the mob is facing based on where the mob is trying to move, and where the mob is currently at.
@@ -112,7 +112,7 @@ func (m *Mob) UpdateDirection(destX, destY int) {
 }
 
 //SetLocation Sets the mobs location.
-func (m *Mob) SetLocation(location Location) {
+func (m *Mob) SetLocation(location *Location) {
 	m.SetCoords(location.X, location.Y)
 }
 

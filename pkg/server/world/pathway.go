@@ -14,7 +14,7 @@ func NewPathway(destX, destY int) *Pathway {
 }
 
 //NewPathwayFromLocation returns a new Pathway pointing to the specified location.  Must be a straight line from starting location.
-func NewPathwayFromLocation(l Location) *Pathway {
+func NewPathwayFromLocation(l *Location) *Pathway {
 	return NewPathway(l.X, l.Y)
 }
 
@@ -60,7 +60,7 @@ func (p *Pathway) Start() *Location {
 }
 
 //NextTile Returns the next tile for the mob to move to in the pathway.
-func (p *Pathway) NextTile(startX, startY int) Location {
+func (p *Pathway) NextTile(startX, startY int) *Location {
 	destX := p.waypointX(p.CurrentWaypoint)
 	destY := p.waypointY(p.CurrentWaypoint)
 	newLocation := &Location{X: destX, Y: destY}
@@ -80,5 +80,5 @@ func (p *Pathway) NextTile(startX, startY int) Location {
 		newLocation.Y = startY + 1
 		break
 	}
-	return *newLocation
+	return newLocation
 }
