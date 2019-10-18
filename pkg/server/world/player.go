@@ -238,6 +238,8 @@ func (p *Player) SetFightMode(i int) {
 
 //NearbyPlayers Returns nearby players.
 func (p *Player) NearbyPlayers() (players []*Player) {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
 	for _, r := range SurroundingRegions(p.X, p.Y) {
 		players = append(players, r.Players.NearbyPlayers(p)...)
 	}
@@ -247,6 +249,8 @@ func (p *Player) NearbyPlayers() (players []*Player) {
 
 //NearbyObjects Returns nearby objects.
 func (p *Player) NearbyObjects() (objects []*Object) {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
 	for _, r := range SurroundingRegions(p.X, p.Y) {
 		objects = append(objects, r.Objects.NearbyObjects(p)...)
 	}
@@ -256,6 +260,8 @@ func (p *Player) NearbyObjects() (objects []*Object) {
 
 //NewObjects Returns nearby objects that this player is unaware of.
 func (p *Player) NewObjects() (objects []*Object) {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
 	for _, r := range SurroundingRegions(p.X, p.Y) {
 		for _, o := range r.Objects.NearbyObjects(p) {
 			if !p.LocalObjects.Contains(o) {
@@ -269,6 +275,8 @@ func (p *Player) NewObjects() (objects []*Object) {
 
 //NewPlayers Returns nearby players that this player is unaware of.
 func (p *Player) NewPlayers() (players []*Player) {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
 	for _, r := range SurroundingRegions(p.X, p.Y) {
 		for _, p1 := range r.Players.NearbyPlayers(p) {
 			if !p.LocalPlayers.Contains(p1) {
@@ -287,7 +295,9 @@ func (p *Player) SetLocation(location *Location) {
 
 //SetCoords Sets the mobs locations coordinates.
 func (p *Player) SetCoords(x, y int) {
+	p.lock.RLock()
 	curArea := GetRegion(p.X, p.Y)
+	p.lock.RUnlock()
 	newArea := GetRegion(x, y)
 	if newArea != curArea {
 		if curArea.Players.Contains(p) {
