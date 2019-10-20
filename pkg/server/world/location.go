@@ -60,6 +60,13 @@ func (l *Location) String() string {
 	return fmt.Sprintf("[%d,%d]", l.X, l.Y)
 }
 
+//WithinWorld Returns true if the tile at x,y is within world boundaries, false otherwise.
+func (l *Location) WithinWorld() bool {
+	l.lock.RLock()
+	defer l.lock.RUnlock()
+	return l.X <= MaxX && l.X >= 0 && l.Y >= 0 && l.Y <= MaxY
+}
+
 //Equals Returns true if this location points to the same location as o
 func (l *Location) Equals(o interface{}) bool {
 	l.lock.RLock()

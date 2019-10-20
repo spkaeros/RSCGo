@@ -80,7 +80,7 @@ func (m *Mob) TraversePath() {
 		path.CurrentWaypoint++
 	}
 	newLocation := path.NextTile(m.X, m.Y)
-	if path.CurrentWaypoint >= len(path.WaypointsX) || newLocation.X == -1 || newLocation.Y == -1 {
+	if path.CurrentWaypoint >= len(path.WaypointsX) || !newLocation.WithinWorld() {
 		m.ResetPath()
 		return
 	}
@@ -88,15 +88,14 @@ func (m *Mob) TraversePath() {
 	m.SetLocation(newLocation)
 }
 
-//FinishedPath Returns true if the mobs path is nil or if we are already on the path's next tile.
+//FinishedPath Returns true if the mobs path is nil, the paths current waypoint exceeds the number of waypoints available, or the next tile in the path is not a valid location, implying that we have reached our destination.
 func (m *Mob) FinishedPath() bool {
 	m.PathLock.RLock()
 	defer m.PathLock.RUnlock()
 	if m.Path == nil {
 		return true
 	}
-	next := m.Path.NextTile(m.X, m.Y)
-	return m.AtLocation(next)
+	return m.Path.CurrentWaypoint >= len(m.Path.WaypointsX) || !m.Path.NextTile(m.X, m.Y).WithinWorld()
 }
 
 //UpdateDirection Updates the direction the mob is facing based on where the mob is trying to move, and where the mob is currently at.
