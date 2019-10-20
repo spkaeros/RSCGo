@@ -385,12 +385,12 @@ func BoundaryLocations(player *world.Player, newObjects []*world.Object) (p *Pac
 //EquipmentStats Builds a packet with the players equipment statistics in it.
 func EquipmentStats(player *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(153)
-	p.AddShort(uint16(player.ArmourPoints()))
-	p.AddShort(uint16(player.AimPoints()))
-	p.AddShort(uint16(player.PowerPoints()))
-	p.AddShort(uint16(player.MagicPoints()))
-	p.AddShort(uint16(player.PrayerPoints()))
-	p.AddShort(uint16(player.RangedPoints()))
+	p.AddByte(uint8(player.ArmourPoints()))
+	p.AddByte(uint8(player.AimPoints()))
+	p.AddByte(uint8(player.PowerPoints()))
+	p.AddByte(uint8(player.MagicPoints()))
+	p.AddByte(uint8(player.PrayerPoints()))
+	p.AddByte(uint8(player.RangedPoints()))
 	return
 }
 

@@ -110,8 +110,8 @@ func (c *Client) StartWriter() {
 //Destroy Wrapper around Client.destroy to prevent multiple channel closes causing a panic.
 func (c *Client) Destroy() {
 	if !c.player.TransAttrs.VarBool("destroying", false) {
-		close(c.Kill)
 		c.player.TransAttrs.SetVar("destroying", true)
+		close(c.Kill)
 	}
 }
 
