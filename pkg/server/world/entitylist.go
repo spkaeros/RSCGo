@@ -19,6 +19,8 @@ func (e *Entity) AtLocation(location *Location) bool {
 
 //AtCoords Returns true if the entity is at the specified coordinates, otherwise returns false
 func (e *Entity) AtCoords(x, y int) bool {
+	e.lock.RLock()
+	defer e.lock.RUnlock()
 	return e.X == x && e.Y == y
 }
 
