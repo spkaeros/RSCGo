@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"bitbucket.org/zlacki/rscgo/pkg/server/db"
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
@@ -194,7 +195,7 @@ func init() {
 	}
 	CommandHandlers["saveobjects"] = func(c *Client, args []string) {
 		go func() {
-			if count := SaveObjectLocations(); count > 0 {
+			if count := db.SaveObjectLocations(); count > 0 {
 				c.Message("Saved " + strconv.Itoa(count) + " game objects to world.db")
 				log.Commands.Println(c.player.Username + " saved " + strconv.Itoa(count) + " game objects to world.db")
 			} else {

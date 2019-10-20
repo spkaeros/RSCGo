@@ -203,7 +203,7 @@ func Start() {
 		}
 	})
 	asyncExecute(&awaitLaunchJobs, func() {
-		if count := LoadObjectLocations(); len(Flags.Verbose) > 0 && count > 0 {
+		if count := db.LoadObjectLocations(); len(Flags.Verbose) > 0 && count > 0 {
 			log.Info.Printf("Loaded %d game objects.\n", count)
 		}
 	})
