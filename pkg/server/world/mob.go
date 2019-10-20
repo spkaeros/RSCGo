@@ -79,13 +79,12 @@ func (m *Mob) TraversePath() {
 	if m.AtLocation(path.Waypoint(path.CurrentWaypoint)) {
 		path.CurrentWaypoint++
 	}
-	newLocation := path.NextTile(m.X, m.Y)
-	if path.CurrentWaypoint >= len(path.WaypointsX) || !newLocation.WithinWorld() {
+	if m.FinishedPath() {
 		m.ResetPath()
 		return
 	}
 	m.TransAttrs.SetVar("plrmoved", true)
-	m.SetLocation(newLocation)
+	m.SetLocation(path.NextTile(m.X, m.Y))
 }
 
 //FinishedPath Returns true if the mobs path is nil, the paths current waypoint exceeds the number of waypoints available, or the next tile in the path is not a valid location, implying that we have reached our destination.
