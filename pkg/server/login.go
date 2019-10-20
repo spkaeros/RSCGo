@@ -102,5 +102,5 @@ func loginRequest(c *Client, p *packets.Packet) {
 		loginReply <- byte(4)
 		return
 	}
-	go c.LoadPlayer(usernameHash, HashPassword(strings.TrimSpace(p.ReadString(20))), loginReply)
+	go db.LoadPlayer(c.player, usernameHash, HashPassword(strings.TrimSpace(p.ReadString(20))), loginReply)
 }

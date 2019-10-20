@@ -52,7 +52,7 @@ func init() {
 			return
 		}
 
-		if nextLocation := p.Above(); !nextLocation.Equals(p.Location) {
+		if nextLocation := p.Above(); !nextLocation.Equals(&p.Location) {
 			c, _ := Clients.FromIndex(p.Index)
 			p.SetLocation(&nextLocation)
 			c.UpdatePlane()
@@ -64,7 +64,7 @@ func init() {
 			return
 		}
 
-		if nextLocation := p.Below(); !nextLocation.Equals(p.Location) {
+		if nextLocation := p.Below(); !nextLocation.Equals(&p.Location) {
 			c, _ := Clients.FromIndex(p.Index)
 			p.SetLocation(&nextLocation)
 			c.UpdatePlane()

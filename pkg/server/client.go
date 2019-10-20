@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"bitbucket.org/zlacki/rscgo/pkg/server/db"
 	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
@@ -128,7 +129,7 @@ func (c *Client) destroy(wg *sync.WaitGroup) {
 	if _, ok := Clients.FromUserHash(c.player.UserBase37); ok {
 		// Always try to launch I/O-heavy functions in their own goroutine.
 		// Goroutines are light-weight and made for this kind of thing.
-		go c.Save()
+		go db.SavePlayer(c.player)
 		world.RemovePlayer(c.player)
 		c.player.TransAttrs.SetVar("plrremove", true)
 		BroadcastLogin(c.player, false)
@@ -196,6 +197,13 @@ func (c *Client) sendLoginResponse(i byte) {
 		log.Info.Printf("Denied Client: {ip:'%v', username:'%v', Response='%v'}\n", c.ip, c.player.Username, i)
 		c.Destroy()
 	} else {
+		c.player.Index = c.Index
+		Clients.Put(c)
+		for user := range c.player.FriendList {
+			if Clients.ContainsHash(user) {
+				c.player.FriendList[user] = true
+			}
+		}
 		log.Info.Printf("Registered: %v\n", c)
 		world.AddPlayer(c.player)
 		c.player.TransAttrs.SetVar("plrchanged", true)
