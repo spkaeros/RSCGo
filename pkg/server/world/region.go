@@ -19,6 +19,7 @@ const (
 //Region Represents a 48x48 section of map.  The purpose of this is to keep track of entities in the entire world without having to allocate tiles individually, which would make search algorithms slower and utilizes a great deal of memory.
 type Region struct {
 	Players *List
+	NPCs    *List
 	Objects *List
 }
 
@@ -37,6 +38,16 @@ func AddPlayer(p *Player) {
 //RemovePlayer Remove a player from the region.
 func RemovePlayer(p *Player) {
 	GetRegion(p.X, p.Y).Players.Remove(p)
+}
+
+//AddNpc Add a NPC to the region.
+func AddNpc(n *NPC) {
+	GetRegion(n.X, n.Y).NPCs.Add(n)
+}
+
+//RemoveNpc Remove a NPC from the region.
+func RemoveNpc(p *Player) {
+	GetRegion(p.X, p.Y).NPCs.Remove(p)
 }
 
 //AddObject Add an object to the region.
@@ -110,7 +121,7 @@ func getRegionFromIndex(areaX, areaY int) *Region {
 		return &Region{}
 	}
 	if regions[areaX][areaY] == nil {
-		regions[areaX][areaY] = &Region{&List{}, &List{}}
+		regions[areaX][areaY] = &Region{&List{}, &List{}, &List{}}
 	}
 	return regions[areaX][areaY]
 }

@@ -226,4 +226,5 @@ func (s *SkillTable) CombatLevel() int {
 //NPC Represents a single non-playable character within the game world.
 type NPC struct {
 	Mob
+	ID int
 }

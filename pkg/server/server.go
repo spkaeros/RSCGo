@@ -191,6 +191,12 @@ func Start() {
 		}
 	})
 	asyncExecute(&awaitLaunchJobs, func() {
+		db.LoadNpcDefinitions()
+		if count := len(db.Npcs); len(Flags.Verbose) > 0 && count > 0 {
+			log.Info.Printf("Loaded %d NPC definitions.\n", count)
+		}
+	})
+	asyncExecute(&awaitLaunchJobs, func() {
 		db.LoadObjectDefinitions()
 		if count := len(db.Objects); len(Flags.Verbose) > 0 && count > 0 {
 			log.Info.Printf("Loaded %d game object definitions.\n", count)

@@ -13,6 +13,7 @@ type Player struct {
 	FriendList       map[uint64]bool
 	IgnoreList       []uint64
 	LocalPlayers     *List
+	LocalNPCs        *List
 	LocalObjects     *List
 	Updating         bool
 	Appearances      []int
@@ -288,6 +289,21 @@ func (p *Player) NewPlayers() (players []*Player) {
 	return
 }
 
+//NewNPCs Returns nearby NPCs that this player is unaware of.
+func (p *Player) NewNPCs() (npcs []*NPC) {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+	for _, r := range SurroundingRegions(p.X, p.Y) {
+		for _, n := range r.NPCs.NearbyNPCs(p) {
+			if !p.LocalNPCs.Contains(n) {
+				npcs = append(npcs, n)
+			}
+		}
+	}
+
+	return
+}
+
 //SetLocation Sets the mobs location.
 func (p *Player) SetLocation(location *Location) {
 	p.SetCoords(location.X, location.Y)
@@ -316,5 +332,5 @@ func (p *Player) Teleport(x, y int) {
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
-	return &Player{Mob: Mob{Entity: Entity{Index: -1}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})}, LocalPlayers: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30}}
+	return &Player{Mob: Mob{Entity: Entity{Index: -1}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})}, LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30}}
 }

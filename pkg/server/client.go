@@ -162,6 +162,9 @@ func (c *Client) UpdatePositions() {
 	if appearances := packets.PlayerAppearances(c.player); appearances != nil {
 		c.outgoingPackets <- appearances
 	}
+	if npcUpdates := packets.NPCPositions(c.player); npcUpdates != nil {
+		c.outgoingPackets <- npcUpdates
+	}
 	if objectUpdates := packets.ObjectLocations(c.player, localObjects); objectUpdates != nil {
 		c.outgoingPackets <- objectUpdates
 	}

@@ -46,6 +46,19 @@ func (l *List) NearbyPlayers(p *Player) []*Player {
 	return players
 }
 
+//NearbyNPCs Might remove
+func (l *List) NearbyNPCs(p *Player) []*NPC {
+	l.lock.RLock()
+	defer l.lock.RUnlock()
+	var npcs []*NPC
+	for _, v := range l.List {
+		if v, ok := v.(*NPC); ok && p.LongestDelta(&v.Location) <= 15 {
+			npcs = append(npcs, v)
+		}
+	}
+	return npcs
+}
+
 //RemovingPlayers Might remove
 func (l *List) RemovingPlayers(p *Player) []*Player {
 	l.lock.RLock()

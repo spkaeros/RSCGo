@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"bitbucket.org/zlacki/rscgo/pkg/rand"
 	"bitbucket.org/zlacki/rscgo/pkg/server/db"
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
@@ -237,7 +238,23 @@ func init() {
 			c.UpdatePlane()
 		}
 	}
-	CommandHandlers["npc"] = notYetImplemented
+	CommandHandlers["npc"] = func(c *Client, args []string) {
+		if len(args) < 1 {
+			c.Message("@que@Invalid args.  Usage: /npc <id>")
+			return
+		}
+
+		id, err := strconv.Atoi(args[0])
+		if err != nil || id > 793 || id < 0 {
+			c.Message("@que@Invalid args.  Usage: /npc <id>")
+			return
+		}
+
+		n := &world.NPC{ID: id, Mob: world.Mob{Entity: world.Entity{Index: int(rand.Uint8())}, Skillset: &world.SkillTable{}, State: world.MSIdle, TransAttrs: &world.AttributeList{Set: make(map[string]interface{})}}}
+		n.X = c.player.X
+		n.Y = c.player.Y
+		world.AddNpc(n)
+	}
 	CommandHandlers["summon"] = summon
 	CommandHandlers["goto"] = gotoTeleport
 	CommandHandlers["say"] = func(c *Client, args []string) {

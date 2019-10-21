@@ -198,6 +198,61 @@ func PlayerStat(player *world.Player, idx int) *Packet {
 	return p
 }
 
+//NPCPositions Builds a packet containing view area NPC position and sprite information
+func NPCPositions(player *world.Player) (p *Packet) {
+	p = NewOutgoingPacket(79)
+	counter := 0
+	p.AddBits(len(player.LocalNPCs.List), 8)
+	for _, n := range player.LocalNPCs.List {
+		if n, ok := n.(*world.NPC); ok {
+			if n.LongestDelta(&player.Location) > 15 {
+				p.AddBits(1, 1)
+				p.AddBits(1, 1)
+				p.AddBits(3, 2)
+				player.LocalNPCs.Remove(n)
+				counter++
+			} else if n.TransAttrs.VarBool("moved", false) || n.TransAttrs.VarBool("changed", false) {
+				p.AddBits(1, 1)
+				if n.TransAttrs.VarBool("moved", false) {
+					p.AddBits(0, 1)
+					p.AddBits(n.Direction(), 3)
+				} else {
+					p.AddBits(1, 1)
+					p.AddBits(n.Direction(), 4)
+				}
+				counter++
+			} else {
+				p.AddBits(0, 1)
+			}
+		}
+	}
+	newCount := 0
+	for _, n := range player.NewNPCs() {
+		if len(player.LocalNPCs.List) >= 255 || newCount >= 25 {
+			break
+		}
+		newCount++
+		p.AddBits(n.Index, 12)
+		offsetX := (n.X - player.X)
+		if offsetX < 0 {
+			offsetX += 32
+		}
+		offsetY := (n.Y - player.Y)
+		if offsetY < 0 {
+			offsetY += 32
+		}
+		p.AddBits(offsetX, 5)
+		p.AddBits(offsetY, 5)
+		p.AddBits(n.Direction(), 4)
+		p.AddBits(n.ID, 10)
+		counter++
+	}
+	if counter <= 0 {
+		return nil
+	}
+	return
+}
+
 //PlayerPositions Builds a packet containing view area player position and sprite information, including ones own information, and returns it.
 // If no players need to be updated, returns nil.
 func PlayerPositions(player *world.Player) (p *Packet) {

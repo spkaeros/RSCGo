@@ -7,6 +7,12 @@ type Item struct {
 	Index  int
 }
 
+//GroundItem Represents a single ground item within the game.
+type GroundItem struct {
+	Item
+	Entity
+}
+
 //Inventory Represents an inventory of items in the game.
 type Inventory struct {
 	List     []*Item

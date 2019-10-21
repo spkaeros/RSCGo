@@ -32,6 +32,19 @@ type ItemDefinition struct {
 	Members     bool
 }
 
+//NpcDefinition This represents a single definition for a single NPC in the game.
+type NpcDefinition struct {
+	ID          int
+	Name        string
+	Description string
+	Command     string
+	Hits        int
+	Attack      int
+	Strength    int
+	Defense     int
+	Attackable  bool
+}
+
 //BoundaryDefinition This represents a single definition for a single boundary object in the game.
 type BoundaryDefinition struct {
 	ID          int
@@ -43,8 +56,11 @@ type BoundaryDefinition struct {
 //Objects This holds the defining characteristics for all of the game's scene objects, ordered by ID.
 var Objects []ObjectDefinition
 
-//Items This holds the defining characteristics for all of the game's scene objects, ordered by ID.
+//Items This holds the defining characteristics for all of the game's items, ordered by ID.
 var Items []ItemDefinition
+
+//Npcs This holds the defining characteristics for all of the game's NPCs, ordered by ID.
+var Npcs []NpcDefinition
 
 //Boundarys This holds the defining characteristics for all of the game's boundary scene objects, ordered by ID.
 var Boundarys []BoundaryDefinition
@@ -99,6 +115,23 @@ func LoadItemDefinitions() {
 		nextDef := ItemDefinition{}
 		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Command, &nextDef.BasePrice, &nextDef.Stackable, &nextDef.Quest, &nextDef.Members)
 		Items = append(Items, nextDef)
+	}
+}
+
+//LoadNpcDefinitions Loads game NPC data into memory for quick access.
+func LoadNpcDefinitions() {
+	database := Open(config.WorldDB())
+	defer database.Close()
+	rows, err := database.Query("SELECT id, name, description, command, hits, attack, strength, defense, attackable FROM `npcs` ORDER BY id")
+	defer rows.Close()
+	if err != nil {
+		log.Error.Println("Couldn't load SQLite3 database:", err)
+		return
+	}
+	for rows.Next() {
+		nextDef := NpcDefinition{}
+		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Command, &nextDef.Hits, &nextDef.Attack, &nextDef.Strength, &nextDef.Defense, &nextDef.Attackable)
+		Npcs = append(Npcs, nextDef)
 	}
 }
 
