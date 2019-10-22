@@ -96,26 +96,19 @@ func (c *Client) ReadPacket() (*packets.Packet, error) {
 // be written as-is.  If this is not a bare packet, the packet will have the first 3 bytes changed to the
 // appropriate values for the client to parse the length and opcode for this packet.
 func (c *Client) WritePacket(p packets.Packet) {
-	// TODO: Probably remove packet length from payload buffer
 	var buf []byte
 	if !p.Bare {
-		l := len(p.Payload) - 2
-		if l >= 160 {
-			buf = append(buf, byte(160+l/256))
-			buf = append(buf, byte(l))
+		frameLength := len(p.Payload)
+		if frameLength >= 160 {
+			buf = append(buf, byte(160+frameLength/256))
+			buf = append(buf, byte(frameLength))
 		} else {
-			buf = append(buf, byte(l))
-			if l == 0 {
-				buf = append(buf, 0)
-			} else {
-				buf = append(buf, p.Payload[l+1])
-				p.Payload = p.Payload[:l+1]
-			}
+			buf = append(buf, byte(frameLength))
+			buf = append(buf, p.Payload[frameLength-1])
+			p.Payload = p.Payload[:frameLength-1]
 		}
-		buf = append(buf, p.Payload[2:]...)
-	} else {
-		buf = append(buf, p.Payload...)
 	}
+	buf = append(buf, p.Payload...)
 
 	c.Write(buf)
 }

@@ -46,8 +46,7 @@ func NewPacket(opcode byte, payload []byte) *Packet {
 
 //NewOutgoingPacket Creates a new packet instance intended for sending formatted data to the client.
 func NewOutgoingPacket(opcode byte) *Packet {
-	buf := []byte{0xA5, 0xA5, opcode}
-	return &Packet{opcode, buf, false, 0, 0, 0}
+	return &Packet{opcode, []byte{opcode}, false, 0, 0, 0}
 }
 
 //NewBarePacket Creates a new packet instance intended for sending raw data to the client.
@@ -188,10 +187,10 @@ func (p *Packet) AddBits(value int, numBits int) *Packet {
 	bitmasks := []int32{0, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff, 0x1ff, 0x3ff, 0x7ff, 0xfff, 0x1fff,
 		0x3fff, 0x7fff, 0xffff, 0x1ffff, 0x3ffff, 0x7ffff, 0xfffff, 0x1fffff, 0x3fffff, 0x7fffff, 0xffffff,
 		0x1ffffff, 0x3ffffff, 0x7ffffff, 0xfffffff, 0x1fffffff, 0x3fffffff, 0x7fffffff, -1}
-	bytePos := (p.bitPosition >> 3) + 3
+	bytePos := (p.bitPosition >> 3) + 1
 	bitOffset := 8 - (p.bitPosition & 7)
 	p.bitPosition += numBits
-	p.length = ((p.bitPosition + 7) / 8) + 3
+	p.length = ((p.bitPosition + 7) / 8) + 1
 	for p.length > len(p.Payload) {
 		p.Payload = append(p.Payload, 0)
 	}

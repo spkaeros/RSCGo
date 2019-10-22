@@ -122,7 +122,6 @@ func startConnectionService() {
 	}
 
 	go func() {
-		// TODO: Implement a packet filter of sorts to stop flooding behavior
 		defer func() {
 			err := listener.Close()
 			if err != nil {
@@ -258,8 +257,6 @@ func Start() {
 	log.Info.Println("RSCGo is now running.")
 	log.Info.Printf("Listening on port %d...\n", config.Port())
 	select {
-	// TODO: Probably need to handle certain signals
-	// TODO: Any other tasks I should handle in the main goroutine??
 	case <-kill:
 		os.Exit(0)
 	}
