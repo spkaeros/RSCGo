@@ -18,7 +18,7 @@ func init() {
 		if c.player.IsFollowing() {
 			c.player.ResetFollowing()
 		}
-		c.player.SetPath(world.NewPathwayComplete(startX, startY, waypointsX, waypointsY))
+		c.player.SetPath(world.NewPathwayComplete(uint32(startX), uint32(startY), waypointsX, waypointsY))
 	}
 	PacketHandlers["walktoentity"] = func(c *Client, p *packets.Packet) {
 		startX := p.ReadShort()
@@ -32,7 +32,7 @@ func init() {
 		if c.player.IsFollowing() {
 			c.player.ResetFollowing()
 		}
-		c.player.SetPath(world.NewPathwayComplete(startX, startY, waypointsX, waypointsY))
+		c.player.SetPath(world.NewPathwayComplete(uint32(startX), uint32(startY), waypointsX, waypointsY))
 	}
 	PacketHandlers["followreq"] = func(c *Client, p *packets.Packet) {
 		playerID := p.ReadShort()

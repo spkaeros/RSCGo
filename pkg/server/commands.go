@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"bitbucket.org/zlacki/rscgo/pkg/rand"
 	"bitbucket.org/zlacki/rscgo/pkg/server/db"
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
@@ -37,7 +36,7 @@ func init() {
 	}
 	CommandHandlers["dobj"] = func(c *Client, args []string) {
 		if len(args) == 0 {
-			args = []string{strconv.Itoa(c.player.X), strconv.Itoa(c.player.Y)}
+			args = []string{strconv.Itoa(int(c.player.X)), strconv.Itoa(int(c.player.Y))}
 		}
 		if len(args) < 2 {
 			c.Message("@que@Invalid args.  Usage: /dobj <x> <y>")
@@ -141,7 +140,7 @@ func init() {
 			c.Message("@que@Invalid args.  Usage: /object <id> <dir>, eg: /object 1154 north")
 			return
 		}
-		if world.GetObject(c.player.X, c.player.Y) != nil {
+		if world.GetObject(int(c.player.X), int(c.player.Y)) != nil {
 			c.Message("@que@You must remove the old object at this location first!")
 			return
 		}
@@ -163,14 +162,14 @@ func init() {
 			}
 		}
 		log.Commands.Printf("'%v' spawned new object{id: %v; dir:%v} at %v,%v\n", c.player.Username, id, direction, c.player.X, c.player.Y)
-		world.AddObject(world.NewObject(id, direction, c.player.X, c.player.Y, false))
+		world.AddObject(world.NewObject(id, direction, int(c.player.X), int(c.player.Y), false))
 	}
 	CommandHandlers["boundary"] = func(c *Client, args []string) {
 		if len(args) < 1 {
 			c.Message("@que@Invalid args.  Usage: /boundary <id> <dir>, eg: /boundary 1 north")
 			return
 		}
-		if world.GetObject(c.player.X, c.player.Y) != nil {
+		if world.GetObject(int(c.player.X), int(c.player.Y)) != nil {
 			c.Message("@que@You must remove the old boundary at this location first!")
 			return
 		}
@@ -192,7 +191,7 @@ func init() {
 			}
 		}
 		log.Commands.Printf("'%v' spawned new boundary{id: %v; dir:%v} at %v,%v\n", c.player.Username, id, direction, c.player.X, c.player.Y)
-		world.AddObject(world.NewObject(id, direction, c.player.X, c.player.Y, true))
+		world.AddObject(world.NewObject(id, direction, int(c.player.X), int(c.player.Y), true))
 	}
 	CommandHandlers["saveobjects"] = func(c *Client, args []string) {
 		go func() {
@@ -250,10 +249,7 @@ func init() {
 			return
 		}
 
-		n := &world.NPC{ID: id, Mob: world.Mob{Entity: world.Entity{Index: int(rand.Uint8())}, Skillset: &world.SkillTable{}, State: world.MSIdle, TransAttrs: &world.AttributeList{Set: make(map[string]interface{})}}}
-		n.X = c.player.X
-		n.Y = c.player.Y
-		world.AddNpc(n)
+		world.AddNpc(world.NewNpc(id, int(c.player.X), int(c.player.Y)))
 	}
 	CommandHandlers["summon"] = summon
 	CommandHandlers["goto"] = gotoTeleport
@@ -327,7 +323,7 @@ func summon(c *Client, args []string) {
 	}
 
 	log.Commands.Printf("Summoning '%v' from %v,%v to '%v' at %v,%v\n", c1.player.Username, c1.player.X, c1.player.Y, c.player.Username, c.player.X, c.player.Y)
-	c1.Teleport(c.player.X, c.player.Y)
+	c1.Teleport(int(c.player.X), int(c.player.Y))
 }
 
 func gotoTeleport(c *Client, args []string) {
@@ -348,7 +344,7 @@ func gotoTeleport(c *Client, args []string) {
 	}
 
 	log.Commands.Printf("Teleporting '%v' from %v,%v to '%v' at %v,%v\n", c.player.Username, c.player.X, c.player.Y, c1.player.Username, c1.player.X, c1.player.Y)
-	c.Teleport(c1.player.X, c1.player.Y)
+	c.Teleport(int(c1.player.X), int(c1.player.Y))
 }
 
 func notYetImplemented(c *Client, args []string) {

@@ -32,32 +32,32 @@ func WithinWorld(x, y int) bool {
 
 //AddPlayer Add a player to the region.
 func AddPlayer(p *Player) {
-	GetRegion(p.X, p.Y).Players.Add(p)
+	GetRegion(int(p.X), int(p.Y)).Players.Add(p)
 }
 
 //RemovePlayer Remove a player from the region.
 func RemovePlayer(p *Player) {
-	GetRegion(p.X, p.Y).Players.Remove(p)
+	GetRegion(int(p.X), int(p.Y)).Players.Remove(p)
 }
 
 //AddNpc Add a NPC to the region.
 func AddNpc(n *NPC) {
-	GetRegion(n.X, n.Y).NPCs.Add(n)
+	GetRegion(int(n.X), int(n.Y)).NPCs.Add(n)
 }
 
 //RemoveNpc Remove a NPC from the region.
-func RemoveNpc(p *Player) {
-	GetRegion(p.X, p.Y).NPCs.Remove(p)
+func RemoveNpc(n *NPC) {
+	GetRegion(int(n.X), int(n.Y)).NPCs.Remove(n)
 }
 
 //AddObject Add an object to the region.
 func AddObject(o *Object) {
-	GetRegion(o.X, o.Y).Objects.Add(o)
+	GetRegion(int(o.X), int(o.Y)).Objects.Add(o)
 }
 
 //RemoveObject Remove an object from the region.
 func RemoveObject(o *Object) {
-	GetRegion(o.X, o.Y).Objects.Remove(o)
+	GetRegion(int(o.X), int(o.Y)).Objects.Remove(o)
 }
 
 //EnterDoor Replaces door object with an open door, sleeps for one second, and returns the closed door.
@@ -65,14 +65,14 @@ func (player *Player) EnterDoor(door *Object, dest *Location) {
 	ReplaceObject(door, 11)
 	player.SetLocation(dest)
 	time.Sleep(time.Second)
-	ReplaceObject(GetObject(door.X, door.Y), door.ID)
+	ReplaceObject(GetObject(int(door.X), int(door.Y)), door.ID)
 }
 
 //ReplaceObject Replaces old with a new game object with all of the same characteristics, except it's ID set to newID.
 func ReplaceObject(old *Object, newID int) {
 	r := GetRegionFromLocation(&old.Location)
 	r.Objects.Remove(old)
-	r.Objects.Add(NewObject(newID, old.Direction, old.X, old.Y, old.Boundary))
+	r.Objects.Add(NewObject(newID, old.Direction, int(old.X), int(old.Y), old.Boundary))
 }
 
 //GetAllObjects Returns a slice containing all objects in the game world.
@@ -101,7 +101,7 @@ func GetObject(x, y int) *Object {
 	defer r.Objects.lock.RUnlock()
 	for _, o := range r.Objects.List {
 		if o, ok := o.(*Object); ok {
-			if o.X == x && o.Y == y {
+			if o.X == uint32(x) && o.Y == uint32(y) {
 				return o
 			}
 		}
@@ -133,7 +133,7 @@ func GetRegion(x, y int) *Region {
 
 //GetRegionFromLocation Returns the region that corresponds with the given location.  If it does not exist yet, it will allocate a new onr and store it for the lifetime of the application in the regions map.
 func GetRegionFromLocation(loc *Location) *Region {
-	return getRegionFromIndex(loc.X/RegionSize, loc.Y/RegionSize)
+	return getRegionFromIndex(int(loc.X/RegionSize), int(loc.Y/RegionSize))
 }
 
 //SurroundingRegions Returns the regions surrounding the given coordinates.  It wil

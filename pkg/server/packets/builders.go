@@ -1,6 +1,7 @@
 package packets
 
 import (
+	"sync/atomic"
 	"time"
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/db"
@@ -241,8 +242,8 @@ func NPCPositions(player *world.Player) (p *Packet) {
 		if offsetY < 0 {
 			offsetY += 32
 		}
-		p.AddBits(offsetX, 5)
-		p.AddBits(offsetY, 5)
+		p.AddBits(int(offsetX), 5)
+		p.AddBits(int(offsetY), 5)
 		p.AddBits(n.Direction(), 4)
 		p.AddBits(n.ID, 10)
 		counter++
@@ -259,8 +260,8 @@ func PlayerPositions(player *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(191)
 	// Note: X coords can be held in 10 bits and Y can be held in 12 bits
 	//  Presumably, Jagex used 11 and 13 to evenly fill 3 bytes of data?
-	p.AddBits(player.X, 11)
-	p.AddBits(player.Y, 13)
+	p.AddBits(int(player.X), 11)
+	p.AddBits(int(player.Y), 13)
 	p.AddBits(player.Direction(), 4)
 	p.AddBits(len(player.LocalPlayers.List), 8)
 	counter := 0
@@ -299,11 +300,11 @@ func PlayerPositions(player *world.Player) (p *Packet) {
 		}
 		newPlayerCount++
 		p.AddBits(p1.Index, 11)
-		offsetX := (p1.X - player.X)
+		offsetX := int(atomic.LoadUint32(&p1.X)) - int(atomic.LoadUint32(&player.X))
 		if offsetX < 0 {
 			offsetX += 32
 		}
-		offsetY := (p1.Y - player.Y)
+		offsetY := int(atomic.LoadUint32(&p1.Y)) - int(atomic.LoadUint32(&player.Y))
 		if offsetY < 0 {
 			offsetY += 32
 		}
@@ -372,7 +373,7 @@ func ObjectLocations(player *world.Player, newObjects []*world.Object) (p *Packe
 			if o.Boundary {
 				continue
 			}
-			if !player.WithinRange(&o.Location, 21) || world.GetObject(o.X, o.Y) != o {
+			if !player.WithinRange(&o.Location, 21) || world.GetObject(int(o.X), int(o.Y)) != o {
 				p.AddShort(60000)
 				p.AddByte(byte(o.X - player.X))
 				p.AddByte(byte(o.Y - player.Y))

@@ -1,9 +1,8 @@
 package world
 
 import (
-	"log"
-	"os"
 	"sync"
+	"sync/atomic"
 )
 
 //Entity A stationary scene entity within the game world.
@@ -14,18 +13,13 @@ type Entity struct {
 
 //AtLocation Returns true if the entity is at the specified location, otherwise returns false
 func (e *Entity) AtLocation(location *Location) bool {
-	return e.AtCoords(location.X, location.Y)
+	return e.AtCoords(atomic.LoadUint32(&location.X), atomic.LoadUint32(&location.Y))
 }
 
 //AtCoords Returns true if the entity is at the specified coordinates, otherwise returns false
-func (e *Entity) AtCoords(x, y int) bool {
-	e.lock.RLock()
-	defer e.lock.RUnlock()
-	return e.X == x && e.Y == y
+func (e *Entity) AtCoords(x, y uint32) bool {
+	return atomic.LoadUint32(&e.X) == x && atomic.LoadUint32(&e.Y) == y
 }
-
-//LogWarning Log interface for warnings.
-var LogWarning = log.New(os.Stdout, "[WARNING] ", log.Ltime|log.Lshortfile)
 
 //List Represents a list of scene entities.
 type List struct {

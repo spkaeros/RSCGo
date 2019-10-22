@@ -2,14 +2,14 @@ package world
 
 //Pathway Represents a path for a mobile entity to traverse across the virtual world.
 type Pathway struct {
-	StartX, StartY  int
+	StartX, StartY  uint32
 	WaypointsX      []int
 	WaypointsY      []int
 	CurrentWaypoint int
 }
 
 //NewPathway returns a new Pathway pointing to the specified coordinates.  Must be a straight line from starting tile.
-func NewPathway(destX, destY int) *Pathway {
+func NewPathway(destX, destY uint32) *Pathway {
 	return &Pathway{StartX: destX, StartY: destY, CurrentWaypoint: -1}
 }
 
@@ -19,7 +19,7 @@ func NewPathwayFromLocation(l *Location) *Pathway {
 }
 
 //NewPathwayComplete returns a new Pathway with the specified variables.  destX and destY are a straight line, and waypoints define turns from that point.
-func NewPathwayComplete(destX, destY int, waypointsX, waypointsY []int) *Pathway {
+func NewPathwayComplete(destX, destY uint32, waypointsX, waypointsY []int) *Pathway {
 	return &Pathway{destX, destY, waypointsX, waypointsY, -1}
 }
 
@@ -32,8 +32,8 @@ func (p *Pathway) waypointXoffset(w int) int {
 }
 
 //waypointX Returns the X coordinate of the specified waypoint.
-func (p *Pathway) waypointX(w int) int {
-	return p.StartX + p.waypointXoffset(w)
+func (p *Pathway) waypointX(w int) uint32 {
+	return p.StartX + uint32(p.waypointXoffset(w))
 }
 
 //waypointYoffset Returns the offset for the Y coordinate of the specified waypoint.
@@ -45,8 +45,8 @@ func (p *Pathway) waypointYoffset(w int) int {
 }
 
 //waypointY Returns the Y coordinate of the specified waypoint.
-func (p *Pathway) waypointY(w int) int {
-	return p.StartY + p.waypointYoffset(w)
+func (p *Pathway) waypointY(w int) uint32 {
+	return p.StartY + uint32(p.waypointYoffset(w))
 }
 
 //Waypoint Returns the locattion of the specified waypoint
@@ -60,7 +60,7 @@ func (p *Pathway) Start() *Location {
 }
 
 //NextTile Returns the next tile for the mob to move to in the pathway.
-func (p *Pathway) NextTile(startX, startY int) *Location {
+func (p *Pathway) NextTile(startX, startY uint32) *Location {
 	destX := p.waypointX(p.CurrentWaypoint)
 	destY := p.waypointY(p.CurrentWaypoint)
 	newLocation := &Location{X: destX, Y: destY}

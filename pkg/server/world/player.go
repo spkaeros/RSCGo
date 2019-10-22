@@ -2,6 +2,7 @@ package world
 
 import (
 	"strconv"
+	"sync/atomic"
 	"time"
 )
 
@@ -239,9 +240,7 @@ func (p *Player) SetFightMode(i int) {
 
 //NearbyPlayers Returns nearby players.
 func (p *Player) NearbyPlayers() (players []*Player) {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
-	for _, r := range SurroundingRegions(p.X, p.Y) {
+	for _, r := range SurroundingRegions(int(atomic.LoadUint32(&p.X)), int(atomic.LoadUint32(&p.Y))) {
 		players = append(players, r.Players.NearbyPlayers(p)...)
 	}
 
@@ -250,9 +249,7 @@ func (p *Player) NearbyPlayers() (players []*Player) {
 
 //NearbyObjects Returns nearby objects.
 func (p *Player) NearbyObjects() (objects []*Object) {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
-	for _, r := range SurroundingRegions(p.X, p.Y) {
+	for _, r := range SurroundingRegions(int(atomic.LoadUint32(&p.X)), int(atomic.LoadUint32(&p.Y))) {
 		objects = append(objects, r.Objects.NearbyObjects(p)...)
 	}
 
@@ -261,9 +258,7 @@ func (p *Player) NearbyObjects() (objects []*Object) {
 
 //NewObjects Returns nearby objects that this player is unaware of.
 func (p *Player) NewObjects() (objects []*Object) {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
-	for _, r := range SurroundingRegions(p.X, p.Y) {
+	for _, r := range SurroundingRegions(int(atomic.LoadUint32(&p.X)), int(atomic.LoadUint32(&p.Y))) {
 		for _, o := range r.Objects.NearbyObjects(p) {
 			if !p.LocalObjects.Contains(o) {
 				objects = append(objects, o)
@@ -276,9 +271,7 @@ func (p *Player) NewObjects() (objects []*Object) {
 
 //NewPlayers Returns nearby players that this player is unaware of.
 func (p *Player) NewPlayers() (players []*Player) {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
-	for _, r := range SurroundingRegions(p.X, p.Y) {
+	for _, r := range SurroundingRegions(int(atomic.LoadUint32(&p.X)), int(atomic.LoadUint32(&p.Y))) {
 		for _, p1 := range r.Players.NearbyPlayers(p) {
 			if !p.LocalPlayers.Contains(p1) {
 				players = append(players, p1)
@@ -291,9 +284,7 @@ func (p *Player) NewPlayers() (players []*Player) {
 
 //NewNPCs Returns nearby NPCs that this player is unaware of.
 func (p *Player) NewNPCs() (npcs []*NPC) {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
-	for _, r := range SurroundingRegions(p.X, p.Y) {
+	for _, r := range SurroundingRegions(int(atomic.LoadUint32(&p.X)), int(atomic.LoadUint32(&p.Y))) {
 		for _, n := range r.NPCs.NearbyNPCs(p) {
 			if !p.LocalNPCs.Contains(n) {
 				npcs = append(npcs, n)
@@ -306,14 +297,12 @@ func (p *Player) NewNPCs() (npcs []*NPC) {
 
 //SetLocation Sets the mobs location.
 func (p *Player) SetLocation(location *Location) {
-	p.SetCoords(location.X, location.Y)
+	p.SetCoords(int(atomic.LoadUint32(&location.X)), int(atomic.LoadUint32(&location.Y)))
 }
 
 //SetCoords Sets the mobs locations coordinates.
 func (p *Player) SetCoords(x, y int) {
-	p.lock.RLock()
-	curArea := GetRegion(p.X, p.Y)
-	p.lock.RUnlock()
+	curArea := GetRegion(int(atomic.LoadUint32(&p.X)), int(atomic.LoadUint32(&p.Y)))
 	newArea := GetRegion(x, y)
 	if newArea != curArea {
 		if curArea.Players.Contains(p) {
@@ -321,7 +310,7 @@ func (p *Player) SetCoords(x, y int) {
 		}
 		newArea.Players.Add(p)
 	}
-	p.Mob.SetCoords(x, y)
+	p.Mob.SetCoords(uint32(x), uint32(y))
 }
 
 //Teleport Moves the player to x,y and sets a flag to remove said player from the local players list of every nearby player.
