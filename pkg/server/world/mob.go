@@ -53,7 +53,7 @@ func (m *Mob) Direction() int {
 
 //SetDirection Sets the mobs direction.
 func (m *Mob) SetDirection(direction int) {
-	m.TransAttrs.SetVar("plrchanged", true)
+	m.TransAttrs.SetVar("changed", true)
 	m.TransAttrs.SetVar("direction", direction)
 }
 
@@ -86,7 +86,7 @@ func (m *Mob) TraversePath() {
 		m.ResetPath()
 		return
 	}
-	m.TransAttrs.SetVar("plrmoved", true)
+	m.TransAttrs.SetVar("moved", true)
 	m.SetLocation(path.NextTile(m.X.Load(), m.Y.Load()))
 }
 

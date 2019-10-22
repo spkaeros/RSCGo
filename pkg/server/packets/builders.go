@@ -1,6 +1,8 @@
 package packets
 
 import (
+	"strconv"
+	"strings"
 	"time"
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/db"
@@ -59,7 +61,18 @@ func ServerInfo(onlineCount int) (p *Packet) {
 //LoginBox Builds a packet to create a welcome box on the client with the inactiveDays since login, and lastIP connected from.
 func LoginBox(inactiveDays int, lastIP string) (p *Packet) {
 	p = NewOutgoingPacket(182)
-	p.AddShort(uint16(inactiveDays))
+	octets := strings.Split(lastIP, ".")
+	ip := uint32(0)
+	if len(octets) > 0 {
+		for index, octet := range octets {
+			numericOctet, _ := strconv.Atoi(octet)
+			ip |= uint32(numericOctet << uint((3-index)*8))
+		}
+	}
+	p.AddInt(ip) // IP
+	p.AddShort(uint16(inactiveDays)) // Last logged in
+	p.AddByte(201) // recovery questions set days, 200 = unset, 201 = set
+	p.AddShort(1) // Unread messages, number minus one, 0 does not render anything
 	p.AddBytes([]byte(lastIP))
 	return p
 }
@@ -264,21 +277,21 @@ func PlayerPositions(player *world.Player) (p *Packet) {
 	p.AddBits(player.Direction(), 4)
 	p.AddBits(len(player.LocalPlayers.List), 8)
 	counter := 0
-	if player.TransAttrs.VarBool("plrremove", false) || !player.TransAttrs.VarBool("plrself", false) || player.TransAttrs.VarBool("plrmoved", false) || player.TransAttrs.VarBool("plrchanged", false) {
+	if player.TransAttrs.VarBool("remove", false) || !player.TransAttrs.VarBool("self", false) || player.TransAttrs.VarBool("moved", false) || player.TransAttrs.VarBool("changed", false) {
 		counter++
 	}
 	for _, p1 := range player.LocalPlayers.List {
 		if p1, ok := p1.(*world.Player); ok {
-			if p1.LongestDelta(&player.Location) > 15 || p1.TransAttrs.VarBool("plrremove", false) {
+			if p1.LongestDelta(&player.Location) > 15 || p1.TransAttrs.VarBool("remove", false) {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
 				player.LocalPlayers.Remove(p1)
 				delete(player.KnownAppearances, p1.Index)
 				counter++
-			} else if p1.TransAttrs.VarBool("plrmoved", false) || p1.TransAttrs.VarBool("plrchanged", false) {
+			} else if p1.TransAttrs.VarBool("moved", false) || p1.TransAttrs.VarBool("changed", false) {
 				p.AddBits(1, 1)
-				if p1.TransAttrs.VarBool("plrmoved", false) {
+				if p1.TransAttrs.VarBool("moved", false) {
 					p.AddBits(0, 1)
 					p.AddBits(p1.Direction(), 3)
 				} else {
@@ -324,7 +337,7 @@ func PlayerPositions(player *world.Player) (p *Packet) {
 func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(234)
 	var appearanceList []*world.Player
-	if !ourPlayer.TransAttrs.VarBool("plrself", false) {
+	if !ourPlayer.TransAttrs.VarBool("self", false) {
 		appearanceList = append(appearanceList, ourPlayer)
 	}
 	for _, p1 := range ourPlayer.LocalPlayers.List {
@@ -364,7 +377,7 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 
 //ObjectLocations Builds a packet with the view-area object positions in it, relative to the player.
 // If no new objects are available and no existing local objects are removed from area, returns nil.
-func ObjectLocations(player *world.Player, newObjects []*world.Object) (p *Packet) {
+func ObjectLocations(player *world.Player) (p *Packet) {
 	counter := 0
 	p = NewOutgoingPacket(48)
 	for _, o := range player.LocalObjects.List {
@@ -382,7 +395,7 @@ func ObjectLocations(player *world.Player, newObjects []*world.Object) (p *Packe
 			}
 		}
 	}
-	for _, o := range newObjects {
+	for _, o := range player.NewObjects() {
 		if o.Boundary {
 			continue
 		}
@@ -401,7 +414,7 @@ func ObjectLocations(player *world.Player, newObjects []*world.Object) (p *Packe
 
 //BoundaryLocations Builds a packet with the view-area boundary positions in it, relative to the player.
 // If no new objects are available and no existing local boundarys are removed from area, returns nil.
-func BoundaryLocations(player *world.Player, newObjects []*world.Object) (p *Packet) {
+func BoundaryLocations(player *world.Player) (p *Packet) {
 	counter := 0
 	p = NewOutgoingPacket(91)
 	for _, o := range player.LocalObjects.List {
@@ -420,7 +433,7 @@ func BoundaryLocations(player *world.Player, newObjects []*world.Object) (p *Pac
 			}
 		}
 	}
-	for _, o := range newObjects {
+	for _, o := range player.NewObjects() {
 		if !o.Boundary {
 			continue
 		}

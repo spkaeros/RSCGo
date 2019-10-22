@@ -316,7 +316,7 @@ func (p *Player) SetCoords(x, y int) {
 //Teleport Moves the player to x,y and sets a flag to remove said player from the local players list of every nearby player.
 func (p *Player) Teleport(x, y int) {
 	p.SetCoords(x, y)
-	p.TransAttrs.SetVar("plrremove", true)
+	p.TransAttrs.SetVar("remove", true)
 }
 
 //EnterDoor Replaces door object with an open door, sleeps for one second, and returns the closed door.

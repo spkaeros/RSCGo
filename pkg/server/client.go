@@ -131,7 +131,7 @@ func (c *Client) destroy(wg *sync.WaitGroup) {
 		// Goroutines are light-weight and made for this kind of thing.
 		go db.SavePlayer(c.player)
 		world.RemovePlayer(c.player)
-		c.player.TransAttrs.SetVar("plrremove", true)
+		c.player.TransAttrs.SetVar("remove", true)
 		BroadcastLogin(c.player, false)
 		Clients.Remove(c)
 		log.Info.Printf("Unregistered: %v\n", c)
@@ -140,21 +140,14 @@ func (c *Client) destroy(wg *sync.WaitGroup) {
 
 //ResetUpdateFlags Resets the players movement updating synchronization variables.
 func (c *Client) ResetUpdateFlags() {
-	c.player.TransAttrs.SetVar("plrself", true)
-	c.player.TransAttrs.SetVar("plrremove", false)
-	c.player.TransAttrs.SetVar("plrmoved", false)
-	c.player.TransAttrs.SetVar("plrchanged", false)
+	c.player.TransAttrs.SetVar("self", true)
+	c.player.TransAttrs.SetVar("remove", false)
+	c.player.TransAttrs.SetVar("moved", false)
+	c.player.TransAttrs.SetVar("changed", false)
 }
 
 //UpdatePositions Updates the client about entities in it's view-area (16x16 tiles in the game world surrounding the player).  Should be run every game engine tick.
 func (c *Client) UpdatePositions() {
-	var localObjects []*world.Object
-	//TODO: Maybe move this to inside the packet building function?
-	// It's like this right now because boundaries and objects are not distinct types.
-	for _, o := range c.player.NewObjects() {
-		localObjects = append(localObjects, o)
-	}
-
 	// Everything is updated relative to our player's position, so player position packet comes first
 	if positions := packets.PlayerPositions(c.player); positions != nil {
 		c.outgoingPackets <- positions
@@ -165,10 +158,10 @@ func (c *Client) UpdatePositions() {
 	if npcUpdates := packets.NPCPositions(c.player); npcUpdates != nil {
 		c.outgoingPackets <- npcUpdates
 	}
-	if objectUpdates := packets.ObjectLocations(c.player, localObjects); objectUpdates != nil {
+	if objectUpdates := packets.ObjectLocations(c.player); objectUpdates != nil {
 		c.outgoingPackets <- objectUpdates
 	}
-	if boundaryUpdates := packets.BoundaryLocations(c.player, localObjects); boundaryUpdates != nil {
+	if boundaryUpdates := packets.BoundaryLocations(c.player); boundaryUpdates != nil {
 		c.outgoingPackets <- boundaryUpdates
 	}
 }
@@ -208,7 +201,7 @@ func (c *Client) sendLoginResponse(i byte) {
 		}
 		log.Info.Printf("Registered: %v\n", c)
 		world.AddPlayer(c.player)
-		c.player.TransAttrs.SetVar("plrchanged", true)
+		c.player.TransAttrs.SetVar("changed", true)
 		c.player.TransAttrs.SetVar("connected", true)
 		for i := 0; i < 18; i++ {
 			level := 1
