@@ -23,7 +23,7 @@ func init() {
 		handler, ok := CommandHandlers[args[0]]
 		if !ok {
 			c.Message("@que@Invalid command.")
-			log.Commands.Printf("[COMMAND] %v sent invalid command: /%v\n", c.player.Username, string(p.Payload))
+			log.Commands.Printf("%v sent invalid command: /%v\n", c.player.Username, string(p.Payload))
 			return
 		}
 		log.Commands.Printf("%v: /%v\n", c.player.Username, string(p.Payload))
