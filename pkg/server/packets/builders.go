@@ -1,6 +1,7 @@
 package packets
 
 import (
+	"bitbucket.org/zlacki/rscgo/pkg/rand"
 	"strconv"
 	"strings"
 	"time"
@@ -114,8 +115,9 @@ func FriendList(player *world.Player) (p *Packet) {
 func PrivateMessage(hash uint64, msg string) (p *Packet) {
 	p = NewOutgoingPacket(120)
 	p.AddLong(hash)
+	p.AddInt(rand.Uint32()) // Message ID idk
 	for _, c := range strutil.PackChatMessage(msg) {
-		p.AddByte(byte(c))
+		p.AddByte(c)
 	}
 	return p
 }
