@@ -301,7 +301,9 @@ func Tick() {
 //startGameEngine Launches a goroutine to handle updating the state of the server every 600ms in a synchronized fashion.  This is known as a single game engine 'pulse'.
 func startGameEngine() {
 	go func() {
-		for range time.Tick(600 * time.Millisecond) {
+		ticker := time.NewTicker(600*time.Millisecond)
+		defer ticker.Stop()
+		for range ticker.C {
 			Tick()
 		}
 	}()
