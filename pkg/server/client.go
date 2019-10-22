@@ -200,7 +200,6 @@ func (c *Client) sendLoginResponse(i byte) {
 		log.Info.Printf("Denied Client: {ip:'%v', username:'%v', Response='%v'}\n", c.ip, c.player.Username, i)
 		c.Destroy()
 	} else {
-		c.player.Index = c.Index
 		Clients.Put(c)
 		for user := range c.player.FriendList {
 			if Clients.ContainsHash(user) {

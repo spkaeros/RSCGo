@@ -55,9 +55,12 @@ func (m *ClientMap) FromIndex(index int) (*Client, bool) {
 
 //Put Puts a client into the map.
 func (m *ClientMap) Put(c *Client) {
+	nextIndex := m.NextIndex()
 	m.lock.Lock()
+	c.Index = nextIndex
+	c.player.Index = nextIndex
 	m.usernames[c.player.UserBase37] = c
-	m.indices[c.Index] = c
+	m.indices[nextIndex] = c
 	m.lock.Unlock()
 }
 
