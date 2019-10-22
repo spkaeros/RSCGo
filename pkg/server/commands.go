@@ -106,8 +106,18 @@ func init() {
 			c.Message("Error encountered opening profile output file.")
 			return
 		}
-		pprof.WriteHeapProfile(file)
-		file.Close()
+		err = pprof.WriteHeapProfile(file)
+		if err != nil {
+			log.Warning.Println("Could not write heap profile to file::", err)
+			c.Message("Error encountered writing profile output file.")
+			return
+		}
+		err = file.Close()
+		if err != nil {
+			log.Warning.Println("Could not close heap file::", err)
+			c.Message("Error encountered closing profile output file.")
+			return
+		}
 		log.Commands.Println(c.player.Username + " dumped memory profile of the server to rscgo.mprof")
 		c.Message("Dumped memory profile.")
 	}
@@ -124,7 +134,12 @@ func init() {
 				c.Message("Error encountered opening profile output file.")
 				return
 			}
-			pprof.StartCPUProfile(file)
+			err = pprof.StartCPUProfile(file)
+			if err != nil {
+				log.Warning.Println("Could not start CPU profile:", err)
+				c.Message("Error encountered starting CPU profile.")
+				return
+			}
 			log.Commands.Println(c.player.Username + " began profiling CPU time.")
 			c.Message("CPU profiling started.")
 		case "stop":

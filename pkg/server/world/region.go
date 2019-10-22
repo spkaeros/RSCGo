@@ -2,7 +2,6 @@ package world
 
 import (
 	"fmt"
-	"time"
 )
 
 const (
@@ -60,14 +59,6 @@ func RemoveObject(o *Object) {
 	GetRegion(int(o.X), int(o.Y)).Objects.Remove(o)
 }
 
-//EnterDoor Replaces door object with an open door, sleeps for one second, and returns the closed door.
-func (player *Player) EnterDoor(door *Object, dest *Location) {
-	ReplaceObject(door, 11)
-	player.SetLocation(dest)
-	time.Sleep(time.Second)
-	ReplaceObject(GetObject(int(door.X), int(door.Y)), door.ID)
-}
-
 //ReplaceObject Replaces old with a new game object with all of the same characteristics, except it's ID set to newID.
 func ReplaceObject(old *Object, newID int) {
 	r := GetRegionFromLocation(&old.Location)
@@ -81,12 +72,12 @@ func GetAllObjects() (list []*Object) {
 		for y := 0; y < MaxY; y += RegionSize {
 			if r := regions[x/RegionSize][y/RegionSize]; r != nil {
 				r.Objects.lock.RLock()
-				defer r.Objects.lock.RUnlock()
 				for _, o := range r.Objects.List {
 					if o, ok := o.(*Object); ok {
 						list = append(list, o)
 					}
 				}
+				r.Objects.lock.RUnlock()
 			}
 		}
 	}

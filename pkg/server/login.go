@@ -17,7 +17,7 @@ func init() {
 	PacketHandlers["newplayer"] = newPlayer
 }
 
-func logout(c *Client, p *packets.Packet) {
+func logout(c *Client, _ *packets.Packet) {
 	c.outgoingPackets <- packets.Logout
 	c.Destroy()
 }

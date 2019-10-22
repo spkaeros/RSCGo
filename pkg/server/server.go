@@ -123,7 +123,13 @@ func startConnectionService() {
 
 	go func() {
 		// TODO: Implement a packet filter of sorts to stop flooding behavior
-		defer listener.Close()
+		defer func() {
+			err := listener.Close()
+			if err != nil {
+				log.Error.Println("Could not close server socket listener:", err)
+				return
+			}
+		}()
 		for {
 			socket, err := listener.Accept()
 			if err != nil {
@@ -200,7 +206,11 @@ func Start() {
 		}
 	})
 	asyncExecute(&awaitLaunchJobs, func() {
-		db.LoadObjectDefinitions()
+		err := db.LoadObjectDefinitions()
+		if err != nil {
+			log.Warning.Println("Could not load game object definitions:", err)
+			return
+		}
 		if count := len(db.Objects); len(Flags.Verbose) > 0 && count > 0 {
 			log.Info.Printf("Loaded %d game object definitions.\n", count)
 		}

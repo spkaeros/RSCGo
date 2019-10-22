@@ -319,6 +319,14 @@ func (p *Player) Teleport(x, y int) {
 	p.TransAttrs.SetVar("plrremove", true)
 }
 
+//EnterDoor Replaces door object with an open door, sleeps for one second, and returns the closed door.
+func (p *Player) EnterDoor(door *Object, dest *Location) {
+	ReplaceObject(door, 11)
+	p.SetLocation(dest)
+	time.Sleep(time.Second)
+	ReplaceObject(GetObject(int(door.X), int(door.Y)), door.ID)
+}
+
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
 	return &Player{Mob: Mob{Entity: Entity{Index: -1}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})}, LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30}}
