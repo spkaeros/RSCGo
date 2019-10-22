@@ -312,6 +312,7 @@ func BroadcastLogin(player *world.Player, online bool) {
 	Clients.Broadcast(func(c *Client) {
 		if c.player.Friends(player.UserBase37) {
 			if !player.FriendBlocked() || player.Friends(c.player.UserBase37) {
+				c.player.FriendList[player.UserBase37] = true
 				c.outgoingPackets <- packets.FriendUpdate(player.UserBase37, online)
 			}
 		}

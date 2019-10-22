@@ -104,9 +104,9 @@ func FriendList(player *world.Player) (p *Packet) {
 		// TODO: Online status
 		status := 0
 		if online {
-			status = 99
+			status = 0xFF
 		}
-		p.AddByte(byte(status)) // 99 for online, 0 for offline.
+		p.AddByte(byte(status)) // 255 for online, 0 for offline.
 	}
 	return p
 }
@@ -137,7 +137,7 @@ func FriendUpdate(hash uint64, online bool) (p *Packet) {
 	p = NewOutgoingPacket(149)
 	p.AddLong(hash)
 	if online {
-		p.AddByte(99)
+		p.AddByte(0xFF)
 	} else {
 		p.AddByte(0)
 	}
