@@ -247,6 +247,7 @@ func NPCPositions(player *world.Player) (p *Packet) {
 			break
 		}
 		newCount++
+		player.LocalNPCs.Add(n)
 		p.AddBits(n.Index, 12)
 		offsetX := int(n.X.Load()) - int(player.X.Load())
 		if offsetX < 0 {
