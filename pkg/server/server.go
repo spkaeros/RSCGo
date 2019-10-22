@@ -285,7 +285,7 @@ func Tick() {
 			} else if !c.player.FinishedPath() && c.player.WithinRange(&followingClient.player.Location, 2) {
 				c.player.ResetPath()
 			} else if c.player.FinishedPath() && !c.player.WithinRange(&followingClient.player.Location, 2) {
-				c.player.SetPath(world.NewPathway(followingClient.player.X, followingClient.player.Y))
+				c.player.SetPath(world.NewPathwayFromLocation(&followingClient.player.Location))
 			}
 		}
 		c.player.TraversePath()

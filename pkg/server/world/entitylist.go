@@ -2,7 +2,6 @@ package world
 
 import (
 	"sync"
-	"sync/atomic"
 )
 
 //Entity A stationary scene entity within the game world.
@@ -13,12 +12,12 @@ type Entity struct {
 
 //AtLocation Returns true if the entity is at the specified location, otherwise returns false
 func (e *Entity) AtLocation(location *Location) bool {
-	return e.AtCoords(atomic.LoadUint32(&location.X), atomic.LoadUint32(&location.Y))
+	return e.AtCoords(location.X.Load(), location.Y.Load())
 }
 
 //AtCoords Returns true if the entity is at the specified coordinates, otherwise returns false
 func (e *Entity) AtCoords(x, y uint32) bool {
-	return atomic.LoadUint32(&e.X) == x && atomic.LoadUint32(&e.Y) == y
+	return e.X.Load() == x && e.Y.Load() == y
 }
 
 //List Represents a list of scene entities.

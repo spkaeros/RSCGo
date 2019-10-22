@@ -31,7 +31,7 @@ func init() {
 	}
 	CommandHandlers["dobj"] = func(c *Client, args []string) {
 		if len(args) == 0 {
-			args = []string{strconv.Itoa(int(c.player.X)), strconv.Itoa(int(c.player.Y))}
+			args = []string{strconv.Itoa(int(c.player.X.Load())), strconv.Itoa(int(c.player.Y.Load()))}
 		}
 		if len(args) < 2 {
 			c.Message("@que@Invalid args.  Usage: /dobj <x> <y>")
@@ -150,7 +150,9 @@ func init() {
 			c.Message("@que@Invalid args.  Usage: /object <id> <dir>, eg: /object 1154 north")
 			return
 		}
-		if world.GetObject(int(c.player.X), int(c.player.Y)) != nil {
+		x := int(c.player.X.Load())
+		y := int(c.player.Y.Load())
+		if world.GetObject(x, y) != nil {
 			c.Message("@que@You must remove the old object at this location first!")
 			return
 		}
@@ -171,15 +173,17 @@ func init() {
 				direction = world.ParseDirection(args[1])
 			}
 		}
-		log.Commands.Printf("'%v' spawned new object{id: %v; dir:%v} at %v,%v\n", c.player.Username, id, direction, c.player.X, c.player.Y)
-		world.AddObject(world.NewObject(id, direction, int(c.player.X), int(c.player.Y), false))
+		log.Commands.Printf("'%v' spawned new object{id: %v; dir:%v} at %v,%v\n", c.player.Username, id, direction, x, y)
+		world.AddObject(world.NewObject(id, direction, x, y, false))
 	}
 	CommandHandlers["boundary"] = func(c *Client, args []string) {
 		if len(args) < 1 {
 			c.Message("@que@Invalid args.  Usage: /boundary <id> <dir>, eg: /boundary 1 north")
 			return
 		}
-		if world.GetObject(int(c.player.X), int(c.player.Y)) != nil {
+		x := int(c.player.X.Load())
+		y := int(c.player.Y.Load())
+		if world.GetObject(x, y) != nil {
 			c.Message("@que@You must remove the old boundary at this location first!")
 			return
 		}
@@ -200,8 +204,8 @@ func init() {
 				direction = world.ParseDirection(args[1])
 			}
 		}
-		log.Commands.Printf("'%v' spawned new boundary{id: %v; dir:%v} at %v,%v\n", c.player.Username, id, direction, c.player.X, c.player.Y)
-		world.AddObject(world.NewObject(id, direction, int(c.player.X), int(c.player.Y), true))
+		log.Commands.Printf("'%v' spawned new boundary{id: %v; dir:%v} at %v,%v\n", c.player.Username, id, direction, x, y)
+		world.AddObject(world.NewObject(id, direction, x, y, true))
 	}
 	CommandHandlers["saveobjects"] = func(c *Client, args []string) {
 		go func() {
@@ -259,7 +263,10 @@ func init() {
 			return
 		}
 
-		world.AddNpc(world.NewNpc(id, int(c.player.X), int(c.player.Y)))
+		x := int(c.player.X.Load())
+		y := int(c.player.Y.Load())
+
+		world.AddNpc(world.NewNpc(id, x, y))
 	}
 	CommandHandlers["summon"] = summon
 	CommandHandlers["goto"] = gotoTeleport
@@ -332,8 +339,8 @@ func summon(c *Client, args []string) {
 		return
 	}
 
-	log.Commands.Printf("Summoning '%v' from %v,%v to '%v' at %v,%v\n", c1.player.Username, c1.player.X, c1.player.Y, c.player.Username, c.player.X, c.player.Y)
-	c1.Teleport(int(c.player.X), int(c.player.Y))
+	log.Commands.Printf("Summoning '%v' from %v,%v to '%v' at %v,%v\n", c1.player.Username, c1.player.X.Load(), c1.player.Y.Load(), c.player.Username, c.player.X.Load(), c.player.Y.Load())
+	c1.Teleport(int(c.player.X.Load()), int(c.player.Y.Load()))
 }
 
 func gotoTeleport(c *Client, args []string) {
@@ -353,8 +360,8 @@ func gotoTeleport(c *Client, args []string) {
 		return
 	}
 
-	log.Commands.Printf("Teleporting '%v' from %v,%v to '%v' at %v,%v\n", c.player.Username, c.player.X, c.player.Y, c1.player.Username, c1.player.X, c1.player.Y)
-	c.Teleport(int(c1.player.X), int(c1.player.Y))
+	log.Commands.Printf("Teleporting '%v' from %v,%v to '%v' at %v,%v\n", c.player.Username, c.player.X.Load(), c.player.Y.Load(), c1.player.Username, c1.player.X.Load(), c1.player.Y.Load())
+	c.Teleport(int(c1.player.X.Load()), int(c1.player.Y.Load()))
 }
 
 func notYetImplemented(c *Client, args []string) {

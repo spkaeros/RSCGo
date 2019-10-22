@@ -55,7 +55,7 @@ func (c *Client) Teleport(x, y int) {
 	}
 	for _, nearbyPlayer := range c.player.NearbyPlayers() {
 		if c1, ok := Clients.FromIndex(nearbyPlayer.Index); ok {
-			c1.TeleBubble(int(c.player.X-nearbyPlayer.X), int(c.player.Y-nearbyPlayer.Y))
+			c1.TeleBubble(int(c.player.X.Load()-nearbyPlayer.X.Load()), int(c.player.Y.Load()-nearbyPlayer.Y.Load()))
 		}
 	}
 	c.TeleBubble(0, 0)

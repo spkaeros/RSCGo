@@ -1,7 +1,6 @@
 package packets
 
 import (
-	"sync/atomic"
 	"time"
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/db"
@@ -234,16 +233,16 @@ func NPCPositions(player *world.Player) (p *Packet) {
 		}
 		newCount++
 		p.AddBits(n.Index, 12)
-		offsetX := (n.X - player.X)
+		offsetX := int(n.X.Load()) - int(player.X.Load())
 		if offsetX < 0 {
 			offsetX += 32
 		}
-		offsetY := (n.Y - player.Y)
+		offsetY := int(n.Y.Load()) - int(player.Y.Load())
 		if offsetY < 0 {
 			offsetY += 32
 		}
-		p.AddBits(int(offsetX), 5)
-		p.AddBits(int(offsetY), 5)
+		p.AddBits(offsetX, 5)
+		p.AddBits(offsetY, 5)
 		p.AddBits(n.Direction(), 4)
 		p.AddBits(n.ID, 10)
 		counter++
@@ -260,8 +259,8 @@ func PlayerPositions(player *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(191)
 	// Note: X coords can be held in 10 bits and Y can be held in 12 bits
 	//  Presumably, Jagex used 11 and 13 to evenly fill 3 bytes of data?
-	p.AddBits(int(player.X), 11)
-	p.AddBits(int(player.Y), 13)
+	p.AddBits(int(player.X.Load()), 11)
+	p.AddBits(int(player.Y.Load()), 13)
 	p.AddBits(player.Direction(), 4)
 	p.AddBits(len(player.LocalPlayers.List), 8)
 	counter := 0
@@ -300,11 +299,11 @@ func PlayerPositions(player *world.Player) (p *Packet) {
 		}
 		newPlayerCount++
 		p.AddBits(p1.Index, 11)
-		offsetX := int(atomic.LoadUint32(&p1.X)) - int(atomic.LoadUint32(&player.X))
+		offsetX := int(p1.X.Load()) - int(player.X.Load())
 		if offsetX < 0 {
 			offsetX += 32
 		}
-		offsetY := int(atomic.LoadUint32(&p1.Y)) - int(atomic.LoadUint32(&player.Y))
+		offsetY := int(p1.Y.Load()) - int(player.Y.Load())
 		if offsetY < 0 {
 			offsetY += 32
 		}
@@ -373,10 +372,10 @@ func ObjectLocations(player *world.Player, newObjects []*world.Object) (p *Packe
 			if o.Boundary {
 				continue
 			}
-			if !player.WithinRange(&o.Location, 21) || world.GetObject(int(o.X), int(o.Y)) != o {
+			if !player.WithinRange(&o.Location, 21) || world.GetObject(int(o.X.Load()), int(o.Y.Load())) != o {
 				p.AddShort(60000)
-				p.AddByte(byte(o.X - player.X))
-				p.AddByte(byte(o.Y - player.Y))
+				p.AddByte(byte(o.X.Load() - player.X.Load()))
+				p.AddByte(byte(o.Y.Load() - player.Y.Load()))
 				//				p.AddByte(byte(o.Direction))
 				player.LocalObjects.Remove(o)
 				counter++
@@ -388,8 +387,8 @@ func ObjectLocations(player *world.Player, newObjects []*world.Object) (p *Packe
 			continue
 		}
 		p.AddShort(uint16(o.ID))
-		p.AddByte(byte(o.X - player.X))
-		p.AddByte(byte(o.Y - player.Y))
+		p.AddByte(byte(o.X.Load() - player.X.Load()))
+		p.AddByte(byte(o.Y.Load() - player.Y.Load()))
 		//		p.AddByte(byte(o.Direction))
 		player.LocalObjects.Add(o)
 		counter++
@@ -413,8 +412,8 @@ func BoundaryLocations(player *world.Player, newObjects []*world.Object) (p *Pac
 			if !player.WithinRange(&o.Location, 21) {
 				//p.AddShort(65535)
 				p.AddByte(255)
-				p.AddByte(byte(o.X - player.X))
-				p.AddByte(byte(o.Y - player.Y))
+				p.AddByte(byte(o.X.Load() - player.X.Load()))
+				p.AddByte(byte(o.Y.Load() - player.Y.Load()))
 				//p.AddByte(byte(o.Direction))
 				player.LocalObjects.Remove(o)
 				counter++
@@ -426,8 +425,8 @@ func BoundaryLocations(player *world.Player, newObjects []*world.Object) (p *Pac
 			continue
 		}
 		p.AddShort(uint16(o.ID))
-		p.AddByte(byte(o.X - player.X))
-		p.AddByte(byte(o.Y - player.Y))
+		p.AddByte(byte(o.X.Load() - player.X.Load()))
+		p.AddByte(byte(o.Y.Load() - player.Y.Load()))
 		p.AddByte(byte(o.Direction))
 		player.LocalObjects.Add(o)
 		counter++

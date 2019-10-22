@@ -1,8 +1,8 @@
 package world
 
 import (
+	"go.uber.org/atomic"
 	"strconv"
-	"sync/atomic"
 	"time"
 )
 
@@ -240,7 +240,7 @@ func (p *Player) SetFightMode(i int) {
 
 //NearbyPlayers Returns nearby players.
 func (p *Player) NearbyPlayers() (players []*Player) {
-	for _, r := range SurroundingRegions(int(atomic.LoadUint32(&p.X)), int(atomic.LoadUint32(&p.Y))) {
+	for _, r := range SurroundingRegions(int(p.X.Load()), int(p.Y.Load())) {
 		players = append(players, r.Players.NearbyPlayers(p)...)
 	}
 
@@ -249,7 +249,7 @@ func (p *Player) NearbyPlayers() (players []*Player) {
 
 //NearbyObjects Returns nearby objects.
 func (p *Player) NearbyObjects() (objects []*Object) {
-	for _, r := range SurroundingRegions(int(atomic.LoadUint32(&p.X)), int(atomic.LoadUint32(&p.Y))) {
+	for _, r := range SurroundingRegions(int(p.X.Load()), int(p.Y.Load())) {
 		objects = append(objects, r.Objects.NearbyObjects(p)...)
 	}
 
@@ -258,7 +258,7 @@ func (p *Player) NearbyObjects() (objects []*Object) {
 
 //NewObjects Returns nearby objects that this player is unaware of.
 func (p *Player) NewObjects() (objects []*Object) {
-	for _, r := range SurroundingRegions(int(atomic.LoadUint32(&p.X)), int(atomic.LoadUint32(&p.Y))) {
+	for _, r := range SurroundingRegions(int(p.X.Load()), int(p.Y.Load())) {
 		for _, o := range r.Objects.NearbyObjects(p) {
 			if !p.LocalObjects.Contains(o) {
 				objects = append(objects, o)
@@ -271,7 +271,7 @@ func (p *Player) NewObjects() (objects []*Object) {
 
 //NewPlayers Returns nearby players that this player is unaware of.
 func (p *Player) NewPlayers() (players []*Player) {
-	for _, r := range SurroundingRegions(int(atomic.LoadUint32(&p.X)), int(atomic.LoadUint32(&p.Y))) {
+	for _, r := range SurroundingRegions(int(p.X.Load()), int(p.Y.Load())) {
 		for _, p1 := range r.Players.NearbyPlayers(p) {
 			if !p.LocalPlayers.Contains(p1) {
 				players = append(players, p1)
@@ -284,7 +284,7 @@ func (p *Player) NewPlayers() (players []*Player) {
 
 //NewNPCs Returns nearby NPCs that this player is unaware of.
 func (p *Player) NewNPCs() (npcs []*NPC) {
-	for _, r := range SurroundingRegions(int(atomic.LoadUint32(&p.X)), int(atomic.LoadUint32(&p.Y))) {
+	for _, r := range SurroundingRegions(int(p.X.Load()), int(p.Y.Load())) {
 		for _, n := range r.NPCs.NearbyNPCs(p) {
 			if !p.LocalNPCs.Contains(n) {
 				npcs = append(npcs, n)
@@ -297,12 +297,12 @@ func (p *Player) NewNPCs() (npcs []*NPC) {
 
 //SetLocation Sets the mobs location.
 func (p *Player) SetLocation(location *Location) {
-	p.SetCoords(int(atomic.LoadUint32(&location.X)), int(atomic.LoadUint32(&location.Y)))
+	p.SetCoords(int(location.X.Load()), int(location.Y.Load()))
 }
 
 //SetCoords Sets the mobs locations coordinates.
 func (p *Player) SetCoords(x, y int) {
-	curArea := GetRegion(int(atomic.LoadUint32(&p.X)), int(atomic.LoadUint32(&p.Y)))
+	curArea := GetRegion(int(p.X.Load()), int(p.Y.Load()))
 	newArea := GetRegion(x, y)
 	if newArea != curArea {
 		if curArea.Players.Contains(p) {
@@ -320,14 +320,14 @@ func (p *Player) Teleport(x, y int) {
 }
 
 //EnterDoor Replaces door object with an open door, sleeps for one second, and returns the closed door.
-func (p *Player) EnterDoor(door *Object, dest *Location) {
-	ReplaceObject(door, 11)
+func (p *Player) EnterDoor(oldDoor *Object, dest *Location) {
+	newDoor := ReplaceObject(oldDoor, 11)
 	p.SetLocation(dest)
 	time.Sleep(time.Second)
-	ReplaceObject(GetObject(int(door.X), int(door.Y)), door.ID)
+	ReplaceObject(newDoor, oldDoor.ID)
 }
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
-	return &Player{Mob: Mob{Entity: Entity{Index: -1}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})}, LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30}}
+	return &Player{Mob: Mob{Entity: Entity{Index: -1, Location: Location{atomic.NewUint32(0),atomic.NewUint32(0)}}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})}, LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30}}
 }

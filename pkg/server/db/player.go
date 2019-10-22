@@ -77,7 +77,10 @@ func ValidateCredentials(usernameHash uint64, password string, loginReply chan b
 		loginReply <- byte(3)
 		return errors.NewDatabaseError("Could not find player")
 	}
-	rows.Scan(&player.DatabaseIndex, &player.X, &player.Y, &player.Rank, &player.Appearance.Hair, &player.Appearance.Top, &player.Appearance.Bottom, &player.Appearance.Skin, &player.Appearance.Head, &player.Appearance.Body)
+	var x, y uint32
+	rows.Scan(&player.DatabaseIndex, &x, &y, &player.Rank, &player.Appearance.Hair, &player.Appearance.Top, &player.Appearance.Bottom, &player.Appearance.Skin, &player.Appearance.Head, &player.Appearance.Body)
+	player.X.Store(x)
+	player.Y.Store(y)
 	return nil
 }
 
@@ -211,7 +214,7 @@ func SavePlayer(player *world.Player) {
 		return
 	}
 	saveLocation := func() {
-		rs, err := tx.Exec("UPDATE player2 SET x=?, y=? WHERE id=?", player.X, player.Y, player.DatabaseIndex)
+		rs, err := tx.Exec("UPDATE player2 SET x=?, y=? WHERE id=?", player.X.Load(), player.Y.Load(), player.DatabaseIndex)
 		count, err := rs.RowsAffected()
 		if err != nil {
 			log.Warning.Println("Save(): UPDATE failed for player location:", err)

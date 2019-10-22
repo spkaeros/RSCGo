@@ -1,7 +1,9 @@
 package world
 
-import "sync"
-import "sync/atomic"
+import (
+	"sync"
+	"go.uber.org/atomic"
+)
 
 //MobState Mob state.
 type MobState uint8
@@ -85,7 +87,7 @@ func (m *Mob) TraversePath() {
 		return
 	}
 	m.TransAttrs.SetVar("plrmoved", true)
-	m.SetLocation(path.NextTile(atomic.LoadUint32(&m.X), atomic.LoadUint32(&m.Y)))
+	m.SetLocation(path.NextTile(m.X.Load(), m.Y.Load()))
 }
 
 //FinishedPath Returns true if the mobs path is nil, the paths current waypoint exceeds the number of waypoints available, or the next tile in the path is not a valid location, implying that we have reached our destination.
@@ -95,14 +97,14 @@ func (m *Mob) FinishedPath() bool {
 	if m.Path == nil {
 		return true
 	}
-	return m.Path.CurrentWaypoint >= len(m.Path.WaypointsX) || !m.Path.NextTile(atomic.LoadUint32(&m.X), atomic.LoadUint32(&m.Y)).WithinWorld()
+	return m.Path.CurrentWaypoint >= len(m.Path.WaypointsX) || !m.Path.NextTile(m.X.Load(), m.Y.Load()).WithinWorld()
 }
 
 //UpdateDirection Updates the direction the mob is facing based on where the mob is trying to move, and where the mob is currently at.
 func (m *Mob) UpdateDirection(destX, destY uint32) {
 	sprites := [3][3]int{{3, 2, 1}, {4, -1, 0}, {5, 6, 7}}
-	xIndex := atomic.LoadUint32(&m.X) - destX + 1
-	yIndex := atomic.LoadUint32(&m.Y) - destY + 1
+	xIndex := m.X.Load() - destX + 1
+	yIndex := m.Y.Load() - destY + 1
 	if xIndex < 3 && yIndex < 3 {
 		m.SetDirection(sprites[xIndex][yIndex])
 	} else {
@@ -112,14 +114,14 @@ func (m *Mob) UpdateDirection(destX, destY uint32) {
 
 //SetLocation Sets the mobs location.
 func (m *Mob) SetLocation(location *Location) {
-	m.SetCoords(atomic.LoadUint32(&location.X), atomic.LoadUint32(&location.Y))
+	m.SetCoords(location.X.Load(), location.Y.Load())
 }
 
 //SetCoords Sets the mobs locations coordinates.
 func (m *Mob) SetCoords(x, y uint32) {
 	m.UpdateDirection(x, y)
-	atomic.StoreUint32(&m.X, x)
-	atomic.StoreUint32(&m.Y, y)
+	m.X.Store(x)
+	m.Y.Store(y)
 }
 
 //AttrList A type alias for a map of strings to empty interfaces, to hold generic mob information for easy serialization and to provide dynamic insertion/deletion of new mob properties easily
@@ -223,7 +225,7 @@ func (s *SkillTable) CombatLevel() int {
 }
 
 //NpcCounter Counts the number of total NPCs within the world.
-var NpcCounter uint32
+var NpcCounter = atomic.NewUint32(0)
 
 //NPC Represents a single non-playable character within the game world.
 type NPC struct {
@@ -232,7 +234,5 @@ type NPC struct {
 }
 
 func NewNpc(id int, x int, y int) *NPC {
-	n := &NPC{ID: id, Mob: Mob{Entity: Entity{Index: int(atomic.LoadUint32(&NpcCounter)), Location: Location{X: uint32(x), Y: uint32(y)}}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}}
-	atomic.AddUint32(&NpcCounter, 1)
-	return n
+	return &NPC{ID: id, Mob: Mob{Entity: Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: Location{X: atomic.NewUint32(uint32(x)), Y: atomic.NewUint32(uint32(y))}}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}}
 }

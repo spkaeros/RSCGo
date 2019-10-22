@@ -4,9 +4,6 @@ import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/config"
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
-
-	// Necessary for sqlite3 driver
-	_ "github.com/mattn/go-sqlite3"
 )
 
 //ObjectDefinition This represents a single definition for a single object in the game.

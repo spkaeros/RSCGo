@@ -5,6 +5,7 @@ import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
+	"go.uber.org/atomic"
 )
 
 type actionHandler func(p *world.Player, args ...interface{})
@@ -113,9 +114,9 @@ func init() {
 		}
 		if object.ID == 109 {
 			// Quest hut by wilderness in between edgeville and varrock
-			dest := world.Location{X: 161, Y: 465}
-			if p.Y >= dest.Y {
-				dest.Y--
+			dest := world.Location{X: atomic.NewUint32(161), Y: atomic.NewUint32(465)}
+			if p.Y.Load() >= dest.Y.Load() {
+				dest.Y.Dec()
 			}
 			go p.EnterDoor(object, &dest)
 		}
@@ -196,7 +197,7 @@ func init() {
 
 func objectAction(c *Client, object *world.Object, rightClick bool) {
 	c.player.ResetPath()
-	if c.player.State != world.MSIdle || world.GetObject(int(object.X), int(object.Y)) != object || !c.player.WithinRange(&object.Location, 1) {
+	if c.player.State != world.MSIdle || world.GetObject(int(object.X.Load()), int(object.Y.Load())) != object || !c.player.WithinRange(&object.Location, 1) {
 		// If somehow we became busy, the object changed before arriving, or somehow this action fired without actually arriving at the object, we do nothing.
 		return
 	}
@@ -222,7 +223,7 @@ func objectAction(c *Client, object *world.Object, rightClick bool) {
 
 func boundaryAction(c *Client, object *world.Object, rightClick bool) {
 	c.player.ResetPath()
-	if c.player.State != world.MSIdle || world.GetObject(int(object.X), int(object.Y)) != object || !c.player.WithinRange(&object.Location, 1) {
+	if c.player.State != world.MSIdle || world.GetObject(int(object.X.Load()), int(object.Y.Load())) != object || !c.player.WithinRange(&object.Location, 1) {
 		// If somehow we became busy, the object changed before arriving, or somehow this action fired without actually arriving at the object, we do nothing.
 		return
 	}

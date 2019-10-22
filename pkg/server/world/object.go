@@ -1,5 +1,7 @@
 package world
 
+import "go.uber.org/atomic"
+
 //Object Represents a game object in the world.
 type Object struct {
 	ID        int
@@ -20,5 +22,5 @@ func (o *Object) Equals(o1 interface{}) bool {
 
 //NewObject Returns a reference to a new instance of a game object.
 func NewObject(id, direction, x, y int, boundary bool) *Object {
-	return &Object{id, direction, boundary, Entity{Location{X: uint32(x), Y: uint32(y)}, -1}}
+	return &Object{id, direction, boundary, Entity{Location{X: atomic.NewUint32(uint32(x)), Y: atomic.NewUint32(uint32(y))}, -1}}
 }

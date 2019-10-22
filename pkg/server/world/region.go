@@ -31,39 +31,41 @@ func WithinWorld(x, y int) bool {
 
 //AddPlayer Add a player to the region.
 func AddPlayer(p *Player) {
-	GetRegion(int(p.X), int(p.Y)).Players.Add(p)
+	GetRegion(int(p.X.Load()), int(p.Y.Load())).Players.Add(p)
 }
 
 //RemovePlayer Remove a player from the region.
 func RemovePlayer(p *Player) {
-	GetRegion(int(p.X), int(p.Y)).Players.Remove(p)
+	GetRegion(int(p.X.Load()), int(p.Y.Load())).Players.Remove(p)
 }
 
 //AddNpc Add a NPC to the region.
 func AddNpc(n *NPC) {
-	GetRegion(int(n.X), int(n.Y)).NPCs.Add(n)
+	GetRegion(int(n.X.Load()), int(n.Y.Load())).NPCs.Add(n)
 }
 
 //RemoveNpc Remove a NPC from the region.
 func RemoveNpc(n *NPC) {
-	GetRegion(int(n.X), int(n.Y)).NPCs.Remove(n)
+	GetRegion(int(n.X.Load()), int(n.Y.Load())).NPCs.Remove(n)
 }
 
 //AddObject Add an object to the region.
 func AddObject(o *Object) {
-	GetRegion(int(o.X), int(o.Y)).Objects.Add(o)
+	GetRegion(int(o.X.Load()), int(o.Y.Load())).Objects.Add(o)
 }
 
 //RemoveObject Remove an object from the region.
 func RemoveObject(o *Object) {
-	GetRegion(int(o.X), int(o.Y)).Objects.Remove(o)
+	GetRegion(int(o.X.Load()), int(o.Y.Load())).Objects.Remove(o)
 }
 
 //ReplaceObject Replaces old with a new game object with all of the same characteristics, except it's ID set to newID.
-func ReplaceObject(old *Object, newID int) {
+func ReplaceObject(old *Object, newID int) *Object {
 	r := GetRegionFromLocation(&old.Location)
 	r.Objects.Remove(old)
-	r.Objects.Add(NewObject(newID, old.Direction, int(old.X), int(old.Y), old.Boundary))
+	object := NewObject(newID, old.Direction, int(old.X.Load()), int(old.Y.Load()), old.Boundary)
+	r.Objects.Add(object)
+	return object
 }
 
 //GetAllObjects Returns a slice containing all objects in the game world.
@@ -92,7 +94,7 @@ func GetObject(x, y int) *Object {
 	defer r.Objects.lock.RUnlock()
 	for _, o := range r.Objects.List {
 		if o, ok := o.(*Object); ok {
-			if o.X == uint32(x) && o.Y == uint32(y) {
+			if o.X.Load() == uint32(x) && o.Y.Load() == uint32(y) {
 				return o
 			}
 		}
@@ -130,7 +132,7 @@ func GetRegion(x, y int) *Region {
 
 //GetRegionFromLocation Returns the region that corresponds with the given location.  If it does not exist yet, it will allocate a new onr and store it for the lifetime of the application in the regions map.
 func GetRegionFromLocation(loc *Location) *Region {
-	return getRegionFromIndex(int(loc.X/RegionSize), int(loc.Y/RegionSize))
+	return getRegionFromIndex(int(loc.X.Load()/RegionSize), int(loc.Y.Load()/RegionSize))
 }
 
 //SurroundingRegions Returns the regions surrounding the given coordinates.  It wil
