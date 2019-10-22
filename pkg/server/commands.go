@@ -18,11 +18,6 @@ import (
 var CommandHandlers = make(map[string]func(*Client, []string))
 
 func init() {
-	if f, err := os.OpenFile("logs"+string(os.PathSeparator)+"cmd.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666); err != nil {
-		log.Error.Println("Could not open commands log file for writing:", err)
-	} else {
-		log.Commands.SetOutput(f)
-	}
 	PacketHandlers["command"] = func(c *Client, p *packets.Packet) {
 		args := strutil.ModalParse(string(p.Payload))
 		handler, ok := CommandHandlers[args[0]]

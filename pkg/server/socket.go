@@ -66,7 +66,7 @@ func (c *Client) ReadPacket() (*packets.Packet, error) {
 	}
 
 	if length >= 5000 || length < 0 {
-		// This should only happen if someone is either editing their outgoing network data, or using a modified client.
+		log.Suspicious.Printf("Invalid packet length from [%v]: %d\n", c, length)
 		if len(Flags.Verbose) > 0 {
 			log.Warning.Printf("Packet length out of bounds; got %d, expected between 4 and 5000\n", length+3)
 		}

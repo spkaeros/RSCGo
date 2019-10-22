@@ -33,7 +33,7 @@ func newPlayer(c *Client, p *packets.Packet) {
 	username := strutil.DecodeBase37(strutil.Base37(strings.TrimSpace(p.ReadString(20))))
 	password := strings.TrimSpace(p.ReadString(20))
 	if userLen, passLen := len(username), len(password); userLen < 2 || userLen > 12 || passLen < 5 || passLen > 20 {
-		// TODO: log it, it's suspicious.  Client should prevent this under normal circumstances.
+		log.Suspicious.Printf("New player request contained invalid lengths: username:'%v'; password:'%v'\n", username, password)
 		log.Info.Printf("New player denied: [ Reason:'username or password invalid length'; username='%s'; ip='%s'; passLen=%d ]\n", username, c.ip, passLen)
 		reply <- 0
 		return
@@ -80,17 +80,15 @@ func loginRequest(c *Client, p *packets.Packet) {
 		return
 	}
 
-	// TODO: 204 sends what looks like a boolean named limit30.  WTF is it?
+	// TODO: Remove all this bs from protocol...
 	p.ReadBool()
-
-	// FIXME: 204 sends 0xA(10) as one byte before the ISAAC seeds.  It is always 10.  Why?
 	p.ReadByte()
 
 	// ISAAC seeds.
 	p.ReadLong()
 	p.ReadLong()
 
-	// FIXME: 204 sends an int32 calling getLinkUID for its value.  Figure out what it is used for, seems to be more applet bullshit.
+	// TODO: Remove all this bs from protocol...
 	p.ReadInt()
 
 	usernameHash := strutil.Base37(strings.TrimSpace(p.ReadString(20)))

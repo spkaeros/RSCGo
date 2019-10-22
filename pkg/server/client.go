@@ -78,9 +78,9 @@ func (c *Client) StartReader() {
 				return
 			}
 			if !c.player.TransAttrs.VarBool("connected", false) && p.Opcode != 32 && p.Opcode != 0 && p.Opcode != 2 {
-				// This should only happen if someone is either editing their outgoing network data, or using a modified client.
+				log.Suspicious.Printf("Invalid packet[opcode:%v,len:%v] from [%v]\n", p.Opcode, len(p.Payload), c)
 				if len(Flags.Verbose) > 0 {
-					log.Warning.Printf("Unauthorized packet{opcode:%v,len:%v] rejected from: %v\n", p.Opcode, len(p.Payload), c)
+					log.Warning.Printf("Unauthorized packet[opcode:%v,len:%v] rejected from: %v\n", p.Opcode, len(p.Payload), c)
 				}
 				c.Destroy()
 				return
@@ -262,11 +262,6 @@ func (c *Client) HandleRegister(reply chan byte) {
 		c.Write([]byte{0})
 		return
 	}
-}
-
-//IP Parses the players remote IP address and returns it as a go string.  TODO: Should I remove this?
-func (c *Client) IP() string {
-	return strings.Split(c.socket.RemoteAddr().String(), ":")[0]
 }
 
 //NewClient Creates a new instance of a Client, launches goroutines to handle I/O for it, and returns a reference to it.
