@@ -112,13 +112,19 @@ func GetObject(x, y int) *Object {
 
 //getRegionFromIndex internal function to get a region by its row amd column indexes
 func getRegionFromIndex(areaX, areaY int) *Region {
-	if areaX < 0 || areaX >= HorizontalPlanes {
-		fmt.Println("planeX index out of range")
-		return &Region{}
+	if areaX < 0 {
+		areaX = 0
 	}
-	if areaY < 0 || areaY >= VerticalPlanes {
+	if areaX >= HorizontalPlanes {
+		fmt.Println("planeX index out of range")
+		return &Region{&List{}, &List{}, &List{}}
+	}
+	if areaY < 0 {
+		areaY = 0
+	}
+	if areaY >= VerticalPlanes {
 		fmt.Println("planeY index out of range")
-		return &Region{}
+		return &Region{&List{}, &List{}, &List{}}
 	}
 	if regions[areaX][areaY] == nil {
 		regions[areaX][areaY] = &Region{&List{}, &List{}, &List{}}
@@ -144,12 +150,11 @@ func SurroundingRegions(x, y int) (regions [4]*Region) {
 	relX := x % RegionSize
 	relY := y % RegionSize
 	if relX <= LowerBound {
+		regions[1] = getRegionFromIndex(areaX-1, areaY)
 		if relY <= LowerBound {
-			regions[1] = getRegionFromIndex(areaX-1, areaY)
 			regions[2] = getRegionFromIndex(areaX-1, areaY-1)
 			regions[3] = getRegionFromIndex(areaX, areaY-1)
 		} else {
-			regions[1] = getRegionFromIndex(areaX-1, areaY)
 			regions[2] = getRegionFromIndex(areaX-1, areaY+1)
 			regions[3] = getRegionFromIndex(areaX, areaY+1)
 		}
