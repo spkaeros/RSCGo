@@ -47,6 +47,7 @@ func init() {
 			log.Suspicious.Printf("Player['%v'@'%v'] attempted to decline a non-existant trade!\n", c.player.Username, c.ip)
 			c.player.ResetTrade()
 			c.player.State = world.MSIdle
+			c.outgoingPackets <- packets.TradeClose
 			return
 		}
 		c1, ok := Clients.FromIndex(c.player.TradeTarget())
@@ -54,6 +55,7 @@ func init() {
 			log.Suspicious.Printf("Player['%v'@'%v'] attempted to update a trade with a non-existent target!\n", c.player.Username, c.ip)
 			c.player.ResetTrade()
 			c.player.State = world.MSIdle
+			c.outgoingPackets <- packets.TradeClose
 			return
 		}
 		if c1.player.State != world.MSTrading || c1.player.TradeTarget() != c.Index || c.player.TradeTarget() != c1.Index {
@@ -62,6 +64,8 @@ func init() {
 			c.player.State = world.MSIdle
 			c1.player.ResetTrade()
 			c1.player.State = world.MSIdle
+			c.outgoingPackets <- packets.TradeClose
+			c1.outgoingPackets <- packets.TradeClose
 			return
 		}
 		if (c1.player.TransAttrs.VarBool("trade1accept", false) || c1.player.TransAttrs.VarBool("trade2accept", false)) && (c.player.TransAttrs.VarBool("trade1accept", false) || c.player.TransAttrs.VarBool("trade2accept", false)) {
@@ -70,6 +74,8 @@ func init() {
 			c.player.State = world.MSIdle
 			c1.player.ResetTrade()
 			c1.player.State = world.MSIdle
+			c.outgoingPackets <- packets.TradeClose
+			c1.outgoingPackets <- packets.TradeClose
 			return
 		}
 		c.player.TransAttrs.UnsetVar("trade1accept")
@@ -96,6 +102,7 @@ func init() {
 			log.Suspicious.Printf("Player['%v'@'%v'] attempted to decline a trade it was not in!\n", c.player.Username, c.ip)
 			c.player.ResetTrade()
 			c.player.State = world.MSIdle
+			c.outgoingPackets <- packets.TradeClose
 			return
 		}
 		c1, ok := Clients.FromIndex(c.player.TradeTarget())
@@ -103,6 +110,7 @@ func init() {
 			log.Suspicious.Printf("Player['%v'@'%v'] attempted to decline a trade with a non-existent target!\n", c.player.Username, c.ip)
 			c.player.ResetTrade()
 			c.player.State = world.MSIdle
+			c.outgoingPackets <- packets.TradeClose
 			return
 		}
 		if c1.player.State != world.MSTrading || c1.player.TradeTarget() != c.Index || c.player.TradeTarget() != c1.Index {
@@ -120,6 +128,7 @@ func init() {
 			log.Suspicious.Printf("Player['%v'@'%v'] attempted to accept a trade it was not in!\n", c.player.Username, c.ip)
 			c.player.ResetTrade()
 			c.player.State = world.MSIdle
+			c.outgoingPackets <- packets.TradeClose
 			return
 		}
 		c1, ok := Clients.FromIndex(c.player.TradeTarget())
@@ -127,6 +136,7 @@ func init() {
 			log.Suspicious.Printf("Player['%v'@'%v'] attempted to accept a trade with a non-existent target!\n", c.player.Username, c.ip)
 			c.player.ResetTrade()
 			c.player.State = world.MSIdle
+			c.outgoingPackets <- packets.TradeClose
 			return
 		}
 		if c1.player.State != world.MSTrading || c1.player.TradeTarget() != c.Index || c.player.TradeTarget() != c1.Index {
@@ -135,7 +145,8 @@ func init() {
 			c.player.State = world.MSIdle
 			c1.player.ResetTrade()
 			c1.player.State = world.MSIdle
-			c1.Message(c.player.Username + " has declined the trade.")
+			c.outgoingPackets <- packets.TradeClose
+			c1.outgoingPackets <- packets.TradeClose
 			return
 		}
 		c.player.TransAttrs.SetVar("trade1accept", true)
@@ -151,6 +162,7 @@ func init() {
 			log.Suspicious.Printf("Player['%v'@'%v'] attempted to accept a trade confirmation it was not in!\n", c.player.Username, c.ip)
 			c.player.ResetTrade()
 			c.player.State = world.MSIdle
+			c.outgoingPackets <- packets.TradeClose
 			return
 		}
 		c1, ok := Clients.FromIndex(c.player.TradeTarget())
@@ -158,14 +170,19 @@ func init() {
 			log.Suspicious.Printf("Player['%v'@'%v'] attempted to accept a trade confirmation with a non-existent target!\n", c.player.Username, c.ip)
 			c.player.ResetTrade()
 			c.player.State = world.MSIdle
+			c.outgoingPackets <- packets.TradeClose
 			return
 		}
-		if c1.player.State != world.MSTrading || c1.player.TradeTarget() != c.Index || c.player.TradeTarget() != c1.Index || !c1.player.TransAttrs.VarBool("trade1accept", false) {
-			log.Suspicious.Printf("Players{ 1:['%v'@'%v'];2:['%v'@'%v'] } involved in trade with apparently bad trade variables!\n", c.player.Username, c.ip, c1.player.Username, c1.ip)
+		defer func() {
+			c.outgoingPackets <- packets.TradeClose
 			c.player.ResetTrade()
 			c.player.State = world.MSIdle
+			c1.outgoingPackets <- packets.TradeClose
 			c1.player.ResetTrade()
 			c1.player.State = world.MSIdle
+		}()
+		if c1.player.State != world.MSTrading || c1.player.TradeTarget() != c.Index || c.player.TradeTarget() != c1.Index || !c1.player.TransAttrs.VarBool("trade1accept", false) {
+			log.Suspicious.Printf("Players{ 1:['%v'@'%v'];2:['%v'@'%v'] } involved in trade with apparently bad trade variables!\n", c.player.Username, c.ip, c1.player.Username, c1.ip)
 			return
 		}
 		c.player.TransAttrs.SetVar("trade2accept", true)
@@ -176,46 +193,24 @@ func init() {
 			theirAvailSlots := c1.player.Items.Capacity - c1.player.Items.Size() + c1.player.TradeOffer.Size()
 			if theirNeededSlots > theirAvailSlots {
 				c.Message("The other player does not have room to accept your items.")
-				c.player.ResetTrade()
-				c.player.State = world.MSIdle
 				c1.Message("You do not have room in your inventory to hold those items.")
-				c1.player.ResetTrade()
-				c1.player.State = world.MSIdle
 				return
 			}
 			if neededSlots > availSlots {
 				c.Message("You do not have room in your inventory to hold those items.")
-				c.player.ResetTrade()
-				c.player.State = world.MSIdle
 				c1.Message("The other player does not have room to accept your items.")
-				c1.player.ResetTrade()
-				c1.player.State = world.MSIdle
 				return
 			}
 			defer func() {
 				c.outgoingPackets <- packets.InventoryItems(c.player)
-				c.outgoingPackets <- packets.TradeClose
-				c.player.ResetTrade()
-				c.player.State = world.MSIdle
 				c1.outgoingPackets <- packets.InventoryItems(c1.player)
-				c1.outgoingPackets <- packets.TradeClose
-				c1.player.ResetTrade()
-				c1.player.State = world.MSIdle
 			}()
 			if c.player.Items.RemoveAll(c.player.TradeOffer) != c.player.TradeOffer.Size() {
 				log.Suspicious.Printf("Players{ 1:['%v'@'%v'];2:['%v'@'%v'] } involved in a trade, player 1 did not have all items to give.", c.player.Username, c.ip, c1.player.Username, c1.ip)
-				c.player.ResetTrade()
-				c.player.State = world.MSIdle
-				c1.player.ResetTrade()
-				c1.player.State = world.MSIdle
 				return
 			}
 			if c1.player.Items.RemoveAll(c1.player.TradeOffer) != c1.player.TradeOffer.Size() {
 				log.Suspicious.Printf("Players{ 1:['%v'@'%v'];2:['%v'@'%v'] } involved in a trade, player 2 did not have all items to give.", c.player.Username, c.ip, c1.player.Username, c1.ip)
-				c.player.ResetTrade()
-				c.player.State = world.MSIdle
-				c1.player.ResetTrade()
-				c1.player.State = world.MSIdle
 				return
 			}
 			for i := 0; i < c1.player.TradeOffer.Size(); i++ {
