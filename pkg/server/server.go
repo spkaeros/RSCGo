@@ -185,11 +185,6 @@ func Start() {
 		log.Info.Println()
 		log.Info.Println("Loaded TOML configuration file.")
 	}
-	/*
-		start := time.Now()
-		HashPassword("lols")
-		log.Info.Println(time.Since(start))
-	*/
 
 	var awaitLaunchJobs sync.WaitGroup
 	asyncExecute(&awaitLaunchJobs, func() {

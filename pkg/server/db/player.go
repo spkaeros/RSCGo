@@ -1,6 +1,7 @@
 package db
 
 import (
+	"bitbucket.org/zlacki/rscgo/pkg/server/crypto"
 	"strconv"
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/config"
@@ -24,7 +25,7 @@ func CreatePlayer(username, password string) bool {
 		return false
 	}
 
-	s, err := tx.Exec("INSERT INTO player2(username, userhash, password, x, y, group_id) VALUES(?, ?, ?, 220, 445, 0)", username, strutil.Base37(username), password)
+	s, err := tx.Exec("INSERT INTO player2(username, userhash, password, x, y, group_id, rehash) VALUES(?, ?, ?, 220, 445, 0, 0)", username, strutil.Base37(username), crypto.Hash(password))
 	if err != nil {
 		log.Info.Println("CreatePlayer(): Could not insert new player profile information:", err)
 		return false
@@ -65,8 +66,7 @@ func UsernameExists(username string) bool {
 func ValidateCredentials(usernameHash uint64, password string, loginReply chan byte, player *world.Player) error {
 	database := Open(config.PlayerDB())
 	defer database.Close()
-
-	rows, err := database.Query("SELECT player.id, player.x, player.y, player.group_id, appearance.haircolour, appearance.topcolour, appearance.trousercolour, appearance.skincolour, appearance.head, appearance.body FROM player2 AS player INNER JOIN appearance AS appearance WHERE appearance.playerid=player.id AND player.userhash=? AND player.password=?", usernameHash, password)
+	rows, err := database.Query("SELECT player.id, player.x, player.y, player.group_id, appearance.haircolour, appearance.topcolour, appearance.trousercolour, appearance.skincolour, appearance.head, appearance.body FROM player2 AS player INNER JOIN appearance AS appearance WHERE appearance.playerid=player.id AND player.userhash=? AND player.password=?", usernameHash, crypto.Hash(password))
 	defer rows.Close()
 	if err != nil {
 		log.Info.Println("ValidatePlayer(uint64,string): Could not prepare query statement for player:", err)
@@ -82,6 +82,20 @@ func ValidateCredentials(usernameHash uint64, password string, loginReply chan b
 	player.X.Store(x)
 	player.Y.Store(y)
 	return nil
+}
+
+//UpdatePassword Updates the players password to password in the database.
+func UpdatePassword(affectedIndex int, password string) {
+	database := Open(config.PlayerDB())
+	defer database.Close()
+	s, err := database.Exec("UPDATE player2 SET password=? WHERE id=?", password, affectedIndex)
+	if err != nil {
+		log.Info.Println("UpdatePassword: Could not update player password:", err)
+	}
+	count, err := s.RowsAffected()
+	if count <= 0 || err != nil {
+		log.Info.Println("UpdatePassword: Could not update player password:", err)
+	}
 }
 
 //LoadPlayerAttributes Looks for a player with the specified credentials in the player database.  Returns nil if it finds the player, otherwise returns an error.

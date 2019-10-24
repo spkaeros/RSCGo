@@ -65,34 +65,23 @@ func init() {
 			c.Message("@que@Invalid args.  Usage: /kick <player>")
 			return
 		}
+		var (
+			affectedClient *Client
+			ok             bool
+		)
 		if pID, err := strconv.Atoi(args[0]); err == nil {
-			affectedClient, ok := Clients.FromIndex(pID)
-			if !ok {
-				c.Message("@que@Could not find player.")
-				return
-			}
-			log.Commands.Printf("'%v' kicked other player '%v'\n", c.player.Username, affectedClient.player.Username)
-			c.Message("@que@Kicked: '" + affectedClient.player.Username + "'")
-			affectedClient.outgoingPackets <- packets.Logout
-			affectedClient.Destroy()
+			affectedClient, ok = Clients.FromIndex(pID)
 		} else {
-			var name string
-			for _, arg := range args {
-				name += arg + " "
-			}
-			name = strings.TrimSpace(name)
-
-			affectedClient, ok := Clients.FromUserHash(strutil.Base37(name))
-			if !ok {
-				c.Message("@que@Could not find player: '" + name + "'")
-				return
-			}
-
-			log.Commands.Printf("'%v' kicked other player '%v'\n", c.player.Username, affectedClient.player.Username)
-			c.Message("@que@Kicked: '" + affectedClient.player.Username + "'")
-			affectedClient.outgoingPackets <- packets.Logout
-			affectedClient.Destroy()
+			affectedClient, ok = Clients.FromUserHash(strutil.Base37(strings.Join(args, " ")))
 		}
+		if affectedClient == nil || !ok {
+			c.Message("@que@Could not find player.")
+			return
+		}
+		log.Commands.Printf("'%v' kicked other player '%v'\n", c.player.Username, affectedClient.player.Username)
+		c.Message("@que@Kicked: '" + affectedClient.player.Username + "'")
+		affectedClient.outgoingPackets <- packets.Logout
+		affectedClient.Destroy()
 	}
 	CommandHandlers["memdump"] = func(c *Client, args []string) {
 		file, err := os.Create("rscgo.mprof")

@@ -44,7 +44,7 @@ func newPlayer(c *Client, p *packets.Packet) {
 		return
 	}
 
-	if db.CreatePlayer(username, HashPassword(password)) {
+	if db.CreatePlayer(username, password) {
 		log.Info.Printf("New player accepted: [ username='%s'; ip='%s' ]", username, c.ip)
 		reply <- 2
 		return
@@ -92,6 +92,7 @@ func loginRequest(c *Client, p *packets.Packet) {
 	p.ReadInt()
 
 	usernameHash := strutil.Base37(strings.TrimSpace(p.ReadString(20)))
+	password := strings.TrimSpace(p.ReadString(20))
 	if !db.UsernameExists(strutil.DecodeBase37(usernameHash)) {
 		loginReply <- 3
 		return
@@ -100,5 +101,5 @@ func loginRequest(c *Client, p *packets.Packet) {
 		loginReply <- byte(4)
 		return
 	}
-	go db.LoadPlayer(c.player, usernameHash, HashPassword(strings.TrimSpace(p.ReadString(20))), loginReply)
+	go db.LoadPlayer(c.player, usernameHash, password, loginReply)
 }
