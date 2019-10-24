@@ -2,8 +2,6 @@ package packets
 
 import (
 	"bitbucket.org/zlacki/rscgo/pkg/rand"
-	"strconv"
-	"strings"
 	"time"
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/db"
@@ -38,6 +36,7 @@ func TeleBubble(offsetX, offsetY int) (p *Packet) {
 //InventoryItems Builds a packet containing the players inventory items.
 func InventoryItems(player *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(53)
+	player.Items.Lock.RLock()
 	p.AddByte(uint8(len(player.Items.List)))
 	for _, item := range player.Items.List {
 		p.AddShort(uint16(item.ID)) // TODO: + 32768 if wielded.
@@ -45,6 +44,7 @@ func InventoryItems(player *world.Player) (p *Packet) {
 			p.AddInt2(uint32(item.Amount))
 		}
 	}
+	player.Items.Lock.RUnlock()
 	return
 }
 
@@ -62,16 +62,8 @@ func ServerInfo(onlineCount int) (p *Packet) {
 //LoginBox Builds a packet to create a welcome box on the client with the inactiveDays since login, and lastIP connected from.
 func LoginBox(inactiveDays int, lastIP string) (p *Packet) {
 	p = NewOutgoingPacket(182)
-	octets := strings.Split(lastIP, ".")
-	ip := uint32(0)
-	if len(octets) > 0 {
-		for index, octet := range octets {
-			numericOctet, _ := strconv.Atoi(octet)
-			ip |= uint32(numericOctet << uint((3-index)*8))
-		}
-	}
-	p.AddInt(ip) // IP
-	p.AddShort(uint16(inactiveDays)) // Last logged in
+	p.AddInt(uint32(strutil.IPToInteger(lastIP))) // IP
+	p.AddShort(uint16(inactiveDays))              // Last logged in
 	p.AddByte(201) // recovery questions set days, 200 = unset, 201 = set
 	p.AddShort(1) // Unread messages, number minus one, 0 does not render anything
 	p.AddBytes([]byte(lastIP))
@@ -115,7 +107,7 @@ func FriendList(player *world.Player) (p *Packet) {
 func PrivateMessage(hash uint64, msg string) (p *Packet) {
 	p = NewOutgoingPacket(120)
 	p.AddLong(hash)
-	p.AddInt(rand.Uint32()) // Message ID idk
+	p.AddInt(rand.Uint32()) // unique Message ID to prevent duplicate messages somehow arriving or something idk
 	for _, c := range strutil.PackChatMessage(msg) {
 		p.AddByte(c)
 	}
@@ -277,7 +269,7 @@ func NPCPositions(player *world.Player) (p *Packet) {
 	p.AddBits(len(player.LocalNPCs.List), 8)
 	for _, n := range player.LocalNPCs.List {
 		if n, ok := n.(*world.NPC); ok {
-			if n.LongestDelta(&player.Location) > 15 {
+			if n.LongestDelta(&player.Location) > 15 || n.TransAttrs.VarBool("remove", false) {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
@@ -531,11 +523,11 @@ func LoginResponse(v int) *Packet {
 func PlaneInfo(player *world.Player) *Packet {
 	playerInfo := NewOutgoingPacket(25)
 	playerInfo.AddShort(uint16(player.Index))
-	playerInfo.AddShort(2304)
-	playerInfo.AddShort(1776)
+	playerInfo.AddShort(2304) // alleged width, tiles per sector also...
+	playerInfo.AddShort(1776) // alleged height
 
-	playerInfo.AddShort(uint16(player.Plane()))
+	playerInfo.AddShort(uint16(player.Plane())) // plane
 
-	playerInfo.AddShort(944)
+	playerInfo.AddShort(944) // REAL plane height
 	return playerInfo
 }

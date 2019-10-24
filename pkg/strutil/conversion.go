@@ -1,6 +1,8 @@
 package strutil
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -20,6 +22,20 @@ func getCharCode(c rune) int {
 	}
 
 	return 0
+}
+
+func IPToInteger(s string) (ip int) {
+	if octets := strings.Split(s, "."); len(octets) > 0 {
+		for index, octet := range octets {
+			numericOctet, err := strconv.Atoi(octet)
+			if err != nil {
+				fmt.Println("Error parsing IP address to integer:", err)
+				return -1
+			}
+			ip |= numericOctet << uint((3-index)*8)
+		}
+	}
+	return ip
 }
 
 //ModalParse Neat command argument parsing function with support for single-quotes, ported from Java

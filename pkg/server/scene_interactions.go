@@ -147,8 +147,12 @@ func init() {
 			log.Info.Println("Object not found.")
 			return
 		}
-		c.player.RunDistancedAction(&object.Location, func() {
-			objectAction(c, object, false)
+		c.player.QueueDistancedAction(func() bool {
+			if c.player.WithinRange(&object.Location, 1) {
+				objectAction(c, object, false)
+				return true
+			}
+			return false
 		})
 	}
 	PacketHandlers["objectaction2"] = func(c *Client, p *packets.Packet) {
@@ -159,8 +163,12 @@ func init() {
 			log.Info.Println("Object not found.")
 			return
 		}
-		c.player.RunDistancedAction(&object.Location, func() {
-			objectAction(c, object, true)
+		c.player.QueueDistancedAction(func() bool {
+			if c.player.WithinRange(&object.Location, 1) {
+				objectAction(c, object, true)
+				return true
+			}
+			return false
 		})
 	}
 	PacketHandlers["boundaryaction2"] = func(c *Client, p *packets.Packet) {
@@ -171,8 +179,12 @@ func init() {
 			log.Info.Println("Boundary not found.")
 			return
 		}
-		c.player.RunDistancedAction(&object.Location, func() {
-			boundaryAction(c, object, true)
+		c.player.QueueDistancedAction(func() bool {
+			if c.player.WithinRange(&object.Location, 1) {
+				boundaryAction(c, object, true)
+				return true
+			}
+			return false
 		})
 	}
 	PacketHandlers["boundaryaction"] = func(c *Client, p *packets.Packet) {
@@ -183,8 +195,12 @@ func init() {
 			log.Info.Println("Boundary not found.")
 			return
 		}
-		c.player.RunDistancedAction(&object.Location, func() {
-			boundaryAction(c, object, false)
+		c.player.QueueDistancedAction(func() bool {
+			if c.player.WithinRange(&object.Location, 1) {
+				boundaryAction(c, object, false)
+				return true
+			}
+			return false
 		})
 	}
 	PacketHandlers["dropitem"] = func(c *Client, p *packets.Packet) {
@@ -196,7 +212,7 @@ func init() {
 }
 
 func objectAction(c *Client, object *world.Object, rightClick bool) {
-	c.player.ResetPath()
+//	c.player.ResetPath()
 	if c.player.State != world.MSIdle || world.GetObject(int(object.X.Load()), int(object.Y.Load())) != object || !c.player.WithinRange(&object.Location, 1) {
 		// If somehow we became busy, the object changed before arriving, or somehow this action fired without actually arriving at the object, we do nothing.
 		return
@@ -222,7 +238,7 @@ func objectAction(c *Client, object *world.Object, rightClick bool) {
 }
 
 func boundaryAction(c *Client, object *world.Object, rightClick bool) {
-	c.player.ResetPath()
+//	c.player.ResetPath()
 	if c.player.State != world.MSIdle || world.GetObject(int(object.X.Load()), int(object.Y.Load())) != object || !c.player.WithinRange(&object.Location, 1) {
 		// If somehow we became busy, the object changed before arriving, or somehow this action fired without actually arriving at the object, we do nothing.
 		return
