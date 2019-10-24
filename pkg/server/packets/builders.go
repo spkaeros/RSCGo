@@ -144,6 +144,22 @@ func FriendUpdate(hash uint64, online bool) (p *Packet) {
 	return
 }
 
+//TradeUpdate Builds a packet to update a trade offer
+func TradeUpdate(count int, ids []int, amts []int) (p *Packet) {
+	p = NewOutgoingPacket(97)
+	p.AddByte(uint8(count))
+	for i := 0; i < count; i++ {
+		p.AddShort(uint16(ids[i]))
+		p.AddInt(uint32(amts[i]))
+	}
+	return
+}
+
+//TradeOpen Builds a packet to open a trade window
+func TradeOpen(player *world.Player) *Packet {
+	return NewOutgoingPacket(92).AddShort(uint16(player.TradeTarget()))
+}
+
 //ClientSettings Builds a packet containing the players client settings, e.g camera mode, mouse mode, sound fx...
 func ClientSettings(player *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(240)

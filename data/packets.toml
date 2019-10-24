@@ -31,4 +31,5 @@ packets = [
 	{ name = 'pickpocketnpc', opcode = 202},
 	{ name = 'invaction1', opcode = 90},
 	{ name = 'invwield', opcode = 169},
+	{ name = 'tradeupdate', opcode = 46},
 ]

@@ -1,6 +1,7 @@
 package world
 
 import (
+	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"fmt"
 )
 
@@ -101,6 +102,15 @@ func GetObject(x, y int) *Object {
 	}
 
 	return nil
+}
+
+//GetNpc Returns the NPC with the specified server index.
+func GetNpc(index int) *NPC {
+	if index > len(Npcs) - 1 {
+		log.Info.Printf("Index out of bounds in call to GetNpc.  Length:%d, Requested:%d\n", len(Npcs), index)
+		return nil
+	}
+	return Npcs[index]
 }
 
 //getRegionFromIndex internal function to get a region by its row amd column indexes

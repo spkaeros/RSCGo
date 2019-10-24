@@ -23,6 +23,10 @@ const (
 	East
 	//NorthEast Represents north-east.
 	NorthEast
+	//LeftFighting Represents fighting stance on the left hand side
+	LeftFighting
+	//RightFighting Represents fighting stance on the right hand side
+	RightFighting
 	//MaxX Width of the game
 	MaxX = 944
 	//MaxY Height of the game

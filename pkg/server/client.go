@@ -48,6 +48,11 @@ func (c *Client) UpdatePlane() {
 	c.outgoingPackets <- packets.PlaneInfo(c.player)
 }
 
+//TradeOpen Opens a trade window for this client.  Must have this client's player's trade target set, or will cause a disconnect.
+func (c *Client) TradeOpen() {
+	c.outgoingPackets <- packets.TradeOpen(c.player)
+}
+
 //Teleport Moves the client's player to x,y in the game world, and sends a teleport bubble animation packet to all of the view-area clients.
 func (c *Client) Teleport(x, y int) {
 	if !world.WithinWorld(x, y) {
@@ -100,7 +105,7 @@ func (c *Client) StartWriter() {
 			if p == nil {
 				return
 			}
-			c.WritePacket(*p)
+		c.WritePacket(*p)
 		case <-c.Kill:
 			return
 		}
@@ -141,9 +146,9 @@ func (c *Client) destroy(wg *sync.WaitGroup) {
 //ResetUpdateFlags Resets the players movement updating synchronization variables.
 func (c *Client) ResetUpdateFlags() {
 	c.player.TransAttrs.SetVar("self", true)
-	c.player.TransAttrs.SetVar("remove", false)
-	c.player.TransAttrs.SetVar("moved", false)
-	c.player.TransAttrs.SetVar("changed", false)
+	c.player.TransAttrs.UnsetVar("remove")
+	c.player.TransAttrs.UnsetVar("moved")
+	c.player.TransAttrs.UnsetVar("changed")
 }
 
 //UpdatePositions Updates the client about entities in it's view-area (16x16 tiles in the game world surrounding the player).  Should be run every game engine tick.

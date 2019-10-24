@@ -124,6 +124,12 @@ func (m *Mob) SetCoords(x, y uint32) {
 	m.Y.Store(y)
 }
 
+//Teleport Moves the mob to x,y and sets a flag to remove said mob from the local players list of every nearby player.
+func (m *Mob) Teleport(x, y int) {
+	m.SetCoords(uint32(x), uint32(y))
+	m.TransAttrs.SetVar("remove", true)
+}
+
 //AttrList A type alias for a map of strings to empty interfaces, to hold generic mob information for easy serialization and to provide dynamic insertion/deletion of new mob properties easily
 type AttrList map[string]interface{}
 
@@ -227,12 +233,27 @@ func (s *SkillTable) CombatLevel() int {
 //NpcCounter Counts the number of total NPCs within the world.
 var NpcCounter = atomic.NewUint32(0)
 
+//Npcs A collection of every NPC in the game, sorted by index
+var Npcs []*NPC
+
 //NPC Represents a single non-playable character within the game world.
 type NPC struct {
 	Mob
 	ID int
 }
 
+//NewNpc Creates a new NPC and returns a reference to it
 func NewNpc(id int, x int, y int) *NPC {
-	return &NPC{ID: id, Mob: Mob{Entity: Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: Location{X: atomic.NewUint32(uint32(x)), Y: atomic.NewUint32(uint32(y))}}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}}
+	n := &NPC{ID: id, Mob: Mob{Entity: Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: Location{X: atomic.NewUint32(uint32(x)), Y: atomic.NewUint32(uint32(y))}}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}}
+	Npcs = append(Npcs, n)
+	return n
+}
+
+//ResetNpcUpdateFlags Resets the synchronization update flags for all NPCs in the game world.
+func ResetNpcUpdateFlags() {
+	for _, n := range Npcs {
+		n.TransAttrs.UnsetVar("changed")
+		n.TransAttrs.UnsetVar("moved")
+		n.TransAttrs.UnsetVar("remove")
+	}
 }

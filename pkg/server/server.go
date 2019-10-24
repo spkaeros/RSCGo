@@ -280,6 +280,13 @@ func Tick() {
 				c.player.SetPath(world.NewPathwayFromLocation(&followingClient.player.Location))
 			}
 		}
+		var tmpFns []func() bool
+		for _, fn := range c.player.DistancedActions {
+			if !fn() {
+				tmpFns = append(tmpFns, fn)
+			}
+		}
+		c.player.DistancedActions = tmpFns
 		c.player.TraversePath()
 	})
 	Clients.Broadcast(func(c *Client) {
@@ -287,6 +294,7 @@ func Tick() {
 	})
 	Clients.Broadcast(func(c *Client) {
 		c.ResetUpdateFlags()
+		world.ResetNpcUpdateFlags()
 	})
 }
 

@@ -25,7 +25,14 @@ type Player struct {
 	KnownAppearances map[int]int
 	Attributes       *AttributeList
 	Items            *Inventory
+	TradeOffer       *Inventory
+	DistancedActions []func() bool
 	Mob
+}
+
+//QueueDistancedAction Queues a distanced action to run every game engine tick before path traversal, if action returns true, it will be removed from the queue.
+func (p *Player) QueueDistancedAction(action func() bool) {
+	p.DistancedActions = append(p.DistancedActions, action)
 }
 
 //RunDistancedAction Creates a distanced action belonging to this player, that runs action once the player arrives at dest, or cancels if we become busy, or we become unreasonably far from dest.
@@ -313,10 +320,19 @@ func (p *Player) SetCoords(x, y int) {
 	p.Mob.SetCoords(uint32(x), uint32(y))
 }
 
-//Teleport Moves the player to x,y and sets a flag to remove said player from the local players list of every nearby player.
-func (p *Player) Teleport(x, y int) {
-	p.SetCoords(x, y)
-	p.TransAttrs.SetVar("remove", true)
+//SetTradeTarget Sets the variable for the index of the player we are trying to trade
+func (p *Player) SetTradeTarget(index int) {
+	p.TransAttrs.SetVar("tradetarget", index)
+}
+
+//ResetTrade Resets trade-related variables.
+func (p *Player) ResetTrade() {
+	p.TransAttrs.UnsetVar("tradetarget")
+}
+
+//TradeTarget Returns the server index of the player we are trying to trade with, or -1 if we have not made a trade request.
+func (p *Player) TradeTarget() int {
+	return p.TransAttrs.VarInt("tradetarget", -1)
 }
 
 //EnterDoor Replaces door object with an open door, sleeps for one second, and returns the closed door.
@@ -329,5 +345,5 @@ func (p *Player) EnterDoor(oldDoor *Object, dest *Location) {
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer() *Player {
-	return &Player{Mob: Mob{Entity: Entity{Index: -1, Location: Location{atomic.NewUint32(0),atomic.NewUint32(0)}}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})}, LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30}}
+	return &Player{Mob: Mob{Entity: Entity{Index: -1, Location: Location{atomic.NewUint32(0),atomic.NewUint32(0)}}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})}, LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}}
 }

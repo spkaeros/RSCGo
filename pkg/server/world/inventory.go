@@ -42,3 +42,10 @@ func (i *Inventory) Remove(index int) bool {
 	i.List = i.List[:len(i.List)-1]
 	return true
 }
+
+//Clear Clears all items out of the inventory.
+func (i *Inventory) Clear() {
+	for idx := 0; idx < len(i.List); idx++ {
+		i.Remove(idx)
+	}
+}
