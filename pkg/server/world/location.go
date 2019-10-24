@@ -54,8 +54,8 @@ type Location struct {
 var DeathSpot = NewLocation(0, 0)
 
 //NewLocation Returns a reference to a new instance of the Location data structure.
-func NewLocation(x, y int) *Location {
-	return &Location{X: atomic.NewUint32(uint32(x)), Y: atomic.NewUint32(uint32(y))}
+func NewLocation(x, y int) Location {
+	return Location{X: atomic.NewUint32(uint32(x)), Y: atomic.NewUint32(uint32(y))}
 }
 
 //String Returns a string representation of the location
