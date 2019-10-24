@@ -14,7 +14,7 @@ func init() {
 			return
 		}
 		c.player.QueueDistancedAction(func() bool {
-			if c.player.WithinRange(&npc.Location, 1) {
+			if c.player.WithinRange(npc.Location, 1) {
 				c.player.ResetPath()
 				npc.ResetPath()
 				c.player.Teleport(int(npc.Location.X.Load()), int(npc.Location.Y.Load()))

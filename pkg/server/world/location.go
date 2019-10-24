@@ -80,7 +80,7 @@ func (l *Location) Equals(o interface{}) bool {
 }
 
 //DeltaX Returns the difference between this locations X coord and the other locations X coord
-func (l *Location) DeltaX(other *Location) (deltaX uint32) {
+func (l *Location) DeltaX(other Location) (deltaX uint32) {
 	ourX := l.X.Load()
 	theirX := other.X.Load()
 	if ourX > theirX {
@@ -92,7 +92,7 @@ func (l *Location) DeltaX(other *Location) (deltaX uint32) {
 }
 
 //DeltaY Returns the difference between this locations Y coord and the other locations Y coord
-func (l *Location) DeltaY(other *Location) (deltaY uint32) {
+func (l *Location) DeltaY(other Location) (deltaY uint32) {
 	ourY := l.Y.Load()
 	theirY := other.Y.Load()
 	if ourY > theirY {
@@ -104,7 +104,7 @@ func (l *Location) DeltaY(other *Location) (deltaY uint32) {
 }
 
 //LongestDelta Returns the largest difference in coordinates between receiver and other
-func (l *Location) LongestDelta(other *Location) uint32 {
+func (l *Location) LongestDelta(other Location) uint32 {
 	deltaX, deltaY := l.DeltaX(other), l.DeltaY(other)
 	if deltaX > deltaY {
 		return deltaX
@@ -113,7 +113,7 @@ func (l *Location) LongestDelta(other *Location) uint32 {
 }
 
 //WithinRange Returns true if the other location is within radius tiles of the receiver location, otherwise false.
-func (l *Location) WithinRange(other *Location, radius int) bool {
+func (l *Location) WithinRange(other Location, radius int) bool {
 	return int(l.LongestDelta(other)) <= radius
 }
 

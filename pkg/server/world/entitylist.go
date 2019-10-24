@@ -32,7 +32,7 @@ func (l *List) NearbyPlayers(p *Player) []*Player {
 	defer l.lock.RUnlock()
 	var players []*Player
 	for _, v := range l.List {
-		if v, ok := v.(*Player); ok && v.Index != p.Index && p.LongestDelta(&v.Location) <= 15 {
+		if v, ok := v.(*Player); ok && v.Index != p.Index && p.LongestDelta(v.Location) <= 15 {
 			players = append(players, v)
 		}
 	}
@@ -45,7 +45,7 @@ func (l *List) NearbyNPCs(p *Player) []*NPC {
 	defer l.lock.RUnlock()
 	var npcs []*NPC
 	for _, v := range l.List {
-		if v, ok := v.(*NPC); ok && p.LongestDelta(&v.Location) <= 15 {
+		if v, ok := v.(*NPC); ok && p.LongestDelta(v.Location) <= 15 {
 			npcs = append(npcs, v)
 		}
 	}
@@ -58,7 +58,7 @@ func (l *List) RemovingPlayers(p *Player) []*Player {
 	defer l.lock.RUnlock()
 	var players []*Player
 	for _, v := range l.List {
-		if v, ok := v.(*Player); ok && v.Index != p.Index && p.LongestDelta(&v.Location) > 15 {
+		if v, ok := v.(*Player); ok && v.Index != p.Index && p.LongestDelta(v.Location) > 15 {
 			players = append(players, p)
 		}
 	}
@@ -71,7 +71,7 @@ func (l *List) NearbyObjects(p *Player) []*Object {
 	defer l.lock.RUnlock()
 	var objects []*Object
 	for _, o1 := range l.List {
-		if o1, ok := o1.(*Object); ok && p.LongestDelta(&o1.Location) <= 20 {
+		if o1, ok := o1.(*Object); ok && p.LongestDelta(o1.Location) <= 20 {
 			objects = append(objects, o1)
 		}
 	}
@@ -84,7 +84,7 @@ func (l *List) RemovingObjects(p *Player) []*Object {
 	defer l.lock.RUnlock()
 	var objects []*Object
 	for _, o1 := range l.List {
-		if o1, ok := o1.(*Object); ok && p.LongestDelta(&o1.Location) > 20 {
+		if o1, ok := o1.(*Object); ok && p.LongestDelta(o1.Location) > 20 {
 			objects = append(objects, o1)
 		}
 	}

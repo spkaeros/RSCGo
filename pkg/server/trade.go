@@ -17,7 +17,7 @@ func init() {
 		if c.player.IsFighting() {
 			return
 		}
-		if !c.player.WithinRange(&c1.player.Location, 16) || c.player.Busy() {
+		if !c.player.WithinRange(c1.player.Location, 16) || c.player.Busy() {
 			// TODO: Reasonably, 16 is really too far.  Visibly I think 5 or 6 tiles surrounding players is visible
 			return
 		}

@@ -36,7 +36,8 @@ func (p *Player) QueueDistancedAction(action func() bool) {
 }
 
 //RunDistancedAction Creates a distanced action belonging to this player, that runs action once the player arrives at dest, or cancels if we become busy, or we become unreasonably far from dest.
-func (p *Player) RunDistancedAction(dest *Location, action func()) {
+// Deprecated: May remove
+func (p *Player) RunDistancedAction(dest Location, action func()) {
 	go func() {
 		ticker := time.NewTicker(100 * time.Millisecond)
 		defer ticker.Stop()
