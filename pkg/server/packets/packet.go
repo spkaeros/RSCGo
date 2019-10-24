@@ -57,31 +57,27 @@ func NewBarePacket(src []byte) *Packet {
 	return &Packet{0, src, true, 0, 0, 0}
 }
 
-//ReadLong Read the next 64-bit integer from the packet payload.
-func (p *Packet) ReadLong() uint64 {
+func (p *Packet) readVarLengthInt(numBytes int) uint64 {
 	var val uint64
-	for i := 7; i >= 0; i-- {
+	for i := numBytes-1; i >= 0; i-- {
 		val |= uint64(p.ReadByte()) << uint(i*8)
 	}
 	return val
 }
 
+//ReadLong Read the next 64-bit integer from the packet payload.
+func (p *Packet) ReadLong() uint64 {
+	return p.readVarLengthInt(8)
+}
+
 //ReadInt Read the next 32-bit integer from the packet payload.
 func (p *Packet) ReadInt() int {
-	var val uint32
-	for i := 3; i >= 0; i-- {
-		val |= uint32(p.ReadByte()) << uint(i*8)
-	}
-	return int(val)
+	return int(p.readVarLengthInt(4))
 }
 
 //ReadShort Read the next 16-bit integer from the packet payload.
 func (p *Packet) ReadShort() int {
-	var val uint16
-	for i := 1; i >= 0; i-- {
-		val |= uint16(p.ReadByte()) << uint(i*8)
-	}
-	return int(val)
+	return int(p.readVarLengthInt(2))
 }
 
 //ReadBool Reads the next byte, if it is 1 returns true, else returns false.

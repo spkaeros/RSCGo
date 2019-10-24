@@ -66,9 +66,7 @@ func (m *Mob) SetPath(path *Pathway) {
 
 //ResetPath Sets the mobs path to nil, to stop the traversal of the path instantly
 func (m *Mob) ResetPath() {
-	m.PathLock.Lock()
-	m.Path = nil
-	m.PathLock.Unlock()
+	m.SetPath(nil)
 }
 
 //TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
