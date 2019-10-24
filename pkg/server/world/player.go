@@ -3,6 +3,7 @@ package world
 import (
 	"go.uber.org/atomic"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -27,12 +28,15 @@ type Player struct {
 	Items            *Inventory
 	TradeOffer       *Inventory
 	DistancedActions []func() bool
+	ActionLock       sync.RWMutex
 	Mob
 }
 
 //QueueDistancedAction Queues a distanced action to run every game engine tick before path traversal, if action returns true, it will be removed from the queue.
 func (p *Player) QueueDistancedAction(action func() bool) {
+	p.ActionLock.Lock()
 	p.DistancedActions = append(p.DistancedActions, action)
+	p.ActionLock.Unlock()
 }
 
 //RunDistancedAction Creates a distanced action belonging to this player, that runs action once the player arrives at dest, or cancels if we become busy, or we become unreasonably far from dest.

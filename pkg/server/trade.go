@@ -173,16 +173,14 @@ func init() {
 			c.outgoingPackets <- packets.TradeClose
 			return
 		}
-		defer func() {
-			c.outgoingPackets <- packets.TradeClose
-			c.player.ResetTrade()
-			c.player.State = world.MSIdle
-			c1.outgoingPackets <- packets.TradeClose
-			c1.player.ResetTrade()
-			c1.player.State = world.MSIdle
-		}()
 		if c1.player.State != world.MSTrading || c1.player.TradeTarget() != c.Index || c.player.TradeTarget() != c1.Index || !c1.player.TransAttrs.VarBool("trade1accept", false) {
 			log.Suspicious.Printf("Players{ 1:['%v'@'%v'];2:['%v'@'%v'] } involved in trade with apparently bad trade variables!\n", c.player.Username, c.ip, c1.player.Username, c1.ip)
+			c.player.ResetTrade()
+			c.player.State = world.MSIdle
+			c1.player.ResetTrade()
+			c1.player.State = world.MSIdle
+			c.outgoingPackets <- packets.TradeClose
+			c1.outgoingPackets <- packets.TradeClose
 			return
 		}
 		c.player.TransAttrs.SetVar("trade2accept", true)
@@ -193,17 +191,35 @@ func init() {
 			theirAvailSlots := c1.player.Items.Capacity - c1.player.Items.Size() + c1.player.TradeOffer.Size()
 			if theirNeededSlots > theirAvailSlots {
 				c.Message("The other player does not have room to accept your items.")
+				c.player.ResetTrade()
+				c.player.State = world.MSIdle
 				c1.Message("You do not have room in your inventory to hold those items.")
+				c1.player.ResetTrade()
+				c1.player.State = world.MSIdle
+				c.outgoingPackets <- packets.TradeClose
+				c1.outgoingPackets <- packets.TradeClose
 				return
 			}
 			if neededSlots > availSlots {
 				c.Message("You do not have room in your inventory to hold those items.")
+				c.player.ResetTrade()
+				c.player.State = world.MSIdle
 				c1.Message("The other player does not have room to accept your items.")
+				c1.player.ResetTrade()
+				c1.player.State = world.MSIdle
+				c.outgoingPackets <- packets.TradeClose
+				c1.outgoingPackets <- packets.TradeClose
 				return
 			}
 			defer func() {
 				c.outgoingPackets <- packets.InventoryItems(c.player)
+				c.outgoingPackets <- packets.TradeClose
+				c.player.ResetTrade()
+				c.player.State = world.MSIdle
 				c1.outgoingPackets <- packets.InventoryItems(c1.player)
+				c1.outgoingPackets <- packets.TradeClose
+				c1.player.ResetTrade()
+				c1.player.State = world.MSIdle
 			}()
 			if c.player.Items.RemoveAll(c.player.TradeOffer) != c.player.TradeOffer.Size() {
 				log.Suspicious.Printf("Players{ 1:['%v'@'%v'];2:['%v'@'%v'] } involved in a trade, player 1 did not have all items to give.", c.player.Username, c.ip, c1.player.Username, c1.ip)

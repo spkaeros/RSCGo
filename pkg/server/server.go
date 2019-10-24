@@ -281,12 +281,14 @@ func Tick() {
 			}
 		}
 		var tmpFns []func() bool
+		c.player.ActionLock.Lock()
 		for _, fn := range c.player.DistancedActions {
 			if !fn() {
 				tmpFns = append(tmpFns, fn)
 			}
 		}
 		c.player.DistancedActions = tmpFns
+		c.player.ActionLock.Unlock()
 		c.player.TraversePath()
 	})
 	Clients.Broadcast(func(c *Client) {

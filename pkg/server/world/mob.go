@@ -233,6 +233,7 @@ var NpcCounter = atomic.NewUint32(0)
 
 //Npcs A collection of every NPC in the game, sorted by index
 var Npcs []*NPC
+var npcsLock sync.RWMutex
 
 //NPC Represents a single non-playable character within the game world.
 type NPC struct {
@@ -243,15 +244,19 @@ type NPC struct {
 //NewNpc Creates a new NPC and returns a reference to it
 func NewNpc(id int, x int, y int) *NPC {
 	n := &NPC{ID: id, Mob: Mob{Entity: Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: Location{X: atomic.NewUint32(uint32(x)), Y: atomic.NewUint32(uint32(y))}}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}}
+	npcsLock.Lock()
 	Npcs = append(Npcs, n)
+	npcsLock.Unlock()
 	return n
 }
 
 //ResetNpcUpdateFlags Resets the synchronization update flags for all NPCs in the game world.
 func ResetNpcUpdateFlags() {
+	npcsLock.RLock()
 	for _, n := range Npcs {
 		n.TransAttrs.UnsetVar("changed")
 		n.TransAttrs.UnsetVar("moved")
 		n.TransAttrs.UnsetVar("remove")
 	}
+	npcsLock.RUnlock()
 }
