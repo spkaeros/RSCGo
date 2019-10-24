@@ -19,10 +19,11 @@ world_db = "world.db"
 # Length of hash output
 hash_length = 32
 # How many passes to do over the memory
-hash_complexity = 1
+hash_complexity = 15
 # How much memory to use, in MiB
-hash_memory = 64
+hash_memory = 8
 # Salt to make hash output unique
 hash_salt = 'rscgo./GOLANG!RULES/.1994'
+
 # The RSA key file, for decrypting the login/newplayer blocks.
 rsa_key = 'rsa.der'
