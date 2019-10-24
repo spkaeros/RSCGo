@@ -145,13 +145,15 @@ func FriendUpdate(hash uint64, online bool) (p *Packet) {
 }
 
 //TradeUpdate Builds a packet to update a trade offer
-func TradeUpdate(count int, ids []int, amts []int) (p *Packet) {
+func TradeUpdate(player *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(97)
-	p.AddByte(uint8(count))
-	for i := 0; i < count; i++ {
-		p.AddShort(uint16(ids[i]))
-		p.AddInt(uint32(amts[i]))
+	player.TradeOffer.Lock.RLock()
+	p.AddByte(uint8(len(player.TradeOffer.List)))
+	for _, item := range player.TradeOffer.List {
+		p.AddShort(uint16(item.ID))
+		p.AddInt(uint32(item.Amount))
 	}
+	player.TradeOffer.Lock.RUnlock()
 	return
 }
 
@@ -181,17 +183,21 @@ func TradeConfirmationOpen(player, other *world.Player) *Packet {
 	p := NewOutgoingPacket(20)
 	p.AddLong(other.UserBase37)
 
+	other.TradeOffer.Lock.RLock()
 	p.AddByte(uint8(len(other.TradeOffer.List)))
 	for _, item := range other.TradeOffer.List {
 		p.AddShort(uint16(item.ID))
 		p.AddInt(uint32(item.Amount))
 	}
+	other.TradeOffer.Lock.RUnlock()
 
+	player.TradeOffer.Lock.RLock()
 	p.AddByte(uint8(len(player.TradeOffer.List)))
 	for _, item := range player.TradeOffer.List {
 		p.AddShort(uint16(item.ID))
 		p.AddInt(uint32(item.Amount))
 	}
+	player.TradeOffer.Lock.RUnlock()
 	return p
 }
 

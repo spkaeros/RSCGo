@@ -338,6 +338,11 @@ func (p *Player) TradeTarget() int {
 	return p.TransAttrs.VarInt("tradetarget", -1)
 }
 
+func (p *Player) IsFighting() bool {
+	sprite := p.Direction() // Prevent locking too frequently
+	return sprite == LeftFighting || sprite == RightFighting
+}
+
 //EnterDoor Replaces door object with an open door, sleeps for one second, and returns the closed door.
 func (p *Player) EnterDoor(oldDoor *Object, dest *Location) {
 	newDoor := ReplaceObject(oldDoor, 11)
