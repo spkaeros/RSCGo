@@ -30,6 +30,9 @@ var ChangeAppearance = NewOutgoingPacket(59)
 //CannotLogout Message that you can not logout right now.
 var CannotLogout = NewOutgoingPacket(183)
 
+//TradeClose Closes a trade window
+var TradeClose = NewOutgoingPacket(128)
+
 //Logout Resets client to login welcome screen
 var Logout = NewOutgoingPacket(4)
 

@@ -160,6 +160,41 @@ func TradeOpen(player *world.Player) *Packet {
 	return NewOutgoingPacket(92).AddShort(uint16(player.TradeTarget()))
 }
 
+//TradeTargetAccept Builds a packet to change trade targets accepted status
+func TradeTargetAccept(accepted bool) *Packet {
+	if accepted {
+		return NewOutgoingPacket(162).AddByte(1)
+	}
+	return NewOutgoingPacket(162).AddByte(0)
+}
+
+//TradeAccept Builds a packet to change trade targets accepted status
+func TradeAccept(accepted bool) *Packet {
+	if accepted {
+		return NewOutgoingPacket(15).AddByte(1)
+	}
+	return NewOutgoingPacket(15).AddByte(0)
+}
+
+//TradeConfirmationOpen Builds a packet to open the trade confirmation page
+func TradeConfirmationOpen(player, other *world.Player) *Packet {
+	p := NewOutgoingPacket(20)
+	p.AddLong(other.UserBase37)
+
+	p.AddByte(uint8(len(other.TradeOffer.List)))
+	for _, item := range other.TradeOffer.List {
+		p.AddShort(uint16(item.ID))
+		p.AddInt(uint32(item.Amount))
+	}
+
+	p.AddByte(uint8(len(player.TradeOffer.List)))
+	for _, item := range player.TradeOffer.List {
+		p.AddShort(uint16(item.ID))
+		p.AddInt(uint32(item.Amount))
+	}
+	return p
+}
+
 //ClientSettings Builds a packet containing the players client settings, e.g camera mode, mouse mode, sound fx...
 func ClientSettings(player *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(240)

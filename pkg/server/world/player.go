@@ -328,6 +328,9 @@ func (p *Player) SetTradeTarget(index int) {
 //ResetTrade Resets trade-related variables.
 func (p *Player) ResetTrade() {
 	p.TransAttrs.UnsetVar("tradetarget")
+	p.TransAttrs.UnsetVar("trade1accept")
+	p.TransAttrs.UnsetVar("trade2accept")
+	p.TradeOffer.Clear()
 }
 
 //TradeTarget Returns the server index of the player we are trying to trade with, or -1 if we have not made a trade request.

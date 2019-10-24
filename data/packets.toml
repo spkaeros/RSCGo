@@ -32,4 +32,7 @@ packets = [
 	{ name = 'invaction1', opcode = 90},
 	{ name = 'invwield', opcode = 169},
 	{ name = 'tradeupdate', opcode = 46},
+	{ name = 'tradedecline', opcode = 230},
+	{ name = 'tradeaccept', opcode = 55},
+	{ name = 'tradeconfirmaccept', opcode = 104},
 ]
