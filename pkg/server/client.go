@@ -55,7 +55,7 @@ func (c *Client) TradeOpen() {
 
 //OpenAppearanceChangePanel Sends a packet to open the player appearance changing panel on the client.
 func (c *Client) OpenAppearanceChangePanel() {
-	c.outgoingPackets <- packets.NewOutgoingPacket(59)
+	c.outgoingPackets <- packets.ChangeAppearance
 }
 
 //Teleport Moves the client's player to x,y in the game world, and sends a teleport bubble animation packet to all of the view-area clients.
@@ -233,6 +233,7 @@ func (c *Client) sendLoginResponse(i byte) {
 		c.outgoingPackets <- packets.FriendList(c.player)
 		c.outgoingPackets <- packets.IgnoreList(c.player)
 		c.outgoingPackets <- packets.ClientSettings(c.player)
+		c.outgoingPackets <- packets.PrivacySettings(c.player)
 		c.outgoingPackets <- packets.WelcomeMessage
 		c.outgoingPackets <- packets.PlaneInfo(c.player)
 		c.outgoingPackets <- packets.LoginBox(0, c.ip)

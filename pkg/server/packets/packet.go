@@ -1,9 +1,8 @@
 package packets
 
 import (
+	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"fmt"
-	"log"
-	"os"
 	"strconv"
 )
 
@@ -20,27 +19,6 @@ type Packet struct {
 	bitPosition int
 	length      int
 }
-
-//ResponsePong Response to a RSC protocol ping packet
-var ResponsePong = NewOutgoingPacket(9)
-
-//ChangeAppearance The appearance changing window.
-var ChangeAppearance = NewOutgoingPacket(59)
-
-//CannotLogout Message that you can not logout right now.
-var CannotLogout = NewOutgoingPacket(183)
-
-//TradeClose Closes a trade window
-var TradeClose = NewOutgoingPacket(128)
-
-//Logout Resets client to login welcome screen
-var Logout = NewOutgoingPacket(4)
-
-//Death The 'Oh dear...You are dead' fade-to-black graphic effect when you die.
-var Death = NewOutgoingPacket(83)
-
-//LogWarning An output log for warnings.
-var LogWarning = log.New(os.Stdout, "[WARNING] ", log.Ltime|log.Lshortfile)
 
 //NewPacket Creates a new packet instance.
 func NewPacket(opcode byte, payload []byte) *Packet {
@@ -95,7 +73,7 @@ func (p *Packet) checkError(err error) bool {
 //ReadByte Read the next 8-bit integer from the packet payload.
 func (p *Packet) ReadByte() byte {
 	if p.readIndex+1 > len(p.Payload) {
-		LogWarning.Println("Error parsing packet arguments: { opcode=" + strconv.Itoa(int(p.Opcode)) + "; offset=" + strconv.Itoa(p.readIndex) + " };")
+		log.Warning.Println("Error parsing packet arguments: { opcode=" + strconv.Itoa(int(p.Opcode)) + "; offset=" + strconv.Itoa(p.readIndex) + " };")
 		return byte(0)
 	}
 	defer func() {
@@ -107,7 +85,7 @@ func (p *Packet) ReadByte() byte {
 //ReadSByte Read the next 8-bit integer from the packet payload, as a signed byte.
 func (p *Packet) ReadSByte() int8 {
 	if p.readIndex+1 > len(p.Payload) {
-		LogWarning.Println("Error parsing packet arguments: { opcode=" + strconv.Itoa(int(p.Opcode)) + "; offset=" + strconv.Itoa(p.readIndex) + " };")
+		log.Warning.Println("Error parsing packet arguments: { opcode=" + strconv.Itoa(int(p.Opcode)) + "; offset=" + strconv.Itoa(p.readIndex) + " };")
 		return int8(0)
 	}
 	defer func() {
@@ -162,6 +140,16 @@ func (p *Packet) AddInt2(i uint32) *Packet {
 //AddShort Adds a 16-bit integer to the packet payload.
 func (p *Packet) AddShort(s uint16) *Packet {
 	p.Payload = append(p.Payload, byte(s>>8), byte(s))
+	return p
+}
+
+//AddBool Adds a single byte to the payload, with the value 1 if b is true, and 0 if b is false.
+func (p *Packet) AddBool(b bool) *Packet {
+	if b {
+		p.Payload = append(p.Payload, 1)
+		return p
+	}
+	p.Payload = append(p.Payload, 0)
 	return p
 }
 
