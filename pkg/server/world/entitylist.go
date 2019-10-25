@@ -11,7 +11,7 @@ type Entity struct {
 }
 
 //AtLocation Returns true if the entity is at the specified location, otherwise returns false
-func (e *Entity) AtLocation(location *Location) bool {
+func (e *Entity) AtLocation(location Location) bool {
 	return e.AtCoords(location.X.Load(), location.Y.Load())
 }
 
@@ -76,6 +76,19 @@ func (l *List) NearbyObjects(p *Player) []*Object {
 		}
 	}
 	return objects
+}
+
+//NearbyItems Might remove
+func (l *List) NearbyItems(p *Player) []*GroundItem {
+	l.lock.RLock()
+	defer l.lock.RUnlock()
+	var items []*GroundItem
+	for _, i := range l.List {
+		if i, ok := i.(*GroundItem); ok && i.VisibleTo(p) && p.WithinRange(i.Location, 21) {
+			items = append(items, i)
+		}
+	}
+	return items
 }
 
 //RemovingObjects Might remove

@@ -205,8 +205,12 @@ func init() {
 	}
 	PacketHandlers["dropitem"] = func(c *Client, p *packets.Packet) {
 		index := p.ReadShort()
-		if c.player.Items.Remove(index) {
-			c.outgoingPackets <- packets.InventoryItems(c.player)
+		item := c.player.Items.Get(index)
+		if item != nil {
+			if c.player.Items.Remove(index) {
+				world.AddItem(world.NewGroundItemFrom(c.player.UserBase37, item.ID, item.Amount, int(c.player.X.Load()), int(c.player.Y.Load())))
+				c.outgoingPackets <- packets.InventoryItems(c.player)
+			}
 		}
 	}
 }

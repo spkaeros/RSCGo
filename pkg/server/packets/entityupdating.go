@@ -144,7 +144,7 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 	appearanceList = append(appearanceList, ourPlayer.AppearanceReq...)
 	ourPlayer.AppearanceReq = ourPlayer.AppearanceReq[:0]
 	ourPlayer.AppearanceLock.Unlock()
-	for _, p1 := range ourPlayer.LocalPlayers.List {
+/*	for _, p1 := range ourPlayer.LocalPlayers.List {
 		if p1, ok := p1.(*world.Player); ok {
 			ourPlayer.AppearanceLock.RLock()
 			if ticket, ok := ourPlayer.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket {
@@ -152,7 +152,7 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 			}
 			ourPlayer.AppearanceLock.RUnlock()
 		}
-	}
+	}*/
 	if len(appearanceList) <= 0 {
 		return nil
 	}
@@ -250,6 +250,41 @@ func BoundaryLocations(player *world.Player) (p *Packet) {
 		p.AddByte(byte(o.Y.Load() - player.Y.Load()))
 		p.AddByte(byte(o.Direction))
 		player.LocalObjects.Add(o)
+		counter++
+	}
+	if counter == 0 {
+		return nil
+	}
+	return
+}
+
+//ItemLocations Builds a packet with the view-area item positions in it, relative to the player.
+// If no new items are available and no existing items are removed from area, returns nil.
+func ItemLocations(player *world.Player) (p *Packet) {
+	counter := 0
+	p = NewOutgoingPacket(99)
+	for _, i := range player.LocalItems.List {
+		if i, ok := i.(*world.GroundItem); ok {
+			if !player.WithinRange(i.Location, 21) {
+				p.AddByte(255)
+				p.AddByte(byte(i.X.Load() - player.X.Load()))
+				p.AddByte(byte(i.Y.Load() - player.Y.Load()))
+				player.LocalItems.Remove(i)
+				counter++
+			} else if !i.VisibleTo(player) {
+				p.AddShort(uint16(i.ID + 0x8000)) // + 32768
+				p.AddByte(byte(i.X.Load() - player.X.Load()))
+				p.AddByte(byte(i.Y.Load() - player.Y.Load()))
+				player.LocalItems.Remove(i)
+				counter++
+			}
+		}
+	}
+	for _, i := range player.NewItems() {
+		p.AddShort(uint16(i.ID))
+		p.AddByte(byte(i.X.Load() - player.X.Load()))
+		p.AddByte(byte(i.Y.Load() - player.Y.Load()))
+		player.LocalItems.Add(i)
 		counter++
 	}
 	if counter == 0 {

@@ -2,7 +2,10 @@ package world
 
 import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
+	"bitbucket.org/zlacki/rscgo/pkg/strutil"
+	"go.uber.org/atomic"
 	"sync"
+	"time"
 )
 
 //Item Represents a single item in the game.
@@ -14,8 +17,56 @@ type Item struct {
 
 //GroundItem Represents a single ground item within the game.
 type GroundItem struct {
+	owner uint64
+	removed bool
+	spawnTime time.Time
+	lock sync.RWMutex
 	Item
 	Entity
+}
+
+var itemIndexer = atomic.NewUint32(0)
+
+//NewGroundItem Creates a new ground item in the game world and returns a reference to it.
+func NewGroundItem(id, amount, x, y int) *GroundItem {
+	return &GroundItem{owner: strutil.MaxBase37 + 5000, spawnTime: time.Now(), removed: false,
+		Item: Item{
+			ID: id,
+			Amount: amount,
+		}, Entity: Entity{
+			Location: NewLocation(x, y),
+			Index: int(itemIndexer.Swap(itemIndexer.Load() + 1)),
+		},
+	}
+}
+
+//NewGroundItemFrom Creates a new ground item with an owner in the game world and returns a reference to it.
+func NewGroundItemFrom(owner uint64, id, amount, x, y int) *GroundItem {
+	gi := &GroundItem{owner: owner, spawnTime: time.Now(), removed: false,
+		Item: Item{
+			ID: id,
+			Amount: amount,
+		}, Entity: Entity{
+			Location: NewLocation(x, y),
+			Index: int(itemIndexer.Swap(itemIndexer.Load() + 1)),
+		},
+	}
+	go func() {
+		time.Sleep(time.Minute * 3)
+		gi.removed = true
+		//RemoveItem(gi)
+	}()
+	return gi
+}
+
+func (i *GroundItem) VisibleTo(p *Player) bool {
+	if i.removed {
+		return false
+	}
+	if i.owner > strutil.MaxBase37 || p.UserBase37 == i.owner || p.Rank == 2 {
+		return true
+	}
+	return time.Since(i.spawnTime) > time.Minute
 }
 
 //Inventory Represents an inventory of items in the game.

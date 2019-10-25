@@ -21,6 +21,7 @@ type Region struct {
 	Players *List
 	NPCs    *List
 	Objects *List
+	Items   *List
 }
 
 var regions [HorizontalPlanes][VerticalPlanes]*Region
@@ -48,6 +49,16 @@ func AddNpc(n *NPC) {
 //RemoveNpc Remove a NPC from the region.
 func RemoveNpc(n *NPC) {
 	GetRegion(int(n.X.Load()), int(n.Y.Load())).NPCs.Remove(n)
+}
+
+//AddItem Add a ground item to the region.
+func AddItem(i *GroundItem) {
+	GetRegion(int(i.X.Load()), int(i.Y.Load())).Items.Add(i)
+}
+
+//RemoveItem Remove a ground item to the region.
+func RemoveItem(i *GroundItem) {
+	GetRegion(int(i.X.Load()), int(i.Y.Load())).Items.Remove(i)
 }
 
 //AddObject Add an object to the region.
@@ -120,17 +131,17 @@ func getRegionFromIndex(areaX, areaY int) *Region {
 	}
 	if areaX >= HorizontalPlanes {
 		fmt.Println("planeX index out of range")
-		return &Region{&List{}, &List{}, &List{}}
+		return &Region{&List{}, &List{}, &List{}, &List{}}
 	}
 	if areaY < 0 {
 		areaY = 0
 	}
 	if areaY >= VerticalPlanes {
 		fmt.Println("planeY index out of range")
-		return &Region{&List{}, &List{}, &List{}}
+		return &Region{&List{}, &List{}, &List{}, &List{}}
 	}
 	if regions[areaX][areaY] == nil {
-		regions[areaX][areaY] = &Region{&List{}, &List{}, &List{}}
+		regions[areaX][areaY] = &Region{&List{}, &List{}, &List{}, &List{}}
 	}
 	return regions[areaX][areaY]
 }

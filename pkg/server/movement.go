@@ -58,7 +58,7 @@ func init() {
 				c.player.ResetPath()
 			} else if c.player.FinishedPath() && !c.player.WithinRange(affectedClient.player.Location, 2) {
 				// We're not moving, but our target is moving away, so we must try to get closer
-				c.player.SetPath(world.NewPathwayFromLocation(&affectedClient.player.Location))
+				c.player.SetPath(world.NewPathwayFromLocation(affectedClient.player.Location))
 			}
 			return false
 		})

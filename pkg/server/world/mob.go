@@ -111,7 +111,7 @@ func (m *Mob) UpdateDirection(destX, destY uint32) {
 }
 
 //SetLocation Sets the mobs location.
-func (m *Mob) SetLocation(location *Location) {
+func (m *Mob) SetLocation(location Location) {
 	m.SetCoords(location.X.Load(), location.Y.Load())
 }
 

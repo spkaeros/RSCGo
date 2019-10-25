@@ -64,7 +64,7 @@ func (l *Location) String() string {
 }
 
 //WithinWorld Returns true if the tile at x,y is within world boundaries, false otherwise.
-func (l *Location) WithinWorld() bool {
+func (l Location) WithinWorld() bool {
 	return l.X.Load() <= MaxX && l.Y.Load() <= MaxY
 }
 
