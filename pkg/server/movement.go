@@ -42,21 +42,39 @@ func init() {
 			return
 		}
 		c.player.SetFollowing(playerID)
+		c.Message("@que@Following " + affectedClient.player.Username)
 		c.player.QueueDistancedAction(func() bool {
 			if !c.player.IsFollowing() {
+				// Following target no longer exists
 				return true
 			}
-			followingClient, ok := Clients.FromIndex(c.player.FollowIndex())
-			if followingClient == nil || !ok || !c.player.Location.WithinRange(followingClient.player.Location, 15) {
+			if affectedClient == nil || !c.player.Location.WithinRange(affectedClient.player.Location, 16) {
+				// We think we have a target, but they're miles away now or no longer exist
 				c.player.ResetFollowing()
 				return true
-			} else if !c.player.FinishedPath() && c.player.WithinRange(followingClient.player.Location, 2) {
+			}
+			if !c.player.FinishedPath() && c.player.WithinRange(affectedClient.player.Location, 2) {
+				// We're not done moving toward our target, but we're close enough that we should stop
 				c.player.ResetPath()
-			} else if c.player.FinishedPath() && !c.player.WithinRange(followingClient.player.Location, 2) {
-				c.player.SetPath(world.NewPathwayFromLocation(&followingClient.player.Location))
+			} else if c.player.FinishedPath() && !c.player.WithinRange(affectedClient.player.Location, 2) {
+				// We're not moving, but our target is moving away, so we must try to get closer
+				c.player.SetPath(world.NewPathwayFromLocation(&affectedClient.player.Location))
 			}
 			return false
 		})
-		c.Message("@que@Following " + affectedClient.player.Username)
+	}
+	PacketHandlers["appearancerequest"] = func(c *Client, p *packets.Packet) {
+		playerCount := p.ReadShort()
+		for i := 0; i < playerCount; i++ {
+			serverIndex := p.ReadShort()
+			appearanceTicket := p.ReadShort()
+			if ticket, ok := c.player.KnownAppearances[serverIndex]; !ok || ticket != appearanceTicket {
+				if c1, ok := Clients.FromIndex(serverIndex); ok {
+					c.player.AppearanceReqLock.Lock()
+					c.player.AppearanceReq = append(c.player.AppearanceReq, c1.player)
+					c.player.AppearanceReqLock.Unlock()
+				}
+			}
+		}
 	}
 }

@@ -64,7 +64,7 @@ func LoginBox(inactiveDays int, lastIP string) (p *Packet) {
 	p = NewOutgoingPacket(182)
 	p.AddInt(uint32(strutil.IPToInteger(lastIP))) // IP
 	p.AddShort(uint16(inactiveDays))              // Last logged in
-	p.AddByte(201) // recovery questions set days, 200 = unset, 201 = set
+	p.AddByte(0) // recovery questions set days, 200 = unset, 201 = set
 	p.AddShort(1) // Unread messages, number minus one, 0 does not render anything
 	p.AddBytes([]byte(lastIP))
 	return p
@@ -375,7 +375,11 @@ func PlayerPositions(player *world.Player) (p *Packet) {
 		p.AddBits(offsetX, 5)
 		p.AddBits(offsetY, 5)
 		p.AddBits(p1.Direction(), 4)
-		p.AddBits(0, 1)
+		if ticket, ok := player.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket {
+			p.AddBits(0, 1)
+		} else {
+			p.AddBits(1, 1)
+		}
 		player.LocalPlayers.Add(p1)
 		counter++
 	}
@@ -392,6 +396,10 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 	if !ourPlayer.TransAttrs.VarBool("self", false) {
 		appearanceList = append(appearanceList, ourPlayer)
 	}
+	ourPlayer.AppearanceReqLock.Lock()
+	appearanceList = append(appearanceList, ourPlayer.AppearanceReq...)
+	ourPlayer.AppearanceReq = ourPlayer.AppearanceReq[:0]
+	ourPlayer.AppearanceReqLock.Unlock()
 	for _, p1 := range ourPlayer.LocalPlayers.List {
 		if p1, ok := p1.(*world.Player); ok {
 			if ticket, ok := ourPlayer.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket {
