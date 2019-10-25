@@ -39,4 +39,6 @@ packets = [
 	{ name = 'changepass', opcode = 25},
 	{ name = 'cancelpq', opcode = 196},
 	{ name = 'changepq', opcode = 203},
+	{ name = 'setpq', opcode = 208},
+	{ name = 'appearancerequest', opcode = 163},
 ]
