@@ -21,7 +21,7 @@ type Player struct {
 	Appearances      []int
 	DatabaseIndex    int
 	Rank             int
-	Appearance       *AppearanceTable
+	Appearance       AppearanceTable
 	AppearanceTicket int
 	KnownAppearances map[int]int
 	AppearanceReq    []*Player

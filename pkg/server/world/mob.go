@@ -195,18 +195,19 @@ func (attributes *AttributeList) VarBool(name string, zero bool) bool {
 
 //AppearanceTable Represents a mobs appearance.
 type AppearanceTable struct {
-	Head   int
-	Body   int
-	Male   bool
-	Hair   int
-	Top    int
-	Bottom int
-	Skin   int
+	Head      int
+	Body      int
+	Legs      int
+	Male      bool
+	HeadColor int
+	BodyColor int
+	LegsColor int
+	SkinColor int
 }
 
 //NewAppearanceTable Returns a reference to a new appearance table with specified parameters
-func NewAppearanceTable(head, body int, male bool, hair, top, bottom, skin int) *AppearanceTable {
-	return &AppearanceTable{head, body, male, hair, top, bottom, skin}
+func NewAppearanceTable(head, body int, male bool, hair, top, bottom, skin int) AppearanceTable {
+	return AppearanceTable{head, body, 3, male, hair, top, bottom, skin}
 }
 
 //SkillTable Represents a skill table for a mob.

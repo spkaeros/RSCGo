@@ -25,7 +25,7 @@ func CreatePlayer(username, password string) bool {
 		return false
 	}
 
-	s, err := tx.Exec("INSERT INTO player2(username, userhash, password, x, y, group_id) VALUES(?, ?, ?, 220, 445, 0)", username, strutil.Base37(username), crypto.Hash(password))
+	s, err := tx.Exec("INSERT INTO player2(username, userhash, password, x, y, group_id) VALUES(?, ?, ?, 220, 445, 0)", username, strutil.Base37.Encode(username), crypto.Hash(password))
 	if err != nil {
 		log.Info.Println("CreatePlayer(): Could not insert new player profile information:", err)
 		return false
@@ -52,7 +52,7 @@ func CreatePlayer(username, password string) bool {
 func UsernameExists(username string) bool {
 	database := Open(config.PlayerDB())
 	defer database.Close()
-	s, err := database.Query("SELECT id FROM player2 WHERE userhash=?", strutil.Base37(username))
+	s, err := database.Query("SELECT id FROM player2 WHERE userhash=?", strutil.Base37.Encode(username))
 	defer s.Close()
 	if err != nil {
 		log.Info.Println("UsernameTaken: Could not query player profile information:", err)
@@ -75,8 +75,8 @@ func ValidCredentials(userHash uint64, password string) bool {
 	return rows.Next()
 }
 
-//ValidateCredentials Looks for a player with the specified credentials in the player database.  Returns nil if it finds the player, otherwise returns an error.
-func ValidateCredentials(usernameHash uint64, password string, loginReply chan byte, player *world.Player) error {
+//LoadPlayerProfile Looks for a player with the specified credentials in the player database.  Returns nil if it finds the player, otherwise returns an error.
+func LoadPlayerProfile(usernameHash uint64, password string, loginReply chan byte, player *world.Player) error {
 	database := Open(config.PlayerDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT player.id, player.x, player.y, player.group_id, appearance.haircolour, appearance.topcolour, appearance.trousercolour, appearance.skincolour, appearance.head, appearance.body FROM player2 AS player INNER JOIN appearance AS appearance WHERE appearance.playerid=player.id AND player.userhash=? AND player.password=?", usernameHash, crypto.Hash(password))
@@ -91,7 +91,7 @@ func ValidateCredentials(usernameHash uint64, password string, loginReply chan b
 		return errors.NewDatabaseError("Could not find player")
 	}
 	var x, y uint32
-	rows.Scan(&player.DatabaseIndex, &x, &y, &player.Rank, &player.Appearance.Hair, &player.Appearance.Top, &player.Appearance.Bottom, &player.Appearance.Skin, &player.Appearance.Head, &player.Appearance.Body)
+	rows.Scan(&player.DatabaseIndex, &x, &y, &player.Rank, &player.Appearance.HeadColor, &player.Appearance.BodyColor, &player.Appearance.LegsColor, &player.Appearance.SkinColor, &player.Appearance.Head, &player.Appearance.Body)
 	player.X.Store(x)
 	player.Y.Store(y)
 	return nil
@@ -244,7 +244,7 @@ func LoadPlayerInventory(player *world.Player) error {
 //LoadPlayer Loads a player from the SQLite3 database, returns a login response code.
 func LoadPlayer(player *world.Player, usernameHash uint64, password string, loginReply chan byte) {
 	// If this fails, then the login information was incorrect, and we don't need to do anything else
-	if err := ValidateCredentials(usernameHash, password, loginReply, player); err != nil {
+	if err := LoadPlayerProfile(usernameHash, password, loginReply, player); err != nil {
 		return
 	}
 	if err := LoadPlayerAttributes(player); err != nil {
@@ -261,7 +261,7 @@ func LoadPlayer(player *world.Player, usernameHash uint64, password string, logi
 	}
 
 	player.UserBase37 = usernameHash
-	player.Username = strutil.DecodeBase37(usernameHash)
+	player.Username = strutil.Base37.Decode(usernameHash)
 	if player.Rank == 2 {
 		// Administrator
 		loginReply <- byte(25)
@@ -303,7 +303,7 @@ func SavePlayer(player *world.Player) {
 	saveAppearance := func() {
 		// TODO: Should this just be attributes too??  Is that abusing the attributes table?
 		appearance := player.Appearance
-		rs, _ := tx.Exec("UPDATE appearance SET haircolour=?, topcolour=?, trousercolour=?, skincolour=?, head=?, body=? WHERE playerid=?", appearance.Hair, appearance.Top, appearance.Bottom, appearance.Skin, appearance.Head, appearance.Body, player.DatabaseIndex)
+		rs, _ := tx.Exec("UPDATE appearance SET haircolour=?, topcolour=?, trousercolour=?, skincolour=?, head=?, body=? WHERE playerid=?", appearance.HeadColor, appearance.BodyColor, appearance.LegsColor, appearance.SkinColor, appearance.Head, appearance.Body, player.DatabaseIndex)
 		count, err := rs.RowsAffected()
 		if err != nil {
 			log.Warning.Println("Save(): UPDATE failed for player appearance:", err)

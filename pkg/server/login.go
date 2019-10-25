@@ -70,7 +70,7 @@ func newPlayer(c *Client, p *packets.Packet) {
 		reply <- 5
 		return
 	}
-	username := strutil.DecodeBase37(strutil.Base37(strings.TrimSpace(p.ReadString(20))))
+	username := strutil.Base37.Decode(strutil.Base37.Encode(strings.TrimSpace(p.ReadString(20))))
 	password := strings.TrimSpace(p.ReadString(20))
 	if userLen, passLen := len(username), len(password); userLen < 2 || userLen > 12 || passLen < 5 || passLen > 20 {
 		log.Suspicious.Printf("New player request contained invalid lengths: username:'%v'; password:'%v'\n", username, password)
@@ -131,9 +131,9 @@ func loginRequest(c *Client, p *packets.Packet) {
 	// TODO: Remove all this bs from protocol...
 	p.ReadInt()
 
-	usernameHash := strutil.Base37(strings.TrimSpace(p.ReadString(20)))
+	usernameHash := strutil.Base37.Encode(strings.TrimSpace(p.ReadString(20)))
 	password := strings.TrimSpace(p.ReadString(20))
-	if !db.UsernameExists(strutil.DecodeBase37(usernameHash)) {
+	if !db.UsernameExists(strutil.Base37.Decode(usernameHash)) {
 		loginReply <- 3
 		return
 	}

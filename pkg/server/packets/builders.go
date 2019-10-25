@@ -424,21 +424,21 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 		p.AddShort(uint16(player.Index))
 		p.AddByte(5) // Player appearances
 		p.AddShort(uint16(player.AppearanceTicket))
-		p.AddLong(strutil.Base37(player.Username))
-		p.AddByte(12) // worn items length
-		p.AddByte(1)  // head
-		p.AddByte(2)  // body
-		p.AddByte(3)  // unknown, always 3
-		for i := 0; i < 9; i++ {
-			p.AddByte(0)
-		}
-		p.AddByte(2)  // Hair
-		p.AddByte(8)  // Top
-		p.AddByte(14) // Bottom
-		p.AddByte(0)  // Skin
-		p.AddByte(3)  // Combat lvl
-		p.AddByte(0)  // skulled
-		//		p.AddByte(byte(player.Rank)) // Rank 2=admin,1=mod,0=normal
+		p.AddLong(player.UserBase37)
+		p.AddByte(3) // length of sprites.  Anything less than 12 will get padded with 0s
+		p.AddByte(uint8(player.Appearance.Head))
+		p.AddByte(uint8(player.Appearance.Body))
+		p.AddByte(uint8(player.Appearance.Legs))
+//		for i := 0; i < 9; i++ {
+			// TODO: Equips
+//			p.AddByte(0)
+//		}
+		p.AddByte(uint8(player.Appearance.HeadColor))
+		p.AddByte(uint8(player.Appearance.BodyColor))
+		p.AddByte(uint8(player.Appearance.LegsColor))
+		p.AddByte(uint8(player.Appearance.SkinColor))
+		p.AddByte(uint8(player.Skillset.CombatLevel()))
+		p.AddByte(0) // TODO: skulled
 	}
 	return
 }

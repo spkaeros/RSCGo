@@ -25,7 +25,7 @@ func init() {
 			return
 		}
 		if c.player.Ignoring(hash) {
-			c.Message("@que@Please remove '" + strutil.DecodeBase37(hash) + "' from your ignore list before friending them.")
+			c.Message("@que@Please remove '" + strutil.Base37.Decode(hash) + "' from your ignore list before friending them.")
 			return
 		}
 		if c1, ok := Clients.FromUserHash(hash); ok {
@@ -66,7 +66,7 @@ func init() {
 			c.outgoingPackets <- packets.IgnoreList(c.player)
 		}()
 		if c.player.Friends(hash) {
-			c.Message("@que@Please remove '" + strutil.DecodeBase37(hash) + "' from your friend list before ignoring them.")
+			c.Message("@que@Please remove '" + strutil.Base37.Decode(hash) + "' from your friend list before ignoring them.")
 			return
 		}
 		if c.player.Ignoring(hash) {

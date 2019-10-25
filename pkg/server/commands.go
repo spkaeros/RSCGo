@@ -72,7 +72,7 @@ func init() {
 		if pID, err := strconv.Atoi(args[0]); err == nil {
 			affectedClient, ok = Clients.FromIndex(pID)
 		} else {
-			affectedClient, ok = Clients.FromUserHash(strutil.Base37(strings.Join(args, " ")))
+			affectedClient, ok = Clients.FromUserHash(strutil.Base37.Encode(strings.Join(args, " ")))
 		}
 		if affectedClient == nil || !ok {
 			c.Message("@que@Could not find player.")
@@ -322,7 +322,7 @@ func summon(c *Client, args []string) {
 	}
 	name = strings.TrimSpace(name)
 
-	c1, ok := Clients.FromUserHash(strutil.Base37(name))
+	c1, ok := Clients.FromUserHash(strutil.Base37.Encode(name))
 	if !ok {
 		c.Message("@que@@whi@[@cya@SERVER@whi@]: @gre@Could not find player: '" + name + "'")
 		return
@@ -343,7 +343,7 @@ func gotoTeleport(c *Client, args []string) {
 	}
 	name = strings.TrimSpace(name)
 
-	c1, ok := Clients.FromUserHash(strutil.Base37(name))
+	c1, ok := Clients.FromUserHash(strutil.Base37.Encode(name))
 	if !ok {
 		c.Message("@que@@whi@[@cya@SERVER@whi@]: @gre@Could not find player: '" + name + "'")
 		return

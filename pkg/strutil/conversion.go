@@ -7,7 +7,7 @@ import (
 	"unicode"
 )
 
-//MaxBase37 Max username hash for 12-rune usernames.
+//MaxBase37 Max base37 string hash for 12-rune usernames. (999999999999)
 const MaxBase37 = 6582952005840035281
 
 // Presumably this charset is optimized to be in order of most-used in the English language.
@@ -24,6 +24,7 @@ func getCharCode(c rune) int {
 	return 0
 }
 
+//IPToInteger Converts a string representation of an IPv4 address(e.g 127.0.0.1) to a 4-byte integer, each byte containing the information from one octet.
 func IPToInteger(s string) (ip int) {
 	if octets := strings.Split(s, "."); len(octets) > 0 {
 		for index, octet := range octets {
@@ -78,62 +79,66 @@ func ModalParse(s string) []string {
 	return out
 }
 
-//DecodeBase37 Takes a long integer for input, decodes from base37 and returns it as a string.
-func DecodeBase37(l uint64) string {
-	if l < 0 || l >= MaxBase37 {
-		return "invalid_name"
-	}
-	var s string
-	for l != 0 {
-		i := l % 37
-		l /= 37
-		if i == 0 {
-			s = " " + s
-		} else if i < 27 {
-			if l%37 == 0 {
-				s = string(i+64) + s
-			} else {
-				s = string(i+96) + s
-			}
-		} else {
-			s = string(i+21) + s
-		}
-	}
-
-	return s
+var Base37 struct {
+	Encode func(string) uint64
+	Decode func(uint64) string
 }
 
-//Base37 Takes a string as input, encodes it to base37, and returns it.
-func Base37(s string) uint64 {
-	s = strings.ToLower(s)
-	var buf []rune
-	for _, c := range s {
-		if c >= 'a' && c <= 'z' {
-			buf = append(buf, c)
-		} else if c >= '0' && c <= '9' {
-			buf = append(buf, c)
-		} else {
-			buf = append(buf, ' ')
+func init() {
+	Base37.Encode = func(s string) uint64 {
+		s = strings.ToLower(s)
+		var buf []rune
+		for _, c := range s {
+			if c >= 'a' && c <= 'z' {
+				buf = append(buf, c)
+			} else if c >= '0' && c <= '9' {
+				buf = append(buf, c)
+			} else {
+				buf = append(buf, ' ')
+			}
 		}
-	}
 
-	s1 := strings.TrimSpace(string(buf))
-	if len(s1) > 12 {
-		s1 = s1[:12]
-	}
-	var l uint64
-	for _, c := range s1 {
-		l *= 37
-		if c >= 'a' && c <= 'z' {
-			l += 1 + uint64(c) - 97
-		} else if c >= '0' && c <= '9' {
-			l += 27 + uint64(c) - 48
+		s1 := strings.TrimSpace(string(buf))
+		if len(s1) > 12 {
+			s1 = s1[:12]
 		}
-		if l >= MaxBase37 {
-			return 0xDEADBEEF
+		var l uint64
+		for _, c := range s1 {
+			l *= 37
+			if c >= 'a' && c <= 'z' {
+				l += 1 + uint64(c) - 97
+			} else if c >= '0' && c <= '9' {
+				l += 27 + uint64(c) - 48
+			}
+			if l >= MaxBase37 {
+				return 0xDEADBEEF
+			}
 		}
+		return l
 	}
-	return l
+	Base37.Decode = func(l uint64) string {
+		if l < 0 || l >= MaxBase37 {
+			return "invalid_name"
+		}
+		var s string
+		for l != 0 {
+			i := l % 37
+			l /= 37
+			if i == 0 {
+				s = " " + s
+			} else if i < 27 {
+				if l%37 == 0 {
+					s = string(i+64) + s
+				} else {
+					s = string(i+96) + s
+				}
+			} else {
+				s = string(i+21) + s
+			}
+		}
+
+		return s
+	}
 }
 
 //PackChatMessage Takes a string as input, and returns a packed bitstream as output.  It can fit any of the first 13 runes in the alphabet into 4 bits per rune, but for the rest of the alphabet it's 8 bits.
@@ -160,7 +165,7 @@ func PackChatMessage(msg string) []byte {
 			cachedValue = -1
 		} else {
 			buf = append(buf, byte((cachedValue<<4)+(code>>4)))
-			cachedValue = code & 0xF // Bottom 4 bits
+			cachedValue = code & 0xF // LegsColor 4 bits
 		}
 	}
 	if cachedValue != -1 {

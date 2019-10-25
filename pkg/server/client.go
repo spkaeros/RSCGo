@@ -53,6 +53,11 @@ func (c *Client) TradeOpen() {
 	c.outgoingPackets <- packets.TradeOpen(c.player)
 }
 
+//OpenAppearanceChangePanel Sends a packet to open the player appearance changing panel on the client.
+func (c *Client) OpenAppearanceChangePanel() {
+	c.outgoingPackets <- packets.NewOutgoingPacket(59)
+}
+
 //Teleport Moves the client's player to x,y in the game world, and sends a teleport bubble animation packet to all of the view-area clients.
 func (c *Client) Teleport(x, y int) {
 	if !world.WithinWorld(x, y) {
@@ -223,15 +228,20 @@ func (c *Client) sendLoginResponse(i byte) {
 		c.outgoingPackets <- packets.EquipmentStats(c.player)
 		c.outgoingPackets <- packets.Fatigue(c.player)
 		c.outgoingPackets <- packets.InventoryItems(c.player)
-		//		c.outgoingPackets <- packets.FightMode(c.player)
+		// TODO: Not canonical RSC, but definitely good QoL update...
+		//  c.outgoingPackets <- packets.FightMode(c.player)
 		c.outgoingPackets <- packets.FriendList(c.player)
 		c.outgoingPackets <- packets.IgnoreList(c.player)
 		c.outgoingPackets <- packets.ClientSettings(c.player)
 		c.outgoingPackets <- packets.WelcomeMessage
 		c.outgoingPackets <- packets.PlaneInfo(c.player)
-		//		c.outgoingPackets <- packets.ServerInfo(Clients.Size())
 		c.outgoingPackets <- packets.LoginBox(0, c.ip)
 		BroadcastLogin(c.player, true)
+		if c.player.Attributes.VarBool("first_login", true) {
+			c.player.Attributes.SetVar("first_login", false)
+			c.OpenAppearanceChangePanel()
+			log.Info.Println("First login...")
+		}
 	}
 }
 
