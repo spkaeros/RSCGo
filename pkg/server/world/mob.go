@@ -124,8 +124,8 @@ func (m *Mob) SetCoords(x, y uint32) {
 
 //Teleport Moves the mob to x,y and sets a flag to remove said mob from the local players list of every nearby player.
 func (m *Mob) Teleport(x, y int) {
-	m.SetCoords(uint32(x), uint32(y))
 	m.TransAttrs.SetVar("remove", true)
+	m.SetCoords(uint32(x), uint32(y))
 }
 
 //AttrList A type alias for a map of strings to empty interfaces, to hold generic mob information for easy serialization and to provide dynamic insertion/deletion of new mob properties easily

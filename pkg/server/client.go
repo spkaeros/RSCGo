@@ -197,33 +197,32 @@ func (c *Client) StartNetworking() {
 	}()
 }
 
-func (c *Client) sendLoginResponse(i byte) {
-	c.outgoingPackets <- packets.LoginResponse(int(i))
-	if i != 0 && i != 25 && i != 24 {
-		log.Info.Printf("Denied Client: {ip:'%v', username:'%v', Response='%v'}\n", c.ip, c.player.Username, i)
-		c.Destroy()
-	} else {
-		Clients.Put(c)
-		for user := range c.player.FriendList {
-			if Clients.ContainsHash(user) {
-				c.player.FriendList[user] = true
-			}
+//Initialize Adds client to server's Clients list, initializes player variables and adds to world, announces login to
+// other clients that care, and sends all of the player and world information to the client.  Upon first login,
+// sends appearance change screen to setup player's appearance.
+func (c *Client) Initialize() {
+	for user := range c.player.FriendList {
+		if Clients.ContainsHash(user) {
+			c.player.FriendList[user] = true
 		}
-		log.Info.Printf("Registered: %v\n", c)
-		world.AddPlayer(c.player)
-		c.player.TransAttrs.SetVar("changed", true)
-		c.player.TransAttrs.SetVar("connected", true)
-		for i := 0; i < 18; i++ {
-			level := 1
-			exp := 0
-			if i == 3 {
-				level = 10
-				exp = 1154
-			}
-			c.player.Skillset.Current[i] = level
-			c.player.Skillset.Maximum[i] = level
-			c.player.Skillset.Experience[i] = exp
+	}
+	world.AddPlayer(c.player)
+	c.player.TransAttrs.SetVar("changed", true)
+	c.player.TransAttrs.SetVar("connected", true)
+	for i := 0; i < 18; i++ {
+		level := 1
+		exp := 0
+		if i == 3 {
+			level = 10
+			exp = 1154
 		}
+		c.player.Skillset.Current[i] = level
+		c.player.Skillset.Maximum[i] = level
+		c.player.Skillset.Experience[i] = exp
+	}
+	c.outgoingPackets <- packets.PlaneInfo(c.player)
+	if !c.player.Reconnecting() {
+		// Reconnecting implies that the client has all of this data already, so as an optimization, we don't send it again
 		c.outgoingPackets <- packets.PlayerStats(c.player)
 		c.outgoingPackets <- packets.EquipmentStats(c.player)
 		c.outgoingPackets <- packets.Fatigue(c.player)
@@ -235,13 +234,12 @@ func (c *Client) sendLoginResponse(i byte) {
 		c.outgoingPackets <- packets.ClientSettings(c.player)
 		c.outgoingPackets <- packets.PrivacySettings(c.player)
 		c.outgoingPackets <- packets.WelcomeMessage
-		c.outgoingPackets <- packets.PlaneInfo(c.player)
 		c.outgoingPackets <- packets.LoginBox(0, c.ip)
-		BroadcastLogin(c.player, true)
-		if c.player.Attributes.VarBool("first_login", true) {
-			c.player.Attributes.SetVar("first_login", false)
-			c.OpenAppearanceChangePanel()
-		}
+	}
+	BroadcastLogin(c.player, true)
+	if c.player.Attributes.VarBool("first_login", true) {
+		c.player.Attributes.SetVar("first_login", false)
+		c.OpenAppearanceChangePanel()
 	}
 }
 
@@ -250,10 +248,18 @@ func (c *Client) HandleLogin(reply chan byte) {
 	defer close(reply)
 	select {
 	case r := <-reply:
-		c.sendLoginResponse(r)
+		c.outgoingPackets <- packets.LoginResponse(int(r))
+		if r == 0 || r == 1 || r == 25 || r == 24 {
+			Clients.Put(c)
+			log.Info.Printf("Registered: %v\n", c)
+			c.Initialize()
+			return
+		}
+		log.Info.Printf("Denied Client: {ip:'%v', username:'%v', Response='%v'}\n", c.ip, c.player.Username, r)
+		c.Destroy()
 		return
 	case <-time.After(time.Second * 10):
-		c.sendLoginResponse(8)
+		c.outgoingPackets <- packets.LoginResponse(-1)
 		return
 	}
 }
@@ -264,10 +270,10 @@ func (c *Client) HandleRegister(reply chan byte) {
 	defer close(reply)
 	select {
 	case r := <-reply:
-		c.Write([]byte{r})
+		c.outgoingPackets <- packets.LoginResponse(int(r))
 		return
 	case <-time.After(time.Second * 10):
-		c.Write([]byte{0})
+		c.outgoingPackets <- packets.LoginResponse(0)
 		return
 	}
 }

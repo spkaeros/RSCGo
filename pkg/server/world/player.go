@@ -327,6 +327,12 @@ func (p *Player) SetCoords(x, y int) {
 	p.Mob.SetCoords(uint32(x), uint32(y))
 }
 
+//Teleport Moves the mob to x,y and sets a flag to remove said mob from the local players list of every nearby player.
+func (p *Player) Teleport(x, y int) {
+	p.TransAttrs.SetVar("remove", true)
+	p.SetCoords(x, y)
+}
+
 //SetTradeTarget Sets the variable for the index of the player we are trying to trade
 func (p *Player) SetTradeTarget(index int) {
 	p.TransAttrs.SetVar("tradetarget", index)

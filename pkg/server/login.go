@@ -121,14 +121,18 @@ func loginRequest(c *Client, p *packets.Packet) {
 	}
 
 	// TODO: Remove all this bs from protocol...
-	p.ReadBool()
-	p.ReadByte()
+	p.ReadBool() // limit30
+	p.ReadByte() // 0xA.  Some sort of separator I think?
 
 	// ISAAC seeds.
 	p.ReadLong()
 	p.ReadLong()
 
 	// TODO: Remove all this bs from protocol...
+	//  getLinkUID--Jagex used this as a means of identification
+	//  it was a random var read from the RS cache to help identify individuals and assist in cheat detection
+	//  My understanding is that this is exactly what they used to trigger the too many accounts logged in reply,
+	//  hence why running unsigned client back in the day, with its own temp RS cache, allowed you to login anyways
 	p.ReadInt()
 
 	usernameHash := strutil.Base37.Encode(strings.TrimSpace(p.ReadString(20)))

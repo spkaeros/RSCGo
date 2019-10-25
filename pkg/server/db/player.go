@@ -264,15 +264,19 @@ func LoadPlayer(player *world.Player, usernameHash uint64, password string, logi
 	player.Username = strutil.Base37.Decode(usernameHash)
 	if player.Rank == 2 {
 		// Administrator
-		loginReply <- byte(25)
+		loginReply <- 25
 		return
 	}
 	if player.Rank == 1 {
 		// Moderator
-		loginReply <- byte(24)
+		loginReply <- 24
 		return
 	}
-	loginReply <- byte(0)
+	if player.Reconnecting() {
+		loginReply <- 1
+		return
+	}
+	loginReply <- 0
 	return
 }
 
