@@ -42,6 +42,21 @@ func init() {
 			return
 		}
 		c.player.SetFollowing(playerID)
+		c.player.QueueDistancedAction(func() bool {
+			if !c.player.IsFollowing() {
+				return true
+			}
+			followingClient, ok := Clients.FromIndex(c.player.FollowIndex())
+			if followingClient == nil || !ok || !c.player.Location.WithinRange(followingClient.player.Location, 15) {
+				c.player.ResetFollowing()
+				return true
+			} else if !c.player.FinishedPath() && c.player.WithinRange(followingClient.player.Location, 2) {
+				c.player.ResetPath()
+			} else if c.player.FinishedPath() && !c.player.WithinRange(followingClient.player.Location, 2) {
+				c.player.SetPath(world.NewPathwayFromLocation(&followingClient.player.Location))
+			}
+			return false
+		})
 		c.Message("@que@Following " + affectedClient.player.Username)
 	}
 }

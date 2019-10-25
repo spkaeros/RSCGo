@@ -269,17 +269,6 @@ func asyncExecute(wg *sync.WaitGroup, fn func()) {
 //Tick One game engine 'tick'.  This is to handle movement, to synchronize clients, to update movement-related state variables... Runs once per 600ms.
 func Tick() {
 	Clients.Broadcast(func(c *Client) {
-		//TODO: Handle this in a less hacky way.  Sticks out like a sore thumb.
-		if c.player.IsFollowing() {
-			followingClient, ok := Clients.FromIndex(c.player.FollowIndex())
-			if followingClient == nil || !ok || !c.player.Location.WithinRange(followingClient.player.Location, 15) {
-				c.player.ResetFollowing()
-			} else if !c.player.FinishedPath() && c.player.WithinRange(followingClient.player.Location, 2) {
-				c.player.ResetPath()
-			} else if c.player.FinishedPath() && !c.player.WithinRange(followingClient.player.Location, 2) {
-				c.player.SetPath(world.NewPathwayFromLocation(&followingClient.player.Location))
-			}
-		}
 		// TODO: I know I can do better...this feels so ugly.  it's fast and works, tho
 		var tmpFns []func() bool
 		c.player.ActionLock.Lock()
