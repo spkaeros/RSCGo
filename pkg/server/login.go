@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bitbucket.org/zlacki/rscgo/pkg/server/crypto"
 	"strings"
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/config"
@@ -15,6 +16,27 @@ func init() {
 	PacketHandlers["loginreq"] = loginRequest
 	PacketHandlers["logoutreq"] = logout
 	PacketHandlers["newplayer"] = newPlayer
+	PacketHandlers["forgotpass"] = func(c *Client, p *packets.Packet) {
+//		usernameHash := p.ReadLong()
+		p.ReadLong()
+	}
+	PacketHandlers["cancelpq"] = func(c *Client, p *packets.Packet) {
+		// empty packet
+	}
+	PacketHandlers["changepq"] = func(c *Client, p *packets.Packet) {
+		// empty packet
+	}
+	PacketHandlers["changepass"] = func(c *Client, p *packets.Packet) {
+		oldPassword := strings.TrimSpace(p.ReadString(20))
+		newPassword := strings.TrimSpace(p.ReadString(20))
+		if !db.ValidCredentials(c.player.UserBase37, crypto.Hash(oldPassword)) {
+			c.Message("The old password you provided does not appear to be valid.  Try again.")
+			return
+		}
+		db.UpdatePassword(c.player.UserBase37, crypto.Hash(newPassword))
+		c.Message("Successfully updated your password to the new password you have provided.")
+		return
+	}
 }
 
 func logout(c *Client, _ *packets.Packet) {

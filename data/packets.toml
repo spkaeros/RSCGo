@@ -35,4 +35,8 @@ packets = [
 	{ name = 'tradedecline', opcode = 230},
 	{ name = 'tradeaccept', opcode = 55},
 	{ name = 'tradeconfirmaccept', opcode = 104},
+	{ name = 'forgotpass', opcode = 220},
+	{ name = 'changepass', opcode = 25},
+	{ name = 'cancelpq', opcode = 196},
+	{ name = 'changepq', opcode = 203},
 ]

@@ -280,6 +280,7 @@ func Tick() {
 				c.player.SetPath(world.NewPathwayFromLocation(&followingClient.player.Location))
 			}
 		}
+		// TODO: I know I can do better...this feels so ugly.  it's fast and works, tho
 		var tmpFns []func() bool
 		c.player.ActionLock.Lock()
 		for _, fn := range c.player.DistancedActions {

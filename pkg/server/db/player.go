@@ -62,6 +62,19 @@ func UsernameExists(username string) bool {
 	return s.Next()
 }
 
+//ValidCredentials Returns true if it finds a user with this username hash and password in the database, otherwise returns false
+func ValidCredentials(userHash uint64, password string) bool {
+	database := Open(config.PlayerDB())
+	defer database.Close()
+	rows, err := database.Query("SELECT id FROM player2 WHERE userhash=? AND password=?", userHash, password)
+	defer rows.Close()
+	if err != nil {
+		log.Info.Println("Validate: Could not validate user credentials:", err)
+		return false
+	}
+	return rows.Next()
+}
+
 //ValidateCredentials Looks for a player with the specified credentials in the player database.  Returns nil if it finds the player, otherwise returns an error.
 func ValidateCredentials(usernameHash uint64, password string, loginReply chan byte, player *world.Player) error {
 	database := Open(config.PlayerDB())
@@ -85,17 +98,20 @@ func ValidateCredentials(usernameHash uint64, password string, loginReply chan b
 }
 
 //UpdatePassword Updates the players password to password in the database.
-func UpdatePassword(affectedIndex int, password string) {
+func UpdatePassword(userHash uint64, password string) bool {
 	database := Open(config.PlayerDB())
 	defer database.Close()
-	s, err := database.Exec("UPDATE player2 SET password=? WHERE id=?", password, affectedIndex)
+	s, err := database.Exec("UPDATE player2 SET password=? WHERE userhash=?", password, userHash)
 	if err != nil {
 		log.Info.Println("UpdatePassword: Could not update player password:", err)
+		return false
 	}
 	count, err := s.RowsAffected()
 	if count <= 0 || err != nil {
 		log.Info.Println("UpdatePassword: Could not update player password:", err)
+		return false
 	}
+	return true
 }
 
 //LoadPlayerAttributes Looks for a player with the specified credentials in the player database.  Returns nil if it finds the player, otherwise returns an error.
