@@ -42,7 +42,7 @@ func init() {
 	PacketHandlers["privmsg"] = func(c *Client, p *packets.Packet) {
 		if c1, ok := Clients.FromUserHash(p.ReadLong()); ok {
 			if !c1.player.FriendBlocked() || c1.player.Friends(c.player.UserBase37) {
-				c1.outgoingPackets <- packets.PrivateMessage(c.player.UserBase37, strutil.FormatChatMessage(strutil.UnpackChatMessage(p.Payload[8:])))
+				c1.outgoingPackets <- packets.PrivateMessage(c.player.UserBase37, strutil.ChatFilter.Format(strutil.ChatFilter.Unpack(p.Payload[8:])))
 			}
 		}
 	}

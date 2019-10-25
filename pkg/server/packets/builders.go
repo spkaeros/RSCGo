@@ -108,7 +108,7 @@ func PrivateMessage(hash uint64, msg string) (p *Packet) {
 	p = NewOutgoingPacket(120)
 	p.AddLong(hash)
 	p.AddInt(rand.Uint32()) // unique Message ID to prevent duplicate messages somehow arriving or something idk
-	for _, c := range strutil.PackChatMessage(msg) {
+	for _, c := range strutil.ChatFilter.Pack(msg) {
 		p.AddByte(c)
 	}
 	return p
