@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 )
@@ -16,8 +15,6 @@ func init() {
 		topColor := p.ReadByte()
 		legColor := p.ReadByte()
 		skinColor := p.ReadByte()
-		log.Info.Printf("Player appearance modification requested: headGender:%d,headType:%d,bodyType:%d,legType:%d,hairColor:%d,topColor:%d,legColor:%d,skinColor:%d\n", headGender, headType,
-			bodyType, legType, hairColor, topColor, legColor, skinColor)
 		c.player.Appearance = world.AppearanceTable{
 			Head:      int(headType+1),
 			Body:      int(bodyType+1),

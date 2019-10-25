@@ -240,7 +240,6 @@ func (c *Client) sendLoginResponse(i byte) {
 		if c.player.Attributes.VarBool("first_login", true) {
 			c.player.Attributes.SetVar("first_login", false)
 			c.OpenAppearanceChangePanel()
-			log.Info.Println("First login...")
 		}
 	}
 }
