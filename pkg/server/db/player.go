@@ -114,6 +114,48 @@ func UpdatePassword(userHash uint64, password string) bool {
 	return true
 }
 
+//HasRecoveryQuestions Returns true if this username has recovery questions assigned to it, otherwise returns false.
+func HasRecoveryQuestions(userHash uint64) bool {
+	database := Open(config.PlayerDB())
+	defer database.Close()
+	rows, err := database.Query("SELECT question1 FROM recovery_questions WHERE userhash=?", userHash)
+	defer rows.Close()
+	if err != nil {
+		log.Info.Println("HasRecoveryQuestions: Could not search for recovery questions:", err)
+		return false
+	}
+	return rows.Next()
+}
+
+//GetRecoveryQuestions Retrieves the recovery questions assigned to this username if any, otherwise returns nil
+func GetRecoveryQuestions(userHash uint64) []string {
+	database := Open(config.PlayerDB())
+	defer database.Close()
+	rows, err := database.Query("SELECT question1, question2, question3, question4, question5 FROM recovery_questions WHERE userhash=?", userHash)
+	defer rows.Close()
+	if err != nil {
+		log.Info.Println("GetRecoveryQuestions: Could not find recovery questions:", err)
+		return nil
+	}
+
+	var question1, question2, question3, question4, question5 string
+	if rows.Next() {
+		err := rows.Scan(&question1, &question2, &question3, &question4, &question5)
+		if err != nil {
+			log.Info.Println("GetRecoveryQuestions: Could not scan recovery questions to variables:", err)
+			return nil
+		}
+		return []string{question1, question2, question3, question4, question5}
+	}
+
+	return nil
+}
+
+//SaveRecoveryQuestions Saves new recovery questions to the database.
+func SaveRecoveryQuestions(userHash uint64, questions []string, answers []uint64) {
+
+}
+
 //LoadPlayerAttributes Looks for a player with the specified credentials in the player database.  Returns nil if it finds the player, otherwise returns an error.
 func LoadPlayerAttributes(player *world.Player) error {
 	database := Open(config.PlayerDB())

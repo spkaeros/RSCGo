@@ -82,7 +82,7 @@ func (c *Client) StartReader() {
 				c.Destroy()
 				return
 			}
-			if !c.player.TransAttrs.VarBool("connected", false) && p.Opcode != 32 && p.Opcode != 0 && p.Opcode != 2 {
+			if !c.player.TransAttrs.VarBool("connected", false) && p.Opcode != 32 && p.Opcode != 0 && p.Opcode != 2 && p.Opcode != 220 {
 				log.Suspicious.Printf("Invalid packet[opcode:%v,len:%v] from [%v]\n", p.Opcode, len(p.Payload), c)
 				if len(Flags.Verbose) > 0 {
 					log.Warning.Printf("Unauthorized packet[opcode:%v,len:%v] rejected from: %v\n", p.Opcode, len(p.Payload), c)

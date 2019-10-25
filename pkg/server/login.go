@@ -17,14 +17,32 @@ func init() {
 	PacketHandlers["logoutreq"] = logout
 	PacketHandlers["newplayer"] = newPlayer
 	PacketHandlers["forgotpass"] = func(c *Client, p *packets.Packet) {
-//		usernameHash := p.ReadLong()
-		p.ReadLong()
+		usernameHash := p.ReadLong()
+		if !db.HasRecoveryQuestions(usernameHash) {
+			c.outgoingPackets <- packets.NewBarePacket([]byte{0})
+			c.Destroy()
+			return
+		}
+		c.outgoingPackets <- packets.NewBarePacket([]byte{1})
+		for _, question := range db.GetRecoveryQuestions(usernameHash) {
+			c.outgoingPackets <- packets.NewBarePacket([]byte{byte(len(question))}).AddBytes([]byte(question))
+		}
 	}
 	PacketHandlers["cancelpq"] = func(c *Client, p *packets.Packet) {
 		// empty packet
 	}
+	PacketHandlers["setpq"] = func(c *Client, p *packets.Packet) {
+		var questions []string
+		var answers []uint64
+		for i := 0; i < 5; i++ {
+			length := p.ReadByte()
+			questions = append(questions, p.ReadString(int(length)))
+			answers = append(answers, p.ReadLong())
+		}
+		log.Info.Println(questions, answers)
+	}
 	PacketHandlers["changepq"] = func(c *Client, p *packets.Packet) {
-		// empty packet
+		c.outgoingPackets <- packets.NewOutgoingPacket(224)
 	}
 	PacketHandlers["changepass"] = func(c *Client, p *packets.Packet) {
 		oldPassword := strings.TrimSpace(p.ReadString(20))
