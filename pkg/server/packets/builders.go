@@ -339,7 +339,9 @@ func PlayerPositions(player *world.Player) (p *Packet) {
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
 				player.LocalPlayers.Remove(p1)
+				player.AppearanceLock.Lock()
 				delete(player.KnownAppearances, p1.Index)
+				player.AppearanceLock.Unlock()
 				counter++
 			} else if p1.TransAttrs.VarBool("moved", false) || p1.TransAttrs.VarBool("changed", false) {
 				p.AddBits(1, 1)
@@ -375,11 +377,13 @@ func PlayerPositions(player *world.Player) (p *Packet) {
 		p.AddBits(offsetX, 5)
 		p.AddBits(offsetY, 5)
 		p.AddBits(p1.Direction(), 4)
+		player.AppearanceLock.RLock()
 		if ticket, ok := player.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket {
 			p.AddBits(0, 1)
 		} else {
 			p.AddBits(1, 1)
 		}
+		player.AppearanceLock.RUnlock()
 		player.LocalPlayers.Add(p1)
 		counter++
 	}
@@ -396,15 +400,17 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 	if !ourPlayer.TransAttrs.VarBool("self", false) {
 		appearanceList = append(appearanceList, ourPlayer)
 	}
-	ourPlayer.AppearanceReqLock.Lock()
+	ourPlayer.AppearanceLock.Lock()
 	appearanceList = append(appearanceList, ourPlayer.AppearanceReq...)
 	ourPlayer.AppearanceReq = ourPlayer.AppearanceReq[:0]
-	ourPlayer.AppearanceReqLock.Unlock()
+	ourPlayer.AppearanceLock.Unlock()
 	for _, p1 := range ourPlayer.LocalPlayers.List {
 		if p1, ok := p1.(*world.Player); ok {
+			ourPlayer.AppearanceLock.RLock()
 			if ticket, ok := ourPlayer.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket {
 				appearanceList = append(appearanceList, p1)
 			}
+			ourPlayer.AppearanceLock.RUnlock()
 		}
 	}
 	if len(appearanceList) <= 0 {
@@ -412,7 +418,9 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 	}
 	p.AddShort(uint16(len(appearanceList))) // Update size
 	for _, player := range appearanceList {
+		ourPlayer.AppearanceLock.Lock()
 		ourPlayer.KnownAppearances[player.Index] = player.AppearanceTicket
+		ourPlayer.AppearanceLock.Unlock()
 		p.AddShort(uint16(player.Index))
 		p.AddByte(5) // Player appearances
 		p.AddShort(uint16(player.AppearanceTicket))

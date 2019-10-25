@@ -25,7 +25,7 @@ type Player struct {
 	AppearanceTicket int
 	KnownAppearances map[int]int
 	AppearanceReq    []*Player
-	AppearanceReqLock sync.RWMutex
+	AppearanceLock   sync.RWMutex
 	Attributes       *AttributeList
 	Items            *Inventory
 	TradeOffer       *Inventory
