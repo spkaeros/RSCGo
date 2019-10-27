@@ -108,7 +108,7 @@ func (c *Client) Read(dst []byte) (int, error) {
 func (c *Client) ReadPacket() (*packets.Packet, error) {
 	// TODO: Is allocation overhead more expensive than mutex locks?  If so, I must change this back to pre-allocated, and guard it with a RWMutex
 	header := make([]byte, 2)
-	if l, err := c.Read(header); err != nil || l < 2{
+	if l, err := c.Read(header); err != nil || l < 2 {
 		// This could happen legitimately, under certain strange circumstances.  Not proof of malicious intent.
 		return nil, err
 	}
