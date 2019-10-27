@@ -2,12 +2,9 @@ package server
 
 import (
 	"fmt"
-	"github.com/gobwas/httphead"
 	"github.com/gobwas/ws"
 	"net"
-	"net/http"
 	"os"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -114,48 +111,11 @@ var Flags struct {
 	UseCipher bool   `short:"e" long:"encryption" description:"Enable command opcode encryption using ISAAC to encrypt packet opcodes."`
 }
 
-var header = ws.HandshakeHeaderHTTP(http.Header{
-	"X-Go-Version": []string{runtime.Version()},
-})
-
 var wsUpgrader = ws.Upgrader{
-	OnHeader: func(key, value []byte) error {
-		if string(key) != "Cookie" {
-			return nil
-		}
-		ok := httphead.ScanCookie(value, func(key, value []byte) bool {
-			// Check session here or do some other stuff with cookies.
-			// Maybe copy some values for future use.
-			return true
-		})
-		if ok {
-			return nil
-		}
-		return ws.RejectConnectionError(
-			ws.RejectionReason("bad cookie"),
-			ws.RejectionStatus(400),
-		)
-	},
-	OnHost: func(host []byte) error {
-		if string(host) == "73.9.246.187:43595" {
-			return nil
-		}
-		log.Suspicious.Printf("Player attempted to login from unknown host: %v", string(host))
-		log.Info.Printf("Player attempted to login from unknown host: %v", string(host))
-		return ws.RejectConnectionError(
-			ws.RejectionStatus(403),
-			ws.RejectionHeader(ws.HandshakeHeaderString(
-				"X-Want-Host: 73.9.246.187:43595\r\n",
-			)),
-		)
-	},
-	OnBeforeUpgrade: func() (ws.HandshakeHeader, error) {
-		return header, nil
-	},
 	Protocol: func(protocol []byte) bool {
+		// Chrome is picky, won't work without explicit protocol acceptance
 		return true
 	},
-
 }
 
 func startConnectionService() {
