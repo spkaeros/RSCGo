@@ -16,9 +16,9 @@ func init() {
 		legColor := p.ReadByte()
 		skinColor := p.ReadByte()
 		c.player.Appearance = world.AppearanceTable{
-			Head:      int(headType+1),
-			Body:      int(bodyType+1),
-			Legs:      int(legType+1),
+			Head:      int(headType + 1),
+			Body:      int(bodyType + 1),
+			Legs:      int(legType + 1),
 			Male:      headGender,
 			HeadColor: int(hairColor),
 			BodyColor: int(topColor),

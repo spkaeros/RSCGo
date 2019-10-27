@@ -216,7 +216,7 @@ func init() {
 }
 
 func objectAction(c *Client, object *world.Object, rightClick bool) {
-//	c.player.ResetPath()
+	//	c.player.ResetPath()
 	if c.player.State != world.MSIdle || world.GetObject(int(object.X.Load()), int(object.Y.Load())) != object || !c.player.WithinRange(object.Location, 1) {
 		// If somehow we became busy, the object changed before arriving, or somehow this action fired without actually arriving at the object, we do nothing.
 		return
@@ -242,7 +242,7 @@ func objectAction(c *Client, object *world.Object, rightClick bool) {
 }
 
 func boundaryAction(c *Client, object *world.Object, rightClick bool) {
-//	c.player.ResetPath()
+	//	c.player.ResetPath()
 	if c.player.State != world.MSIdle || world.GetObject(int(object.X.Load()), int(object.Y.Load())) != object || !c.player.WithinRange(object.Location, 1) {
 		// If somehow we became busy, the object changed before arriving, or somehow this action fired without actually arriving at the object, we do nothing.
 		return

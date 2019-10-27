@@ -6,7 +6,6 @@ import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 )
 
-
 //IsaacStream Container struct for 2 instances of the ISAAC+ CSPRNG, one for incoming data, the other outgoing data.
 type IsaacStream struct {
 	encoder, decoder *isaac.ISAAC

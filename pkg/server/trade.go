@@ -89,7 +89,7 @@ func init() {
 			log.Suspicious.Printf("Player['%v'@'%v'] attempted to offer an invalid amount[%v] of trade items!\n", c.player.Username, c.ip, itemCount)
 			return
 		}
-		if len(p.Payload) < 1 + (itemCount * 6) {
+		if len(p.Payload) < 1+(itemCount*6) {
 			log.Suspicious.Printf("Player['%v'@'%v'] attempted to send a trade offer update packet without enough data for the offer.\n", c.player.Username, c.ip)
 			return
 		}

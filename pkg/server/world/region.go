@@ -117,7 +117,7 @@ func GetObject(x, y int) *Object {
 
 //GetNpc Returns the NPC with the specified server index.
 func GetNpc(index int) *NPC {
-	if index > len(Npcs) - 1 {
+	if index > len(Npcs)-1 {
 		log.Info.Printf("Index out of bounds in call to GetNpc.  Length:%d, Requested:%d\n", len(Npcs), index)
 		return nil
 	}

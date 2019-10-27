@@ -25,7 +25,8 @@ type Client struct {
 	socket                           net.Conn
 	incomingPackets, outgoingPackets chan *packets.Packet
 	reconnecting                     bool
-	buffer                           []byte
+	websocket                        bool
+	wsFrameData []byte
 }
 
 //Message Builds a new game packet to display a message in the clients chat box with msg as its contents, and queues it in the outgoing packet queue.
@@ -80,8 +81,10 @@ func (c *Client) StartReader() {
 			p, err := c.ReadPacket()
 			if err != nil {
 				if err, ok := err.(errors.NetError); ok && err.Error() != "Connection closed." && err.Error() != "Connection timed out." {
-					log.Warning.Printf("Rejected Packet from: %s\n", c)
-					log.Warning.Println(err)
+					if err.Error() != "SHORT_DATA" {
+						log.Warning.Printf("Rejected Packet from: %s\n", c)
+						log.Warning.Println(err)
+					}
 					continue
 				}
 				c.Destroy()
@@ -110,7 +113,7 @@ func (c *Client) StartWriter() {
 			if p == nil {
 				return
 			}
-		c.WritePacket(*p)
+			c.WritePacket(*p)
 		case <-c.Kill:
 			return
 		}
@@ -132,7 +135,6 @@ func (c *Client) destroy(wg *sync.WaitGroup) {
 	c.player.TransAttrs.UnsetVar("connected")
 	close(c.outgoingPackets)
 	close(c.incomingPackets)
-	c.buffer = []byte{} // try to collect this early it's 5KB
 	if err := c.socket.Close(); err != nil {
 		log.Error.Println("Couldn't close socket:", err)
 	}
@@ -283,7 +285,7 @@ func (c *Client) HandleRegister(reply chan byte) {
 
 //NewClient Creates a new instance of a Client, launches goroutines to handle I/O for it, and returns a reference to it.
 func NewClient(socket net.Conn) *Client {
-	c := &Client{socket: socket, incomingPackets: make(chan *packets.Packet, 20), outgoingPackets: make(chan *packets.Packet, 20), Index: Clients.NextIndex(), Kill: make(chan struct{}), player: world.NewPlayer(), buffer: make([]byte, 5000), ip: strings.Split(socket.RemoteAddr().String(), ":")[0]}
+	c := &Client{socket: socket, incomingPackets: make(chan *packets.Packet, 20), outgoingPackets: make(chan *packets.Packet, 20), Index: Clients.NextIndex(), Kill: make(chan struct{}), player: world.NewPlayer(), ip: strings.Split(socket.RemoteAddr().String(), ":")[0]}
 	c.StartNetworking()
 	return c
 }

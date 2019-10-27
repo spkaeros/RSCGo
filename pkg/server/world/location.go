@@ -119,7 +119,7 @@ func (l *Location) WithinRange(other Location, radius int) bool {
 
 //Plane Calculates and returns the plane that this location is on.
 func (l *Location) Plane() int {
-	return int(l.Y.Load() + 100) / 944 // / 1000
+	return int(l.Y.Load()+100) / 944 // / 1000
 }
 
 //Above Returns the location directly above this one, if any.  Otherwise, if we are on the top floor, returns itself.
@@ -155,7 +155,7 @@ func (l *Location) PlaneY(up bool) uint32 {
 			newPlane = curPlane - 1
 		}
 	}
-	return uint32(newPlane * 944) + (l.Y.Load() % 944)
+	return uint32(newPlane*944) + (l.Y.Load() % 944)
 }
 
 //ParseDirection Tries to parse the direction indicated in s.  If it can not match any direction, returns the zero-value for direction: north.

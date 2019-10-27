@@ -90,6 +90,7 @@ func PlayerStat(player *world.Player, idx int) *Packet {
 	p.AddInt(uint32(player.Skillset.Experience[idx]))
 	return p
 }
+
 //EquipmentStats Builds a packet with the players equipment statistics in it.
 func EquipmentStats(player *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(153)

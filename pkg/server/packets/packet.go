@@ -37,7 +37,7 @@ func NewBarePacket(src []byte) *Packet {
 
 func (p *Packet) readVarLengthInt(numBytes int) uint64 {
 	var val uint64
-	for i := numBytes-1; i >= 0; i-- {
+	for i := numBytes - 1; i >= 0; i-- {
 		val |= uint64(p.ReadByte()) << uint(i*8)
 	}
 	return val

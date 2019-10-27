@@ -2,8 +2,12 @@ package server
 
 import (
 	"fmt"
+	"github.com/gobwas/httphead"
+	"github.com/gobwas/ws"
 	"net"
+	"net/http"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -110,46 +114,103 @@ var Flags struct {
 	UseCipher bool   `short:"e" long:"encryption" description:"Enable command opcode encryption using ISAAC to encrypt packet opcodes."`
 }
 
+var header = ws.HandshakeHeaderHTTP(http.Header{
+	"X-Go-Version": []string{runtime.Version()},
+})
+
+var wsUpgrader = ws.Upgrader{
+	OnHeader: func(key, value []byte) error {
+		if string(key) != "Cookie" {
+			return nil
+		}
+		ok := httphead.ScanCookie(value, func(key, value []byte) bool {
+			// Check session here or do some other stuff with cookies.
+			// Maybe copy some values for future use.
+			return true
+		})
+		if ok {
+			return nil
+		}
+		return ws.RejectConnectionError(
+			ws.RejectionReason("bad cookie"),
+			ws.RejectionStatus(400),
+		)
+	},
+	OnHost: func(host []byte) error {
+		if string(host) == "73.9.246.187:43595" {
+			return nil
+		}
+		log.Suspicious.Printf("Player attempted to login from unknown host: %v", string(host))
+		log.Info.Printf("Player attempted to login from unknown host: %v", string(host))
+		return ws.RejectConnectionError(
+			ws.RejectionStatus(403),
+			ws.RejectionHeader(ws.HandshakeHeaderString(
+				"X-Want-Host: 73.9.246.187:43595\r\n",
+			)),
+		)
+	},
+	OnBeforeUpgrade: func() (ws.HandshakeHeader, error) {
+		return header, nil
+	},
+	Protocol: func(protocol []byte) bool {
+		return true
+	},
+
+}
+
 func startConnectionService() {
 	if Flags.Port > 0 {
 		config.TomlConfig.Port = Flags.Port
 	}
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", config.Port()))
-	if err != nil {
-		log.Error.Printf("Can't bind to specified port: %d\n", config.Port())
-		log.Error.Println(err)
-		os.Exit(1)
-	}
+	bind := func(offset int) {
+		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", config.Port()+offset))
+		if err != nil {
+			log.Error.Printf("Can't bind to specified port: %d\n", config.Port()+offset)
+			log.Error.Println(err)
+			os.Exit(1)
+		}
 
-	go func() {
-		defer func() {
-			err := listener.Close()
-			if err != nil {
-				log.Error.Println("Could not close server socket listener:", err)
-				return
-			}
-		}()
-		for {
-			socket, err := listener.Accept()
-			if err != nil {
-				if len(Flags.Verbose) > 0 {
-					log.Error.Println("Error occurred attempting to accept a client:", err)
+		go func() {
+			defer func() {
+				err := listener.Close()
+				if err != nil {
+					log.Error.Println("Could not close server socket listener:", err)
+					return
 				}
-				continue
-			}
-			if Clients.Size() >= config.MaxPlayers() {
-				if n, err := socket.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 14}); err != nil || n != 9 {
+			}()
+			for {
+				socket, err := listener.Accept()
+				if err != nil {
 					if len(Flags.Verbose) > 0 {
-						log.Error.Println("Could not send world is full response to rejected client:", err)
+						log.Error.Println("Error occurred attempting to accept a client:", err)
+					}
+					continue
+				}
+				if offset != 0 {
+					if _, err := wsUpgrader.Upgrade(socket); err != nil {
+						log.Info.Println(err)
+						return
 					}
 				}
-				continue
+				if Clients.Size() >= config.MaxPlayers() {
+					if n, err := socket.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 14}); err != nil || n != 9 {
+						if len(Flags.Verbose) > 0 {
+							log.Error.Println("Could not send world is full response to rejected client:", err)
+						}
+					}
+					continue
+				}
+
+				c := NewClient(socket)
+				if offset != 0 {
+					c.websocket = true
+				}
 			}
+		}()
+	}
 
-			NewClient(socket)
-		}
-	}()
-
+	bind(0) // UNIX sockets
+	bind(1) // websockets
 }
 
 //Start Listens for and processes new clients connecting to the server.
@@ -250,7 +311,7 @@ func Start() {
 	awaitLaunchJobs.Wait()
 	log.Info.Println()
 	log.Info.Println("RSCGo is now running.")
-	log.Info.Printf("Listening on port %d...\n", config.Port())
+	log.Info.Printf("Listening on TCP port %d, websocket port %d...\n", config.Port(), config.Port()+1)
 	select {
 	case <-kill:
 		os.Exit(0)
@@ -293,7 +354,7 @@ func Tick() {
 //startGameEngine Launches a goroutine to handle updating the state of the server every 600ms in a synchronized fashion.  This is known as a single game engine 'pulse'.
 func startGameEngine() {
 	go func() {
-		ticker := time.NewTicker(600*time.Millisecond)
+		ticker := time.NewTicker(600 * time.Millisecond)
 		defer ticker.Stop()
 		for range ticker.C {
 			Tick()

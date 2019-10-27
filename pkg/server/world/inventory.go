@@ -17,10 +17,10 @@ type Item struct {
 
 //GroundItem Represents a single ground item within the game.
 type GroundItem struct {
-	owner uint64
-	removed bool
+	owner     uint64
+	removed   bool
 	spawnTime time.Time
-	lock sync.RWMutex
+	lock      sync.RWMutex
 	Item
 	Entity
 }
@@ -31,11 +31,11 @@ var itemIndexer = atomic.NewUint32(0)
 func NewGroundItem(id, amount, x, y int) *GroundItem {
 	return &GroundItem{owner: strutil.MaxBase37 + 5000, spawnTime: time.Now(), removed: false,
 		Item: Item{
-			ID: id,
+			ID:     id,
 			Amount: amount,
 		}, Entity: Entity{
 			Location: NewLocation(x, y),
-			Index: int(itemIndexer.Swap(itemIndexer.Load() + 1)),
+			Index:    int(itemIndexer.Swap(itemIndexer.Load() + 1)),
 		},
 	}
 }
@@ -44,11 +44,11 @@ func NewGroundItem(id, amount, x, y int) *GroundItem {
 func NewGroundItemFrom(owner uint64, id, amount, x, y int) *GroundItem {
 	gi := &GroundItem{owner: owner, spawnTime: time.Now(), removed: false,
 		Item: Item{
-			ID: id,
+			ID:     id,
 			Amount: amount,
 		}, Entity: Entity{
 			Location: NewLocation(x, y),
-			Index: int(itemIndexer.Swap(itemIndexer.Load() + 1)),
+			Index:    int(itemIndexer.Swap(itemIndexer.Load() + 1)),
 		},
 	}
 	go func() {

@@ -1,8 +1,8 @@
 package world
 
 import (
-	"sync"
 	"go.uber.org/atomic"
+	"sync"
 )
 
 //MobState Mob state.

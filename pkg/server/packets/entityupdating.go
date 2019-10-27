@@ -144,7 +144,7 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 	appearanceList = append(appearanceList, ourPlayer.AppearanceReq...)
 	ourPlayer.AppearanceReq = ourPlayer.AppearanceReq[:0]
 	ourPlayer.AppearanceLock.Unlock()
-/*	for _, p1 := range ourPlayer.LocalPlayers.List {
+	/*	for _, p1 := range ourPlayer.LocalPlayers.List {
 		if p1, ok := p1.(*world.Player); ok {
 			ourPlayer.AppearanceLock.RLock()
 			if ticket, ok := ourPlayer.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket {

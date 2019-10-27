@@ -2,6 +2,8 @@ package server
 
 import (
 	"fmt"
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 	"io"
 	"net"
 	"strings"
@@ -20,7 +22,19 @@ func init() {
 
 //Write Writes data to the client's socket from `b`.  Returns the length of the written bytes.
 func (c *Client) Write(b []byte) int {
-	l, err := c.socket.Write(b)
+	if !c.websocket {
+		l, err := c.socket.Write(b)
+		if err != nil {
+			log.Error.Println("Could not write to client socket.", err)
+			c.Destroy()
+		} else if l != len(b) {
+			// Possibly non-fatal?
+			log.Error.Printf("Wrong number of bytes written to Client socket.  Expected %d, got %d.\n", len(b), l)
+		}
+		return l
+	}
+	w := wsutil.NewWriter(c.socket, ws.StateServerSide, ws.OpBinary)
+	l, err := w.Write(b)
 	if err != nil {
 		log.Error.Println("Could not write to client socket.", err)
 		c.Destroy()
@@ -28,34 +42,73 @@ func (c *Client) Write(b []byte) int {
 		// Possibly non-fatal?
 		log.Error.Printf("Wrong number of bytes written to Client socket.  Expected %d, got %d.\n", len(b), l)
 	}
+	if err := w.Flush(); err != nil {
+		log.Warning.Println("Error writing to websocket:", err)
+	}
 	return l
 }
 
 //Read Reads data off of the client's socket into 'dst'.  Returns length read into dst upon success.  Otherwise, returns -1 with a meaningful error message.
 func (c *Client) Read(dst []byte) (int, error) {
+	if !c.websocket {
+		if err := c.socket.SetReadDeadline(time.Now().Add(time.Second * 10)); err != nil {
+			// This shouldn't happen
+			return -1, errors.ConnDeadline
+		}
+		length, err := c.socket.Read(dst)
+		if err != nil {
+			if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
+				return -1, errors.ConnClosed
+			} else if e, ok := err.(net.Error); ok && e.Timeout() {
+				return -1, errors.ConnTimedOut
+			}
+		} else if length != len(dst) {
+			return length, errors.NewNetworkError(fmt.Sprintf("Client.Read: unexpected length.  Expected %d, got %d.\n", len(dst), length))
+		}
+
+		return length, nil
+	}
 	if err := c.socket.SetReadDeadline(time.Now().Add(time.Second * 10)); err != nil {
-		// This shouldn't happen
 		return -1, errors.ConnDeadline
 	}
-	length, err := c.socket.Read(dst)
-	if err != nil {
-		if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
-			return -1, errors.ConnClosed
-		} else if e, ok := err.(net.Error); ok && e.Timeout() {
-			return -1, errors.ConnTimedOut
+	if len(c.wsFrameData) >= len(dst) {
+		// If we have enough data to fill dst, fill it, stash the remaining leftovers
+		copy(dst, c.wsFrameData)
+		if len(c.wsFrameData) > len(dst) {
+			c.wsFrameData = c.wsFrameData[len(dst):]
+			return len(dst), nil
 		}
-	} else if length != len(dst) {
-		return length, errors.NewNetworkError(fmt.Sprintf("Client.Read: unexpected length.  Expected %d, got %d.\n", len(dst), length))
+		c.wsFrameData = []byte{}
+		return len(dst), nil
+	}
+	data, _, err := wsutil.ReadData(c.socket, ws.StateServerSide)
+	if err != nil {
+		return -1, err
+	}
+	if len(c.wsFrameData) > 0 {
+		// unstash extra data
+		data = append(c.wsFrameData, data...)
+		c.wsFrameData = c.wsFrameData[:0]
+	}
+	if len(dst) > len(data) {
+		// In the event that we can't fill the destination buffer, we just start over
+		return -1, errors.NewNetworkError("SHORT_DATA")
 	}
 
-	return length, nil
+	copy(dst, data)
+
+	if len(data) > len(dst) {
+		// stash extra data
+		c.wsFrameData = data[len(dst):]
+	}
+	return len(dst), nil
 }
 
 //ReadPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode of the next packet frame the client is sending us.
 func (c *Client) ReadPacket() (*packets.Packet, error) {
 	// TODO: Is allocation overhead more expensive than mutex locks?  If so, I must change this back to pre-allocated, and guard it with a RWMutex
 	header := make([]byte, 2)
-	if l, err := c.Read(header); err != nil || l != 2 {
+	if l, err := c.Read(header); err != nil || l < 2{
 		// This could happen legitimately, under certain strange circumstances.  Not proof of malicious intent.
 		return nil, err
 	}

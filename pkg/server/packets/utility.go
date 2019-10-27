@@ -58,8 +58,8 @@ func LoginBox(inactiveDays int, lastIP string) (p *Packet) {
 	p = NewOutgoingPacket(182)
 	p.AddInt(uint32(strutil.IPToInteger(lastIP))) // IP
 	p.AddShort(uint16(inactiveDays))              // Last logged in
-	p.AddByte(0) // recovery questions set days, 200 = unset, 201 = set
-	p.AddShort(1) // Unread messages, number minus one, 0 does not render anything
+	p.AddByte(0)                                  // recovery questions set days, 200 = unset, 201 = set
+	p.AddShort(1)                                 // Unread messages, number minus one, 0 does not render anything
 	p.AddBytes([]byte(lastIP))
 	return p
 }
