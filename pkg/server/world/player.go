@@ -32,9 +32,9 @@ type Player struct {
 	TradeOffer       *Inventory
 	DistancedActions []func() bool
 	ActionLock       sync.RWMutex
-	IP                               string
-	UID                              uint8
-	Websocket                        bool
+	IP               string
+	UID              uint8
+	Websocket        bool
 	Mob
 }
 

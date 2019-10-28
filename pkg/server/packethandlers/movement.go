@@ -1,13 +1,13 @@
 package packethandlers
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/collections"
+	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packetbuilders"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 )
 
 func init() {
-	PacketHandlers["walkto"] = func(c collections.Client, p *packetbuilders.Packet) {
+	PacketHandlers["walkto"] = func(c clients.Client, p *packetbuilders.Packet) {
 		startX := p.ReadShort()
 		startY := p.ReadShort()
 		numWaypoints := (len(p.Payload) - 4) / 2
@@ -21,7 +21,7 @@ func init() {
 		}
 		c.Player().SetPath(world.NewPathwayComplete(uint32(startX), uint32(startY), waypointsX, waypointsY))
 	}
-	PacketHandlers["walktoentity"] = func(c collections.Client, p *packetbuilders.Packet) {
+	PacketHandlers["walktoentity"] = func(c clients.Client, p *packetbuilders.Packet) {
 		startX := p.ReadShort()
 		startY := p.ReadShort()
 		numWaypoints := (len(p.Payload) - 4) / 2
@@ -35,9 +35,9 @@ func init() {
 		}
 		c.Player().SetPath(world.NewPathwayComplete(uint32(startX), uint32(startY), waypointsX, waypointsY))
 	}
-	PacketHandlers["followreq"] = func(c collections.Client, p *packetbuilders.Packet) {
+	PacketHandlers["followreq"] = func(c clients.Client, p *packetbuilders.Packet) {
 		playerID := p.ReadShort()
-		affectedClient, ok := collections.Clients.FromIndex(playerID)
+		affectedClient, ok := clients.FromIndex(playerID)
 		if !ok {
 			c.Message("@que@Could not find the player you're looking for.")
 			return
@@ -64,14 +64,14 @@ func init() {
 			return false
 		})
 	}
-	PacketHandlers["appearancerequest"] = func(c collections.Client, p *packetbuilders.Packet) {
+	PacketHandlers["appearancerequest"] = func(c clients.Client, p *packetbuilders.Packet) {
 		playerCount := p.ReadShort()
 		for i := 0; i < playerCount; i++ {
 			serverIndex := p.ReadShort()
 			appearanceTicket := p.ReadShort()
 			c.Player().AppearanceLock.Lock()
 			if ticket, ok := c.Player().KnownAppearances[serverIndex]; !ok || ticket != appearanceTicket {
-				if c1, ok := collections.Clients.FromIndex(serverIndex); ok {
+				if c1, ok := clients.FromIndex(serverIndex); ok {
 					c.Player().AppearanceReq = append(c.Player().AppearanceReq, c1.Player())
 				}
 			}

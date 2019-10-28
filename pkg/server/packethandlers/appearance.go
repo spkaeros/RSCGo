@@ -1,13 +1,13 @@
 package packethandlers
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/collections"
+	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packetbuilders"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 )
 
 func init() {
-	PacketHandlers["changeappearance"] = func(c collections.Client, p *packetbuilders.Packet) {
+	PacketHandlers["changeappearance"] = func(c clients.Client, p *packetbuilders.Packet) {
 		headGender := p.ReadBool()
 		headType := p.ReadByte()
 		bodyType := p.ReadByte()

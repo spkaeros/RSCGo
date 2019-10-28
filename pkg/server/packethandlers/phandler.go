@@ -1,7 +1,7 @@
 package packethandlers
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/collections"
+	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
 	"bitbucket.org/zlacki/rscgo/pkg/server/config"
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packetbuilders"
@@ -9,13 +9,13 @@ import (
 )
 
 func init() {
-	PacketHandlers["pingreq"] = func(c collections.Client, p *packetbuilders.Packet) {
+	PacketHandlers["pingreq"] = func(c clients.Client, p *packetbuilders.Packet) {
 		// Just ignore it...
 	}
 }
 
 //HandlerFunc Represents a function for handling incoming packetbuilders.
-type HandlerFunc func(collections.Client, *packetbuilders.Packet)
+type HandlerFunc func(clients.Client, *packetbuilders.Packet)
 
 //PacketHandlers A map with descriptive names for the keys, and functions to run for the value.
 var PacketHandlers = make(map[string]HandlerFunc)

@@ -1,14 +1,14 @@
 package packethandlers
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/collections"
+	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packetbuilders"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 )
 
 func init() {
-	PacketHandlers["attacknpc"] = func(c collections.Client, p *packetbuilders.Packet) {
+	PacketHandlers["attacknpc"] = func(c clients.Client, p *packetbuilders.Packet) {
 		npc := world.GetNpc(p.ReadShort())
 		if npc == nil {
 			log.Suspicious.Printf("player[%v] tried to attack nil NPC\n", c)

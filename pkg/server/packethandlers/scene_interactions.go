@@ -1,7 +1,7 @@
 package packethandlers
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/collections"
+	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
 	"bitbucket.org/zlacki/rscgo/pkg/server/db"
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packetbuilders"
@@ -42,7 +42,7 @@ func init() {
 		}
 
 		if p.Skillset.Current[5] < p.Skillset.Maximum[5] {
-			c, _ := collections.Clients.FromIndex(p.Index)
+			c, _ := clients.FromIndex(p.Index)
 			p.Skillset.Current[5] = p.Skillset.Maximum[5]
 			c.UpdateStat(5)
 			c.Message("You recharge your prayer points at the altar.")
@@ -55,7 +55,7 @@ func init() {
 		}
 
 		if nextLocation := p.Above(); !nextLocation.Equals(&p.Location) {
-			c, _ := collections.Clients.FromIndex(p.Index)
+			c, _ := clients.FromIndex(p.Index)
 			p.SetLocation(&nextLocation)
 			c.UpdatePlane()
 		}
@@ -67,7 +67,7 @@ func init() {
 		}
 
 		if nextLocation := p.Below(); !nextLocation.Equals(&p.Location) {
-			c, _ := collections.Clients.FromIndex(p.Index)
+			c, _ := clients.FromIndex(p.Index)
 			p.SetLocation(&nextLocation)
 			c.UpdatePlane()
 		}
@@ -140,7 +140,7 @@ func init() {
 			world.ReplaceObject(object, newID)
 		}
 	}
-	PacketHandlers["objectaction"] = func(c collections.Client, p *packetbuilders.Packet) {
+	PacketHandlers["objectaction"] = func(c clients.Client, p *packetbuilders.Packet) {
 		x := p.ReadShort()
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
@@ -156,7 +156,7 @@ func init() {
 			return false
 		})
 	}
-	PacketHandlers["objectaction2"] = func(c collections.Client, p *packetbuilders.Packet) {
+	PacketHandlers["objectaction2"] = func(c clients.Client, p *packetbuilders.Packet) {
 		x := p.ReadShort()
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
@@ -172,7 +172,7 @@ func init() {
 			return false
 		})
 	}
-	PacketHandlers["boundaryaction2"] = func(c collections.Client, p *packetbuilders.Packet) {
+	PacketHandlers["boundaryaction2"] = func(c clients.Client, p *packetbuilders.Packet) {
 		x := p.ReadShort()
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
@@ -188,7 +188,7 @@ func init() {
 			return false
 		})
 	}
-	PacketHandlers["boundaryaction"] = func(c collections.Client, p *packetbuilders.Packet) {
+	PacketHandlers["boundaryaction"] = func(c clients.Client, p *packetbuilders.Packet) {
 		x := p.ReadShort()
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
@@ -204,7 +204,7 @@ func init() {
 			return false
 		})
 	}
-	PacketHandlers["dropitem"] = func(c collections.Client, p *packetbuilders.Packet) {
+	PacketHandlers["dropitem"] = func(c clients.Client, p *packetbuilders.Packet) {
 		index := p.ReadShort()
 		item := c.Player().Items.Get(index)
 		if item != nil {
@@ -216,7 +216,7 @@ func init() {
 	}
 }
 
-func objectAction(c collections.Client, object *world.Object, rightClick bool) {
+func objectAction(c clients.Client, object *world.Object, rightClick bool) {
 	//	c.Player().ResetPath()
 	if c.Player().State != world.MSIdle || world.GetObject(int(object.X.Load()), int(object.Y.Load())) != object || !c.Player().WithinRange(object.Location, 1) {
 		// If somehow we became busy, the object changed before arriving, or somehow this action fired without actually arriving at the object, we do nothing.
@@ -242,7 +242,7 @@ func objectAction(c collections.Client, object *world.Object, rightClick bool) {
 	c.SendPacket(packetbuilders.DefaultActionMessage)
 }
 
-func boundaryAction(c collections.Client, object *world.Object, rightClick bool) {
+func boundaryAction(c clients.Client, object *world.Object, rightClick bool) {
 	//	c.Player().ResetPath()
 	if c.Player().State != world.MSIdle || world.GetObject(int(object.X.Load()), int(object.Y.Load())) != object || !c.Player().WithinRange(object.Location, 1) {
 		// If somehow we became busy, the object changed before arriving, or somehow this action fired without actually arriving at the object, we do nothing.

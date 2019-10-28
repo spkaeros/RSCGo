@@ -2,7 +2,7 @@ package packethandlers
 
 import (
 	"bitbucket.org/zlacki/rscgo/pkg/rand"
-	"bitbucket.org/zlacki/rscgo/pkg/server/collections"
+	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
 	"bitbucket.org/zlacki/rscgo/pkg/server/crypto"
 	"strings"
 
@@ -18,7 +18,7 @@ func init() {
 	PacketHandlers["loginreq"] = loginRequest
 	PacketHandlers["logoutreq"] = logout
 	PacketHandlers["newplayer"] = newPlayer
-	PacketHandlers["forgotpass"] = func(c collections.Client, p *packetbuilders.Packet) {
+	PacketHandlers["forgotpass"] = func(c clients.Client, p *packetbuilders.Packet) {
 		usernameHash := p.ReadLong()
 		if !db.HasRecoveryQuestions(usernameHash) {
 			c.SendPacket(packetbuilders.NewBarePacket([]byte{0}))
@@ -30,10 +30,10 @@ func init() {
 			c.SendPacket(packetbuilders.NewBarePacket([]byte{byte(len(question))}).AddBytes([]byte(question)))
 		}
 	}
-	PacketHandlers["cancelpq"] = func(c collections.Client, p *packetbuilders.Packet) {
+	PacketHandlers["cancelpq"] = func(c clients.Client, p *packetbuilders.Packet) {
 		// empty packet
 	}
-	PacketHandlers["setpq"] = func(c collections.Client, p *packetbuilders.Packet) {
+	PacketHandlers["setpq"] = func(c clients.Client, p *packetbuilders.Packet) {
 		var questions []string
 		var answers []uint64
 		for i := 0; i < 5; i++ {
@@ -43,10 +43,10 @@ func init() {
 		}
 		log.Info.Println(questions, answers)
 	}
-	PacketHandlers["changepq"] = func(c collections.Client, p *packetbuilders.Packet) {
+	PacketHandlers["changepq"] = func(c clients.Client, p *packetbuilders.Packet) {
 		c.SendPacket(packetbuilders.NewOutgoingPacket(224))
 	}
-	PacketHandlers["changepass"] = func(c collections.Client, p *packetbuilders.Packet) {
+	PacketHandlers["changepass"] = func(c clients.Client, p *packetbuilders.Packet) {
 		oldPassword := strings.TrimSpace(p.ReadString(20))
 		newPassword := strings.TrimSpace(p.ReadString(20))
 		if !db.ValidCredentials(c.Player().UserBase37, crypto.Hash(oldPassword)) {
@@ -59,12 +59,12 @@ func init() {
 	}
 }
 
-func logout(c collections.Client, _ *packetbuilders.Packet) {
+func logout(c clients.Client, _ *packetbuilders.Packet) {
 	c.SendPacket(packetbuilders.Logout)
 	c.Destroy()
 }
 
-func newPlayer(c collections.Client, p *packetbuilders.Packet) {
+func newPlayer(c clients.Client, p *packetbuilders.Packet) {
 	reply := make(chan byte)
 	go c.HandleRegister(reply)
 	if version := p.ReadShort(); version != config.Version() {
@@ -96,13 +96,13 @@ func newPlayer(c collections.Client, p *packetbuilders.Packet) {
 	return
 }
 
-func sessionRequest(c collections.Client, p *packetbuilders.Packet) {
+func sessionRequest(c clients.Client, p *packetbuilders.Packet) {
 	c.Player().UID = p.ReadByte()
 	c.Player().SetServerSeed(rand.Uint64())
 	c.SendPacket(packetbuilders.NewBarePacket(nil).AddLong(c.Player().ServerSeed()))
 }
 
-func loginRequest(c collections.Client, p *packetbuilders.Packet) {
+func loginRequest(c clients.Client, p *packetbuilders.Packet) {
 	loginReply := make(chan byte)
 	go c.HandleLogin(loginReply)
 	// Login block encrypted with block cipher using shared secret, to send/recv credentials and stream cipher key securely
@@ -143,7 +143,7 @@ func loginRequest(c collections.Client, p *packetbuilders.Packet) {
 		loginReply <- 3
 		return
 	}
-	if _, ok := collections.Clients.FromUserHash(usernameHash); ok {
+	if _, ok := clients.FromUserHash(usernameHash); ok {
 		loginReply <- byte(4)
 		return
 	}

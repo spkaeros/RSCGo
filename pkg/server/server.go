@@ -1,8 +1,7 @@
 package server
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/client"
-	"bitbucket.org/zlacki/rscgo/pkg/server/collections"
+	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packethandlers"
 	"fmt"
 	"github.com/gobwas/ws"
@@ -73,7 +72,7 @@ func startConnectionService() {
 						continue
 					}
 				}
-				if collections.Clients.Size() >= config.MaxPlayers() {
+				if clients.Size() >= config.MaxPlayers() {
 					if n, err := socket.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 14}); err != nil || n != 9 {
 						if len(Flags.Verbose) > 0 {
 							log.Error.Println("Could not send world is full response to rejected client:", err)
@@ -82,7 +81,7 @@ func startConnectionService() {
 					continue
 				}
 
-				c := client.NewClient(socket)
+				c := NewClient(socket)
 				if offset != 0 {
 					c.Player().Websocket = true
 				}
@@ -178,12 +177,6 @@ func Start() {
 		})
 	*/
 	asyncExecute(&awaitLaunchJobs, func() {
-		startConnectionService()
-		if len(Flags.Verbose) > 0 {
-			log.Info.Println("Launched connection service.")
-		}
-	})
-	asyncExecute(&awaitLaunchJobs, func() {
 		startGameEngine()
 		if len(Flags.Verbose) > 0 {
 			log.Info.Println("Launched game engine.")
@@ -192,6 +185,7 @@ func Start() {
 	awaitLaunchJobs.Wait()
 	log.Info.Println()
 	log.Info.Println("RSCGo is now running.")
+	startConnectionService()
 	log.Info.Printf("Listening on TCP port %d, websocket port %d...\n", config.Port(), config.Port()+1)
 	select {
 	case <-kill:
@@ -210,7 +204,7 @@ func asyncExecute(wg *sync.WaitGroup, fn func()) {
 
 //Tick One game engine 'tick'.  This is to handle movement, to synchronize client, to update movement-related state variables... Runs once per 600ms.
 func Tick() {
-	collections.Clients.Range(func(c collections.Client) {
+	clients.Range(func(c clients.Client) {
 		// TODO: I know I can do better...this feels so ugly.  it's fast and works, tho
 		var tmpFns []func() bool
 		c.Player().ActionLock.Lock()
@@ -223,10 +217,10 @@ func Tick() {
 		c.Player().ActionLock.Unlock()
 		c.Player().TraversePath()
 	})
-	collections.Clients.Range(func(c collections.Client) {
+	clients.Range(func(c clients.Client) {
 		c.UpdatePositions()
 	})
-	collections.Clients.Range(func(c collections.Client) {
+	clients.Range(func(c clients.Client) {
 		c.ResetUpdateFlags()
 		world.ResetNpcUpdateFlags()
 	})

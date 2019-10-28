@@ -1,7 +1,7 @@
-package client
+package server
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/collections"
+	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
 	"bitbucket.org/zlacki/rscgo/pkg/server/db"
 	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
@@ -9,6 +9,9 @@ import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/packethandlers"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 	"fmt"
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
+	"io"
 	"net"
 	"strings"
 	"sync"
@@ -69,7 +72,7 @@ func (c *Client) Teleport(x, y int) {
 		return
 	}
 	for _, nearbyPlayer := range c.player.NearbyPlayers() {
-		if c1, ok := collections.Clients.FromIndex(nearbyPlayer.Index); ok {
+		if c1, ok := clients.FromIndex(nearbyPlayer.Index); ok {
 			c1.TeleBubble(int(c.player.X.Load()-nearbyPlayer.X.Load()), int(c.player.Y.Load()-nearbyPlayer.Y.Load()))
 		}
 	}
@@ -77,8 +80,8 @@ func (c *Client) Teleport(x, y int) {
 	c.player.Teleport(x, y)
 }
 
-//StartReader Starts the client Socket reader goroutine.  Takes a waitgroup as an argument to facilitate synchronous destruction.
-func (c *Client) StartReader() {
+//startReader Starts the client Socket reader goroutine.  Takes a waitgroup as an argument to facilitate synchronous destruction.
+func (c *Client) startReader() {
 	for {
 		select {
 		default:
@@ -106,8 +109,8 @@ func (c *Client) StartReader() {
 	}
 }
 
-//StartWriter Starts the client Socket writer goroutine.
-func (c *Client) StartWriter() {
+//startWriter Starts the client Socket writer goroutine.
+func (c *Client) startWriter() {
 	for {
 		select {
 		case p := <-c.OutgoingPackets:
@@ -129,7 +132,7 @@ func (c *Client) Destroy() {
 	}
 }
 
-//destroy Safely tears down a client, saves it to the database, and removes it from server-wide collections.
+//destroy Safely tears down a client, saves it to the database, and removes it from server-wide clients.
 func (c *Client) destroy(wg *sync.WaitGroup) {
 	// Wait for network goroutines to finish.
 	(*wg).Wait()
@@ -139,14 +142,14 @@ func (c *Client) destroy(wg *sync.WaitGroup) {
 	if err := c.Socket.Close(); err != nil {
 		log.Error.Println("Couldn't close Socket:", err)
 	}
-	if _, ok := collections.Clients.FromUserHash(c.player.UserBase37); ok {
+	if _, ok := clients.FromUserHash(c.player.UserBase37); ok {
 		// Always try to launch I/O-heavy functions in their own goroutine.
 		// Goroutines are light-weight and made for this kind of thing.
 		go db.SavePlayer(c.player)
 		world.RemovePlayer(c.player)
 		c.player.TransAttrs.SetVar("remove", true)
-		collections.BroadcastLogin(c.player, false)
-		collections.Clients.Remove(c)
+		clients.BroadcastLogin(c.player, false)
+		clients.Remove(c)
 		log.Info.Printf("Unregistered: %v\n", c)
 	}
 }
@@ -188,11 +191,11 @@ func (c *Client) StartNetworking() {
 	nwg.Add(2)
 	go func() {
 		defer nwg.Done()
-		c.StartReader()
+		c.startReader()
 	}()
 	go func() {
 		defer nwg.Done()
-		c.StartWriter()
+		c.startWriter()
 	}()
 	go func() {
 		defer c.destroy(&nwg)
@@ -227,7 +230,7 @@ func (c *Client) HandlePacket(p *packetbuilders.Packet) {
 // sends appearance change screen to setup player's appearance.
 func (c *Client) Initialize() {
 	for user := range c.player.FriendList {
-		if collections.Clients.ContainsHash(user) {
+		if clients.ContainsHash(user) {
 			c.player.FriendList[user] = true
 		}
 	}
@@ -261,7 +264,7 @@ func (c *Client) Initialize() {
 		c.SendPacket(packetbuilders.WelcomeMessage)
 		c.SendPacket(packetbuilders.LoginBox(0, c.player.IP))
 	}
-	collections.BroadcastLogin(c.player, true)
+	clients.BroadcastLogin(c.player, true)
 	if c.player.Attributes.VarBool("first_login", true) {
 		c.player.Attributes.SetVar("first_login", false)
 		c.OpenAppearanceChangePanel()
@@ -275,7 +278,7 @@ func (c *Client) HandleLogin(reply chan byte) {
 	case r := <-reply:
 		c.SendPacket(packetbuilders.LoginResponse(int(r)))
 		if r == 0 || r == 1 || r == 25 || r == 24 {
-			collections.Clients.Put(c)
+			clients.Put(c)
 			log.Info.Printf("Registered: %v\n", c)
 			c.Initialize()
 			return
@@ -305,7 +308,7 @@ func (c *Client) HandleRegister(reply chan byte) {
 
 //NewClient Creates a new instance of a Client, launches goroutines to handle I/O for it, and returns a reference to it.
 func NewClient(socket net.Conn) *Client {
-	c := &Client{Socket: socket, IncomingPackets: make(chan *packetbuilders.Packet, 20), OutgoingPackets: make(chan *packetbuilders.Packet, 20), Kill: make(chan struct{}), player: world.NewPlayer(collections.Clients.NextIndex(), strings.Split(socket.RemoteAddr().String(), ":")[0])}
+	c := &Client{Socket: socket, IncomingPackets: make(chan *packetbuilders.Packet, 20), OutgoingPackets: make(chan *packetbuilders.Packet, 20), Kill: make(chan struct{}), player: world.NewPlayer(clients.NextIndex(), strings.Split(socket.RemoteAddr().String(), ":")[0])}
 	c.StartNetworking()
 	return c
 }
@@ -313,4 +316,145 @@ func NewClient(socket net.Conn) *Client {
 //String Returns a string populated with some of the more identifying fields from the receiver Client.
 func (c *Client) String() string {
 	return fmt.Sprintf("Client[%v] {username:'%v', IP:'%v'}", c.player.Index, c.player.Username, c.player.IP)
+}
+
+//Write Writes data to the client's Socket from `b`.  Returns the length of the written bytes.
+func (c *Client) Write(b []byte) int {
+	if !c.player.Websocket {
+		l, err := c.Socket.Write(b)
+		if err != nil {
+			log.Error.Println("Could not write to client Socket.", err)
+			c.Destroy()
+		} else if l != len(b) {
+			// Possibly non-fatal?
+			log.Error.Printf("Wrong number of bytes written to Client Socket.  Expected %d, got %d.\n", len(b), l)
+		}
+		return l
+	}
+	w := wsutil.NewWriter(c.Socket, ws.StateServerSide, ws.OpBinary)
+	l, err := w.Write(b)
+	if err != nil {
+		log.Error.Println("Could not write to client Socket.", err)
+		c.Destroy()
+	} else if l != len(b) {
+		// Possibly non-fatal?
+		log.Error.Printf("Wrong number of bytes written to Client Socket.  Expected %d, got %d.\n", len(b), l)
+	}
+	if err := w.Flush(); err != nil {
+		log.Warning.Println("Error writing to Websocket:", err)
+	}
+	return l
+}
+
+//Read Reads data off of the client's Socket into 'dst'.  Returns length read into dst upon success.  Otherwise, returns -1 with a meaningful error message.
+func (c *Client) Read(dst []byte) (int, error) {
+	err := c.Socket.SetReadDeadline(time.Now().Add(time.Second * 10))
+	if err != nil {
+		return -1, errors.ConnDeadline
+	}
+
+	if len(c.PacketData) >= len(dst) {
+		// If we have enough data to fill dst, fill it, stash the remaining leftovers
+		copy(dst, c.PacketData)
+		if len(c.PacketData) == len(dst) {
+			c.PacketData = c.PacketData[:0]
+		} else {
+			c.PacketData = c.PacketData[len(dst):]
+		}
+		return len(dst), nil
+	}
+
+	var data []byte
+	if c.player.Websocket {
+		data, _, err = wsutil.ReadData(c.Socket, ws.StateServerSide)
+	} else {
+		_, err = c.Socket.Read(dst)
+		data = dst
+	}
+
+	if err != nil {
+		if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
+			return -1, errors.ConnClosed
+		} else if e, ok := err.(net.Error); ok && e.Timeout() {
+			return -1, errors.ConnTimedOut
+		}
+		return -1, err
+	}
+
+	if len(c.PacketData) > 0 {
+		// unstash extra data
+		if c.player.Websocket {
+			data = append(c.PacketData, data...)
+		} else {
+			dst = append(c.PacketData, dst...)
+		}
+		c.PacketData = c.PacketData[:0]
+	}
+
+	if c.player.Websocket {
+		copy(dst, data)
+
+		if len(data) > len(dst) {
+			// stash extra data
+			c.PacketData = data[len(dst):]
+		}
+	}
+	return len(dst), nil
+}
+
+//ReadPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode of the next packet frame the client is sending us.
+func (c *Client) ReadPacket() (*packetbuilders.Packet, error) {
+	// TODO: Is allocation overhead more expensive than mutex locks?  If so, I must change this back to pre-allocated, and guard it with a RWMutex
+	header := make([]byte, 2)
+	if l, err := c.Read(header); err != nil {
+		return nil, err
+	} else if l < 2 {
+		return nil, errors.NewNetworkError("SHORT_DATA")
+	}
+	length := int(header[0])
+	if length >= 160 {
+		length = (length-160)*256 + int(header[1])
+	} else {
+		length--
+	}
+
+	if length >= 5000 || length < 0 {
+		log.Suspicious.Printf("Invalid packet length from [%v]: %d\n", c, length)
+		log.Warning.Printf("Packet from [%v] length out of bounds; got %d, expected between 4 and 5000\n", c, length+3)
+		return nil, errors.NewNetworkError("Packet length out of bounds; must be between 4 and 5000.")
+	}
+
+	payload := make([]byte, length)
+
+	if l, err := c.Read(payload); err != nil {
+		return nil, err
+	} else if l < length {
+		return nil, errors.NewNetworkError("SHORT_DATA")
+	}
+
+	if length < 160 {
+		payload = append(payload, header[1])
+	}
+
+	return packetbuilders.NewPacket(payload[0], payload[1:]), nil
+}
+
+//WritePacket This is a method to send a packet to the client.  If this is a bare packet, the packet payload will
+// be written as-is.  If this is not a bare packet, the packet will have the first 3 bytes changed to the
+// appropriate values for the client to parse the length and opcode for this packet.
+func (c *Client) WritePacket(p packetbuilders.Packet) {
+	var buf []byte
+	if !p.Bare {
+		if frameLength := len(p.Payload); frameLength >= 160 {
+			buf = append(buf, byte(160+frameLength/256))
+			buf = append(buf, byte(frameLength))
+		} else {
+			buf = append(buf, byte(frameLength))
+			buf = append(buf, p.Payload[frameLength-1])
+			p.Payload = p.Payload[:frameLength-1]
+		}
+	}
+	buf = append(buf, p.Payload...)
+
+	c.Write(buf)
 }
