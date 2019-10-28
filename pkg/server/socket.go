@@ -84,7 +84,11 @@ func (c *Client) Read(dst []byte) (int, error) {
 
 	if len(c.packetData) > 0 {
 		// unstash extra data
-		data = append(c.packetData, data...)
+		if c.websocket {
+			data = append(c.packetData, data...)
+		} else {
+			dst = append(c.packetData, dst...)
+		}
 		c.packetData = c.packetData[:0]
 	}
 
