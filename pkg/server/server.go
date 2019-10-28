@@ -1,6 +1,9 @@
 package server
 
 import (
+	"bitbucket.org/zlacki/rscgo/pkg/server/client"
+	"bitbucket.org/zlacki/rscgo/pkg/server/collections"
+	"bitbucket.org/zlacki/rscgo/pkg/server/packethandlers"
 	"fmt"
 	"github.com/gobwas/ws"
 	"net"
@@ -12,7 +15,6 @@ import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/config"
 	"bitbucket.org/zlacki/rscgo/pkg/server/db"
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
-	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 	"github.com/BurntSushi/toml"
 	"github.com/jessevdk/go-flags"
@@ -21,87 +23,6 @@ import (
 var (
 	kill = make(chan struct{})
 )
-
-//ClientMap A thread-safe concurrent collection type for storing client references.
-type ClientMap struct {
-	usernames map[uint64]*Client
-	indices   map[int]*Client
-	lock      sync.RWMutex
-}
-
-//Clients Collection containing all of the active clients, by index and username hash, guarded by a mutex
-var Clients = &ClientMap{usernames: make(map[uint64]*Client), indices: make(map[int]*Client)}
-
-//FromUserHash Returns the client with the base37 username `hash` if it exists and true, otherwise returns nil and false.
-func (m *ClientMap) FromUserHash(hash uint64) (*Client, bool) {
-	m.lock.RLock()
-	result, ok := m.usernames[hash]
-	m.lock.RUnlock()
-	return result, ok
-}
-
-//ContainsHash Returns true if there is a client mapped to this username hash is in this collection, otherwise returns false.
-func (m *ClientMap) ContainsHash(hash uint64) bool {
-	_, ret := m.FromUserHash(hash)
-	return ret
-}
-
-//FromIndex Returns the client with the index `index` if it exists and true, otherwise returns nil and false.
-func (m *ClientMap) FromIndex(index int) (*Client, bool) {
-	m.lock.RLock()
-	result, ok := m.indices[index]
-	m.lock.RUnlock()
-	return result, ok
-}
-
-//Put Puts a client into the map.
-func (m *ClientMap) Put(c *Client) {
-	nextIndex := m.NextIndex()
-	m.lock.Lock()
-	c.Index = nextIndex
-	c.player.Index = nextIndex
-	m.usernames[c.player.UserBase37] = c
-	m.indices[nextIndex] = c
-	m.lock.Unlock()
-}
-
-//Remove Removes a client from the map.
-func (m *ClientMap) Remove(c *Client) {
-	m.lock.Lock()
-	delete(m.usernames, c.player.UserBase37)
-	delete(m.indices, c.Index)
-	m.lock.Unlock()
-}
-
-//Broadcast Calls action for every active client in the collection.
-func (m *ClientMap) Broadcast(action func(*Client)) {
-	m.lock.RLock()
-	for _, c := range m.indices {
-		if c != nil && c.player.TransAttrs.VarBool("connected", false) {
-			action(c)
-		}
-	}
-	m.lock.RUnlock()
-}
-
-//Size Returns the size of the active client collection.
-func (m *ClientMap) Size() int {
-	m.lock.RLock()
-	defer m.lock.RUnlock()
-	return len(m.usernames)
-}
-
-//NextIndex Returns the lowest available index for the client to be mapped to.
-func (m *ClientMap) NextIndex() int {
-	m.lock.RLock()
-	defer m.lock.RUnlock()
-	for i := 0; i < config.MaxPlayers(); i++ {
-		if _, ok := m.indices[i]; !ok {
-			return i
-		}
-	}
-	return -1
-}
 
 //Flags This is used to interface with the go-flags package from some guy on github.
 var Flags struct {
@@ -152,7 +73,7 @@ func startConnectionService() {
 						continue
 					}
 				}
-				if Clients.Size() >= config.MaxPlayers() {
+				if collections.Clients.Size() >= config.MaxPlayers() {
 					if n, err := socket.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 14}); err != nil || n != 9 {
 						if len(Flags.Verbose) > 0 {
 							log.Error.Println("Could not send world is full response to rejected client:", err)
@@ -161,9 +82,9 @@ func startConnectionService() {
 					continue
 				}
 
-				c := NewClient(socket)
+				c := client.NewClient(socket)
 				if offset != 0 {
-					c.websocket = true
+					c.Player().Websocket = true
 				}
 			}
 		}()
@@ -173,7 +94,7 @@ func startConnectionService() {
 	bind(1) // websockets
 }
 
-//Start Listens for and processes new clients connecting to the server.
+//Start Listens for and processes new client connecting to the server.
 // This method blocks while the server is running.
 func Start() {
 	log.Info.Println("RSCGo starting up...")
@@ -242,9 +163,9 @@ func Start() {
 		}
 	})
 	asyncExecute(&awaitLaunchJobs, func() {
-		initPacketHandlerTable()
+		packethandlers.Initialize()
 		if len(Flags.Verbose) > 0 {
-			log.Info.Printf("Initialized %d packet handlers.\n", len(table.Handlers))
+			log.Info.Printf("Initialized %d packet handlers.\n", packethandlers.CountPacketHandlers())
 		}
 	})
 	// TODO: Re-enable RSA
@@ -287,25 +208,25 @@ func asyncExecute(wg *sync.WaitGroup, fn func()) {
 	}()
 }
 
-//Tick One game engine 'tick'.  This is to handle movement, to synchronize clients, to update movement-related state variables... Runs once per 600ms.
+//Tick One game engine 'tick'.  This is to handle movement, to synchronize client, to update movement-related state variables... Runs once per 600ms.
 func Tick() {
-	Clients.Broadcast(func(c *Client) {
+	collections.Clients.Range(func(c collections.Client) {
 		// TODO: I know I can do better...this feels so ugly.  it's fast and works, tho
 		var tmpFns []func() bool
-		c.player.ActionLock.Lock()
-		for _, fn := range c.player.DistancedActions {
+		c.Player().ActionLock.Lock()
+		for _, fn := range c.Player().DistancedActions {
 			if !fn() {
 				tmpFns = append(tmpFns, fn)
 			}
 		}
-		c.player.DistancedActions = tmpFns
-		c.player.ActionLock.Unlock()
-		c.player.TraversePath()
+		c.Player().DistancedActions = tmpFns
+		c.Player().ActionLock.Unlock()
+		c.Player().TraversePath()
 	})
-	Clients.Broadcast(func(c *Client) {
+	collections.Clients.Range(func(c collections.Client) {
 		c.UpdatePositions()
 	})
-	Clients.Broadcast(func(c *Client) {
+	collections.Clients.Range(func(c collections.Client) {
 		c.ResetUpdateFlags()
 		world.ResetNpcUpdateFlags()
 	})
@@ -320,18 +241,6 @@ func startGameEngine() {
 			Tick()
 		}
 	}()
-}
-
-//BroadcastLogin Broadcasts the login status of player to the whole server.
-func BroadcastLogin(player *world.Player, online bool) {
-	Clients.Broadcast(func(c *Client) {
-		if c.player.Friends(player.UserBase37) {
-			if !player.FriendBlocked() || player.Friends(c.player.UserBase37) {
-				c.player.FriendList[player.UserBase37] = online
-				c.outgoingPackets <- packets.FriendUpdate(player.UserBase37, online)
-			}
-		}
-	})
 }
 
 //Stop This will stop the server instance, if it is running.

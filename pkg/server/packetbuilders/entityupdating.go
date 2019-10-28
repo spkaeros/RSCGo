@@ -1,4 +1,4 @@
-package packets
+package packetbuilders
 
 import "bitbucket.org/zlacki/rscgo/pkg/server/world"
 
@@ -145,7 +145,7 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 	ourPlayer.AppearanceReq = ourPlayer.AppearanceReq[:0]
 	ourPlayer.AppearanceLock.Unlock()
 	/*	for _, p1 := range ourPlayer.LocalPlayers.List {
-		if p1, ok := p1.(*world.Player); ok {
+		if p1, ok := p1.(*world.player); ok {
 			ourPlayer.AppearanceLock.RLock()
 			if ticket, ok := ourPlayer.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket {
 				appearanceList = append(appearanceList, p1)
@@ -162,7 +162,7 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 		ourPlayer.KnownAppearances[player.Index] = player.AppearanceTicket
 		ourPlayer.AppearanceLock.Unlock()
 		p.AddShort(uint16(player.Index))
-		p.AddByte(5) // Player appearances
+		p.AddByte(5) // player appearances
 		p.AddShort(uint16(player.AppearanceTicket))
 		p.AddLong(player.UserBase37)
 		p.AddByte(3) // length of sprites.  Anything less than 12 will get padded with 0s

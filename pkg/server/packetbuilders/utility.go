@@ -1,4 +1,4 @@
-package packets
+package packetbuilders
 
 import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
@@ -76,7 +76,7 @@ func LoginResponse(v int) *Packet {
 	return NewBarePacket([]byte{byte(v)})
 }
 
-//PlaneInfo Builds a packet to update information about the clients environment, e.g height, player index...
+//PlaneInfo Builds a packet to update information about the client environment, e.g height, player index...
 func PlaneInfo(player *world.Player) *Packet {
 	playerInfo := NewOutgoingPacket(25)
 	playerInfo.AddShort(uint16(player.Index))

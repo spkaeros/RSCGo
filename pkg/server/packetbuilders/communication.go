@@ -1,4 +1,4 @@
-package packets
+package packetbuilders
 
 import (
 	"bitbucket.org/zlacki/rscgo/pkg/rand"

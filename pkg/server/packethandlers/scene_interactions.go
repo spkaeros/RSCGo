@@ -1,9 +1,10 @@
-package server
+package packethandlers
 
 import (
+	"bitbucket.org/zlacki/rscgo/pkg/server/collections"
 	"bitbucket.org/zlacki/rscgo/pkg/server/db"
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
-	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
+	"bitbucket.org/zlacki/rscgo/pkg/server/packetbuilders"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 	"go.uber.org/atomic"
 )
@@ -41,7 +42,7 @@ func init() {
 		}
 
 		if p.Skillset.Current[5] < p.Skillset.Maximum[5] {
-			c, _ := Clients.FromIndex(p.Index)
+			c, _ := collections.Clients.FromIndex(p.Index)
 			p.Skillset.Current[5] = p.Skillset.Maximum[5]
 			c.UpdateStat(5)
 			c.Message("You recharge your prayer points at the altar.")
@@ -54,7 +55,7 @@ func init() {
 		}
 
 		if nextLocation := p.Above(); !nextLocation.Equals(&p.Location) {
-			c, _ := Clients.FromIndex(p.Index)
+			c, _ := collections.Clients.FromIndex(p.Index)
 			p.SetLocation(&nextLocation)
 			c.UpdatePlane()
 		}
@@ -66,7 +67,7 @@ func init() {
 		}
 
 		if nextLocation := p.Below(); !nextLocation.Equals(&p.Location) {
-			c, _ := Clients.FromIndex(p.Index)
+			c, _ := collections.Clients.FromIndex(p.Index)
 			p.SetLocation(&nextLocation)
 			c.UpdatePlane()
 		}
@@ -139,7 +140,7 @@ func init() {
 			world.ReplaceObject(object, newID)
 		}
 	}
-	PacketHandlers["objectaction"] = func(c *Client, p *packets.Packet) {
+	PacketHandlers["objectaction"] = func(c collections.Client, p *packetbuilders.Packet) {
 		x := p.ReadShort()
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
@@ -147,15 +148,15 @@ func init() {
 			log.Info.Println("Object not found.")
 			return
 		}
-		c.player.QueueDistancedAction(func() bool {
-			if c.player.WithinRange(object.Location, 1) {
+		c.Player().QueueDistancedAction(func() bool {
+			if c.Player().WithinRange(object.Location, 1) {
 				objectAction(c, object, false)
 				return true
 			}
 			return false
 		})
 	}
-	PacketHandlers["objectaction2"] = func(c *Client, p *packets.Packet) {
+	PacketHandlers["objectaction2"] = func(c collections.Client, p *packetbuilders.Packet) {
 		x := p.ReadShort()
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
@@ -163,15 +164,15 @@ func init() {
 			log.Info.Println("Object not found.")
 			return
 		}
-		c.player.QueueDistancedAction(func() bool {
-			if c.player.WithinRange(object.Location, 1) {
+		c.Player().QueueDistancedAction(func() bool {
+			if c.Player().WithinRange(object.Location, 1) {
 				objectAction(c, object, true)
 				return true
 			}
 			return false
 		})
 	}
-	PacketHandlers["boundaryaction2"] = func(c *Client, p *packets.Packet) {
+	PacketHandlers["boundaryaction2"] = func(c collections.Client, p *packetbuilders.Packet) {
 		x := p.ReadShort()
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
@@ -179,15 +180,15 @@ func init() {
 			log.Info.Println("Boundary not found.")
 			return
 		}
-		c.player.QueueDistancedAction(func() bool {
-			if c.player.WithinRange(object.Location, 1) {
+		c.Player().QueueDistancedAction(func() bool {
+			if c.Player().WithinRange(object.Location, 1) {
 				boundaryAction(c, object, true)
 				return true
 			}
 			return false
 		})
 	}
-	PacketHandlers["boundaryaction"] = func(c *Client, p *packets.Packet) {
+	PacketHandlers["boundaryaction"] = func(c collections.Client, p *packetbuilders.Packet) {
 		x := p.ReadShort()
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
@@ -195,29 +196,29 @@ func init() {
 			log.Info.Println("Boundary not found.")
 			return
 		}
-		c.player.QueueDistancedAction(func() bool {
-			if c.player.WithinRange(object.Location, 1) {
+		c.Player().QueueDistancedAction(func() bool {
+			if c.Player().WithinRange(object.Location, 1) {
 				boundaryAction(c, object, false)
 				return true
 			}
 			return false
 		})
 	}
-	PacketHandlers["dropitem"] = func(c *Client, p *packets.Packet) {
+	PacketHandlers["dropitem"] = func(c collections.Client, p *packetbuilders.Packet) {
 		index := p.ReadShort()
-		item := c.player.Items.Get(index)
+		item := c.Player().Items.Get(index)
 		if item != nil {
-			if c.player.Items.Remove(index) {
-				world.AddItem(world.NewGroundItemFrom(c.player.UserBase37, item.ID, item.Amount, int(c.player.X.Load()), int(c.player.Y.Load())))
-				c.outgoingPackets <- packets.InventoryItems(c.player)
+			if c.Player().Items.Remove(index) {
+				world.AddItem(world.NewGroundItemFrom(c.Player().UserBase37, item.ID, item.Amount, int(c.Player().X.Load()), int(c.Player().Y.Load())))
+				c.SendPacket(packetbuilders.InventoryItems(c.Player()))
 			}
 		}
 	}
 }
 
-func objectAction(c *Client, object *world.Object, rightClick bool) {
-	//	c.player.ResetPath()
-	if c.player.State != world.MSIdle || world.GetObject(int(object.X.Load()), int(object.Y.Load())) != object || !c.player.WithinRange(object.Location, 1) {
+func objectAction(c collections.Client, object *world.Object, rightClick bool) {
+	//	c.Player().ResetPath()
+	if c.Player().State != world.MSIdle || world.GetObject(int(object.X.Load()), int(object.Y.Load())) != object || !c.Player().WithinRange(object.Location, 1) {
 		// If somehow we became busy, the object changed before arriving, or somehow this action fired without actually arriving at the object, we do nothing.
 		return
 	}
@@ -229,21 +230,21 @@ func objectAction(c *Client, object *world.Object, rightClick bool) {
 	}
 	if handler, ok := handlers[object.ID]; ok {
 		// If there is a handler for this specific ID, call it, and that's all we have to do.
-		handler(c.player, object)
+		handler(c.Player(), object)
 		return
 	}
 	if handler, ok := handlers[command]; ok {
 		// Otherwise, check for handlers associated by commands.
-		handler(c.player, object)
+		handler(c.Player(), object)
 		return
 	}
 	// Give up, concluding there isn't a handler for this object action
-	c.outgoingPackets <- packets.DefaultActionMessage
+	c.SendPacket(packetbuilders.DefaultActionMessage)
 }
 
-func boundaryAction(c *Client, object *world.Object, rightClick bool) {
-	//	c.player.ResetPath()
-	if c.player.State != world.MSIdle || world.GetObject(int(object.X.Load()), int(object.Y.Load())) != object || !c.player.WithinRange(object.Location, 1) {
+func boundaryAction(c collections.Client, object *world.Object, rightClick bool) {
+	//	c.Player().ResetPath()
+	if c.Player().State != world.MSIdle || world.GetObject(int(object.X.Load()), int(object.Y.Load())) != object || !c.Player().WithinRange(object.Location, 1) {
 		// If somehow we became busy, the object changed before arriving, or somehow this action fired without actually arriving at the object, we do nothing.
 		return
 	}
@@ -255,14 +256,14 @@ func boundaryAction(c *Client, object *world.Object, rightClick bool) {
 	}
 	if handler, ok := handlers[object.ID]; ok {
 		// If there is a handler for this specific ID, call it, and that's all we have to do.
-		handler(c.player, object)
+		handler(c.Player(), object)
 		return
 	}
 	if handler, ok := handlers[command]; ok {
 		// Otherwise, check for handlers associated by commands.
-		handler(c.player, object)
+		handler(c.Player(), object)
 		return
 	}
 	// Give up, concluding there isn't a handler for this object action
-	c.outgoingPackets <- packets.DefaultActionMessage
+	c.SendPacket(packetbuilders.DefaultActionMessage)
 }

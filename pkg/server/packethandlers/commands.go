@@ -1,6 +1,7 @@
-package server
+package packethandlers
 
 import (
+	"bitbucket.org/zlacki/rscgo/pkg/server/collections"
 	"fmt"
 	"os"
 	"runtime/pprof"
@@ -9,29 +10,29 @@ import (
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/db"
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
-	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
+	"bitbucket.org/zlacki/rscgo/pkg/server/packetbuilders"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
 )
 
 //CommandHandlers A map to assign in-game commands to the functions they should execute.
-var CommandHandlers = make(map[string]func(*Client, []string))
+var CommandHandlers = make(map[string]func(collections.Client, []string))
 
 func init() {
-	PacketHandlers["command"] = func(c *Client, p *packets.Packet) {
+	PacketHandlers["command"] = func(c collections.Client, p *packetbuilders.Packet) {
 		args := strutil.ModalParse(string(p.Payload))
 		handler, ok := CommandHandlers[args[0]]
 		if !ok {
 			c.Message("@que@Invalid command.")
-			log.Commands.Printf("%v sent invalid command: /%v\n", c.player.Username, string(p.Payload))
+			log.Commands.Printf("%v sent invalid command: /%v\n", c.Player().Username, string(p.Payload))
 			return
 		}
-		log.Commands.Printf("%v: /%v\n", c.player.Username, string(p.Payload))
+		log.Commands.Printf("%v: /%v\n", c.Player().Username, string(p.Payload))
 		handler(c, args[1:])
 	}
-	CommandHandlers["dobj"] = func(c *Client, args []string) {
+	CommandHandlers["dobj"] = func(c collections.Client, args []string) {
 		if len(args) == 0 {
-			args = []string{strconv.Itoa(int(c.player.X.Load())), strconv.Itoa(int(c.player.Y.Load()))}
+			args = []string{strconv.Itoa(int(c.Player().X.Load())), strconv.Itoa(int(c.Player().Y.Load()))}
 		}
 		if len(args) < 2 {
 			c.Message("@que@Invalid args.  Usage: /dobj <x> <y>")
@@ -57,33 +58,33 @@ func init() {
 			return
 		}
 
-		log.Commands.Printf("'%v' deleted object{id: %v; dir:%v} at %v,%v\n", c.player.Username, object.ID, object.Direction, x, y)
+		log.Commands.Printf("'%v' deleted object{id: %v; dir:%v} at %v,%v\n", c.Player().Username, object.ID, object.Direction, x, y)
 		world.RemoveObject(object)
 	}
-	CommandHandlers["kick"] = func(c *Client, args []string) {
+	CommandHandlers["kick"] = func(c collections.Client, args []string) {
 		if len(args) < 1 {
 			c.Message("@que@Invalid args.  Usage: /kick <player>")
 			return
 		}
 		var (
-			affectedClient *Client
+			affectedClient collections.Client
 			ok             bool
 		)
 		if pID, err := strconv.Atoi(args[0]); err == nil {
-			affectedClient, ok = Clients.FromIndex(pID)
+			affectedClient, ok = collections.Clients.FromIndex(pID)
 		} else {
-			affectedClient, ok = Clients.FromUserHash(strutil.Base37.Encode(strings.Join(args, " ")))
+			affectedClient, ok = collections.Clients.FromUserHash(strutil.Base37.Encode(strings.Join(args, " ")))
 		}
 		if affectedClient == nil || !ok {
-			c.Message("@que@Could not find player.")
+			c.Message("@que@Could not find Player().")
 			return
 		}
-		log.Commands.Printf("'%v' kicked other player '%v'\n", c.player.Username, affectedClient.player.Username)
-		c.Message("@que@Kicked: '" + affectedClient.player.Username + "'")
-		affectedClient.outgoingPackets <- packets.Logout
+		log.Commands.Printf("'%v' kicked other player '%v'\n", c.Player().Username, affectedClient.Player().Username)
+		c.Message("@que@Kicked: '" + affectedClient.Player().Username + "'")
+		affectedClient.SendPacket(packetbuilders.Logout)
 		affectedClient.Destroy()
 	}
-	CommandHandlers["memdump"] = func(c *Client, args []string) {
+	CommandHandlers["memdump"] = func(c collections.Client, args []string) {
 		file, err := os.Create("rscgo.mprof")
 		if err != nil {
 			log.Warning.Println("Could not open file to dump memory profile:", err)
@@ -102,10 +103,10 @@ func init() {
 			c.Message("Error encountered closing profile output file.")
 			return
 		}
-		log.Commands.Println(c.player.Username + " dumped memory profile of the server to rscgo.mprof")
+		log.Commands.Println(c.Player().Username + " dumped memory profile of the server to rscgo.mprof")
 		c.Message("Dumped memory profile.")
 	}
-	CommandHandlers["pprof"] = func(c *Client, args []string) {
+	CommandHandlers["pprof"] = func(c collections.Client, args []string) {
 		if len(args) < 1 {
 			c.Message("Invalid args.  Usage: /pprof <start|stop>")
 			return
@@ -124,23 +125,23 @@ func init() {
 				c.Message("Error encountered starting CPU profile.")
 				return
 			}
-			log.Commands.Println(c.player.Username + " began profiling CPU time.")
+			log.Commands.Println(c.Player().Username + " began profiling CPU time.")
 			c.Message("CPU profiling started.")
 		case "stop":
 			pprof.StopCPUProfile()
-			log.Commands.Println(c.player.Username + " has finished profiling CPU time, output should be in rscgo.pprof")
+			log.Commands.Println(c.Player().Username + " has finished profiling CPU time, output should be in rscgo.pprof")
 			c.Message("CPU profiling finished.")
 		default:
 			c.Message("Invalid args.  Usage: /pprof <start|stop>")
 		}
 	}
-	CommandHandlers["object"] = func(c *Client, args []string) {
+	CommandHandlers["object"] = func(c collections.Client, args []string) {
 		if len(args) < 1 {
 			c.Message("@que@Invalid args.  Usage: /object <id> <dir>, eg: /object 1154 north")
 			return
 		}
-		x := int(c.player.X.Load())
-		y := int(c.player.Y.Load())
+		x := int(c.Player().X.Load())
+		y := int(c.Player().Y.Load())
 		if world.GetObject(x, y) != nil {
 			c.Message("@que@You must remove the old object at this location first!")
 			return
@@ -162,16 +163,16 @@ func init() {
 				direction = world.ParseDirection(args[1])
 			}
 		}
-		log.Commands.Printf("'%v' spawned new object{id: %v; dir:%v} at %v,%v\n", c.player.Username, id, direction, x, y)
+		log.Commands.Printf("'%v' spawned new object{id: %v; dir:%v} at %v,%v\n", c.Player().Username, id, direction, x, y)
 		world.AddObject(world.NewObject(id, direction, x, y, false))
 	}
-	CommandHandlers["boundary"] = func(c *Client, args []string) {
+	CommandHandlers["boundary"] = func(c collections.Client, args []string) {
 		if len(args) < 1 {
 			c.Message("@que@Invalid args.  Usage: /boundary <id> <dir>, eg: /boundary 1 north")
 			return
 		}
-		x := int(c.player.X.Load())
-		y := int(c.player.Y.Load())
+		x := int(c.Player().X.Load())
+		y := int(c.Player().Y.Load())
 		if world.GetObject(x, y) != nil {
 			c.Message("@que@You must remove the old boundary at this location first!")
 			return
@@ -193,21 +194,21 @@ func init() {
 				direction = world.ParseDirection(args[1])
 			}
 		}
-		log.Commands.Printf("'%v' spawned new boundary{id: %v; dir:%v} at %v,%v\n", c.player.Username, id, direction, x, y)
+		log.Commands.Printf("'%v' spawned new boundary{id: %v; dir:%v} at %v,%v\n", c.Player().Username, id, direction, x, y)
 		world.AddObject(world.NewObject(id, direction, x, y, true))
 	}
-	CommandHandlers["saveobjects"] = func(c *Client, args []string) {
+	CommandHandlers["saveobjects"] = func(c collections.Client, args []string) {
 		go func() {
 			if count := db.SaveObjectLocations(); count > 0 {
 				c.Message("Saved " + strconv.Itoa(count) + " game objects to world.db")
-				log.Commands.Println(c.player.Username + " saved " + strconv.Itoa(count) + " game objects to world.db")
+				log.Commands.Println(c.Player().Username + " saved " + strconv.Itoa(count) + " game objects to world.db")
 			} else {
 				c.Message("Appears to have been an issue saving game objects to world.db.  Check server logs.")
-				log.Commands.Println(c.player.Username + " failed to save game objects; count=" + strconv.Itoa(count))
+				log.Commands.Println(c.Player().Username + " failed to save game objects; count=" + strconv.Itoa(count))
 			}
 		}()
 	}
-	CommandHandlers["item"] = func(c *Client, args []string) {
+	CommandHandlers["item"] = func(c collections.Client, args []string) {
 		if len(args) < 1 {
 			c.Message("@que@Invalid args.  Usage: /item <id> <quantity>")
 			return
@@ -225,22 +226,22 @@ func init() {
 				return
 			}
 		}
-		c.player.Items.Put(id, amount)
-		c.outgoingPackets <- packets.InventoryItems(c.player)
+		c.Player().Items.Put(id, amount)
+		c.SendPacket(packetbuilders.InventoryItems(c.Player()))
 	}
-	CommandHandlers["goup"] = func(c *Client, args []string) {
-		if nextLocation := c.player.Above(); !nextLocation.Equals(&c.player.Location) {
-			c.player.SetLocation(&nextLocation)
+	CommandHandlers["goup"] = func(c collections.Client, args []string) {
+		if nextLocation := c.Player().Above(); !nextLocation.Equals(&c.Player().Location) {
+			c.Player().SetLocation(&nextLocation)
 			c.UpdatePlane()
 		}
 	}
-	CommandHandlers["godown"] = func(c *Client, args []string) {
-		if nextLocation := c.player.Below(); !nextLocation.Equals(&c.player.Location) {
-			c.player.SetLocation(&nextLocation)
+	CommandHandlers["godown"] = func(c collections.Client, args []string) {
+		if nextLocation := c.Player().Below(); !nextLocation.Equals(&c.Player().Location) {
+			c.Player().SetLocation(&nextLocation)
 			c.UpdatePlane()
 		}
 	}
-	CommandHandlers["npc"] = func(c *Client, args []string) {
+	CommandHandlers["npc"] = func(c collections.Client, args []string) {
 		if len(args) < 1 {
 			c.Message("@que@Invalid args.  Usage: /npc <id>")
 			return
@@ -252,20 +253,20 @@ func init() {
 			return
 		}
 
-		x := int(c.player.X.Load())
-		y := int(c.player.Y.Load())
+		x := int(c.Player().X.Load())
+		y := int(c.Player().Y.Load())
 
 		world.AddNpc(world.NewNpc(id, x, y))
 	}
 	CommandHandlers["summon"] = summon
 	CommandHandlers["goto"] = gotoTeleport
-	CommandHandlers["say"] = func(c *Client, args []string) {
+	CommandHandlers["say"] = func(c collections.Client, args []string) {
 		if len(args) < 1 {
 			c.Message("@que@Invalid args.  Usage: /say <msg>")
 			return
 		}
 		msg := "@whi@[@cya@GLOBAL@whi@] "
-		switch c.player.Rank {
+		switch c.Player().Rank {
 		case 2:
 			msg += "@red@~"
 		case 1:
@@ -273,22 +274,22 @@ func init() {
 		default:
 			msg += "@yel@"
 		}
-		msg += c.player.Username + "@yel@:"
+		msg += c.Player().Username + "@yel@:"
 		for _, word := range args {
 			msg += " " + word
 		}
-		Clients.Broadcast(func(c1 *Client) {
+		collections.Clients.Range(func(c1 collections.Client) {
 			c1.Message("@que@" + msg)
 		})
 	}
 	CommandHandlers["tele"] = teleport
 	CommandHandlers["teleport"] = teleport
-	CommandHandlers["death"] = func(c *Client, args []string) {
-		c.outgoingPackets <- packets.Death
+	CommandHandlers["death"] = func(c collections.Client, args []string) {
+		c.SendPacket(packetbuilders.Death)
 	}
 }
 
-func teleport(c *Client, args []string) {
+func teleport(c collections.Client, args []string) {
 	if len(args) != 2 {
 		c.Message("@que@Invalid args.  Usage: /tele <x> <y>")
 		return
@@ -307,11 +308,11 @@ func teleport(c *Client, args []string) {
 		c.Message("@que@Coordinates out of world boundaries.")
 		return
 	}
-	log.Commands.Printf("Teleporting %v from %v,%v to %v,%v\n", c.player.Username, c.player.X, c.player.Y, x, y)
+	log.Commands.Printf("Teleporting %v from %v,%v to %v,%v\n", c.Player().Username, c.Player().X, c.Player().Y, x, y)
 	c.Teleport(x, y)
 }
 
-func summon(c *Client, args []string) {
+func summon(c collections.Client, args []string) {
 	if len(args) < 1 {
 		c.Message("@que@Invalid args.  Usage: /summon <player_name>")
 		return
@@ -322,17 +323,17 @@ func summon(c *Client, args []string) {
 	}
 	name = strings.TrimSpace(name)
 
-	c1, ok := Clients.FromUserHash(strutil.Base37.Encode(name))
+	c1, ok := collections.Clients.FromUserHash(strutil.Base37.Encode(name))
 	if !ok {
 		c.Message("@que@@whi@[@cya@SERVER@whi@]: @gre@Could not find player: '" + name + "'")
 		return
 	}
 
-	log.Commands.Printf("Summoning '%v' from %v,%v to '%v' at %v,%v\n", c1.player.Username, c1.player.X.Load(), c1.player.Y.Load(), c.player.Username, c.player.X.Load(), c.player.Y.Load())
-	c1.Teleport(int(c.player.X.Load()), int(c.player.Y.Load()))
+	log.Commands.Printf("Summoning '%v' from %v,%v to '%v' at %v,%v\n", c1.Player().Username, c1.Player().X.Load(), c1.Player().Y.Load(), c.Player().Username, c.Player().X.Load(), c.Player().Y.Load())
+	c1.Teleport(int(c.Player().X.Load()), int(c.Player().Y.Load()))
 }
 
-func gotoTeleport(c *Client, args []string) {
+func gotoTeleport(c collections.Client, args []string) {
 	if len(args) < 1 {
 		c.Message("@que@Invalid args.  Usage: /goto <player_name>")
 		return
@@ -343,16 +344,16 @@ func gotoTeleport(c *Client, args []string) {
 	}
 	name = strings.TrimSpace(name)
 
-	c1, ok := Clients.FromUserHash(strutil.Base37.Encode(name))
+	c1, ok := collections.Clients.FromUserHash(strutil.Base37.Encode(name))
 	if !ok {
 		c.Message("@que@@whi@[@cya@SERVER@whi@]: @gre@Could not find player: '" + name + "'")
 		return
 	}
 
-	log.Commands.Printf("Teleporting '%v' from %v,%v to '%v' at %v,%v\n", c.player.Username, c.player.X.Load(), c.player.Y.Load(), c1.player.Username, c1.player.X.Load(), c1.player.Y.Load())
-	c.Teleport(int(c1.player.X.Load()), int(c1.player.Y.Load()))
+	log.Commands.Printf("Teleporting '%v' from %v,%v to '%v' at %v,%v\n", c.Player().Username, c.Player().X.Load(), c.Player().Y.Load(), c1.Player().Username, c1.Player().X.Load(), c1.Player().Y.Load())
+	c.Teleport(int(c1.Player().X.Load()), int(c1.Player().Y.Load()))
 }
 
-func notYetImplemented(c *Client, args []string) {
+func notYetImplemented(c collections.Client, args []string) {
 	c.Message("@que@@ora@Not yet implemented")
 }

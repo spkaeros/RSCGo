@@ -1,4 +1,4 @@
-package packets
+package packetbuilders
 
 import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
@@ -169,7 +169,7 @@ func (p *Packet) String() string {
 	return fmt.Sprintf("Packet{opcode='%d',len='%d',payload={ %v }}", p.Opcode, len(p.Payload), p.Payload)
 }
 
-//AddBits Packs value into the numBits next bits of the packets byte buffer.
+//AddBits Packs value into the numBits next bits of the packetbuilders byte buffer.
 func (p *Packet) AddBits(value int, numBits int) *Packet {
 	bitmasks := []int32{0, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff, 0x1ff, 0x3ff, 0x7ff, 0xfff, 0x1fff,
 		0x3fff, 0x7fff, 0xffff, 0x1ffff, 0x3ffff, 0x7ffff, 0xfffff, 0x1fffff, 0x3fffff, 0x7fffff, 0xffffff,

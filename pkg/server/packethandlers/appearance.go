@@ -1,12 +1,13 @@
-package server
+package packethandlers
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/packets"
+	"bitbucket.org/zlacki/rscgo/pkg/server/collections"
+	"bitbucket.org/zlacki/rscgo/pkg/server/packetbuilders"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 )
 
 func init() {
-	PacketHandlers["changeappearance"] = func(c *Client, p *packets.Packet) {
+	PacketHandlers["changeappearance"] = func(c collections.Client, p *packetbuilders.Packet) {
 		headGender := p.ReadBool()
 		headType := p.ReadByte()
 		bodyType := p.ReadByte()
@@ -15,7 +16,7 @@ func init() {
 		topColor := p.ReadByte()
 		legColor := p.ReadByte()
 		skinColor := p.ReadByte()
-		c.player.Appearance = world.AppearanceTable{
+		c.Player().Appearance = world.AppearanceTable{
 			Head:      int(headType + 1),
 			Body:      int(bodyType + 1),
 			Legs:      int(legType + 1),
@@ -25,7 +26,7 @@ func init() {
 			LegsColor: int(legColor),
 			SkinColor: int(skinColor),
 		}
-		c.player.AppearanceTicket++
-		c.player.TransAttrs.SetVar("self", false)
+		c.Player().AppearanceTicket++
+		c.Player().TransAttrs.SetVar("self", false)
 	}
 }
