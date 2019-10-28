@@ -1,0 +1,11 @@
+ret := func() {
+	if objectCmd == "climb-up" {
+		climbUp()
+		return true
+	} else if objectCmd == "climb-down" {
+		climbDown()
+		return true
+	}
+
+	return false
+}()

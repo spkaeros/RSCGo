@@ -1,6 +1,8 @@
 package world
 
 import (
+	"github.com/d5/tengo/compiler/token"
+	"github.com/d5/tengo/objects"
 	"go.uber.org/atomic"
 	"strconv"
 	"sync"
@@ -36,6 +38,34 @@ type Player struct {
 	UID              uint8
 	Websocket        bool
 	Mob
+}
+
+func (p *Player) TypeName() string {
+	return "world.Player"
+}
+
+func (p *Player) Equals(p1 objects.Object) bool {
+	if p1, ok := p1.(*Player); ok {
+		return p.Index == p1.Index && p.UserBase37 == p1.UserBase37
+	}
+
+	return false
+}
+
+func (p *Player) Copy() objects.Object {
+	return p
+}
+
+func (p *Player) BinaryOp(op token.Token, rhs objects.Object) (objects.Object, error) {
+	return nil, objects.ErrInvalidOperator
+}
+
+func (p *Player) String() string {
+	return "[" + p.Username + ", " + p.IP + "]"
+}
+
+func (p *Player) IsFalsy() bool {
+	return !p.TransAttrs.VarBool("connected", false)
 }
 
 //QueueDistancedAction Queues a distanced action to run every game engine tick before path traversal, if action returns true, it will be removed from the queue.

@@ -9,6 +9,8 @@ import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/packethandlers"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 	"fmt"
+	"github.com/d5/tengo/compiler/token"
+	"github.com/d5/tengo/objects"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"io"
@@ -25,6 +27,29 @@ type Client struct {
 	IncomingPackets, OutgoingPackets chan *packetbuilders.Packet
 	PacketData                       []byte
 	Socket                           net.Conn
+}
+func (c *Client) TypeName() string {
+	return "Client"
+}
+
+func (c *Client) Equals(c1 objects.Object) bool {
+	if c1, ok := c1.(*Client); ok {
+		return c.Player().Index == c1.Player().Index && c1.Player().UserBase37 == c1.Player().UserBase37
+	}
+
+	return false
+}
+
+func (c *Client) Copy() objects.Object {
+	return c
+}
+
+func (c *Client) BinaryOp(op token.Token, rhs objects.Object) (objects.Object, error) {
+	return nil, objects.ErrInvalidOperator
+}
+
+func (c *Client) IsFalsy() bool {
+	return !c.Player().TransAttrs.VarBool("connected", false)
 }
 
 //Player returns the scene player that this client represents

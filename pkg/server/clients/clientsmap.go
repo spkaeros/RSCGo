@@ -4,6 +4,7 @@ import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/config"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packetbuilders"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
+	"github.com/d5/tengo/objects"
 	"sync"
 )
 
@@ -22,6 +23,7 @@ type Client interface {
 	UpdateStat(int)
 	UpdatePositions()
 	ResetUpdateFlags()
+	objects.Object
 }
 
 //Clients Collection containing all of the active client, by index and username hash, guarded by a mutex

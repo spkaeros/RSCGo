@@ -1,7 +1,7 @@
 # The directory that holds any subsequent files mentioned.
 data_directory = './data/'
 # The version number of the latest client release.
-version = 203
+version = 204
 # TCP/IP port number to listen for incoming connections on.
 port = 43594
 # Maximum number of players that this server can support.

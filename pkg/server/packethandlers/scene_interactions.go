@@ -4,16 +4,15 @@ import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
 	"bitbucket.org/zlacki/rscgo/pkg/server/db"
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
+	rscscript "bitbucket.org/zlacki/rscgo/pkg/server/script"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packetbuilders"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 	"go.uber.org/atomic"
+	"io/ioutil"
 )
 
 type actionHandler func(p *world.Player, args ...interface{})
 type actionsMap map[interface{}]actionHandler
-
-var objectHandlers = make(actionsMap)
-var object2Handlers = make(actionsMap)
 
 var boundaryHandlers = make(actionsMap)
 var boundary2Handlers = make(actionsMap)
@@ -21,86 +20,11 @@ var boundary2Handlers = make(actionsMap)
 func init() {
 	//TODO: This whole entire file is messy and could use tidying.
 	// Actually, to that end, I will be implementing a scripting language of some sort, so I'll leave it for now.
-	oDoors := make(map[int]int)
-	oDoors[59] = 60
-	oDoors[57] = 58
-	oDoors[63] = 64
-	for k, v := range oDoors {
-		// Add value->key to handle close as well as open.
-		oDoors[v] = k
-	}
 	bDoors := make(map[int]int)
 	bDoors[2] = 1
 	for k, v := range bDoors {
 		// Add value->key to handle close as well as open.
 		bDoors[v] = k
-	}
-	objectHandlers[19] = func(p *world.Player, args ...interface{}) {
-		if len(args) <= 0 {
-			log.Warning.Println("Must provide at least 1 argument to action handlers.")
-			return
-		}
-
-		if p.Skillset.Current[5] < p.Skillset.Maximum[5] {
-			c, _ := clients.FromIndex(p.Index)
-			p.Skillset.Current[5] = p.Skillset.Maximum[5]
-			c.UpdateStat(5)
-			c.Message("You recharge your prayer points at the altar.")
-		}
-	}
-	objectHandlers["climb-up"] = func(p *world.Player, args ...interface{}) {
-		if len(args) <= 0 {
-			log.Warning.Println("Must provide at least 1 argument to action handlers.")
-			return
-		}
-
-		if nextLocation := p.Above(); !nextLocation.Equals(&p.Location) {
-			c, _ := clients.FromIndex(p.Index)
-			p.SetLocation(&nextLocation)
-			c.UpdatePlane()
-		}
-	}
-	objectHandlers["climb-down"] = func(p *world.Player, args ...interface{}) {
-		if len(args) <= 0 {
-			log.Warning.Println("Must provide at least 1 argument to action handlers.")
-			return
-		}
-
-		if nextLocation := p.Below(); !nextLocation.Equals(&p.Location) {
-			c, _ := clients.FromIndex(p.Index)
-			p.SetLocation(&nextLocation)
-			c.UpdatePlane()
-		}
-	}
-	objectHandlers["open"] = func(p *world.Player, args ...interface{}) {
-		if len(args) <= 0 {
-			log.Warning.Println("Must provide at least 1 argument to action handlers.")
-			return
-		}
-
-		object, ok := args[0].(*world.Object)
-		if !ok {
-			log.Warning.Println("Handler for this argument type not found.")
-			return
-		}
-		if newID, ok := oDoors[object.ID]; ok {
-			world.ReplaceObject(object, newID)
-		}
-	}
-	object2Handlers["close"] = func(p *world.Player, args ...interface{}) {
-		if len(args) <= 0 {
-			log.Warning.Println("Must provide at least 1 argument to action handlers.")
-			return
-		}
-
-		object, ok := args[0].(*world.Object)
-		if !ok {
-			log.Warning.Println("Handler for this argument type not found.")
-			return
-		}
-		if newID, ok := oDoors[object.ID]; ok {
-			world.ReplaceObject(object, newID)
-		}
 	}
 	boundaryHandlers["open"] = func(p *world.Player, args ...interface{}) {
 		if len(args) <= 0 {
@@ -146,6 +70,7 @@ func init() {
 		object := world.GetObject(x, y)
 		if object == nil {
 			log.Info.Println("Object not found.")
+			log.Suspicious.Printf("Player %v attempted to use a non-existant object at %d,%d\n", c, x, y)
 			return
 		}
 		c.Player().QueueDistancedAction(func() bool {
@@ -162,6 +87,7 @@ func init() {
 		object := world.GetObject(x, y)
 		if object == nil {
 			log.Info.Println("Object not found.")
+			log.Suspicious.Printf("Player %v attempted to use a non-existant object at %d,%d\n", c, x, y)
 			return
 		}
 		c.Player().QueueDistancedAction(func() bool {
@@ -178,6 +104,7 @@ func init() {
 		object := world.GetObject(x, y)
 		if object == nil {
 			log.Info.Println("Boundary not found.")
+			log.Suspicious.Printf("Player %v attempted to use a non-existant boundary at %d,%d\n", c, x, y)
 			return
 		}
 		c.Player().QueueDistancedAction(func() bool {
@@ -194,6 +121,7 @@ func init() {
 		object := world.GetObject(x, y)
 		if object == nil {
 			log.Info.Println("Boundary not found.")
+			log.Suspicious.Printf("Player %v attempted to use a non-existant boundary at %d,%d\n", c, x, y)
 			return
 		}
 		c.Player().QueueDistancedAction(func() bool {
@@ -222,23 +150,27 @@ func objectAction(c clients.Client, object *world.Object, rightClick bool) {
 		// If somehow we became busy, the object changed before arriving, or somehow this action fired without actually arriving at the object, we do nothing.
 		return
 	}
-	handlers := objectHandlers
-	command := db.Objects[object.ID].Commands[0]
-	if rightClick {
-		handlers = object2Handlers
-		command = db.Objects[object.ID].Commands[1]
-	}
-	if handler, ok := handlers[object.ID]; ok {
-		// If there is a handler for this specific ID, call it, and that's all we have to do.
-		handler(c.Player(), object)
+	files, err := ioutil.ReadDir("./scripts/objects")
+	if err != nil {
+		log.Info.Println("Error attempting to read scripts directory:", err)
 		return
 	}
-	if handler, ok := handlers[command]; ok {
-		// Otherwise, check for handlers associated by commands.
-		handler(c.Player(), object)
-		return
+	for _, file := range files {
+		s := rscscript.Load("./scripts/objects/" + file.Name())
+		rscscript.SetScriptVariable(s, "objectId", object.ID)
+		if rightClick {
+			rscscript.SetScriptVariable(s, "objectCmd", db.Objects[object.ID].Commands[1])
+		} else {
+			rscscript.SetScriptVariable(s, "objectCmd", db.Objects[object.ID].Commands[0])
+		}
+		rscscript.SetScriptVariable(s, "replaceObject", rscscript.ReplaceObject(object))
+		rscscript.SetScriptVariable(s, "climbUp", rscscript.ClimbUp(c))
+		rscscript.SetScriptVariable(s, "climbDown", rscscript.ClimbDown(c))
+		rscscript.SetScriptVariable(s, "msg", rscscript.ScriptMessage(c))
+		if rscscript.RunScript(s) {
+			return
+		}
 	}
-	// Give up, concluding there isn't a handler for this object action
 	c.SendPacket(packetbuilders.DefaultActionMessage)
 }
 

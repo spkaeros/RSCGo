@@ -10,7 +10,7 @@ import (
 
 func init() {
 	PacketHandlers["pingreq"] = func(c clients.Client, p *packetbuilders.Packet) {
-		// Just ignore it...
+		c.SendPacket(packetbuilders.ResponsePong)
 	}
 }
 

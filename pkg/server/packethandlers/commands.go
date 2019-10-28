@@ -3,6 +3,8 @@ package packethandlers
 import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
 	"fmt"
+	"github.com/d5/tengo/script"
+	"github.com/d5/tengo/stdlib"
 	"os"
 	"runtime/pprof"
 	"strconv"
@@ -10,6 +12,7 @@ import (
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/db"
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
+	rscscript "bitbucket.org/zlacki/rscgo/pkg/server/script"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packetbuilders"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
@@ -286,6 +289,29 @@ func init() {
 	CommandHandlers["teleport"] = teleport
 	CommandHandlers["death"] = func(c clients.Client, args []string) {
 		c.SendPacket(packetbuilders.Death)
+	}
+	CommandHandlers["script"] = func(c clients.Client, args []string) {
+		line := strings.Join(args, " ")
+		s := script.New(
+		[]byte(`fmt := import("fmt")
+			fmt.println("hello " + client)
+			msg("This is a test of the RSCGo scripting system:", client)
+			teleport(220, 445)
+		` + line))
+		scriptModules := stdlib.GetModuleMap(stdlib.AllModuleNames()...)
+		scriptModules.Remove("os")
+//		scriptModules := objects.NewModuleMap()
+//		scriptModules.AddBuiltinModule("fmt", stdlib.BuiltinModules["fmt"])
+		_ = s.Add("client", c)
+		_ = s.Add("msg", rscscript.ScriptMessage(c))
+		_ = s.Add("teleport", rscscript.MovePlayer(c))
+		s.SetImports(scriptModules)
+		_, err := s.Run()
+		if err != nil {
+			log.Info.Println("Error with scripting VM:", err)
+			return
+		}
+
 	}
 }
 
