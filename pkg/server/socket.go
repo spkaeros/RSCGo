@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"io"
@@ -50,56 +49,52 @@ func (c *Client) Write(b []byte) int {
 
 //Read Reads data off of the client's socket into 'dst'.  Returns length read into dst upon success.  Otherwise, returns -1 with a meaningful error message.
 func (c *Client) Read(dst []byte) (int, error) {
-	if !c.websocket {
-		if err := c.socket.SetReadDeadline(time.Now().Add(time.Second * 10)); err != nil {
-			// This shouldn't happen
-			return -1, errors.ConnDeadline
-		}
-		length, err := c.socket.Read(dst)
-		if err != nil {
-			if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
-				return -1, errors.ConnClosed
-			} else if e, ok := err.(net.Error); ok && e.Timeout() {
-				return -1, errors.ConnTimedOut
-			}
-		} else if length != len(dst) {
-			return length, errors.NewNetworkError(fmt.Sprintf("Client.Read: unexpected length.  Expected %d, got %d.\n", len(dst), length))
-		}
-
-		return length, nil
-	}
-	if err := c.socket.SetReadDeadline(time.Now().Add(time.Second * 10)); err != nil {
+	err := c.socket.SetReadDeadline(time.Now().Add(time.Second * 10))
+	if err != nil {
 		return -1, errors.ConnDeadline
 	}
-	if len(c.wsFrameData) >= len(dst) {
+
+	if len(c.packetData) >= len(dst) {
 		// If we have enough data to fill dst, fill it, stash the remaining leftovers
-		copy(dst, c.wsFrameData)
-		if len(c.wsFrameData) > len(dst) {
-			c.wsFrameData = c.wsFrameData[len(dst):]
-			return len(dst), nil
+		copy(dst, c.packetData)
+		if len(c.packetData) == len(dst) {
+			c.packetData = c.packetData[:0]
+		} else {
+			c.packetData = c.packetData[len(dst):]
 		}
-		c.wsFrameData = []byte{}
 		return len(dst), nil
 	}
-	data, _, err := wsutil.ReadData(c.socket, ws.StateServerSide)
+
+	var data []byte
+	if c.websocket {
+		data, _, err = wsutil.ReadData(c.socket, ws.StateServerSide)
+	} else {
+		_, err = c.socket.Read(dst)
+		data = dst
+	}
+
 	if err != nil {
+		if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
+			return -1, errors.ConnClosed
+		} else if e, ok := err.(net.Error); ok && e.Timeout() {
+			return -1, errors.ConnTimedOut
+		}
 		return -1, err
 	}
-	if len(c.wsFrameData) > 0 {
+
+	if len(c.packetData) > 0 {
 		// unstash extra data
-		data = append(c.wsFrameData, data...)
-		c.wsFrameData = c.wsFrameData[:0]
-	}
-	if len(dst) > len(data) {
-		// In the event that we can't fill the destination buffer, we just start over
-		return -1, errors.NewNetworkError("SHORT_DATA")
+		data = append(c.packetData, data...)
+		c.packetData = c.packetData[:0]
 	}
 
-	copy(dst, data)
+	if c.websocket {
+		copy(dst, data)
 
-	if len(data) > len(dst) {
-		// stash extra data
-		c.wsFrameData = data[len(dst):]
+		if len(data) > len(dst) {
+			// stash extra data
+			c.packetData = data[len(dst):]
+		}
 	}
 	return len(dst), nil
 }
@@ -108,14 +103,16 @@ func (c *Client) Read(dst []byte) (int, error) {
 func (c *Client) ReadPacket() (*packets.Packet, error) {
 	// TODO: Is allocation overhead more expensive than mutex locks?  If so, I must change this back to pre-allocated, and guard it with a RWMutex
 	header := make([]byte, 2)
-	if l, err := c.Read(header); err != nil || l < 2 {
-		// This could happen legitimately, under certain strange circumstances.  Not proof of malicious intent.
+	if l, err := c.Read(header); err != nil {
 		return nil, err
+	} else if l < 2 {
+		return nil, errors.NewNetworkError("SHORT_DATA")
 	}
 	length := int(header[0])
-	bigLength := length >= 160
-	if bigLength {
+	if length >= 160 {
 		length = (length-160)*256 + int(header[1])
+	} else {
+		length--
 	}
 
 	if length >= 5000 || length < 0 {
@@ -126,21 +123,17 @@ func (c *Client) ReadPacket() (*packets.Packet, error) {
 		return nil, errors.NewNetworkError("Packet length out of bounds; must be between 4 and 5000.")
 	}
 
-	if bigLength {
-		payload := make([]byte, length)
+	payload := make([]byte, length)
 
-		if l, err := c.Read(payload); err != nil || l != length {
-			return nil, err
-		}
-
-		return packets.NewPacket(payload[0], payload[1:]), nil
-	}
-	payload := make([]byte, length-1)
-
-	if l, err := c.Read(payload); err != nil || l != length-1 {
+	if l, err := c.Read(payload); err != nil {
 		return nil, err
+	} else if l < length {
+		return nil, errors.NewNetworkError("SHORT_DATA")
 	}
-	payload = append(payload, header[1])
+
+	if length < 160 {
+		payload = append(payload, header[1])
+	}
 
 	return packets.NewPacket(payload[0], payload[1:]), nil
 }

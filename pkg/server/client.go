@@ -26,7 +26,7 @@ type Client struct {
 	incomingPackets, outgoingPackets chan *packets.Packet
 	reconnecting                     bool
 	websocket                        bool
-	wsFrameData []byte
+	packetData                       []byte
 }
 
 //Message Builds a new game packet to display a message in the clients chat box with msg as its contents, and queues it in the outgoing packet queue.

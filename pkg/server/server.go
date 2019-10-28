@@ -148,8 +148,8 @@ func startConnectionService() {
 				}
 				if offset != 0 {
 					if _, err := wsUpgrader.Upgrade(socket); err != nil {
-						log.Info.Println(err)
-						return
+						log.Info.Println("Error upgrading websocket connection:", err)
+						continue
 					}
 				}
 				if Clients.Size() >= config.MaxPlayers() {
