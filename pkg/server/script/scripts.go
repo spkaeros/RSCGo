@@ -36,7 +36,7 @@ func Load(filePath string) *script.Script {
 	scriptModules := stdlib.GetModuleMap(stdlib.AllModuleNames()...)
 	scriptModules.Remove("os")
 	s.SetImports(scriptModules)
-//	SetScriptVariable(s, "ret", "")
+	SetScriptVariable(s, "ret", objects.FalseValue)
 	return s
 }
 

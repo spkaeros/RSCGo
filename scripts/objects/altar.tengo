@@ -1,7 +1,5 @@
-ret := func() {
-	if objectId == 19 || objectCmd == "Recharge at" {
-		// TODO: Set prayer cur stat to prayer max stat, add API for it
-		msg("You recharge your prayer points at the altar.")
-		return true
-	}
-}()
+if objectId == 19 || objectCmd == "Recharge at" {
+	// TODO: Set prayer cur stat to prayer max stat, add API for it
+	msg("You recharge your prayer points at the altar.")
+	ret = true
+}

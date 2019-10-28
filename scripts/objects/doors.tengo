@@ -1,17 +1,13 @@
-ret := func() {
-	doors := {"59": 60, "57": 58, "63": 64}
-	for open, closed in doors {
-		doors[closed] = open
-	}
+doors := {"59": 60, "57": 58, "63": 64}
+for open, closed in doors {
+	doors[closed] = open
+}
 	
-	if objectCmd == "open" || objectCmd == "close" {
-		for open, closed in doors {
-			if objectId == int(open) {
-				replaceObject(closed)
-				return true
-			}
+if objectCmd == "open" || objectCmd == "close" {
+	for open, closed in doors {
+		if objectId == int(open) {
+			replaceObject(closed)
+			ret = true
 		}
 	}
-	
-	return false
-}()
+}
