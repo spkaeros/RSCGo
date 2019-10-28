@@ -27,6 +27,7 @@ type Client struct {
 	Socket                           net.Conn
 }
 
+//Player returns the scene player that this client represents
 func (c *Client) Player() *world.Player {
 	return c.player
 }
