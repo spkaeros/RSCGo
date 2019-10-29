@@ -2,7 +2,7 @@ package packethandlers
 
 import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
-	rscscript "bitbucket.org/zlacki/rscgo/pkg/server/script"
+	"bitbucket.org/zlacki/rscgo/pkg/server/script"
 	"fmt"
 	"os"
 	"runtime/pprof"
@@ -290,12 +290,12 @@ func init() {
 	}
 	CommandHandlers["script"] = func(c clients.Client, args []string) {
 		line := strings.Join(args, " ")
-		s := rscscript.Initialize(`fmt := import("fmt")
+		s := script.Initialize(`fmt := import("fmt")
 			world := import("world")
 			fmt.println("hello " + player.username)
 			player.message("This is a test of the RSCGo scripting system:")
 		` + line)
-		rscscript.SetScriptVariable(s, "player", c)
+		script.SetScriptVariable(s, "player", c)
 		_, err := s.Run()
 		if err != nil {
 			log.Info.Println("Error with scripting VM:", err)

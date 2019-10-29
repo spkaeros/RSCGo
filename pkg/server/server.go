@@ -3,6 +3,7 @@ package server
 import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packethandlers"
+	"bitbucket.org/zlacki/rscgo/pkg/server/script"
 	"fmt"
 	"github.com/gobwas/ws"
 	"net"
@@ -160,6 +161,10 @@ func Start() {
 		if count := db.LoadObjectLocations(); len(Flags.Verbose) > 0 && count > 0 {
 			log.Info.Printf("Loaded %d game objects.\n", count)
 		}
+	})
+	asyncExecute(&awaitLaunchJobs, func() {
+		script.LoadObjectTriggers()
+		log.Info.Printf("Loaded %d object action triggers.\n", len(script.ObjectTriggers))
 	})
 	asyncExecute(&awaitLaunchJobs, func() {
 		packethandlers.Initialize()

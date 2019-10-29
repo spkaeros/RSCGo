@@ -99,10 +99,6 @@ func (c *Client) IndexGet(index objects.Object) (objects.Object, error) {
 			return &objects.Int{Value: int64(c.player.Skillset.Current[7])}, nil
 		case "maxCooking":
 			return &objects.Int{Value: int64(c.player.Skillset.Maximum[7])}, nil
-//		case "cur":
-//			return &objects.Int{Value: int64(c.player.Skillset.Current[6])}, nil
-//		case "max":
-//			return &objects.Int{Value: int64(c.player.Skillset.Maximum[6])}, nil
 		case "curSkill":
 			return &objects.UserFunction{
 				Value: func(args ...objects.Object) (ret objects.Object, err error) {
@@ -155,7 +151,83 @@ func (c *Client) IndexGet(index objects.Object) (objects.Object, error) {
 					}
 
 					c.player.Skillset.Current[5] = level
-					c.UpdateStat(5)
+					c.SendPacket(packetbuilders.PlayerStats(c.player))
+					return objects.UndefinedValue, nil
+				},
+			}, nil
+		case "setMaxPrayer":
+			return &objects.UserFunction{
+				Value: func(args ...objects.Object) (ret objects.Object, err error) {
+					if len(args) < 1 {
+						return nil, objects.ErrWrongNumArguments
+					}
+					level, ok := objects.ToInt(args[0])
+					if !ok {
+						return nil, objects.ErrInvalidArgumentType{
+							Name:     "level",
+							Expected: "int",
+							Found:    args[0].TypeName(),
+						}
+					}
+
+					c.player.Skillset.Maximum[5] = level
+					c.SendPacket(packetbuilders.PlayerStats(c.player))
+					return objects.UndefinedValue, nil
+				},
+			}, nil
+		case "setCurStat":
+			return &objects.UserFunction{
+				Value: func(args ...objects.Object) (ret objects.Object, err error) {
+					if len(args) < 2 {
+						return nil, objects.ErrWrongNumArguments
+					}
+					index, ok := objects.ToInt(args[0])
+					if !ok {
+						return nil, objects.ErrInvalidArgumentType{
+							Name:     "level",
+							Expected: "int",
+							Found:    args[0].TypeName(),
+						}
+					}
+					level, ok := objects.ToInt(args[1])
+					if !ok {
+						return nil, objects.ErrInvalidArgumentType{
+							Name:     "level",
+							Expected: "int",
+							Found:    args[1].TypeName(),
+						}
+					}
+
+					c.player.Skillset.Current[index] = level
+					c.SendPacket(packetbuilders.PlayerStats(c.player))
+					return objects.UndefinedValue, nil
+				},
+			}, nil
+		case "setMaxStat":
+			return &objects.UserFunction{
+				Value: func(args ...objects.Object) (ret objects.Object, err error) {
+					if len(args) < 1 {
+						return nil, objects.ErrWrongNumArguments
+					}
+					index, ok := objects.ToInt(args[0])
+					if !ok {
+						return nil, objects.ErrInvalidArgumentType{
+							Name:     "level",
+							Expected: "int",
+							Found:    args[0].TypeName(),
+						}
+					}
+					level, ok := objects.ToInt(args[1])
+					if !ok {
+						return nil, objects.ErrInvalidArgumentType{
+							Name:     "level",
+							Expected: "int",
+							Found:    args[1].TypeName(),
+						}
+					}
+
+					c.player.Skillset.Maximum[index] = level
+					c.SendPacket(packetbuilders.PlayerStats(c.player))
 					return objects.UndefinedValue, nil
 				},
 			}, nil

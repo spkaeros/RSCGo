@@ -4,11 +4,10 @@ import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
 	"bitbucket.org/zlacki/rscgo/pkg/server/db"
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
-	rscscript "bitbucket.org/zlacki/rscgo/pkg/server/script"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packetbuilders"
+	"bitbucket.org/zlacki/rscgo/pkg/server/script"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 	"go.uber.org/atomic"
-	"io/ioutil"
 )
 
 type actionHandler func(p *world.Player, args ...interface{})
@@ -150,22 +149,15 @@ func objectAction(c clients.Client, object *world.Object, rightClick bool) {
 		// If somehow we became busy, the object changed before arriving, or somehow this action fired without actually arriving at the object, we do nothing.
 		return
 	}
-	files, err := ioutil.ReadDir("./scripts/objects")
-	if err != nil {
-		log.Info.Println("Error attempting to read scripts directory:", err)
-		return
-	}
-	for _, file := range files {
-		// TODO: Load these during initialization and cache them
-		s := rscscript.Load("./scripts/objects/" + file.Name())
-		rscscript.SetScriptVariable(s, "player", c)
-		rscscript.SetScriptVariable(s, "object", object)
+	for _, s := range script.ObjectTriggers {
+		script.SetScriptVariable(s, "player", c)
+		script.SetScriptVariable(s, "object", object)
 		if rightClick {
-			rscscript.SetScriptVariable(s, "cmd", db.Objects[object.ID].Commands[1])
+			script.SetScriptVariable(s, "cmd", db.Objects[object.ID].Commands[1])
 		} else {
-			rscscript.SetScriptVariable(s, "cmd", db.Objects[object.ID].Commands[0])
+			script.SetScriptVariable(s, "cmd", db.Objects[object.ID].Commands[0])
 		}
-		if rscscript.RunScript(s) {
+		if script.RunScript(s) {
 			return
 		}
 	}
