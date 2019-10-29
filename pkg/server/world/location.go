@@ -303,6 +303,43 @@ var scriptAttributes = map[string]objects.Object {
 			if len(args) < 3 {
 				return nil, objects.ErrWrongNumArguments
 			}
+			id, ok := objects.ToInt(args[0])
+			if !ok {
+				return nil, objects.ErrInvalidArgumentType{
+					Name:     "id",
+					Expected: "int",
+					Found:    args[0].TypeName(),
+				}
+			}
+			x, ok := objects.ToInt(args[1])
+			if !ok {
+				return nil, objects.ErrInvalidArgumentType{
+					Name:     "x",
+					Expected: "int",
+					Found:    args[1].TypeName(),
+				}
+			}
+			y, ok := objects.ToInt(args[2])
+			if !ok {
+				return nil, objects.ErrInvalidArgumentType{
+					Name:     "y",
+					Expected: "int",
+					Found:    args[2].TypeName(),
+				}
+			}
+			if object := GetObject(x, y); object != nil {
+				ReplaceObject(object, id)
+			} else {
+				AddObject(NewObject(id, 0, x, y, false))
+			}
+			return objects.UndefinedValue, nil
+		},
+	},
+	"removeObject": &objects.UserFunction {
+		Value: func(args ...objects.Object) (ret objects.Object, err error) {
+			if len(args) < 2 {
+				return nil, objects.ErrWrongNumArguments
+			}
 			x, ok := objects.ToInt(args[0])
 			if !ok {
 				return nil, objects.ErrInvalidArgumentType{
@@ -319,18 +356,8 @@ var scriptAttributes = map[string]objects.Object {
 					Found:    args[1].TypeName(),
 				}
 			}
-			id, ok := objects.ToInt(args[2])
-			if !ok {
-				return nil, objects.ErrInvalidArgumentType{
-					Name:     "objectID",
-					Expected: "int",
-					Found:    args[2].TypeName(),
-				}
-			}
-			if object := GetObject(x, y); object != nil {
-				ReplaceObject(object, id)
-			} else {
-				AddObject(NewObject(id, 0, x, y, false))
+			if object := GetObject(x, y); object == nil {
+				RemoveObject(object)
 			}
 			return objects.UndefinedValue, nil
 		},

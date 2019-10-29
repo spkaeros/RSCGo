@@ -292,10 +292,10 @@ func init() {
 		line := strings.Join(args, " ")
 		s := rscscript.Initialize(`fmt := import("fmt")
 			world := import("world")
-			fmt.println("hello " + player.username())
+			fmt.println("hello " + player.username)
 			player.message("This is a test of the RSCGo scripting system:")
 		` + line)
-		rscscript.SetScriptVariable(s, "player", c.Profile())
+		rscscript.SetScriptVariable(s, "player", c)
 		_, err := s.Run()
 		if err != nil {
 			log.Info.Println("Error with scripting VM:", err)

@@ -1,15 +1,19 @@
 world := import("world")
 
-doors := {"59": 60, "57": 58, "63": 64}
-for open, closed in doors {
-	doors[closed] = open
-}
-	
-if objectCmd == "open" || objectCmd == "close" {
+export func(player, object, cmd) {
+	doors := {"59": 60, "57": 58, "63": 64}
 	for open, closed in doors {
-		if object.id == int(open) {
-			world.replaceObject(object, closed)
-			ret = true
+		doors[closed] = open
+	}
+	
+	if cmd == "open" || cmd == "close" {
+		for open, closed in doors {
+			if object.id == int(open) {
+				world.replaceObject(object, closed)
+				return true
+			}
 		}
 	}
+
+	return false
 }

@@ -53,17 +53,94 @@ func (c *Client) IsFalsy() bool {
 	return !c.Player().TransAttrs.VarBool("connected", false)
 }
 
-func (c *Client) Profile() *objects.ImmutableMap {
-	return &objects.ImmutableMap{
-		Value: map[string]objects.Object{
-			"username": &objects.UserFunction{
-				Name: "username",
+func (c *Client) IndexGet(index objects.Object) (objects.Object, error) {
+	switch index := index.(type) {
+	case *objects.String:
+		switch index.Value {
+		case "index":
+			return &objects.Int{Value: int64(c.player.Index)}, nil
+		case "x":
+			return &objects.Int{Value: int64(c.player.X.Load())}, nil
+		case "y":
+			return &objects.Int{Value: int64(c.player.Y.Load())}, nil
+		case "username":
+			return &objects.String{Value: c.player.Username}, nil
+		case "level":
+			return &objects.Int{Value: int64(c.player.Y.Load())}, nil
+		case "curAttack":
+			return &objects.Int{Value: int64(c.player.Skillset.Current[0])}, nil
+		case "maxAttack":
+			return &objects.Int{Value: int64(c.player.Skillset.Maximum[0])}, nil
+		case "curDefense":
+			return &objects.Int{Value: int64(c.player.Skillset.Current[1])}, nil
+		case "maxDefense":
+			return &objects.Int{Value: int64(c.player.Skillset.Maximum[1])}, nil
+		case "curStrength":
+			return &objects.Int{Value: int64(c.player.Skillset.Current[2])}, nil
+		case "maxStrength":
+			return &objects.Int{Value: int64(c.player.Skillset.Maximum[2])}, nil
+		case "curHits":
+			return &objects.Int{Value: int64(c.player.Skillset.Current[3])}, nil
+		case "maxHits":
+			return &objects.Int{Value: int64(c.player.Skillset.Maximum[3])}, nil
+		case "curRanged":
+			return &objects.Int{Value: int64(c.player.Skillset.Current[4])}, nil
+		case "maxRanged":
+			return &objects.Int{Value: int64(c.player.Skillset.Maximum[4])}, nil
+		case "curPrayer":
+			return &objects.Int{Value: int64(c.player.Skillset.Current[5])}, nil
+		case "maxPrayer":
+			return &objects.Int{Value: int64(c.player.Skillset.Maximum[5])}, nil
+		case "curMagic":
+			return &objects.Int{Value: int64(c.player.Skillset.Current[6])}, nil
+		case "maxMagic":
+			return &objects.Int{Value: int64(c.player.Skillset.Maximum[6])}, nil
+		case "curCooking":
+			return &objects.Int{Value: int64(c.player.Skillset.Current[7])}, nil
+		case "maxCooking":
+			return &objects.Int{Value: int64(c.player.Skillset.Maximum[7])}, nil
+//		case "cur":
+//			return &objects.Int{Value: int64(c.player.Skillset.Current[6])}, nil
+//		case "max":
+//			return &objects.Int{Value: int64(c.player.Skillset.Maximum[6])}, nil
+		case "curSkill":
+			return &objects.UserFunction{
 				Value: func(args ...objects.Object) (ret objects.Object, err error) {
-					return &objects.String{Value: c.Player().Username}, nil
+					if len(args) < 1 {
+						return nil, objects.ErrWrongNumArguments
+					}
+					index, ok := objects.ToInt(args[0])
+					if !ok {
+						return nil, objects.ErrInvalidArgumentType{
+							Name:     "index",
+							Expected: "int",
+							Found:    args[0].TypeName(),
+						}
+					}
+
+					return &objects.Int{Value: int64(c.player.Skillset.Current[index])}, nil
 				},
-			},
-			"teleport": &objects.UserFunction{
-				Name: "teleport",
+			}, nil
+		case "maxSkill":
+			return &objects.UserFunction{
+				Value: func(args ...objects.Object) (ret objects.Object, err error) {
+					if len(args) < 1 {
+						return nil, objects.ErrWrongNumArguments
+					}
+					index, ok := objects.ToInt(args[0])
+					if !ok {
+						return nil, objects.ErrInvalidArgumentType{
+							Name:     "index",
+							Expected: "int",
+							Found:    args[0].TypeName(),
+						}
+					}
+
+					return &objects.Int{Value: int64(c.player.Skillset.Maximum[index])}, nil
+				},
+			}, nil
+		case "teleport":
+			return &objects.UserFunction{
 				Value: func(args ...objects.Object) (ret objects.Object, err error) {
 					ret = objects.UndefinedValue
 					if len(args) != 2 {
@@ -91,9 +168,9 @@ func (c *Client) Profile() *objects.ImmutableMap {
 					c.Player().Teleport(x, y)
 					return
 				},
-			},
-			"message": &objects.UserFunction{
-				Name: "message",
+			}, nil
+		case "message":
+			return &objects.UserFunction{
 				Value: func(args ...objects.Object) (ret objects.Object, err error) {
 					ret = objects.UndefinedValue
 
@@ -105,8 +182,9 @@ func (c *Client) Profile() *objects.ImmutableMap {
 					c.Message(message)
 					return
 				},
-			},
-			"goUp": &objects.UserFunction{
+			}, nil
+		case "goUp":
+			return &objects.UserFunction{
 				Name: "goUp",
 				Value: func(args ...objects.Object) (ret objects.Object, err error) {
 					ret = objects.UndefinedValue
@@ -117,8 +195,9 @@ func (c *Client) Profile() *objects.ImmutableMap {
 					}
 					return
 				},
-			},
-			"goDown": &objects.UserFunction{
+			}, nil
+		case "goDown":
+			return &objects.UserFunction{
 				Name: "goDown",
 				Value: func(args ...objects.Object) (ret objects.Object, err error) {
 					ret = objects.UndefinedValue
@@ -129,9 +208,10 @@ func (c *Client) Profile() *objects.ImmutableMap {
 					}
 					return
 				},
-			},
-		},
+			}, nil
+		}
 	}
+	return nil, objects.ErrInvalidIndexType
 }
 
 //Player returns the scene player that this client represents

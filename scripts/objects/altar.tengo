@@ -1,5 +1,8 @@
-if object.id == 19 || objectCmd == "Recharge at" {
-	// TODO: Set prayer cur stat to prayer max stat, add API for it
-	player.message("You recharge your prayer points at the altar.")
-	ret = true
+export func(player, object, cmd) {
+	if object.id == 19 || cmd == "Recharge at" {
+		// TODO: Set prayer cur stat to prayer max stat, add API for it
+		player.message("You recharge your prayer points at the altar.")
+		return true
+	}
+	return false
 }

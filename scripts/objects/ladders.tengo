@@ -1,7 +1,10 @@
-if objectCmd == "climb-up" {
-	player.goUp()
-	ret = true
-} else if objectCmd == "climb-down" {
-	player.goDown()
-	ret = true
+export func(player, object, cmd) {
+	if cmd == "climb-up" {
+		player.goUp()
+		return true
+	} else if cmd == "climb-down" {
+		player.goDown()
+		return true
+	}
+	return false
 }
