@@ -2,9 +2,8 @@ package packethandlers
 
 import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
+	rscscript "bitbucket.org/zlacki/rscgo/pkg/server/script"
 	"fmt"
-	"github.com/d5/tengo/script"
-	"github.com/d5/tengo/stdlib"
 	"os"
 	"runtime/pprof"
 	"strconv"
@@ -291,23 +290,17 @@ func init() {
 	}
 	CommandHandlers["script"] = func(c clients.Client, args []string) {
 		line := strings.Join(args, " ")
-		s := script.New(
-		[]byte(`fmt := import("fmt")
+		s := rscscript.Initialize(`fmt := import("fmt")
+			world := import("world")
 			fmt.println("hello " + player.username())
 			player.message("This is a test of the RSCGo scripting system:")
-		` + line))
-		scriptModules := stdlib.GetModuleMap(stdlib.AllModuleNames()...)
-		scriptModules.Remove("os")
-//		scriptModules := objects.NewModuleMap()
-//		scriptModules.AddBuiltinModule("fmt", stdlib.BuiltinModules["fmt"])
-		_ = s.Add("player", c.Profile())
-		s.SetImports(scriptModules)
+		` + line)
+		rscscript.SetScriptVariable(s, "player", c.Profile())
 		_, err := s.Run()
 		if err != nil {
 			log.Info.Println("Error with scripting VM:", err)
 			return
 		}
-
 	}
 }
 

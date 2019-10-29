@@ -28,6 +28,7 @@ type Client struct {
 	PacketData                       []byte
 	Socket                           net.Conn
 }
+
 func (c *Client) TypeName() string {
 	return "Client"
 }
@@ -54,14 +55,15 @@ func (c *Client) IsFalsy() bool {
 
 func (c *Client) Profile() *objects.ImmutableMap {
 	return &objects.ImmutableMap{
-		Value: map[string]objects.Object {
+		Value: map[string]objects.Object{
 			"username": &objects.UserFunction{
-				Name:"username",
+				Name: "username",
 				Value: func(args ...objects.Object) (ret objects.Object, err error) {
 					return &objects.String{Value: c.Player().Username}, nil
 				},
-			}, "teleport": &objects.UserFunction{
-				Name:"teleport",
+			},
+			"teleport": &objects.UserFunction{
+				Name: "teleport",
 				Value: func(args ...objects.Object) (ret objects.Object, err error) {
 					ret = objects.UndefinedValue
 					if len(args) != 2 {
@@ -89,8 +91,9 @@ func (c *Client) Profile() *objects.ImmutableMap {
 					c.Player().Teleport(x, y)
 					return
 				},
-			}, "message": &objects.UserFunction{
-				Name:"message",
+			},
+			"message": &objects.UserFunction{
+				Name: "message",
 				Value: func(args ...objects.Object) (ret objects.Object, err error) {
 					ret = objects.UndefinedValue
 
@@ -102,8 +105,9 @@ func (c *Client) Profile() *objects.ImmutableMap {
 					c.Message(message)
 					return
 				},
-			}, "goUp": &objects.UserFunction{
-				Name:"goUp",
+			},
+			"goUp": &objects.UserFunction{
+				Name: "goUp",
 				Value: func(args ...objects.Object) (ret objects.Object, err error) {
 					ret = objects.UndefinedValue
 					if nextLocation := c.Player().Above(); !nextLocation.Equals(c.Player().Location) {
@@ -113,8 +117,9 @@ func (c *Client) Profile() *objects.ImmutableMap {
 					}
 					return
 				},
-			}, "goDown": &objects.UserFunction{
-				Name:"goDown",
+			},
+			"goDown": &objects.UserFunction{
+				Name: "goDown",
 				Value: func(args ...objects.Object) (ret objects.Object, err error) {
 					ret = objects.UndefinedValue
 					if nextLocation := c.Player().Below(); !nextLocation.Equals(c.Player().Location) {
@@ -507,7 +512,7 @@ func (c *Client) Read(dst []byte) (int, error) {
 
 //ReadPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode of the next packet frame the client is sending us.
 func (c *Client) ReadPacket() (*packetbuilders.Packet, error) {
-	// TODO: Is allocation overhead more expensive than mutex locks?  If so, I must change this back to pre-allocated, and guard it with a RWMutex
+	// TODO: Is allocation overhead more expensive than mutex locks?
 	header := make([]byte, 2)
 	if l, err := c.Read(header); err != nil {
 		return nil, err

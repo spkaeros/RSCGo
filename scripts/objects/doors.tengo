@@ -1,3 +1,5 @@
+world := import("world")
+
 doors := {"59": 60, "57": 58, "63": 64}
 for open, closed in doors {
 	doors[closed] = open
@@ -5,8 +7,8 @@ for open, closed in doors {
 	
 if objectCmd == "open" || objectCmd == "close" {
 	for open, closed in doors {
-		if objectId == int(open) {
-			replaceObject(closed)
+		if object.id == int(open) {
+			world.replaceObject(object, closed)
 			ret = true
 		}
 	}

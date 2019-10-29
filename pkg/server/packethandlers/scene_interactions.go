@@ -157,13 +157,12 @@ func objectAction(c clients.Client, object *world.Object, rightClick bool) {
 	}
 	for _, file := range files {
 		s := rscscript.Load("./scripts/objects/" + file.Name())
-		rscscript.SetScriptVariable(s, "objectId", object.ID)
+		rscscript.SetScriptVariable(s, "object", object)
 		if rightClick {
 			rscscript.SetScriptVariable(s, "objectCmd", db.Objects[object.ID].Commands[1])
 		} else {
 			rscscript.SetScriptVariable(s, "objectCmd", db.Objects[object.ID].Commands[0])
 		}
-		rscscript.SetScriptVariable(s, "replaceObject", rscscript.ReplaceObject(object))
 		rscscript.SetScriptVariable(s, "player", c.Profile())
 		if rscscript.RunScript(s) {
 			return

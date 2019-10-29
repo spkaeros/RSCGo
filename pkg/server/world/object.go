@@ -41,6 +41,21 @@ func (o *Object) String() string {
 	return fmt.Sprintf("[%v, (%v, %v)]", o.ID, o.X.Load(), o.Y.Load())
 }
 
+func (o *Object) IndexGet(index objects.Object) (objects.Object, error) {
+	switch index := index.(type) {
+	case *objects.String:
+		switch index.Value {
+		case "id":
+			return &objects.Int{Value: int64(o.ID)}, nil
+		case "x":
+			return &objects.Int{Value: int64(o.X.Load())}, nil
+		case "y":
+			return &objects.Int{Value: int64(o.Y.Load())}, nil
+		}
+	}
+	return nil, objects.ErrInvalidIndexType
+}
+
 func (o *Object) IsFalsy() bool {
 	return o.X.Load() == 0 || o.Y.Load() == 0
 }

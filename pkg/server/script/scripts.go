@@ -10,14 +10,6 @@ import (
 	"os"
 )
 
-var worldScript = []byte(`
-fmt := import("fmt")
-
-export (
-	
-)
-`)
-
 //Load Loads the data in the file located at filePath on the local file system, and initializes a new Tengo VM script with it.
 func Load(filePath string) *script.Script {
 	file, err := os.Open(filePath)
@@ -31,11 +23,17 @@ func Load(filePath string) *script.Script {
 		return nil
 	}
 
-	s := script.New(data)
-	scriptModules := stdlib.GetModuleMap(stdlib.AllModuleNames()...)
+	return Initialize(string(data))
+}
+
+//Initialize Initializes a Tengo script with the specified data.
+func Initialize(data string) *script.Script {
+	s := script.New([]byte(data))
+ 	scriptModules := stdlib.GetModuleMap(stdlib.AllModuleNames()...)
 	scriptModules.Remove("os")
-	s.SetImports(scriptModules)
+	scriptModules.Add("world", world.NewWorldModule())
 	SetScriptVariable(s, "ret", objects.FalseValue)
+	s.SetImports(scriptModules)
 	return s
 }
 

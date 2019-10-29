@@ -2,6 +2,7 @@ package world
 
 import (
 	"fmt"
+	"github.com/d5/tengo/objects"
 
 	"go.uber.org/atomic"
 )
@@ -196,4 +197,146 @@ func ParseDirection(s string) int {
 	}
 
 	return North
+}
+
+var scriptAttributes = map[string]objects.Object {
+	"replaceObjectAt": &objects.UserFunction {
+		Value: func(args ...objects.Object) (ret objects.Object, err error) {
+			if len(args) < 3 {
+				return nil, objects.ErrWrongNumArguments
+			}
+			x, ok := objects.ToInt(args[0])
+			if !ok {
+				return nil, objects.ErrInvalidArgumentType{
+					Name:     "x",
+					Expected: "int",
+					Found:    args[0].TypeName(),
+				}
+			}
+			y, ok := objects.ToInt(args[1])
+			if !ok {
+				return nil, objects.ErrInvalidArgumentType{
+					Name:     "y",
+					Expected: "int",
+					Found:    args[1].TypeName(),
+				}
+			}
+			object := GetObject(x, y)
+			if object == nil {
+				return nil, objects.ErrInvalidArgumentType{
+					Name:     "GetObject(x,y)",
+					Expected: "An object",
+					Found:    "Nothing",
+				}
+			}
+			id, ok := objects.ToInt(args[2])
+			if !ok {
+				return nil, objects.ErrInvalidArgumentType{
+					Name:     "objectID",
+					Expected: "int",
+					Found:    args[2].TypeName(),
+				}
+			}
+			ReplaceObject(object, id)
+			return objects.UndefinedValue, nil
+		},
+	},
+	"replaceObject": &objects.UserFunction {
+		Value: func(args ...objects.Object) (ret objects.Object, err error) {
+			if len(args) < 2 {
+				return nil, objects.ErrWrongNumArguments
+			}
+			object, ok := args[0].(*Object)
+			if !ok {
+				return nil, objects.ErrInvalidArgumentType{
+					Name:     "object",
+					Expected: "*world.Object",
+					Found:    args[0].TypeName(),
+				}
+			}
+			id, ok := objects.ToInt(args[1])
+			if !ok {
+				return nil, objects.ErrInvalidArgumentType{
+					Name:     "objectID",
+					Expected: "int",
+					Found:    args[1].TypeName(),
+				}
+			}
+			ReplaceObject(object, id)
+			return objects.UndefinedValue, nil
+		},
+	},
+	"getObject": &objects.UserFunction {
+		Value: func(args ...objects.Object) (ret objects.Object, err error) {
+			if len(args) < 2 {
+				return nil, objects.ErrWrongNumArguments
+			}
+			x, ok := objects.ToInt(args[0])
+			if !ok {
+				return nil, objects.ErrInvalidArgumentType{
+					Name:     "x",
+					Expected: "int",
+					Found:    args[0].TypeName(),
+				}
+			}
+			y, ok := objects.ToInt(args[1])
+			if !ok {
+				return nil, objects.ErrInvalidArgumentType{
+					Name:     "y",
+					Expected: "int",
+					Found:    args[1].TypeName(),
+				}
+			}
+			object := GetObject(x, y)
+			if object == nil {
+				return nil, objects.ErrInvalidArgumentType{
+					Name:     "GetObject(x,y)",
+					Expected: "An object",
+					Found:    "Nothing",
+				}
+			}
+			return object, nil
+		},
+	},
+	"addObject": &objects.UserFunction {
+		Value: func(args ...objects.Object) (ret objects.Object, err error) {
+			if len(args) < 3 {
+				return nil, objects.ErrWrongNumArguments
+			}
+			x, ok := objects.ToInt(args[0])
+			if !ok {
+				return nil, objects.ErrInvalidArgumentType{
+					Name:     "x",
+					Expected: "int",
+					Found:    args[0].TypeName(),
+				}
+			}
+			y, ok := objects.ToInt(args[1])
+			if !ok {
+				return nil, objects.ErrInvalidArgumentType{
+					Name:     "y",
+					Expected: "int",
+					Found:    args[1].TypeName(),
+				}
+			}
+			id, ok := objects.ToInt(args[2])
+			if !ok {
+				return nil, objects.ErrInvalidArgumentType{
+					Name:     "objectID",
+					Expected: "int",
+					Found:    args[2].TypeName(),
+				}
+			}
+			if object := GetObject(x, y); object != nil {
+				ReplaceObject(object, id)
+			} else {
+				AddObject(NewObject(id, 0, x, y, false))
+			}
+			return objects.UndefinedValue, nil
+		},
+	},
+}
+
+func NewWorldModule() *objects.BuiltinModule {
+	return &objects.BuiltinModule{ Attrs: scriptAttributes}
 }
