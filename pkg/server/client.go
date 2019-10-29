@@ -52,6 +52,83 @@ func (c *Client) IsFalsy() bool {
 	return !c.Player().TransAttrs.VarBool("connected", false)
 }
 
+func (c *Client) Profile() *objects.ImmutableMap {
+	return &objects.ImmutableMap{
+		Value: map[string]objects.Object {
+			"username": &objects.UserFunction{
+				Name:"username",
+				Value: func(args ...objects.Object) (ret objects.Object, err error) {
+					return &objects.String{Value: c.Player().Username}, nil
+				},
+			}, "teleport": &objects.UserFunction{
+				Name:"teleport",
+				Value: func(args ...objects.Object) (ret objects.Object, err error) {
+					ret = objects.UndefinedValue
+					if len(args) != 2 {
+						c.Message("teleport(x,y): Invalid argument count provided")
+						return nil, objects.ErrWrongNumArguments
+					}
+					x, ok := objects.ToInt(args[0])
+					if !ok {
+						c.Message("teleport(x,y): Invalid argument type provided")
+						return nil, objects.ErrInvalidArgumentType{
+							Name:     "x",
+							Expected: "int",
+							Found:    args[0].TypeName(),
+						}
+					}
+					y, ok := objects.ToInt(args[1])
+					if !ok {
+						c.Message("teleport(x,y): Invalid argument type provided")
+						return nil, objects.ErrInvalidArgumentType{
+							Name:     "y",
+							Expected: "int",
+							Found:    args[1].TypeName(),
+						}
+					}
+					c.Player().Teleport(x, y)
+					return
+				},
+			}, "message": &objects.UserFunction{
+				Name:"message",
+				Value: func(args ...objects.Object) (ret objects.Object, err error) {
+					ret = objects.UndefinedValue
+
+					message, ok := objects.ToString(args[0])
+					if !ok {
+						message = args[0].String()
+					}
+
+					c.Message(message)
+					return
+				},
+			}, "goUp": &objects.UserFunction{
+				Name:"goUp",
+				Value: func(args ...objects.Object) (ret objects.Object, err error) {
+					ret = objects.UndefinedValue
+					if nextLocation := c.Player().Above(); !nextLocation.Equals(c.Player().Location) {
+						c.Player().ResetPath()
+						c.Player().SetLocation(&nextLocation)
+						c.UpdatePlane()
+					}
+					return
+				},
+			}, "goDown": &objects.UserFunction{
+				Name:"goDown",
+				Value: func(args ...objects.Object) (ret objects.Object, err error) {
+					ret = objects.UndefinedValue
+					if nextLocation := c.Player().Below(); !nextLocation.Equals(c.Player().Location) {
+						c.Player().ResetPath()
+						c.Player().SetLocation(&nextLocation)
+						c.UpdatePlane()
+					}
+					return
+				},
+			},
+		},
+	}
+}
+
 //Player returns the scene player that this client represents
 func (c *Client) Player() *world.Player {
 	return c.player

@@ -23,6 +23,7 @@ type Client interface {
 	UpdateStat(int)
 	UpdatePositions()
 	ResetUpdateFlags()
+	Profile() *objects.ImmutableMap
 	objects.Object
 }
 

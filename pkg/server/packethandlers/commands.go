@@ -12,7 +12,6 @@ import (
 
 	"bitbucket.org/zlacki/rscgo/pkg/server/db"
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
-	rscscript "bitbucket.org/zlacki/rscgo/pkg/server/script"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packetbuilders"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
@@ -294,17 +293,14 @@ func init() {
 		line := strings.Join(args, " ")
 		s := script.New(
 		[]byte(`fmt := import("fmt")
-			fmt.println("hello " + client)
-			msg("This is a test of the RSCGo scripting system:", client)
-			teleport(220, 445)
+			fmt.println("hello " + player.username())
+			player.message("This is a test of the RSCGo scripting system:")
 		` + line))
 		scriptModules := stdlib.GetModuleMap(stdlib.AllModuleNames()...)
 		scriptModules.Remove("os")
 //		scriptModules := objects.NewModuleMap()
 //		scriptModules.AddBuiltinModule("fmt", stdlib.BuiltinModules["fmt"])
-		_ = s.Add("client", c)
-		_ = s.Add("msg", rscscript.ScriptMessage(c))
-		_ = s.Add("teleport", rscscript.MovePlayer(c))
+		_ = s.Add("player", c.Profile())
 		s.SetImports(scriptModules)
 		_, err := s.Run()
 		if err != nil {

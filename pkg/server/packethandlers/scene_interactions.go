@@ -164,9 +164,7 @@ func objectAction(c clients.Client, object *world.Object, rightClick bool) {
 			rscscript.SetScriptVariable(s, "objectCmd", db.Objects[object.ID].Commands[0])
 		}
 		rscscript.SetScriptVariable(s, "replaceObject", rscscript.ReplaceObject(object))
-		rscscript.SetScriptVariable(s, "climbUp", rscscript.ClimbUp(c))
-		rscscript.SetScriptVariable(s, "climbDown", rscscript.ClimbDown(c))
-		rscscript.SetScriptVariable(s, "msg", rscscript.ScriptMessage(c))
+		rscscript.SetScriptVariable(s, "player", c.Profile())
 		if rscscript.RunScript(s) {
 			return
 		}

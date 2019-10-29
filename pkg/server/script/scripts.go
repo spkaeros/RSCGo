@@ -1,7 +1,6 @@
 package script
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 	"github.com/d5/tengo/objects"
@@ -62,54 +61,6 @@ func SetScriptVariable(s *script.Script, variableName string, value interface{})
 	}
 }
 
-func ScriptMessage(c clients.Client) *objects.UserFunction {
-	return &objects.UserFunction{
-		Value: func(args ...objects.Object) (ret objects.Object, err error) {
-			ret = objects.UndefinedValue
-
-			message, ok := objects.ToString(args[0])
-			if !ok {
-				message = args[0].String()
-			}
-
-			c.Message(message)
-			return
-		},
-	}
-}
-
-func MovePlayer(c clients.Client) *objects.UserFunction {
-	return &objects.UserFunction{
-		Value: func(args ...objects.Object) (ret objects.Object, err error) {
-			ret = objects.UndefinedValue
-			if len(args) != 2 {
-				c.Message("teleport(x,y): Invalid argument count provided")
-				return nil, objects.ErrWrongNumArguments
-			}
-			x, ok := objects.ToInt(args[0])
-			if !ok {
-				c.Message("teleport(x,y): Invalid argument type provided")
-				return nil, objects.ErrInvalidArgumentType{
-					Name:     "x",
-					Expected: "int",
-					Found:    args[0].TypeName(),
-				}
-			}
-			y, ok := objects.ToInt(args[1])
-			if !ok {
-				c.Message("teleport(x,y): Invalid argument type provided")
-				return nil, objects.ErrInvalidArgumentType{
-					Name:     "y",
-					Expected: "int",
-					Found:    args[1].TypeName(),
-				}
-			}
-			c.Player().Teleport(x, y)
-			return
-		},
-	}
-}
-
 func ReplaceObject(o *world.Object) *objects.UserFunction {
 	return &objects.UserFunction{
 		Value: func(args ...objects.Object) (ret objects.Object, err error) {
@@ -126,34 +77,6 @@ func ReplaceObject(o *world.Object) *objects.UserFunction {
 				}
 			}
 			world.ReplaceObject(o, id)
-			return
-		},
-	}
-}
-
-func ClimbUp(c clients.Client) *objects.UserFunction {
-	return &objects.UserFunction{
-		Value: func(args ...objects.Object) (ret objects.Object, err error) {
-			ret = objects.UndefinedValue
-			if nextLocation := c.Player().Above(); !nextLocation.Equals(c.Player().Location) {
-				c.Player().ResetPath()
-				c.Player().SetLocation(&nextLocation)
-				c.UpdatePlane()
-			}
-			return
-		},
-	}
-}
-
-func ClimbDown(c clients.Client) *objects.UserFunction {
-	return &objects.UserFunction{
-		Value: func(args ...objects.Object) (ret objects.Object, err error) {
-			ret = objects.UndefinedValue
-			if nextLocation := c.Player().Below(); !nextLocation.Equals(c.Player().Location) {
-				c.Player().ResetPath()
-				c.Player().SetLocation(&nextLocation)
-				c.UpdatePlane()
-			}
 			return
 		},
 	}

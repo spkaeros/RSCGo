@@ -1,7 +1,7 @@
 if objectCmd == "climb-up" {
-	climbUp()
+	player.goUp()
 	ret = true
 } else if objectCmd == "climb-down" {
-	climbDown()
+	player.goDown()
 	ret = true
 }
