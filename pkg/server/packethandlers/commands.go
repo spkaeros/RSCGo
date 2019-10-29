@@ -288,6 +288,12 @@ func init() {
 	CommandHandlers["death"] = func(c clients.Client, args []string) {
 		c.SendPacket(packetbuilders.Death)
 	}
+	CommandHandlers["reloadscripts"] = func(c clients.Client, args []string) {
+		script.ObjectTriggers = script.ObjectTriggers[:0]
+		script.LoadObjectTriggers()
+		c.Message("Loaded " + strconv.Itoa(len(script.ObjectTriggers)) + " object triggers")
+		log.Info.Printf("Loaded %d object action triggers.\n", len(script.ObjectTriggers))
+	}
 	CommandHandlers["script"] = func(c clients.Client, args []string) {
 		line := strings.Join(args, " ")
 		s := script.Initialize(`fmt := import("fmt")
