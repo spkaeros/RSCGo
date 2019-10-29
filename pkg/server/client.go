@@ -139,6 +139,26 @@ func (c *Client) IndexGet(index objects.Object) (objects.Object, error) {
 					return &objects.Int{Value: int64(c.player.Skillset.Maximum[index])}, nil
 				},
 			}, nil
+		case "setCurPrayer":
+			return &objects.UserFunction{
+				Value: func(args ...objects.Object) (ret objects.Object, err error) {
+					if len(args) < 1 {
+						return nil, objects.ErrWrongNumArguments
+					}
+					level, ok := objects.ToInt(args[0])
+					if !ok {
+						return nil, objects.ErrInvalidArgumentType{
+							Name:     "level",
+							Expected: "int",
+							Found:    args[0].TypeName(),
+						}
+					}
+
+					c.player.Skillset.Current[5] = level
+					c.UpdateStat(5)
+					return objects.UndefinedValue, nil
+				},
+			}, nil
 		case "teleport":
 			return &objects.UserFunction{
 				Value: func(args ...objects.Object) (ret objects.Object, err error) {

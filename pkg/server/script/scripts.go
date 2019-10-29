@@ -10,7 +10,7 @@ import (
 	"os"
 )
 
-var wrapper = []byte(`ret := import("main")(player, object, cmd)`)
+var objectWrapper = []byte(`ret := import("main")(player, object, cmd)`)
 
 //Load Loads the data in the file located at filePath on the local file system, and initializes a new Tengo VM script with it.
 func Load(filePath string) *script.Script {
@@ -30,7 +30,7 @@ func Load(filePath string) *script.Script {
 
 //Initialize Initializes a Tengo script with the specified data.
 func Initialize(data string) *script.Script {
-	s := script.New(wrapper)
+	s := script.New(objectWrapper)
  	scriptModules := stdlib.GetModuleMap(stdlib.AllModuleNames()...)
 	scriptModules.Remove("os")
 	scriptModules.Add("world", world.NewWorldModule())
