@@ -1,10 +1,10 @@
-export func(player, object, cmd) {
-	if object.id == 19 || cmd == "Recharge at" {
-		if player.curPrayer < player.maxPrayer {
-			player.setCurPrayer(player.maxPrayer)
-			player.message("You recharge your prayer points at the altar.")
-		}
-		return true
+isHandled := func(player, object, cmd) {
+	return cmd == "recharge at"
+}
+
+action := func(player, object, cmd) {
+	if player.curPrayer < player.maxPrayer {
+		player.setCurPrayer(player.maxPrayer)
+		player.message("You recharge your prayer points at the altar.")
 	}
-	return false
 }

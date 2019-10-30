@@ -1,10 +1,11 @@
-export func(player, object, cmd) {
+isHandled := func(player, object, cmd) {
+	return cmd == "climb-up" || cmd == "climb-down"
+}
+
+action := func(player, object, cmd) {
 	if cmd == "climb-up" {
 		player.goUp()
-		return true
-	} else if cmd == "climb-down" {
+	} else {
 		player.goDown()
-		return true
 	}
-	return false
 }

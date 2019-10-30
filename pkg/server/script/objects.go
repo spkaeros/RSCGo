@@ -9,7 +9,11 @@ import (
 	"io/ioutil"
 	"os"
 )
-var objectWrapper = []byte(`ret := import("main")(player, object, cmd)`)
+var objectWrapper = []byte(`
+ret := isHandled(player, object, cmd)
+if ret {
+	action(player, object, cmd)
+}`)
 var ObjectTriggers []*script.Script
 
 //LoadObjectTriggers Loads all of the Tengo scripts in ./scripts/objects and stores them in the ObjectTriggers slice.
@@ -37,16 +41,16 @@ func loadObjectTrigger(filePath string) *script.Script {
 		return nil
 	}
 
-	return InitializeObjectTrigger(data)
+	return InitializeObjectTrigger(append(data, objectWrapper...))
 }
 
 //InitializeObjectTrigger Initializes a Tengo script with the specified data, using a wrapper for object action triggers.
 func InitializeObjectTrigger(data []byte) *script.Script {
-	s := script.New(objectWrapper)
+	s := script.New(data)
 	scriptModules := stdlib.GetModuleMap(stdlib.AllModuleNames()...)
 	scriptModules.Remove("os")
 	scriptModules.Add("world", NewWorldModule())
-	scriptModules.AddSourceModule("main", []byte(data))
+//	scriptModules.AddSourceModule("main", []byte(data))
 	s.SetImports(scriptModules)
 	return s
 }
