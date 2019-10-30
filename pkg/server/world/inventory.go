@@ -53,12 +53,18 @@ func NewGroundItemFrom(owner uint64, id, amount, x, y int) *GroundItem {
 	}
 	go func() {
 		time.Sleep(time.Minute * 3)
-		gi.removed = true
-		//RemoveItem(gi)
+		gi.Remove()
 	}()
 	return gi
 }
 
+//Remove Removes the ground item from the world.
+func (i *GroundItem) Remove() {
+	i.removed = true
+	RemoveItem(i)
+}
+
+//VisibleTo Returns true if the ground item is visible to this player, otherwise returns false.
 func (i *GroundItem) VisibleTo(p *Player) bool {
 	if i.removed {
 		return false

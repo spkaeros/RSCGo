@@ -56,6 +56,22 @@ func AddItem(i *GroundItem) {
 	GetRegion(int(i.X.Load()), int(i.Y.Load())).Items.Add(i)
 }
 
+//GetItem Returns the item at x,y with the specified id.  Returns nil if it can not find the item.
+func GetItem(x, y, id int) *GroundItem {
+	region := GetRegion(x, y)
+	region.Items.lock.RLock()
+	defer region.Items.lock.RUnlock()
+	for _, i := range region.Items.List {
+		if i, ok := i.(*GroundItem); ok {
+			if i.ID == id && int(i.X.Load()) == x && int(i.Y.Load()) == y {
+				return i
+			}
+		}
+	}
+
+	return nil
+}
+
 //RemoveItem Remove a ground item to the region.
 func RemoveItem(i *GroundItem) {
 	GetRegion(int(i.X.Load()), int(i.Y.Load())).Items.Remove(i)

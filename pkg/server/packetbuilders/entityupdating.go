@@ -265,16 +265,17 @@ func ItemLocations(player *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(99)
 	for _, i := range player.LocalItems.List {
 		if i, ok := i.(*world.GroundItem); ok {
-			if !player.WithinRange(i.Location, 21) {
+			x, y := i.X.Load(), i.Y.Load()
+			if !player.WithinRange(i.Location, 21) || !world.GetRegion(int(x), int(y)).Items.Contains(i) {
 				p.AddByte(255)
-				p.AddByte(byte(i.X.Load() - player.X.Load()))
-				p.AddByte(byte(i.Y.Load() - player.Y.Load()))
+				p.AddByte(byte(x - player.X.Load()))
+				p.AddByte(byte(y - player.Y.Load()))
 				player.LocalItems.Remove(i)
 				counter++
 			} else if !i.VisibleTo(player) {
 				p.AddShort(uint16(i.ID + 0x8000)) // + 32768
-				p.AddByte(byte(i.X.Load() - player.X.Load()))
-				p.AddByte(byte(i.Y.Load() - player.Y.Load()))
+				p.AddByte(byte(x - player.X.Load()))
+				p.AddByte(byte(y - player.Y.Load()))
 				player.LocalItems.Remove(i)
 				counter++
 			}
