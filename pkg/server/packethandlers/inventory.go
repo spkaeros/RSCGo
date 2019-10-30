@@ -30,13 +30,23 @@ func init() {
 			return
 		}
 
-		item := world.GetItem(x, y, id)
-		if item == nil || !item.VisibleTo(c.Player()) {
-			log.Suspicious.Printf("Player[%v] attempted to pick up an item that doesn't exist: %d,%d,%d\n", c, id, x, y)
-			return
-		}
-		item.Remove()
-		c.Player().Items.Put(item.ID, item.Amount)
-		c.SendPacket(packetbuilders.InventoryItems(c.Player()))
+		c.Player().QueueDistancedAction(func() bool {
+			item := world.GetItem(x, y, id)
+			if item == nil || !item.VisibleTo(c.Player()) {
+				log.Suspicious.Printf("Player[%v] attempted to pick up an item that doesn't exist: %d,%d,%d\n", c, id, x, y)
+				return true
+			}
+			if !c.Player().WithinRange(item.Location, 0) {
+				return false
+			}
+			if c.Player().Items.Size() >= 30 {
+				c.Message("You do not have room for that item in your inventory.")
+				return true
+			}
+			item.Remove()
+			c.Player().Items.Put(item.ID, item.Amount)
+			c.SendPacket(packetbuilders.InventoryItems(c.Player()))
+			return true
+		})
 	}
 }
