@@ -155,6 +155,27 @@ func LoadObjectLocations() int {
 	return objectCounter
 }
 
+//LoadNpcLocations Loads the game objects into memory from the SQLite3 database.
+func LoadNpcLocations() int {
+	npcCounter := 0
+	database := Open(config.WorldDB())
+	defer database.Close()
+	rows, err := database.Query("SELECT `id`, `startX`, `minX`, `maxX`, `startY`, `minY`, `maxY` FROM `npc_locations`")
+	defer rows.Close()
+	if err != nil {
+		log.Error.Println("Couldn't load SQLite3 database:", err)
+		return 0
+	}
+	var id, startX, minX, maxX, startY, minY, maxY int
+	for rows.Next() {
+		rows.Scan(&id, &startX, &minX, &maxX, &startY, &minY, &maxY)
+		npcCounter++
+		// TODO: Load bounds into npc struct
+		world.AddNpc(world.NewNpc(id, startX, startY))
+	}
+	return npcCounter
+}
+
 //SaveObjectLocations Clears world.db game object locations and repopulates it with the current server locations.
 func SaveObjectLocations() int {
 	database := Open(config.WorldDB())

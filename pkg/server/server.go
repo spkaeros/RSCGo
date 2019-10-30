@@ -163,6 +163,11 @@ func Start() {
 		}
 	})
 	asyncExecute(&awaitLaunchJobs, func() {
+		if count := db.LoadNpcLocations(); len(Flags.Verbose) > 0 && count > 0 {
+			log.Info.Printf("Loaded %d NPCs.\n", count)
+		}
+	})
+	asyncExecute(&awaitLaunchJobs, func() {
 		script.LoadObjectTriggers()
 		log.Info.Printf("Loaded %d object action triggers.\n", len(script.ObjectTriggers))
 	})
