@@ -9,12 +9,14 @@ import (
 	"io/ioutil"
 	"os"
 )
+
 var objectWrapper = []byte(`
 ret := isHandled(player, object, cmd)
 if ret {
 	action(player, object, cmd)
 }`)
 var ObjectTriggers []*script.Script
+var BoundaryTriggers []*script.Script
 
 //LoadObjectTriggers Loads all of the Tengo scripts in ./scripts/objects and stores them in the ObjectTriggers slice.
 func LoadObjectTriggers() {
@@ -25,6 +27,18 @@ func LoadObjectTriggers() {
 	}
 	for _, file := range files {
 		ObjectTriggers = append(ObjectTriggers, loadObjectTrigger("./scripts/objects/" + file.Name()))
+	}
+}
+
+//LoadObjectTriggers Loads all of the Tengo scripts in ./scripts/objects and stores them in the ObjectTriggers slice.
+func LoadBoundaryTriggers() {
+	files, err := ioutil.ReadDir("./scripts/boundarys")
+	if err != nil {
+		log.Info.Println("Error attempting to read scripts directory:", err)
+		return
+	}
+	for _, file := range files {
+		BoundaryTriggers = append(BoundaryTriggers, loadBoundaryTrigger("./scripts/boundarys/" + file.Name()))
 	}
 }
 
@@ -41,16 +55,31 @@ func loadObjectTrigger(filePath string) *script.Script {
 		return nil
 	}
 
-	return InitializeObjectTrigger(append(data, objectWrapper...))
+	return initializeTrigger(append(data, objectWrapper...))
 }
 
-//InitializeObjectTrigger Initializes a Tengo script with the specified data, using a wrapper for object action triggers.
-func InitializeObjectTrigger(data []byte) *script.Script {
+//loadBoundaryTrigger Loads the data in the file located at filePath on the local file system, and initializes a new Tengo VM script with it.
+func loadBoundaryTrigger(filePath string) *script.Script {
+	file, err := os.Open(filePath)
+	if err != nil {
+		log.Warning.Println("Error opening script file for boundary action:", err)
+		return nil
+	}
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		log.Warning.Println("Error reading script file for boundary action:", err)
+		return nil
+	}
+
+	return initializeTrigger(append(data, objectWrapper...))
+}
+
+//initializeTrigger Initializes a Tengo script with the specified data, using a wrapper for object action triggers.
+func initializeTrigger(data []byte) *script.Script {
 	s := script.New(data)
 	scriptModules := stdlib.GetModuleMap(stdlib.AllModuleNames()...)
 	scriptModules.Remove("os")
 	scriptModules.Add("world", NewWorldModule())
-//	scriptModules.AddSourceModule("main", []byte(data))
 	s.SetImports(scriptModules)
 	return s
 }

@@ -160,22 +160,17 @@ func boundaryAction(c clients.Client, object *world.Object, rightClick bool) {
 		// If somehow we became busy, the object changed before arriving, or somehow this action fired without actually arriving at the object, we do nothing.
 		return
 	}
-	handlers := boundaryHandlers
-	command := db.Boundarys[object.ID].Commands[0]
-	if rightClick {
-		handlers = boundary2Handlers
-		command = db.Boundarys[object.ID].Commands[1]
+	for _, s := range script.BoundaryTriggers {
+		script.SetScriptVariable(s, "player", c)
+		script.SetScriptVariable(s, "object", object)
+		if rightClick {
+			script.SetScriptVariable(s, "cmd", db.Boundarys[object.ID].Commands[1])
+		} else {
+			script.SetScriptVariable(s, "cmd", db.Boundarys[object.ID].Commands[0])
+		}
+		if script.RunScript(s) {
+			return
+		}
 	}
-	if handler, ok := handlers[object.ID]; ok {
-		// If there is a handler for this specific ID, call it, and that's all we have to do.
-		handler(c.Player(), object)
-		return
-	}
-	if handler, ok := handlers[command]; ok {
-		// Otherwise, check for handlers associated by commands.
-		handler(c.Player(), object)
-		return
-	}
-	// Give up, concluding there isn't a handler for this object action
 	c.SendPacket(packetbuilders.DefaultActionMessage)
 }

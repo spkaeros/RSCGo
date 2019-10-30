@@ -172,6 +172,10 @@ func Start() {
 		log.Info.Printf("Loaded %d object action triggers.\n", len(script.ObjectTriggers))
 	})
 	asyncExecute(&awaitLaunchJobs, func() {
+		script.LoadBoundaryTriggers()
+		log.Info.Printf("Loaded %d boundary action triggers.\n", len(script.BoundaryTriggers))
+	})
+	asyncExecute(&awaitLaunchJobs, func() {
 		packethandlers.Initialize()
 		if len(Flags.Verbose) > 0 {
 			log.Info.Printf("Initialized %d packet handlers.\n", packethandlers.CountPacketHandlers())

@@ -1,0 +1,18 @@
+world := import("world")
+doors := {"2": 1}
+
+isHandled := func(player, object, cmd) {
+	return cmd == "open" || cmd == "close"
+}
+
+action := func(player, object, cmd) {
+	for open, closed in doors {
+		if object.id == closed {
+			world.replaceObject(object, open)
+			return
+		} else if object.id == int(open) {
+			world.replaceObject(object, closed)
+			return
+		}
+	}
+}
