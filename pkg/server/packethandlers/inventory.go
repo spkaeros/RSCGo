@@ -30,7 +30,7 @@ func init() {
 			return
 		}
 
-		c.Player().QueueDistancedAction(func() bool {
+		c.Player().SetDistancedAction(func() bool {
 			item := world.GetItem(x, y, id)
 			if item == nil || !item.VisibleTo(c.Player()) {
 				log.Suspicious.Printf("Player[%v] attempted to pick up an item that doesn't exist: %d,%d,%d\n", c, id, x, y)
@@ -48,5 +48,15 @@ func init() {
 			c.SendPacket(packetbuilders.InventoryItems(c.Player()))
 			return true
 		})
+	}
+	PacketHandlers["dropitem"] = func(c clients.Client, p *packetbuilders.Packet) {
+		index := p.ReadShort()
+		item := c.Player().Items.Get(index)
+		if item != nil {
+			if c.Player().Items.Remove(index) {
+				world.AddItem(world.NewGroundItemFrom(c.Player().UserBase37, item.ID, item.Amount, int(c.Player().X.Load()), int(c.Player().Y.Load())))
+				c.SendPacket(packetbuilders.InventoryItems(c.Player()))
+			}
+		}
 	}
 }

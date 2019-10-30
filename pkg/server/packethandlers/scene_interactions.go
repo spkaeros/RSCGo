@@ -72,7 +72,7 @@ func init() {
 			log.Suspicious.Printf("Player %v attempted to use a non-existant object at %d,%d\n", c, x, y)
 			return
 		}
-		c.Player().QueueDistancedAction(func() bool {
+		c.Player().SetDistancedAction(func() bool {
 			if c.Player().WithinRange(object.Location, 1) {
 				objectAction(c, object, false)
 				return true
@@ -89,7 +89,7 @@ func init() {
 			log.Suspicious.Printf("Player %v attempted to use a non-existant object at %d,%d\n", c, x, y)
 			return
 		}
-		c.Player().QueueDistancedAction(func() bool {
+		c.Player().SetDistancedAction(func() bool {
 			if c.Player().WithinRange(object.Location, 1) {
 				objectAction(c, object, true)
 				return true
@@ -106,7 +106,7 @@ func init() {
 			log.Suspicious.Printf("Player %v attempted to use a non-existant boundary at %d,%d\n", c, x, y)
 			return
 		}
-		c.Player().QueueDistancedAction(func() bool {
+		c.Player().SetDistancedAction(func() bool {
 			if c.Player().WithinRange(object.Location, 1) {
 				boundaryAction(c, object, true)
 				return true
@@ -123,23 +123,13 @@ func init() {
 			log.Suspicious.Printf("Player %v attempted to use a non-existant boundary at %d,%d\n", c, x, y)
 			return
 		}
-		c.Player().QueueDistancedAction(func() bool {
+		c.Player().SetDistancedAction(func() bool {
 			if c.Player().WithinRange(object.Location, 1) {
 				boundaryAction(c, object, false)
 				return true
 			}
 			return false
 		})
-	}
-	PacketHandlers["dropitem"] = func(c clients.Client, p *packetbuilders.Packet) {
-		index := p.ReadShort()
-		item := c.Player().Items.Get(index)
-		if item != nil {
-			if c.Player().Items.Remove(index) {
-				world.AddItem(world.NewGroundItemFrom(c.Player().UserBase37, item.ID, item.Amount, int(c.Player().X.Load()), int(c.Player().Y.Load())))
-				c.SendPacket(packetbuilders.InventoryItems(c.Player()))
-			}
-		}
 	}
 }
 

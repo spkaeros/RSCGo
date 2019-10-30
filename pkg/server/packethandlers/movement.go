@@ -19,6 +19,7 @@ func init() {
 		if c.Player().IsFollowing() {
 			c.Player().ResetFollowing()
 		}
+		c.Player().ResetDistancedAction()
 		c.Player().SetPath(world.NewPathwayComplete(uint32(startX), uint32(startY), waypointsX, waypointsY))
 	}
 	PacketHandlers["walktoentity"] = func(c clients.Client, p *packetbuilders.Packet) {
@@ -33,6 +34,7 @@ func init() {
 		if c.Player().IsFollowing() {
 			c.Player().ResetFollowing()
 		}
+		c.Player().ResetDistancedAction()
 		c.Player().SetPath(world.NewPathwayComplete(uint32(startX), uint32(startY), waypointsX, waypointsY))
 	}
 	PacketHandlers["followreq"] = func(c clients.Client, p *packetbuilders.Packet) {
@@ -44,7 +46,7 @@ func init() {
 		}
 		c.Player().SetFollowing(playerID)
 		c.Message("@que@Following " + affectedClient.Player().Username)
-		c.Player().QueueDistancedAction(func() bool {
+		c.Player().SetDistancedAction(func() bool {
 			if !c.Player().IsFollowing() {
 				// Following target no longer exists
 				return true

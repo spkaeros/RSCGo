@@ -14,7 +14,7 @@ func init() {
 			log.Suspicious.Printf("player[%v] tried to attack nil NPC\n", c)
 			return
 		}
-		c.Player().QueueDistancedAction(func() bool {
+		c.Player().SetDistancedAction(func() bool {
 			if c.Player().WithinRange(npc.Location, 1) {
 				c.Player().ResetPath()
 				npc.ResetPath()

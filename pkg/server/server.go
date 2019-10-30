@@ -210,16 +210,11 @@ func asyncExecute(wg *sync.WaitGroup, fn func()) {
 //Tick One game engine 'tick'.  This is to handle movement, to synchronize client, to update movement-related state variables... Runs once per 600ms.
 func Tick() {
 	clients.Range(func(c clients.Client) {
-		// TODO: I know I can do better...this feels so ugly.  it's fast and works, tho
-		var tmpFns []func() bool
-		c.Player().ActionLock.Lock()
-		for _, fn := range c.Player().DistancedActions {
-			if !fn() {
-				tmpFns = append(tmpFns, fn)
+		if fn := c.Player().DistancedAction; fn != nil {
+			if fn() {
+				c.Player().ResetDistancedAction()
 			}
 		}
-		c.Player().DistancedActions = tmpFns
-		c.Player().ActionLock.Unlock()
 		c.Player().TraversePath()
 	})
 	clients.Range(func(c clients.Client) {

@@ -32,7 +32,7 @@ type Player struct {
 	Attributes       *AttributeList
 	Items            *Inventory
 	TradeOffer       *Inventory
-	DistancedActions []func() bool
+	DistancedAction func() bool
 	ActionLock       sync.RWMutex
 	IP               string
 	UID              uint8
@@ -40,10 +40,12 @@ type Player struct {
 	Mob
 }
 
+//TypeName The name of this type for use within the Tengo virtual machine.
 func (p *Player) TypeName() string {
 	return "world.Player"
 }
 
+//Equals Returns true if this player is the sane as p1
 func (p *Player) Equals(p1 objects.Object) bool {
 	if p1, ok := p1.(*Player); ok {
 		return p.Index == p1.Index && p.UserBase37 == p1.UserBase37
@@ -52,46 +54,39 @@ func (p *Player) Equals(p1 objects.Object) bool {
 	return false
 }
 
+//Copy This is supposed to return a copy of the player, however, it would be fundamentally incorrect to be able to
+// copy players, so it just returns this player.
 func (p *Player) Copy() objects.Object {
 	return p
 }
 
+//BinaryOp This is for the Tengo virtual machine, to override operators in the scripting language.  I doubt it will be useful.
 func (p *Player) BinaryOp(op token.Token, rhs objects.Object) (objects.Object, error) {
 	return nil, objects.ErrInvalidOperator
 }
 
+//String Returns a string populated with the more identifying features of this player.
 func (p *Player) String() string {
 	return "[" + p.Username + ", " + p.IP + "]"
 }
 
+//IsFalsy Returns true if this player isn't actively connected to the game, otherwise returns false.
 func (p *Player) IsFalsy() bool {
 	return !p.TransAttrs.VarBool("connected", false)
 }
 
-//QueueDistancedAction Queues a distanced action to run every game engine tick before path traversal, if action returns true, it will be removed from the queue.
-func (p *Player) QueueDistancedAction(action func() bool) {
+//SetDistancedAction Queues a distanced action to run every game engine tick before path traversal, if action returns true, it will be reset.
+func (p *Player) SetDistancedAction(action func() bool) {
 	p.ActionLock.Lock()
-	p.DistancedActions = append(p.DistancedActions, action)
+	p.DistancedAction = action
 	p.ActionLock.Unlock()
 }
 
-//RunDistancedAction Creates a distanced action belonging to this player, that runs action once the player arrives at dest, or cancels if we become busy, or we become unreasonably far from dest.
-// Deprecated: May remove
-func (p *Player) RunDistancedAction(dest Location, action func()) {
-	go func() {
-		ticker := time.NewTicker(100 * time.Millisecond)
-		defer ticker.Stop()
-		for range ticker.C {
-			if !p.WithinRange(dest, 16) || p.Busy() {
-				// We became busy somehow, or we are miles from our destination somehow, so cancel
-				return
-			} else if p.WithinRange(dest, 1) {
-				// We have arrived.
-				action()
-				return
-			}
-		}
-	}()
+//ResetDistancedAction Clears the distanced action, if any is queued.  Should be called any time the player is deliberately performing an action.
+func (p *Player) ResetDistancedAction() {
+	p.ActionLock.Lock()
+	p.DistancedAction = nil
+	p.ActionLock.Unlock()
 }
 
 //Friends Returns true if specified username is in our friend list.
@@ -398,6 +393,7 @@ func (p *Player) TradeTarget() int {
 	return p.TransAttrs.VarInt("tradetarget", -1)
 }
 
+//IsFighting Returns true if this player is currently in a fighting stance, otherwise returns false.
 func (p *Player) IsFighting() bool {
 	sprite := p.Direction() // Prevent locking too frequently
 	return sprite == LeftFighting || sprite == RightFighting
