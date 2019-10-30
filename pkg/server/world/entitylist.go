@@ -133,7 +133,10 @@ func (l *List) Remove(e interface{}) {
 	for i, v := range elems {
 		if v == e {
 			last := len(elems) - 1
-			elems[i] = elems[last]
+			if i < last {
+				copy(elems[i:], elems[i+1:])
+			}
+			elems[last] = nil
 			l.List = elems[:last]
 			return
 		}

@@ -1,19 +1,22 @@
 package packetbuilders
 
-import "bitbucket.org/zlacki/rscgo/pkg/server/world"
+import (
+	"bitbucket.org/zlacki/rscgo/pkg/server/world"
+)
 
 //NPCPositions Builds a packet containing view area NPC position and sprite information
 func NPCPositions(player *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(79)
 	counter := 0
 	p.AddBits(len(player.LocalNPCs.List), 8)
+	var removing = world.List{}
 	for _, n := range player.LocalNPCs.List {
 		if n, ok := n.(*world.NPC); ok {
 			if n.LongestDelta(player.Location) > 15 || n.TransAttrs.VarBool("remove", false) {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
-				player.LocalNPCs.Remove(n)
+				removing.List = append(removing.List, n)
 				counter++
 			} else if n.TransAttrs.VarBool("moved", false) || n.TransAttrs.VarBool("changed", false) {
 				p.AddBits(1, 1)
@@ -29,6 +32,9 @@ func NPCPositions(player *world.Player) (p *Packet) {
 				p.AddBits(0, 1)
 			}
 		}
+	}
+	for _, n := range removing.List {
+		player.LocalNPCs.Remove(n)
 	}
 	newCount := 0
 	for _, n := range player.NewNPCs() {
@@ -72,13 +78,14 @@ func PlayerPositions(player *world.Player) (p *Packet) {
 	if player.TransAttrs.VarBool("remove", false) || !player.TransAttrs.VarBool("self", false) || player.TransAttrs.VarBool("moved", false) || player.TransAttrs.VarBool("changed", false) {
 		counter++
 	}
+	var removing = world.List{}
 	for _, p1 := range player.LocalPlayers.List {
 		if p1, ok := p1.(*world.Player); ok {
 			if p1.LongestDelta(player.Location) > 15 || p1.TransAttrs.VarBool("remove", false) {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
-				player.LocalPlayers.Remove(p1)
+				removing.List = append(removing.List, p1)
 				player.AppearanceLock.Lock()
 				delete(player.KnownAppearances, p1.Index)
 				player.AppearanceLock.Unlock()
@@ -97,6 +104,9 @@ func PlayerPositions(player *world.Player) (p *Packet) {
 				p.AddBits(0, 1)
 			}
 		}
+	}
+	for _, p1 := range removing.List {
+		player.LocalPlayers.Remove(p1)
 	}
 	newPlayerCount := 0
 	for _, p1 := range player.NewPlayers() {
