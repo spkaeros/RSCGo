@@ -278,9 +278,9 @@ func UpdateNPCPositions() {
 		region.Players.lock.RLock()
 		if len(region.Players.List) > 0 {
 			if n.FinishedPath() {
-				if time.Since(n.TransAttrs.VarTime("lastMoved", time.Time{})) > time.Second*time.Duration(rand.Int31N(5, 10)) {
-					n.TransAttrs.SetVar("lastMoved", time.Now())
-					n.SetPath(NewPathway(uint32(rand.Int31N(int(n.Boundaries[0].X.Load()), int(n.Boundaries[1].X.Load()))), uint32(rand.Int31N(int(n.Boundaries[0].Y.Load()), int(n.Boundaries[1].Y.Load())))))
+				if n.TransAttrs.VarTime("nextMove", time.Time{}).Before(time.Now()) {
+					n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
+					n.SetPath(NewPathwayFromLocation(NewRandomLocation(n.Boundaries)))
 				}
 			}
 

@@ -1,6 +1,7 @@
 package world
 
 import (
+	"bitbucket.org/zlacki/rscgo/pkg/rand"
 	"fmt"
 	"go.uber.org/atomic"
 )
@@ -55,6 +56,11 @@ var DeathSpot = NewLocation(0, 0)
 //NewLocation Returns a reference to a new instance of the Location data structure.
 func NewLocation(x, y int) Location {
 	return Location{X: atomic.NewUint32(uint32(x)), Y: atomic.NewUint32(uint32(y))}
+}
+
+//NewRandomLocation Returns a new random location within the specified bounds.  bounds[0] should be lowest corner, bounds[1] highest.
+func NewRandomLocation(bounds [2]Location) Location {
+	return NewLocation(rand.Int31N(int(bounds[0].X.Load()), int(bounds[1].X.Load())), rand.Int31N(int(bounds[0].Y.Load()), int(bounds[1].Y.Load())))
 }
 
 //String Returns a string representation of the location
