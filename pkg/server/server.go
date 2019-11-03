@@ -172,6 +172,10 @@ func Start() {
 		log.Info.Printf("Loaded %d object action triggers.\n", len(script.ObjectTriggers))
 	})
 	asyncExecute(&awaitLaunchJobs, func() {
+		script.LoadItemTriggers()
+		log.Info.Printf("Loaded %d item action triggers.\n", len(script.ItemTriggers))
+	})
+	asyncExecute(&awaitLaunchJobs, func() {
 		script.LoadBoundaryTriggers()
 		log.Info.Printf("Loaded %d boundary action triggers.\n", len(script.BoundaryTriggers))
 	})

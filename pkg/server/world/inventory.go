@@ -3,6 +3,9 @@ package world
 import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/strutil"
+	"fmt"
+	"github.com/d5/tengo/compiler/token"
+	"github.com/d5/tengo/objects"
 	"go.uber.org/atomic"
 	"sync"
 	"time"
@@ -165,4 +168,50 @@ func (i *Inventory) Clear() {
 	i.Lock.Lock()
 	i.List = i.List[:0]
 	i.Lock.Unlock()
+}
+
+
+//Equals Returns true if o1 is an object reference with identical characteristics to o.
+func (i *Item) Equals(i1 objects.Object) bool {
+	if i1, ok := i1.(*Item); ok {
+		// We can ignore index, right?
+		return i1.ID == i.ID && i.Index == i1.Index && i.Amount == i1.Amount
+	}
+
+	return false
+}
+
+func (i *Item) TypeName() string {
+	return "world.Item"
+}
+
+func (i *Item) Copy() objects.Object {
+	return &Item{i.ID, i.Amount, i.Index}
+}
+
+func (i *Item) BinaryOp(op token.Token, rhs objects.Object) (objects.Object, error) {
+	return nil, objects.ErrInvalidOperator
+}
+
+func (i *Item) String() string {
+	return fmt.Sprintf("[%v, (%v, %v)]", i.ID, i.Amount, i.Index)
+}
+
+func (i *Item) IndexGet(index objects.Object) (objects.Object, error) {
+	switch index := index.(type) {
+	case *objects.String:
+		switch index.Value {
+		case "id":
+			return &objects.Int{Value: int64(i.ID)}, nil
+		case "amount":
+			return &objects.Int{Value: int64(i.Amount)}, nil
+		case "index":
+			return &objects.Int{Value: int64(i.Index)}, nil
+		}
+	}
+	return nil, objects.ErrInvalidIndexType
+}
+
+func (i *Item) IsFalsy() bool {
+	return i.ID < 0 || i.Index < 0
 }

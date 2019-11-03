@@ -293,9 +293,12 @@ func init() {
 		script.LoadObjectTriggers()
 		script.BoundaryTriggers = script.BoundaryTriggers[:0]
 		script.LoadBoundaryTriggers()
-		c.Message("Loaded " + strconv.Itoa(len(script.ObjectTriggers)) + " object, and " + strconv.Itoa(len(script.BoundaryTriggers)) + " boundary triggers")
+		script.ItemTriggers = script.ItemTriggers[:0]
+		script.LoadItemTriggers()
+		c.Message("Loaded " + strconv.Itoa(len(script.ObjectTriggers)) + " object, " + strconv.Itoa(len(script.ItemTriggers)) + " item, and " + strconv.Itoa(len(script.BoundaryTriggers)) + " boundary triggers")
 		log.Info.Printf("Loaded %d object action triggers.\n", len(script.ObjectTriggers))
 		log.Info.Printf("Loaded %d boundary action triggers.\n", len(script.BoundaryTriggers))
+		log.Info.Printf("Loaded %d item action triggers.\n", len(script.ItemTriggers))
 	}
 	CommandHandlers["script"] = func(c clients.Client, args []string) {
 		line := strings.Join(args, " ")

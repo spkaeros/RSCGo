@@ -2,9 +2,12 @@ package packethandlers
 
 import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
+	"bitbucket.org/zlacki/rscgo/pkg/server/db"
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
 	"bitbucket.org/zlacki/rscgo/pkg/server/packetbuilders"
+	"bitbucket.org/zlacki/rscgo/pkg/server/script"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
+	"strings"
 )
 
 func init() {
@@ -57,6 +60,21 @@ func init() {
 				world.AddItem(world.NewGroundItemFrom(c.Player().UserBase37, item.ID, item.Amount, int(c.Player().X.Load()), int(c.Player().Y.Load())))
 				c.SendPacket(packetbuilders.InventoryItems(c.Player()))
 			}
+		}
+	}
+	PacketHandlers["invaction1"] = func(c clients.Client, p *packetbuilders.Packet) {
+		index := p.ReadShort()
+		item := c.Player().Items.Get(index)
+		if item != nil {
+			for _, s := range script.ItemTriggers {
+				script.SetScriptVariable(s, "player", c)
+				script.SetScriptVariable(s, "item", item)
+				script.SetScriptVariable(s, "cmd", strings.ToLower(db.Items[item.ID].Command))
+				if script.RunScript(s) {
+					return
+				}
+			}
+			c.SendPacket(packetbuilders.DefaultActionMessage)
 		}
 	}
 }

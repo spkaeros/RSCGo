@@ -15,7 +15,13 @@ ret := isHandled(player, object, cmd)
 if ret {
 	action(player, object, cmd)
 }`)
+var itemWrapper = []byte(`
+ret := isHandled(player, item, cmd)
+if ret {
+	action(player, item, cmd)
+}`)
 var ObjectTriggers []*script.Script
+var ItemTriggers []*script.Script
 var BoundaryTriggers []*script.Script
 
 //LoadObjectTriggers Loads all of the Tengo scripts in ./scripts/objects and stores them in the ObjectTriggers slice.
@@ -27,6 +33,18 @@ func LoadObjectTriggers() {
 	}
 	for _, file := range files {
 		ObjectTriggers = append(ObjectTriggers, loadObjectTrigger("./scripts/objects/" + file.Name()))
+	}
+}
+
+//LoadItemTriggers Loads all of the Tengo scripts in ./scripts/items and stores them in the ItemTriggers slice.
+func LoadItemTriggers() {
+	files, err := ioutil.ReadDir("./scripts/items")
+	if err != nil {
+		log.Info.Println("Error attempting to read scripts directory:", err)
+		return
+	}
+	for _, file := range files {
+		ItemTriggers = append(ItemTriggers, loadItemTrigger("./scripts/items/" + file.Name()))
 	}
 }
 
@@ -56,6 +74,22 @@ func loadObjectTrigger(filePath string) *script.Script {
 	}
 
 	return initializeTrigger(append(data, objectWrapper...))
+}
+
+//loadItemTrigger Loads the data in the file located at filePath on the local file system, and initializes a new Tengo VM script with it.
+func loadItemTrigger(filePath string) *script.Script {
+	file, err := os.Open(filePath)
+	if err != nil {
+		log.Warning.Println("Error opening script file for item action:", err)
+		return nil
+	}
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		log.Warning.Println("Error reading script file for item action:", err)
+		return nil
+	}
+
+	return initializeTrigger(append(data, itemWrapper...))
 }
 
 //loadBoundaryTrigger Loads the data in the file located at filePath on the local file system, and initializes a new Tengo VM script with it.
