@@ -139,6 +139,17 @@ func Uint32() uint32 {
 	return (uint32(b[0]) << 24) | (uint32(b[1]) << 16) | (uint32(b[2]) << 8) | uint32(b[3])
 }
 
+
+//Int31n Returns a randomized 31-bit signed integer from the ISAAC instance seeded by the system CSPRNG, landing between 0 and bound.
+func Int31n(bound int) int {
+	return int(rscRand.Int31n(int32(bound)))
+}
+
+//Int31N Returns a randomized 31-bit signed integer from the ISAAC instance seeded by the system CSPRNG, landing between low and high.
+func Int31N(low, high int) int {
+	return Int31n(high - low) + low
+}
+
 //Uint64 Gets 8 random bytes of data from the PRNG and returns them as a single 64-bit long integer
 func Uint64() uint64 {
 	b, err := RandomBytes(8)

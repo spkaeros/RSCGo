@@ -301,6 +301,38 @@ func (c *Client) IndexGet(index objects.Object) (objects.Object, error) {
 					return
 				},
 			}, nil
+		case "enterDoor":
+			return &objects.UserFunction{
+				Name: "enterDoor",
+				Value: func(args ...objects.Object) (ret objects.Object, err error) {
+					object, ok := args[0].(*world.Object)
+					if !ok {
+						return nil, objects.ErrInvalidArgumentType{
+							Name:     "object",
+							Expected: "*world.Object",
+							Found:    args[0].TypeName(),
+						}
+					}
+					x, ok := objects.ToInt(args[1])
+					if !ok {
+						return nil, objects.ErrInvalidArgumentType{
+							Name:     "x",
+							Expected: "int",
+							Found:    args[1].TypeName(),
+						}
+					}
+					y, ok := objects.ToInt(args[2])
+					if !ok {
+						return nil, objects.ErrInvalidArgumentType{
+							Name:     "y",
+							Expected: "int",
+							Found:    args[2].TypeName(),
+						}
+					}
+					go c.player.EnterDoor(object, world.NewLocation(x, y))
+					return
+				},
+			}, nil
 		}
 	}
 	return nil, objects.ErrInvalidIndexType
@@ -436,6 +468,7 @@ func (c *Client) destroy(wg *sync.WaitGroup) {
 
 //ResetUpdateFlags Resets the players movement updating synchronization variables.
 func (c *Client) ResetUpdateFlags() {
+	// TODO: Is shouldReset semantically correct?
 	c.player.TransAttrs.SetVar("self", true)
 	c.player.TransAttrs.UnsetVar("remove")
 	c.player.TransAttrs.UnsetVar("moved")

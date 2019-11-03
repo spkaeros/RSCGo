@@ -1,8 +1,10 @@
 package world
 
 import (
+	"bitbucket.org/zlacki/rscgo/pkg/rand"
 	"go.uber.org/atomic"
 	"sync"
+	"time"
 )
 
 //MobState Mob state.
@@ -29,6 +31,8 @@ const (
 	MSBatching
 	//MSSleeping The mob is using a bed or sleeping bag, and trying to solve a CAPTCHA
 	MSSleeping
+	//MSBusy Generic busy state
+	MSBusy
 )
 
 //Mob Represents a mobile entity within the game world.
@@ -193,6 +197,17 @@ func (attributes *AttributeList) VarBool(name string, zero bool) bool {
 	return attributes.Set[name].(bool)
 }
 
+//VarTime If there is a time.Duration attribute assigned to the specified name, returns it.  Otherwise, returns zero
+func (attributes *AttributeList) VarTime(name string, zero time.Time) time.Time {
+	attributes.Lock.RLock()
+	defer attributes.Lock.RUnlock()
+	if _, ok := attributes.Set[name].(time.Time); !ok {
+		return zero
+	}
+
+	return attributes.Set[name].(time.Time)
+}
+
 //AppearanceTable Represents a mobs appearance.
 type AppearanceTable struct {
 	Head      int
@@ -240,15 +255,40 @@ var npcsLock sync.RWMutex
 type NPC struct {
 	Mob
 	ID int
+	Boundaries [2]Location
 }
 
 //NewNpc Creates a new NPC and returns a reference to it
-func NewNpc(id int, x int, y int) *NPC {
-	n := &NPC{ID: id, Mob: Mob{Entity: Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: Location{X: atomic.NewUint32(uint32(x)), Y: atomic.NewUint32(uint32(y))}}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}}
+func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
+	n := &NPC{ID: id, Mob: Mob{Entity: Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: Location{X: atomic.NewUint32(uint32(startX)), Y: atomic.NewUint32(uint32(startY))}}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}}
+	n.Boundaries[0] = NewLocation(minX, minY)
+	n.Boundaries[1] = NewLocation(maxX, maxY)
 	npcsLock.Lock()
 	Npcs = append(Npcs, n)
 	npcsLock.Unlock()
 	return n
+}
+
+//UpdateNPCPositions Loops through the global NPC list and, if they are by a player, updates their path to a new path every so often,
+// within their boundaries, and traverses each NPC along said path if necessary.
+func UpdateNPCPositions() {
+	npcsLock.RLock()
+	for _, n := range Npcs {
+		region := GetRegionFromLocation(&n.Location)
+		region.Players.lock.RLock()
+		if len(region.Players.List) > 0 {
+			if n.FinishedPath() {
+				if time.Since(n.TransAttrs.VarTime("lastMoved", time.Time{})) > time.Second*time.Duration(rand.Int31N(5, 10)) {
+					n.TransAttrs.SetVar("lastMoved", time.Now())
+					n.SetPath(NewPathway(uint32(rand.Int31N(int(n.Boundaries[0].X.Load()), int(n.Boundaries[1].X.Load()))), uint32(rand.Int31N(int(n.Boundaries[0].Y.Load()), int(n.Boundaries[1].Y.Load())))))
+				}
+			}
+
+			n.TraversePath()
+		}
+		region.Players.lock.RUnlock()
+	}
+	npcsLock.RUnlock()
 }
 
 //ResetNpcUpdateFlags Resets the synchronization update flags for all NPCs in the game world.

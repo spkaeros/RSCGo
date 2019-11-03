@@ -400,9 +400,9 @@ func (p *Player) IsFighting() bool {
 }
 
 //EnterDoor Replaces door object with an open door, sleeps for one second, and returns the closed door.
-func (p *Player) EnterDoor(oldDoor *Object, dest *Location) {
+func (p *Player) EnterDoor(oldDoor *Object, dest Location) {
 	newDoor := ReplaceObject(oldDoor, 11)
-	p.SetLocation(dest)
+	p.Teleport(int(dest.X.Load()), int(dest.Y.Load()))
 	time.Sleep(time.Second)
 	ReplaceObject(newDoor, oldDoor.ID)
 }

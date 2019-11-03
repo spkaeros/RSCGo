@@ -4,6 +4,7 @@ import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
 	"github.com/d5/tengo/objects"
+	"time"
 )
 
 var scriptAttributes = map[string]objects.Object {
@@ -69,8 +70,7 @@ var scriptAttributes = map[string]objects.Object {
 					Found:    args[1].TypeName(),
 				}
 			}
-			world.ReplaceObject(object, id)
-			return objects.UndefinedValue, nil
+			return world.ReplaceObject(object, id), nil
 		},
 	},
 	"getObject": &objects.UserFunction {
@@ -187,6 +187,23 @@ var scriptAttributes = map[string]objects.Object {
 				return nil, objects.ErrIndexOutOfBounds
 			}
 			return client, nil
+		},
+	},
+	"sleep": &objects.UserFunction {
+		Value: func(args ...objects.Object) (ret objects.Object, err error) {
+			if len(args) < 1 {
+				return nil, objects.ErrWrongNumArguments
+			}
+			duration, ok := objects.ToInt(args[0])
+			if !ok {
+				return nil, objects.ErrInvalidArgumentType{
+					Name:     "duration",
+					Expected: "int",
+					Found:    args[0].TypeName(),
+				}
+			}
+			time.Sleep(time.Duration(duration) * time.Millisecond)
+			return objects.UndefinedValue, nil
 		},
 	},
 }

@@ -137,7 +137,7 @@ func LoadObjectLocations() int {
 	objectCounter := 0
 	database := Open(config.WorldDB())
 	defer database.Close()
-	rows, err := database.Query("SELECT `id`, `direction`, `type`, `x`, `y` FROM `game_object_locations`")
+	rows, err := database.Query("SELECT `id`, `direction`, `boundary`, `x`, `y` FROM `game_object_locations`")
 	defer rows.Close()
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
@@ -171,7 +171,7 @@ func LoadNpcLocations() int {
 		rows.Scan(&id, &startX, &minX, &maxX, &startY, &minY, &maxY)
 		npcCounter++
 		// TODO: Load bounds into npc struct
-		world.AddNpc(world.NewNpc(id, startX, startY))
+		world.AddNpc(world.NewNpc(id, startX, startY, minX, maxX, minY, maxY))
 	}
 	return npcCounter
 }
@@ -203,7 +203,7 @@ func SaveObjectLocations() int {
 
 	totalInserts := 0
 	for _, v := range world.GetAllObjects() {
-		stmt, err := tx.Exec("INSERT INTO game_object_locations(id, direction, x, y, type) VALUES(?, ?, ?, ?, ?)", v.ID, v.Direction, v.X, v.Y, v.Boundary)
+		stmt, err := tx.Exec("INSERT INTO game_object_locations(id, direction, x, y, boundary) VALUES(?, ?, ?, ?, ?)", v.ID, v.Direction, v.X, v.Y, v.Boundary)
 		if err != nil {
 			log.Warning.Println("Error inserting game object location to database:", err)
 			continue

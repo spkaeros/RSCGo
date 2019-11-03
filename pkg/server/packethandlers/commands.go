@@ -257,7 +257,7 @@ func init() {
 		x := int(c.Player().X.Load())
 		y := int(c.Player().Y.Load())
 
-		world.AddNpc(world.NewNpc(id, x, y))
+		world.AddNpc(world.NewNpc(id, x, y, x-5, x+5, y-5, y+5))
 	}
 	CommandHandlers["summon"] = summon
 	CommandHandlers["goto"] = gotoTeleport

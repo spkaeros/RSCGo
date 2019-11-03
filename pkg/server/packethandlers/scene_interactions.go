@@ -7,62 +7,9 @@ import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/packetbuilders"
 	"bitbucket.org/zlacki/rscgo/pkg/server/script"
 	"bitbucket.org/zlacki/rscgo/pkg/server/world"
-	"go.uber.org/atomic"
 )
 
-type actionHandler func(p *world.Player, args ...interface{})
-type actionsMap map[interface{}]actionHandler
-
-var boundaryHandlers = make(actionsMap)
-var boundary2Handlers = make(actionsMap)
-
 func init() {
-	//TODO: This whole entire file is messy and could use tidying.
-	// Actually, to that end, I will be implementing a scripting language of some sort, so I'll leave it for now.
-	bDoors := make(map[int]int)
-	bDoors[2] = 1
-	for k, v := range bDoors {
-		// Add value->key to handle close as well as open.
-		bDoors[v] = k
-	}
-	boundaryHandlers["open"] = func(p *world.Player, args ...interface{}) {
-		if len(args) <= 0 {
-			log.Warning.Println("Must provide at least 1 argument to action handlers.")
-			return
-		}
-
-		object, ok := args[0].(*world.Object)
-		if !ok {
-			log.Warning.Println("Handler for this argument type not found.")
-			return
-		}
-		if object.ID == 109 {
-			// Quest hut by wilderness in between edgeville and varrock
-			dest := world.Location{X: atomic.NewUint32(161), Y: atomic.NewUint32(465)}
-			if p.Y.Load() >= dest.Y.Load() {
-				dest.Y.Dec()
-			}
-			go p.EnterDoor(object, &dest)
-		}
-		if newID, ok := bDoors[object.ID]; ok {
-			world.ReplaceObject(object, newID)
-		}
-	}
-	boundary2Handlers["close"] = func(p *world.Player, args ...interface{}) {
-		if len(args) <= 0 {
-			log.Warning.Println("Must provide at least 1 argument to action handlers.")
-			return
-		}
-
-		object, ok := args[0].(*world.Object)
-		if !ok {
-			log.Warning.Println("Handler for this argument type not found.")
-			return
-		}
-		if newID, ok := bDoors[object.ID]; ok {
-			world.ReplaceObject(object, newID)
-		}
-	}
 	PacketHandlers["objectaction"] = func(c clients.Client, p *packetbuilders.Packet) {
 		x := p.ReadShort()
 		y := p.ReadShort()
@@ -134,24 +81,29 @@ func init() {
 }
 
 func objectAction(c clients.Client, object *world.Object, rightClick bool) {
-	//	c.Player().ResetPath()
 	if c.Player().State != world.MSIdle || world.GetObject(int(object.X.Load()), int(object.Y.Load())) != object || !c.Player().WithinRange(object.Location, 1) {
 		// If somehow we became busy, the object changed before arriving, or somehow this action fired without actually arriving at the object, we do nothing.
 		return
 	}
-	for _, s := range script.ObjectTriggers {
-		script.SetScriptVariable(s, "player", c)
-		script.SetScriptVariable(s, "object", object)
-		if rightClick {
-			script.SetScriptVariable(s, "cmd", db.Objects[object.ID].Commands[1])
-		} else {
-			script.SetScriptVariable(s, "cmd", db.Objects[object.ID].Commands[0])
+	c.Player().State = world.MSBusy
+	defer func() {
+		c.Player().State = world.MSIdle
+	}()
+	go func() {
+		for _, s := range script.ObjectTriggers {
+			script.SetScriptVariable(s, "player", c)
+			script.SetScriptVariable(s, "object", object)
+			if rightClick {
+				script.SetScriptVariable(s, "cmd", db.Objects[object.ID].Commands[1])
+			} else {
+				script.SetScriptVariable(s, "cmd", db.Objects[object.ID].Commands[0])
+			}
+			if script.RunScript(s) {
+				return
+			}
 		}
-		if script.RunScript(s) {
-			return
-		}
-	}
-	c.SendPacket(packetbuilders.DefaultActionMessage)
+		c.SendPacket(packetbuilders.DefaultActionMessage)
+	}()
 }
 
 func boundaryAction(c clients.Client, object *world.Object, rightClick bool) {
@@ -160,17 +112,23 @@ func boundaryAction(c clients.Client, object *world.Object, rightClick bool) {
 		// If somehow we became busy, the object changed before arriving, or somehow this action fired without actually arriving at the object, we do nothing.
 		return
 	}
-	for _, s := range script.BoundaryTriggers {
-		script.SetScriptVariable(s, "player", c)
-		script.SetScriptVariable(s, "object", object)
-		if rightClick {
-			script.SetScriptVariable(s, "cmd", db.Boundarys[object.ID].Commands[1])
-		} else {
-			script.SetScriptVariable(s, "cmd", db.Boundarys[object.ID].Commands[0])
+	c.Player().State = world.MSBusy
+	defer func() {
+		c.Player().State = world.MSIdle
+	}()
+	go func() {
+		for _, s := range script.BoundaryTriggers {
+			script.SetScriptVariable(s, "player", c)
+			script.SetScriptVariable(s, "object", object)
+			if rightClick {
+				script.SetScriptVariable(s, "cmd", db.Boundarys[object.ID].Commands[1])
+			} else {
+				script.SetScriptVariable(s, "cmd", db.Boundarys[object.ID].Commands[0])
+			}
+			if script.RunScript(s) {
+				return
+			}
 		}
-		if script.RunScript(s) {
-			return
-		}
-	}
-	c.SendPacket(packetbuilders.DefaultActionMessage)
+		c.SendPacket(packetbuilders.DefaultActionMessage)
+	}()
 }

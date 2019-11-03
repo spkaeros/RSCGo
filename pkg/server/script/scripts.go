@@ -6,6 +6,11 @@ import (
 	"github.com/d5/tengo/stdlib"
 )
 
+var ActiveTriggers []func()
+
+func AddTrigger(fn func()) {
+	ActiveTriggers = append(ActiveTriggers, fn)
+}
 
 //Initialize Initializes a Tengo script with the specified data.
 func Initialize(data string) *script.Script {

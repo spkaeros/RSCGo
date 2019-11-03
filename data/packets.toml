@@ -43,4 +43,5 @@ packets = [
 	{ name = 'appearancerequest', opcode = 163},
 	{ name = 'changeappearance', opcode = 235},
 	{ name = 'fightmode', opcode = 29},
+	{ name = 'takeitem', opcode = 247},
 ]

@@ -226,13 +226,20 @@ func Tick() {
 		}
 		c.Player().TraversePath()
 	})
+	world.UpdateNPCPositions()
 	clients.Range(func(c clients.Client) {
 		c.UpdatePositions()
 	})
 	clients.Range(func(c clients.Client) {
 		c.ResetUpdateFlags()
-		world.ResetNpcUpdateFlags()
 	})
+	world.ResetNpcUpdateFlags()
+	fns := script.ActiveTriggers
+	script.ActiveTriggers = script.ActiveTriggers[:0]
+	for _, fn := range fns {
+		go fn()
+	}
+
 }
 
 //startGameEngine Launches a goroutine to handle updating the state of the server every 600ms in a synchronized fashion.  This is known as a single game engine 'pulse'.
