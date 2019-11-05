@@ -2,6 +2,7 @@ package script
 
 import (
 	"bitbucket.org/zlacki/rscgo/pkg/server/log"
+	"github.com/d5/tengo/objects"
 	"github.com/d5/tengo/script"
 	"github.com/d5/tengo/stdlib"
 )
@@ -20,6 +21,25 @@ func Initialize(data string) *script.Script {
 	scriptModules.Add("world", NewWorldModule())
 	s.SetImports(scriptModules)
 	return s
+}
+
+func ParseInt(arg objects.Object) (int, error) {
+	i, ok := objects.ToInt(arg)
+	if !ok {
+		return -1, objects.ErrInvalidArgumentType{
+			Name:     "anIntArg",
+			Expected: "int",
+			Found:    arg.TypeName(),
+		}
+	}
+	return i, nil
+}
+
+func MakeFunc(name string, action func(...objects.Object) (objects.Object, error)) *objects.UserFunction {
+	return &objects.UserFunction{
+		Name: name,
+		Value: action,
+	}
 }
 
 //RunScript Runs a script on the Tengo VM, with error checking.
