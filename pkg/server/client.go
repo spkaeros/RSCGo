@@ -484,11 +484,20 @@ func (c *Client) Initialize() {
 
 //HandleLogin This method will block until a byte is sent down the reply channel with the login response to send to the client, or if this doesn't occur, it will timeout after 10 seconds.
 func (c *Client) HandleLogin(reply chan byte) {
+	isValid := func(r byte) bool {
+		valid := [...]byte{0, 1, 24, 25}
+		for _, i := range valid {
+			if i == r {
+				return true
+			}
+		}
+		return false
+	}
 	defer close(reply)
 	select {
 	case r := <-reply:
 		c.SendPacket(packetbuilders.LoginResponse(int(r)))
-		if r == 0 || r == 1 || r == 25 || r == 24 {
+		if isValid(r) {
 			clients.Put(c)
 			log.Info.Printf("Registered: %v\n", c)
 			c.Initialize()
