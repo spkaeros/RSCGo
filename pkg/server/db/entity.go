@@ -50,11 +50,37 @@ type BoundaryDefinition struct {
 	Description string
 }
 
+type EquipmentDefinition struct {
+	ID int
+	Sprite int
+	Type int
+	Armour int
+	Magic int
+	Prayer int
+	Ranged int
+	Aim int
+	Power int
+	Position int
+	Female bool
+}
+
 //Objects This holds the defining characteristics for all of the game's scene objects, ordered by ID.
 var Objects []ObjectDefinition
 
 //Items This holds the defining characteristics for all of the game's items, ordered by ID.
 var Items []ItemDefinition
+
+var Equipment []EquipmentDefinition
+
+func GetEquipmentDefinition(id int) *EquipmentDefinition {
+	for _, e := range Equipment {
+		if e.ID == id {
+			return &e
+		}
+	}
+
+	return nil
+}
 
 //Npcs This holds the defining characteristics for all of the game's NPCs, ordered by ID.
 var Npcs []NpcDefinition
@@ -76,6 +102,22 @@ func LoadObjectDefinitions() {
 		nextDef := ObjectDefinition{Commands: make([]string, 2)}
 		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.Type, &nextDef.Width, &nextDef.Height, &nextDef.Length)
 		Objects = append(Objects, nextDef)
+	}
+}
+
+func LoadEquipmentDefinitions() {
+	database := Open(config.WorldDB())
+	defer database.Close()
+	rows, err := database.Query("SELECT id, sprite, type, armour_points, magic_points, prayer_points, range_points, weapon_aim_points, weapon_power_points, pos, femaleOnly FROM `item_wieldable`")
+	defer rows.Close()
+	if err != nil {
+		log.Error.Println("Couldn't load SQLite3 database:", err)
+		return
+	}
+	for rows.Next() {
+		nextDef := EquipmentDefinition{}
+		rows.Scan(&nextDef.ID, &nextDef.Sprite, &nextDef.Type, &nextDef.Armour, &nextDef.Magic, &nextDef.Prayer, &nextDef.Ranged, &nextDef.Aim, &nextDef.Power, &nextDef.Position, &nextDef.Female)
+		Equipment = append(Equipment, nextDef)
 	}
 }
 

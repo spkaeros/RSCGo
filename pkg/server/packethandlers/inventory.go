@@ -18,6 +18,23 @@ func init() {
 			return
 		}
 		// TODO: Wielding
+		if item := c.Player().Items.Get(index); item != nil {
+			if e := db.GetEquipmentDefinition(item.ID); e != nil {
+				item.Worn = true
+				c.Player().TransAttrs.SetVar("self", false)
+				for _, otherItem := range c.Player().Items.List {
+					if otherE := db.GetEquipmentDefinition(otherItem.ID); otherE != nil {
+						if otherItem != item && otherItem.Worn && otherE.Position == e.Position {
+							otherItem.Worn = false
+							break
+						}
+					}
+				}
+				c.Player().Equips[e.Position] = e.Sprite
+				c.Player().AppearanceTicket++
+				c.SendPacket(packetbuilders.InventoryItems(c.Player()))
+			}
+		}
 	}
 	PacketHandlers["takeitem"] = func(c clients.Client, p *packetbuilders.Packet) {
 		x := p.ReadShort()

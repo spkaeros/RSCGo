@@ -16,6 +16,7 @@ type Item struct {
 	ID     int
 	Amount int
 	Index  int
+	Worn bool
 }
 
 //GroundItem Represents a single ground item within the game.
@@ -99,7 +100,7 @@ func (i *Inventory) Put(id int, qty int) int {
 		return -1
 	}
 
-	newItem := &Item{id, qty, curSize}
+	newItem := &Item{id, qty, curSize, false}
 	i.Lock.Lock()
 	i.List = append(i.List, newItem)
 	i.Lock.Unlock()
@@ -186,7 +187,7 @@ func (i *Item) TypeName() string {
 }
 
 func (i *Item) Copy() objects.Object {
-	return &Item{i.ID, i.Amount, i.Index}
+	return &Item{i.ID, i.Amount, i.Index, i.Worn}
 }
 
 func (i *Item) BinaryOp(op token.Token, rhs objects.Object) (objects.Object, error) {

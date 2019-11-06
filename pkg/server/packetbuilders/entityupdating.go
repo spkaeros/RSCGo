@@ -154,15 +154,15 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 	appearanceList = append(appearanceList, ourPlayer.AppearanceReq...)
 	ourPlayer.AppearanceReq = ourPlayer.AppearanceReq[:0]
 	ourPlayer.AppearanceLock.Unlock()
-	/*	for _, p1 := range ourPlayer.LocalPlayers.List {
-		if p1, ok := p1.(*world.player); ok {
+	for _, p1 := range ourPlayer.LocalPlayers.List {
+		if p1, ok := p1.(*world.Player); ok {
 			ourPlayer.AppearanceLock.RLock()
 			if ticket, ok := ourPlayer.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket {
 				appearanceList = append(appearanceList, p1)
 			}
 			ourPlayer.AppearanceLock.RUnlock()
 		}
-	}*/
+	}
 	if len(appearanceList) <= 0 {
 		return nil
 	}
@@ -175,14 +175,10 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 		p.AddByte(5) // player appearances
 		p.AddShort(uint16(player.AppearanceTicket))
 		p.AddLong(player.UserBase37)
-		p.AddByte(3) // length of sprites.  Anything less than 12 will get padded with 0s
-		p.AddByte(uint8(player.Appearance.Head))
-		p.AddByte(uint8(player.Appearance.Body))
-		p.AddByte(uint8(player.Appearance.Legs))
-		//		for i := 0; i < 9; i++ {
-		// TODO: Equips
-		//			p.AddByte(0)
-		//		}
+		p.AddByte(12) // length of sprites.  Anything less than 12 will get padded with 0s
+		for i := 0; i < len(player.Equips); i++ {
+			p.AddByte(uint8(player.Equips[i]))
+		}
 		p.AddByte(uint8(player.Appearance.HeadColor))
 		p.AddByte(uint8(player.Appearance.BodyColor))
 		p.AddByte(uint8(player.Appearance.LegsColor))

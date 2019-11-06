@@ -14,7 +14,11 @@ func InventoryItems(player *world.Player) (p *Packet) {
 	player.Items.Lock.RLock()
 	p.AddByte(uint8(len(player.Items.List)))
 	for _, item := range player.Items.List {
-		p.AddShort(uint16(item.ID)) // TODO: + 32768 if wielded.
+		if item.Worn {
+			p.AddShort(uint16(item.ID + 32768))
+		} else {
+			p.AddShort(uint16(item.ID))
+		}
 		if db.Items[item.ID].Stackable {
 			p.AddInt2(uint32(item.Amount))
 		}
