@@ -20,6 +20,8 @@ var TomlConfig struct {
 	} `toml:"crypto"`
 }
 
+var Verbosity = int(0)
+
 //Port Returns the primary TCP/IP port to listen for incoming connections on
 func Port() int {
 	return TomlConfig.Port

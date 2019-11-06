@@ -274,19 +274,14 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 func UpdateNPCPositions() {
 	npcsLock.RLock()
 	for _, n := range Npcs {
-		region := GetRegionFromLocation(&n.Location)
-		region.Players.lock.RLock()
-		if len(region.Players.List) > 0 {
-			if n.FinishedPath() {
-				if n.TransAttrs.VarTime("nextMove", time.Time{}).Before(time.Now()) {
-					n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
-					n.SetPath(NewPathwayFromLocation(NewRandomLocation(n.Boundaries)))
-				}
+		if n.FinishedPath() {
+			if n.TransAttrs.VarTime("nextMove", time.Time{}).Before(time.Now()) {
+				n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
+				n.SetPath(NewPathwayFromLocation(NewRandomLocation(n.Boundaries)))
 			}
-
-			n.TraversePath()
 		}
-		region.Players.lock.RUnlock()
+
+		n.TraversePath()
 	}
 	npcsLock.RUnlock()
 }
