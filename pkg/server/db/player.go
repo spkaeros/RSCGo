@@ -227,7 +227,7 @@ func LoadPlayerContacts(listType string, player *world.Player) error {
 func LoadPlayerInventory(player *world.Player) error {
 	database := Open(config.PlayerDB())
 	defer database.Close()
-	rows, err := database.Query("SELECT itemid, amount, position FROM inventory WHERE playerid=?", player.DatabaseIndex)
+	rows, err := database.Query("SELECT itemid, amount, position, wielded FROM inventory WHERE playerid=?", player.DatabaseIndex)
 	defer rows.Close()
 	if err != nil {
 		log.Info.Println("LoadPlayer(uint64,string): Could not execute query statement for player inventory:", err)
@@ -235,8 +235,13 @@ func LoadPlayerInventory(player *world.Player) error {
 	}
 	for rows.Next() {
 		var id, amt, index int
-		rows.Scan(&id, &amt, &index)
+		wielded := false
+		rows.Scan(&id, &amt, &index, &wielded)
 		player.Items.Put(id, amt)
+		if e := GetEquipmentDefinition(id); e != nil && wielded {
+			player.Items.Get(index).Worn = true
+			player.Equips[e.Position] = e.Sprite
+		}
 	}
 	return nil
 }
@@ -391,8 +396,8 @@ func SavePlayer(player *world.Player) {
 			return
 		}
 	}
-	insertItem := func(id, amt, index int) {
-		rs, _ := tx.Exec("INSERT INTO inventory(playerid, itemid, amount, position, wielded) VALUES(?, ?, ?, ?, 0)", player.DatabaseIndex, id, amt, index)
+	insertItem := func(id, amt, index int, worn bool) {
+		rs, _ := tx.Exec("INSERT INTO inventory(playerid, itemid, amount, position, wielded) VALUES(?, ?, ?, ?, ?)", player.DatabaseIndex, id, amt, index, worn)
 		count, err := rs.RowsAffected()
 		if err != nil {
 			log.Warning.Println("Save(): INSERT failed for player items:", err)
@@ -420,7 +425,7 @@ func SavePlayer(player *world.Player) {
 	}
 	clearItems()
 	for _, item := range player.Items.List {
-		insertItem(item.ID, item.Amount, item.Index)
+		insertItem(item.ID, item.Amount, item.Index, item.Worn)
 	}
 
 	if err := tx.Commit(); err != nil {
