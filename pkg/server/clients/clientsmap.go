@@ -24,6 +24,8 @@ type Client interface {
 	UpdatePositions()
 	ResetUpdateFlags()
 	objects.Object
+	EquipItem(item *world.Item)
+	DequipItem(item *world.Item)
 }
 
 //Clients Collection containing all of the active client, by index and username hash, guarded by a mutex

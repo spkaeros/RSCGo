@@ -16,6 +16,15 @@ func init() {
 		topColor := p.ReadByte()
 		legColor := p.ReadByte()
 		skinColor := p.ReadByte()
+		if c.Player().Equips[0] == c.Player().Appearance.Head {
+			c.Player().Equips[0] = int(headType + 1)
+		}
+		if c.Player().Equips[1] == c.Player().Appearance.Body {
+			c.Player().Equips[1] = int(bodyType + 1)
+		}
+		if c.Player().Equips[2] == c.Player().Appearance.Legs {
+			c.Player().Equips[2] = int(legType + 1)
+		}
 		c.Player().Appearance = world.AppearanceTable{
 			Head:      int(headType + 1),
 			Body:      int(bodyType + 1),

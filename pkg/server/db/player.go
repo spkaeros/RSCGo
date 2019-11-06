@@ -237,7 +237,7 @@ func LoadPlayerInventory(player *world.Player) error {
 		var id, amt, index int
 		wielded := false
 		rows.Scan(&id, &amt, &index, &wielded)
-		player.Items.Put(id, amt)
+		index = player.Items.Put(id, amt)
 		if e := GetEquipmentDefinition(id); e != nil && wielded {
 			player.Items.Get(index).Worn = true
 			player.Equips[e.Position] = e.Sprite
