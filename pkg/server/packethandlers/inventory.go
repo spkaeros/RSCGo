@@ -36,6 +36,26 @@ func init() {
 			}
 		}
 	}
+	PacketHandlers["removeitem"] = func(c clients.Client, p *packetbuilders.Packet) {
+		index := p.ReadShort()
+		if index < 0 || index >= 30 {
+			log.Suspicious.Printf("Player[%v] tried to wield an item with invalid index: %d\n", c, index)
+			return
+		}
+		// TODO: Wielding
+		if item := c.Player().Items.Get(index); item != nil {
+			if !item.Worn {
+				return
+			}
+			if e := db.GetEquipmentDefinition(item.ID); e != nil {
+				item.Worn = false
+				c.Player().TransAttrs.SetVar("self", false)
+				c.Player().Equips[e.Position] = 0
+				c.Player().AppearanceTicket++
+				c.SendPacket(packetbuilders.InventoryItems(c.Player()))
+			}
+		}
+	}
 	PacketHandlers["takeitem"] = func(c clients.Client, p *packetbuilders.Packet) {
 		x := p.ReadShort()
 		y := p.ReadShort()
