@@ -10,7 +10,24 @@ import (
 	"strings"
 )
 
+var itemAffectedTypes = make(map[int][]int)
+
 func init() {
+	itemAffectedTypes[32] = []int{32, 33}
+	itemAffectedTypes[33] = []int{32, 33}
+	itemAffectedTypes[64] = []int{64, 322}
+	itemAffectedTypes[512] = []int{512, 640, 644}
+	itemAffectedTypes[8] = []int{8, 24, 8216}
+	itemAffectedTypes[1024] = []int{1024}
+	itemAffectedTypes[128] = []int{128, 640, 644}
+	itemAffectedTypes[644] = []int{128, 512, 640, 644}
+	itemAffectedTypes[640] = []int{128, 512, 640, 644}
+	itemAffectedTypes[2048] = []int{2048}
+	itemAffectedTypes[16] = []int{16, 24, 8216}
+	itemAffectedTypes[256] = []int{256, 322}
+	itemAffectedTypes[322] = []int{64, 256, 322}
+	itemAffectedTypes[24] = []int{8, 16, 24, 8216}
+	itemAffectedTypes[8216] = []int{8, 16, 24, 8216}
 	PacketHandlers["invwield"] = func(c clients.Client, p *packetbuilders.Packet) {
 		index := p.ReadShort()
 		if index < 0 || index >= 30 {
@@ -23,15 +40,22 @@ func init() {
 				c.Player().TransAttrs.SetVar("self", false)
 				for _, otherItem := range c.Player().Items.List {
 					if otherE := db.GetEquipmentDefinition(otherItem.ID); otherE != nil {
-						if otherItem != item && otherItem.Worn && otherE.Position == e.Position {
-							c.Player().SetAimPoints(c.Player().AimPoints() - otherE.Aim)
-							c.Player().SetPowerPoints(c.Player().PowerPoints() - otherE.Power)
-							c.Player().SetArmourPoints(c.Player().ArmourPoints() - otherE.Armour)
-							c.Player().SetMagicPoints(c.Player().MagicPoints() - otherE.Magic)
-							c.Player().SetPrayerPoints(c.Player().PrayerPoints() - otherE.Prayer)
-							c.Player().SetRangedPoints(c.Player().RangedPoints() - otherE.Ranged)
-							otherItem.Worn = false
-							break
+						for _, i := range itemAffectedTypes[e.Type] {
+							if otherItem != item && otherItem.Worn && i == otherE.Type {
+								c.Player().SetAimPoints(c.Player().AimPoints() - otherE.Aim)
+								c.Player().SetPowerPoints(c.Player().PowerPoints() - otherE.Power)
+								c.Player().SetArmourPoints(c.Player().ArmourPoints() - otherE.Armour)
+								c.Player().SetMagicPoints(c.Player().MagicPoints() - otherE.Magic)
+								c.Player().SetPrayerPoints(c.Player().PrayerPoints() - otherE.Prayer)
+								c.Player().SetRangedPoints(c.Player().RangedPoints() - otherE.Ranged)
+								otherItem.Worn = false
+								value := 0
+								if otherE.Position == 2 {
+									value = c.Player().Appearance.Legs
+								}
+								c.Player().Equips[otherE.Position] = value
+								break
+							}
 						}
 					}
 				}
@@ -41,7 +65,6 @@ func init() {
 				c.Player().SetMagicPoints(c.Player().MagicPoints() + e.Magic)
 				c.Player().SetPrayerPoints(c.Player().PrayerPoints() + e.Prayer)
 				c.Player().SetRangedPoints(c.Player().RangedPoints() + e.Ranged)
-				log.Info.Println(c.Player().Equips[e.Position])
 				c.Player().Equips[e.Position] = e.Sprite
 				c.Player().AppearanceTicket++
 				c.SendPacket(packetbuilders.EquipmentStats(c.Player()))
