@@ -14,17 +14,17 @@ func init() {
 	}
 }
 
-//HandlerFunc Represents a function for handling incoming packetbuilders.
-type HandlerFunc func(clients.Client, *packetbuilders.Packet)
+//handlerFunc Represents a function for handling incoming packetbuilders.
+type handlerFunc func(clients.Client, *packetbuilders.Packet)
 
 //PacketHandlers A map with descriptive names for the keys, and functions to run for the value.
-var PacketHandlers = make(map[string]HandlerFunc)
+var PacketHandlers = make(map[string]handlerFunc)
 
 //packetHandler Definition of a packet handler.
 type packetHandler struct {
 	Opcode int    `toml:"opcode"`
 	Name   string `toml:"name"`
-	//	Handler HandlerFunc
+	//	Handler handlerFunc
 }
 
 //packetHandlerTable Represents a mapping of descriptive names to packet opcodes.
@@ -34,8 +34,8 @@ type packetHandlerTable struct {
 
 var table packetHandlerTable
 
-//GetPacketHandler Returns the packet handler function assigned to this opcode.  If it can't be found, returns nil.
-func GetPacketHandler(opcode byte) HandlerFunc {
+//Get Returns the packet handler function assigned to this opcode.  If it can't be found, returns nil.
+func Get(opcode byte) handlerFunc {
 	for _, handler := range table.Handlers {
 		if byte(handler.Opcode) == opcode {
 			return PacketHandlers[handler.Name]
@@ -44,8 +44,8 @@ func GetPacketHandler(opcode byte) HandlerFunc {
 	return nil
 }
 
-//CountPacketHandlers returns the number of packet handlers currently defined.
-func CountPacketHandlers() int {
+//Size returns the number of packet handlers currently defined.
+func Size() int {
 	return len(table.Handlers)
 }
 

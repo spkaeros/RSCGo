@@ -426,7 +426,7 @@ func (c *Client) StartNetworking() {
 
 //HandlePacket Finds the mapped handler function for the specified packet, and calls it with the specified parameters.
 func (c *Client) HandlePacket(p *packetbuilders.Packet) {
-	handler := packethandlers.GetPacketHandler(p.Opcode)
+	handler := packethandlers.Get(p.Opcode)
 	if handler == nil {
 		log.Info.Printf("Unhandled Packet: {opcode:%d; length:%d};\n", p.Opcode, len(p.Payload))
 		fmt.Printf("CONTENT: %v\n", p.Payload)
@@ -518,8 +518,9 @@ func (c *Client) HandleRegister(reply chan byte) {
 }
 
 //NewClient Creates a new instance of a Client, launches goroutines to handle I/O for it, and returns a reference to it.
-func NewClient(socket net.Conn) *Client {
+func NewClient(socket net.Conn, ws bool) *Client {
 	c := &Client{Socket: socket, IncomingPackets: make(chan *packetbuilders.Packet, 20), OutgoingPackets: make(chan *packetbuilders.Packet, 20), Kill: make(chan struct{}), player: world.NewPlayer(clients.NextIndex(), strings.Split(socket.RemoteAddr().String(), ":")[0])}
+	c.player.Websocket = ws
 	c.StartNetworking()
 	return c
 }

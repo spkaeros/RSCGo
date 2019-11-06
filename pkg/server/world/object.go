@@ -59,7 +59,10 @@ func (o *Object) IndexGet(index objects.Object) (objects.Object, error) {
 func (o *Object) IsFalsy() bool {
 	return o.X.Load() == 0 || o.Y.Load() == 0
 }
+
+var ObjectCounter = atomic.NewUint32(0)
+
 //NewObject Returns a reference to a new instance of a game object.
 func NewObject(id, direction, x, y int, boundary bool) *Object {
-	return &Object{id, direction, boundary, Entity{Location{X: atomic.NewUint32(uint32(x)), Y: atomic.NewUint32(uint32(y))}, -1}}
+	return &Object{id, direction, boundary, Entity{Location{X: atomic.NewUint32(uint32(x)), Y: atomic.NewUint32(uint32(y))}, int(ObjectCounter.Swap(ObjectCounter.Load() + 1))}}
 }

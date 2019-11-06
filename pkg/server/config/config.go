@@ -20,11 +20,22 @@ var TomlConfig struct {
 	} `toml:"crypto"`
 }
 
+//Verbosity Represents the level of verbosity with which the server should output debug information.
 var Verbosity = int(0)
+
+//Verbose Returns true if the current Verbosity level is above 0, otherwise returns false.
+func Verbose() bool {
+	return Verbosity > 0
+}
 
 //Port Returns the primary TCP/IP port to listen for incoming connections on
 func Port() int {
 	return TomlConfig.Port
+}
+
+//WSPort Returns the primary TCP/IP port to listen for incoming websocket connections on
+func WSPort() int {
+	return TomlConfig.Port+1
 }
 
 func MaxPlayers() int {

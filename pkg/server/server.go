@@ -18,64 +18,61 @@ var (
 	Kill = make(chan struct{})
 )
 
-func StartConnectionService() {
-	bind := func(offset int) {
-		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", config.Port()+offset))
-		if err != nil {
-			log.Error.Printf("Can't bind to specified port: %d\n", config.Port()+offset)
-			log.Error.Println(err)
-			os.Exit(1)
-		}
-
-		go func() {
-			var wsUpgrader = ws.Upgrader{
-				Protocol: func(protocol []byte) bool {
-					// Chrome is picky, won't work without explicit protocol acceptance
-					return true
-				},
-			}
-
-			defer func() {
-				err := listener.Close()
-				if err != nil {
-					log.Error.Println("Could not close server socket listener:", err)
-					return
-				}
-			}()
-
-			for {
-				socket, err := listener.Accept()
-				if err != nil {
-					if config.Verbosity > 0 {
-						log.Error.Println("Error occurred attempting to accept a client:", err)
-					}
-					continue
-				}
-				if offset != 0 {
-					if _, err := wsUpgrader.Upgrade(socket); err != nil {
-						log.Info.Println("Error upgrading websocket connection:", err)
-						continue
-					}
-				}
-				if clients.Size() >= config.MaxPlayers() {
-					if n, err := socket.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 14}); err != nil || n != 9 {
-						if config.Verbosity > 0 {
-							log.Error.Println("Could not send world is full response to rejected client:", err)
-						}
-					}
-					continue
-				}
-
-				c := NewClient(socket)
-				if offset != 0 {
-					c.Player().Websocket = true
-				}
-			}
-		}()
+func Bind(port int) {
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		log.Error.Printf("Can't bind to specified port: %d\n", port)
+		log.Error.Println(err)
+		os.Exit(1)
 	}
 
-	bind(0) // UNIX sockets
-	bind(1) // websockets
+	go func() {
+		var wsUpgrader = ws.Upgrader{
+			Protocol: func(protocol []byte) bool {
+				// Chrome is picky, won't work without explicit protocol acceptance
+				return true
+			},
+		}
+
+		defer func() {
+			err := listener.Close()
+			if err != nil {
+				log.Error.Println("Could not close server socket listener:", err)
+				return
+			}
+		}()
+
+		for {
+			socket, err := listener.Accept()
+			if err != nil {
+				if config.Verbosity > 0 {
+					log.Error.Println("Error occurred attempting to accept a client:", err)
+				}
+				continue
+			}
+			if port == config.WSPort() {
+				if _, err := wsUpgrader.Upgrade(socket); err != nil {
+					log.Info.Println("Error upgrading websocket connection:", err)
+					continue
+				}
+			}
+			if clients.Size() >= config.MaxPlayers() {
+				if n, err := socket.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 14}); err != nil || n != 9 {
+					if config.Verbosity > 0 {
+						log.Error.Println("Could not send world is full response to rejected client:", err)
+					}
+				}
+				continue
+			}
+
+			NewClient(socket, port == config.WSPort())
+		}
+	}()
+}
+
+func StartConnectionService() {
+	Bind(config.Port()) // UNIX sockets
+	Bind(config.WSPort()) // websockets
 }
 
 //Tick One game engine 'tick'.  This is to handle movement, to synchronize client, to update movement-related state variables... Runs once per 600ms.

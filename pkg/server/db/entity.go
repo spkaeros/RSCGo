@@ -63,21 +63,20 @@ var Npcs []NpcDefinition
 var Boundarys []BoundaryDefinition
 
 //LoadObjectDefinitions Loads game object data into memory for quick access.
-func LoadObjectDefinitions() error {
+func LoadObjectDefinitions() {
 	database := Open(config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT id, name, description, command_one, command_two, type, width, height, ground_item_var FROM `game_objects`")
 	defer rows.Close()
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
-		return err
+		return
 	}
 	for rows.Next() {
 		nextDef := ObjectDefinition{Commands: make([]string, 2)}
 		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.Type, &nextDef.Width, &nextDef.Height, &nextDef.Length)
 		Objects = append(Objects, nextDef)
 	}
-	return nil
 }
 
 //LoadBoundaryDefinitions Loads game boundary object data into memory for quick access.
@@ -133,7 +132,7 @@ func LoadNpcDefinitions() {
 }
 
 //LoadObjectLocations Loads the game objects into memory from the SQLite3 database.
-func LoadObjectLocations() int {
+func LoadObjectLocations() {
 	objectCounter := 0
 	database := Open(config.WorldDB())
 	defer database.Close()
@@ -141,7 +140,7 @@ func LoadObjectLocations() int {
 	defer rows.Close()
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
-		return 0
+		return
 	}
 	var id, direction, boundary, x, y int
 	for rows.Next() {
@@ -152,11 +151,10 @@ func LoadObjectLocations() int {
 		objectCounter++
 		world.AddObject(world.NewObject(id, direction, x, y, boundary != 0))
 	}
-	return objectCounter
 }
 
 //LoadNpcLocations Loads the game objects into memory from the SQLite3 database.
-func LoadNpcLocations() int {
+func LoadNpcLocations() {
 	npcCounter := 0
 	database := Open(config.WorldDB())
 	defer database.Close()
@@ -164,7 +162,7 @@ func LoadNpcLocations() int {
 	defer rows.Close()
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
-		return 0
+		return
 	}
 	var id, startX, minX, maxX, startY, minY, maxY int
 	for rows.Next() {
@@ -173,7 +171,6 @@ func LoadNpcLocations() int {
 		// TODO: Load bounds into npc struct
 		world.AddNpc(world.NewNpc(id, startX, startY, minX, maxX, minY, maxY))
 	}
-	return npcCounter
 }
 
 //SaveObjectLocations Clears world.db game object locations and repopulates it with the current server locations.
