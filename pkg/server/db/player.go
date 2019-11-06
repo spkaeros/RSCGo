@@ -241,6 +241,12 @@ func LoadPlayerInventory(player *world.Player) error {
 		if e := GetEquipmentDefinition(id); e != nil && wielded {
 			player.Items.Get(index).Worn = true
 			player.Equips[e.Position] = e.Sprite
+			player.SetAimPoints(player.AimPoints() + e.Aim)
+			player.SetPowerPoints(player.PowerPoints() + e.Power)
+			player.SetArmourPoints(player.ArmourPoints() + e.Armour)
+			player.SetMagicPoints(player.MagicPoints() + e.Magic)
+			player.SetPrayerPoints(player.PrayerPoints() + e.Prayer)
+			player.SetRangedPoints(player.RangedPoints() + e.Ranged)
 		}
 	}
 	return nil

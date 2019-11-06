@@ -17,7 +17,6 @@ func init() {
 			log.Suspicious.Printf("Player[%v] tried to wield an item with invalid index: %d\n", c, index)
 			return
 		}
-		// TODO: Wielding
 		if item := c.Player().Items.Get(index); item != nil {
 			if e := db.GetEquipmentDefinition(item.ID); e != nil {
 				item.Worn = true
@@ -25,13 +24,27 @@ func init() {
 				for _, otherItem := range c.Player().Items.List {
 					if otherE := db.GetEquipmentDefinition(otherItem.ID); otherE != nil {
 						if otherItem != item && otherItem.Worn && otherE.Position == e.Position {
+							c.Player().SetAimPoints(c.Player().AimPoints() - otherE.Aim)
+							c.Player().SetPowerPoints(c.Player().PowerPoints() - otherE.Power)
+							c.Player().SetArmourPoints(c.Player().ArmourPoints() - otherE.Armour)
+							c.Player().SetMagicPoints(c.Player().MagicPoints() - otherE.Magic)
+							c.Player().SetPrayerPoints(c.Player().PrayerPoints() - otherE.Prayer)
+							c.Player().SetRangedPoints(c.Player().RangedPoints() - otherE.Ranged)
 							otherItem.Worn = false
 							break
 						}
 					}
 				}
+				c.Player().SetAimPoints(c.Player().AimPoints() + e.Aim)
+				c.Player().SetPowerPoints(c.Player().PowerPoints() + e.Power)
+				c.Player().SetArmourPoints(c.Player().ArmourPoints() + e.Armour)
+				c.Player().SetMagicPoints(c.Player().MagicPoints() + e.Magic)
+				c.Player().SetPrayerPoints(c.Player().PrayerPoints() + e.Prayer)
+				c.Player().SetRangedPoints(c.Player().RangedPoints() + e.Ranged)
+				log.Info.Println(c.Player().Equips[e.Position])
 				c.Player().Equips[e.Position] = e.Sprite
 				c.Player().AppearanceTicket++
+				c.SendPacket(packetbuilders.EquipmentStats(c.Player()))
 				c.SendPacket(packetbuilders.InventoryItems(c.Player()))
 			}
 		}
@@ -48,10 +61,21 @@ func init() {
 				return
 			}
 			if e := db.GetEquipmentDefinition(item.ID); e != nil {
-				item.Worn = false
 				c.Player().TransAttrs.SetVar("self", false)
-				c.Player().Equips[e.Position] = 0
+				item.Worn = false
+				c.Player().SetAimPoints(c.Player().AimPoints() - e.Aim)
+				c.Player().SetPowerPoints(c.Player().PowerPoints() - e.Power)
+				c.Player().SetArmourPoints(c.Player().ArmourPoints() - e.Armour)
+				c.Player().SetMagicPoints(c.Player().MagicPoints() - e.Magic)
+				c.Player().SetPrayerPoints(c.Player().PrayerPoints() - e.Prayer)
+				c.Player().SetRangedPoints(c.Player().RangedPoints() - e.Ranged)
+				value := 0
+				if e.Position == 2 {
+					value = c.Player().Appearance.Legs
+				}
+				c.Player().Equips[e.Position] = value
 				c.Player().AppearanceTicket++
+				c.SendPacket(packetbuilders.EquipmentStats(c.Player()))
 				c.SendPacket(packetbuilders.InventoryItems(c.Player()))
 			}
 		}

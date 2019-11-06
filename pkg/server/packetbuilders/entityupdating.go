@@ -178,8 +178,8 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 		p.AddByte(12) // length of sprites.  Anything less than 12 will get padded with 0s
 		p.AddByte(uint8(player.Appearance.Head))
 		p.AddByte(uint8(player.Appearance.Body))
-		p.AddByte(uint8(player.Appearance.Legs))
-		for i := 3; i < 12; i++ {
+//		p.AddByte(uint8(player.Appearance.Legs))
+		for i := 2; i < 12; i++ {
 			p.AddByte(uint8(player.Equips[i]))
 		}
 		p.AddByte(uint8(player.Appearance.HeadColor))

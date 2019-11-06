@@ -81,6 +81,7 @@ func main() {
 	// Entity definitions
 	asyncExecute(&awaitLaunchJobs, db.LoadObjectDefinitions)
 	asyncExecute(&awaitLaunchJobs, db.LoadItemDefinitions)
+	asyncExecute(&awaitLaunchJobs, db.LoadEquipmentDefinitions)
 	asyncExecute(&awaitLaunchJobs, db.LoadNpcDefinitions)
 	asyncExecute(&awaitLaunchJobs, db.LoadBoundaryDefinitions)
 
