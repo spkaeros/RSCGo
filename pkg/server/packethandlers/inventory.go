@@ -54,7 +54,6 @@ func init() {
 									value = c.Player().Appearance.Legs
 								}
 								c.Player().Equips[otherE.Position] = value
-								break
 							}
 						}
 					}
