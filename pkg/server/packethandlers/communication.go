@@ -1,9 +1,9 @@
 package packethandlers
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
-	"bitbucket.org/zlacki/rscgo/pkg/server/packetbuilders"
-	"bitbucket.org/zlacki/rscgo/pkg/strutil"
+	"github.com/spkaeros/rscgo/pkg/server/clients"
+	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
+	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 func init() {

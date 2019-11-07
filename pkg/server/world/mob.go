@@ -1,7 +1,7 @@
 package world
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/rand"
+	"github.com/spkaeros/rscgo/pkg/rand"
 	"go.uber.org/atomic"
 	"sync"
 	"time"

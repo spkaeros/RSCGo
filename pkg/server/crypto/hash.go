@@ -1,7 +1,7 @@
 package crypto
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/config"
+	"github.com/spkaeros/rscgo/pkg/server/config"
 	"encoding/hex"
 	"golang.org/x/crypto/argon2"
 	"runtime"

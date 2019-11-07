@@ -1,8 +1,8 @@
 package crypto
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/config"
-	"bitbucket.org/zlacki/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/server/config"
+	"github.com/spkaeros/rscgo/pkg/server/log"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"

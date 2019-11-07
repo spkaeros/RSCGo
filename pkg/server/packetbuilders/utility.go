@@ -1,8 +1,8 @@
 package packetbuilders
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/world"
-	"bitbucket.org/zlacki/rscgo/pkg/strutil"
+	"github.com/spkaeros/rscgo/pkg/server/world"
+	"github.com/spkaeros/rscgo/pkg/strutil"
 	"time"
 )
 

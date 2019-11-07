@@ -1,14 +1,14 @@
 package db
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/crypto"
+	"github.com/spkaeros/rscgo/pkg/server/crypto"
 	"strconv"
 
-	"bitbucket.org/zlacki/rscgo/pkg/server/config"
-	"bitbucket.org/zlacki/rscgo/pkg/server/errors"
-	"bitbucket.org/zlacki/rscgo/pkg/server/log"
-	"bitbucket.org/zlacki/rscgo/pkg/server/world"
-	"bitbucket.org/zlacki/rscgo/pkg/strutil"
+	"github.com/spkaeros/rscgo/pkg/server/config"
+	"github.com/spkaeros/rscgo/pkg/server/errors"
+	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/server/world"
+	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 // FIXME: This is an exact copy from the old database code model to its own, isolated package, and the result is clumsy and needs to be tidied up badly.

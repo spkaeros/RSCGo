@@ -1,16 +1,16 @@
 package packethandlers
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/rand"
-	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
-	"bitbucket.org/zlacki/rscgo/pkg/server/crypto"
+	"github.com/spkaeros/rscgo/pkg/rand"
+	"github.com/spkaeros/rscgo/pkg/server/clients"
+	"github.com/spkaeros/rscgo/pkg/server/crypto"
 	"strings"
 
-	"bitbucket.org/zlacki/rscgo/pkg/server/config"
-	"bitbucket.org/zlacki/rscgo/pkg/server/db"
-	"bitbucket.org/zlacki/rscgo/pkg/server/log"
-	"bitbucket.org/zlacki/rscgo/pkg/server/packetbuilders"
-	"bitbucket.org/zlacki/rscgo/pkg/strutil"
+	"github.com/spkaeros/rscgo/pkg/server/config"
+	"github.com/spkaeros/rscgo/pkg/server/db"
+	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
+	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 func init() {

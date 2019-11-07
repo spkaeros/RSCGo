@@ -1,6 +1,6 @@
-module bitbucket.org/zlacki/rscgo
+module github.com/spkaeros/rscgo
 
-go 1.12
+go 1.13
 
 require (
 	github.com/BurntSushi/toml v0.3.1
@@ -10,7 +10,6 @@ require (
 	github.com/gobwas/ws v1.0.2
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/mattn/go-sqlite3 v1.11.0
-	github.com/stretchr/testify v1.4.0 // indirect
-	go.uber.org/atomic v1.4.0
-	golang.org/x/crypto v0.0.0-20190820162420-60c769a6c586
+	go.uber.org/atomic v1.5.0
+	golang.org/x/crypto v0.0.0-20191106202628-ed6320f186d4
 )

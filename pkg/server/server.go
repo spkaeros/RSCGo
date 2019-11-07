@@ -1,17 +1,17 @@
 package server
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/clients"
-	"bitbucket.org/zlacki/rscgo/pkg/server/script"
+	"github.com/spkaeros/rscgo/pkg/server/clients"
+	"github.com/spkaeros/rscgo/pkg/server/script"
 	"fmt"
 	"github.com/gobwas/ws"
 	"net"
 	"os"
 	"time"
 
-	"bitbucket.org/zlacki/rscgo/pkg/server/config"
-	"bitbucket.org/zlacki/rscgo/pkg/server/log"
-	"bitbucket.org/zlacki/rscgo/pkg/server/world"
+	"github.com/spkaeros/rscgo/pkg/server/config"
+	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 var (

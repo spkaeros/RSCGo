@@ -1,13 +1,13 @@
 package main
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server"
-	"bitbucket.org/zlacki/rscgo/pkg/server/config"
-	"bitbucket.org/zlacki/rscgo/pkg/server/db"
-	"bitbucket.org/zlacki/rscgo/pkg/server/log"
-	"bitbucket.org/zlacki/rscgo/pkg/server/packethandlers"
-	"bitbucket.org/zlacki/rscgo/pkg/server/script"
-	"bitbucket.org/zlacki/rscgo/pkg/server/world"
+	"github.com/spkaeros/rscgo/pkg/server"
+	"github.com/spkaeros/rscgo/pkg/server/config"
+	"github.com/spkaeros/rscgo/pkg/server/db"
+	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/server/packethandlers"
+	"github.com/spkaeros/rscgo/pkg/server/script"
+	"github.com/spkaeros/rscgo/pkg/server/world"
 	"github.com/BurntSushi/toml"
 	"github.com/jessevdk/go-flags"
 	"os"

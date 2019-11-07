@@ -3,8 +3,8 @@ package db
 import (
 	"database/sql"
 
-	"bitbucket.org/zlacki/rscgo/pkg/server/config"
-	"bitbucket.org/zlacki/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/server/config"
+	"github.com/spkaeros/rscgo/pkg/server/log"
 
 	// Necessary for sqlite3 driver
 	_ "github.com/mattn/go-sqlite3"

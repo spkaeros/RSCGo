@@ -1,8 +1,8 @@
 package world
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/log"
-	"bitbucket.org/zlacki/rscgo/pkg/strutil"
+	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/strutil"
 	"fmt"
 	"github.com/d5/tengo/compiler/token"
 	"github.com/d5/tengo/objects"

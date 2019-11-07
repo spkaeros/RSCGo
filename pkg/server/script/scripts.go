@@ -1,7 +1,7 @@
 package script
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/d5/tengo/objects"
 	"github.com/d5/tengo/script"
 	"github.com/d5/tengo/stdlib"

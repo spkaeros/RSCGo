@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"bitbucket.org/zlacki/rscgo/pkg/isaac"
+	"github.com/spkaeros/rscgo/pkg/isaac"
 )
 
 var rscRand *isaac.ISAAC

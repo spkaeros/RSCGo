@@ -1,7 +1,7 @@
 package packetbuilders
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/world"
+	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 //NPCPositions Builds a packet containing view area NPC position and sprite information

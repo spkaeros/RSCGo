@@ -1,7 +1,7 @@
 package packetbuilders
 
 import (
-	"bitbucket.org/zlacki/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/server/log"
 	"fmt"
 	"strconv"
 )
