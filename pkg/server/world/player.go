@@ -152,7 +152,7 @@ func (p *Player) GetClientSetting(id int) bool {
 
 //IsFollowing Returns true if the player is following another mob, otherwise false.
 func (p *Player) IsFollowing() bool {
-	return p.FollowIndex() != -1
+	return p.FollowRadius() >= 0
 }
 
 //ServerSeed Returns the seed for the ISAAC cipher provided by the server for this player, if set, otherwise returns 0
@@ -175,15 +175,9 @@ func (p *Player) SetReconnecting(flag bool) {
 	p.TransAttrs.SetVar("reconnecting", flag)
 }
 
-//SetFollowing Sets the transient attribute for storing the server index of the player we want to follow to index.
-func (p *Player) SetFollowing(index int) {
-	if index != -1 {
-		p.TransAttrs.SetVar("plrfollowing", index)
-		p.TransAttrs.SetVar("followrad", 2)
-	} else {
-		p.TransAttrs.UnsetVar("plrfollowing")
-		p.TransAttrs.UnsetVar("followrad")
-	}
+//StartFollowing Sets the transient attribute for storing the server index of the player we want to follow to index.
+func (p *Player) StartFollowing(radius int) {
+	p.TransAttrs.SetVar("followrad", radius)
 }
 
 //FollowRadius Returns the radius within which we should follow whatever mob we are following, or -1 if we aren't following anyone.
@@ -191,14 +185,16 @@ func (p *Player) FollowRadius() int {
 	return p.TransAttrs.VarInt("followrad", -1)
 }
 
-//FollowIndex Returns the index of the mob we are following, or -1 if we aren't following anyone.
-func (p *Player) FollowIndex() int {
-	return p.TransAttrs.VarInt("plrfollowing", -1)
-}
-
 //ResetFollowing Resets the transient attribute for storing the server index of the player we want to follow.
 func (p *Player) ResetFollowing() {
-	p.SetFollowing(-1)
+	p.TransAttrs.UnsetVar("followrad")
+	p.ResetPath()
+}
+
+//ResetFollowing Resets the transient attributes holding: Path, Follow radius, and Distanced action triggers...
+func (p *Player) ResetAll() {
+	p.TransAttrs.UnsetVar("followrad")
+	p.ResetDistancedAction()
 	p.ResetPath()
 }
 
@@ -372,7 +368,7 @@ func (p *Player) SetCoords(x, y int) {
 
 //Teleport Moves the mob to x,y and sets a flag to remove said mob from the local players list of every nearby player.
 func (p *Player) Teleport(x, y int) {
-	p.TransAttrs.SetVar("remove", true)
+	p.Remove()
 	p.SetCoords(x, y)
 }
 

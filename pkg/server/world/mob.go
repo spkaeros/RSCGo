@@ -40,8 +40,6 @@ type Mob struct {
 	*Entity
 	State      MobState
 	Skillset   *SkillTable
-	Path       *Pathway
-	PathLock   sync.RWMutex
 	TransAttrs *AttributeList
 }
 
@@ -57,61 +55,79 @@ func (m *Mob) Direction() int {
 
 //SetDirection Sets the mobs direction.
 func (m *Mob) SetDirection(direction int) {
-	m.TransAttrs.SetVar("changed", true)
+	m.Change()
 	m.TransAttrs.SetVar("direction", direction)
+}
+
+//Change Sets the synchronization flag for whether this mob changed directions to true.
+func (m *Mob) Change() {
+	m.TransAttrs.SetVar("changed", true)
+}
+
+//Remove Sets the synchronization flag for whether this mob needs to be removed to true.
+func (m *Mob) Remove() {
+	m.TransAttrs.SetVar("remove", true)
+}
+
+//UpdateSelf Sets the synchronization flag for whether this mob needs to update itself to true.
+func (m *Mob) UpdateSelf() {
+	m.TransAttrs.SetVar("self", true)
+}
+
+//UpdateSelf Sets the synchronization flag for whether this mob has moved to true.
+func (m *Mob) Move() {
+	m.TransAttrs.SetVar("moved", true)
 }
 
 //SetPath Sets the mob's current pathway to path.  If path is nil, effectively resets the mobs path.
 func (m *Mob) SetPath(path *Pathway) {
-	m.PathLock.Lock()
-	m.Path = path
-	m.PathLock.Unlock()
+	m.TransAttrs.SetVar("path", path)
+}
+
+//Path returns the path that this mob is trying to traverse.
+func (m *Mob) Path() *Pathway {
+	return m.TransAttrs.VarPath("path")
 }
 
 //ResetPath Sets the mobs path to nil, to stop the traversal of the path instantly
 func (m *Mob) ResetPath() {
-	m.SetPath(nil)
+	m.TransAttrs.UnsetVar("path")
 }
 
 //TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
 func (m *Mob) TraversePath() {
-	m.PathLock.RLock()
-	path := m.Path
-	m.PathLock.RUnlock()
+	path := m.Path()
 	if path == nil {
 		return
 	}
-	if m.AtLocation(path.Waypoint(path.CurrentWaypoint)) {
+	if m.AtLocation(path.NextWaypointTile()) {
 		path.CurrentWaypoint++
 	}
 	if m.FinishedPath() {
 		m.ResetPath()
 		return
 	}
-	m.TransAttrs.SetVar("moved", true)
-	m.SetLocation(path.NextTile(m.X.Load(), m.Y.Load()))
+	m.Move()
+	m.SetLocation(path.NextTile(m.Location))
 }
 
 //FinishedPath Returns true if the mobs path is nil, the paths current waypoint exceeds the number of waypoints available, or the next tile in the path is not a valid location, implying that we have reached our destination.
 func (m *Mob) FinishedPath() bool {
-	m.PathLock.RLock()
-	defer m.PathLock.RUnlock()
-	if m.Path == nil {
+	path := m.Path()
+	if path == nil {
 		return true
 	}
-	return m.Path.CurrentWaypoint >= len(m.Path.WaypointsX) || !m.Path.NextTile(m.X.Load(), m.Y.Load()).WithinWorld()
+	return path.CurrentWaypoint >= path.CountWaypoints() || !path.NextTile(m.Location).IsValid()
 }
 
 //UpdateDirection Updates the direction the mob is facing based on where the mob is trying to move, and where the mob is currently at.
 func (m *Mob) UpdateDirection(destX, destY uint32) {
-	sprites := [3][3]int{{3, 2, 1}, {4, -1, 0}, {5, 6, 7}}
-	xIndex := m.X.Load() - destX + 1
-	yIndex := m.Y.Load() - destY + 1
-	if xIndex < 3 && yIndex < 3 {
-		m.SetDirection(sprites[xIndex][yIndex])
-	} else {
-		m.SetDirection(North)
+	sprites := [3][3]int{{SouthWest, West, NorthWest}, {South, -1, North}, {SouthEast, East, NorthEast}}
+	xIndex, yIndex := m.X.Load() - destX + 1, m.Y.Load() - destY + 1
+	if xIndex >= 3 || yIndex >= 3 {
+		xIndex, yIndex = 1, 2 // North
 	}
+	m.SetDirection(sprites[xIndex][yIndex])
 }
 
 //SetLocation Sets the mobs location.
@@ -128,7 +144,7 @@ func (m *Mob) SetCoords(x, y uint32) {
 
 //Teleport Moves the mob to x,y and sets a flag to remove said mob from the local players list of every nearby player.
 func (m *Mob) Teleport(x, y int) {
-	m.TransAttrs.SetVar("remove", true)
+	m.Remove()
 	m.SetCoords(uint32(x), uint32(y))
 }
 
@@ -208,6 +224,17 @@ func (attributes *AttributeList) VarTime(name string, zero time.Time) time.Time 
 	return attributes.Set[name].(time.Time)
 }
 
+//VarTime If there is a time.Duration attribute assigned to the specified name, returns it.  Otherwise, returns zero
+func (attributes *AttributeList) VarPath(name string) *Pathway {
+	attributes.Lock.RLock()
+	defer attributes.Lock.RUnlock()
+	if _, ok := attributes.Set[name].(*Pathway); !ok {
+		return nil
+	}
+
+	return attributes.Set[name].(*Pathway)
+}
+
 //AppearanceTable Represents a mobs appearance.
 type AppearanceTable struct {
 	Head      int
@@ -277,7 +304,7 @@ func UpdateNPCPositions() {
 		if n.FinishedPath() {
 			if n.TransAttrs.VarTime("nextMove", time.Time{}).Before(time.Now()) {
 				n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
-				n.SetPath(NewPathwayFromLocation(NewRandomLocation(n.Boundaries)))
+				n.SetPath(NewPathwayToLocation(NewRandomLocation(n.Boundaries)))
 			}
 		}
 

@@ -446,6 +446,7 @@ func (c *Client) Initialize() {
 		}
 	}
 	world.AddPlayer(c.player)
+	c.player.Change()
 	c.player.TransAttrs.SetVar("changed", true)
 	c.player.TransAttrs.SetVar("connected", true)
 	for i := 0; i < 18; i++ {

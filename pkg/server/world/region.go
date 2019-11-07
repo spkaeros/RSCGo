@@ -26,7 +26,7 @@ type Region struct {
 
 var regions [HorizontalPlanes][VerticalPlanes]*Region
 
-//WithinWorld Returns true if the tile at x,y is within world boundaries, false otherwise.
+//IsValid Returns true if the tile at x,y is within world boundaries, false otherwise.
 func WithinWorld(x, y int) bool {
 	return x <= MaxX && x >= 0 && y >= 0 && y <= MaxY
 }

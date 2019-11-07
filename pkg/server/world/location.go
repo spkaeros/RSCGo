@@ -58,6 +58,22 @@ func NewLocation(x, y int) Location {
 	return Location{X: atomic.NewUint32(uint32(x)), Y: atomic.NewUint32(uint32(y))}
 }
 
+func (l Location) incX() {
+	l.X.Store(l.X.Load() + 1)
+}
+
+func (l Location) incY() {
+	l.Y.Store(l.Y.Load() + 1)
+}
+
+func (l Location) decX() {
+	l.X.Store(l.X.Load() - 1)
+}
+
+func (l Location) decY() {
+	l.Y.Store(l.Y.Load() - 1)
+}
+
 //NewRandomLocation Returns a new random location within the specified bounds.  bounds[0] should be lowest corner, bounds[1] highest.
 func NewRandomLocation(bounds [2]Location) Location {
 	return NewLocation(rand.Int31N(int(bounds[0].X.Load()), int(bounds[1].X.Load())), rand.Int31N(int(bounds[0].Y.Load()), int(bounds[1].Y.Load())))
@@ -68,8 +84,8 @@ func (l *Location) String() string {
 	return fmt.Sprintf("[%d,%d]", l.X.Load(), l.Y.Load())
 }
 
-//WithinWorld Returns true if the tile at x,y is within world boundaries, false otherwise.
-func (l Location) WithinWorld() bool {
+//IsValid Returns true if the tile at x,y is within world boundaries, false otherwise.
+func (l Location) IsValid() bool {
 	return l.X.Load() <= MaxX && l.Y.Load() <= MaxY
 }
 

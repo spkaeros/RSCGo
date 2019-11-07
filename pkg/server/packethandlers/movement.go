@@ -16,11 +16,8 @@ func init() {
 			waypointsX = append(waypointsX, int(p.ReadSByte()))
 			waypointsY = append(waypointsY, int(p.ReadSByte()))
 		}
-		if c.Player().IsFollowing() {
-			c.Player().ResetFollowing()
-		}
-		c.Player().ResetDistancedAction()
-		c.Player().SetPath(world.NewPathwayComplete(uint32(startX), uint32(startY), waypointsX, waypointsY))
+		c.Player().ResetAll()
+		c.Player().SetPath(world.NewPathway(uint32(startX), uint32(startY), waypointsX, waypointsY))
 	}
 	PacketHandlers["walktoentity"] = func(c clients.Client, p *packetbuilders.Packet) {
 		startX := p.ReadShort()
@@ -31,11 +28,8 @@ func init() {
 			waypointsX = append(waypointsX, int(p.ReadSByte()))
 			waypointsY = append(waypointsY, int(p.ReadSByte()))
 		}
-		if c.Player().IsFollowing() {
-			c.Player().ResetFollowing()
-		}
-		c.Player().ResetDistancedAction()
-		c.Player().SetPath(world.NewPathwayComplete(uint32(startX), uint32(startY), waypointsX, waypointsY))
+		c.Player().ResetAll()
+		c.Player().SetPath(world.NewPathway(uint32(startX), uint32(startY), waypointsX, waypointsY))
 	}
 	PacketHandlers["followreq"] = func(c clients.Client, p *packetbuilders.Packet) {
 		playerID := p.ReadShort()
@@ -44,24 +38,42 @@ func init() {
 			c.Message("@que@Could not find the player you're looking for.")
 			return
 		}
-		c.Player().SetFollowing(playerID)
+		c.Player().ResetAll()
+		c.Player().StartFollowing(1)
 		c.Message("@que@Following " + affectedClient.Player().Username)
 		c.Player().SetDistancedAction(func() bool {
 			if !c.Player().IsFollowing() {
-				// Following target no longer exists
+				// Following vars have been reset.
 				return true
 			}
-			if affectedClient == nil || !c.Player().Location.WithinRange(affectedClient.Player().Location, 16) {
+			if affectedClient == nil || affectedClient.Player().IsFalsy() ||
+				!c.Player().WithinRange(affectedClient.Player().Location, 16) {
 				// We think we have a target, but they're miles away now or no longer exist
 				c.Player().ResetFollowing()
 				return true
 			}
-			if !c.Player().FinishedPath() && c.Player().WithinRange(affectedClient.Player().Location, 2) {
+			if !c.Player().FinishedPath() && c.Player().WithinRange(affectedClient.Player().Location, c.Player().FollowRadius()) {
 				// We're not done moving toward our target, but we're close enough that we should stop
 				c.Player().ResetPath()
-			} else if c.Player().FinishedPath() && !c.Player().WithinRange(affectedClient.Player().Location, 2) {
+			} else if c.Player().FinishedPath() && !c.Player().WithinRange(affectedClient.Player().Location, c.Player().FollowRadius()) {
 				// We're not moving, but our target is moving away, so we must try to get closer
-				c.Player().SetPath(world.NewPathwayFromLocation(affectedClient.Player().Location))
+				newX := c.Player().X.Load()
+				switch x, x1 := newX, affectedClient.Player().X.Load(); {
+				case x < x1:
+					newX++
+				case x > x1:
+					newX--
+				}
+				newY := c.Player().Y.Load()
+				switch y, y1 := newY, affectedClient.Player().Y.Load(); {
+				case y < y1:
+					newY++
+				case y > y1:
+					newY--
+				}
+				c.Player().Move()
+				c.Player().SetCoords(int(newX), int(newY))
+//				c.Player().SetPath(world.NewPathwayToLocation(affectedClient.Player().Location))
 			}
 			return false
 		})

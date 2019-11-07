@@ -1,7 +1,5 @@
 package world
 
-import "go.uber.org/atomic"
-
 //Pathway Represents a path for a mobile entity to traverse across the virtual world.
 type Pathway struct {
 	StartX, StartY  uint32
@@ -10,72 +8,88 @@ type Pathway struct {
 	CurrentWaypoint int
 }
 
-//NewPathway returns a new Pathway pointing to the specified coordinates.  Must be a straight line from starting tile.
-func NewPathway(destX, destY uint32) *Pathway {
-	return &Pathway{StartX: destX, StartY: destY, CurrentWaypoint: -1}
+//NewPathwayToCoords returns a new Pathway pointing to the specified location.  Will attempt traversal to l via a
+// simple algorithm: if curX < destX then increase, if curX > destX then decrease, same for Y, until equal.
+// TODO: No clipping is attempted yet, and no path waypoints are generated to avoid obstacles yet.  Gotta do it
+func NewPathwayToCoords(destX, destY uint32) *Pathway {
+	return NewPathway(destX, destY, []int{}, []int{})
 }
 
-//NewPathwayFromLocation returns a new Pathway pointing to the specified location.  Must be a straight line from starting location.
-func NewPathwayFromLocation(l Location) *Pathway {
-	return NewPathway(l.X.Load(), l.Y.Load())
+//NewPathwayToLocation returns a new Pathway pointing to the specified location.  Will attempt traversal to l via a
+// simple algorithm: if curX < destX then increase, if curX > destX then decrease, same for Y, until equal.
+// TODO: No clipping is attempted yet, and no path waypoints are generated to avoid obstacles yet.  Gotta do it
+func NewPathwayToLocation(l Location) *Pathway {
+	return NewPathwayToCoords(l.X.Load(), l.Y.Load())
 }
 
-//NewPathwayComplete returns a new Pathway with the specified variables.  destX and destY are a straight line, and waypoints define turns from that point.
-func NewPathwayComplete(destX, destY uint32, waypointsX, waypointsY []int) *Pathway {
-	return &Pathway{destX, destY, waypointsX, waypointsY, -1}
+//NewPathway returns a new Pathway with the specified variables.  destX and destY are a straight line, and waypoints define turns from that point.
+func NewPathway(destX, destY uint32, waypointsX, waypointsY []int) *Pathway {
+	return &Pathway{StartX: destX, StartY: destY, WaypointsX: waypointsX, WaypointsY: waypointsY, CurrentWaypoint: -1}
 }
 
-//waypointXoffset Returns the offset for the X coordinate of the specified waypoint.
-func (p *Pathway) waypointXoffset(w int) int {
-	if w >= len(p.WaypointsX) || w == -1 {
-		return 0
+//CountWaypoints Returns the length of the largest waypoint slice within this path.
+func (p *Pathway) CountWaypoints() int {
+	xCount, yCount := len(p.WaypointsX), len(p.WaypointsY)
+	if xCount >= yCount {
+		return xCount
 	}
-	return p.WaypointsX[w]
+	return yCount
 }
 
-//waypointX Returns the X coordinate of the specified waypoint.
-func (p *Pathway) waypointX(w int) uint32 {
-	return p.StartX + uint32(p.waypointXoffset(w))
+//WaypointX Returns the X coordinate of the specified waypoint, by taking the waypointX delta at w, and adding it to StartX.
+// If w is out of bounds, returns the StartX coordinate, aka the X coord to start turning at.
+func (p *Pathway) WaypointX(w int) uint32 {
+	offset := func(w int) int {
+		if w >= p.CountWaypoints() || w < 0 {
+			return 0
+		}
+		return p.WaypointsX[w]
+	}(w)
+	return p.StartX + uint32(offset)
 }
 
-//waypointYoffset Returns the offset for the Y coordinate of the specified waypoint.
-func (p *Pathway) waypointYoffset(w int) int {
-	if w >= len(p.WaypointsY) || w == -1 {
-		return 0
-	}
-	return p.WaypointsY[w]
+//WaypointY Returns the Y coordinate of the specified waypoint, by taking the waypointY delta at w, and adding it to StartY.
+// If w is out of bounds, returns the StartY coordinate, aka the Y coord to start turning at.
+func (p *Pathway) WaypointY(w int) uint32 {
+	offset := func(w int) int {
+		if w >= p.CountWaypoints() || w < 0 {
+			return 0
+		}
+		return p.WaypointsY[w]
+	}(w)
+	return p.StartY + uint32(offset)
 }
 
-//waypointY Returns the Y coordinate of the specified waypoint.
-func (p *Pathway) waypointY(w int) uint32 {
-	return p.StartY + uint32(p.waypointYoffset(w))
+//NextWaypointTile Returns the next destination within our path.  If our current waypoint is out of bounds, it will return
+// the same value as StartingTile.
+func (p *Pathway) NextWaypointTile() Location {
+	return NewLocation(int(p.WaypointX(p.CurrentWaypoint)), int(p.WaypointY(p.CurrentWaypoint)))
 }
 
-//Waypoint Returns the locattion of the specified waypoint
-func (p *Pathway) Waypoint(w int) Location {
-	return Location{X: atomic.NewUint32(p.waypointX(w)), Y: atomic.NewUint32(p.waypointY(w))}
+//StartingTile Returns the location of the start of the path,  This location is actually not our starting location,
+// but the first tile that we begin traversing our waypoint deltas from.  Required to walk to this location to start
+// traversing waypoints,
+func (p *Pathway) StartingTile() Location {
+	return NewLocation(int(p.StartX), int(p.StartY))
 }
 
-//Start Returns the location of the start of the path
-func (p *Pathway) Start() Location {
-	return Location{X: atomic.NewUint32(p.StartX), Y: atomic.NewUint32(p.StartY)}
-}
-
-//NextTile Returns the next tile for the mob to move to in the pathway.
-func (p *Pathway) NextTile(startX, startY uint32) Location {
-	destX := p.waypointX(p.CurrentWaypoint)
-	destY := p.waypointY(p.CurrentWaypoint)
+//NextTile Returns the next tile toward the final destination of this pathway from currentLocation
+func (p *Pathway) NextTile(currentLocation Location) Location {
+	dest := p.NextWaypointTile()
+	destX, destY := dest.X.Load(), dest.Y.Load()
+	currentX, currentY := currentLocation.X.Load(), currentLocation.Y.Load()
+	destination := NewLocation(int(currentX), int(currentY))
 	switch {
-	case startX > destX:
-		startX--
-	case startX < destX:
-		startX++
+	case currentX > destX:
+		destination.decX()
+	case currentX < destX:
+		destination.incX()
 	}
 	switch {
-	case startY > destY:
-		startY--
-	case startY < destY:
-		startY++
+	case currentY > destY:
+		destination.decY()
+	case currentY < destY:
+		destination.incY()
 	}
-	return NewLocation(int(startX), int(startY))
+	return destination
 }
