@@ -65,22 +65,17 @@ func (p *Pathway) Start() Location {
 func (p *Pathway) NextTile(startX, startY uint32) Location {
 	destX := p.waypointX(p.CurrentWaypoint)
 	destY := p.waypointY(p.CurrentWaypoint)
-	newLocation := Location{X: atomic.NewUint32(destX), Y: atomic.NewUint32(destY)}
 	switch {
 	case startX > destX:
-		newLocation.X.Store(startX - 1)
-		break
+		startX--
 	case startX < destX:
-		newLocation.X.Store(startX + 1)
-		break
+		startX++
 	}
 	switch {
 	case startY > destY:
-		newLocation.Y.Store(startY - 1)
-		break
+		startY--
 	case startY < destY:
-		newLocation.Y.Store(startY + 1)
-		break
+		startY++
 	}
-	return newLocation
+	return NewLocation(int(startX), int(startY))
 }

@@ -12,7 +12,7 @@ type Object struct {
 	ID        int
 	Direction int
 	Boundary  bool
-	Entity
+	*Entity
 }
 
 //Equals Returns true if o1 is an object reference with identical characteristics to o.
@@ -64,5 +64,10 @@ var ObjectCounter = atomic.NewUint32(0)
 
 //NewObject Returns a reference to a new instance of a game object.
 func NewObject(id, direction, x, y int, boundary bool) *Object {
-	return &Object{id, direction, boundary, Entity{Location{X: atomic.NewUint32(uint32(x)), Y: atomic.NewUint32(uint32(y))}, int(ObjectCounter.Swap(ObjectCounter.Load() + 1))}}
+	return &Object{ID: id, Direction: direction, Boundary: boundary,
+		Entity: &Entity{
+			Location: Location{X: atomic.NewUint32(uint32(x)), Y: atomic.NewUint32(uint32(y))},
+			Index:    int(ObjectCounter.Swap(ObjectCounter.Load() + 1)),
+		},
+	}
 }

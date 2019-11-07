@@ -26,7 +26,7 @@ type GroundItem struct {
 	spawnTime time.Time
 	lock      sync.RWMutex
 	Item
-	Entity
+	*Entity
 }
 
 var itemIndexer = atomic.NewUint32(0)
@@ -37,7 +37,7 @@ func NewGroundItem(id, amount, x, y int) *GroundItem {
 		Item: Item{
 			ID:     id,
 			Amount: amount,
-		}, Entity: Entity{
+		}, Entity: &Entity{
 			Location: NewLocation(x, y),
 			Index:    int(itemIndexer.Swap(itemIndexer.Load() + 1)),
 		},
@@ -50,7 +50,7 @@ func NewGroundItemFrom(owner uint64, id, amount, x, y int) *GroundItem {
 		Item: Item{
 			ID:     id,
 			Amount: amount,
-		}, Entity: Entity{
+		}, Entity: &Entity{
 			Location: NewLocation(x, y),
 			Index:    int(itemIndexer.Swap(itemIndexer.Load() + 1)),
 		},
