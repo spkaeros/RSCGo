@@ -13,7 +13,7 @@ type ISAAC struct {
 	aa, bb, cc uint64
 	index      int
 	remainder  []byte
-	Lock sync.RWMutex
+	Lock       sync.RWMutex
 }
 
 func (r *ISAAC) generateNextSet() {

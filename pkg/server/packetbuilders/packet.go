@@ -1,8 +1,8 @@
 package packetbuilders
 
 import (
-	"github.com/spkaeros/rscgo/pkg/server/log"
 	"fmt"
+	"github.com/spkaeros/rscgo/pkg/server/log"
 	"strconv"
 )
 

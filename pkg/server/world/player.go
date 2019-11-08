@@ -32,7 +32,7 @@ type Player struct {
 	Attributes       *AttributeList
 	Items            *Inventory
 	TradeOffer       *Inventory
-	DistancedAction func() bool
+	DistancedAction  func() bool
 	ActionLock       sync.RWMutex
 	IP               string
 	UID              uint8

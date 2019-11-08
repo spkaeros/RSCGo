@@ -1,6 +1,8 @@
 package main
 
 import (
+	"github.com/BurntSushi/toml"
+	"github.com/jessevdk/go-flags"
 	"github.com/spkaeros/rscgo/pkg/server"
 	"github.com/spkaeros/rscgo/pkg/server/config"
 	"github.com/spkaeros/rscgo/pkg/server/db"
@@ -8,8 +10,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/packethandlers"
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
-	"github.com/BurntSushi/toml"
-	"github.com/jessevdk/go-flags"
 	"os"
 	"strings"
 	"sync"

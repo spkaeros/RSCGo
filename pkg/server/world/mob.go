@@ -139,7 +139,7 @@ func (m *Mob) FinishedPath() bool {
 //UpdateDirection Updates the direction the mob is facing based on where the mob is trying to move, and where the mob is currently at.
 func (m *Mob) UpdateDirection(destX, destY uint32) {
 	sprites := [3][3]int{{SouthWest, West, NorthWest}, {South, -1, North}, {SouthEast, East, NorthEast}}
-	xIndex, yIndex := m.X.Load() - destX + 1, m.Y.Load() - destY + 1
+	xIndex, yIndex := m.X.Load()-destX+1, m.Y.Load()-destY+1
 	if xIndex >= 3 || yIndex >= 3 {
 		xIndex, yIndex = 1, 2 // North
 	}
@@ -273,7 +273,7 @@ type SkillTable struct {
 	Current    [18]int
 	Maximum    [18]int
 	Experience [18]int
-	Lock sync.RWMutex
+	Lock       sync.RWMutex
 }
 
 //CombatLevel Calculates and returns the combat level for this skill table.
@@ -300,7 +300,7 @@ var npcsLock sync.RWMutex
 //NPC Represents a single non-playable character within the game world.
 type NPC struct {
 	Mob
-	ID int
+	ID         int
 	Boundaries [2]Location
 }
 

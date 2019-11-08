@@ -176,9 +176,9 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 		p.AddShort(uint16(player.AppearanceTicket))
 		p.AddLong(player.UserBase37)
 		p.AddByte(12) // length of sprites.  Anything less than 12 will get padded with 0s
-//		p.AddByte(uint8(player.Appearance.Head))
-//		p.AddByte(uint8(player.Appearance.Body))
-//		p.AddByte(uint8(player.Appearance.Legs))
+		//		p.AddByte(uint8(player.Appearance.Head))
+		//		p.AddByte(uint8(player.Appearance.Body))
+		//		p.AddByte(uint8(player.Appearance.Legs))
 		ourPlayer.AppearanceLock.RLock()
 		for i := 0; i < 12; i++ {
 			p.AddByte(uint8(player.Equips[i]))

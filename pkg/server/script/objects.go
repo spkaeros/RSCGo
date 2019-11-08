@@ -1,11 +1,11 @@
 package script
 
 import (
-	"github.com/spkaeros/rscgo/pkg/server/log"
-	"github.com/spkaeros/rscgo/pkg/server/world"
 	"github.com/d5/tengo/objects"
 	"github.com/d5/tengo/script"
 	"github.com/d5/tengo/stdlib"
+	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/server/world"
 	"io/ioutil"
 	"os"
 )
@@ -32,7 +32,7 @@ func LoadObjectTriggers() {
 		return
 	}
 	for _, file := range files {
-		ObjectTriggers = append(ObjectTriggers, loadObjectTrigger("./scripts/objects/" + file.Name()))
+		ObjectTriggers = append(ObjectTriggers, loadObjectTrigger("./scripts/objects/"+file.Name()))
 	}
 }
 
@@ -44,7 +44,7 @@ func LoadItemTriggers() {
 		return
 	}
 	for _, file := range files {
-		ItemTriggers = append(ItemTriggers, loadItemTrigger("./scripts/items/" + file.Name()))
+		ItemTriggers = append(ItemTriggers, loadItemTrigger("./scripts/items/"+file.Name()))
 	}
 }
 
@@ -56,7 +56,7 @@ func LoadBoundaryTriggers() {
 		return
 	}
 	for _, file := range files {
-		BoundaryTriggers = append(BoundaryTriggers, loadBoundaryTrigger("./scripts/boundarys/" + file.Name()))
+		BoundaryTriggers = append(BoundaryTriggers, loadBoundaryTrigger("./scripts/boundarys/"+file.Name()))
 	}
 }
 

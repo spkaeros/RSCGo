@@ -1,6 +1,11 @@
 package server
 
 import (
+	"fmt"
+	"github.com/d5/tengo/compiler/token"
+	"github.com/d5/tengo/objects"
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/db"
 	"github.com/spkaeros/rscgo/pkg/server/errors"
@@ -9,11 +14,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/packethandlers"
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
-	"fmt"
-	"github.com/d5/tengo/compiler/token"
-	"github.com/d5/tengo/objects"
-	"github.com/gobwas/ws"
-	"github.com/gobwas/ws/wsutil"
 	"io"
 	"net"
 	"strings"
@@ -515,7 +515,7 @@ func (c *Client) HandleLogin(reply chan byte) {
 	}
 }
 
-var itemAffectedTypes = map[int][]int { 32: {32, 33}, 33: {32, 33}, 64: {64, 322}, 512: {512, 640, 644},
+var itemAffectedTypes = map[int][]int{32: {32, 33}, 33: {32, 33}, 64: {64, 322}, 512: {512, 640, 644},
 	8: {8, 24, 8216}, 1024: {1024}, 128: {128, 640, 644}, 644: {128, 512, 640, 644},
 	640: {128, 512, 640, 644}, 2048: {2048}, 16: {16, 24, 8216}, 256: {256, 322},
 	322: {64, 256, 322}, 24: {8, 16, 24, 8216}, 8216: {8, 16, 24, 8216},

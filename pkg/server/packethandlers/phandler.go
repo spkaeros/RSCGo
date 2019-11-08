@@ -1,11 +1,11 @@
 package packethandlers
 
 import (
+	"github.com/BurntSushi/toml"
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/config"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
-	"github.com/BurntSushi/toml"
 )
 
 func init() {

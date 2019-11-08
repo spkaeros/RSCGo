@@ -35,7 +35,7 @@ func Port() int {
 
 //WSPort Returns the primary TCP/IP port to listen for incoming websocket connections on
 func WSPort() int {
-	return TomlConfig.Port+1
+	return TomlConfig.Port + 1
 }
 
 func MaxPlayers() int {

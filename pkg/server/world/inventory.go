@@ -1,11 +1,11 @@
 package world
 
 import (
-	"github.com/spkaeros/rscgo/pkg/server/log"
-	"github.com/spkaeros/rscgo/pkg/strutil"
 	"fmt"
 	"github.com/d5/tengo/compiler/token"
 	"github.com/d5/tengo/objects"
+	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/strutil"
 	"go.uber.org/atomic"
 	"sync"
 	"time"
@@ -16,7 +16,7 @@ type Item struct {
 	ID     int
 	Amount int
 	Index  int
-	Worn bool
+	Worn   bool
 }
 
 //GroundItem Represents a single ground item within the game.
@@ -184,7 +184,6 @@ func (i *Inventory) Clear() {
 	i.List = i.List[:0]
 	i.Lock.Unlock()
 }
-
 
 //Equals Returns true if o1 is an object reference with identical characteristics to o.
 func (i *Item) Equals(i1 objects.Object) bool {

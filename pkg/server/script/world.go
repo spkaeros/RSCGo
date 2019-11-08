@@ -1,14 +1,14 @@
 package script
 
 import (
+	"github.com/d5/tengo/objects"
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/world"
-	"github.com/d5/tengo/objects"
 	"time"
 )
 
-var scriptAttributes = map[string]objects.Object {
-	"replaceObjectAt": &objects.UserFunction {
+var scriptAttributes = map[string]objects.Object{
+	"replaceObjectAt": &objects.UserFunction{
 		Value: func(args ...objects.Object) (ret objects.Object, err error) {
 			if len(args) < 3 {
 				return nil, objects.ErrWrongNumArguments
@@ -49,7 +49,7 @@ var scriptAttributes = map[string]objects.Object {
 			return objects.UndefinedValue, nil
 		},
 	},
-	"replaceObject": &objects.UserFunction {
+	"replaceObject": &objects.UserFunction{
 		Value: func(args ...objects.Object) (ret objects.Object, err error) {
 			if len(args) < 2 {
 				return nil, objects.ErrWrongNumArguments
@@ -73,7 +73,7 @@ var scriptAttributes = map[string]objects.Object {
 			return world.ReplaceObject(object, id), nil
 		},
 	},
-	"getObject": &objects.UserFunction {
+	"getObject": &objects.UserFunction{
 		Value: func(args ...objects.Object) (ret objects.Object, err error) {
 			if len(args) < 2 {
 				return nil, objects.ErrWrongNumArguments
@@ -105,7 +105,7 @@ var scriptAttributes = map[string]objects.Object {
 			return object, nil
 		},
 	},
-	"addObject": &objects.UserFunction {
+	"addObject": &objects.UserFunction{
 		Value: func(args ...objects.Object) (ret objects.Object, err error) {
 			if len(args) < 3 {
 				return nil, objects.ErrWrongNumArguments
@@ -142,7 +142,7 @@ var scriptAttributes = map[string]objects.Object {
 			return objects.UndefinedValue, nil
 		},
 	},
-	"removeObject": &objects.UserFunction {
+	"removeObject": &objects.UserFunction{
 		Value: func(args ...objects.Object) (ret objects.Object, err error) {
 			if len(args) < 2 {
 				return nil, objects.ErrWrongNumArguments
@@ -169,7 +169,7 @@ var scriptAttributes = map[string]objects.Object {
 			return objects.UndefinedValue, nil
 		},
 	},
-	"getPlayer": &objects.UserFunction {
+	"getPlayer": &objects.UserFunction{
 		Value: func(args ...objects.Object) (ret objects.Object, err error) {
 			if len(args) < 1 {
 				return nil, objects.ErrWrongNumArguments
@@ -189,7 +189,7 @@ var scriptAttributes = map[string]objects.Object {
 			return client, nil
 		},
 	},
-	"sleep": &objects.UserFunction {
+	"sleep": &objects.UserFunction{
 		Value: func(args ...objects.Object) (ret objects.Object, err error) {
 			if len(args) < 1 {
 				return nil, objects.ErrWrongNumArguments
@@ -209,5 +209,5 @@ var scriptAttributes = map[string]objects.Object {
 }
 
 func NewWorldModule() *objects.BuiltinModule {
-	return &objects.BuiltinModule{ Attrs: scriptAttributes}
+	return &objects.BuiltinModule{Attrs: scriptAttributes}
 }

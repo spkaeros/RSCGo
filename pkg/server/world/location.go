@@ -1,8 +1,8 @@
 package world
 
 import (
-	"github.com/spkaeros/rscgo/pkg/rand"
 	"fmt"
+	"github.com/spkaeros/rscgo/pkg/rand"
 	"go.uber.org/atomic"
 )
 
@@ -179,6 +179,7 @@ func (l *Location) PlaneY(up bool) uint32 {
 	}
 	return uint32(newPlane*944) + (l.Y.Load() % 944)
 }
+
 //NextTileToward Returns the next tile toward the final destination of this pathway from currentLocation
 func (l Location) NextTileToward(other Location) Location {
 	destX, destY := other.X.Load(), other.Y.Load()

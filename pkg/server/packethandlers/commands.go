@@ -1,9 +1,9 @@
 package packethandlers
 
 import (
+	"fmt"
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/script"
-	"fmt"
 	"os"
 	"runtime/pprof"
 	"strconv"

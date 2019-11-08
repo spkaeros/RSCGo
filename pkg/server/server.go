@@ -1,10 +1,10 @@
 package server
 
 import (
-	"github.com/spkaeros/rscgo/pkg/server/clients"
-	"github.com/spkaeros/rscgo/pkg/server/script"
 	"fmt"
 	"github.com/gobwas/ws"
+	"github.com/spkaeros/rscgo/pkg/server/clients"
+	"github.com/spkaeros/rscgo/pkg/server/script"
 	"net"
 	"os"
 	"time"
@@ -71,7 +71,7 @@ func Bind(port int) {
 }
 
 func StartConnectionService() {
-	Bind(config.Port()) // UNIX sockets
+	Bind(config.Port())   // UNIX sockets
 	Bind(config.WSPort()) // websockets
 }
 

@@ -89,7 +89,7 @@ var ChatFilter struct {
 }
 
 //Base37 Represents a single API access point for encoding strings to their base 37 integer hash and converting base 37 hashes back to strings.
-var Base37  struct {
+var Base37 struct {
 	//Encode Encodes a string into its base 37 integer hash and returns the hash.  Input will be filtered appropriately.
 	Encode func(string) uint64
 	//Decode Decodes a string from its base 37 integer hash form back into a Go string and returns it, placing capital letters where appropriate.

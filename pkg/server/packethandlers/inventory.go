@@ -10,7 +10,6 @@ import (
 	"strings"
 )
 
-
 func init() {
 	PacketHandlers["invwield"] = func(c clients.Client, p *packetbuilders.Packet) {
 		index := p.ReadShort()

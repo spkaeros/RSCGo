@@ -1,10 +1,10 @@
 package clients
 
 import (
+	"github.com/d5/tengo/objects"
 	"github.com/spkaeros/rscgo/pkg/server/config"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/world"
-	"github.com/d5/tengo/objects"
 	"sync"
 )
 

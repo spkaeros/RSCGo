@@ -51,17 +51,17 @@ type BoundaryDefinition struct {
 }
 
 type EquipmentDefinition struct {
-	ID int
-	Sprite int
-	Type int
-	Armour int
-	Magic int
-	Prayer int
-	Ranged int
-	Aim int
-	Power int
+	ID       int
+	Sprite   int
+	Type     int
+	Armour   int
+	Magic    int
+	Prayer   int
+	Ranged   int
+	Aim      int
+	Power    int
 	Position int
-	Female bool
+	Female   bool
 }
 
 //Objects This holds the defining characteristics for all of the game's scene objects, ordered by ID.

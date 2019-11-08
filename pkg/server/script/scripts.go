@@ -1,10 +1,10 @@
 package script
 
 import (
-	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/d5/tengo/objects"
 	"github.com/d5/tengo/script"
 	"github.com/d5/tengo/stdlib"
+	"github.com/spkaeros/rscgo/pkg/server/log"
 )
 
 var ActiveTriggers []func()
@@ -37,7 +37,7 @@ func ParseInt(arg objects.Object) (int, error) {
 
 func MakeFunc(name string, action func(...objects.Object) (objects.Object, error)) *objects.UserFunction {
 	return &objects.UserFunction{
-		Name: name,
+		Name:  name,
 		Value: action,
 	}
 }
@@ -59,7 +59,7 @@ func RunScript(s *script.Script) bool {
 //SetScriptVariable Sets a script-scoped variable by name to value.
 func SetScriptVariable(s *script.Script, variableName string, value interface{}) {
 	if err := s.Add(variableName, value); err != nil {
-		log.Info.Println("Error setting script variable '" + variableName + "':", err)
+		log.Info.Println("Error setting script variable '"+variableName+"':", err)
 		return
 	}
 }
