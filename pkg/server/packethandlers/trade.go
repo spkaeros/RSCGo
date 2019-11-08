@@ -95,7 +95,7 @@ func init() {
 			return
 		}
 		for i := 0; i < itemCount; i++ {
-			c.Player().TradeOffer.Put(p.ReadShort(), p.ReadInt())
+			c.Player().TradeOffer.Add(p.ReadShort(), p.ReadInt())
 		}
 	}
 	PacketHandlers["tradedecline"] = func(c clients.Client, p *packetbuilders.Packet) {
@@ -232,11 +232,11 @@ func init() {
 			}
 			for i := 0; i < c1.Player().TradeOffer.Size(); i++ {
 				item := c1.Player().TradeOffer.Get(i)
-				c.Player().Items.Put(item.ID, item.Amount)
+				c.Player().Items.Add(item.ID, item.Amount)
 			}
 			for i := 0; i < c.Player().TradeOffer.Size(); i++ {
 				item := c.Player().TradeOffer.Get(i)
-				c1.Player().Items.Put(item.ID, item.Amount)
+				c1.Player().Items.Add(item.ID, item.Amount)
 			}
 			c.Message("Trade completed.")
 			c1.Message("Trade completed.")

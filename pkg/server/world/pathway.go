@@ -73,8 +73,8 @@ func (p *Pathway) StartingTile() Location {
 	return NewLocation(int(p.StartX), int(p.StartY))
 }
 
-//NextTile Returns the next tile toward the final destination of this pathway from currentLocation
-func (p *Pathway) NextTile(currentLocation Location) Location {
+//NextTileToward Returns the next tile toward the final destination of this pathway from currentLocation
+func (p *Pathway) NextTileFrom(currentLocation Location) Location {
 	dest := p.NextWaypointTile()
 	destX, destY := dest.X.Load(), dest.Y.Load()
 	currentX, currentY := currentLocation.X.Load(), currentLocation.Y.Load()

@@ -74,7 +74,8 @@ func (l Location) decY() {
 	l.Y.Store(l.Y.Load() - 1)
 }
 
-//NewRandomLocation Returns a new random location within the specified bounds.  bounds[0] should be lowest corner, bounds[1] highest.
+//NewRandomLocation Returns a new random location within the specified bounds.  bounds[0] should be lowest corner, and
+// bounds[1] should be the highest corner.
 func NewRandomLocation(bounds [2]Location) Location {
 	return NewLocation(rand.Int31N(int(bounds[0].X.Load()), int(bounds[1].X.Load())), rand.Int31N(int(bounds[0].Y.Load()), int(bounds[1].Y.Load())))
 }
@@ -177,6 +178,25 @@ func (l *Location) PlaneY(up bool) uint32 {
 		}
 	}
 	return uint32(newPlane*944) + (l.Y.Load() % 944)
+}
+//NextTileToward Returns the next tile toward the final destination of this pathway from currentLocation
+func (l Location) NextTileToward(other Location) Location {
+	destX, destY := other.X.Load(), other.Y.Load()
+	currentX, currentY := l.X.Load(), l.Y.Load()
+	destination := NewLocation(int(currentX), int(currentY))
+	switch {
+	case currentX > destX:
+		destination.decX()
+	case currentX < destX:
+		destination.incX()
+	}
+	switch {
+	case currentY > destY:
+		destination.decY()
+	case currentY < destY:
+		destination.incY()
+	}
+	return destination
 }
 
 //ParseDirection Tries to parse the direction indicated in s.  If it can not match any direction, returns the zero-value for direction: north.

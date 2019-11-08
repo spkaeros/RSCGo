@@ -67,7 +67,7 @@ func init() {
 				return true
 			}
 			item.Remove()
-			c.Player().Items.Put(item.ID, item.Amount)
+			c.Player().Items.Add(item.ID, item.Amount)
 			c.SendPacket(packetbuilders.InventoryItems(c.Player()))
 			return true
 		})

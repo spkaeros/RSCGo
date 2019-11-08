@@ -25,6 +25,15 @@ func IPToInteger(s string) (ip int) {
 	return ip
 }
 
+func JagHash(s string) int {
+	ident := 0
+	s = strings.ToUpper(s)
+	for _, c := range s {
+		ident = int((rune(ident)*61 + c) - 32)
+	}
+	return ident
+}
+
 //ModalParse Neat command argument parsing function with support for single-quotes, ported from Java
 func ModalParse(s string) []string {
 	var cur string

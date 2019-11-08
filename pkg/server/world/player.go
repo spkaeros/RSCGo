@@ -349,7 +349,7 @@ func (p *Player) NewNPCs() (npcs []*NPC) {
 }
 
 //SetLocation Sets the mobs location.
-func (p *Player) SetLocation(location *Location) {
+func (p *Player) SetLocation(location Location) {
 	p.SetCoords(int(location.X.Load()), int(location.Y.Load()))
 }
 

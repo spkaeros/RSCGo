@@ -57,7 +57,7 @@ func FromIndex(index int) (Client, bool) {
 	return result, ok
 }
 
-//Put Puts a client into the map.
+//Add Puts a client into the map.
 func Put(c Client) {
 	nextIndex := NextIndex()
 	Clients.lock.Lock()

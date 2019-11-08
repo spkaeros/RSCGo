@@ -50,7 +50,7 @@ func (m *Mob) Busy() bool {
 
 //Direction Returns the mobs direction.
 func (m *Mob) Direction() int {
-	return m.TransAttrs.VarInt("direction", 0)
+	return m.TransAttrs.VarInt("direction", North)
 }
 
 //SetDirection Sets the mobs direction.
@@ -77,6 +77,22 @@ func (m *Mob) UpdateSelf() {
 //UpdateSelf Sets the synchronization flag for whether this mob has moved to true.
 func (m *Mob) Move() {
 	m.TransAttrs.SetVar("moved", true)
+}
+
+func (m *Mob) ResetMoved() {
+	m.TransAttrs.UnsetVar("moved")
+}
+
+func (m *Mob) ResetRemoved() {
+	m.TransAttrs.UnsetVar("remove")
+}
+
+func (m *Mob) ResetNeedsSelf() {
+	m.TransAttrs.UnsetVar("self")
+}
+
+func (m *Mob) ResetChanged() {
+	m.TransAttrs.UnsetVar("changed")
 }
 
 //SetPath Sets the mob's current pathway to path.  If path is nil, effectively resets the mobs path.
@@ -108,7 +124,7 @@ func (m *Mob) TraversePath() {
 		return
 	}
 	m.Move()
-	m.SetLocation(path.NextTile(m.Location))
+	m.SetLocation(path.NextTileFrom(m.Location))
 }
 
 //FinishedPath Returns true if the mobs path is nil, the paths current waypoint exceeds the number of waypoints available, or the next tile in the path is not a valid location, implying that we have reached our destination.
@@ -117,7 +133,7 @@ func (m *Mob) FinishedPath() bool {
 	if path == nil {
 		return true
 	}
-	return path.CurrentWaypoint >= path.CountWaypoints() || !path.NextTile(m.Location).IsValid()
+	return path.CurrentWaypoint >= path.CountWaypoints() || !path.NextTileFrom(m.Location).IsValid()
 }
 
 //UpdateDirection Updates the direction the mob is facing based on where the mob is trying to move, and where the mob is currently at.
@@ -214,11 +230,11 @@ func (attributes *AttributeList) VarBool(name string, zero bool) bool {
 }
 
 //VarTime If there is a time.Duration attribute assigned to the specified name, returns it.  Otherwise, returns zero
-func (attributes *AttributeList) VarTime(name string, zero time.Time) time.Time {
+func (attributes *AttributeList) VarTime(name string) time.Time {
 	attributes.Lock.RLock()
 	defer attributes.Lock.RUnlock()
 	if _, ok := attributes.Set[name].(time.Time); !ok {
-		return zero
+		return time.Time{}
 	}
 
 	return attributes.Set[name].(time.Time)
@@ -301,11 +317,9 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 func UpdateNPCPositions() {
 	npcsLock.RLock()
 	for _, n := range Npcs {
-		if n.FinishedPath() {
-			if n.TransAttrs.VarTime("nextMove", time.Time{}).Before(time.Now()) {
-				n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
-				n.SetPath(NewPathwayToLocation(NewRandomLocation(n.Boundaries)))
-			}
+		if n.TransAttrs.VarTime("nextMove").Before(time.Now()) {
+			n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
+			n.SetPath(NewPathwayToLocation(NewRandomLocation(n.Boundaries)))
 		}
 
 		n.TraversePath()

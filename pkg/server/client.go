@@ -195,7 +195,7 @@ func (c *Client) IndexGet(index objects.Object) (objects.Object, error) {
 				ret = objects.UndefinedValue
 				if nextLocation := c.Player().Above(); !nextLocation.Equals(c.Player().Location) {
 					c.Player().ResetPath()
-					c.Player().SetLocation(&nextLocation)
+					c.Player().SetLocation(nextLocation)
 					c.UpdatePlane()
 				}
 				return
@@ -205,7 +205,7 @@ func (c *Client) IndexGet(index objects.Object) (objects.Object, error) {
 				ret = objects.UndefinedValue
 				if nextLocation := c.Player().Below(); !nextLocation.Equals(c.Player().Location) {
 					c.Player().ResetPath()
-					c.Player().SetLocation(&nextLocation)
+					c.Player().SetLocation(nextLocation)
 					c.UpdatePlane()
 				}
 				return

@@ -93,8 +93,8 @@ func (i *Inventory) Size() int {
 	return len(i.List)
 }
 
-//Put Puts an item into the inventory with the specified id and quantity, and returns its index.
-func (i *Inventory) Put(id int, qty int) int {
+//Add Puts an item into the inventory with the specified id and quantity, and returns its index.
+func (i *Inventory) Add(id int, qty int) int {
 	curSize := i.Size()
 	if curSize >= i.Capacity {
 		return -1
@@ -149,6 +149,20 @@ func (i *Inventory) Get(index int) *Item {
 	}
 
 	return i.List[index]
+}
+
+//Get Returns a reference to the item at index if it exists, otherwise returns nil.
+func (i *Inventory) GetByID(ID int) *Item {
+	i.Lock.RLock()
+	defer i.Lock.RUnlock()
+
+	for _, item := range i.List {
+		if item.ID == ID {
+			return item
+		}
+	}
+
+	return nil
 }
 
 //RemoveAll Removes all of the items in offer from this inventory, returns count of items removed.

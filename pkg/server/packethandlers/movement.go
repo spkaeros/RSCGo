@@ -2,6 +2,7 @@ package packethandlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/clients"
+	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
@@ -39,7 +40,7 @@ func init() {
 			return
 		}
 		c.Player().ResetAll()
-		c.Player().StartFollowing(1)
+		c.Player().StartFollowing(2)
 		c.Message("@que@Following " + affectedClient.Player().Username)
 		c.Player().SetDistancedAction(func() bool {
 			if !c.Player().IsFollowing() {
@@ -55,25 +56,16 @@ func init() {
 			if !c.Player().FinishedPath() && c.Player().WithinRange(affectedClient.Player().Location, c.Player().FollowRadius()) {
 				// We're not done moving toward our target, but we're close enough that we should stop
 				c.Player().ResetPath()
-			} else if c.Player().FinishedPath() && !c.Player().WithinRange(affectedClient.Player().Location, c.Player().FollowRadius()) {
+			} else if !c.Player().WithinRange(affectedClient.Player().Location, c.Player().FollowRadius()) {
 				// We're not moving, but our target is moving away, so we must try to get closer
-				newX := c.Player().X.Load()
-				switch x, x1 := newX, affectedClient.Player().X.Load(); {
-				case x < x1:
-					newX++
-				case x > x1:
-					newX--
+				if dest := c.Player().NextTileToward(affectedClient.Player().Location); !dest.Equals(c.Player().Location) {
+					c.Player().SetLocation(dest)
+					c.Player().Move()
+				} else {
+					log.Info.Printf("Could not traverse the world to follow a client: from %v to %v, %v was following %v\n", c.Player().Location, affectedClient.Player().Location, c, affectedClient)
+					c.Player().ResetFollowing()
+					return true
 				}
-				newY := c.Player().Y.Load()
-				switch y, y1 := newY, affectedClient.Player().Y.Load(); {
-				case y < y1:
-					newY++
-				case y > y1:
-					newY--
-				}
-				c.Player().Move()
-				c.Player().SetCoords(int(newX), int(newY))
-//				c.Player().SetPath(world.NewPathwayToLocation(affectedClient.Player().Location))
 			}
 			return false
 		})
