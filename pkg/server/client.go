@@ -456,9 +456,11 @@ func (c *Client) Initialize() {
 			level = 10
 			exp = 1154
 		}
+		c.player.Skillset.Lock.Lock()
 		c.player.Skillset.Current[i] = level
 		c.player.Skillset.Maximum[i] = level
 		c.player.Skillset.Experience[i] = exp
+		c.player.Skillset.Lock.Unlock()
 	}
 	c.SendPacket(packetbuilders.PlaneInfo(c.player))
 	if !c.player.Reconnecting() {
@@ -565,8 +567,10 @@ func (c *Client) EquipItem(item *world.Item) {
 	c.player.SetMagicPoints(c.player.MagicPoints() + def.Magic)
 	c.player.SetPrayerPoints(c.player.PrayerPoints() + def.Prayer)
 	c.player.SetRangedPoints(c.player.RangedPoints() + def.Ranged)
+	c.player.AppearanceLock.Lock()
 	c.player.Equips[def.Position] = def.Sprite
 	c.player.AppearanceTicket++
+	c.player.AppearanceLock.Unlock()
 	c.SendPacket(packetbuilders.EquipmentStats(c.player))
 	c.SendPacket(packetbuilders.InventoryItems(c.player))
 }
@@ -596,8 +600,10 @@ func (c *Client) DequipItem(item *world.Item) {
 	default:
 		value = 0
 	}
+	c.player.AppearanceLock.Lock()
 	c.player.Equips[def.Position] = value
 	c.player.AppearanceTicket++
+	c.player.AppearanceLock.Unlock()
 	c.SendPacket(packetbuilders.EquipmentStats(c.player))
 	c.SendPacket(packetbuilders.InventoryItems(c.player))
 }

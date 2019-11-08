@@ -1,5 +1,7 @@
 package isaac
 
+import "sync"
+
 //ISAAC The state of the ISAAC CSPRNG
 type ISAAC struct {
 	// external results
@@ -11,6 +13,7 @@ type ISAAC struct {
 	aa, bb, cc uint64
 	index      int
 	remainder  []byte
+	Lock sync.RWMutex
 }
 
 func (r *ISAAC) generateNextSet() {
@@ -81,15 +84,19 @@ func (r *ISAAC) randInit() {
 			}
 		}
 	}
+	r.Lock.Lock()
 	messify(r.randrsl)
 	messify(r.mm)
 
 	r.generateNextSet() /* fill in the first set of results */
 	r.randcnt = 0       /* reset the counter for the first set of results */
+	r.Lock.Unlock()
 }
 
 //Uint64 Returns the next 8 bytes as a long integer from the ISAAC CSPRNG receiver instance.
 func (r *ISAAC) Uint64() (number uint64) {
+	r.Lock.Lock()
+	defer r.Lock.Unlock()
 	number = r.randrsl[r.randcnt]
 	r.randcnt++
 	if r.randcnt == 256 {
@@ -206,6 +213,7 @@ func (r *ISAAC) Read(dst []byte) (n int, err error) {
 //  if you request a length of bytes that is not divisible evenly by 4, it will stash the remaining bytes into a buffer
 //  to be used on your next call to this function.
 func (r *ISAAC) NextBytes(n int) []byte {
+	r.Lock.Lock()
 	buf := make([]byte, n)
 	r.index = 0
 	if len(r.remainder) > 0 {
@@ -215,13 +223,16 @@ func (r *ISAAC) NextBytes(n int) []byte {
 		}
 		if r.index >= n {
 			r.remainder = r.remainder[r.index:]
+			r.Lock.Unlock()
 			return buf
 		}
 	}
 	r.remainder = []byte{}
 
 	for r.index < n {
+		r.Lock.Unlock()
 		nextInt := r.Uint64()
+		r.Lock.Lock()
 		for i := 0; i < 8; i++ {
 			if r.index >= n {
 				r.remainder = append(r.remainder, byte(nextInt>>uint(8*(7-i))))
@@ -231,6 +242,7 @@ func (r *ISAAC) NextBytes(n int) []byte {
 			r.index++
 		}
 	}
+	r.Lock.Unlock()
 
 	return buf
 }

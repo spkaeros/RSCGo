@@ -14,7 +14,6 @@ import (
 	"bytes"
 	"compress/bzip2"
 	"compress/gzip"
-	"github.com/spkaeros/rscgo/pkg/server/config"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"io/ioutil"
 	"runtime"
@@ -147,108 +146,20 @@ func LoadSector(name string, data []byte) (s *Sector) {
 		return nil
 	}
 	s = &Sector{Name: name}
-	blankCount := make(chan int, 2304)
-	done := make(chan struct{}, 2)
-	go func() {
-		for i, _ := range s.Tiles[:576] {
-			func() {
-				tile := new(TileData)
-				tile.GroundElevation = data[0] & 0xFF
-				tile.GroundTexture = data[1] & 0xFF
-				tile.GroundOverlay = data[2] & 0xFF
-				if tile.GroundOverlay == 0 {
-					blankCount <- 1
-				}
-				tile.Roofs = data[3] & 0xFF
-				tile.HorizontalWalls = data[4] & 0xFF
-				tile.VerticalWalls = data[5] & 0xFF
-				tile.DiagonalWalls = int(uint32(data[6]&0xFF<<24) | uint32(data[7]&0xFF<<16) |
-					uint32(data[8]&0xFF<<8) | uint32(data[9]&0xFF))
-				s.Tiles[i] = tile
-			}()
+	for _, tile := range s.Tiles {
+		if tile == nil {
+			tile = new(TileData)
 		}
-		done <- struct{}{}
-	}()
-	go func() {
-		for i, _ := range s.Tiles[576:1152] {
-			func() {
-				tile := new(TileData)
-				tile.GroundElevation = data[0] & 0xFF
-				tile.GroundTexture = data[1] & 0xFF
-				tile.GroundOverlay = data[2] & 0xFF
-				if tile.GroundOverlay == 0 {
-					blankCount <- 1
-				}
-				tile.Roofs = data[3] & 0xFF
-				tile.HorizontalWalls = data[4] & 0xFF
-				tile.VerticalWalls = data[5] & 0xFF
-				tile.DiagonalWalls = int(uint32(data[6]&0xFF<<24) | uint32(data[7]&0xFF<<16) |
-					uint32(data[8]&0xFF<<8) | uint32(data[9]&0xFF))
-				s.Tiles[i] = tile
-			}()
-		}
-		done <- struct{}{}
-	}()
-	go func() {
-		for i, _ := range s.Tiles[1152:1728] {
-			func() {
-				tile := new(TileData)
-				tile.GroundElevation = data[0] & 0xFF
-				tile.GroundTexture = data[1] & 0xFF
-				tile.GroundOverlay = data[2] & 0xFF
-				if tile.GroundOverlay == 0 {
-					blankCount <- 1
-				}
-				tile.Roofs = data[3] & 0xFF
-				tile.HorizontalWalls = data[4] & 0xFF
-				tile.VerticalWalls = data[5] & 0xFF
-				tile.DiagonalWalls = int(uint32(data[6]&0xFF<<24) | uint32(data[7]&0xFF<<16) |
-					uint32(data[8]&0xFF<<8) | uint32(data[9]&0xFF))
-				s.Tiles[i] = tile
-			}()
-		}
-		done <- struct{}{}
-	}()
-	go func() {
-		for i, _ := range s.Tiles[1728:] {
-			func() {
-				tile := new(TileData)
-				tile.GroundElevation = data[0] & 0xFF
-				tile.GroundTexture = data[1] & 0xFF
-				tile.GroundOverlay = data[2] & 0xFF
-				if tile.GroundOverlay == 0 {
-					blankCount <- 1
-				}
-				tile.Roofs = data[3] & 0xFF
-				tile.HorizontalWalls = data[4] & 0xFF
-				tile.VerticalWalls = data[5] & 0xFF
-				tile.DiagonalWalls = int(uint32(data[6]&0xFF<<24) | uint32(data[7]&0xFF<<16) |
-					uint32(data[8]&0xFF<<8) | uint32(data[9]&0xFF))
-				s.Tiles[i] = tile
-			}()
-		}
-		done <- struct{}{}
-	}()
-	count := 0
-	running := 4
-	select {
-	case <-blankCount:
-		count++
-	case <-done:
-		running--
-		if running == 0 {
-			close(blankCount)
-			close(done)
-			break
-		}
+		tile.GroundElevation = data[0] & 0xFF
+		tile.GroundTexture = data[1] & 0xFF
+		tile.GroundOverlay = data[2] & 0xFF
+		tile.Roofs = data[3] & 0xFF
+		tile.HorizontalWalls = data[4] & 0xFF
+		tile.VerticalWalls = data[5] & 0xFF
+		tile.DiagonalWalls = int(uint32(data[6]&0xFF<<24) | uint32(data[7]&0xFF<<16) |
+			uint32(data[8]&0xFF<<8) | uint32(data[9]&0xFF))
 	}
-	if count == 2304 {
-		if config.Verbosity >= 2 {
-			log.Info.Println("Prevented caching a blank sector(all tiles in it are black or underwater):", name)
-		}
-		return nil
-	}
-	return s
+	return
 }
 
 func indexFromHash(hash int) int {

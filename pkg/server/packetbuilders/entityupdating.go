@@ -179,9 +179,11 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 //		p.AddByte(uint8(player.Appearance.Head))
 //		p.AddByte(uint8(player.Appearance.Body))
 //		p.AddByte(uint8(player.Appearance.Legs))
+		ourPlayer.AppearanceLock.RLock()
 		for i := 0; i < 12; i++ {
 			p.AddByte(uint8(player.Equips[i]))
 		}
+		ourPlayer.AppearanceLock.RUnlock()
 		p.AddByte(uint8(player.Appearance.HeadColor))
 		p.AddByte(uint8(player.Appearance.BodyColor))
 		p.AddByte(uint8(player.Appearance.LegsColor))

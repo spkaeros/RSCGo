@@ -273,10 +273,13 @@ type SkillTable struct {
 	Current    [18]int
 	Maximum    [18]int
 	Experience [18]int
+	Lock sync.RWMutex
 }
 
 //CombatLevel Calculates and returns the combat level for this skill table.
 func (s *SkillTable) CombatLevel() int {
+	s.Lock.RLock()
+	defer s.Lock.RUnlock()
 	aggressiveTotal := float32(s.Maximum[0] + s.Maximum[2])
 	defensiveTotal := float32(s.Maximum[1] + s.Maximum[3])
 	spiritualTotal := float32((s.Maximum[5] + s.Maximum[6]) / 8)
