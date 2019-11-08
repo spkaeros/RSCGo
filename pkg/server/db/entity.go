@@ -93,11 +93,11 @@ func LoadObjectDefinitions() {
 	database := Open(config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT id, name, description, command_one, command_two, type, width, height, ground_item_var FROM `game_objects`")
-	defer rows.Close()
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
 		return
 	}
+	defer rows.Close()
 	for rows.Next() {
 		nextDef := ObjectDefinition{Commands: make([]string, 2)}
 		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.Type, &nextDef.Width, &nextDef.Height, &nextDef.Length)
@@ -109,11 +109,11 @@ func LoadEquipmentDefinitions() {
 	database := Open(config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT id, sprite, type, armour_points, magic_points, prayer_points, range_points, weapon_aim_points, weapon_power_points, pos, femaleOnly FROM `item_wieldable`")
-	defer rows.Close()
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
 		return
 	}
+	defer rows.Close()
 	for rows.Next() {
 		nextDef := EquipmentDefinition{}
 		rows.Scan(&nextDef.ID, &nextDef.Sprite, &nextDef.Type, &nextDef.Armour, &nextDef.Magic, &nextDef.Prayer, &nextDef.Ranged, &nextDef.Aim, &nextDef.Power, &nextDef.Position, &nextDef.Female)
@@ -144,11 +144,11 @@ func LoadItemDefinitions() {
 	database := Open(config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT id, name, description, command, base_price, stackable, special, members FROM `items` ORDER BY id")
-	defer rows.Close()
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
 		return
 	}
+	defer rows.Close()
 	for rows.Next() {
 		nextDef := ItemDefinition{}
 		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Command, &nextDef.BasePrice, &nextDef.Stackable, &nextDef.Quest, &nextDef.Members)
@@ -161,11 +161,11 @@ func LoadNpcDefinitions() {
 	database := Open(config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT id, name, description, command, hits, attack, strength, defense, attackable FROM `npcs` ORDER BY id")
-	defer rows.Close()
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
 		return
 	}
+	defer rows.Close()
 	for rows.Next() {
 		nextDef := NpcDefinition{}
 		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Command, &nextDef.Hits, &nextDef.Attack, &nextDef.Strength, &nextDef.Defense, &nextDef.Attackable)
@@ -179,11 +179,11 @@ func LoadObjectLocations() {
 	database := Open(config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT `id`, `direction`, `boundary`, `x`, `y` FROM `game_object_locations`")
-	defer rows.Close()
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
 		return
 	}
+	defer rows.Close()
 	var id, direction, boundary, x, y int
 	for rows.Next() {
 		rows.Scan(&id, &direction, &boundary, &x, &y)
@@ -201,11 +201,11 @@ func LoadNpcLocations() {
 	database := Open(config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT `id`, `startX`, `minX`, `maxX`, `startY`, `minY`, `maxY` FROM `npc_locations`")
-	defer rows.Close()
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
 		return
 	}
+	defer rows.Close()
 	var id, startX, minX, maxX, startY, minY, maxY int
 	for rows.Next() {
 		rows.Scan(&id, &startX, &minX, &maxX, &startY, &minY, &maxY)

@@ -25,7 +25,7 @@ func (r *ISAAC) generateNextSet() {
 		// shift
 		switch i % 4 {
 		case 0:
-			// complement, supposedly causes poor states to become randomized quicker.  Avalanche effect.
+			// complement supposedly causes poor states to become randomized quicker by inducing an avalanche effect.
 			r.aa = ^(r.aa ^ r.aa<<21)
 		case 1:
 			r.aa ^= r.aa >> 5
@@ -34,12 +34,12 @@ func (r *ISAAC) generateNextSet() {
 		case 3:
 			r.aa ^= r.aa >> 33
 		}
-		// ISAAC(p) cipher code, with modifications recommended by Jean-Phillipe Aumasson to avoid a discovered bias,
-		// and strengthen the result set produced
+		// ISAAC64 plus cipher code, with modifications recommended by Jean-Phillipe Aumasson to avoid a discovered bias,
+		// and strengthen the output stream.
 		r.aa += r.mm[(i+128)&0xFF]           // indirection, accumulation
-		y := r.mm[x&1020>>2] + (r.aa ^ r.bb) // indirection, addition, (p) exlusive-or, (p) rotation
+		y := r.mm[x&1020>>2] + (r.aa ^ r.bb) // indirection, addition, (plus) exlusive-or, (plus) rotation
 		r.mm[i] = y
-		r.bb = r.aa ^ r.mm[y>>8&1020>>2] + x // indirection, addition, (p) exlusive-or, (p) rotation
+		r.bb = r.aa ^ r.mm[y>>8&1020>>2] + x // indirection, addition, (plus) exlusive-or, (plus) rotation
 		r.randrsl[i] = r.bb
 
 		// Original ISAAC cipher code
@@ -214,6 +214,7 @@ func (r *ISAAC) Read(dst []byte) (n int, err error) {
 //  to be used on your next call to this function.
 func (r *ISAAC) NextBytes(n int) []byte {
 	r.Lock.Lock()
+	defer r.Lock.Unlock()
 	buf := make([]byte, n)
 	r.index = 0
 	if len(r.remainder) > 0 {
@@ -223,7 +224,6 @@ func (r *ISAAC) NextBytes(n int) []byte {
 		}
 		if r.index >= n {
 			r.remainder = r.remainder[r.index:]
-			r.Lock.Unlock()
 			return buf
 		}
 	}
@@ -242,7 +242,6 @@ func (r *ISAAC) NextBytes(n int) []byte {
 			r.index++
 		}
 	}
-	r.Lock.Unlock()
 
 	return buf
 }
@@ -253,11 +252,11 @@ func New(key []uint64) *ISAAC {
 	for i := 0; i < len(key); i++ {
 		tmpRsl[i] = key[i]
 	}
-	if len(key) < 256 {
-		for i := len(key); i < 256; i++ {
-			k := tmpRsl[i-len(key)]
-			tmpRsl[i] = (0x6c078965*(k^(k>>30)) + uint64(i)) & 0xffffffff
-		}
+	for i := len(key); i < len(tmpRsl); i++ {
+		// Attempt to make the state more randomized before even initializing
+		// ISAAC is said not to have weak states, but this gives me peace of mind in that it randomizes any zero padding
+		k := tmpRsl[i-len(key)]
+		tmpRsl[i] = (0x6c078965*(k^(k>>30)) + uint64(i)) & 0xffffffff
 	}
 	stream := &ISAAC{randrsl: tmpRsl}
 	stream.randInit()
