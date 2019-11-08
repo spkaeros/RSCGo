@@ -320,9 +320,25 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 func UpdateNPCPositions() {
 	npcsLock.RLock()
 	for _, n := range Npcs {
-		if n.TransAttrs.VarTime("nextMove").Before(time.Now()) {
-			n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
-			n.SetPath(NewPathwayToLocation(NewRandomLocation(n.Boundaries)))
+playerSearch:
+		for _, r := range SurroundingRegions(int(n.X.Load()), int(n.Y.Load())) {
+			r.Players.lock.RLock()
+			for _, p := range r.Players.List {
+				if p, ok := p.(*Player); ok {
+					// We can trigger NPC movement within 2 view areas of us, to prevent the appearance of suddenly
+					// waking a whole town of NPCs up.  This feels more like RSC than just checking our view-area,
+					// and cuts back resources compared to just updating all of the NPCs all of the time.
+					if p.WithinRange(n.Location, 32) {
+						if n.TransAttrs.VarTime("nextMove").Before(time.Now()) {
+							n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
+							n.SetPath(NewPathwayToLocation(NewRandomLocation(n.Boundaries)))
+						}
+						r.Players.lock.RUnlock()
+						break playerSearch
+					}
+				}
+			}
+			r.Players.lock.RUnlock()
 		}
 
 		n.TraversePath()
