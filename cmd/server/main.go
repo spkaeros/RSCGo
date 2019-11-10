@@ -89,10 +89,10 @@ func main() {
 	asyncExecute(&awaitLaunchJobs, script.LoadObjectTriggers)
 	asyncExecute(&awaitLaunchJobs, script.LoadBoundaryTriggers)
 	asyncExecute(&awaitLaunchJobs, script.LoadItemTriggers)
-	asyncExecute(&awaitLaunchJobs, world.UnmarshalWorldMaps)
+	asyncExecute(&awaitLaunchJobs, world.LoadMapData)
 	awaitLaunchJobs.Wait()
 	if config.Verbose() {
-		log.Info.Printf("Launched routines to load landscape clipping data...\n")
+		log.Info.Printf("Loaded %d landscape sectors.\n", len(world.Sectors))
 		log.Info.Printf("Loaded %d packet handlers.\n", packethandlers.Size())
 		log.Info.Printf("Loaded %d item definitions.\n", len(db.Items))
 		log.Info.Printf("Loaded %d NPC definitions.\n", len(db.Npcs))
