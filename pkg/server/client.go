@@ -670,8 +670,23 @@ func (c *Client) Read(dst []byte) (int, error) {
 		return -1, errors.ConnDeadline
 	}
 
+	expectedLen := len(dst)
+	cachedLen := len(c.PacketData)
+	if cachedLen > 0 {
+		copy(dst, c.PacketData)
+		if cachedLen > expectedLen {
+			c.PacketData = c.PacketData[expectedLen:]
+			return expectedLen, nil
+		} else {
+			c.PacketData = []byte{}
+			if cachedLen == expectedLen {
+				return expectedLen, nil
+			}
+		}
+	}
+
 	if !c.player.Websocket {
-		n, err := c.Socket.Read(dst)
+		n, err := c.Socket.Read(dst[cachedLen:])
 		if err != nil {
 			if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
 				return -1, errors.ConnClosed
@@ -680,22 +695,17 @@ func (c *Client) Read(dst []byte) (int, error) {
 			}
 			return -1, err
 		}
+		n += cachedLen
 
+		if n < expectedLen {
+			c.PacketData = dst[:n]
+		} else if n > expectedLen {
+			c.PacketData = dst[expectedLen:]
+		}
 		return n, nil
 	}
 
-	if len(c.PacketData) >= len(dst) {
-		// If we have enough data to fill dst, fill it, stash the remaining leftovers
-		copy(dst, c.PacketData)
-		if len(c.PacketData) == len(dst) {
-			c.PacketData = c.PacketData[:0]
-		} else {
-			c.PacketData = c.PacketData[len(dst):]
-		}
-		return len(dst), nil
-	}
-
-	data, _, err := wsutil.ReadData(c.Socket, ws.StateServerSide)
+	data, err := wsutil.ReadClientBinary(c.Socket)
 	if err != nil {
 		if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
 			return -1, errors.ConnClosed
@@ -704,20 +714,15 @@ func (c *Client) Read(dst []byte) (int, error) {
 		}
 		return -1, err
 	}
+	bytesLeft := expectedLen - cachedLen
+	copy(dst[cachedLen:], data)
 
-	if len(c.PacketData) > 0 {
-		// unstash extra data
-		data = append(c.PacketData, data...)
-		c.PacketData = c.PacketData[:0]
+	if len(data) > bytesLeft {
+		c.PacketData = data[bytesLeft:]
+	} else if len(data) < bytesLeft {
+		c.PacketData = dst[:cachedLen+len(data)]
 	}
-
-	copy(dst, data)
-
-	if len(data) > len(dst) {
-		// stash extra data
-		c.PacketData = data[len(dst):]
-	}
-	return len(data), nil
+	return len(data) + cachedLen, nil
 }
 
 //ReadPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode of the next packet frame the client is sending us.
