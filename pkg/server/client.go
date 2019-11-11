@@ -670,6 +670,20 @@ func (c *Client) Read(dst []byte) (int, error) {
 		return -1, errors.ConnDeadline
 	}
 
+	if !c.player.Websocket {
+		n, err := c.Socket.Read(dst)
+		if err != nil {
+			if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
+				return -1, errors.ConnClosed
+			} else if e, ok := err.(net.Error); ok && e.Timeout() {
+				return -1, errors.ConnTimedOut
+			}
+			return -1, err
+		}
+
+		return n, nil
+	}
+
 	if len(c.PacketData) >= len(dst) {
 		// If we have enough data to fill dst, fill it, stash the remaining leftovers
 		copy(dst, c.PacketData)
@@ -681,14 +695,7 @@ func (c *Client) Read(dst []byte) (int, error) {
 		return len(dst), nil
 	}
 
-	var data []byte
-	if c.player.Websocket {
-		data, _, err = wsutil.ReadData(c.Socket, ws.StateServerSide)
-	} else {
-		_, err = c.Socket.Read(dst)
-		data = dst
-	}
-
+	data, _, err := wsutil.ReadData(c.Socket, ws.StateServerSide)
 	if err != nil {
 		if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
 			return -1, errors.ConnClosed
@@ -700,23 +707,17 @@ func (c *Client) Read(dst []byte) (int, error) {
 
 	if len(c.PacketData) > 0 {
 		// unstash extra data
-		if c.player.Websocket {
-			data = append(c.PacketData, data...)
-		} else {
-			dst = append(c.PacketData, dst...)
-		}
+		data = append(c.PacketData, data...)
 		c.PacketData = c.PacketData[:0]
 	}
 
-	if c.player.Websocket {
-		copy(dst, data)
+	copy(dst, data)
 
-		if len(data) > len(dst) {
-			// stash extra data
-			c.PacketData = data[len(dst):]
-		}
+	if len(data) > len(dst) {
+		// stash extra data
+		c.PacketData = data[len(dst):]
 	}
-	return len(dst), nil
+	return len(data), nil
 }
 
 //ReadPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode of the next packet frame the client is sending us.
