@@ -749,10 +749,12 @@ func (c *Client) ReadPacket() (*packetbuilders.Packet, error) {
 
 	payload := make([]byte, length)
 
-	if l, err := c.Read(payload); err != nil {
-		return nil, err
-	} else if l < length {
-		return nil, errors.NewNetworkError("SHORT_DATA")
+	if length > 0 {
+		if l, err := c.Read(payload); err != nil {
+			return nil, err
+		} else if l < length {
+			return nil, errors.NewNetworkError("SHORT_DATA")
+		}
 	}
 
 	if length < 160 {
