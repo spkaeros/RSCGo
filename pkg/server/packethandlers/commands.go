@@ -310,7 +310,7 @@ func init() {
 		mapSector := fmt.Sprintf("h%dx%dy%d", c.Player().Plane(), regionX, regionY)
 		areaX := (2304+c.Player().CurX()) % 48
 		areaY := (1776+c.Player().CurY()-(944*c.Player().Plane())) % 48
-		tile := getTileData(c.Player().CurX(), c.Player().CurY()
+		tile := getTileData(c.Player().CurX(), c.Player().CurY())
 		c.Message(fmt.Sprintf("@que@%v,%v[%d,%d]: Vert:%v, Horiz:%v, Diag:%v, Roof:%v, Type:%v, Color:%v, Elev:%v", c.Player().Location.String(), mapSector, areaX, areaY, tile.VerticalWalls, tile.HorizontalWalls, tile.DiagonalWalls, tile.Roofs, tile.GroundOverlay, tile.GroundTexture, tile.GroundElevation))
 	}
 	CommandHandlers["clip"] = func(c clients.Client, args []string) {
