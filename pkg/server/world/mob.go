@@ -153,7 +153,7 @@ func (m *Mob) TraversePath() {
 
 	} else if dir == East {
 		clip := getTileData(int(x), int(y))
-		if clip.GroundOverlay == -6 & 0xFF {
+		if clip.GroundOverlay == -6 & 0xFF || clip.GroundOverlay == 2 {
 			// blackness, water
 			m.ResetPath()
 			return
@@ -164,7 +164,7 @@ func (m *Mob) TraversePath() {
 		}
 	} else if dir == West {
 		clip := getTileData(int(x+1), int(y))
-		if clip.GroundOverlay == -6 & 0xFF {
+		if clip.GroundOverlay == -6 & 0xFF || clip.GroundOverlay == 2 {
 			// blackness, water
 			m.ResetPath()
 			return
@@ -175,7 +175,7 @@ func (m *Mob) TraversePath() {
 		}
 	} else if dir == NorthEast {
 		nClip := getTileData(int(x), int(y))
-		if nClip.GroundOverlay == -6 & 0xFF {
+		if nClip.GroundOverlay == -6 & 0xFF || nClip.GroundOverlay == 2 {
 			// blackness, water
 			m.ResetPath()
 			return
@@ -185,7 +185,7 @@ func (m *Mob) TraversePath() {
 			return
 		}
 		eClip := getTileData(int(x), int(y))
-		if eClip.GroundOverlay == -6 & 0xFF {
+		if eClip.GroundOverlay == -6 & 0xFF || eClip.GroundOverlay == 2 {
 			// blackness, water
 			m.ResetPath()
 			return
@@ -196,7 +196,7 @@ func (m *Mob) TraversePath() {
 		}
 	} else if dir == NorthWest {
 		nClip := getTileData(int(x), int(y))
-		if nClip.GroundOverlay == -6 & 0xFF {
+		if nClip.GroundOverlay == -6 & 0xFF || nClip.GroundOverlay == 2 {
 			// blackness, water
 			m.ResetPath()
 			return
@@ -206,7 +206,7 @@ func (m *Mob) TraversePath() {
 			return
 		}
 		eClip := getTileData(int(x + 1), int(y))
-		if eClip.GroundOverlay == -6 & 0xFF {
+		if eClip.GroundOverlay == -6 & 0xFF || eClip.GroundOverlay == 2 {
 			// blackness, water
 			m.ResetPath()
 			return
@@ -217,7 +217,7 @@ func (m *Mob) TraversePath() {
 		}
 	} else if dir == SouthEast {
 		sClip := getTileData(int(x), int(y+1))
-		if sClip.GroundOverlay == -6 & 0xFF {
+		if sClip.GroundOverlay == -6 & 0xFF || sClip.GroundOverlay == 2 {
 			// blackness, water
 			m.ResetPath()
 			return
@@ -227,7 +227,7 @@ func (m *Mob) TraversePath() {
 			return
 		}
 		eClip := getTileData(int(x), int(y))
-		if eClip.GroundOverlay == -6 & 0xFF {
+		if eClip.GroundOverlay == -6 & 0xFF || eClip.GroundOverlay == 2 {
 			// blackness, water
 			m.ResetPath()
 			return
@@ -238,7 +238,7 @@ func (m *Mob) TraversePath() {
 		}
 	} else if dir == SouthWest {
 		sClip := getTileData(int(x), int(y+1))
-		if sClip.GroundOverlay == -6 & 0xFF {
+		if sClip.GroundOverlay == -6 & 0xFF || sClip.GroundOverlay == 2 {
 			// blackness, water
 			m.ResetPath()
 			return
@@ -248,7 +248,7 @@ func (m *Mob) TraversePath() {
 			return
 		}
 		eClip := getTileData(int(x + 1), int(y))
-		if eClip.GroundOverlay == -6 & 0xFF {
+		if eClip.GroundOverlay == -6 & 0xFF || eClip.GroundOverlay == 2 {
 			// blackness, water
 			m.ResetPath()
 			return
