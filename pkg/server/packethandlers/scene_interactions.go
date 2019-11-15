@@ -89,16 +89,46 @@ func objectAction(c clients.Client, object *world.Object, rightClick bool) {
 	defer func() {
 		c.Player().State = world.MSIdle
 	}()
+
+	c.Player().ResetPath()
 	go func() {
-		for _, s := range script.ObjectTriggers {
-			script.SetScriptVariable(s, "player", c)
-			script.SetScriptVariable(s, "object", object)
-			if rightClick {
-				script.SetScriptVariable(s, "cmd", db.Objects[object.ID].Commands[1])
-			} else {
-				script.SetScriptVariable(s, "cmd", db.Objects[object.ID].Commands[0])
+		env := script.WorldModule()
+		err := env.Define("client", c)
+		if err != nil {
+			log.Info.Println("Error initializing scripting environment:", err)
+			return
+		}
+		err = env.Define("player", c.Player())
+		if err != nil {
+			log.Info.Println("Error initializing scripting environment:", err)
+			return
+		}
+		err = env.Define("object", object)
+		if err != nil {
+			log.Info.Println("Error initializing scripting environment:", err)
+			return
+		}
+		if rightClick {
+			err = env.Define("cmd", db.Objects[object.ID].Commands[1])
+			if err != nil {
+				log.Info.Println("Error initializing scripting environment:", err)
+				return
 			}
-			if script.RunScript(s) {
+		} else {
+			err = env.Define("cmd", db.Objects[object.ID].Commands[0])
+			if err != nil {
+				log.Info.Println("Error initializing scripting environment:", err)
+				return
+			}
+		}
+		for _, s := range script.Scripts {
+			scriptTriggered, err := env.Execute(s + `
+objectAction()`)
+			if err != nil {
+//				log.Info.Println(err)
+				continue
+			}
+			if scriptTriggered.(bool) {
 				return
 			}
 		}
@@ -116,16 +146,45 @@ func boundaryAction(c clients.Client, object *world.Object, rightClick bool) {
 	defer func() {
 		c.Player().State = world.MSIdle
 	}()
+	c.Player().ResetPath()
 	go func() {
-		for _, s := range script.BoundaryTriggers {
-			script.SetScriptVariable(s, "player", c)
-			script.SetScriptVariable(s, "object", object)
-			if rightClick {
-				script.SetScriptVariable(s, "cmd", db.Boundarys[object.ID].Commands[1])
-			} else {
-				script.SetScriptVariable(s, "cmd", db.Boundarys[object.ID].Commands[0])
+		env := script.WorldModule()
+		err := env.Define("client", c)
+		if err != nil {
+			log.Info.Println("Error initializing scripting environment:", err)
+			return
+		}
+		err = env.Define("player", c.Player())
+		if err != nil {
+			log.Info.Println("Error initializing scripting environment:", err)
+			return
+		}
+		err = env.Define("object", object)
+		if err != nil {
+			log.Info.Println("Error initializing scripting environment:", err)
+			return
+		}
+		if rightClick {
+			err = env.Define("cmd", db.Boundarys[object.ID].Commands[1])
+			if err != nil {
+				log.Info.Println("Error initializing scripting environment:", err)
+				return
 			}
-			if script.RunScript(s) {
+		} else {
+			err = env.Define("cmd", db.Boundarys[object.ID].Commands[0])
+			if err != nil {
+				log.Info.Println("Error initializing scripting environment:", err)
+				return
+			}
+		}
+		for _, s := range script.Scripts {
+			scriptTriggered, err := env.Execute(s + `
+boundaryAction()`)
+			if err != nil {
+//				log.Info.Println(err)
+				continue
+			}
+			if scriptTriggered.(bool) {
 				return
 			}
 		}

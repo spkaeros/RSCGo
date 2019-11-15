@@ -1,0 +1,37 @@
+func objectAction() {
+	doors = {59: 60, 57: 58, 63: 64}
+	if cmd == "close" || cmd == "open" {
+		for open, closed in doors {
+			if object.ID == open {
+				ReplaceObject(object, closed)
+				return true
+			} else if object.ID == closed {
+				ReplaceObject(object, open)
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func boundaryAction() {
+	doors = {1: 2}
+	if object.ID == 109 {
+		old = ReplaceObject(object, 11)
+		player.Teleport(161, player.CurY() > 464 ? 464 : 465)
+		RunAfter(1e9, func() {
+			ReplaceObject(old, 109)
+		})
+		return true
+	}
+	for open, closed in doors {
+		if object.ID == open {
+			ReplaceObject(object, closed)
+			return true
+		} else if object.ID == closed {
+			ReplaceObject(object, open)
+			return true
+		}
+	}
+	return false
+}

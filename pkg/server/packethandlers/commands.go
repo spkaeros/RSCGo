@@ -227,7 +227,16 @@ func init() {
 				return
 			}
 		}
-		c.Player().Items.Add(id, amount)
+		if !db.Items[id].Stackable && amount > 1 {
+			for i := 0; i < amount; i++ {
+				c.Player().Items.Add(id, 1)
+				if c.Player().Items.Size() >= 30 {
+					break
+				}
+			}
+		} else {
+			c.Player().Items.Add(id, amount)
+		}
 		c.SendPacket(packetbuilders.InventoryItems(c.Player()))
 	}
 	CommandHandlers["goup"] = func(c clients.Client, args []string) {
@@ -288,31 +297,12 @@ func init() {
 	CommandHandlers["death"] = func(c clients.Client, args []string) {
 		c.SendPacket(packetbuilders.Death)
 	}
-	CommandHandlers["reloadscripts"] = func(c clients.Client, args []string) {
-		script.ObjectTriggers = script.ObjectTriggers[:0]
-		script.LoadObjectTriggers()
-		script.BoundaryTriggers = script.BoundaryTriggers[:0]
-		script.LoadBoundaryTriggers()
-		script.ItemTriggers = script.ItemTriggers[:0]
-		script.LoadItemTriggers()
-		c.Message("Loaded " + strconv.Itoa(len(script.ObjectTriggers)) + " object, " + strconv.Itoa(len(script.ItemTriggers)) + " item, and " + strconv.Itoa(len(script.BoundaryTriggers)) + " boundary triggers")
-		log.Info.Printf("Loaded %d object action triggers.\n", len(script.ObjectTriggers))
-		log.Info.Printf("Loaded %d boundary action triggers.\n", len(script.BoundaryTriggers))
-		log.Info.Printf("Loaded %d item action triggers.\n", len(script.ItemTriggers))
-	}
-	CommandHandlers["script"] = func(c clients.Client, args []string) {
+	CommandHandlers["anko"] = func(c clients.Client, args []string) {
 		line := strings.Join(args, " ")
-		s := script.Initialize(`fmt := import("fmt")
-			world := import("world")
-			fmt.println("hello " + player.username)
-			player.message("This is a test of the RSCGo scripting system:")
-		` + line)
-		script.SetScriptVariable(s, "player", c)
-		_, err := s.Run()
-		if err != nil {
-			log.Info.Println("Error with scripting VM:", err)
-			return
-		}
+		env := script.WorldModule()
+		env.Define("println", fmt.Println)
+		env.Define("player", c.Player())
+		env.Execute(line)
 	}
 }
 

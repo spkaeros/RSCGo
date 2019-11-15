@@ -1,65 +1,16 @@
-package script
+/*
+ * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
 
-import (
-	"github.com/d5/tengo/objects"
-	"github.com/d5/tengo/script"
-	"github.com/d5/tengo/stdlib"
-	"github.com/spkaeros/rscgo/pkg/server/log"
-)
+package script
 
 var ActiveTriggers []func()
 
 func AddTrigger(fn func()) {
 	ActiveTriggers = append(ActiveTriggers, fn)
-}
-
-//Initialize Initializes a Tengo script with the specified data.
-func Initialize(data string) *script.Script {
-	s := script.New([]byte(data))
-	scriptModules := stdlib.GetModuleMap(stdlib.AllModuleNames()...)
-	scriptModules.Remove("os")
-	scriptModules.Add("world", NewWorldModule())
-	s.SetImports(scriptModules)
-	return s
-}
-
-func ParseInt(arg objects.Object) (int, error) {
-	i, ok := objects.ToInt(arg)
-	if !ok {
-		return -1, objects.ErrInvalidArgumentType{
-			Name:     "anIntArg",
-			Expected: "int",
-			Found:    arg.TypeName(),
-		}
-	}
-	return i, nil
-}
-
-func MakeFunc(name string, action func(...objects.Object) (objects.Object, error)) *objects.UserFunction {
-	return &objects.UserFunction{
-		Name:  name,
-		Value: action,
-	}
-}
-
-//RunScript Runs a script on the Tengo VM, with error checking.
-func RunScript(s *script.Script) bool {
-	compiled, err := s.Compile()
-	if err != nil {
-		log.Info.Println(err)
-		return false
-	}
-	if err := compiled.Run(); err != nil {
-		log.Info.Println("Error running script in VM:", err)
-		return false
-	}
-	return compiled.Get("ret").Bool()
-}
-
-//SetScriptVariable Sets a script-scoped variable by name to value.
-func SetScriptVariable(s *script.Script, variableName string, value interface{}) {
-	if err := s.Add(variableName, value); err != nil {
-		log.Info.Println("Error setting script variable '"+variableName+"':", err)
-		return
-	}
 }

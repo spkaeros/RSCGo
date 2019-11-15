@@ -85,15 +85,46 @@ func init() {
 		index := p.ReadShort()
 		item := c.Player().Items.Get(index)
 		if item != nil {
-			for _, s := range script.ItemTriggers {
-				script.SetScriptVariable(s, "player", c)
-				script.SetScriptVariable(s, "item", item)
-				script.SetScriptVariable(s, "cmd", strings.ToLower(db.Items[item.ID].Command))
-				if script.RunScript(s) {
+			go func() {
+				env := script.WorldModule()
+				err := env.Define("client", c)
+				if err != nil {
+					log.Info.Println("Error initializing scripting environment:", err)
 					return
 				}
-			}
-			c.SendPacket(packetbuilders.DefaultActionMessage)
+				err = env.Define("player", c.Player())
+				if err != nil {
+					log.Info.Println("Error initializing scripting environment:", err)
+					return
+				}
+				err = env.Define("item", item)
+				if err != nil {
+					log.Info.Println("Error initializing scripting environment:", err)
+					return
+				}
+				err = env.Define("cmd", strings.ToLower(db.Items[item.ID].Command))
+				if err != nil {
+					log.Info.Println("Error initializing scripting environment:", err)
+					return
+				}
+				err = env.Define("Items", db.Items)
+				if err != nil {
+					log.Info.Println("Error initializing scripting environment:", err)
+					return
+				}
+				for _, s := range script.Scripts {
+					scriptTriggered, err := env.Execute(s + `
+invAction()`)
+					if err != nil {
+			//			log.Info.Println(err)
+						continue
+					}
+					if scriptTriggered.(bool) {
+						return
+					}
+				}
+				c.SendPacket(packetbuilders.DefaultActionMessage)
+			}()
 		}
 	}
 }

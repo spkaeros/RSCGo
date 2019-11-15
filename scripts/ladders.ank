@@ -1,0 +1,14 @@
+func objectAction() {
+	loc = nil
+	if cmd == "climb-up" {
+		loc = player.Above()
+	}
+	if cmd == "climb-down" {
+		loc = player.Below()
+	}
+	if loc != nil {
+		player.SetLocation(loc)
+		client.UpdatePlane()
+	}
+	return object.ID == 5 || object.ID == 6
+}

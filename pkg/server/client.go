@@ -2,8 +2,6 @@ package server
 
 import (
 	"fmt"
-	"github.com/d5/tengo/compiler/token"
-	"github.com/d5/tengo/objects"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/db"
@@ -11,7 +9,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/packethandlers"
-	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"io"
 	"net"
@@ -32,212 +29,6 @@ type Client struct {
 	destroyer, killer                        sync.Once
 }
 
-func (c *Client) TypeName() string {
-	return "Client"
-}
-
-func (c *Client) Equals(c1 objects.Object) bool {
-	if c1, ok := c1.(*Client); ok {
-		return c.Player().Index == c1.Player().Index && c1.Player().UserBase37 == c1.Player().UserBase37
-	}
-
-	return false
-}
-
-func (c *Client) Copy() objects.Object {
-	return c
-}
-
-func (c *Client) BinaryOp(op token.Token, rhs objects.Object) (objects.Object, error) {
-	return nil, objects.ErrInvalidOperator
-}
-
-func (c *Client) IsFalsy() bool {
-	return !c.Player().TransAttrs.VarBool("connected", false)
-}
-
-func (c *Client) IndexGet(index objects.Object) (objects.Object, error) {
-	switch index := index.(type) {
-	case *objects.String:
-		switch index.Value {
-		case "index":
-			return &objects.Int{Value: int64(c.player.Index)}, nil
-		case "x":
-			return &objects.Int{Value: int64(c.player.X.Load())}, nil
-		case "y":
-			return &objects.Int{Value: int64(c.player.Y.Load())}, nil
-		case "username":
-			return &objects.String{Value: c.player.Username}, nil
-		case "level":
-			return &objects.Int{Value: int64(c.player.Y.Load())}, nil
-		case "curAttack":
-			return &objects.Int{Value: int64(c.player.Skillset.Current[0])}, nil
-		case "maxAttack":
-			return &objects.Int{Value: int64(c.player.Skillset.Maximum[0])}, nil
-		case "curDefense":
-			return &objects.Int{Value: int64(c.player.Skillset.Current[1])}, nil
-		case "maxDefense":
-			return &objects.Int{Value: int64(c.player.Skillset.Maximum[1])}, nil
-		case "curStrength":
-			return &objects.Int{Value: int64(c.player.Skillset.Current[2])}, nil
-		case "maxStrength":
-			return &objects.Int{Value: int64(c.player.Skillset.Maximum[2])}, nil
-		case "curHits":
-			return &objects.Int{Value: int64(c.player.Skillset.Current[3])}, nil
-		case "maxHits":
-			return &objects.Int{Value: int64(c.player.Skillset.Maximum[3])}, nil
-		case "curRanged":
-			return &objects.Int{Value: int64(c.player.Skillset.Current[4])}, nil
-		case "maxRanged":
-			return &objects.Int{Value: int64(c.player.Skillset.Maximum[4])}, nil
-		case "curPrayer":
-			return &objects.Int{Value: int64(c.player.Skillset.Current[5])}, nil
-		case "maxPrayer":
-			return &objects.Int{Value: int64(c.player.Skillset.Maximum[5])}, nil
-		case "curMagic":
-			return &objects.Int{Value: int64(c.player.Skillset.Current[6])}, nil
-		case "maxMagic":
-			return &objects.Int{Value: int64(c.player.Skillset.Maximum[6])}, nil
-		case "curCooking":
-			return &objects.Int{Value: int64(c.player.Skillset.Current[7])}, nil
-		case "maxCooking":
-			return &objects.Int{Value: int64(c.player.Skillset.Maximum[7])}, nil
-		case "curStat":
-			return script.MakeFunc("curStat", func(args ...objects.Object) (ret objects.Object, err error) {
-				if len(args) < 1 {
-					return nil, objects.ErrWrongNumArguments
-				}
-				index, err := script.ParseInt(args[0])
-				if err != nil {
-					return nil, err
-				}
-
-				return &objects.Int{Value: int64(c.player.Skillset.Current[index])}, nil
-			}), nil
-		case "maxStat":
-			return script.MakeFunc("maxStat", func(args ...objects.Object) (ret objects.Object, err error) {
-				if len(args) < 1 {
-					return nil, objects.ErrWrongNumArguments
-				}
-				index, err := script.ParseInt(args[0])
-				if err != nil {
-					return nil, err
-				}
-
-				return &objects.Int{Value: int64(c.player.Skillset.Maximum[index])}, nil
-			}), nil
-		case "setCurStat":
-			return script.MakeFunc("setCurStat", func(args ...objects.Object) (ret objects.Object, err error) {
-				if len(args) < 2 {
-					return nil, objects.ErrWrongNumArguments
-				}
-				index, err := script.ParseInt(args[0])
-				if err != nil {
-					return nil, err
-				}
-				level, err := script.ParseInt(args[1])
-				if err != nil {
-					return nil, err
-				}
-
-				c.player.Skillset.Current[index] = level
-				c.SendPacket(packetbuilders.PlayerStats(c.player))
-				return objects.UndefinedValue, nil
-			}), nil
-		case "setMaxStat":
-			return script.MakeFunc("setMaxStat", func(args ...objects.Object) (ret objects.Object, err error) {
-				if len(args) < 1 {
-					return nil, objects.ErrWrongNumArguments
-				}
-				index, err := script.ParseInt(args[0])
-				if err != nil {
-					return nil, err
-				}
-				level, err := script.ParseInt(args[1])
-				if err != nil {
-					return nil, err
-				}
-
-				c.player.Skillset.Maximum[index] = level
-				c.SendPacket(packetbuilders.PlayerStats(c.player))
-				return objects.UndefinedValue, nil
-			}), nil
-		case "teleport":
-			return script.MakeFunc("teleport", func(args ...objects.Object) (ret objects.Object, err error) {
-				ret = objects.UndefinedValue
-				if len(args) < 2 {
-					c.Message("teleport(x,y): Invalid argument count provided")
-					return nil, objects.ErrWrongNumArguments
-				}
-				x, err := script.ParseInt(args[0])
-				if err != nil {
-					return nil, err
-				}
-				y, err := script.ParseInt(args[1])
-				if err != nil {
-					return nil, err
-				}
-				c.Player().Teleport(x, y)
-				return
-			}), nil
-		case "message":
-			return script.MakeFunc("message", func(args ...objects.Object) (ret objects.Object, err error) {
-				ret = objects.UndefinedValue
-
-				message, ok := objects.ToString(args[0])
-				if !ok {
-					message = args[0].String()
-				}
-
-				c.Message(message)
-				return
-			}), nil
-		case "goUp":
-			return script.MakeFunc("goUp", func(args ...objects.Object) (ret objects.Object, err error) {
-				ret = objects.UndefinedValue
-				if nextLocation := c.Player().Above(); !nextLocation.Equals(c.Player().Location) {
-					c.Player().ResetPath()
-					c.Player().SetLocation(nextLocation)
-					c.UpdatePlane()
-				}
-				return
-			}), nil
-		case "goDown":
-			return script.MakeFunc("goDown", func(args ...objects.Object) (ret objects.Object, err error) {
-				ret = objects.UndefinedValue
-				if nextLocation := c.Player().Below(); !nextLocation.Equals(c.Player().Location) {
-					c.Player().ResetPath()
-					c.Player().SetLocation(nextLocation)
-					c.UpdatePlane()
-				}
-				return
-			}), nil
-		case "enterDoor":
-			return script.MakeFunc("enterDoor", func(args ...objects.Object) (ret objects.Object, err error) {
-				object, ok := args[0].(*world.Object)
-				if !ok {
-					return nil, objects.ErrInvalidArgumentType{
-						Name:     "object",
-						Expected: "*world.Object",
-						Found:    args[0].TypeName(),
-					}
-				}
-				x, err := script.ParseInt(args[1])
-				if err != nil {
-					return nil, err
-				}
-				y, err := script.ParseInt(args[2])
-				if err != nil {
-					return nil, err
-				}
-				go c.player.EnterDoor(object, world.NewLocation(x, y))
-				return
-			}), nil
-		}
-	}
-	return nil, objects.ErrInvalidIndexType
-}
-
 //Player returns the scene player that this client represents
 func (c *Client) Player() *world.Player {
 	return c.player
@@ -256,6 +47,14 @@ func (c *Client) Message(msg string) {
 //UpdateStat Builds and queues for sending a new packet containing our players stat information for given skill ID
 func (c *Client) UpdateStat(id int) {
 	c.SendPacket(packetbuilders.PlayerStat(c.player, id))
+}
+
+func (c *Client) SendStats() {
+	c.SendPacket(packetbuilders.PlayerStats(c.player))
+}
+
+func (c *Client) SendInventory() {
+	c.SendPacket(packetbuilders.InventoryItems(c.player))
 }
 
 //TeleBubble Queues a new packet to create a teleport bubble at the given offsets relative to our player.
@@ -520,14 +319,14 @@ func (c *Client) HandleLogin(reply chan byte) {
 	}
 }
 
-var itemAffectedTypes = map[int][]int{32: {32, 33}, 33: {32, 33}, 64: {64, 322}, 512: {512, 640, 644},
-	8: {8, 24, 8216}, 1024: {1024}, 128: {128, 640, 644}, 644: {128, 512, 640, 644},
-	640: {128, 512, 640, 644}, 2048: {2048}, 16: {16, 24, 8216}, 256: {256, 322},
-	322: {64, 256, 322}, 24: {8, 16, 24, 8216}, 8216: {8, 16, 24, 8216},
-}
 
 //EquipItem Equips an item to this clients player, and sends inventory and equipment bonuses.
 func (c *Client) EquipItem(item *world.Item) {
+	var itemAffectedTypes = map[int][]int{32: {32, 33}, 33: {32, 33}, 64: {64, 322}, 512: {512, 640, 644},
+		8: {8, 24, 8216}, 1024: {1024}, 128: {128, 640, 644}, 644: {128, 512, 640, 644},
+		640: {128, 512, 640, 644}, 2048: {2048}, 16: {16, 24, 8216}, 256: {256, 322},
+		322: {64, 256, 322}, 24: {8, 16, 24, 8216}, 8216: {8, 16, 24, 8216},
+	}
 	def := db.GetEquipmentDefinition(item.ID)
 	if def == nil {
 		return

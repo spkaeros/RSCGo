@@ -1,8 +1,6 @@
 package world
 
 import (
-	"github.com/d5/tengo/compiler/token"
-	"github.com/d5/tengo/objects"
 	"go.uber.org/atomic"
 	"strconv"
 	"sync"
@@ -41,39 +39,9 @@ type Player struct {
 	*Mob
 }
 
-//TypeName The name of this type for use within the Tengo virtual machine.
-func (p *Player) TypeName() string {
-	return "world.Player"
-}
-
-//Equals Returns true if this player is the sane as p1
-func (p *Player) Equals(p1 objects.Object) bool {
-	if p1, ok := p1.(*Player); ok {
-		return p.Index == p1.Index && p.UserBase37 == p1.UserBase37
-	}
-
-	return false
-}
-
-//Copy This is supposed to return a copy of the player, however, it would be fundamentally incorrect to be able to
-// copy players, so it just returns this player.
-func (p *Player) Copy() objects.Object {
-	return p
-}
-
-//BinaryOp This is for the Tengo virtual machine, to override operators in the scripting language.  I doubt it will be useful.
-func (p *Player) BinaryOp(op token.Token, rhs objects.Object) (objects.Object, error) {
-	return nil, objects.ErrInvalidOperator
-}
-
 //String Returns a string populated with the more identifying features of this player.
 func (p *Player) String() string {
 	return "[" + p.Username + ", " + p.IP + "]"
-}
-
-//IsFalsy Returns true if this player isn't actively connected to the game, otherwise returns false.
-func (p *Player) IsFalsy() bool {
-	return !p.TransAttrs.VarBool("connected", false)
 }
 
 //SetDistancedAction Queues a distanced action to run every game engine tick before path traversal, if action returns true, it will be reset.
@@ -388,6 +356,14 @@ func (p *Player) ResetTrade() {
 //TradeTarget Returns the server index of the player we are trying to trade with, or -1 if we have not made a trade request.
 func (p *Player) TradeTarget() int {
 	return p.TransAttrs.VarInt("tradetarget", -1)
+}
+
+func (p *Player) CurX() int {
+	return int(p.X.Load())
+}
+
+func (p *Player) CurY() int {
+	return int(p.Y.Load())
 }
 
 //IsFighting Returns true if this player is currently in a fighting stance, otherwise returns false.

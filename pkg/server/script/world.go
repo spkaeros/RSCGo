@@ -1,213 +1,49 @@
+/*
+ * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
 package script
 
 import (
-	"github.com/d5/tengo/objects"
+	"github.com/mattn/anko/vm"
 	"github.com/spkaeros/rscgo/pkg/server/clients"
+	"github.com/spkaeros/rscgo/pkg/server/db"
+	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/world"
+	"reflect"
 	"time"
 )
 
-var scriptAttributes = map[string]objects.Object{
-	"replaceObjectAt": &objects.UserFunction{
-		Value: func(args ...objects.Object) (ret objects.Object, err error) {
-			if len(args) < 3 {
-				return nil, objects.ErrWrongNumArguments
-			}
-			x, ok := objects.ToInt(args[0])
-			if !ok {
-				return nil, objects.ErrInvalidArgumentType{
-					Name:     "x",
-					Expected: "int",
-					Found:    args[0].TypeName(),
-				}
-			}
-			y, ok := objects.ToInt(args[1])
-			if !ok {
-				return nil, objects.ErrInvalidArgumentType{
-					Name:     "y",
-					Expected: "int",
-					Found:    args[1].TypeName(),
-				}
-			}
-			object := world.GetObject(x, y)
-			if object == nil {
-				return nil, objects.ErrInvalidArgumentType{
-					Name:     "GetObject(x,y)",
-					Expected: "An object",
-					Found:    "Nothing",
-				}
-			}
-			id, ok := objects.ToInt(args[2])
-			if !ok {
-				return nil, objects.ErrInvalidArgumentType{
-					Name:     "objectID",
-					Expected: "int",
-					Found:    args[2].TypeName(),
-				}
-			}
-			world.ReplaceObject(object, id)
-			return objects.UndefinedValue, nil
-		},
-	},
-	"replaceObject": &objects.UserFunction{
-		Value: func(args ...objects.Object) (ret objects.Object, err error) {
-			if len(args) < 2 {
-				return nil, objects.ErrWrongNumArguments
-			}
-			object, ok := args[0].(*world.Object)
-			if !ok {
-				return nil, objects.ErrInvalidArgumentType{
-					Name:     "object",
-					Expected: "*world.Object",
-					Found:    args[0].TypeName(),
-				}
-			}
-			id, ok := objects.ToInt(args[1])
-			if !ok {
-				return nil, objects.ErrInvalidArgumentType{
-					Name:     "objectID",
-					Expected: "int",
-					Found:    args[1].TypeName(),
-				}
-			}
-			return world.ReplaceObject(object, id), nil
-		},
-	},
-	"getObject": &objects.UserFunction{
-		Value: func(args ...objects.Object) (ret objects.Object, err error) {
-			if len(args) < 2 {
-				return nil, objects.ErrWrongNumArguments
-			}
-			x, ok := objects.ToInt(args[0])
-			if !ok {
-				return nil, objects.ErrInvalidArgumentType{
-					Name:     "x",
-					Expected: "int",
-					Found:    args[0].TypeName(),
-				}
-			}
-			y, ok := objects.ToInt(args[1])
-			if !ok {
-				return nil, objects.ErrInvalidArgumentType{
-					Name:     "y",
-					Expected: "int",
-					Found:    args[1].TypeName(),
-				}
-			}
-			object := world.GetObject(x, y)
-			if object == nil {
-				return nil, objects.ErrInvalidArgumentType{
-					Name:     "GetObject(x,y)",
-					Expected: "An object",
-					Found:    "Nothing",
-				}
-			}
-			return object, nil
-		},
-	},
-	"addObject": &objects.UserFunction{
-		Value: func(args ...objects.Object) (ret objects.Object, err error) {
-			if len(args) < 3 {
-				return nil, objects.ErrWrongNumArguments
-			}
-			id, ok := objects.ToInt(args[0])
-			if !ok {
-				return nil, objects.ErrInvalidArgumentType{
-					Name:     "id",
-					Expected: "int",
-					Found:    args[0].TypeName(),
-				}
-			}
-			x, ok := objects.ToInt(args[1])
-			if !ok {
-				return nil, objects.ErrInvalidArgumentType{
-					Name:     "x",
-					Expected: "int",
-					Found:    args[1].TypeName(),
-				}
-			}
-			y, ok := objects.ToInt(args[2])
-			if !ok {
-				return nil, objects.ErrInvalidArgumentType{
-					Name:     "y",
-					Expected: "int",
-					Found:    args[2].TypeName(),
-				}
-			}
-			if object := world.GetObject(x, y); object != nil {
-				world.ReplaceObject(object, id)
-			} else {
-				world.AddObject(world.NewObject(id, 0, x, y, false))
-			}
-			return objects.UndefinedValue, nil
-		},
-	},
-	"removeObject": &objects.UserFunction{
-		Value: func(args ...objects.Object) (ret objects.Object, err error) {
-			if len(args) < 2 {
-				return nil, objects.ErrWrongNumArguments
-			}
-			x, ok := objects.ToInt(args[0])
-			if !ok {
-				return nil, objects.ErrInvalidArgumentType{
-					Name:     "x",
-					Expected: "int",
-					Found:    args[0].TypeName(),
-				}
-			}
-			y, ok := objects.ToInt(args[1])
-			if !ok {
-				return nil, objects.ErrInvalidArgumentType{
-					Name:     "y",
-					Expected: "int",
-					Found:    args[1].TypeName(),
-				}
-			}
-			if object := world.GetObject(x, y); object == nil {
-				world.RemoveObject(object)
-			}
-			return objects.UndefinedValue, nil
-		},
-	},
-	"getPlayer": &objects.UserFunction{
-		Value: func(args ...objects.Object) (ret objects.Object, err error) {
-			if len(args) < 1 {
-				return nil, objects.ErrWrongNumArguments
-			}
-			index, ok := objects.ToInt(args[0])
-			if !ok {
-				return nil, objects.ErrInvalidArgumentType{
-					Name:     "index",
-					Expected: "int",
-					Found:    args[0].TypeName(),
-				}
-			}
-			client, ok := clients.FromIndex(index)
-			if !ok {
-				return nil, objects.ErrIndexOutOfBounds
-			}
-			return client, nil
-		},
-	},
-	"sleep": &objects.UserFunction{
-		Value: func(args ...objects.Object) (ret objects.Object, err error) {
-			if len(args) < 1 {
-				return nil, objects.ErrWrongNumArguments
-			}
-			duration, ok := objects.ToInt(args[0])
-			if !ok {
-				return nil, objects.ErrInvalidArgumentType{
-					Name:     "duration",
-					Expected: "int",
-					Found:    args[0].TypeName(),
-				}
-			}
-			time.Sleep(time.Duration(duration) * time.Millisecond)
-			return objects.UndefinedValue, nil
-		},
-	},
+func WorldModule() *vm.Env {
+	env, err := vm.NewEnv().AddPackage("world", map[string]interface{}{
+		"GetPlayer": clients.FromIndex,
+		"GetPlayerFromHash": clients.FromUserHash,
+		"ReplaceObject": world.ReplaceObject,
+		"GetObject": world.GetObject,
+		"GetNpc": world.GetNpc,
+		"Sleep": time.Sleep,
+		"RunAfter": time.AfterFunc,
+		"NewPathTo": world.NewPathwayToCoords,
+		"NewLocation": world.NewLocation,
+		"Items": db.Items,
+		"Objects": db.Objects,
+		"Boundarys": db.Boundarys,
+		"Npcs": db.Npcs,
+	}, map[string]interface{}{
+		"Player": reflect.TypeOf(&world.Player{}),
+		"Object": reflect.TypeOf(&world.Object{}),
+		"Item": reflect.TypeOf(&world.Item{}),
+		"Npc": reflect.TypeOf(&world.NPC{}),
+	})
+	if err != nil {
+		log.Warning.Println("Error initializing VM parameters:", err)
+		return nil
+	}
+	return env
 }
 
-func NewWorldModule() *objects.BuiltinModule {
-	return &objects.BuiltinModule{Attrs: scriptAttributes}
-}
