@@ -427,7 +427,8 @@ func (c *Client) HandleRegister(reply chan byte) {
 
 //NewClient Creates a new instance of a Client, launches goroutines to handle I/O for it, and returns a reference to it.
 func NewClient(socket net.Conn, ws bool) *Client {
-	c := &Client{Socket: socket, IncomingPackets: make(chan *packetbuilders.Packet, 20), OutgoingPackets: make(chan *packetbuilders.Packet, 20), Kill: make(chan struct{}), player: world.NewPlayer(clients.NextIndex(), strings.Split(socket.RemoteAddr().String(), ":")[0]), DataBuffer: make([]byte, 5000)}
+	c := &Client{Socket: socket, IncomingPackets: make(chan *packetbuilders.Packet, 20), OutgoingPackets: make(chan *packetbuilders.Packet, 20), Kill: make(chan struct{}), DataBuffer: make([]byte, 5000)}
+	c.player = world.NewPlayer(clients.NextIndex(), strings.Split(socket.RemoteAddr().String(), ":")[0])
 	c.player.Websocket = ws
 	c.StartNetworking()
 	return c

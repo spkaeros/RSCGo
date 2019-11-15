@@ -304,6 +304,12 @@ func init() {
 		env.Define("player", c.Player())
 		env.Execute(line)
 	}
+	CommandHandlers["tile"] = func(c clients.Client, args []string) {
+		x := c.Player().CurX()
+		y := c.Player().CurY()
+		fmt.Println(world.Sectors[x/48+x%48+y/48+y%48])
+		fmt.Println(world.Sectors[c.Player().CurX()+c.Player().CurY()])
+	}
 }
 
 func teleport(c clients.Client, args []string) {

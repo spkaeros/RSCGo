@@ -33,10 +33,14 @@ type TileData struct {
 //Sector Represents a sector of 48x48(2304) tiles in the game's landscape.
 type Sector struct {
 	Tiles []TileData
+	X int
+	Y int
+	Height int
 }
 
 //Sectors A slice filled with map sector data.
-var Sectors []*Sector
+//var Sectors []*Sector
+var Sectors = make(map[int]*Sector)
 
 //sectorLock Mutexes to safely load the game's landscape data concurrently.
 // TODO: Would a semaphore work better for this?
@@ -52,10 +56,10 @@ func LoadMapData() {
 	var wg sync.WaitGroup
 	wg.Add(archive.FileCount)
 
-	decodeFile := func(startCaret, fileSize int) {
+	decodeFile := func(data []byte, id int) {
 		defer wg.Done()
 		gzLock.Lock()
-		err := gzReader.Reset(bytes.NewBuffer(archive.FileData[startCaret:startCaret+fileSize]))
+		err := gzReader.Reset(bytes.NewBuffer(data))
 		if err != nil {
 			log.Warning.Println("Ran into some sort of problem with jag entry gzReader:", err)
 			gzLock.Unlock()
@@ -69,7 +73,7 @@ func LoadMapData() {
 		}
 		if sector := LoadSector(sectorData); sector != nil {
 			sectorLock.Lock()
-			Sectors = append(Sectors, sector)
+			Sectors[id] = sector
 			sectorLock.Unlock()
 		}
 		runtime.GC()
@@ -78,10 +82,12 @@ func LoadMapData() {
 	entryFileCaret := 0
 	metaDataCaret := 0
 	for i := 0; i < archive.FileCount; i++ {
-		metaDataCaret += 10
-		fileSize := readU24BitInt(archive.MetaData, metaDataCaret)
-		go decodeFile(entryFileCaret, fileSize)
-		entryFileCaret += fileSize
+		metaDataCaret += 4
+		id := readInt(archive.MetaData, metaDataCaret)
+		metaDataCaret += 6
+		startCaret := entryFileCaret
+		entryFileCaret += readU24BitInt(archive.MetaData, metaDataCaret)
+		go decodeFile(archive.FileData[startCaret:entryFileCaret], id)
 	}
 	wg.Wait()
 }
@@ -94,21 +100,30 @@ func LoadSector(data []byte) (s *Sector) {
 		return nil
 	}
 	s = &Sector{Tiles: make([]TileData, 2304)}
-	blankCount := 0
-	for _, tile := range s.Tiles {
-		tile.GroundElevation = data[0] & 0xFF
-		tile.GroundTexture = data[1] & 0xFF
-		tile.GroundOverlay = data[2] & 0xFF
-		if tile.GroundOverlay == 0 {
-			blankCount++
+ 	waterCount := 0
+ 	offset := 0
+ 	blackCount := 0
+
+	for i := range s.Tiles {
+		s.Tiles[i].GroundElevation = data[offset+0] & 0xFF
+		s.Tiles[i].GroundTexture = data[offset+1] & 0xFF
+		s.Tiles[i].GroundOverlay = data[offset+2] & 0xFF
+		s.Tiles[i].Roofs = data[offset+3] & 0xFF
+		s.Tiles[i].HorizontalWalls = data[offset+4] & 0xFF
+		s.Tiles[i].VerticalWalls = data[offset+5] & 0xFF
+		s.Tiles[i].DiagonalWalls = int(uint32(data[offset+6]&0xFF<<24) | uint32(data[offset+7]&0xFF<<16) |
+			uint32(data[offset+8]&0xFF<<8) | uint32(data[offset+9]&0xFF))
+		offset += 10
+		// Water I think?
+		if s.Tiles[i].GroundOverlay == 8 || s.Tiles[i].GroundOverlay == -2 & 0xFF {
+			waterCount++
 		}
-		tile.Roofs = data[3] & 0xFF
-		tile.HorizontalWalls = data[4] & 0xFF
-		tile.VerticalWalls = data[5] & 0xFF
-		tile.DiagonalWalls = int(uint32(data[6]&0xFF<<24) | uint32(data[7]&0xFF<<16) |
-			uint32(data[8]&0xFF<<8) | uint32(data[9]&0xFF))
+		// Black I think?
+		if s.Tiles[i].GroundOverlay == 0 {
+			blackCount++
+		}
 	}
-	if blankCount >= 2304 {
+	if waterCount >= 2304 || blackCount >= 2304 {
 		return nil
 	}
 
@@ -118,4 +133,9 @@ func LoadSector(data []byte) (s *Sector) {
 //readU24BitInt Reads an unsigned 3-byte int from data, starting at caret-3
 func readU24BitInt(data []byte, caret int) int {
 	return int(uint32(data[caret-3]&0xFF)<<16 + uint32(data[caret-2]&0xFF)<<8 + uint32(data[caret-1]&0xFF))
+}
+
+//readInt Reads an unsigned 3-byte int from data, starting at caret-3
+func readInt(data []byte, caret int) int {
+	return int(uint32(data[caret-4]&0xFF)<<24 + uint32(data[caret-3]&0xFF)<<16 + uint32(data[caret-2]&0xFF)<<8 + uint32(data[caret-1]&0xFF))
 }
