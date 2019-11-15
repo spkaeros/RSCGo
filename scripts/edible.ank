@@ -10,11 +10,11 @@ func invAction() {
 				client.Message("You eat the " + Items[item.ID].Name + "...")
 				player.Items.RemoveByID(item.ID, item.Amount)
 				client.SendInventory()
-				if diff > 0 {
-					player.Skillset.Current[3] += diff
+				if amount > 0 {
+					player.Skillset.Current[3] += amount
+					client.SendStats()
 					world.Sleep(1e9)
 					client.Message("It heals some health.")
-					client.SendStats()
 				}
 				return true
 			}
