@@ -3,7 +3,6 @@ package world
 import (
 	"fmt"
 	"github.com/spkaeros/rscgo/pkg/rand"
-	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 	"go.uber.org/atomic"
 	"sync"
@@ -110,6 +109,7 @@ func (m *Mob) Path() *Pathway {
 
 //ResetPath Sets the mobs path to nil, to stop the traversal of the path instantly
 func (m *Mob) ResetPath() {
+	m.ResetMoved()
 	m.TransAttrs.UnsetVar("path")
 }
 
@@ -126,87 +126,142 @@ func (m *Mob) TraversePath() {
 		m.ResetPath()
 		return
 	}
-	m.Move()
 	dst := path.NextTileFrom(m.Location)
-	oldDir := m.Direction()
-	m.UpdateDirection(dst.X.Load(), dst.Y.Load())
-	switch m.Direction() {
-	// TODO: Diagonal wall clipping, no-fly overlays e.g lava..some others am sure
-	case North:
-		// check top vert wall for block betwwen plr and dst
-		//      (dst)
-		//       plr
-		clip := getTileData(int(dst.X.Load()), int(dst.Y.Load()))
-		if clip.GroundOverlay == -6 & 0xFF || clip.GroundOverlay == 8 {
+	x, y := m.X.Load(), m.Y.Load()
+	if dir := m.directionFromLocation(dst.X.Load(), dst.Y.Load()); dir == North {
+		clip := getTileData(int(x), int(y))
+		if clip.GroundOverlay == -6 & 0xFF {
 			// blackness, water
-			log.Info.Println("Blocked for water and/or blackness!")
 			m.ResetPath()
-			m.SetDirection(oldDir)
+			return
+		}
+		if clip.VerticalWalls > 0 && clip.VerticalWalls != 2 && clip.VerticalWalls != 3 && clip.VerticalWalls != 17 {
+			m.ResetPath()
+			return
+		}
+	} else if dir == South {
+		clip := getTileData(int(x), int(y+1))
+		if clip.GroundOverlay == -6 & 0xFF {
+			// blackness, water
+			m.ResetPath()
+			return
+		}
+		if clip.VerticalWalls > 0 && clip.VerticalWalls != 2 && clip.VerticalWalls != 3 && clip.VerticalWalls != 17 {
+			m.ResetPath()
 			return
 		}
 
-		if clip.VerticalWalls > 0 && clip.VerticalWalls != 2 {
-			log.Info.Println("Boop, blocked north!")
-			m.ResetPath()
-			m.SetDirection(oldDir)
-			return
-		}
-	case South:
-		// check bottom vert wall for block betwwen plr and dst
-		//       plr
-		//      (dst)
-		clip := getTileData(int(dst.X.Load()), int(dst.Y.Load()) + 1)
-		if clip.GroundOverlay == -6 & 0xFF || clip.GroundOverlay == 8 {
+	} else if dir == East {
+		clip := getTileData(int(x), int(y))
+		if clip.GroundOverlay == -6 & 0xFF {
 			// blackness, water
-			log.Info.Println("Blocked for water and/or blackness!")
 			m.ResetPath()
-			m.SetDirection(oldDir)
 			return
 		}
-
-		if clip.VerticalWalls > 0 && clip.VerticalWalls != 2 {
-			log.Info.Println("Boop, blocked south!")
+		if clip.HorizontalWalls > 0 && clip.HorizontalWalls != 2 && clip.HorizontalWalls != 3 && clip.HorizontalWalls != 17 {
 			m.ResetPath()
-			m.SetDirection(oldDir)
 			return
 		}
-	case East:
-		// check right horiz wall for block betwwen plr and dst
-		//       plr |(dst)
-		clip := getTileData(int(dst.X.Load()), int(dst.Y.Load()))
-		if clip.GroundOverlay == -6 & 0xFF || clip.GroundOverlay == 8 {
+	} else if dir == West {
+		clip := getTileData(int(x+1), int(y))
+		if clip.GroundOverlay == -6 & 0xFF {
 			// blackness, water
-			log.Info.Println("Blocked for water and/or blackness!")
 			m.ResetPath()
-			m.SetDirection(oldDir)
 			return
 		}
-		if clip.HorizontalWalls > 0 && clip.HorizontalWalls != 2 {
-			log.Info.Println("Boop, blocked east!")
+		if clip.HorizontalWalls > 0 && clip.HorizontalWalls != 2 && clip.HorizontalWalls != 3 && clip.HorizontalWalls != 17 {
 			m.ResetPath()
-			m.SetDirection(oldDir)
 			return
 		}
-	case West:
-		// check left horiz wall for block betwwen plr and dst
-		//       (dst) |plr
-		clip := getTileData(int(dst.X.Load()) + 1, int(dst.Y.Load()))
-		if clip.GroundOverlay == -6 & 0xFF || clip.GroundOverlay == 8 {
+	} else if dir == NorthEast {
+		nClip := getTileData(int(x), int(y))
+		if nClip.GroundOverlay == -6 & 0xFF {
 			// blackness, water
-			log.Info.Println("Blocked for water and/or blackness!")
 			m.ResetPath()
-			m.SetDirection(oldDir)
 			return
 		}
-		if clip.HorizontalWalls > 0 && clip.HorizontalWalls != 2 {
-			log.Info.Println("Boop, blocked west!")
+		if nClip.VerticalWalls > 0 && nClip.VerticalWalls != 2 && nClip.VerticalWalls != 3 && nClip.VerticalWalls != 17 {
 			m.ResetPath()
-			m.SetDirection(oldDir)
+			return
+		}
+		eClip := getTileData(int(x), int(y))
+		if eClip.GroundOverlay == -6 & 0xFF {
+			// blackness, water
+			m.ResetPath()
+			return
+		}
+		if eClip.HorizontalWalls > 0 && eClip.HorizontalWalls != 2 && eClip.HorizontalWalls != 3 && eClip.HorizontalWalls != 17 {
+			m.ResetPath()
+			return
+		}
+	} else if dir == NorthWest {
+		nClip := getTileData(int(x), int(y))
+		if nClip.GroundOverlay == -6 & 0xFF {
+			// blackness, water
+			m.ResetPath()
+			return
+		}
+		if nClip.VerticalWalls > 0 && nClip.VerticalWalls != 2 && nClip.VerticalWalls != 3 && nClip.VerticalWalls != 17 {
+			m.ResetPath()
+			return
+		}
+		eClip := getTileData(int(x + 1), int(y))
+		if eClip.GroundOverlay == -6 & 0xFF {
+			// blackness, water
+			m.ResetPath()
+			return
+		}
+		if eClip.HorizontalWalls > 0 && eClip.HorizontalWalls != 2 && eClip.HorizontalWalls != 3 && eClip.HorizontalWalls != 17 {
+			m.ResetPath()
+			return
+		}
+	} else if dir == SouthEast {
+		sClip := getTileData(int(x), int(y+1))
+		if sClip.GroundOverlay == -6 & 0xFF {
+			// blackness, water
+			m.ResetPath()
+			return
+		}
+		if sClip.VerticalWalls > 0 && sClip.VerticalWalls != 2 && sClip.VerticalWalls != 3 && sClip.VerticalWalls != 17 {
+			m.ResetPath()
+			return
+		}
+		eClip := getTileData(int(x), int(y))
+		if eClip.GroundOverlay == -6 & 0xFF {
+			// blackness, water
+			m.ResetPath()
+			return
+		}
+		if eClip.HorizontalWalls > 0 && eClip.HorizontalWalls != 2 && eClip.HorizontalWalls != 3 && eClip.HorizontalWalls != 17 {
+			m.ResetPath()
+			return
+		}
+	} else if dir == SouthWest {
+		sClip := getTileData(int(x), int(y+1))
+		if sClip.GroundOverlay == -6 & 0xFF {
+			// blackness, water
+			m.ResetPath()
+			return
+		}
+		if sClip.VerticalWalls > 0 && sClip.VerticalWalls != 2 && sClip.VerticalWalls != 3 && sClip.VerticalWalls != 17 {
+			m.ResetPath()
+			return
+		}
+		eClip := getTileData(int(x + 1), int(y))
+		if eClip.GroundOverlay == -6 & 0xFF {
+			// blackness, water
+			m.ResetPath()
+			return
+		}
+		if eClip.HorizontalWalls > 0 && eClip.HorizontalWalls != 2 && eClip.HorizontalWalls != 3 && eClip.HorizontalWalls != 17 {
+			m.ResetPath()
 			return
 		}
 	}
 
-	m.SetLocation(path.NextTileFrom(dst))
+
+	m.SetLocation(dst)
+	m.Move()
 }
 
 func getTileData(x, y int) TileData {
@@ -215,7 +270,12 @@ func getTileData(x, y int) TileData {
 	mapSector := fmt.Sprintf("h%dx%dy%d", (y+100)/944, regionX, regionY)
 	areaX := (2304+x) % 48
 	areaY := (1776+y-(944*((y+100)/944))) % 48
-	return Sectors[strutil.JagHash(mapSector)].Tiles[areaX * 48 + areaY]
+	sector := Sectors[strutil.JagHash(mapSector)]
+
+	if sector == nil || areaX * 48 + areaY > len(sector.Tiles) {
+		return TileData{}
+	}
+	return sector.Tiles[areaX * 48 + areaY]
 }
 
 //FinishedPath Returns true if the mobs path is nil, the paths current waypoint exceeds the number of waypoints available, or the next tile in the path is not a valid location, implying that we have reached our destination.
@@ -229,22 +289,28 @@ func (m *Mob) FinishedPath() bool {
 
 //UpdateDirection Updates the direction the mob is facing based on where the mob is trying to move, and where the mob is currently at.
 func (m *Mob) UpdateDirection(destX, destY uint32) {
+	m.SetDirection(m.directionFromLocation(destX, destY))
+}
+
+func (m *Mob) directionFromLocation(destX, destY uint32) int {
 	sprites := [3][3]int{{SouthWest, West, NorthWest}, {South, -1, North}, {SouthEast, East, NorthEast}}
 	xIndex, yIndex := m.X.Load()-destX+1, m.Y.Load()-destY+1
 	if xIndex >= 3 || yIndex >= 3 {
 		xIndex, yIndex = 1, 2 // North
 	}
-	m.SetDirection(sprites[xIndex][yIndex])
+	return sprites[xIndex][yIndex]
 }
 
 //SetLocation Sets the mobs location.
 func (m *Mob) SetLocation(location Location) {
-	m.SetCoords(location.X.Load(), location.Y.Load())
+	x := location.X.Load()
+	y := location.Y.Load()
+	m.UpdateDirection(x, y)
+	m.SetCoords(x, y)
 }
 
 //SetCoords Sets the mobs locations coordinates.
 func (m *Mob) SetCoords(x, y uint32) {
-	m.UpdateDirection(x, y)
 	m.X.Store(x)
 	m.Y.Store(y)
 }
@@ -411,25 +477,9 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 func UpdateNPCPositions() {
 	npcsLock.RLock()
 	for _, n := range Npcs {
-playerSearch:
-		for _, r := range SurroundingRegions(int(n.X.Load()), int(n.Y.Load())) {
-			r.Players.lock.RLock()
-			for _, p := range r.Players.List {
-				if p, ok := p.(*Player); ok {
-					// We can trigger NPC movement within 2 view areas of us, to prevent the appearance of suddenly
-					// waking a whole town of NPCs up.  This feels more like RSC than just checking our view-area,
-					// and cuts back resources compared to just updating all of the NPCs all of the time.
-					if p.WithinRange(n.Location, 32) {
-						if n.TransAttrs.VarTime("nextMove").Before(time.Now()) {
-							n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
-							n.SetPath(NewPathwayToLocation(NewRandomLocation(n.Boundaries)))
-						}
-						r.Players.lock.RUnlock()
-						break playerSearch
-					}
-				}
-			}
-			r.Players.lock.RUnlock()
+		if n.TransAttrs.VarTime("nextMove").Before(time.Now()) {
+			n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
+			n.SetPath(NewPathwayToLocation(NewRandomLocation(n.Boundaries)))
 		}
 
 		n.TraversePath()

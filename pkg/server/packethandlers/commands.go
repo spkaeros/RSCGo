@@ -318,43 +318,13 @@ func init() {
 		y := c.Player().CurY()
 		dir := world.ParseDirection(args[0])
 		if dir == world.North {
-			// check top vert wall for block betwwen plr and dst
-			//      (dst)
-			//       plr
-			tile := getTileData(x, y)
-			if tile.VerticalWalls > 0 && tile.VerticalWalls != 2 {
-				log.Info.Println("Boop, blocked north!")
-				return
-			}
-			c.Player().Teleport(x, y - 1)
+			c.Player().SetPath(world.NewPathwayToCoords(uint32(x), uint32(y-1)))
 		} else if dir == world.South {
-			// check bottom vert wall for block betwwen plr and dst
-			//       plr
-			//      (dst)
-			tile := getTileData(x, y + 1)
-			if tile.VerticalWalls > 0 && tile.VerticalWalls != 2 {
-				log.Info.Println("Boop, blocked south!")
-				return
-			}
-			c.Player().Teleport(x, y + 1)
+			c.Player().SetPath(world.NewPathwayToCoords(uint32(x), uint32(y+1)))
 		} else if dir == world.East {
-			// check right horiz wall for block betwwen plr and dst
-			//       plr |(dst)
-			tile := getTileData(x, y)
-			if tile.HorizontalWalls > 0 && tile.HorizontalWalls != 2 {
-				log.Info.Println("Boop, blocked east!")
-				return
-			}
-			c.Player().Teleport(x - 1, y)
+			c.Player().SetPath(world.NewPathwayToCoords(uint32(x-1), uint32(y)))
 		} else if dir == world.West {
-			// check left horiz wall for block betwwen plr and dst
-			//       (dst) |plr
-			tile := getTileData(x + 1, y)
-			if tile.HorizontalWalls > 0 && tile.HorizontalWalls != 2 {
-				log.Info.Println("Boop, blocked west!")
-				return
-			}
-			c.Player().Teleport(x + 1, y)
+			c.Player().SetPath(world.NewPathwayToCoords(uint32(x+1), uint32(y)))
 		}
 	}
 }

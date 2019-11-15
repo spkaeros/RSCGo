@@ -4,7 +4,6 @@ import (
 	"go.uber.org/atomic"
 	"strconv"
 	"sync"
-	"time"
 )
 
 //player Represents a single player.
@@ -371,16 +370,6 @@ func (p *Player) IsFighting() bool {
 	sprite := p.Direction() // Prevent locking too frequently
 	return sprite == LeftFighting || sprite == RightFighting
 }
-
-//EnterDoor Replaces door object with an open door, sleeps for one second, and returns the closed door.
-func (p *Player) EnterDoor(oldDoor *Object, dest Location) {
-	newDoor := ReplaceObject(oldDoor, 11)
-	p.Teleport(int(dest.X.Load()), int(dest.Y.Load()))
-	time.Sleep(time.Second)
-	ReplaceObject(newDoor, oldDoor.ID)
-}
-
-
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer(index int, ip string) *Player {
