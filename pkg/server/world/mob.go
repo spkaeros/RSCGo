@@ -1,7 +1,10 @@
 package world
 
 import (
+	"fmt"
 	"github.com/spkaeros/rscgo/pkg/rand"
+	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/strutil"
 	"go.uber.org/atomic"
 	"sync"
 	"time"
@@ -124,7 +127,95 @@ func (m *Mob) TraversePath() {
 		return
 	}
 	m.Move()
-	m.SetLocation(path.NextTileFrom(m.Location))
+	dst := path.NextTileFrom(m.Location)
+	oldDir := m.Direction()
+	m.UpdateDirection(dst.X.Load(), dst.Y.Load())
+	switch m.Direction() {
+	// TODO: Diagonal wall clipping, no-fly overlays e.g lava..some others am sure
+	case North:
+		// check top vert wall for block betwwen plr and dst
+		//      (dst)
+		//       plr
+		clip := getTileData(int(dst.X.Load()), int(dst.Y.Load()))
+		if clip.GroundOverlay == -6 & 0xFF || clip.GroundOverlay == 8 {
+			// blackness, water
+			log.Info.Println("Blocked for water and/or blackness!")
+			m.ResetPath()
+			m.SetDirection(oldDir)
+			return
+		}
+
+		if clip.VerticalWalls > 0 && clip.VerticalWalls != 2 {
+			log.Info.Println("Boop, blocked north!")
+			m.ResetPath()
+			m.SetDirection(oldDir)
+			return
+		}
+	case South:
+		// check bottom vert wall for block betwwen plr and dst
+		//       plr
+		//      (dst)
+		clip := getTileData(int(dst.X.Load()), int(dst.Y.Load()) + 1)
+		if clip.GroundOverlay == -6 & 0xFF || clip.GroundOverlay == 8 {
+			// blackness, water
+			log.Info.Println("Blocked for water and/or blackness!")
+			m.ResetPath()
+			m.SetDirection(oldDir)
+			return
+		}
+
+		if clip.VerticalWalls > 0 && clip.VerticalWalls != 2 {
+			log.Info.Println("Boop, blocked south!")
+			m.ResetPath()
+			m.SetDirection(oldDir)
+			return
+		}
+	case East:
+		// check right horiz wall for block betwwen plr and dst
+		//       plr |(dst)
+		clip := getTileData(int(dst.X.Load()), int(dst.Y.Load()))
+		if clip.GroundOverlay == -6 & 0xFF || clip.GroundOverlay == 8 {
+			// blackness, water
+			log.Info.Println("Blocked for water and/or blackness!")
+			m.ResetPath()
+			m.SetDirection(oldDir)
+			return
+		}
+		if clip.HorizontalWalls > 0 && clip.HorizontalWalls != 2 {
+			log.Info.Println("Boop, blocked east!")
+			m.ResetPath()
+			m.SetDirection(oldDir)
+			return
+		}
+	case West:
+		// check left horiz wall for block betwwen plr and dst
+		//       (dst) |plr
+		clip := getTileData(int(dst.X.Load()) + 1, int(dst.Y.Load()))
+		if clip.GroundOverlay == -6 & 0xFF || clip.GroundOverlay == 8 {
+			// blackness, water
+			log.Info.Println("Blocked for water and/or blackness!")
+			m.ResetPath()
+			m.SetDirection(oldDir)
+			return
+		}
+		if clip.HorizontalWalls > 0 && clip.HorizontalWalls != 2 {
+			log.Info.Println("Boop, blocked west!")
+			m.ResetPath()
+			m.SetDirection(oldDir)
+			return
+		}
+	}
+
+	m.SetLocation(path.NextTileFrom(dst))
+}
+
+func getTileData(x, y int) TileData {
+	regionX := (2304+x)/RegionSize
+	regionY := (1776+y-(944*((y+100)/944)))/RegionSize
+	mapSector := fmt.Sprintf("h%dx%dy%d", (y+100)/944, regionX, regionY)
+	areaX := (2304+x) % 48
+	areaY := (1776+y-(944*((y+100)/944))) % 48
+	return Sectors[strutil.JagHash(mapSector)].Tiles[areaX * 48 + areaY]
 }
 
 //FinishedPath Returns true if the mobs path is nil, the paths current waypoint exceeds the number of waypoints available, or the next tile in the path is not a valid location, implying that we have reached our destination.
