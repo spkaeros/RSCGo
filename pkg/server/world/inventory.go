@@ -86,6 +86,19 @@ type Inventory struct {
 	Lock     sync.RWMutex
 }
 
+func (i *Inventory) Range(fn func(*Item) bool) int {
+	i.Lock.RLock()
+	defer i.Lock.RUnlock()
+	index := 0
+	for _, item := range i.List {
+		if !fn(item) {
+			break
+		}
+		index++
+	}
+	return index
+}
+
 //Size Returns the number of items currently in this inventory.
 func (i *Inventory) Size() int {
 	i.Lock.RLock()
@@ -126,9 +139,9 @@ func (i *Inventory) Remove(index int) bool {
 
 //RemoveByID Removes amt items from this inventory by ID, returns the items index if successful, otherwise returns -1
 func (i *Inventory) RemoveByID(id, amt int) int {
-	for idx := 0; idx < i.Size(); idx++ {
-		item := i.Get(idx)
-		if item.ID == id {
+	size := i.Size()
+	for idx := 0; idx < size; idx++ {
+		if item := i.Get(idx); item != nil && item.ID == id {
 			if item.Amount > amt {
 				item.Amount -= amt
 			} else {
@@ -142,47 +155,42 @@ func (i *Inventory) RemoveByID(id, amt int) int {
 
 //Get Returns a reference to the item at index if it exists, otherwise returns nil.
 func (i *Inventory) Get(index int) *Item {
-	i.Lock.RLock()
-	defer i.Lock.RUnlock()
-	if index >= len(i.List) {
+	if index >= i.Size() || index < 0 {
 		return nil
 	}
-
+	i.Lock.RLock()
+	defer i.Lock.RUnlock()
 	return i.List[index]
 }
 
 //Get Returns a reference to the item at index if it exists, otherwise returns nil.
 func (i *Inventory) GetByID(ID int) *Item {
-	i.Lock.RLock()
-	defer i.Lock.RUnlock()
-
-	for _, item := range i.List {
+	idx := i.Range(func(item *Item) bool {
 		if item.ID == ID {
-			return item
+			return false
 		}
-	}
-
-	return nil
+		return true
+	})
+	return i.Get(idx)
 }
 
 //RemoveAll Removes all of the items in offer from this inventory, returns count of items removed.
 func (i *Inventory) RemoveAll(offer *Inventory) int {
-	offer.Lock.RLock()
 	count := 0
-	for _, item := range offer.List {
+	offer.Range(func(item *Item) bool {
 		if i.RemoveByID(item.ID, item.Amount) != -1 {
 			count++
 		}
-	}
-	offer.Lock.RUnlock()
+		return true
+	})
 	return count
 }
 
 //Clear Clears all items out of the inventory.
 func (i *Inventory) Clear() {
 	i.Lock.Lock()
+	defer i.Lock.Unlock()
 	i.List = i.List[:0]
-	i.Lock.Unlock()
 }
 
 //Equals Returns true if o1 is an object reference with identical characteristics to o.

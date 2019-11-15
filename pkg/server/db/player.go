@@ -300,7 +300,7 @@ func SavePlayer(player *world.Player) {
 		log.Info.Println("Save(): Could not begin transcaction for player update.")
 		return
 	}
-	saveLocation := func() {
+	updateLocation := func() {
 		rs, err := tx.Exec("UPDATE player SET x=?, y=? WHERE id=?", player.X.Load(), player.Y.Load(), player.DatabaseIndex)
 		if err != nil {
 			log.Warning.Println("Save(): UPDATE failed for player location:", err)
@@ -315,7 +315,7 @@ func SavePlayer(player *world.Player) {
 			log.Info.Println("Save(): Affected nothing for location update!")
 		}
 	}
-	saveAppearance := func() {
+	updateAppearance := func() {
 		// TODO: Should this just be attributes too??  Is that abusing the attributes table?
 		appearance := player.Appearance
 		rs, _ := tx.Exec("UPDATE appearance SET haircolour=?, topcolour=?, trousercolour=?, skincolour=?, head=?, body=? WHERE playerid=?", appearance.HeadColor, appearance.BodyColor, appearance.LegsColor, appearance.SkinColor, appearance.Head, appearance.Body, player.DatabaseIndex)
@@ -378,7 +378,7 @@ func SavePlayer(player *world.Player) {
 			return
 		}
 	}
-	insertContactList := func(contactType string, hash uint64) {
+	insertContact := func(contactType string, hash uint64) {
 		rs, _ := tx.Exec("INSERT INTO contacts(playerid, playerhash, type) VALUES(?, ?, ?)", player.DatabaseIndex, hash, contactType)
 		count, err := rs.RowsAffected()
 		if err != nil {
@@ -402,7 +402,7 @@ func SavePlayer(player *world.Player) {
 			return
 		}
 	}
-	insertItem := func(id, amt, index int, worn bool) {
+	insertItem := func(id, amt int, worn bool) {
 		rs, _ := tx.Exec("INSERT INTO inventory(playerid, itemid, amount, wielded) VALUES(?, ?, ?, ?)", player.DatabaseIndex, id, amt, worn)
 		count, err := rs.RowsAffected()
 		if err != nil {
@@ -417,22 +417,24 @@ func SavePlayer(player *world.Player) {
 			log.Info.Println("Save(): Affected nothing for item insertion!")
 		}
 	}
-	saveLocation()
-	saveAppearance()
 	clearAttributes()
-	player.Attributes.Range(insertAttribute)
 	clearContactList("friend")
 	clearContactList("ignore")
+	clearItems()
+
+	updateLocation()
+	updateAppearance()
+	player.Attributes.Range(insertAttribute)
 	for hash := range player.FriendList {
-		insertContactList("friend", hash)
+		insertContact("friend", hash)
 	}
 	for _, hash := range player.IgnoreList {
-		insertContactList("ignore", hash)
+		insertContact("ignore", hash)
 	}
-	clearItems()
-	for _, item := range player.Items.List {
-		insertItem(item.ID, item.Amount, item.Index, item.Worn)
-	}
+	player.Items.Range(func(item *world.Item) bool {
+		insertItem(item.ID, item.Amount, item.Worn)
+		return true
+	})
 
 	if err := tx.Commit(); err != nil {
 		log.Warning.Println("Save(): Error committing transaction for player update:", err)

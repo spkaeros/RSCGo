@@ -10,13 +10,12 @@ var TradeClose = NewOutgoingPacket(128)
 //TradeUpdate Builds a packet to update a trade offer
 func TradeUpdate(player *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(97)
-	player.TradeOffer.Lock.RLock()
-	p.AddByte(uint8(len(player.TradeOffer.List)))
-	for _, item := range player.TradeOffer.List {
+	p.AddByte(uint8(player.TradeOffer.Size()))
+	player.TradeOffer.Range(func(item *world.Item) bool {
 		p.AddShort(uint16(item.ID))
 		p.AddInt(uint32(item.Amount))
-	}
-	player.TradeOffer.Lock.RUnlock()
+		return true
+	})
 	return
 }
 
@@ -44,22 +43,21 @@ func TradeAccept(accepted bool) *Packet {
 //TradeConfirmationOpen Builds a packet to open the trade confirmation page
 func TradeConfirmationOpen(player, other *world.Player) *Packet {
 	p := NewOutgoingPacket(20)
+
 	p.AddLong(other.UserBase37)
-
-	other.TradeOffer.Lock.RLock()
-	p.AddByte(uint8(len(other.TradeOffer.List)))
-	for _, item := range other.TradeOffer.List {
+	p.AddByte(uint8(other.TradeOffer.Size()))
+	other.TradeOffer.Range(func(item *world.Item) bool {
 		p.AddShort(uint16(item.ID))
 		p.AddInt(uint32(item.Amount))
-	}
-	other.TradeOffer.Lock.RUnlock()
+		return true
+	})
 
-	player.TradeOffer.Lock.RLock()
-	p.AddByte(uint8(len(player.TradeOffer.List)))
-	for _, item := range player.TradeOffer.List {
+	p.AddByte(uint8(player.TradeOffer.Size()))
+	player.TradeOffer.Range(func(item *world.Item) bool {
 		p.AddShort(uint16(item.ID))
 		p.AddInt(uint32(item.Amount))
-	}
-	player.TradeOffer.Lock.RUnlock()
+		return true
+	})
+
 	return p
 }

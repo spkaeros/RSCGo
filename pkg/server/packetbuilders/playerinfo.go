@@ -11,9 +11,8 @@ var ChangeAppearance = NewOutgoingPacket(59)
 //InventoryItems Builds a packet containing the players inventory items.
 func InventoryItems(player *world.Player) (p *Packet) {
 	p = NewOutgoingPacket(53)
-	player.Items.Lock.RLock()
-	p.AddByte(uint8(len(player.Items.List)))
-	for _, item := range player.Items.List {
+	p.AddByte(uint8(player.Items.Size()))
+	player.Items.Range(func(item *world.Item) bool {
 		if item.Worn {
 			p.AddShort(uint16(item.ID + 32768))
 		} else {
@@ -22,8 +21,8 @@ func InventoryItems(player *world.Player) (p *Packet) {
 		if db.Items[item.ID].Stackable {
 			p.AddInt2(uint32(item.Amount))
 		}
-	}
-	player.Items.Lock.RUnlock()
+		return true
+	})
 	return
 }
 

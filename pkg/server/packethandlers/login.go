@@ -17,6 +17,7 @@ func init() {
 	PacketHandlers["sessionreq"] = sessionRequest
 	PacketHandlers["loginreq"] = loginRequest
 	PacketHandlers["logoutreq"] = logout
+	PacketHandlers["closeconn"] = closedConn
 	PacketHandlers["newplayer"] = newPlayer
 	PacketHandlers["forgotpass"] = func(c clients.Client, p *packetbuilders.Packet) {
 		usernameHash := p.ReadLong()
@@ -59,9 +60,15 @@ func init() {
 	}
 }
 
+func closedConn(c clients.Client, p *packetbuilders.Packet) {
+	logout(c, p)
+}
+
 func logout(c clients.Client, _ *packetbuilders.Packet) {
-	c.SendPacket(packetbuilders.Logout)
-	c.Destroy()
+	if c.Player().TransAttrs.VarBool("connected", false) {
+		c.SendPacket(packetbuilders.Logout)
+		c.Destroy()
+	}
 }
 
 func newPlayer(c clients.Client, p *packetbuilders.Packet) {
@@ -138,6 +145,7 @@ func loginRequest(c clients.Client, p *packetbuilders.Packet) {
 	p.ReadInt()
 
 	usernameHash := strutil.Base37.Encode(strings.TrimSpace(p.ReadString(20)))
+	c.Player().Username = strutil.Base37.Decode(usernameHash)
 	password := strings.TrimSpace(p.ReadString(20))
 	if !db.UsernameExists(strutil.Base37.Decode(usernameHash)) {
 		loginReply <- 3

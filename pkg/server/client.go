@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/d5/tengo/compiler/token"
 	"github.com/d5/tengo/objects"
-	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/db"
@@ -26,8 +25,11 @@ type Client struct {
 	Kill                             chan struct{}
 	player                           *world.Player
 	IncomingPackets, OutgoingPackets chan *packetbuilders.Packet
-	PacketData                       []byte
+	CacheBuffer                      []byte
 	Socket                           net.Conn
+	DataBuffer                       []byte
+	DataLock                         sync.RWMutex
+	destroyer, killer                        sync.Once
 }
 
 func (c *Client) TypeName() string {
@@ -292,6 +294,7 @@ func (c *Client) Teleport(x, y int) {
 
 //startReader Starts the client Socket reader goroutine.  Takes a waitgroup as an argument to facilitate synchronous destruction.
 func (c *Client) startReader() {
+	defer c.Destroy()
 	for {
 		select {
 		default:
@@ -321,6 +324,7 @@ func (c *Client) startReader() {
 
 //startWriter Starts the client Socket writer goroutine.
 func (c *Client) startWriter() {
+	defer c.Destroy()
 	for {
 		select {
 		case p := <-c.OutgoingPackets:
@@ -336,32 +340,33 @@ func (c *Client) startWriter() {
 
 //Destroy Wrapper around Client.destroy to prevent multiple channel closes causing a panic.
 func (c *Client) Destroy() {
-	if !c.player.TransAttrs.VarBool("destroying", false) {
-		c.player.TransAttrs.SetVar("destroying", true)
+	c.killer.Do(func() {
 		close(c.Kill)
-	}
+	})
 }
 
 //destroy Safely tears down a client, saves it to the database, and removes it from server-wide clients.
 func (c *Client) destroy(wg *sync.WaitGroup) {
 	// Wait for network goroutines to finish.
-	(*wg).Wait()
-	c.player.TransAttrs.UnsetVar("connected")
-	close(c.OutgoingPackets)
-	close(c.IncomingPackets)
-	if err := c.Socket.Close(); err != nil {
-		log.Error.Println("Couldn't close Socket:", err)
-	}
-	if _, ok := clients.FromUserHash(c.player.UserBase37); ok {
-		// Always try to launch I/O-heavy functions in their own goroutine.
-		// Goroutines are light-weight and made for this kind of thing.
-		go db.SavePlayer(c.player)
-		world.RemovePlayer(c.player)
-		c.player.TransAttrs.SetVar("remove", true)
-		clients.BroadcastLogin(c.player, false)
-		clients.Remove(c)
-		log.Info.Printf("Unregistered: %v\n", c)
-	}
+	c.destroyer.Do(func() {
+		(*wg).Wait()
+		c.player.TransAttrs.UnsetVar("connected")
+		close(c.OutgoingPackets)
+		close(c.IncomingPackets)
+		if err := c.Socket.Close(); err != nil {
+			log.Error.Println("Couldn't close Socket:", err)
+		}
+		if _, ok := clients.FromUserHash(c.player.UserBase37); ok {
+			// Always try to launch I/O-heavy functions in their own goroutine.
+			// Goroutines are light-weight and made for this kind of thing.
+			go db.SavePlayer(c.player)
+			world.RemovePlayer(c.player)
+			c.player.TransAttrs.SetVar("remove", true)
+			clients.BroadcastLogin(c.player, false)
+			clients.Remove(c)
+			log.Info.Printf("Unregistered: %v\n", c)
+		}
+	})
 }
 
 //ResetUpdateFlags Resets the players movement updating synchronization variables.
@@ -463,6 +468,8 @@ func (c *Client) Initialize() {
 		c.player.Skillset.Lock.Unlock()
 	}
 	c.SendPacket(packetbuilders.PlaneInfo(c.player))
+	c.SendPacket(packetbuilders.FriendList(c.player))
+	c.SendPacket(packetbuilders.IgnoreList(c.player))
 	if !c.player.Reconnecting() {
 		// Reconnecting implies that the client has all of this data already, so as an optimization, we don't send it again
 		c.SendPacket(packetbuilders.PlayerStats(c.player))
@@ -471,8 +478,6 @@ func (c *Client) Initialize() {
 		c.SendPacket(packetbuilders.InventoryItems(c.player))
 		// TODO: Not canonical RSC, but definitely good QoL update...
 		//  c.SendPacket(packetbuilders.FightMode(c.player)
-		c.SendPacket(packetbuilders.FriendList(c.player))
-		c.SendPacket(packetbuilders.IgnoreList(c.player))
 		c.SendPacket(packetbuilders.ClientSettings(c.player))
 		c.SendPacket(packetbuilders.PrivacySettings(c.player))
 		c.SendPacket(packetbuilders.WelcomeMessage)
@@ -528,11 +533,10 @@ func (c *Client) EquipItem(item *world.Item) {
 		return
 	}
 	c.player.TransAttrs.SetVar("self", false)
-	c.player.Items.Lock.RLock()
-	for _, otherItem := range c.Player().Items.List {
+	c.player.Items.Range(func(otherItem *world.Item) bool {
 		if otherDef := db.GetEquipmentDefinition(otherItem.ID); otherDef != nil {
 			if otherItem == item || !otherItem.Worn {
-				continue
+				return true
 			}
 			for _, i := range itemAffectedTypes[def.Type] {
 				if i == otherDef.Type {
@@ -558,8 +562,8 @@ func (c *Client) EquipItem(item *world.Item) {
 				}
 			}
 		}
-	}
-	c.player.Items.Lock.RUnlock()
+		return true
+	})
 	item.Worn = true
 	c.player.SetAimPoints(c.player.AimPoints() + def.Aim)
 	c.player.SetPowerPoints(c.player.PowerPoints() + def.Power)
@@ -624,7 +628,7 @@ func (c *Client) HandleRegister(reply chan byte) {
 
 //NewClient Creates a new instance of a Client, launches goroutines to handle I/O for it, and returns a reference to it.
 func NewClient(socket net.Conn, ws bool) *Client {
-	c := &Client{Socket: socket, IncomingPackets: make(chan *packetbuilders.Packet, 20), OutgoingPackets: make(chan *packetbuilders.Packet, 20), Kill: make(chan struct{}), player: world.NewPlayer(clients.NextIndex(), strings.Split(socket.RemoteAddr().String(), ":")[0])}
+	c := &Client{Socket: socket, IncomingPackets: make(chan *packetbuilders.Packet, 20), OutgoingPackets: make(chan *packetbuilders.Packet, 20), Kill: make(chan struct{}), player: world.NewPlayer(clients.NextIndex(), strings.Split(socket.RemoteAddr().String(), ":")[0]), DataBuffer: make([]byte, 5000)}
 	c.player.Websocket = ws
 	c.StartNetworking()
 	return c
@@ -636,76 +640,58 @@ func (c *Client) String() string {
 }
 
 //Write Writes data to the client's Socket from `b`.  Returns the length of the written bytes.
-func (c *Client) Write(b []byte) int {
-	if !c.player.Websocket {
-		l, err := c.Socket.Write(b)
-		if err != nil {
-			log.Error.Println("Could not write to client Socket.", err)
-			c.Destroy()
-		} else if l != len(b) {
-			// Possibly non-fatal?
-			log.Error.Printf("Wrong number of bytes written to Client Socket.  Expected %d, got %d.\n", len(b), l)
-		}
-		return l
+func (c *Client) Write(src []byte) int {
+	var err error
+	var dataLen int
+	if c.player.Websocket {
+		err = wsutil.WriteServerBinary(c.Socket, src)
+		dataLen = len(src)
+	} else {
+		dataLen, err = c.Socket.Write(src)
 	}
-	w := wsutil.NewWriter(c.Socket, ws.StateServerSide, ws.OpBinary)
-	l, err := w.Write(b)
 	if err != nil {
-		log.Error.Println("Could not write to client Socket.", err)
+		log.Error.Println("Problem writing to websocket client:", err)
 		c.Destroy()
-	} else if l != len(b) {
-		// Possibly non-fatal?
-		log.Error.Printf("Wrong number of bytes written to Client Socket.  Expected %d, got %d.\n", len(b), l)
+		return -1
 	}
-	if err := w.Flush(); err != nil {
-		log.Warning.Println("Error writing to Websocket:", err)
-	}
-	return l
+	return dataLen
 }
 
 //Read Reads data off of the client's Socket into 'dst'.  Returns length read into dst upon success.  Otherwise, returns -1 with a meaningful error message.
 func (c *Client) Read(dst []byte) (int, error) {
+	// Set the read deadline for the socket to 10 seconds from now.
 	err := c.Socket.SetReadDeadline(time.Now().Add(time.Second * 10))
 	if err != nil {
 		return -1, errors.ConnDeadline
 	}
 
 	expectedLen := len(dst)
-	cachedLen := len(c.PacketData)
-	if cachedLen > 0 {
-		copy(dst, c.PacketData)
-		if cachedLen > expectedLen {
-			c.PacketData = c.PacketData[expectedLen:]
+	// Unstash any overflow data from previous read calls.
+	cacheLen := len(c.CacheBuffer)
+	if cacheLen > 0 {
+		copy(dst, c.CacheBuffer)
+		if cacheLen > expectedLen {
+			c.CacheBuffer = c.CacheBuffer[expectedLen:]
 			return expectedLen, nil
 		} else {
-			c.PacketData = []byte{}
-			if cachedLen == expectedLen {
+			c.CacheBuffer = []byte{}
+			if cacheLen == expectedLen {
 				return expectedLen, nil
 			}
 		}
 	}
 
+	// Mark length of data left to read from socket after unstashing anything from the buffer
+	reqDataLen := expectedLen - cacheLen
+
+	var dataLen int
+	var data []byte
 	if !c.player.Websocket {
-		n, err := c.Socket.Read(dst[cachedLen:])
-		if err != nil {
-			if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
-				return -1, errors.ConnClosed
-			} else if e, ok := err.(net.Error); ok && e.Timeout() {
-				return -1, errors.ConnTimedOut
-			}
-			return -1, err
-		}
-		n += cachedLen
-
-		if n < expectedLen {
-			c.PacketData = dst[:n]
-		} else if n > expectedLen {
-			c.PacketData = dst[expectedLen:]
-		}
-		return n, nil
+		dataLen, err = c.Socket.Read(dst[cacheLen:])
+	} else {
+		data, err = wsutil.ReadClientBinary(c.Socket)
+		dataLen = len(data)
 	}
-
-	data, err := wsutil.ReadClientBinary(c.Socket)
 	if err != nil {
 		if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
 			return -1, errors.ConnClosed
@@ -714,40 +700,57 @@ func (c *Client) Read(dst []byte) (int, error) {
 		}
 		return -1, err
 	}
-	bytesLeft := expectedLen - cachedLen
-	copy(dst[cachedLen:], data)
-
-	if len(data) > bytesLeft {
-		c.PacketData = data[bytesLeft:]
-	} else if len(data) < bytesLeft {
-		c.PacketData = dst[:cachedLen+len(data)]
+	if c.player.Websocket {
+		copy(dst[cacheLen:], data)
 	}
-	return len(data) + cachedLen, nil
+
+	if dataLen < reqDataLen {
+		// We didn't have enough data.  In practice, this produces an error I believe, but just in case!
+		c.CacheBuffer = dst[:dataLen+cacheLen]
+	} else if dataLen > reqDataLen {
+		// We read too much data.  Stash what is not required.
+		if c.player.Websocket {
+			// Cache the recv'd data starting right after the last needed byte, next Read will unstash as if it were new data
+			c.CacheBuffer = data[reqDataLen:]
+		} else {
+			// I don't think this can happen with TCP sockets.  We have finer control over what we read with them.
+			// Just in case, I'll handle it in a semantically correct way, but I doubt it will ever run.
+			c.CacheBuffer = dst[cacheLen+dataLen:]
+		}
+	}
+	return dataLen+cacheLen, nil
 }
 
 //ReadPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode of the next packet frame the client is sending us.
 func (c *Client) ReadPacket() (*packetbuilders.Packet, error) {
-	// TODO: Is allocation overhead more expensive than mutex locks?
-	header := make([]byte, 2)
+	// Use a pre-allocated buffer for incoming read data..this is an optimization, allocation is expensive.
+	c.DataLock.Lock()
+	header := c.DataBuffer[:2]
+	c.DataLock.Unlock()
 	if l, err := c.Read(header); err != nil {
 		return nil, err
 	} else if l < 2 {
 		return nil, errors.NewNetworkError("SHORT_DATA")
 	}
 	length := int(header[0])
-	if length >= 160 {
-		length = (length-160)*256 + int(header[1])
+	bigLength := length >= 160
+	if bigLength {
+		// length = (length-160)*256 + int(header[1])
+		length = (length-160)<<8 + int(header[1])
 	} else {
+		// We have the final byte of frame data already, stored at header[1]
 		length--
 	}
 
-	if length >= 5000 || length < 0 {
+	if length+2 >= 5000 || length+2 < 2 {
 		log.Suspicious.Printf("Invalid packet length from [%v]: %d\n", c, length)
-		log.Warning.Printf("Packet from [%v] length out of bounds; got %d, expected between 4 and 5000\n", c, length+3)
-		return nil, errors.NewNetworkError("Packet length out of bounds; must be between 4 and 5000.")
+		log.Warning.Printf("Packet from [%v] length out of bounds; got %d, expected between 0 and 5000\n", c, length)
+		return nil, errors.NewNetworkError("Packet length out of bounds; must be between 0 and 5000.")
 	}
 
-	payload := make([]byte, length)
+	c.DataLock.Lock()
+	payload := c.DataBuffer[2:length+2]
+	c.DataLock.Unlock()
 
 	if length > 0 {
 		if l, err := c.Read(payload); err != nil {
@@ -757,7 +760,8 @@ func (c *Client) ReadPacket() (*packetbuilders.Packet, error) {
 		}
 	}
 
-	if length < 160 {
+	if !bigLength {
+		// If the length in the packet header used 1 byte, the 2nd byte in the header is the final byte of frame data
 		payload = append(payload, header[1])
 	}
 
@@ -768,18 +772,23 @@ func (c *Client) ReadPacket() (*packetbuilders.Packet, error) {
 // be written as-is.  If this is not a bare packet, the packet will have the first 3 bytes changed to the
 // appropriate values for the client to parse the length and opcode for this packet.
 func (c *Client) WritePacket(p packetbuilders.Packet) {
-	var buf []byte
-	if !p.Bare {
-		if frameLength := len(p.Payload); frameLength >= 160 {
-			buf = append(buf, byte(160+frameLength/256))
-			buf = append(buf, byte(frameLength))
-		} else {
-			buf = append(buf, byte(frameLength))
-			buf = append(buf, p.Payload[frameLength-1])
-			p.Payload = p.Payload[:frameLength-1]
-		}
+	if p.Bare {
+		c.Write(p.Payload)
+		return
 	}
-	buf = append(buf, p.Payload...)
-
-	c.Write(buf)
+	frameLength := len(p.Payload)
+	c.DataLock.Lock()
+	header := c.DataBuffer[0:2]
+	c.DataLock.Unlock()
+	if frameLength >= 160 {
+//		header[0] = byte(frameLength/256+160)
+		header[0] = byte(frameLength>>8+160)
+		header[1] = byte(frameLength)
+	} else {
+		header[0] = byte(frameLength)
+		header[1] = p.Payload[frameLength-1]
+		p.Payload = p.Payload[:frameLength-1]
+	}
+	c.Write(append(header, p.Payload...))
+	return
 }
