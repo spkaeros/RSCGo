@@ -305,11 +305,67 @@ func init() {
 		env.Execute(line)
 	}
 	CommandHandlers["tile"] = func(c clients.Client, args []string) {
+		regionX := (2304+c.Player().CurX())/world.RegionSize
+		regionY := (1776+c.Player().CurY()-(944*c.Player().Plane()))/world.RegionSize
+		mapSector := fmt.Sprintf("h%dx%dy%d", c.Player().Plane(), regionX, regionY)
+		areaX := (2304+c.Player().CurX()) % 48
+		areaY := (1776+c.Player().CurY()-(944*c.Player().Plane())) % 48
+		tile := getTileData(c.Player().CurX(), c.Player().CurY()
+		c.Message(fmt.Sprintf("@que@%v,%v[%d,%d]: Vert:%v, Horiz:%v, Diag:%v, Roof:%v, Type:%v, Color:%v, Elev:%v", c.Player().Location.String(), mapSector, areaX, areaY, tile.VerticalWalls, tile.HorizontalWalls, tile.DiagonalWalls, tile.Roofs, tile.GroundOverlay, tile.GroundTexture, tile.GroundElevation))
+	}
+	CommandHandlers["clip"] = func(c clients.Client, args []string) {
 		x := c.Player().CurX()
 		y := c.Player().CurY()
-		fmt.Println(world.Sectors[x/48+x%48+y/48+y%48])
-		fmt.Println(world.Sectors[c.Player().CurX()+c.Player().CurY()])
+		dir := world.ParseDirection(args[0])
+		if dir == world.North {
+			// check top vert wall for block betwwen plr and dst
+			//      (dst)
+			//       plr
+			tile := getTileData(x, y)
+			if tile.VerticalWalls > 0 && tile.VerticalWalls != 2 {
+				log.Info.Println("Boop, blocked north!")
+				return
+			}
+			c.Player().Teleport(x, y - 1)
+		} else if dir == world.South {
+			// check bottom vert wall for block betwwen plr and dst
+			//       plr
+			//      (dst)
+			tile := getTileData(x, y + 1)
+			if tile.VerticalWalls > 0 && tile.VerticalWalls != 2 {
+				log.Info.Println("Boop, blocked south!")
+				return
+			}
+			c.Player().Teleport(x, y + 1)
+		} else if dir == world.East {
+			// check right horiz wall for block betwwen plr and dst
+			//       plr |(dst)
+			tile := getTileData(x, y)
+			if tile.HorizontalWalls > 0 && tile.HorizontalWalls != 2 {
+				log.Info.Println("Boop, blocked east!")
+				return
+			}
+			c.Player().Teleport(x - 1, y)
+		} else if dir == world.West {
+			// check left horiz wall for block betwwen plr and dst
+			//       (dst) |plr
+			tile := getTileData(x + 1, y)
+			if tile.HorizontalWalls > 0 && tile.HorizontalWalls != 2 {
+				log.Info.Println("Boop, blocked west!")
+				return
+			}
+			c.Player().Teleport(x + 1, y)
+		}
 	}
+}
+
+func getTileData(x, y int) world.TileData {
+	regionX := (2304+x)/world.RegionSize
+	regionY := (1776+y-(944*((y+100)/944)))/world.RegionSize
+	mapSector := fmt.Sprintf("h%dx%dy%d", (y+100)/944, regionX, regionY)
+	areaX := (2304+x) % 48
+	areaY := (1776+y-(944*((y+100)/944))) % 48
+	return world.Sectors[strutil.JagHash(mapSector)].Tiles[areaX * 48 + areaY]
 }
 
 func teleport(c clients.Client, args []string) {

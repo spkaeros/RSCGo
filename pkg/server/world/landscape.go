@@ -33,9 +33,6 @@ type TileData struct {
 //Sector Represents a sector of 48x48(2304) tiles in the game's landscape.
 type Sector struct {
 	Tiles []TileData
-	X int
-	Y int
-	Height int
 }
 
 //Sectors A slice filled with map sector data.
@@ -100,9 +97,7 @@ func LoadSector(data []byte) (s *Sector) {
 		return nil
 	}
 	s = &Sector{Tiles: make([]TileData, 2304)}
- 	waterCount := 0
  	offset := 0
- 	blackCount := 0
 
 	for i := range s.Tiles {
 		s.Tiles[i].GroundElevation = data[offset+0] & 0xFF
@@ -114,18 +109,18 @@ func LoadSector(data []byte) (s *Sector) {
 		s.Tiles[i].DiagonalWalls = int(uint32(data[offset+6]&0xFF<<24) | uint32(data[offset+7]&0xFF<<16) |
 			uint32(data[offset+8]&0xFF<<8) | uint32(data[offset+9]&0xFF))
 		offset += 10
-		// Water I think?
-		if s.Tiles[i].GroundOverlay == 8 || s.Tiles[i].GroundOverlay == -2 & 0xFF {
+		// Water and black
+/*		if s.Tiles[i].GroundOverlay == 8 || s.Tiles[i].GroundOverlay == -2 & 0xFF {
 			waterCount++
 		}
 		// Black I think?
 		if s.Tiles[i].GroundOverlay == 0 {
 			blackCount++
 		}
-	}
-	if waterCount >= 2304 || blackCount >= 2304 {
-		return nil
-	}
+*/	}
+//	if waterCount >= 2304 || blackCount >= 2304 {
+//		return nil
+//	}
 
 	return
 }
