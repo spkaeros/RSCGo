@@ -126,145 +126,73 @@ func (m *Mob) TraversePath() {
 		m.ResetPath()
 		return
 	}
-	dst := path.NextTileFrom(m.Location)
+	dst := path.NextWaypointTile()
 	x, y := m.X.Load(), m.Y.Load()
-	if dir := m.directionFromLocation(dst.X.Load(), dst.Y.Load()); dir == North {
-		clip := getTileData(int(x), int(y))
-		if clip.GroundOverlay == -6 & 0xFF {
-			// blackness, water
-			m.ResetPath()
-			return
-		}
-		if clip.VerticalWalls > 0 && clip.VerticalWalls != 2 && clip.VerticalWalls != 3 && clip.VerticalWalls != 17 {
-			m.ResetPath()
-			return
-		}
-	} else if dir == South {
-		clip := getTileData(int(x), int(y+1))
-		if clip.GroundOverlay == -6 & 0xFF {
-			// blackness, water
-			m.ResetPath()
-			return
-		}
-		if clip.VerticalWalls > 0 && clip.VerticalWalls != 2 && clip.VerticalWalls != 3 && clip.VerticalWalls != 17 {
-			m.ResetPath()
-			return
-		}
-
-	} else if dir == East {
-		clip := getTileData(int(x), int(y))
-		if clip.GroundOverlay == -6 & 0xFF || clip.GroundOverlay == 2 {
-			// blackness, water
-			m.ResetPath()
-			return
-		}
-		if clip.HorizontalWalls > 0 && clip.HorizontalWalls != 2 && clip.HorizontalWalls != 3 && clip.HorizontalWalls != 17 {
-			m.ResetPath()
-			return
-		}
-	} else if dir == West {
-		clip := getTileData(int(x+1), int(y))
-		if clip.GroundOverlay == -6 & 0xFF || clip.GroundOverlay == 2 {
-			// blackness, water
-			m.ResetPath()
-			return
-		}
-		if clip.HorizontalWalls > 0 && clip.HorizontalWalls != 2 && clip.HorizontalWalls != 3 && clip.HorizontalWalls != 17 {
-			m.ResetPath()
-			return
-		}
-	} else if dir == NorthEast {
-		nClip := getTileData(int(x), int(y))
-		if nClip.GroundOverlay == -6 & 0xFF || nClip.GroundOverlay == 2 {
-			// blackness, water
-			m.ResetPath()
-			return
-		}
-		if nClip.VerticalWalls > 0 && nClip.VerticalWalls != 2 && nClip.VerticalWalls != 3 && nClip.VerticalWalls != 17 {
-			m.ResetPath()
-			return
-		}
-		eClip := getTileData(int(x), int(y))
-		if eClip.GroundOverlay == -6 & 0xFF || eClip.GroundOverlay == 2 {
-			// blackness, water
-			m.ResetPath()
-			return
-		}
-		if eClip.HorizontalWalls > 0 && eClip.HorizontalWalls != 2 && eClip.HorizontalWalls != 3 && eClip.HorizontalWalls != 17 {
-			m.ResetPath()
-			return
-		}
-	} else if dir == NorthWest {
-		nClip := getTileData(int(x), int(y))
-		if nClip.GroundOverlay == -6 & 0xFF || nClip.GroundOverlay == 2 {
-			// blackness, water
-			m.ResetPath()
-			return
-		}
-		if nClip.VerticalWalls > 0 && nClip.VerticalWalls != 2 && nClip.VerticalWalls != 3 && nClip.VerticalWalls != 17 {
-			m.ResetPath()
-			return
-		}
-		eClip := getTileData(int(x + 1), int(y))
-		if eClip.GroundOverlay == -6 & 0xFF || eClip.GroundOverlay == 2 {
-			// blackness, water
-			m.ResetPath()
-			return
-		}
-		if eClip.HorizontalWalls > 0 && eClip.HorizontalWalls != 2 && eClip.HorizontalWalls != 3 && eClip.HorizontalWalls != 17 {
-			m.ResetPath()
-			return
-		}
-	} else if dir == SouthEast {
-		sClip := getTileData(int(x), int(y+1))
-		if sClip.GroundOverlay == -6 & 0xFF || sClip.GroundOverlay == 2 {
-			// blackness, water
-			m.ResetPath()
-			return
-		}
-		if sClip.VerticalWalls > 0 && sClip.VerticalWalls != 2 && sClip.VerticalWalls != 3 && sClip.VerticalWalls != 17 {
-			m.ResetPath()
-			return
-		}
-		eClip := getTileData(int(x), int(y))
-		if eClip.GroundOverlay == -6 & 0xFF || eClip.GroundOverlay == 2 {
-			// blackness, water
-			m.ResetPath()
-			return
-		}
-		if eClip.HorizontalWalls > 0 && eClip.HorizontalWalls != 2 && eClip.HorizontalWalls != 3 && eClip.HorizontalWalls != 17 {
-			m.ResetPath()
-			return
-		}
-	} else if dir == SouthWest {
-		sClip := getTileData(int(x), int(y+1))
-		if sClip.GroundOverlay == -6 & 0xFF || sClip.GroundOverlay == 2 {
-			// blackness, water
-			m.ResetPath()
-			return
-		}
-		if sClip.VerticalWalls > 0 && sClip.VerticalWalls != 2 && sClip.VerticalWalls != 3 && sClip.VerticalWalls != 17 {
-			m.ResetPath()
-			return
-		}
-		eClip := getTileData(int(x + 1), int(y))
-		if eClip.GroundOverlay == -6 & 0xFF || eClip.GroundOverlay == 2 {
-			// blackness, water
-			m.ResetPath()
-			return
-		}
-		if eClip.HorizontalWalls > 0 && eClip.HorizontalWalls != 2 && eClip.HorizontalWalls != 3 && eClip.HorizontalWalls != 17 {
-			m.ResetPath()
-			return
-		}
+	next := NewLocation(int(x), int(y))
+	xBlocked, yBlocked := false, false
+	if x > dst.X.Load() {
+		xBlocked = ClipData(int(x - 1), int(y)).blocked(8)
+		next.X.Store(x - 1)
+	} else if x < dst.X.Load() {
+		xBlocked = ClipData(int(x + 1), int(y)).blocked(2)
+		next.X.Store(x + 1)
+	}
+	if y > dst.Y.Load() {
+		yBlocked = ClipData(int(x), int(y - 1)).blocked(4)
+		next.Y.Store(y - 1)
+	} else if y < dst.Y.Load() {
+		yBlocked = ClipData(int(x), int(y + 1)).blocked(1)
+		next.Y.Store(y + 1)
 	}
 
+	if (xBlocked && yBlocked) || (yBlocked && y == dst.Y.Load()) || (xBlocked && x == dst.X.Load()) {
+		m.ResetPath()
+		return
+	}
+	newXBlocked, newYBlocked := false, false
 
-	m.SetLocation(dst)
+	if next.X.Load() > x {
+		newXBlocked = ClipData(int(next.X.Load()), int(next.Y.Load())).blocked(2)
+	} else if next.X.Load() < x {
+		newXBlocked = ClipData(int(next.X.Load()), int(next.Y.Load())).blocked(8)
+	}
+	if next.Y.Load() > y {
+		newYBlocked = ClipData(int(next.X.Load()), int(next.Y.Load())).blocked(1)
+	} else if next.Y.Load() < y {
+		newYBlocked = ClipData(int(next.X.Load()), int(next.Y.Load())).blocked(4)
+	}
+	if (newXBlocked && newYBlocked) || (newYBlocked && y == next.Y.Load()) || (newXBlocked && x == next.X.Load()) {
+		m.ResetPath()
+		return
+	}
+	if (xBlocked && newXBlocked) || (yBlocked && newYBlocked) {
+		m.ResetPath()
+		return
+	}
+
+	m.SetLocation(next)
 	m.Move()
 }
 
-func getTileData(x, y int) TileData {
+func (t TileData) blocked(bit byte) bool {
+	if t.GroundOverlay == 2 || t.GroundOverlay == 8 {
+		return false
+	}
+	if t.CollisionMask & bit != 0 {
+		return true
+	}
+	if t.CollisionMask & 16 != 0 {
+		return true
+	}
+	if t.CollisionMask & 32 != 0 {
+		return true
+	}
+	if t.CollisionMask & 64 != 0 {
+		return true
+	}
+	return false
+}
+func ClipData(x, y int) TileData {
 	regionX := (2304+x)/RegionSize
 	regionY := (1776+y-(944*((y+100)/944)))/RegionSize
 	mapSector := fmt.Sprintf("h%dx%dy%d", (y+100)/944, regionX, regionY)
@@ -272,7 +200,7 @@ func getTileData(x, y int) TileData {
 	areaY := (1776+y-(944*((y+100)/944))) % 48
 	sector := Sectors[strutil.JagHash(mapSector)]
 
-	if sector == nil || areaX * 48 + areaY > len(sector.Tiles) {
+	if sector == nil {
 		return TileData{}
 	}
 	return sector.Tiles[areaX * 48 + areaY]

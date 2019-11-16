@@ -42,14 +42,6 @@ type NpcDefinition struct {
 	Attackable  bool
 }
 
-//BoundaryDefinition This represents a single definition for a single boundary object in the game.
-type BoundaryDefinition struct {
-	ID          int
-	Name        string
-	Commands    []string
-	Description string
-}
-
 type EquipmentDefinition struct {
 	ID       int
 	Sprite   int
@@ -85,8 +77,7 @@ func GetEquipmentDefinition(id int) *EquipmentDefinition {
 //Npcs This holds the defining characteristics for all of the game's NPCs, ordered by ID.
 var Npcs []NpcDefinition
 
-//Boundarys This holds the defining characteristics for all of the game's boundary scene objects, ordered by ID.
-var Boundarys []BoundaryDefinition
+
 
 //LoadObjectDefinitions Loads game object data into memory for quick access.
 func LoadObjectDefinitions() {
@@ -121,21 +112,41 @@ func LoadEquipmentDefinitions() {
 	}
 }
 
-//LoadBoundaryDefinitions Loads game boundary object data into memory for quick access.
-func LoadBoundaryDefinitions() {
+
+
+//LoadTileDefinitions Loads game tile attribute data into memory for quick access.
+func LoadTileDefinitions() {
 	database := Open(config.WorldDB())
 	defer database.Close()
 	// TODO: Seem to be missing a lot of door data.
-	rows, err := database.Query("SELECT id, name, description, command_one, command_two FROM `doors`")
+	rows, err := database.Query("SELECT colour, unknown, objectType unknown FROM `tiles`")
 	defer rows.Close()
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
 		return
 	}
 	for rows.Next() {
-		nextDef := BoundaryDefinition{Commands: make([]string, 2)}
-		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1])
-		Boundarys = append(Boundarys, nextDef)
+		nextDef := world.TileDefinition{}
+		rows.Scan(&nextDef.Color, &nextDef.Visible, &nextDef.ObjectType)
+		world.Tiles = append(world.Tiles, nextDef)
+	}
+}
+
+//LoadBoundaryDefinitions Loads game boundary object data into memory for quick access.
+func LoadBoundaryDefinitions() {
+	database := Open(config.WorldDB())
+	defer database.Close()
+	// TODO: Seem to be missing a lot of door data.
+	rows, err := database.Query("SELECT id, name, description, command_one, command_two, door_type, unknown FROM `doors`")
+	defer rows.Close()
+	if err != nil {
+		log.Error.Println("Couldn't load SQLite3 database:", err)
+		return
+	}
+	for rows.Next() {
+		nextDef := world.BoundaryDefinition{Commands: make([]string, 2)}
+		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.Unknown, &nextDef.DoorType)
+		world.Boundarys = append(world.Boundarys, nextDef)
 	}
 }
 

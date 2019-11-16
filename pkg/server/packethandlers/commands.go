@@ -327,6 +327,9 @@ func init() {
 			c.Player().SetPath(world.NewPathwayToCoords(uint32(x+1), uint32(y)))
 		}
 	}
+	CommandHandlers["clipdata"] = func(c clients.Client, args []string) {
+		fmt.Printf("CollisionMask: %v %v\n", c.Player().Location.String(), world.ClipData(c.Player().CurX(), c.Player().CurY()))
+	}
 }
 
 func getTileData(x, y int) world.TileData {

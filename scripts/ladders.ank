@@ -10,5 +10,5 @@ func objectAction() {
 		player.SetLocation(loc)
 		client.UpdatePlane()
 	}
-	return object.ID == 5 || object.ID == 6
+	return true
 }

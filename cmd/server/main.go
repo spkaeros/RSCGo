@@ -84,6 +84,7 @@ func main() {
 	asyncExecute(&awaitLaunchJobs, db.LoadEquipmentDefinitions)
 	asyncExecute(&awaitLaunchJobs, db.LoadNpcDefinitions)
 	asyncExecute(&awaitLaunchJobs, db.LoadBoundaryDefinitions)
+	asyncExecute(&awaitLaunchJobs, db.LoadTileDefinitions)
 
 	// Entity action scripting triggers
 //	asyncExecute(&awaitLaunchJobs, script.LoadObjectTriggers)
@@ -98,7 +99,7 @@ func main() {
 		log.Info.Printf("Loaded %d item definitions.\n", len(db.Items))
 		log.Info.Printf("Loaded %d NPC definitions.\n", len(db.Npcs))
 		log.Info.Printf("Loaded %d object definitions.\n", len(db.Objects))
-		log.Info.Printf("Loaded %d boundary definitions.\n", len(db.Boundarys))
+		log.Info.Printf("Loaded %d boundary definitions.\n", len(world.Boundarys))
 		log.Info.Printf("Loaded %d NPCs.\n", world.NpcCounter.Load())
 		log.Info.Printf("Loaded %d objects and boundaries.\n", world.ObjectCounter.Load())
 		log.Info.Printf("Loaded %d action triggers.\n", len(script.Scripts))

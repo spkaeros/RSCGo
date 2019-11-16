@@ -165,13 +165,13 @@ func boundaryAction(c clients.Client, object *world.Object, rightClick bool) {
 			return
 		}
 		if rightClick {
-			err = env.Define("cmd", db.Boundarys[object.ID].Commands[1])
+			err = env.Define("cmd", world.Boundarys[object.ID].Commands[1])
 			if err != nil {
 				log.Info.Println("Error initializing scripting environment:", err)
 				return
 			}
 		} else {
-			err = env.Define("cmd", db.Boundarys[object.ID].Commands[0])
+			err = env.Define("cmd", world.Boundarys[object.ID].Commands[0])
 			if err != nil {
 				log.Info.Println("Error initializing scripting environment:", err)
 				return

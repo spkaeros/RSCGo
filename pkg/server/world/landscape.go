@@ -28,6 +28,12 @@ type TileData struct {
 	GroundElevation byte
 	GroundOverlay   byte
 	GroundTexture   byte
+	CollisionMask   byte
+}
+//Clip Represents a single tile in the game's landscape.
+type Clip struct {
+	GroundOverlay   byte
+	CollisionMask   byte
 }
 
 //Sector Represents a sector of 48x48(2304) tiles in the game's landscape.
@@ -52,6 +58,9 @@ func LoadMapData() {
 	defer gzReader.Close()
 	var wg sync.WaitGroup
 	wg.Add(archive.FileCount)
+	for i := 0; i < 36; i++ {
+		Boundarys = append(Boundarys, BoundaryDefinition{})
+	}
 
 	decodeFile := func(data []byte, id int) {
 		defer wg.Done()
@@ -89,6 +98,27 @@ func LoadMapData() {
 	wg.Wait()
 }
 
+type TileDefinition struct {
+	Color int
+	Visible int
+	ObjectType int
+}
+
+var Tiles []TileDefinition
+
+//Boundarys This holds the defining characteristics for all of the game's boundary scene objects, ordered by ID.
+var Boundarys []BoundaryDefinition
+
+//BoundaryDefinition This represents a single definition for a single boundary object in the game.
+type BoundaryDefinition struct {
+	ID          int
+	Name        string
+	Commands    []string
+	Description string
+	Unknown int
+	DoorType int
+}
+
 //LoadSector Parses raw data into data structures that make up a 48x48 map sector.
 func LoadSector(data []byte) (s *Sector) {
 	// If we were given less than the length of a decompressed, raw map sector
@@ -99,28 +129,44 @@ func LoadSector(data []byte) (s *Sector) {
 	s = &Sector{Tiles: make([]TileData, 2304)}
  	offset := 0
 
-	for i := range s.Tiles {
-		s.Tiles[i].GroundElevation = data[offset+0] & 0xFF
-		s.Tiles[i].GroundTexture = data[offset+1] & 0xFF
-		s.Tiles[i].GroundOverlay = data[offset+2] & 0xFF
-		s.Tiles[i].Roofs = data[offset+3] & 0xFF
-		s.Tiles[i].HorizontalWalls = data[offset+4] & 0xFF
-		s.Tiles[i].VerticalWalls = data[offset+5] & 0xFF
-		s.Tiles[i].DiagonalWalls = int(uint32(data[offset+6]&0xFF<<24) | uint32(data[offset+7]&0xFF<<16) |
-			uint32(data[offset+8]&0xFF<<8) | uint32(data[offset+9]&0xFF))
-		offset += 10
-		// Water and black
-/*		if s.Tiles[i].GroundOverlay == 8 || s.Tiles[i].GroundOverlay == -2 & 0xFF {
-			waterCount++
+ 	for x := 0; x < 48; x++ {
+ 		for y := 0; y < 48; y++ {
+			s.Tiles[x*48+y].GroundElevation = data[offset+0] & 0xFF
+			s.Tiles[x*48+y].GroundTexture = data[offset+1] & 0xFF
+			s.Tiles[x*48+y].GroundOverlay = data[offset+2] & 0xFF
+			s.Tiles[x*48+y].Roofs = data[offset+3] & 0xFF
+			s.Tiles[x*48+y].HorizontalWalls = data[offset+4] & 0xFF
+			s.Tiles[x*48+y].VerticalWalls = data[offset+5] & 0xFF
+			s.Tiles[x*48+y].DiagonalWalls = int(uint32(data[offset+6]&0xFF) << 24 + uint32(data[offset+7]&0xFF) << 16 +
+				uint32(data[offset+8]&0xFF) << 8 + uint32(data[offset+9]&0xFF))
+			if s.Tiles[x*48+y].GroundOverlay == 250 {
+				s.Tiles[x*48+y].GroundOverlay = 2
+			}
+			if groundOverlay := s.Tiles[x*48+y].GroundOverlay; groundOverlay > 0 && Tiles[groundOverlay-1].ObjectType != 0 {
+				s.Tiles[x*48+y].CollisionMask |= 0x40
+			}
+			if verticalWalls := data[offset+5] & 0xFF; verticalWalls > 0 && Boundarys[verticalWalls].Unknown == 0 && Boundarys[verticalWalls].DoorType != 0 {
+				s.Tiles[x*48+y].CollisionMask |= 1
+				if x > 0 || y > 0 {
+					s.Tiles[x*48+y-1].CollisionMask |= 4
+				}
+			}
+			if horizontalWalls := data[offset+4] & 0xFF; horizontalWalls > 0 && Boundarys[horizontalWalls].Unknown == 0 && Boundarys[horizontalWalls].DoorType != 0 {
+				s.Tiles[x*48+y].CollisionMask |= 2
+				if x > 0 || y >= 48 {
+					s.Tiles[(x-1)*48+y].CollisionMask |= 8
+				}
+			}
+			if diagonalWalls := s.Tiles[x*48+y].DiagonalWalls; diagonalWalls > 0 && diagonalWalls <= 12000 && Boundarys[diagonalWalls].Unknown == 0 && Boundarys[diagonalWalls].DoorType != 0 {
+				s.Tiles[x*48+y].CollisionMask |= 0x20
+			}
+			if diagonalWalls := s.Tiles[x*48+y].DiagonalWalls; diagonalWalls >= 12000 && diagonalWalls < 24000 && Boundarys[diagonalWalls-12000].Unknown == 0 && Boundarys[diagonalWalls-12000].DoorType != 0 {
+				s.Tiles[x*48+y].CollisionMask |= 0x10
+			}
+			offset += 10
+			// Water and black
 		}
-		// Black I think?
-		if s.Tiles[i].GroundOverlay == 0 {
-			blackCount++
-		}
-*/	}
-//	if waterCount >= 2304 || blackCount >= 2304 {
-//		return nil
-//	}
+	}
 
 	return
 }

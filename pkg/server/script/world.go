@@ -32,7 +32,7 @@ func WorldModule() *vm.Env {
 		"NewLocation": world.NewLocation,
 		"Items": db.Items,
 		"Objects": db.Objects,
-		"Boundarys": db.Boundarys,
+		"Boundarys": world.Boundarys,
 		"Npcs": db.Npcs,
 	}, map[string]interface{}{
 		"Player": reflect.TypeOf(&world.Player{}),
