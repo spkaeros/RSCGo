@@ -6,6 +6,9 @@ func objectAction() {
 	if cmd == "climb-down" {
 		loc = player.Below()
 	}
+	if cmd == "go up" {
+		loc = player.Above()
+	}
 	if loc != nil {
 		player.SetLocation(loc)
 		client.UpdatePlane()

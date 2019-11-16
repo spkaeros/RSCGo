@@ -12,8 +12,10 @@ package world
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"github.com/spkaeros/rscgo/pkg/jag"
 	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/strutil"
 	"io/ioutil"
 	"runtime"
 	"sync"
@@ -28,11 +30,6 @@ type TileData struct {
 	GroundElevation byte
 	GroundOverlay   byte
 	GroundTexture   byte
-	CollisionMask   byte
-}
-//Clip Represents a single tile in the game's landscape.
-type Clip struct {
-	GroundOverlay   byte
 	CollisionMask   byte
 }
 
@@ -58,9 +55,7 @@ func LoadMapData() {
 	defer gzReader.Close()
 	var wg sync.WaitGroup
 	wg.Add(archive.FileCount)
-	for i := 0; i < 36; i++ {
-		Boundarys = append(Boundarys, BoundaryDefinition{})
-	}
+	Boundarys = append(Boundarys, BoundaryDefinition{})
 
 	decodeFile := func(data []byte, id int) {
 		defer wg.Done()
@@ -115,8 +110,42 @@ type BoundaryDefinition struct {
 	Name        string
 	Commands    []string
 	Description string
-	Unknown int
-	DoorType int
+	Unknown     int
+	Traversable int
+}
+
+
+
+func (t TileData) blocked(bit byte) bool {
+	if t.GroundOverlay == 2 || t.GroundOverlay == 8 {
+		return false
+	}
+	if t.CollisionMask & bit != 0 {
+		return true
+	}
+	if t.CollisionMask & 16 != 0 {
+		return true
+	}
+	if t.CollisionMask & 32 != 0 {
+		return true
+	}
+	if t.CollisionMask & 64 != 0 {
+		return true
+	}
+	return false
+}
+func ClipData(x, y int) TileData {
+	regionX := (2304+x)/RegionSize
+	regionY := (1776+y-(944*((y+100)/944)))/RegionSize
+	mapSector := fmt.Sprintf("h%dx%dy%d", (y+100)/944, regionX, regionY)
+	areaX := (2304+x) % 48
+	areaY := (1776+y-(944*((y+100)/944))) % 48
+	sector := Sectors[strutil.JagHash(mapSector)]
+
+	if sector == nil {
+		return TileData{}
+	}
+	return sector.Tiles[areaX * 48 + areaY]
 }
 
 //LoadSector Parses raw data into data structures that make up a 48x48 map sector.
@@ -145,22 +174,26 @@ func LoadSector(data []byte) (s *Sector) {
 			if groundOverlay := s.Tiles[x*48+y].GroundOverlay; groundOverlay > 0 && Tiles[groundOverlay-1].ObjectType != 0 {
 				s.Tiles[x*48+y].CollisionMask |= 0x40
 			}
-			if verticalWalls := data[offset+5] & 0xFF; verticalWalls > 0 && Boundarys[verticalWalls].Unknown == 0 && Boundarys[verticalWalls].DoorType != 0 {
+			if verticalWalls := data[offset+5] & 0xFF; verticalWalls > 0 && Boundarys[verticalWalls].Unknown == 0 && Boundarys[verticalWalls].Traversable != 0 {
 				s.Tiles[x*48+y].CollisionMask |= 1
 				if x > 0 || y > 0 {
 					s.Tiles[x*48+y-1].CollisionMask |= 4
+				} else {
+					s.Tiles[x*48+y+1].CollisionMask |= 4
 				}
 			}
-			if horizontalWalls := data[offset+4] & 0xFF; horizontalWalls > 0 && Boundarys[horizontalWalls].Unknown == 0 && Boundarys[horizontalWalls].DoorType != 0 {
+			if horizontalWalls := s.Tiles[x*48+y].HorizontalWalls; horizontalWalls > 0 && Boundarys[horizontalWalls].Unknown == 0 && Boundarys[horizontalWalls].Traversable != 0 {
 				s.Tiles[x*48+y].CollisionMask |= 2
-				if x > 0 || y >= 48 {
+				if x >= 1 || y >= 48 {
 					s.Tiles[(x-1)*48+y].CollisionMask |= 8
+				} else {
+					s.Tiles[(x+1)*48+y].CollisionMask |= 8
 				}
 			}
-			if diagonalWalls := s.Tiles[x*48+y].DiagonalWalls; diagonalWalls > 0 && diagonalWalls <= 12000 && Boundarys[diagonalWalls].Unknown == 0 && Boundarys[diagonalWalls].DoorType != 0 {
+			if diagonalWalls := s.Tiles[x*48+y].DiagonalWalls; diagonalWalls > 0 && diagonalWalls < 12000 && Boundarys[diagonalWalls].Unknown == 0 && Boundarys[diagonalWalls].Traversable != 0 {
 				s.Tiles[x*48+y].CollisionMask |= 0x20
 			}
-			if diagonalWalls := s.Tiles[x*48+y].DiagonalWalls; diagonalWalls >= 12000 && diagonalWalls < 24000 && Boundarys[diagonalWalls-12000].Unknown == 0 && Boundarys[diagonalWalls-12000].DoorType != 0 {
+			if diagonalWalls := s.Tiles[x*48+y].DiagonalWalls; diagonalWalls >= 12000 && diagonalWalls < 24000 && Boundarys[diagonalWalls-12000].Unknown == 0 && Boundarys[diagonalWalls-12000].Traversable != 0 {
 				s.Tiles[x*48+y].CollisionMask |= 0x10
 			}
 			offset += 10

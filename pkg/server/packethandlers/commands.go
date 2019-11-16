@@ -310,8 +310,8 @@ func init() {
 		mapSector := fmt.Sprintf("h%dx%dy%d", c.Player().Plane(), regionX, regionY)
 		areaX := (2304+c.Player().CurX()) % 48
 		areaY := (1776+c.Player().CurY()-(944*c.Player().Plane())) % 48
-		tile := getTileData(c.Player().CurX(), c.Player().CurY())
-		c.Message(fmt.Sprintf("@que@%v,%v[%d,%d]: Vert:%v, Horiz:%v, Diag:%v, Roof:%v, Type:%v, Color:%v, Elev:%v", c.Player().Location.String(), mapSector, areaX, areaY, tile.VerticalWalls, tile.HorizontalWalls, tile.DiagonalWalls, tile.Roofs, tile.GroundOverlay, tile.GroundTexture, tile.GroundElevation))
+		tile := world.ClipData(c.Player().CurX(), c.Player().CurY())
+		c.Message(fmt.Sprintf("@que@%v sector(%v rel:(%v,%v)): V:%v, H:%v, D:%v, R:%v, O:%v, T:%v, E:%v, bitmask:%v", c.Player().Location.String(), mapSector, areaX, areaY, tile.VerticalWalls, tile.HorizontalWalls, tile.DiagonalWalls, tile.Roofs, tile.GroundOverlay, tile.GroundTexture, tile.GroundElevation, tile.CollisionMask))
 	}
 	CommandHandlers["clip"] = func(c clients.Client, args []string) {
 		x := c.Player().CurX()
@@ -330,15 +330,6 @@ func init() {
 	CommandHandlers["clipdata"] = func(c clients.Client, args []string) {
 		fmt.Printf("CollisionMask: %v %v\n", c.Player().Location.String(), world.ClipData(c.Player().CurX(), c.Player().CurY()))
 	}
-}
-
-func getTileData(x, y int) world.TileData {
-	regionX := (2304+x)/world.RegionSize
-	regionY := (1776+y-(944*((y+100)/944)))/world.RegionSize
-	mapSector := fmt.Sprintf("h%dx%dy%d", (y+100)/944, regionX, regionY)
-	areaX := (2304+x) % 48
-	areaY := (1776+y-(944*((y+100)/944))) % 48
-	return world.Sectors[strutil.JagHash(mapSector)].Tiles[areaX * 48 + areaY]
 }
 
 func teleport(c clients.Client, args []string) {

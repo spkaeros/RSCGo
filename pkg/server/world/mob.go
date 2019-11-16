@@ -1,9 +1,7 @@
 package world
 
 import (
-	"fmt"
 	"github.com/spkaeros/rscgo/pkg/rand"
-	"github.com/spkaeros/rscgo/pkg/strutil"
 	"go.uber.org/atomic"
 	"sync"
 	"time"
@@ -174,38 +172,6 @@ func (m *Mob) TraversePath() {
 	m.Move()
 }
 
-func (t TileData) blocked(bit byte) bool {
-	if t.GroundOverlay == 2 || t.GroundOverlay == 8 {
-		return false
-	}
-	if t.CollisionMask & bit != 0 {
-		return true
-	}
-	if t.CollisionMask & 16 != 0 {
-		return true
-	}
-	if t.CollisionMask & 32 != 0 {
-		return true
-	}
-	if t.CollisionMask & 64 != 0 {
-		return true
-	}
-	return false
-}
-func ClipData(x, y int) TileData {
-	regionX := (2304+x)/RegionSize
-	regionY := (1776+y-(944*((y+100)/944)))/RegionSize
-	mapSector := fmt.Sprintf("h%dx%dy%d", (y+100)/944, regionX, regionY)
-	areaX := (2304+x) % 48
-	areaY := (1776+y-(944*((y+100)/944))) % 48
-	sector := Sectors[strutil.JagHash(mapSector)]
-
-	if sector == nil {
-		return TileData{}
-	}
-	return sector.Tiles[areaX * 48 + areaY]
-}
-
 //FinishedPath Returns true if the mobs path is nil, the paths current waypoint exceeds the number of waypoints available, or the next tile in the path is not a valid location, implying that we have reached our destination.
 func (m *Mob) FinishedPath() bool {
 	path := m.Path()
@@ -215,12 +181,7 @@ func (m *Mob) FinishedPath() bool {
 	return path.CurrentWaypoint >= path.CountWaypoints() || !path.NextTileFrom(m.Location).IsValid()
 }
 
-//UpdateDirection Updates the direction the mob is facing based on where the mob is trying to move, and where the mob is currently at.
-func (m *Mob) UpdateDirection(destX, destY uint32) {
-	m.SetDirection(m.directionFromLocation(destX, destY))
-}
-
-func (m *Mob) directionFromLocation(destX, destY uint32) int {
+func (m *Mob) directionTo(destX, destY uint32) int {
 	sprites := [3][3]int{{SouthWest, West, NorthWest}, {South, -1, North}, {SouthEast, East, NorthEast}}
 	xIndex, yIndex := m.X.Load()-destX+1, m.Y.Load()-destY+1
 	if xIndex >= 3 || yIndex >= 3 {
@@ -233,7 +194,7 @@ func (m *Mob) directionFromLocation(destX, destY uint32) int {
 func (m *Mob) SetLocation(location Location) {
 	x := location.X.Load()
 	y := location.Y.Load()
-	m.UpdateDirection(x, y)
+	m.SetDirection(m.directionTo(x, y))
 	m.SetCoords(x, y)
 }
 
