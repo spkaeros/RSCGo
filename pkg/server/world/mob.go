@@ -405,9 +405,18 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 func UpdateNPCPositions() {
 	npcsLock.RLock()
 	for _, n := range Npcs {
-		if n.TransAttrs.VarTime("nextMove").Before(time.Now()) {
-			n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
-			n.SetPath(NewPathwayToLocation(NewRandomLocation(n.Boundaries)))
+playerSearch:
+		for _, r := range SurroundingRegions(int(n.X.Load()), int(n.Y.Load())) {
+			r.Players.lock.RLock()
+			if len(r.Players.List) > 0 {
+				r.Players.lock.RUnlock()
+				if n.TransAttrs.VarTime("nextMove").Before(time.Now()) {
+					n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
+					n.SetPath(NewPathwayToLocation(NewRandomLocation(n.Boundaries)))
+				}
+				break playerSearch
+			}
+			r.Players.lock.RUnlock()
 		}
 
 		n.TraversePath()
