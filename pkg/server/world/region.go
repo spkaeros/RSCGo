@@ -235,10 +235,9 @@ func RemoveObject(o *Object) {
 
 //ReplaceObject Replaces old with a new game object with all of the same characteristics, except it's ID set to newID.
 func ReplaceObject(old *Object, newID int) *Object {
-	r := GetRegionFromLocation(&old.Location)
-	r.Objects.Remove(old)
+	RemoveObject(old)
 	object := NewObject(newID, old.Direction, int(old.X.Load()), int(old.Y.Load()), old.Boundary)
-	r.Objects.Add(object)
+	AddObject(object)
 	return object
 }
 
