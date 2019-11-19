@@ -108,26 +108,26 @@ func AddObject(o *Object) {
 					return
 				}
 				if def.Type == 1 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 64
+					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x40
 				} else if o.Direction == 0 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 2
+					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x2
 					if SectorFromCoords(x - 1, y) != nil && (areaX > 0 || areaY >= 48) {
-						SectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask |= 8
+						SectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask |= 0x8
 					}
 				} else if o.Direction == 2 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 4
+					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x4
 					if SectorFromCoords(x, y + 1) != nil {
-						SectorFromCoords(x, y + 1).Tiles[areaX*RegionSize+areaY + 1].CollisionMask |= 1
+						SectorFromCoords(x, y + 1).Tiles[areaX*RegionSize+areaY + 1].CollisionMask |= 0x1
 					}
 				} else if o.Direction == 4 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 8
+					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x8
 					if SectorFromCoords(x + 1, y) != nil {
-						SectorFromCoords(x+1, y).Tiles[(areaX+1)*RegionSize+areaY].CollisionMask |= 2
+						SectorFromCoords(x+1, y).Tiles[(areaX+1)*RegionSize+areaY].CollisionMask |= 0x2
 					}
 				} else if o.Direction == 6 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 1
+					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x1
 					if SectorFromCoords(x, y - 1) != nil {
-						SectorFromCoords(x, y - 1).Tiles[areaX*RegionSize+areaY - 1].CollisionMask |= 4
+						SectorFromCoords(x, y - 1).Tiles[areaX*RegionSize+areaY - 1].CollisionMask |= 0x4
 					}
 				}
 			}
@@ -144,19 +144,19 @@ func AddObject(o *Object) {
 			return
 		}
 		if o.Direction == 0 {
-			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 1
+			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x1
 			if SectorFromCoords(x, y - 1) != nil {
-				SectorFromCoords(x, y - 1).Tiles[areaX*RegionSize+areaY-1].CollisionMask |= 4
+				SectorFromCoords(x, y - 1).Tiles[areaX*RegionSize+areaY-1].CollisionMask |= 0x4
 			}
 		} else if o.Direction == 1 {
-			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 2
+			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x2
 			if SectorFromCoords(x - 1, y) != nil && (areaX > 0 || areaY >= 48) {
-				SectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask |= 8
+				SectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask |= 0x8
 			}
 		} else if o.Direction == 2 {
-			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 16
+			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x10
 		} else if o.Direction == 3 {
-			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 32
+			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x20
 		}
 	}
 }
@@ -183,26 +183,26 @@ func RemoveObject(o *Object) {
 				areaX := (2304+x) % RegionSize
 				areaY := (1776+y-(944*((y+100)/944))) % RegionSize
 				if def.Type == 1 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFBF
+					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 0x40
 				} else if o.Direction == 0 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFD
+					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 2
 					if SectorFromCoords(x - 1, y) != nil {
-						SectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask &= 65535 - 8
+						SectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask &= 0xFFFF - 8
 					}
 				} else if o.Direction == 2 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFB
+					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 4
 					if SectorFromCoords(x, y + 1) != nil {
-						SectorFromCoords(x, y + 1).Tiles[areaX*RegionSize+areaY + 1].CollisionMask &= 65535 - 1
+						SectorFromCoords(x, y + 1).Tiles[areaX*RegionSize+areaY + 1].CollisionMask &= 0xFFFF - 1
 					}
 				} else if o.Direction == 4 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFF7
+					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 8
 					if SectorFromCoords(x + 1, y) != nil {
-						SectorFromCoords(x+1, y).Tiles[(areaX+1)*RegionSize+areaY].CollisionMask &= 65535 - 2
+						SectorFromCoords(x+1, y).Tiles[(areaX+1)*RegionSize+areaY].CollisionMask &= 0xFFFF - 2
 					}
 				} else if o.Direction == 6 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFE
+					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 1
 					if SectorFromCoords(x, y - 1) != nil {
-						SectorFromCoords(x, y - 1).Tiles[areaX*RegionSize+areaY - 1].CollisionMask &= 65535 - 4
+						SectorFromCoords(x, y - 1).Tiles[areaX*RegionSize+areaY - 1].CollisionMask &= 0xFFFF - 4
 					}
 				}
 			}
@@ -216,19 +216,19 @@ func RemoveObject(o *Object) {
 		areaX := (2304+x) % RegionSize
 		areaY := (1776+y-(944*((y+100)/944))) % RegionSize
 		if o.Direction == 0 {
-			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFE
+			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 1
 			if SectorFromCoords(x, y - 1) != nil {
-				SectorFromCoords(x, y - 1).Tiles[areaX*RegionSize+areaY-1].CollisionMask &= 65535 - 4
+				SectorFromCoords(x, y - 1).Tiles[areaX*RegionSize+areaY-1].CollisionMask &= 0xFFFF - 4
 			}
 		} else if o.Direction == 1 {
-			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFD
+			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 2
 			if SectorFromCoords(x - 1, y) != nil {
-				SectorFromCoords(x - 1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask &= 65535 - 8
+				SectorFromCoords(x - 1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask &= 0xFFFF - 8
 			}
 		} else if o.Direction == 2 {
-			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFEF
+			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 0x10
 		} else if o.Direction == 3 {
-			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFDF
+			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 0x20
 		}
 	}
 }

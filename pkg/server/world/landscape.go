@@ -120,11 +120,13 @@ const (
 	OverlayGravel = 1
 	OverlayWater = 2
 	OverlayWood = 3
+	OverlayStoneFloor = 5
 	OverlayRedCarpet = 6
 	OverlayDarkWater = 7
 	OverlayBlack = 8
 	OverlayWhite = 9
 	OverlayLava = 11
+	OverlayPentagram = 14
 )
 
 var BlockedOverlays = [...]int{OverlayWater, OverlayDarkWater, OverlayBlack, OverlayWhite, OverlayLava}
@@ -146,15 +148,19 @@ func (t TileData) blocked(bit byte) bool {
 	if t.CollisionMask & int(bit) != 0 {
 		return true
 	}
-	if t.CollisionMask & 16 != 0 {
+	// Diag
+	if t.CollisionMask & 0x10 != 0 {
 		return true
 	}
-	if t.CollisionMask & 32 != 0 {
+	// oppososite diag
+	if t.CollisionMask & 0x20 != 0 {
 		return true
 	}
-	if t.CollisionMask & 64 != 0 {
+	// tile entirely blocked
+	if t.CollisionMask & 0x40 != 0 {
 		return true
 	}
+	// if it's not a traversable ground type
 	return isOverlayBlocked(int(t.GroundOverlay))
 }
 
