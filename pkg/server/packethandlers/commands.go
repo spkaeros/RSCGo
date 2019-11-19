@@ -311,7 +311,8 @@ func init() {
 		areaX := (2304+c.Player().CurX()) % 48
 		areaY := (1776+c.Player().CurY()-(944*c.Player().Plane())) % 48
 		tile := world.ClipData(c.Player().CurX(), c.Player().CurY())
-		c.Message(fmt.Sprintf("@que@%v sector(%v rel:(%v,%v)): V:%v, H:%v, D:%v, R:%v, O:%v, T:%v, E:%v, bitmask:%v", c.Player().Location.String(), mapSector, areaX, areaY, tile.VerticalWalls, tile.HorizontalWalls, tile.DiagonalWalls, tile.Roofs, tile.GroundOverlay, tile.GroundTexture, tile.GroundElevation, tile.CollisionMask))
+//		c.Message(fmt.Sprintf("@que@%v sector(%v rel:(%v,%v)): V:%v, H:%v, D:%v, R:%v, O:%v, T:%v, E:%v, bitmask:%v", c.Player().Location.String(), mapSector, areaX, areaY, tile.VerticalWalls, tile.HorizontalWalls, tile.DiagonalWalls, tile.Roofs, tile.GroundOverlay, tile.GroundTexture, tile.GroundElevation, tile.CollisionMask))
+		c.Message(fmt.Sprintf("@que@%v sector(%v rel:(%v,%v)): Overlay:%v, bitmask:%v", c.Player().Location.String(), mapSector, areaX, areaY, tile.GroundOverlay, tile.CollisionMask))
 	}
 	CommandHandlers["clip"] = func(c clients.Client, args []string) {
 		x := c.Player().CurX()

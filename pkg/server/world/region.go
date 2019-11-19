@@ -79,6 +79,12 @@ func RemoveItem(i *GroundItem) {
 
 //AddObject Add an object to the region.
 func AddObject(o *Object) {
+/*	x, y := int(o.X.Load()), int(o.Y.Load())
+	areaX := (2304+x) % 48
+	areaY := (1776+y-(944*((y+100)/944))) % 48
+	if Sectors[strutil.JagHash(SectorName(x, y))] != nil {
+		Sectors[strutil.JagHash(SectorName(x, y))].Tiles[areaX*48+areaY].CollisionMask |= 64
+	}*/
 	GetRegion(int(o.X.Load()), int(o.Y.Load())).Objects.Add(o)
 }
 

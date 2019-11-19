@@ -23,13 +23,15 @@ import (
 
 //TileData Represents a single tile in the game's landscape.
 type TileData struct {
-	DiagonalWalls   int
+	/*
+	DiagonalWalls int
 	HorizontalWalls byte
-	VerticalWalls   byte
-	Roofs           byte
+	VerticalWalls byte
 	GroundElevation byte
+	Roofs byte
+	GroundTexture byte
+	 */
 	GroundOverlay   byte
-	GroundTexture   byte
 	CollisionMask   byte
 }
 
@@ -114,10 +116,33 @@ type BoundaryDefinition struct {
 	Traversable int
 }
 
-func (t TileData) blocked(bit byte) bool {
-	if t.GroundOverlay == 2 || t.GroundOverlay == 8 {
-		return false
+const (
+	OverlayGravel = 1
+	OverlayWater = 2
+	OverlayWood = 3
+	OverlayRedCarpet = 6
+	OverlayDarkWater = 7
+	OverlayBlack = 8
+	OverlayWhite = 9
+	OverlayLava = 11
+)
+
+var BlockedOverlays = [...]int{OverlayWater, OverlayDarkWater, OverlayBlack, OverlayWhite, OverlayLava}
+
+func isOverlayBlocked(overlay int) bool {
+	for _, v := range BlockedOverlays {
+		if v == overlay {
+			return true
+		}
 	}
+	return false
+}
+
+func isTileBlocking(x, y int, bit byte) bool {
+	return ClipData(x, y).blocked(bit)
+}
+
+func (t TileData) blocked(bit byte) bool {
 	if t.CollisionMask & bit != 0 {
 		return true
 	}
@@ -130,7 +155,7 @@ func (t TileData) blocked(bit byte) bool {
 	if t.CollisionMask & 64 != 0 {
 		return true
 	}
-	return false
+	return isOverlayBlocked(int(t.GroundOverlay))
 }
 
 func SectorName(x, y int) string {
@@ -139,15 +164,22 @@ func SectorName(x, y int) string {
 	return fmt.Sprintf("h%dx%dy%d", (y+100)/944, regionX, regionY)
 }
 
-func ClipData(x, y int) TileData {
-	areaX := (2304+x) % 48
-	areaY := (1776+y-(944*((y+100)/944))) % 48
-	sector := Sectors[strutil.JagHash(SectorName(x, y))]
+func SectorFromCoords(x, y int) *Sector {
+	return Sectors[strutil.JagHash(SectorName(x, y))]
+}
 
+func (s *Sector) Tile(x, y int) TileData {
+	areaX := (2304+x) % RegionSize
+	areaY := (1776+y-(944*((y+100)/944))) % RegionSize
+	return s.Tiles[areaX * RegionSize + areaY]
+}
+
+func ClipData(x, y int) TileData {
+	sector := SectorFromCoords(x, y)
 	if sector == nil {
 		return TileData{}
 	}
-	return sector.Tiles[areaX * 48 + areaY]
+	return sector.Tile(x, y)
 }
 
 //LoadSector Parses raw data into data structures that make up a 48x48 map sector.
@@ -160,48 +192,54 @@ func LoadSector(data []byte) (s *Sector) {
 	s = &Sector{Tiles: make([]TileData, 2304)}
  	offset := 0
 
- 	count := 0
- 	for x := 0; x < 48; x++ {
- 		for y := 0; y < 48; y++ {
-			s.Tiles[x*48+y].GroundElevation = data[offset+0] & 0xFF
-			s.Tiles[x*48+y].GroundTexture = data[offset+1] & 0xFF
-			s.Tiles[x*48+y].GroundOverlay = data[offset+2] & 0xFF
-			s.Tiles[x*48+y].Roofs = data[offset+3] & 0xFF
-			s.Tiles[x*48+y].HorizontalWalls = data[offset+4] & 0xFF
-			s.Tiles[x*48+y].VerticalWalls = data[offset+5] & 0xFF
-			s.Tiles[x*48+y].DiagonalWalls = int(uint32(data[offset+6]&0xFF) << 24 + uint32(data[offset+7]&0xFF) << 16 +
-				uint32(data[offset+8]&0xFF) << 8 + uint32(data[offset+9]&0xFF))
-			if s.Tiles[x*48+y].GroundOverlay == 250 {
-				s.Tiles[x*48+y].GroundOverlay = 2
+ 	blankCount := 0
+ 	for x := 0; x < RegionSize; x++ {
+ 		for y := 0; y < RegionSize; y++ {
+//			s.Tiles[x*RegionSize+y].GroundElevation = data[offset+0] & 0xFF
+//			s.Tiles[x*RegionSize+y].GroundTexture = data[offset+1] & 0xFF
+//			s.Tiles[x*RegionSize+y].GroundOverlay = data[offset+2] & 0xFF
+//			s.Tiles[x*RegionSize+y].Roofs = data[offset+3] & 0xFF
+//			s.Tiles[x*RegionSize+y].HorizontalWalls = data[offset+4] & 0xFF
+//			s.Tiles[x*RegionSize+y].VerticalWalls = data[offset+5] & 0xFF
+//			s.Tiles[x*RegionSize+y].DiagonalWalls = int(uint32(data[offset+6]&0xFF) << 24 + uint32(data[offset+7]&0xFF) << 16 +
+//				uint32(data[offset+8]&0xFF) << 8 + uint32(data[offset+9]&0xFF))
+			groundOverlay := data[offset+2] & 0xFF
+			horizontalWalls := data[offset+4] & 0xFF
+			verticalWalls := data[offset+5] & 0xFF
+			diagonalWalls := int(uint32(data[offset+6]&0xFF) << 24 + uint32(data[offset+7]&0xFF) << 16 + uint32(data[offset+8]&0xFF) << 8 + uint32(data[offset+9]&0xFF))
+			if groundOverlay == 250 {
+				// -6 overflows to 250, and is water tile
+				groundOverlay = 2
 			}
-			if s.Tiles[x*48+y].GroundOverlay == 0 && s.Tiles[x*48+y].GroundTexture == 0 {
-				count++
+			if (groundOverlay == 0 && (data[offset+1] & 0xFF) == 0) || groundOverlay == OverlayWater || groundOverlay == OverlayBlack {
+				blankCount++
 			}
-			if groundOverlay := s.Tiles[x*48+y].GroundOverlay; groundOverlay > 0 && Tiles[groundOverlay-1].ObjectType != 0 {
-				s.Tiles[x*48+y].CollisionMask |= 0x40
+			s.Tiles[x*RegionSize+y].GroundOverlay = groundOverlay
+			if groundOverlay > 0 && Tiles[groundOverlay-1].ObjectType != 0 {
+				s.Tiles[x*RegionSize+y].CollisionMask |= 0x40
 			}
-			if verticalWalls := data[offset+5] & 0xFF; verticalWalls > 0 && Boundarys[verticalWalls].Unknown == 0 && Boundarys[verticalWalls].Traversable != 0 {
-				s.Tiles[x*48+y].CollisionMask |= 1
+			if verticalWalls > 0 && Boundarys[verticalWalls-1].Unknown == 0 && Boundarys[verticalWalls-1].Traversable != 0 {
+				s.Tiles[x*RegionSize+y].CollisionMask |= 1
 				if x > 0 || y > 0 {
-					s.Tiles[x*48+y-1].CollisionMask |= 4
+					s.Tiles[x*RegionSize+y-1].CollisionMask |= 4
 				}
 			}
-			if horizontalWalls := data[offset+4] & 0xFF; horizontalWalls > 0 && Boundarys[horizontalWalls].Unknown == 0 && Boundarys[horizontalWalls].Traversable != 0 {
-				s.Tiles[x*48+y].CollisionMask |= 2
-				if x >= 1 || y >= 48 {
-					s.Tiles[(x-1)*48+y].CollisionMask |= 8
+			if horizontalWalls > 0 && Boundarys[horizontalWalls-1].Unknown == 0 && Boundarys[horizontalWalls-1].Traversable != 0 {
+				s.Tiles[x*RegionSize+y].CollisionMask |= 2
+				if x >= 1 || y >= RegionSize {
+					s.Tiles[(x-1)*RegionSize+y].CollisionMask |= 8
 				}
 			}
-			if diagonalWalls := s.Tiles[x*48+y].DiagonalWalls; diagonalWalls > 0 && diagonalWalls < 12000 && Boundarys[diagonalWalls].Unknown == 0 && Boundarys[diagonalWalls].Traversable != 0 {
-				s.Tiles[x*48+y].CollisionMask |= 0x20
+			if diagonalWalls > 0 && diagonalWalls < 12000 && Boundarys[diagonalWalls-1].Unknown == 0 && Boundarys[diagonalWalls-1].Traversable != 0 {
+				s.Tiles[x*RegionSize+y].CollisionMask |= 0x20
 			}
-			if diagonalWalls := s.Tiles[x*48+y].DiagonalWalls; diagonalWalls >= 12000 && diagonalWalls < 24000 && Boundarys[diagonalWalls-12000].Unknown == 0 && Boundarys[diagonalWalls-12000].Traversable != 0 {
-				s.Tiles[x*48+y].CollisionMask |= 0x10
+			if diagonalWalls >= 12000 && diagonalWalls < 24000 && Boundarys[diagonalWalls-12001].Unknown == 0 && Boundarys[diagonalWalls-12001].Traversable != 0 {
+				s.Tiles[x*RegionSize+y].CollisionMask |= 0x10
 			}
 			offset += 10
 		}
 	}
-	if count >= 2304 {
+	if blankCount >= 2304 {
 		return nil
 	}
 

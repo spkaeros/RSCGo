@@ -145,7 +145,7 @@ func LoadBoundaryDefinitions() {
 	}
 	for rows.Next() {
 		nextDef := world.BoundaryDefinition{Commands: make([]string, 2)}
-		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.Unknown, &nextDef.Traversable)
+		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.Traversable, &nextDef.Unknown)
 		world.Boundarys = append(world.Boundarys, nextDef)
 	}
 }

@@ -129,17 +129,17 @@ func (m *Mob) TraversePath() {
 	next := NewLocation(int(x), int(y))
 	xBlocked, yBlocked := false, false
 	if x > dst.X.Load() {
-		xBlocked = ClipData(int(x - 1), int(y)).blocked(8)
+		xBlocked = isTileBlocking(int(x-1), int(y), 8)
 		next.X.Store(x - 1)
 	} else if x < dst.X.Load() {
-		xBlocked = ClipData(int(x + 1), int(y)).blocked(2)
+		xBlocked = isTileBlocking(int(x + 1), int(y), 2)
 		next.X.Store(x + 1)
 	}
 	if y > dst.Y.Load() {
-		yBlocked = ClipData(int(x), int(y - 1)).blocked(4)
+		yBlocked = isTileBlocking(int(x), int(y - 1), 4)
 		next.Y.Store(y - 1)
 	} else if y < dst.Y.Load() {
-		yBlocked = ClipData(int(x), int(y + 1)).blocked(1)
+		yBlocked = isTileBlocking(int(x), int(y + 1), 1)
 		next.Y.Store(y + 1)
 	}
 
@@ -150,14 +150,14 @@ func (m *Mob) TraversePath() {
 	newXBlocked, newYBlocked := false, false
 
 	if next.X.Load() > x {
-		newXBlocked = ClipData(int(next.X.Load()), int(next.Y.Load())).blocked(2)
+		newXBlocked = isTileBlocking(int(next.X.Load()), int(next.Y.Load()), 2)
 	} else if next.X.Load() < x {
-		newXBlocked = ClipData(int(next.X.Load()), int(next.Y.Load())).blocked(8)
+		newXBlocked = isTileBlocking(int(next.X.Load()), int(next.Y.Load()), 8)
 	}
 	if next.Y.Load() > y {
-		newYBlocked = ClipData(int(next.X.Load()), int(next.Y.Load())).blocked(1)
+		newYBlocked = isTileBlocking(int(next.X.Load()), int(next.Y.Load()), 1)
 	} else if next.Y.Load() < y {
-		newYBlocked = ClipData(int(next.X.Load()), int(next.Y.Load())).blocked(4)
+		newYBlocked = isTileBlocking(int(next.X.Load()), int(next.Y.Load()), 4)
 	}
 	if (newXBlocked && newYBlocked) || (newYBlocked && y == next.Y.Load()) || (newXBlocked && x == next.X.Load()) {
 		m.ResetPath()
