@@ -59,7 +59,7 @@ func init() {
 			} else if !c.Player().WithinRange(affectedClient.Player().Location, c.Player().FollowRadius()) {
 				// We're not moving, but our target is moving away, so we must try to get closer
 				if dest := c.Player().NextTileToward(affectedClient.Player().Location); !dest.Equals(c.Player().Location) {
-					c.Player().SetLocation(dest)
+					c.Player().SetLocation(dest, false)
 					c.Player().Move()
 				} else {
 					log.Info.Printf("Could not traverse the world to follow a client: from %v to %v, %v was following %v\n", c.Player().Location, affectedClient.Player().Location, c, affectedClient)

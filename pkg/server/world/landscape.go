@@ -214,27 +214,30 @@ func LoadSector(data []byte) (s *Sector) {
 			if (groundOverlay == 0 && (data[offset+1] & 0xFF) == 0) || groundOverlay == OverlayWater || groundOverlay == OverlayBlack {
 				blankCount++
 			}
-			s.Tiles[x*RegionSize+y].GroundOverlay = groundOverlay
+			tileIdx := x*RegionSize+y
+			s.Tiles[tileIdx].GroundOverlay = groundOverlay
 			if groundOverlay > 0 && Tiles[groundOverlay-1].ObjectType != 0 {
-				s.Tiles[x*RegionSize+y].CollisionMask |= 0x40
+				s.Tiles[tileIdx].CollisionMask |= 0x40
 			}
 			if verticalWalls > 0 && Boundarys[verticalWalls-1].Unknown == 0 && Boundarys[verticalWalls-1].Traversable != 0 {
-				s.Tiles[x*RegionSize+y].CollisionMask |= 1
+				s.Tiles[tileIdx].CollisionMask |= 1
 				if x > 0 || y > 0 {
-					s.Tiles[x*RegionSize+y-1].CollisionMask |= 4
+					// -1 is tile x,y-1
+					s.Tiles[tileIdx-1].CollisionMask |= 4
 				}
 			}
 			if horizontalWalls > 0 && Boundarys[horizontalWalls-1].Unknown == 0 && Boundarys[horizontalWalls-1].Traversable != 0 {
-				s.Tiles[x*RegionSize+y].CollisionMask |= 2
+				s.Tiles[tileIdx].CollisionMask |= 2
 				if x >= 1 || y >= RegionSize {
-					s.Tiles[(x-1)*RegionSize+y].CollisionMask |= 8
+					// -48 is tile x-1,y
+					s.Tiles[tileIdx-48].CollisionMask |= 8
 				}
 			}
 			if diagonalWalls > 0 && diagonalWalls < 12000 && Boundarys[diagonalWalls-1].Unknown == 0 && Boundarys[diagonalWalls-1].Traversable != 0 {
-				s.Tiles[x*RegionSize+y].CollisionMask |= 0x20
+				s.Tiles[tileIdx].CollisionMask |= 0x20
 			}
 			if diagonalWalls >= 12000 && diagonalWalls < 24000 && Boundarys[diagonalWalls-12001].Unknown == 0 && Boundarys[diagonalWalls-12001].Traversable != 0 {
-				s.Tiles[x*RegionSize+y].CollisionMask |= 0x10
+				s.Tiles[tileIdx].CollisionMask |= 0x10
 			}
 			offset += 10
 		}

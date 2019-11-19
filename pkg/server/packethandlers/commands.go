@@ -241,13 +241,13 @@ func init() {
 	}
 	CommandHandlers["goup"] = func(c clients.Client, args []string) {
 		if nextLocation := c.Player().Above(); !nextLocation.Equals(&c.Player().Location) {
-			c.Player().SetLocation(nextLocation)
+			c.Player().SetLocation(nextLocation, true)
 			c.UpdatePlane()
 		}
 	}
 	CommandHandlers["godown"] = func(c clients.Client, args []string) {
 		if nextLocation := c.Player().Below(); !nextLocation.Equals(&c.Player().Location) {
-			c.Player().SetLocation(nextLocation)
+			c.Player().SetLocation(nextLocation, true)
 			c.UpdatePlane()
 		}
 	}
@@ -303,6 +303,11 @@ func init() {
 		env.Define("println", fmt.Println)
 		env.Define("player", c.Player())
 		env.Execute(line)
+	}
+	CommandHandlers["reloadscripts"] = func(c clients.Client, args []string) {
+		script.Scripts = script.Scripts[:0]
+		script.Load()
+		log.Info.Println("Reloaded", len(script.Scripts), "content scripts.")
 	}
 	CommandHandlers["tile"] = func(c clients.Client, args []string) {
 		regionX := (2304+c.Player().CurX())/world.RegionSize

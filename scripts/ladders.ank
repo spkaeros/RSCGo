@@ -10,7 +10,7 @@ func objectAction() {
 		loc = player.Above()
 	}
 	if loc != nil {
-		player.SetLocation(loc)
+		player.SetLocation(loc, true)
 		client.UpdatePlane()
 		return true
 	}
