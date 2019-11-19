@@ -72,11 +72,9 @@ func main() {
 	//  their own goroutines should save some initialization time.
 	var awaitLaunchJobs sync.WaitGroup
 	// Network protocol information
+	asyncExecute(&awaitLaunchJobs, world.LoadMapData)
+	asyncExecute(&awaitLaunchJobs, script.Load)
 	asyncExecute(&awaitLaunchJobs, packethandlers.Initialize)
-
-	// Entity locations
-	asyncExecute(&awaitLaunchJobs, db.LoadObjectLocations)
-	asyncExecute(&awaitLaunchJobs, db.LoadNpcLocations)
 
 	// Entity definitions
 	asyncExecute(&awaitLaunchJobs, db.LoadObjectDefinitions)
@@ -86,19 +84,21 @@ func main() {
 	asyncExecute(&awaitLaunchJobs, db.LoadBoundaryDefinitions)
 	asyncExecute(&awaitLaunchJobs, db.LoadTileDefinitions)
 
+	// Entity locations
+//	asyncExecute(&awaitLaunchJobs, db.LoadObjectLocations)
+	asyncExecute(&awaitLaunchJobs, db.LoadNpcLocations)
 	// Entity action scripting triggers
 //	asyncExecute(&awaitLaunchJobs, script.LoadObjectTriggers)
 //	asyncExecute(&awaitLaunchJobs, script.LoadBoundaryTriggers)
 	//	asyncExecute(&awaitLaunchJobs, script.LoadItemTriggers)
-	asyncExecute(&awaitLaunchJobs, script.Load)
-	asyncExecute(&awaitLaunchJobs, world.LoadMapData)
 	awaitLaunchJobs.Wait()
 	if config.Verbose() {
+		db.LoadObjectLocations()
 		log.Info.Printf("Loaded %d landscape sectors.\n", len(world.Sectors))
 		log.Info.Printf("Loaded %d packet handlers.\n", packethandlers.Size())
 		log.Info.Printf("Loaded %d item definitions.\n", len(db.Items))
 		log.Info.Printf("Loaded %d NPC definitions.\n", len(db.Npcs))
-		log.Info.Printf("Loaded %d object definitions.\n", len(db.Objects))
+		log.Info.Printf("Loaded %d object definitions.\n", len(world.Objects))
 		log.Info.Printf("Loaded %d boundary definitions.\n", len(world.Boundarys))
 		log.Info.Printf("Loaded %d NPCs.\n", world.NpcCounter.Load())
 		log.Info.Printf("Loaded %d objects and boundaries.\n", world.ObjectCounter.Load())

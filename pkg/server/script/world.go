@@ -31,7 +31,7 @@ func WorldModule() *vm.Env {
 		"NewPathTo": world.NewPathwayToCoords,
 		"NewLocation": world.NewLocation,
 		"Items": db.Items,
-		"Objects": db.Objects,
+		"Objects": world.Objects,
 		"Boundarys": world.Boundarys,
 		"Npcs": db.Npcs,
 	}, map[string]interface{}{

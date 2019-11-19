@@ -5,6 +5,21 @@ import (
 	"go.uber.org/atomic"
 )
 
+
+//ObjectDefinition This represents a single definition for a single object in the game.
+type ObjectDefinition struct {
+	ID            int
+	Name          string
+	Commands      []string
+	Description   string
+	Type          int
+	Width, Height int
+	Length        int
+}
+
+//Objects This holds the defining characteristics for all of the game's scene objects, ordered by ID.
+var Objects []ObjectDefinition
+
 //Object Represents a game object in the world.
 type Object struct {
 	ID        int

@@ -6,17 +6,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
-//ObjectDefinition This represents a single definition for a single object in the game.
-type ObjectDefinition struct {
-	ID            int
-	Name          string
-	Commands      []string
-	Description   string
-	Type          int
-	Width, Height int
-	Length        int
-}
-
 //ItemDefinition This represents a single definition for a single item in the game.
 type ItemDefinition struct {
 	ID          int
@@ -56,9 +45,6 @@ type EquipmentDefinition struct {
 	Female   bool
 }
 
-//Objects This holds the defining characteristics for all of the game's scene objects, ordered by ID.
-var Objects []ObjectDefinition
-
 //Items This holds the defining characteristics for all of the game's items, ordered by ID.
 var Items []ItemDefinition
 
@@ -90,9 +76,9 @@ func LoadObjectDefinitions() {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		nextDef := ObjectDefinition{Commands: make([]string, 2)}
+		nextDef := world.ObjectDefinition{Commands: make([]string, 2)}
 		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.Type, &nextDef.Width, &nextDef.Height, &nextDef.Length)
-		Objects = append(Objects, nextDef)
+		world.Objects = append(world.Objects, nextDef)
 	}
 }
 

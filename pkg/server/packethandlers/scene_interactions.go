@@ -2,7 +2,6 @@ package packethandlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/clients"
-	"github.com/spkaeros/rscgo/pkg/server/db"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/script"
@@ -109,13 +108,13 @@ func objectAction(c clients.Client, object *world.Object, rightClick bool) {
 			return
 		}
 		if rightClick {
-			err = env.Define("cmd", db.Objects[object.ID].Commands[1])
+			err = env.Define("cmd", world.Objects[object.ID].Commands[1])
 			if err != nil {
 				log.Info.Println("Error initializing scripting environment:", err)
 				return
 			}
 		} else {
-			err = env.Define("cmd", db.Objects[object.ID].Commands[0])
+			err = env.Define("cmd", world.Objects[object.ID].Commands[0])
 			if err != nil {
 				log.Info.Println("Error initializing scripting environment:", err)
 				return

@@ -32,7 +32,7 @@ type TileData struct {
 	GroundTexture byte
 	 */
 	GroundOverlay   byte
-	CollisionMask   byte
+	CollisionMask   int
 }
 
 //Sector Represents a sector of 48x48(2304) tiles in the game's landscape.
@@ -143,7 +143,7 @@ func isTileBlocking(x, y int, bit byte) bool {
 }
 
 func (t TileData) blocked(bit byte) bool {
-	if t.CollisionMask & bit != 0 {
+	if t.CollisionMask & int(bit) != 0 {
 		return true
 	}
 	if t.CollisionMask & 16 != 0 {
