@@ -21,6 +21,22 @@ type ItemDefinition struct {
 	Members     bool
 }
 
+type EquipmentDefinition struct {
+	ID       int
+	Sprite   int
+	Type     int
+	Armour   int
+	Magic    int
+	Prayer   int
+	Ranged   int
+	Aim      int
+	Power    int
+	Position int
+	Female   bool
+}
+
+var Equipment []EquipmentDefinition
+
 //Items This holds the defining characteristics for all of the game's items, ordered by ID.
 var Items []ItemDefinition
 

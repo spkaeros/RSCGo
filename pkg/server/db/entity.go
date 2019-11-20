@@ -6,37 +6,8 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
-//NpcDefinition This represents a single definition for a single NPC in the game.
-type NpcDefinition struct {
-	ID          int
-	Name        string
-	Description string
-	Command     string
-	Hits        int
-	Attack      int
-	Strength    int
-	Defense     int
-	Attackable  bool
-}
-
-type EquipmentDefinition struct {
-	ID       int
-	Sprite   int
-	Type     int
-	Armour   int
-	Magic    int
-	Prayer   int
-	Ranged   int
-	Aim      int
-	Power    int
-	Position int
-	Female   bool
-}
-
-var Equipment []EquipmentDefinition
-
-func GetEquipmentDefinition(id int) *EquipmentDefinition {
-	for _, e := range Equipment {
+func GetEquipmentDefinition(id int) *world.EquipmentDefinition {
+	for _, e := range world.Equipment {
 		if e.ID == id {
 			return &e
 		}
@@ -46,7 +17,7 @@ func GetEquipmentDefinition(id int) *EquipmentDefinition {
 }
 
 //Npcs This holds the defining characteristics for all of the game's NPCs, ordered by ID.
-var Npcs []NpcDefinition
+var Npcs []world.NpcDefinition
 
 //LoadObjectDefinitions Loads game object data into memory for quick access.
 func LoadObjectDefinitions() {
@@ -75,9 +46,9 @@ func LoadEquipmentDefinitions() {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		nextDef := EquipmentDefinition{}
+		nextDef := world.EquipmentDefinition{}
 		rows.Scan(&nextDef.ID, &nextDef.Sprite, &nextDef.Type, &nextDef.Armour, &nextDef.Magic, &nextDef.Prayer, &nextDef.Ranged, &nextDef.Aim, &nextDef.Power, &nextDef.Position, &nextDef.Female)
-		Equipment = append(Equipment, nextDef)
+		world.Equipment = append(world.Equipment, nextDef)
 	}
 }
 
@@ -87,7 +58,6 @@ func LoadEquipmentDefinitions() {
 func LoadTileDefinitions() {
 	database := Open(config.WorldDB())
 	defer database.Close()
-	// TODO: Seem to be missing a lot of door data.
 	rows, err := database.Query("SELECT colour, unknown, objectType unknown FROM `tiles`")
 	defer rows.Close()
 	if err != nil {
@@ -105,7 +75,6 @@ func LoadTileDefinitions() {
 func LoadBoundaryDefinitions() {
 	database := Open(config.WorldDB())
 	defer database.Close()
-	// TODO: Seem to be missing a lot of door data.
 	rows, err := database.Query("SELECT id, name, description, command_one, command_two, door_type, unknown FROM `doors` ORDER BY id")
 	defer rows.Close()
 	if err != nil {
@@ -147,7 +116,7 @@ func LoadNpcDefinitions() {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		nextDef := NpcDefinition{}
+		nextDef := world.NpcDefinition{}
 		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Command, &nextDef.Hits, &nextDef.Attack, &nextDef.Strength, &nextDef.Defense, &nextDef.Attackable)
 		Npcs = append(Npcs, nextDef)
 	}
@@ -190,7 +159,6 @@ func LoadNpcLocations() {
 	for rows.Next() {
 		rows.Scan(&id, &startX, &minX, &maxX, &startY, &minY, &maxY)
 		npcCounter++
-		// TODO: Load bounds into npc struct
 		world.AddNpc(world.NewNpc(id, startX, startY, minX, maxX, minY, maxY))
 	}
 }

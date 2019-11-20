@@ -13,7 +13,7 @@ func InventoryItems(player *world.Player) (p *Packet) {
 	p.AddByte(uint8(player.Items.Size()))
 	player.Items.Range(func(item *world.Item) bool {
 		if item.Worn {
-			p.AddShort(uint16(item.ID + 32768))
+			p.AddShort(uint16(item.ID + 0x8000))
 		} else {
 			p.AddShort(uint16(item.ID))
 		}

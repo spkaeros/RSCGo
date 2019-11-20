@@ -336,6 +336,19 @@ func (s *SkillTable) CombatLevel() int {
 	return int((aggressiveTotal / 4) + (defensiveTotal / 4) + spiritualTotal)
 }
 
+//NpcDefinition This represents a single definition for a single NPC in the game.
+type NpcDefinition struct {
+	ID          int
+	Name        string
+	Description string
+	Command     string
+	Hits        int
+	Attack      int
+	Strength    int
+	Defense     int
+	Attackable  bool
+}
+
 //NpcCounter Counts the number of total NPCs within the world.
 var NpcCounter = atomic.NewUint32(0)
 

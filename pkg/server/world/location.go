@@ -67,52 +67,52 @@ func NewLocation(x, y int) Location {
 }
 
 func (l Location) incX() {
-	l.X.Store(l.X.Load() + 1)
+	l.X.Store(uint32(l.CurX() + 1))
 }
 
 func (l Location) incY() {
-	l.Y.Store(l.Y.Load() + 1)
+	l.Y.Store(uint32(l.CurY() + 1))
 }
 
 func (l Location) decX() {
-	l.X.Store(l.X.Load() - 1)
+	l.X.Store(uint32(l.CurX() - 1))
 }
 
 func (l Location) decY() {
-	l.Y.Store(l.Y.Load() - 1)
+	l.Y.Store(uint32(l.CurY() - 1))
 }
 
 //NewRandomLocation Returns a new random location within the specified bounds.  bounds[0] should be lowest corner, and
 // bounds[1] should be the highest corner.
 func NewRandomLocation(bounds [2]Location) Location {
-	return NewLocation(rand.Int31N(int(bounds[0].X.Load()), int(bounds[1].X.Load())), rand.Int31N(int(bounds[0].Y.Load()), int(bounds[1].Y.Load())))
+	return NewLocation(rand.Int31N(int(bounds[0].CurX()), int(bounds[1].CurX())), rand.Int31N(int(bounds[0].CurY()), int(bounds[1].CurY())))
 }
 
 //String Returns a string representation of the location
 func (l *Location) String() string {
-	return fmt.Sprintf("[%d,%d]", l.X.Load(), l.Y.Load())
+	return fmt.Sprintf("[%d,%d]", l.CurX(), l.CurY())
 }
 
 //IsValid Returns true if the tile at x,y is within world boundaries, false otherwise.
 func (l Location) IsValid() bool {
-	return l.X.Load() <= MaxX && l.Y.Load() <= MaxY
+	return l.CurX() <= MaxX && l.CurY() <= MaxY
 }
 
 //Equals Returns true if this location points to the same location as o
 func (l *Location) Equals(o interface{}) bool {
 	if o, ok := o.(*Location); ok {
-		return l.X.Load() == o.X.Load() && l.Y.Load() == o.Y.Load()
+		return l.CurX() == o.CurX() && l.CurY() == o.CurY()
 	}
 	if o, ok := o.(Location); ok {
-		return l.X.Load() == o.X.Load() && l.Y.Load() == o.Y.Load()
+		return l.CurX() == o.CurX() && l.CurY() == o.CurY()
 	}
 	return false
 }
 
 //DeltaX Returns the difference between this locations X coord and the other locations X coord
-func (l *Location) DeltaX(other Location) (deltaX uint32) {
-	ourX := l.X.Load()
-	theirX := other.X.Load()
+func (l *Location) DeltaX(other Location) (deltaX int) {
+	ourX := l.CurX()
+	theirX := other.CurX()
 	if ourX > theirX {
 		deltaX = ourX - theirX
 	} else if theirX > ourX {
@@ -122,9 +122,9 @@ func (l *Location) DeltaX(other Location) (deltaX uint32) {
 }
 
 //DeltaY Returns the difference between this locations Y coord and the other locations Y coord
-func (l *Location) DeltaY(other Location) (deltaY uint32) {
-	ourY := l.Y.Load()
-	theirY := other.Y.Load()
+func (l *Location) DeltaY(other Location) (deltaY int) {
+	ourY := l.CurY()
+	theirY := other.CurY()
 	if ourY > theirY {
 		deltaY = ourY - theirY
 	} else if theirY > ourY {
@@ -134,7 +134,7 @@ func (l *Location) DeltaY(other Location) (deltaY uint32) {
 }
 
 //LongestDelta Returns the largest difference in coordinates between receiver and other
-func (l *Location) LongestDelta(other Location) uint32 {
+func (l *Location) LongestDelta(other Location) int {
 	deltaX, deltaY := l.DeltaX(other), l.DeltaY(other)
 	if deltaX > deltaY {
 		return deltaX
@@ -149,21 +149,21 @@ func (l *Location) WithinRange(other Location, radius int) bool {
 
 //Plane Calculates and returns the plane that this location is on.
 func (l *Location) Plane() int {
-	return int(l.Y.Load()+100) / 944 // / 1000
+	return int(l.CurY()+100) / 944 // / 1000
 }
 
 //Above Returns the location directly above this one, if any.  Otherwise, if we are on the top floor, returns itself.
 func (l *Location) Above() Location {
-	return Location{X: l.X, Y: atomic.NewUint32(l.PlaneY(true))}
+	return Location{X: l.X, Y: atomic.NewUint32(uint32(l.PlaneY(true)))}
 }
 
 //Below Returns the location directly below this one, if any.  Otherwise, if we are on the bottom floor, returns itself.
 func (l *Location) Below() Location {
-	return Location{X: l.X, Y: atomic.NewUint32(l.PlaneY(false))}
+	return Location{X: l.X, Y: atomic.NewUint32(uint32(l.PlaneY(false)))}
 }
 
 //PlaneY Updates the location's Y coordinate, going up by one plane if up is true, else going down by one plane.  Valid planes: ground=0, 2nd story=1, 3rd story=2, basement=3
-func (l *Location) PlaneY(up bool) uint32 {
+func (l *Location) PlaneY(up bool) int {
 	curPlane := l.Plane()
 	var newPlane int
 	if up {
@@ -185,13 +185,13 @@ func (l *Location) PlaneY(up bool) uint32 {
 			newPlane = curPlane - 1
 		}
 	}
-	return uint32(newPlane*944) + (l.Y.Load() % 944)
+	return (newPlane*944) + (l.CurY() % 944)
 }
 
 //NextTileToward Returns the next tile toward the final destination of this pathway from currentLocation
 func (l Location) NextTileToward(other Location) Location {
-	destX, destY := other.X.Load(), other.Y.Load()
-	currentX, currentY := l.X.Load(), l.Y.Load()
+	destX, destY := other.CurX(), other.CurY()
+	currentX, currentY := l.CurX(), l.CurY()
 	destination := NewLocation(int(currentX), int(currentY))
 	switch {
 	case currentX > destX:

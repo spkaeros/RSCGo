@@ -12,7 +12,6 @@ func FriendList(player *world.Player) (p *Packet) {
 	p.AddByte(byte(len(player.FriendList)))
 	for hash, online := range player.FriendList {
 		p.AddLong(hash)
-		// TODO: Online status
 		status := 0
 		if online {
 			status = 0xFF
