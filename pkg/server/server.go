@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/gobwas/ws"
 	"github.com/spkaeros/rscgo/pkg/server/clients"
-	"github.com/spkaeros/rscgo/pkg/server/script"
 	"net"
 	"os"
 	"time"
@@ -78,11 +77,6 @@ func StartConnectionService() {
 //Tick One game engine 'tick'.  This is to handle movement, to synchronize client, to update movement-related state variables... Runs once per 600ms.
 func Tick() {
 	clients.Range(func(c clients.Client) {
-		if fn := c.Player().DistancedAction; fn != nil {
-			if fn() {
-				c.Player().ResetDistancedAction()
-			}
-		}
 		c.Player().TraversePath()
 	})
 	world.UpdateNPCPositions()
@@ -91,13 +85,13 @@ func Tick() {
 	})
 	clients.Range(func(c clients.Client) {
 		c.ResetUpdateFlags()
+		if fn := c.Player().DistancedAction; fn != nil {
+			if fn() {
+				c.Player().ResetDistancedAction()
+			}
+		}
 	})
 	world.ResetNpcUpdateFlags()
-	fns := script.ActiveTriggers
-	script.ActiveTriggers = script.ActiveTriggers[:0]
-	for _, fn := range fns {
-		go fn()
-	}
 
 }
 

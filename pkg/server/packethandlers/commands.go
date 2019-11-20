@@ -3,17 +3,16 @@ package packethandlers
 import (
 	"fmt"
 	"github.com/spkaeros/rscgo/pkg/server/clients"
+	"github.com/spkaeros/rscgo/pkg/server/db"
+	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/script"
+	"github.com/spkaeros/rscgo/pkg/server/world"
+	"github.com/spkaeros/rscgo/pkg/strutil"
 	"os"
 	"runtime/pprof"
 	"strconv"
 	"strings"
-
-	"github.com/spkaeros/rscgo/pkg/server/db"
-	"github.com/spkaeros/rscgo/pkg/server/log"
-	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
-	"github.com/spkaeros/rscgo/pkg/server/world"
-	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 //CommandHandlers A map to assign in-game commands to the functions they should execute.

@@ -199,6 +199,7 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 func ObjectLocations(player *world.Player) (p *Packet) {
 	counter := 0
 	p = NewOutgoingPacket(48)
+	var removing = world.List{}
 	for _, o := range player.LocalObjects.List {
 		if o, ok := o.(*world.Object); ok {
 			if o.Boundary {
@@ -209,10 +210,13 @@ func ObjectLocations(player *world.Player) (p *Packet) {
 				p.AddByte(byte(o.X.Load() - player.X.Load()))
 				p.AddByte(byte(o.Y.Load() - player.Y.Load()))
 				//				p.AddByte(byte(o.Direction))
-				player.LocalObjects.Remove(o)
+				removing.Add(o)
 				counter++
 			}
 		}
+	}
+	for _, p1 := range removing.List {
+		player.LocalObjects.Remove(p1)
 	}
 	for _, o := range player.NewObjects() {
 		if o.Boundary {
@@ -236,6 +240,7 @@ func ObjectLocations(player *world.Player) (p *Packet) {
 func BoundaryLocations(player *world.Player) (p *Packet) {
 	counter := 0
 	p = NewOutgoingPacket(91)
+	var removing = world.List{}
 	for _, o := range player.LocalObjects.List {
 		if o, ok := o.(*world.Object); ok {
 			if !o.Boundary {
@@ -247,10 +252,13 @@ func BoundaryLocations(player *world.Player) (p *Packet) {
 				p.AddByte(byte(o.X.Load() - player.X.Load()))
 				p.AddByte(byte(o.Y.Load() - player.Y.Load()))
 				//p.AddByte(byte(o.Direction))
-				player.LocalObjects.Remove(o)
+				removing.Add(o)
 				counter++
 			}
 		}
+	}
+	for _, p1 := range removing.List {
+		player.LocalObjects.Remove(p1)
 	}
 	for _, o := range player.NewObjects() {
 		if !o.Boundary {
@@ -274,6 +282,7 @@ func BoundaryLocations(player *world.Player) (p *Packet) {
 func ItemLocations(player *world.Player) (p *Packet) {
 	counter := 0
 	p = NewOutgoingPacket(99)
+	var removing = world.List{}
 	for _, i := range player.LocalItems.List {
 		if i, ok := i.(*world.GroundItem); ok {
 			x, y := i.X.Load(), i.Y.Load()
@@ -281,16 +290,19 @@ func ItemLocations(player *world.Player) (p *Packet) {
 				p.AddByte(255)
 				p.AddByte(byte(x - player.X.Load()))
 				p.AddByte(byte(y - player.Y.Load()))
-				player.LocalItems.Remove(i)
+				removing.Add(i)
 				counter++
 			} else if !i.VisibleTo(player) || !world.GetRegion(int(x), int(y)).Items.Contains(i) {
 				p.AddShort(uint16(i.ID + 0x8000)) // + 32768
 				p.AddByte(byte(x - player.X.Load()))
 				p.AddByte(byte(y - player.Y.Load()))
-				player.LocalItems.Remove(i)
+				removing.Add(i)
 				counter++
 			}
 		}
+	}
+	for _, p1 := range removing.List {
+		player.LocalItems.Remove(p1)
 	}
 	for _, i := range player.NewItems() {
 		p.AddShort(uint16(i.ID))

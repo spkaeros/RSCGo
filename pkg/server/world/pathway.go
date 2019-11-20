@@ -73,6 +73,14 @@ func (p *Pathway) StartingTile() Location {
 	return NewLocation(int(p.StartX), int(p.StartY))
 }
 
+//AddWaypoint Prepends a waypoint to his path.
+func (p *Pathway) AddWaypoint(x, y int) *Pathway{
+	p.WaypointsX = append([]int{x}, p.WaypointsX...)
+	p.WaypointsY = append([]int{y}, p.WaypointsY...)
+	p.CurrentWaypoint++
+	return p
+}
+
 //NextTileToward Returns the next tile toward the final destination of this pathway from currentLocation
 func (p *Pathway) NextTileFrom(currentLocation Location) Location {
 	dest := p.NextWaypointTile()

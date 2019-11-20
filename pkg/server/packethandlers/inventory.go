@@ -61,6 +61,7 @@ func init() {
 			if !c.Player().WithinRange(item.Location, 0) {
 				return false
 			}
+			c.Player().ResetPath()
 			if c.Player().Items.Size() >= 30 {
 				c.Message("You do not have room for that item in your inventory.")
 				return true

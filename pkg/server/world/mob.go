@@ -143,7 +143,7 @@ func (m *Mob) TraversePath() {
 		next.Y.Store(y + 1)
 	}
 
-	if (xBlocked && yBlocked) || (yBlocked && y == dst.Y.Load()) || (xBlocked && x == dst.X.Load()) {
+	if (xBlocked && yBlocked) || (xBlocked && y == dst.Y.Load()) || (yBlocked && x == dst.X.Load()) {
 		m.ResetPath()
 		return
 	}
@@ -159,7 +159,7 @@ func (m *Mob) TraversePath() {
 	} else if next.Y.Load() < y {
 		newYBlocked = isTileBlocking(int(next.X.Load()), int(next.Y.Load()), 4)
 	}
-	if (newXBlocked && newYBlocked) || (newYBlocked && y == next.Y.Load()) || (newXBlocked && x == next.X.Load()) {
+	if (newXBlocked && newYBlocked) || (newXBlocked && y == next.Y.Load()) || (newYBlocked && x == next.X.Load()) {
 		m.ResetPath()
 		return
 	}

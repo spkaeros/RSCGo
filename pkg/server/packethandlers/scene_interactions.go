@@ -19,7 +19,7 @@ func init() {
 			return
 		}
 		c.Player().SetDistancedAction(func() bool {
-			if object.WithinRange(c.Player().Location, 0) {
+			if object.WithinRange(c.Player().Location, 1) {
 				objectAction(c, object, false)
 				return true
 			}
@@ -36,7 +36,7 @@ func init() {
 			return
 		}
 		c.Player().SetDistancedAction(func() bool {
-			if object.WithinRange(c.Player().Location, 0) {
+			if object.WithinRange(c.Player().Location, 1) {
 				objectAction(c, object, true)
 				return true
 			}
@@ -53,7 +53,7 @@ func init() {
 			return
 		}
 		c.Player().SetDistancedAction(func() bool {
-			if object.WithinRange(c.Player().Location, 0) {
+			if object.WithinRange(c.Player().Location, 1) {
 				boundaryAction(c, object, true)
 				return true
 			}
@@ -70,7 +70,7 @@ func init() {
 			return
 		}
 		c.Player().SetDistancedAction(func() bool {
-			if object.WithinRange(c.Player().Location, 0) {
+			if object.WithinRange(c.Player().Location, 1) {
 				boundaryAction(c, object, false)
 				return true
 			}
@@ -80,7 +80,7 @@ func init() {
 }
 
 func objectAction(c clients.Client, object *world.Object, rightClick bool) {
-	if c.Player().State != world.MSIdle || world.GetObject(int(object.X.Load()), int(object.Y.Load())) != object || !object.WithinRange(c.Player().Location, 0) {
+	if c.Player().State != world.MSIdle || world.GetObject(int(object.X.Load()), int(object.Y.Load())) != object || !object.WithinRange(c.Player().Location, 1) {
 		// If somehow we became busy, the object changed before arriving, or somehow this action fired without actually arriving at the object, we do nothing.
 		return
 	}
@@ -137,7 +137,7 @@ objectAction()`)
 
 func boundaryAction(c clients.Client, object *world.Object, rightClick bool) {
 	//	c.Player().ResetPath()
-	if c.Player().State != world.MSIdle || world.GetObject(int(object.X.Load()), int(object.Y.Load())) != object || !object.WithinRange(c.Player().Location, 0) {
+	if c.Player().State != world.MSIdle || world.GetObject(int(object.X.Load()), int(object.Y.Load())) != object || !object.WithinRange(c.Player().Location, 1) {
 		// If somehow we became busy, the object changed before arriving, or somehow this action fired without actually arriving at the object, we do nothing.
 		return
 	}
