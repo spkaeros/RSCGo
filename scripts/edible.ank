@@ -2,18 +2,17 @@ amounts = {18: 1, 132: 3, 138: 4, 179: 5, 210: 2, 228: 1, 249: 2, 257: 5, 258: 3
 func invAction() {
 	amount, ok = amounts[toInt(item.ID)]
 	if ok {
-		diff = player.Skillset.Maximum[3] - player.Skillset.Current[3]
-        log.debug(amount)
-		if diff < amount {
-			amount = diff
+		deltaHp = player.Skillset.Maximum[3] - player.Skillset.Current[3]
+		if deltaHp < amount {
+			amount = deltaHp
 		}
 		client.Message("You eat the " + itemDefs[item.ID].Name + "...")
-		player.Items.RemoveByID(item.ID, item.Amount)
+		player.Items.RemoveByID(item.ID, 1)
 		client.SendInventory()
 		if amount > 0 {
 			player.Skillset.Current[3] += amount
 			client.SendStats()
-			world.Sleep(1e9)
+			sleep(tSecond)
 			client.Message("It heals some health.")
 		}
 		return true

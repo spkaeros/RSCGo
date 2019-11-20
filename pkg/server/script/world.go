@@ -26,6 +26,7 @@ var CommandHandlers = make(map[string]func(clients.Client, []string))
 
 func WorldModule() *vm.Env {
 	env, err := vm.NewEnv().AddPackage("world", map[string]interface{}{
+		"getPlayerCount": clients.Size,
 		"getPlayer": clients.FromIndex,
 		"getPlayerByName": clients.FromUserHash,
 		"replaceObject": world.ReplaceObject,
