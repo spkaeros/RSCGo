@@ -360,14 +360,6 @@ func (p *Player) TradeTarget() int {
 	return p.TransAttrs.VarInt("tradetarget", -1)
 }
 
-func (p *Player) CurX() int {
-	return int(p.X.Load())
-}
-
-func (p *Player) CurY() int {
-	return int(p.Y.Load())
-}
-
 //IsFighting Returns true if this player is currently in a fighting stance, otherwise returns false.
 func (p *Player) IsFighting() bool {
 	sprite := p.Direction() // Prevent locking too frequently

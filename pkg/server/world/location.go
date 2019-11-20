@@ -50,6 +50,14 @@ type Location struct {
 	Y *atomic.Uint32
 }
 
+func (l Location) CurX() int {
+	return int(l.X.Load())
+}
+
+func (l Location) CurY() int {
+	return int(l.Y.Load())
+}
+
 //DeathSpot The spot where mobs go to die.
 var DeathSpot = NewLocation(0, 0)
 

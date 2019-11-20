@@ -17,7 +17,7 @@ import (
 
 var Scripts []string
 
-//LoadObjectTriggers Loads all of the Tengo scripts in ./scripts/objects and stores them in the ObjectTriggers slice.
+//Load Loads all of the scripts in ./scripts and stores them in the Scripts slice.
 func Load() {
 	files, err := ioutil.ReadDir("./scripts")
 	if err != nil {
@@ -29,7 +29,6 @@ func Load() {
 	}
 }
 
-//LoadItemTriggers Loads all of the Tengo scripts in ./scripts/items and stores them in the ItemTriggers slice.
 func load(filePath string) string {
 	file, err := os.Open(filePath)
 	if err != nil {
