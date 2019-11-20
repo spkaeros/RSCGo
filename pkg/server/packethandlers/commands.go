@@ -226,7 +226,7 @@ func init() {
 				return
 			}
 		}
-		if !db.Items[id].Stackable && amount > 1 {
+		if !world.Items[id].Stackable && amount > 1 {
 			for i := 0; i < amount; i++ {
 				c.Player().Items.Add(id, 1)
 				if c.Player().Items.Size() >= 30 {

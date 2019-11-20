@@ -9,6 +9,21 @@ import (
 	"time"
 )
 
+//ItemDefinition This represents a single definition for a single item in the game.
+type ItemDefinition struct {
+	ID          int
+	Name        string
+	Description string
+	Command     string
+	BasePrice   int
+	Stackable   bool
+	Quest       bool
+	Members     bool
+}
+
+//Items This holds the defining characteristics for all of the game's items, ordered by ID.
+var Items []ItemDefinition
+
 //Item Represents a single item in the game.
 type Item struct {
 	ID     int

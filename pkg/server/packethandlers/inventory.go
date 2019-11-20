@@ -2,7 +2,6 @@ package packethandlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/clients"
-	"github.com/spkaeros/rscgo/pkg/server/db"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/script"
@@ -103,12 +102,12 @@ func init() {
 					log.Info.Println("Error initializing scripting environment:", err)
 					return
 				}
-				err = env.Define("cmd", strings.ToLower(db.Items[item.ID].Command))
+				err = env.Define("cmd", strings.ToLower(world.Items[item.ID].Command))
 				if err != nil {
 					log.Info.Println("Error initializing scripting environment:", err)
 					return
 				}
-				err = env.Define("Items", db.Items)
+				err = env.Define("Items", world.Items)
 				if err != nil {
 					log.Info.Println("Error initializing scripting environment:", err)
 					return

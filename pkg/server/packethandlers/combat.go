@@ -18,11 +18,13 @@ func init() {
 			if c.Player().WithinRange(npc.Location, 1) {
 				c.Player().ResetPath()
 				npc.ResetPath()
-				c.Player().Teleport(int(npc.Location.X.Load()), int(npc.Location.Y.Load()))
+				c.Player().Teleport(npc.CurX(), npc.CurY())
 				c.Player().State = world.MSFighting
 				npc.State = world.MSFighting
 				c.Player().SetDirection(world.LeftFighting)
 				npc.SetDirection(world.RightFighting)
+				c.Player().TransAttrs.SetVar("fighting", true)
+				npc.TransAttrs.SetVar("fighting", true)
 				return true
 			}
 			return false

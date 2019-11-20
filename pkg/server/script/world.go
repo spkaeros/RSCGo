@@ -30,7 +30,7 @@ func WorldModule() *vm.Env {
 		"RunAfter": time.AfterFunc,
 		"NewPathTo": world.NewPathwayToCoords,
 		"NewLocation": world.NewLocation,
-		"Items": db.Items,
+		"Items": world.Items,
 		"Objects": world.Objects,
 		"Boundarys": world.Boundarys,
 		"Npcs": db.Npcs,

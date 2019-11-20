@@ -1,7 +1,6 @@
 package packetbuilders
 
 import (
-	"github.com/spkaeros/rscgo/pkg/server/db"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
@@ -18,7 +17,7 @@ func InventoryItems(player *world.Player) (p *Packet) {
 		} else {
 			p.AddShort(uint16(item.ID))
 		}
-		if db.Items[item.ID].Stackable {
+		if world.Items[item.ID].Stackable {
 			p.AddInt2(uint32(item.Amount))
 		}
 		return true

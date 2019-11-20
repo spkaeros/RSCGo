@@ -6,18 +6,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
-//ItemDefinition This represents a single definition for a single item in the game.
-type ItemDefinition struct {
-	ID          int
-	Name        string
-	Description string
-	Command     string
-	BasePrice   int
-	Stackable   bool
-	Quest       bool
-	Members     bool
-}
-
 //NpcDefinition This represents a single definition for a single NPC in the game.
 type NpcDefinition struct {
 	ID          int
@@ -45,9 +33,6 @@ type EquipmentDefinition struct {
 	Female   bool
 }
 
-//Items This holds the defining characteristics for all of the game's items, ordered by ID.
-var Items []ItemDefinition
-
 var Equipment []EquipmentDefinition
 
 func GetEquipmentDefinition(id int) *EquipmentDefinition {
@@ -62,8 +47,6 @@ func GetEquipmentDefinition(id int) *EquipmentDefinition {
 
 //Npcs This holds the defining characteristics for all of the game's NPCs, ordered by ID.
 var Npcs []NpcDefinition
-
-
 
 //LoadObjectDefinitions Loads game object data into memory for quick access.
 func LoadObjectDefinitions() {
@@ -147,9 +130,9 @@ func LoadItemDefinitions() {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		nextDef := ItemDefinition{}
+		nextDef := world.ItemDefinition{}
 		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Command, &nextDef.BasePrice, &nextDef.Stackable, &nextDef.Quest, &nextDef.Members)
-		Items = append(Items, nextDef)
+		world.Items = append(world.Items, nextDef)
 	}
 }
 

@@ -92,11 +92,11 @@ func main() {
 //	asyncExecute(&awaitLaunchJobs, script.LoadBoundaryTriggers)
 	//	asyncExecute(&awaitLaunchJobs, script.LoadItemTriggers)
 	awaitLaunchJobs.Wait()
+	db.LoadObjectLocations()
 	if config.Verbose() {
-		db.LoadObjectLocations()
 		log.Info.Printf("Loaded %d landscape sectors.\n", len(world.Sectors))
 		log.Info.Printf("Loaded %d packet handlers.\n", packethandlers.Size())
-		log.Info.Printf("Loaded %d item definitions.\n", len(db.Items))
+		log.Info.Printf("Loaded %d item definitions.\n", len(world.Items))
 		log.Info.Printf("Loaded %d NPC definitions.\n", len(db.Npcs))
 		log.Info.Printf("Loaded %d object definitions.\n", len(world.Objects))
 		log.Info.Printf("Loaded %d boundary definitions.\n", len(world.Boundarys))
