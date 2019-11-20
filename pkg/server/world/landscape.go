@@ -140,7 +140,7 @@ func isOverlayBlocked(overlay int) bool {
 	return false
 }
 
-func isTileBlocking(x, y int, bit byte) bool {
+func IsTileBlocking(x, y int, bit byte) bool {
 	return ClipData(x, y).blocked(bit)
 }
 

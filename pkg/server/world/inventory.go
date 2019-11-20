@@ -37,8 +37,8 @@ type EquipmentDefinition struct {
 
 var Equipment []EquipmentDefinition
 
-//Items This holds the defining characteristics for all of the game's items, ordered by ID.
-var Items []ItemDefinition
+//ItemDefs This holds the defining characteristics for all of the game's items, ordered by ID.
+var ItemDefs []ItemDefinition
 
 //Item Represents a single item in the game.
 type Item struct {

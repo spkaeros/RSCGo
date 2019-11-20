@@ -4,6 +4,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/config"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/world"
+	"strings"
 )
 
 func GetEquipmentDefinition(id int) *world.EquipmentDefinition {
@@ -15,9 +16,6 @@ func GetEquipmentDefinition(id int) *world.EquipmentDefinition {
 
 	return nil
 }
-
-//Npcs This holds the defining characteristics for all of the game's NPCs, ordered by ID.
-var Npcs []world.NpcDefinition
 
 //LoadObjectDefinitions Loads game object data into memory for quick access.
 func LoadObjectDefinitions() {
@@ -32,6 +30,9 @@ func LoadObjectDefinitions() {
 	for rows.Next() {
 		nextDef := world.ObjectDefinition{Commands: make([]string, 2)}
 		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.Type, &nextDef.Width, &nextDef.Height, &nextDef.Length)
+		for i, c := range nextDef.Commands {
+			nextDef.Commands[i] = strings.ToLower(c)
+		}
 		world.Objects = append(world.Objects, nextDef)
 	}
 }
@@ -83,6 +84,9 @@ func LoadBoundaryDefinitions() {
 	}
 	for rows.Next() {
 		nextDef := world.BoundaryDefinition{Commands: make([]string, 2)}
+		for i, c := range nextDef.Commands {
+			nextDef.Commands[i] = strings.ToLower(c)
+		}
 		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.Traversable, &nextDef.Unknown)
 		world.Boundarys = append(world.Boundarys, nextDef)
 	}
@@ -101,7 +105,7 @@ func LoadItemDefinitions() {
 	for rows.Next() {
 		nextDef := world.ItemDefinition{}
 		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Command, &nextDef.BasePrice, &nextDef.Stackable, &nextDef.Quest, &nextDef.Members)
-		world.Items = append(world.Items, nextDef)
+		world.ItemDefs = append(world.ItemDefs, nextDef)
 	}
 }
 
@@ -118,7 +122,7 @@ func LoadNpcDefinitions() {
 	for rows.Next() {
 		nextDef := world.NpcDefinition{}
 		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Command, &nextDef.Hits, &nextDef.Attack, &nextDef.Strength, &nextDef.Defense, &nextDef.Attackable)
-		Npcs = append(Npcs, nextDef)
+		world.NpcDefs = append(world.NpcDefs, nextDef)
 	}
 }
 

@@ -1,18 +1,15 @@
+strings = import("strings")
+
 func objectAction() {
-	loc = nil
-	if cmd == "climb-up" {
-		loc = player.Above()
-	}
-	if cmd == "climb-down" {
-		loc = player.Below()
-	}
-	if cmd == "go up" {
-		loc = player.Above()
-	}
-	if loc != nil {
-		player.SetLocation(loc, true)
-		client.UpdatePlane()
-		return true
-	}
-	return false
+    cmd = objectDefs[object.ID].Commands[0]
+    if cmd == "climb-down" || cmd == "climb-up" || cmd == "go-up" {
+        if strings.HasSuffix(cmd, "up") {
+            player.SetLocation(player.Above(), true)
+        } else {
+            player.SetLocation(player.Below(), true)
+        }
+        client.UpdatePlane()
+        return true
+    }
+    return false
 }

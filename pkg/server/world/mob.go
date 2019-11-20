@@ -129,17 +129,17 @@ func (m *Mob) TraversePath() {
 	next := NewLocation(int(x), int(y))
 	xBlocked, yBlocked := false, false
 	if x > dst.X.Load() {
-		xBlocked = isTileBlocking(int(x-1), int(y), 8)
+		xBlocked = IsTileBlocking(int(x-1), int(y), 8)
 		next.X.Store(x - 1)
 	} else if x < dst.X.Load() {
-		xBlocked = isTileBlocking(int(x + 1), int(y), 2)
+		xBlocked = IsTileBlocking(int(x + 1), int(y), 2)
 		next.X.Store(x + 1)
 	}
 	if y > dst.Y.Load() {
-		yBlocked = isTileBlocking(int(x), int(y - 1), 4)
+		yBlocked = IsTileBlocking(int(x), int(y - 1), 4)
 		next.Y.Store(y - 1)
 	} else if y < dst.Y.Load() {
-		yBlocked = isTileBlocking(int(x), int(y + 1), 1)
+		yBlocked = IsTileBlocking(int(x), int(y + 1), 1)
 		next.Y.Store(y + 1)
 	}
 
@@ -150,14 +150,14 @@ func (m *Mob) TraversePath() {
 	newXBlocked, newYBlocked := false, false
 
 	if next.X.Load() > x {
-		newXBlocked = isTileBlocking(int(next.X.Load()), int(next.Y.Load()), 2)
+		newXBlocked = IsTileBlocking(int(next.X.Load()), int(next.Y.Load()), 2)
 	} else if next.X.Load() < x {
-		newXBlocked = isTileBlocking(int(next.X.Load()), int(next.Y.Load()), 8)
+		newXBlocked = IsTileBlocking(int(next.X.Load()), int(next.Y.Load()), 8)
 	}
 	if next.Y.Load() > y {
-		newYBlocked = isTileBlocking(int(next.X.Load()), int(next.Y.Load()), 1)
+		newYBlocked = IsTileBlocking(int(next.X.Load()), int(next.Y.Load()), 1)
 	} else if next.Y.Load() < y {
-		newYBlocked = isTileBlocking(int(next.X.Load()), int(next.Y.Load()), 4)
+		newYBlocked = IsTileBlocking(int(next.X.Load()), int(next.Y.Load()), 4)
 	}
 	if (newXBlocked && newYBlocked) || (newXBlocked && y == next.Y.Load()) || (newYBlocked && x == next.X.Load()) {
 		m.ResetPath()
@@ -348,6 +348,9 @@ type NpcDefinition struct {
 	Defense     int
 	Attackable  bool
 }
+
+//NpcDefs This holds the defining characteristics for all of the game's NPCs, ordered by ID.
+var NpcDefs []NpcDefinition
 
 //NpcCounter Counts the number of total NPCs within the world.
 var NpcCounter = atomic.NewUint32(0)

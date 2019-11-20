@@ -6,7 +6,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
-	"strings"
 )
 
 func init() {
@@ -86,44 +85,9 @@ func init() {
 		item := c.Player().Items.Get(index)
 		if item != nil {
 			go func() {
-				env := script.WorldModule()
-				err := env.Define("client", c)
-				if err != nil {
-					log.Info.Println("Error initializing scripting environment:", err)
-					return
+				if !script.Run("invAction", c, "item", item) {
+					c.SendPacket(packetbuilders.DefaultActionMessage)
 				}
-				err = env.Define("player", c.Player())
-				if err != nil {
-					log.Info.Println("Error initializing scripting environment:", err)
-					return
-				}
-				err = env.Define("item", item)
-				if err != nil {
-					log.Info.Println("Error initializing scripting environment:", err)
-					return
-				}
-				err = env.Define("cmd", strings.ToLower(world.Items[item.ID].Command))
-				if err != nil {
-					log.Info.Println("Error initializing scripting environment:", err)
-					return
-				}
-				err = env.Define("Items", world.Items)
-				if err != nil {
-					log.Info.Println("Error initializing scripting environment:", err)
-					return
-				}
-				for _, s := range script.Scripts {
-					scriptTriggered, err := env.Execute(s + `
-invAction()`)
-					if err != nil {
-			//			log.Info.Println(err)
-						continue
-					}
-					if scriptTriggered.(bool) {
-						return
-					}
-				}
-				c.SendPacket(packetbuilders.DefaultActionMessage)
 			}()
 		}
 	}

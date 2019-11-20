@@ -10,12 +10,51 @@
 package script
 
 import (
+	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"io/ioutil"
 	"os"
+	"strings"
 )
 
 var Scripts []string
+
+func Run(fnName string, c clients.Client, argName string, arg interface{}) bool {
+	env := WorldModule()
+	err := env.Define("client", c)
+	if err != nil {
+		log.Info.Println("Error initializing scripting environment:", err)
+		return false
+	}
+	err = env.Define("player", c.Player())
+	if err != nil {
+		log.Info.Println("Error initializing scripting environment:", err)
+		return false
+	}
+	err = env.Define(argName, arg)
+	if err != nil {
+		log.Info.Println("Error initializing scripting environment:", err)
+		return false
+	}
+	for _, s := range Scripts {
+		if !strings.Contains(s, fnName) {
+			continue
+		}
+		stopPipeline, err := env.Execute(s +
+			`
+`+fnName+`()`)
+		if err != nil {
+			log.Info.Println("Unrecognized Anko error when attempting to execute the script pipeline:", err)
+			continue
+		}
+		if stopPipeline, ok := stopPipeline.(bool); ok && stopPipeline {
+			return true
+		} else if !ok {
+			log.Info.Println("Unexpected return result from an executed Anko script:", err)
+		}
+	}
+	return false
+}
 
 //Load Loads all of the scripts in ./scripts and stores them in the Scripts slice.
 func Load() {

@@ -15,13 +15,10 @@ import (
 	"strings"
 )
 
-//CommandHandlers A map to assign in-game commands to the functions they should execute.
-var CommandHandlers = make(map[string]func(clients.Client, []string))
-
 func init() {
 	PacketHandlers["command"] = func(c clients.Client, p *packetbuilders.Packet) {
 		args := strutil.ModalParse(string(p.Payload))
-		handler, ok := CommandHandlers[args[0]]
+		handler, ok := script.CommandHandlers[args[0]]
 		if !ok {
 			c.Message("@que@Invalid command.")
 			log.Commands.Printf("%v sent invalid command: /%v\n", c.Player().Username, string(p.Payload))
@@ -30,7 +27,7 @@ func init() {
 		log.Commands.Printf("%v: /%v\n", c.Player().Username, string(p.Payload))
 		handler(c, args[1:])
 	}
-	CommandHandlers["dobj"] = func(c clients.Client, args []string) {
+	script.CommandHandlers["dobj"] = func(c clients.Client, args []string) {
 		if len(args) == 0 {
 			args = []string{strconv.Itoa(int(c.Player().X.Load())), strconv.Itoa(int(c.Player().Y.Load()))}
 		}
@@ -61,7 +58,7 @@ func init() {
 		log.Commands.Printf("'%v' deleted object{id: %v; dir:%v} at %v,%v\n", c.Player().Username, object.ID, object.Direction, x, y)
 		world.RemoveObject(object)
 	}
-	CommandHandlers["kick"] = func(c clients.Client, args []string) {
+	script.CommandHandlers["kick"] = func(c clients.Client, args []string) {
 		if len(args) < 1 {
 			c.Message("@que@Invalid args.  Usage: /kick <player>")
 			return
@@ -84,7 +81,7 @@ func init() {
 		affectedClient.SendPacket(packetbuilders.Logout)
 		affectedClient.Destroy()
 	}
-	CommandHandlers["memdump"] = func(c clients.Client, args []string) {
+	script.CommandHandlers["memdump"] = func(c clients.Client, args []string) {
 		file, err := os.Create("rscgo.mprof")
 		if err != nil {
 			log.Warning.Println("Could not open file to dump memory profile:", err)
@@ -106,7 +103,7 @@ func init() {
 		log.Commands.Println(c.Player().Username + " dumped memory profile of the server to rscgo.mprof")
 		c.Message("Dumped memory profile.")
 	}
-	CommandHandlers["pprof"] = func(c clients.Client, args []string) {
+	script.CommandHandlers["pprof"] = func(c clients.Client, args []string) {
 		if len(args) < 1 {
 			c.Message("Invalid args.  Usage: /pprof <start|stop>")
 			return
@@ -135,7 +132,7 @@ func init() {
 			c.Message("Invalid args.  Usage: /pprof <start|stop>")
 		}
 	}
-	CommandHandlers["object"] = func(c clients.Client, args []string) {
+	script.CommandHandlers["object"] = func(c clients.Client, args []string) {
 		if len(args) < 1 {
 			c.Message("@que@Invalid args.  Usage: /object <id> <dir>, eg: /object 1154 north")
 			return
@@ -166,7 +163,7 @@ func init() {
 		log.Commands.Printf("'%v' spawned new object{id: %v; dir:%v} at %v,%v\n", c.Player().Username, id, direction, x, y)
 		world.AddObject(world.NewObject(id, direction, x, y, false))
 	}
-	CommandHandlers["boundary"] = func(c clients.Client, args []string) {
+	script.CommandHandlers["boundary"] = func(c clients.Client, args []string) {
 		if len(args) < 1 {
 			c.Message("@que@Invalid args.  Usage: /boundary <id> <dir>, eg: /boundary 1 north")
 			return
@@ -197,7 +194,7 @@ func init() {
 		log.Commands.Printf("'%v' spawned new boundary{id: %v; dir:%v} at %v,%v\n", c.Player().Username, id, direction, x, y)
 		world.AddObject(world.NewObject(id, direction, x, y, true))
 	}
-	CommandHandlers["saveobjects"] = func(c clients.Client, args []string) {
+	script.CommandHandlers["saveobjects"] = func(c clients.Client, args []string) {
 		go func() {
 			if count := db.SaveObjectLocations(); count > 0 {
 				c.Message("Saved " + strconv.Itoa(count) + " game objects to world.db")
@@ -208,7 +205,7 @@ func init() {
 			}
 		}()
 	}
-	CommandHandlers["item"] = func(c clients.Client, args []string) {
+	script.CommandHandlers["item"] = func(c clients.Client, args []string) {
 		if len(args) < 1 {
 			c.Message("@que@Invalid args.  Usage: /item <id> <quantity>")
 			return
@@ -226,7 +223,7 @@ func init() {
 				return
 			}
 		}
-		if !world.Items[id].Stackable && amount > 1 {
+		if !world.ItemDefs[id].Stackable && amount > 1 {
 			for i := 0; i < amount; i++ {
 				c.Player().Items.Add(id, 1)
 				if c.Player().Items.Size() >= 30 {
@@ -238,19 +235,19 @@ func init() {
 		}
 		c.SendPacket(packetbuilders.InventoryItems(c.Player()))
 	}
-	CommandHandlers["goup"] = func(c clients.Client, args []string) {
+	script.CommandHandlers["goup"] = func(c clients.Client, args []string) {
 		if nextLocation := c.Player().Above(); !nextLocation.Equals(&c.Player().Location) {
 			c.Player().SetLocation(nextLocation, true)
 			c.UpdatePlane()
 		}
 	}
-	CommandHandlers["godown"] = func(c clients.Client, args []string) {
+	script.CommandHandlers["godown"] = func(c clients.Client, args []string) {
 		if nextLocation := c.Player().Below(); !nextLocation.Equals(&c.Player().Location) {
 			c.Player().SetLocation(nextLocation, true)
 			c.UpdatePlane()
 		}
 	}
-	CommandHandlers["npc"] = func(c clients.Client, args []string) {
+	script.CommandHandlers["npc"] = func(c clients.Client, args []string) {
 		if len(args) < 1 {
 			c.Message("@que@Invalid args.  Usage: /npc <id>")
 			return
@@ -267,9 +264,9 @@ func init() {
 
 		world.AddNpc(world.NewNpc(id, x, y, x-5, x+5, y-5, y+5))
 	}
-	CommandHandlers["summon"] = summon
-	CommandHandlers["goto"] = gotoTeleport
-	CommandHandlers["say"] = func(c clients.Client, args []string) {
+	script.CommandHandlers["summon"] = summon
+	script.CommandHandlers["goto"] = gotoTeleport
+	script.CommandHandlers["say"] = func(c clients.Client, args []string) {
 		if len(args) < 1 {
 			c.Message("@que@Invalid args.  Usage: /say <msg>")
 			return
@@ -291,24 +288,24 @@ func init() {
 			c1.Message("@que@" + msg)
 		})
 	}
-	CommandHandlers["tele"] = teleport
-	CommandHandlers["teleport"] = teleport
-	CommandHandlers["death"] = func(c clients.Client, args []string) {
+	script.CommandHandlers["tele"] = teleport
+	script.CommandHandlers["teleport"] = teleport
+	script.CommandHandlers["death"] = func(c clients.Client, args []string) {
 		c.SendPacket(packetbuilders.Death)
 	}
-	CommandHandlers["anko"] = func(c clients.Client, args []string) {
+	script.CommandHandlers["anko"] = func(c clients.Client, args []string) {
 		line := strings.Join(args, " ")
 		env := script.WorldModule()
 		env.Define("println", fmt.Println)
 		env.Define("player", c.Player())
 		env.Execute(line)
 	}
-	CommandHandlers["reloadscripts"] = func(c clients.Client, args []string) {
+	script.CommandHandlers["reloadscripts"] = func(c clients.Client, args []string) {
 		script.Scripts = script.Scripts[:0]
 		script.Load()
 		log.Info.Println("Reloaded", len(script.Scripts), "content scripts.")
 	}
-	CommandHandlers["tile"] = func(c clients.Client, args []string) {
+	script.CommandHandlers["tile"] = func(c clients.Client, args []string) {
 		regionX := (2304+c.Player().CurX())/world.RegionSize
 		regionY := (1776+c.Player().CurY()-(944*c.Player().Plane()))/world.RegionSize
 		mapSector := fmt.Sprintf("h%dx%dy%d", c.Player().Plane(), regionX, regionY)
@@ -318,7 +315,7 @@ func init() {
 //		c.Message(fmt.Sprintf("@que@%v sector(%v rel:(%v,%v)): V:%v, H:%v, D:%v, R:%v, O:%v, T:%v, E:%v, bitmask:%v", c.Player().Location.String(), mapSector, areaX, areaY, tile.VerticalWalls, tile.HorizontalWalls, tile.DiagonalWalls, tile.Roofs, tile.GroundOverlay, tile.GroundTexture, tile.GroundElevation, tile.CollisionMask))
 		c.Message(fmt.Sprintf("@que@%v sector(%v rel:(%v,%v)): Overlay:%v, bitmask:%v", c.Player().Location.String(), mapSector, areaX, areaY, tile.GroundOverlay, tile.CollisionMask))
 	}
-	CommandHandlers["clip"] = func(c clients.Client, args []string) {
+	script.CommandHandlers["clip"] = func(c clients.Client, args []string) {
 		x := c.Player().CurX()
 		y := c.Player().CurY()
 		dir := world.ParseDirection(args[0])
@@ -332,7 +329,7 @@ func init() {
 			c.Player().SetPath(world.NewPathwayToCoords(uint32(x+1), uint32(y)))
 		}
 	}
-	CommandHandlers["clipdata"] = func(c clients.Client, args []string) {
+	script.CommandHandlers["clipdata"] = func(c clients.Client, args []string) {
 		fmt.Printf("CollisionMask: %v %v\n", c.Player().Location.String(), world.ClipData(c.Player().CurX(), c.Player().CurY()))
 	}
 }
