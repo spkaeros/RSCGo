@@ -96,8 +96,8 @@ func main() {
 	if config.Verbose() {
 		log.Info.Printf("Loaded %d landscape sectors.\n", len(world.Sectors))
 		log.Info.Printf("Loaded %d packet handlers.\n", packethandlers.Size())
-		log.Info.Printf("Loaded %d item definitions.\n", len(world.Items))
-		log.Info.Printf("Loaded %d NPC definitions.\n", len(db.Npcs))
+		log.Info.Printf("Loaded %d item definitions.\n", len(world.ItemDefs))
+		log.Info.Printf("Loaded %d NPC definitions.\n", len(world.NpcDefs))
 		log.Info.Printf("Loaded %d object definitions.\n", len(world.Objects))
 		log.Info.Printf("Loaded %d boundary definitions.\n", len(world.Boundarys))
 		log.Info.Printf("Loaded %d NPCs.\n", world.NpcCounter.Load())
