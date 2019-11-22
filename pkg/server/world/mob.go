@@ -128,42 +128,55 @@ func (m *Mob) TraversePath() {
 	x, y := m.X.Load(), m.Y.Load()
 	next := NewLocation(int(x), int(y))
 	xBlocked, yBlocked := false, false
-	if x > dst.X.Load() {
-		xBlocked = IsTileBlocking(int(x-1), int(y), 8)
-		next.X.Store(x - 1)
-	} else if x < dst.X.Load() {
-		xBlocked = IsTileBlocking(int(x + 1), int(y), 2)
-		next.X.Store(x + 1)
-	}
+	newXBlocked, newYBlocked := false, false
 	if y > dst.Y.Load() {
-		yBlocked = IsTileBlocking(int(x), int(y - 1), 4)
-		next.Y.Store(y - 1)
+		yBlocked = IsTileBlocking(int(x), int(y), 1, true)
+		newYBlocked = IsTileBlocking(int(x), int(y-1), 4, false)
+		if !newYBlocked {
+			next.Y.Dec()
+		}
 	} else if y < dst.Y.Load() {
-		yBlocked = IsTileBlocking(int(x), int(y + 1), 1)
-		next.Y.Store(y + 1)
+		yBlocked = IsTileBlocking(int(x), int(y), 4, true)
+		newYBlocked = IsTileBlocking(int(x), int(y+1), 1, false)
+		if !newYBlocked {
+			next.Y.Inc()
+		}
+	}
+	if x > dst.X.Load() {
+		xBlocked = IsTileBlocking(int(x), next.CurY(), 2, true)
+		newXBlocked = IsTileBlocking(int(x-1), next.CurY(), 8, false)
+		if !newXBlocked {
+			next.X.Dec()
+		}
+	} else if x < dst.X.Load() {
+		xBlocked = IsTileBlocking(int(x), next.CurY(), 8, true)
+		newXBlocked = IsTileBlocking(int(x+1), next.CurY(), 2, false)
+		if !newXBlocked {
+			next.X.Inc()
+		}
 	}
 
 	if (xBlocked && yBlocked) || (xBlocked && y == dst.Y.Load()) || (yBlocked && x == dst.X.Load()) {
 		m.ResetPath()
 		return
 	}
-	newXBlocked, newYBlocked := false, false
-
-	if next.X.Load() > x {
-		newXBlocked = IsTileBlocking(int(next.X.Load()), int(next.Y.Load()), 2)
-	} else if next.X.Load() < x {
-		newXBlocked = IsTileBlocking(int(next.X.Load()), int(next.Y.Load()), 8)
-	}
-	if next.Y.Load() > y {
-		newYBlocked = IsTileBlocking(int(next.X.Load()), int(next.Y.Load()), 1)
-	} else if next.Y.Load() < y {
-		newYBlocked = IsTileBlocking(int(next.X.Load()), int(next.Y.Load()), 4)
-	}
-	if (newXBlocked && newYBlocked) || (newXBlocked && y == next.Y.Load()) || (newYBlocked && x == next.X.Load()) {
+	if (newXBlocked && newYBlocked) || (newXBlocked && x != next.X.Load() && y == next.Y.Load()) || (newYBlocked && y != next.Y.Load() && x == next.X.Load()) {
 		m.ResetPath()
 		return
 	}
-	if (xBlocked && newXBlocked) || (yBlocked && newYBlocked) {
+
+	if next.X.Load() > x {
+		newXBlocked = IsTileBlocking(int(next.X.Load()), int(next.Y.Load()), 2, false)
+	} else if next.X.Load() < x {
+		newXBlocked = IsTileBlocking(int(next.X.Load()), int(next.Y.Load()), 8, false)
+	}
+	if next.Y.Load() > y {
+		newYBlocked = IsTileBlocking(int(next.X.Load()), int(next.Y.Load()), 1, false)
+	} else if next.Y.Load() < y {
+		newYBlocked = IsTileBlocking(int(next.X.Load()), int(next.Y.Load()), 4, false)
+	}
+
+	if (newXBlocked && newYBlocked) || (newXBlocked && y == next.Y.Load()) || (newYBlocked && x == next.X.Load()) {
 		m.ResetPath()
 		return
 	}
@@ -382,13 +395,14 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 func UpdateNPCPositions() {
 	npcsLock.RLock()
 	for _, n := range Npcs {
-playerSearch:
+	playerSearch:
 		for _, r := range SurroundingRegions(int(n.X.Load()), int(n.Y.Load())) {
 			r.Players.lock.RLock()
 			if len(r.Players.List) > 0 {
 				r.Players.lock.RUnlock()
 				if n.TransAttrs.VarTime("nextMove").Before(time.Now()) {
 					n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
+					//							n.SetPath(MakePath(n.Location, NewRandomLocation(n.Boundaries)))
 					n.SetPath(NewPathwayToLocation(NewRandomLocation(n.Boundaries)))
 				}
 				break playerSearch

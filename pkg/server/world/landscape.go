@@ -10,15 +10,10 @@
 package world
 
 import (
-	"bytes"
-	"compress/gzip"
 	"fmt"
 	"github.com/spkaeros/rscgo/pkg/jag"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
-	"io/ioutil"
-	"runtime"
-	"sync"
 )
 
 //TileData Represents a single tile in the game's landscape.
@@ -40,47 +35,13 @@ type Sector struct {
 	Tiles []TileData
 }
 
-//Sectors A slice filled with map sector data.
-//var Sectors []*Sector
+//Sectors A map to store landscape sectors by their hashed file name.
 var Sectors = make(map[int]*Sector)
-
-//sectorLock Mutexes to safely load the game's landscape data concurrently.
-// TODO: Would a semaphore work better for this?
-var sectorLock sync.RWMutex
 
 //LoadMapData Loads the JAG archive './data/landscape.jag', decodes it, and stores the map sectors it holds in
 // memory for quick access.
 func LoadMapData() {
 	archive := jag.New("./data/landscape.jag")
-	var gzLock sync.Mutex
-	var gzReader = new(gzip.Reader)
-	defer gzReader.Close()
-	var wg sync.WaitGroup
-	wg.Add(archive.FileCount)
-	Boundarys = append(Boundarys, BoundaryDefinition{})
-
-	decodeFile := func(data []byte, id int) {
-		defer wg.Done()
-		gzLock.Lock()
-		err := gzReader.Reset(bytes.NewBuffer(data))
-		if err != nil {
-			log.Warning.Println("Ran into some sort of problem with jag entry gzReader:", err)
-			gzLock.Unlock()
-			return
-		}
-		sectorData, err := ioutil.ReadAll(gzReader)
-		gzLock.Unlock()
-		if err != nil {
-			log.Warning.Println("Ran into some sort of problem with gunzip on jag archive entry:", err)
-			return
-		}
-		if sector := LoadSector(sectorData); sector != nil {
-			sectorLock.Lock()
-			Sectors[id] = sector
-			sectorLock.Unlock()
-		}
-		runtime.GC()
-	}
 
 	entryFileCaret := 0
 	metaDataCaret := 0
@@ -90,9 +51,8 @@ func LoadMapData() {
 		metaDataCaret += 6
 		startCaret := entryFileCaret
 		entryFileCaret += readU24BitInt(archive.MetaData, metaDataCaret)
-		go decodeFile(archive.FileData[startCaret:entryFileCaret], id)
+		Sectors[id] = LoadSector(archive.FileData[startCaret:entryFileCaret])
 	}
-	wg.Wait()
 }
 
 type TileDefinition struct {
@@ -117,19 +77,77 @@ type BoundaryDefinition struct {
 }
 
 const (
-	OverlayGravel = 1
-	OverlayWater = 2
-	OverlayWood = 3
-	OverlayStoneFloor = 5
-	OverlayRedCarpet = 6
-	OverlayDarkWater = 7
-	OverlayBlack = 8
-	OverlayWhite = 9
-	OverlayLava = 11
-	OverlayPentagram = 14
+	OverlayBlank = iota
+	//OverlayGravel Used for roads, ID 1
+	OverlayGravel
+	//OverlayWater Used for regular water, ID 2
+	OverlayWater
+	//OverlayWoodFloor Used for the floors of buildings, ID 3
+	OverlayWoodFloor
+	//OverlayBridge Used for bridges, suspends wood floor over water, ID 4
+	OverlayBridge
+	//OverlayStoneFloor Used for the floors of buildings, ID 5
+	OverlayStoneFloor
+	//OverlayRedCarpet Used for the floors of buildings, ID 6
+	OverlayRedCarpet
+	//OverlayDarkWater Used for dark, swampy water, ID 7
+	OverlayDarkWater
+	//OverlayBlack Used for empty parts of upper planes, ID 8
+	OverlayBlack
+	//OverlayWhite Used as a separator, e.g for edge of water, mountains, etc.  ID 9
+	OverlayWhite
+	//OverlayBlack2 Not sure where it is used, ID 10
+	OverlayBlack2
+	//OverlayLava Used in dungeons and on Karamja/Crandor as lava, ID 11
+	OverlayLava
+	//OverlayBridge2 Used for a specific type of bridge, ID 12
+	OverlayBridge2
+	//OverlayBlueCarpet Used for the floors of buildings, ID 13
+	OverlayBlueCarpet
+	//OverlayPentagram Used for certain questing purposes, ID 14
+	OverlayPentagram
+	//OverlayPurpleCarpet Used for the floors of buildings, ID 15
+	OverlayPurpleCarpet
+	//OverlayBlack3 Not sure what it is used for, ID 16
+	OverlayBlack3
+	//OverlayStoneFloorLight Used for the entrance to temple of ikov, ID 17
+	OverlayStoneFloorLight
+	//OverlayUnknown Not sure what this is yet, ID 18
+	OverlayUnknown
+	//OverlayBlack4 Not sure what it is used for, ID 19
+	OverlayBlack4
+	//OverlayAgilityLog Blank suspended tile over blackness for agility challenged, ID 20
+	OverlayAgilityLog
+	//OverlayAgilityLog Blank suspended tile over blackness for agility challenged, ID 21
+	OverlayAgilityLog2
+	//OverlayUnknown2 Not sure what this is yet, ID 22
+	OverlayUnknown2
+	//OverlaySandFloor Used for sand floor, ID 23
+	OverlaySandFloor
+	//OverlayMudFloor Used for mud floor, ID 24
+	OverlayMudFloor
+	//OverlaySandFloor Used for water floor, ID 25
+	OverlayWaterFloor
 )
 
-var BlockedOverlays = [...]int{OverlayWater, OverlayDarkWater, OverlayBlack, OverlayWhite, OverlayLava}
+const (
+	//WallNorth Bitmask to represent a wall to the north.
+	WallNorth = 1
+	//WallSouth Bitmask to represent a wall to the south.
+	WallSouth = 4
+	//WallWest Bitmask to represent a wall to the west.
+	WallWest = 2
+	//WallEast Bitmask to represent a wall to the east.
+	WallEast = 8
+	//WallWest Bitmask to represent a diagonal wall.
+	WallDiag1 = 0x10
+	//WallWest Bitmask to represent a diagonal wall facing the opposite way.
+	WallDiag2 = 0x20
+	//WallWest Bitmask to represent an object occupying an entire tile.
+	WallObject = 0x40
+)
+
+var BlockedOverlays = [...]int{OverlayWater, OverlayDarkWater, OverlayBlack, OverlayWhite, OverlayLava, OverlayBlack2, OverlayBlack3, OverlayBlack4}
 
 func isOverlayBlocked(overlay int) bool {
 	for _, v := range BlockedOverlays {
@@ -140,28 +158,28 @@ func isOverlayBlocked(overlay int) bool {
 	return false
 }
 
-func IsTileBlocking(x, y int, bit byte) bool {
-	return ClipData(x, y).blocked(bit)
+func IsTileBlocking(x, y int, bit byte, current bool) bool {
+	return ClipData(x, y).blocked(bit, current)
 }
 
-func (t TileData) blocked(bit byte) bool {
+func (t TileData) blocked(bit byte, current bool) bool {
 	if t.CollisionMask & int(bit) != 0 {
 		return true
 	}
 	// Diag
-	if t.CollisionMask & 0x10 != 0 {
+	if !current && (t.CollisionMask & WallDiag1) != 0 {
 		return true
 	}
 	// oppososite diag
-	if t.CollisionMask & 0x20 != 0 {
+	if !current && (t.CollisionMask & WallDiag2) != 0 {
 		return true
 	}
 	// tile entirely blocked
-	if t.CollisionMask & 0x40 != 0 {
+	if !current && (t.CollisionMask & WallObject) != 0 {
 		return true
 	}
 	// if it's not a traversable ground type
-	return isOverlayBlocked(int(t.GroundOverlay))
+	return !current && isOverlayBlocked(int(t.GroundOverlay))
 }
 
 func SectorName(x, y int) string {
@@ -183,7 +201,7 @@ func (s *Sector) Tile(x, y int) TileData {
 func ClipData(x, y int) TileData {
 	sector := SectorFromCoords(x, y)
 	if sector == nil {
-		return TileData{}
+		return TileData{GroundOverlay:0, CollisionMask:0x40}
 	}
 	return sector.Tile(x, y)
 }
@@ -201,15 +219,9 @@ func LoadSector(data []byte) (s *Sector) {
  	blankCount := 0
  	for x := 0; x < RegionSize; x++ {
  		for y := 0; y < RegionSize; y++ {
-//			s.Tiles[x*RegionSize+y].GroundElevation = data[offset+0] & 0xFF
-//			s.Tiles[x*RegionSize+y].GroundTexture = data[offset+1] & 0xFF
-//			s.Tiles[x*RegionSize+y].GroundOverlay = data[offset+2] & 0xFF
-//			s.Tiles[x*RegionSize+y].Roofs = data[offset+3] & 0xFF
-//			s.Tiles[x*RegionSize+y].HorizontalWalls = data[offset+4] & 0xFF
-//			s.Tiles[x*RegionSize+y].VerticalWalls = data[offset+5] & 0xFF
-//			s.Tiles[x*RegionSize+y].DiagonalWalls = int(uint32(data[offset+6]&0xFF) << 24 + uint32(data[offset+7]&0xFF) << 16 +
-//				uint32(data[offset+8]&0xFF) << 8 + uint32(data[offset+9]&0xFF))
+			groundTexture := data[offset+1] & 0xFF
 			groundOverlay := data[offset+2] & 0xFF
+//			roofTexture := data[offset+3] & 0xFF
 			horizontalWalls := data[offset+4] & 0xFF
 			verticalWalls := data[offset+5] & 0xFF
 			diagonalWalls := int(uint32(data[offset+6]&0xFF) << 24 + uint32(data[offset+7]&0xFF) << 16 + uint32(data[offset+8]&0xFF) << 8 + uint32(data[offset+9]&0xFF))
@@ -217,7 +229,7 @@ func LoadSector(data []byte) (s *Sector) {
 				// -6 overflows to 250, and is water tile
 				groundOverlay = 2
 			}
-			if (groundOverlay == 0 && (data[offset+1] & 0xFF) == 0) || groundOverlay == OverlayWater || groundOverlay == OverlayBlack {
+			if (groundOverlay == 0 && (groundTexture) == 0) || groundOverlay == OverlayWater || groundOverlay == OverlayBlack {
 				blankCount++
 			}
 			tileIdx := x*RegionSize+y
@@ -226,24 +238,24 @@ func LoadSector(data []byte) (s *Sector) {
 				s.Tiles[tileIdx].CollisionMask |= 0x40
 			}
 			if verticalWalls > 0 && Boundarys[verticalWalls-1].Unknown == 0 && Boundarys[verticalWalls-1].Traversable != 0 {
-				s.Tiles[tileIdx].CollisionMask |= 1
-				if x > 0 || y > 0 {
+				s.Tiles[tileIdx].CollisionMask |= WallNorth
+				if tileIdx >= 1 {
 					// -1 is tile x,y-1
-					s.Tiles[tileIdx-1].CollisionMask |= 4
+					s.Tiles[tileIdx-1].CollisionMask |= WallSouth
 				}
 			}
 			if horizontalWalls > 0 && Boundarys[horizontalWalls-1].Unknown == 0 && Boundarys[horizontalWalls-1].Traversable != 0 {
-				s.Tiles[tileIdx].CollisionMask |= 2
-				if x >= 1 || y >= RegionSize {
+				s.Tiles[tileIdx].CollisionMask |= WallWest
+				if tileIdx >= 48 {
 					// -48 is tile x-1,y
-					s.Tiles[tileIdx-48].CollisionMask |= 8
+					s.Tiles[tileIdx-48].CollisionMask |= WallEast
 				}
 			}
 			if diagonalWalls > 0 && diagonalWalls < 12000 && Boundarys[diagonalWalls-1].Unknown == 0 && Boundarys[diagonalWalls-1].Traversable != 0 {
-				s.Tiles[tileIdx].CollisionMask |= 0x20
+				s.Tiles[tileIdx].CollisionMask |= WallDiag2
 			}
 			if diagonalWalls >= 12000 && diagonalWalls < 24000 && Boundarys[diagonalWalls-12001].Unknown == 0 && Boundarys[diagonalWalls-12001].Traversable != 0 {
-				s.Tiles[tileIdx].CollisionMask |= 0x10
+				s.Tiles[tileIdx].CollisionMask |= WallDiag1
 			}
 			offset += 10
 		}

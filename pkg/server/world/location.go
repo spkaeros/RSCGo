@@ -136,7 +136,7 @@ func (l *Location) DeltaY(other Location) (deltaY int) {
 //LongestDelta Returns the largest difference in coordinates between receiver and other
 func (l *Location) LongestDelta(other Location) int {
 	deltaX, deltaY := l.DeltaX(other), l.DeltaY(other)
-	if deltaX > deltaY {
+	if deltaX >= deltaY {
 		return deltaX
 	}
 	return deltaY
