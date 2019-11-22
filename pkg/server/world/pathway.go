@@ -100,7 +100,7 @@ func MakePath(start, end Location) *Pathway {
 		parent: nil,
 		loc:    end,
 	}
-	if IsTileBlocking(end.CurX(), end.CurY(), 0x64, false) {
+	if IsTileBlocking(end.CurX(), end.CurY(), 0x40, false) {
 		return NewPathwayToLocation(end)
 	}
 	nodes = make(map[int]*Node)
@@ -230,11 +230,11 @@ func cost(start, end Location) int {
 		shortL = deltaY
 		longL = deltaX
 	}
-	return int(math.Sqrt(float64((shortL * shortL) + (longL * longL))))
+	return shortL * 14 + ((longL - shortL) * 10)
 }
 
 func compareNodes(active, other *Node, open *[]*Node, end Location) {
-	gCost := active.gCost + active.loc.DeltaX(other.loc) + active.loc.DeltaY(other.loc)
+	gCost := active.gCost + cost(active.loc, other.loc)
 	cost := cost(other.loc, end)
 	fCost := gCost + cost
 	if other.cost > fCost {
