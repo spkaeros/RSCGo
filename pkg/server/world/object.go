@@ -43,3 +43,52 @@ func NewObject(id, direction, x, y int, boundary bool) *Object {
 		},
 	}
 }
+
+func (o *Object) Boundaries() [2]Location {
+	dir := o.Direction
+	minX := o.CurX()
+	minY := o.CurY()
+	maxX := minX
+	maxY := minY
+	if !o.Boundary {
+		width := Objects[o.ID].Width
+		height := Objects[o.ID].Height
+		if dir != 0 && dir != 4 {
+			width = Objects[o.ID].Height
+			height = Objects[o.ID].Width
+		}
+
+		if Objects[o.ID].Type == 2 || Objects[o.ID].Type == 3 {
+			if dir == 0 {
+				width++
+				minX--
+			}
+			if dir == 2 {
+				height++
+			}
+			if dir == 6 {
+				minY--
+				height++
+			}
+			if dir == 4 {
+				width++
+			}
+		}
+		maxX = width + o.CurX() - 1
+		maxY = height + o.CurY() - 1
+	} else {
+		if dir == 0 {
+			minY--
+		}
+		if dir == 1 {
+			minX--
+		}
+		if dir == 2 || dir == 3 {
+			minX--
+			minY--
+			maxX++
+			maxY++
+		}
+	}
+	return [2]Location{NewLocation(minX, minY), NewLocation(maxX, maxY)}
+}

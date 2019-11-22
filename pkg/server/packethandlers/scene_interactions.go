@@ -18,13 +18,23 @@ func init() {
 			log.Suspicious.Printf("Player %v attempted to use a non-existant object at %d,%d\n", c, x, y)
 			return
 		}
+		bounds := object.Boundaries()
 		c.Player().SetDistancedAction(func() bool {
-			if c.Player().WithinRange(object.Location, 1) {
+			if world.Objects[object.ID].Type == 2 || world.Objects[object.ID].Type == 3 {
+				if c.Player().CurX() >= bounds[0].CurX() && c.Player().CurY() >= bounds[0].CurY() && c.Player().CurX() <= bounds[1].CurX() && c.Player().CurY() <= bounds[1].CurY() {
+					c.Player().ResetPath()
+					objectAction(c, object)
+					return true
+				}
+				return false
+			}
+			if c.Player().WithinRange(bounds[0], 1) || c.Player().WithinRange(bounds[1], 1) {
 				c.Player().ResetPath()
 				objectAction(c, object)
 				return true
 			}
 			return false
+
 		})
 	}
 	PacketHandlers["objectaction2"] = func(c clients.Client, p *packetbuilders.Packet) {
@@ -36,8 +46,17 @@ func init() {
 			log.Suspicious.Printf("Player %v attempted to use a non-existant object at %d,%d\n", c, x, y)
 			return
 		}
+		bounds := object.Boundaries()
 		c.Player().SetDistancedAction(func() bool {
-			if c.Player().WithinRange(object.Location, 1) {
+			if world.Objects[object.ID].Type == 2 || world.Objects[object.ID].Type == 3 {
+				if c.Player().CurX() >= bounds[0].CurX() && c.Player().CurY() >= bounds[0].CurY() && c.Player().CurX() <= bounds[1].CurX() && c.Player().CurY() <= bounds[1].CurY() {
+					c.Player().ResetPath()
+					objectAction(c, object)
+					return true
+				}
+				return false
+			}
+			if c.Player().WithinRange(bounds[0], 1) || c.Player().WithinRange(bounds[1], 1) {
 				c.Player().ResetPath()
 				objectAction(c, object)
 				return true
@@ -54,8 +73,9 @@ func init() {
 			log.Suspicious.Printf("Player %v attempted to use a non-existant boundary at %d,%d\n", c, x, y)
 			return
 		}
+		bounds := object.Boundaries()
 		c.Player().SetDistancedAction(func() bool {
-			if c.Player().WithinRange(object.Location, 1) {
+			if c.Player().CurX() >= bounds[0].CurX() && c.Player().CurY() >= bounds[0].CurY() && c.Player().CurX() <= bounds[1].CurX() && c.Player().CurY() <= bounds[1].CurY() {
 				c.Player().ResetPath()
 				boundaryAction(c, object)
 				return true
@@ -72,8 +92,9 @@ func init() {
 			log.Suspicious.Printf("Player %v attempted to use a non-existant boundary at %d,%d\n", c, x, y)
 			return
 		}
+		bounds := object.Boundaries()
 		c.Player().SetDistancedAction(func() bool {
-			if c.Player().WithinRange(object.Location, 1) {
+			if c.Player().CurX() >= bounds[0].CurX() && c.Player().CurY() >= bounds[0].CurY() && c.Player().CurX() <= bounds[1].CurX() && c.Player().CurY() <= bounds[1].CurY() {
 				c.Player().ResetPath()
 				boundaryAction(c, object)
 				return true
