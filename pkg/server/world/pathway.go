@@ -1,7 +1,7 @@
 package world
 
 import (
-	"github.com/spkaeros/rscgo/pkg/server/log"
+	"math"
 )
 
 //Pathway Represents a path for a mobile entity to traverse across the virtual world.
@@ -86,7 +86,7 @@ func (p *Pathway) AddWaypoint(x, y int) *Pathway{
 }
 
 func MakePath(start, end Location) *Pathway {
-	var open, sorted []*Node
+	var open []*Node
 	var nodes map[int]*Node
 	startNode := &Node{
 		cost:   0,
@@ -100,14 +100,16 @@ func MakePath(start, end Location) *Pathway {
 		parent: nil,
 		loc:    end,
 	}
+	if IsTileBlocking(end.CurX(), end.CurY(), 0x64, false) {
+		return NewPathwayToLocation(end)
+	}
 	nodes = make(map[int]*Node)
 	nodes[start.CurX() << 32 | start.CurY() << 16] = startNode
 	nodes[end.CurX() << 32 | end.CurY() << 16] = endNode
 	open = []*Node{startNode}
-	sorted = []*Node{startNode}
 main:
 	for len(open) > 0 {
-		active := getCheapestNode(&sorted)
+		active := getCheapestNode(&open)
 		position := active.loc
 		if position.LongestDelta(end) == 0 {
 			break
@@ -133,10 +135,10 @@ main:
 				xIndex, yIndex := position.CurX()-adj.CurX()+1, position.CurY()-adj.CurY()+1
 				bit := 4
 				bit2 := 1
-				if xIndex < 0 || xIndex > 3 {
+				if xIndex < 0 || xIndex >= 3 {
 					continue main
 				}
-				if yIndex < 0 || yIndex > 3 {
+				if yIndex < 0 || yIndex >= 3 {
 					continue main
 				}
 				if sprites[xIndex][yIndex] == North {
@@ -165,12 +167,42 @@ main:
 					bit2 = 4 | 2
 				}
 				if !IsTileBlocking(position.CurX(), position.CurY(), byte(bit2), true) && !IsTileBlocking(adj.CurX(), adj.CurY(), byte(bit), false) {
+					switch sprites[xIndex][yIndex] {
+					case NorthEast:
+						if IsTileBlocking(position.CurX(), position.CurY()-1, byte(bit), false) {
+							continue
+						}
+						if IsTileBlocking(position.CurX()-1, position.CurY(), byte(bit), false) {
+							continue
+						}
+					case NorthWest:
+						if IsTileBlocking(position.CurX(), position.CurY()-1, byte(bit), false) {
+							continue
+						}
+						if IsTileBlocking(position.CurX()+1, position.CurY(), byte(bit), false) {
+							continue
+						}
+					case SouthEast:
+						if IsTileBlocking(position.CurX(), position.CurY()+1, byte(bit), false) {
+							continue
+						}
+						if IsTileBlocking(position.CurX()-1, position.CurY(), byte(bit), false) {
+							continue
+						}
+					case SouthWest:
+						if IsTileBlocking(position.CurX(), position.CurY()+1, byte(bit), false) {
+							continue
+						}
+						if IsTileBlocking(position.CurX()+1, position.CurY(), byte(bit), false) {
+							continue
+						}
+					}
 					node, ok := nodes[adj.CurX() << 32 | adj.CurY() << 16]//&Node{loc: adj, open: true}
 					if !ok {
 						node = &Node{loc:adj, open:true}
 						nodes[adj.CurX() << 32 | adj.CurY() << 16] = node
 					}
-					compareNodes(active, node, &open, &sorted, end)
+					compareNodes(active, node, &open, end)
 				}
 			}
 		}
@@ -188,8 +220,6 @@ main:
 		}
 	}
 	path.CurrentWaypoint = 0
-
-	log.Info.Println(path)
 	return path
 }
 
@@ -200,14 +230,14 @@ func cost(start, end Location) int {
 		shortL = deltaY
 		longL = deltaX
 	}
-	return shortL * 14 + (longL - shortL) * 10
+	return int(math.Sqrt(float64((shortL * shortL) + (longL * longL))))
 }
 
-func compareNodes(active, other *Node, open *[]*Node, sorted *[]*Node, end Location) {
-//	cost := active.cost + (((active.loc.CurX() - other.loc.CurX()) * (active.loc.CurX() - other.loc.CurX())) + ((active.loc.CurY() - other.loc.CurY()) * (active.loc.CurY() - other.loc.CurY())))
-//	cost := cost(active.loc, other.loc)
-	cost := active.cost + active.loc.LongestDelta(other.loc)
-	if other.cost > cost {
+func compareNodes(active, other *Node, open *[]*Node, end Location) {
+	gCost := active.gCost + active.loc.DeltaX(other.loc) + active.loc.DeltaY(other.loc)
+	cost := cost(other.loc, end)
+	fCost := gCost + cost
+	if other.cost > fCost {
 		for i, n := range *open {
 			if n == other {
 				*open = append((*open)[:i], (*open)[i+1:]...)
@@ -216,10 +246,11 @@ func compareNodes(active, other *Node, open *[]*Node, sorted *[]*Node, end Locat
 		}
 		other.open = false
 	} else if other.open && !inOpen(other, open) {
-		other.cost = cost
+		other.gCost = gCost
+		other.hCost = cost
+		other.cost = fCost
 		other.parent = active
 		*open = append(*open, other)
-		*sorted = append(*sorted, other)
 	}
 }
 
@@ -232,23 +263,37 @@ func inOpen(node *Node, open *[]*Node) bool {
 	return false
 }
 
-func getCheapestNode(sorted *[]*Node) *Node {
-	node := (*sorted)[0]
-	for !node.open {
-		if len(*sorted) == 0 {
-			return nil
+func getCheapestNode(open *[]*Node) *Node {
+	var node *Node
+	min := math.MaxInt32
+	for _, n := range *open {
+		if !n.open {
+			continue
 		}
-		*sorted = (*sorted)[1:]
-		node = (*sorted)[0]
+		if n.cost < min {
+			min = n.cost
+			node = n
+		}
 	}
 	return node
+
+/*	node := (*open)[0]
+	for !node.open {
+		if len(*open) == 0 {
+			return nil
+		}
+		*open = (*open)[1:]
+		node = (*open)[0]
+	}
+	return node*/
 }
 
 type Node struct {
-	cost int
-	open bool
-	parent *Node
-	loc Location
+	hCost, gCost int
+	cost         int
+	open         bool
+	parent       *Node
+	loc          Location
 }
 
 //NextTileToward Returns the next tile toward the final destination of this pathway from currentLocation

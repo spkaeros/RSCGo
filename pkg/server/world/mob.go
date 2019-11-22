@@ -402,25 +402,31 @@ func (n *NPC) UpdateRegion(x, y int) {
 	}
 }
 
+func UpdateNPCPaths() {
+	npcsLock.RLock()
+	for _, n := range Npcs {
+		if n.TransAttrs.VarTime("nextMove").Before(time.Now()) {
+			for _, r := range SurroundingRegions(int(n.X.Load()), int(n.Y.Load())) {
+				r.Players.lock.RLock()
+				if len(r.Players.List) > 0 {
+					r.Players.lock.RUnlock()
+					n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
+					n.SetPath(MakePath(n.Location, NewRandomLocation(n.Boundaries)))
+					//n.SetPath(NewPathwayToLocation(NewRandomLocation(n.Boundaries)))
+					break
+				}
+				r.Players.lock.RUnlock()
+			}
+		}
+	}
+	npcsLock.RUnlock()
+}
+
 //UpdateNPCPositions Loops through the global NPC list and, if they are by a player, updates their path to a new path every so often,
 // within their boundaries, and traverses each NPC along said path if necessary.
 func UpdateNPCPositions() {
 	npcsLock.RLock()
 	for _, n := range Npcs {
-		for _, r := range SurroundingRegions(int(n.X.Load()), int(n.Y.Load())) {
-			r.Players.lock.RLock()
-			if len(r.Players.List) > 0 {
-				r.Players.lock.RUnlock()
-				if n.TransAttrs.VarTime("nextMove").Before(time.Now()) {
-					n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
-					//							n.SetPath(MakePath(n.Location, NewRandomLocation(n.Boundaries)))
-					n.SetPath(NewPathwayToLocation(NewRandomLocation(n.Boundaries)))
-				}
-				break
-			}
-			r.Players.lock.RUnlock()
-		}
-
 		oldX, oldY := n.CurX(), n.CurY()
 		n.TraversePath()
 		n.UpdateRegion(oldX, oldY)
