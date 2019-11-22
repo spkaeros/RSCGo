@@ -325,15 +325,21 @@ func (p *Player) SetLocation(location Location, teleported bool) {
 
 //SetCoords Sets the mobs locations coordinates.
 func (p *Player) SetCoords(x, y int) {
-	curArea := GetRegion(int(p.X.Load()), int(p.Y.Load()))
-	newArea := GetRegion(x, y)
+	oldX, oldY := p.CurX(), p.CurY()
+	p.Mob.SetCoords(uint32(x), uint32(y))
+	p.UpdateRegion(oldX, oldY)
+}
+
+//UpdateRegion Updates the players region to their current location from the region at x,y.
+func (p *Player) UpdateRegion(x, y int) {
+	newArea := GetRegion(int(p.X.Load()), int(p.Y.Load()))
+	curArea := GetRegion(x, y)
 	if newArea != curArea {
 		if curArea.Players.Contains(p) {
 			curArea.Players.Remove(p)
 		}
 		newArea.Players.Add(p)
 	}
-	p.Mob.SetCoords(uint32(x), uint32(y))
 }
 
 //Teleport Moves the mob to x,y and sets a flag to remove said mob from the local players list of every nearby player.

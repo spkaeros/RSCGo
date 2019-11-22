@@ -390,12 +390,23 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 	return n
 }
 
+//UpdateRegion Updates the NPCs region to their current location from the region at x,y.
+func (n *NPC) UpdateRegion(x, y int) {
+	newArea := GetRegion(int(n.X.Load()), int(n.Y.Load()))
+	curArea := GetRegion(x, y)
+	if newArea != curArea {
+		if curArea.NPCs.Contains(n) {
+			curArea.NPCs.Remove(n)
+		}
+		newArea.NPCs.Add(n)
+	}
+}
+
 //UpdateNPCPositions Loops through the global NPC list and, if they are by a player, updates their path to a new path every so often,
 // within their boundaries, and traverses each NPC along said path if necessary.
 func UpdateNPCPositions() {
 	npcsLock.RLock()
 	for _, n := range Npcs {
-	playerSearch:
 		for _, r := range SurroundingRegions(int(n.X.Load()), int(n.Y.Load())) {
 			r.Players.lock.RLock()
 			if len(r.Players.List) > 0 {
@@ -405,12 +416,14 @@ func UpdateNPCPositions() {
 					//							n.SetPath(MakePath(n.Location, NewRandomLocation(n.Boundaries)))
 					n.SetPath(NewPathwayToLocation(NewRandomLocation(n.Boundaries)))
 				}
-				break playerSearch
+				break
 			}
 			r.Players.lock.RUnlock()
 		}
 
+		oldX, oldY := n.CurX(), n.CurY()
 		n.TraversePath()
+		n.UpdateRegion(oldX, oldY)
 	}
 	npcsLock.RUnlock()
 }

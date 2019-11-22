@@ -77,7 +77,9 @@ func StartConnectionService() {
 //Tick One game engine 'tick'.  This is to handle movement, to synchronize client, to update movement-related state variables... Runs once per 600ms.
 func Tick() {
 	clients.Range(func(c clients.Client) {
+		oldX, oldY := c.Player().CurX(), c.Player().CurY()
 		c.Player().TraversePath()
+		c.Player().UpdateRegion(oldX, oldY)
 	})
 	world.UpdateNPCPositions()
 	clients.Range(func(c clients.Client) {
