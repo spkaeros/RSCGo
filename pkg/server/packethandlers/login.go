@@ -4,6 +4,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/crypto"
+	"github.com/spkaeros/rscgo/pkg/server/world"
 	"strings"
 
 	"github.com/spkaeros/rscgo/pkg/server/config"
@@ -65,7 +66,7 @@ func closedConn(c clients.Client, p *packetbuilders.Packet) {
 }
 
 func logout(c clients.Client, _ *packetbuilders.Packet) {
-	if c.Player().TransAttrs.VarBool("fighting", false) {
+	if c.Player().TransAttrs.VarBool("fighting", false) || c.Player().State != world.MSIdle {
 		// TODO: send can't logout right now packet
 		return
 	}

@@ -31,6 +31,7 @@ func init() {
 				npc.TransAttrs.SetVar("fightTarget", c.Player())
 				go func() {
 					ticker := time.NewTicker(time.Millisecond * 1200)
+					defer ticker.Stop()
 					curRound := 0
 					for range ticker.C {
 						if !c.Player().TransAttrs.VarBool("fighting", false) || !c.Player().TransAttrs.VarBool("connected", false) {
