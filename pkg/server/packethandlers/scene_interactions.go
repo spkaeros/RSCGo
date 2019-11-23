@@ -117,6 +117,8 @@ func init() {
 				c.Player().ResetPath()
 				c.SendPacket(packetbuilders.ServerMessage("The " + world.NpcDefs[npc.ID].Name + " does not appear interested in talking"))
 				return true
+			} else {
+				c.Player().SetPath(world.MakePath(c.Player().Location, npc.Location))
 			}
 			return false
 		})
