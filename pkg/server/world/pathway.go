@@ -86,8 +86,7 @@ func (p *Pathway) AddWaypoint(x, y int) *Pathway{
 }
 
 func MakePath(start, end Location) *Pathway {
-	var open []*Node
-	var nodes map[int]*Node
+	nodes := make(map[int]*Node)
 	startNode := &Node{
 		cost:   0,
 		open:   true,
@@ -103,11 +102,9 @@ func MakePath(start, end Location) *Pathway {
 	if IsTileBlocking(end.CurX(), end.CurY(), 0x40, false) {
 		return NewPathwayToLocation(end)
 	}
-	nodes = make(map[int]*Node)
 	nodes[start.CurX() << 32 | start.CurY() << 16] = startNode
 	nodes[end.CurX() << 32 | end.CurY() << 16] = endNode
-	open = []*Node{startNode}
-main:
+	open := []*Node{startNode}
 	for len(open) > 0 {
 		active := getCheapestNode(&open)
 		position := active.loc
@@ -136,38 +133,40 @@ main:
 				bit := 4
 				bit2 := 1
 				if xIndex < 0 || xIndex >= 3 {
-					continue main
+					continue
 				}
 				if yIndex < 0 || yIndex >= 3 {
-					continue main
+					continue
 				}
-				if sprites[xIndex][yIndex] == North {
+				dir := sprites[xIndex][yIndex]
+				switch dir {
+				case North:
 					bit = 4
 					bit2 = 1
-				} else if sprites[xIndex][yIndex] == South {
+				case South:
 					bit = 1
 					bit2 = 4
-				} else if sprites[xIndex][yIndex] == East {
+				case East:
 					bit = 8
 					bit2 = 2
-				} else if sprites[xIndex][yIndex] == West {
+				case West:
 					bit = 2
 					bit2 = 8
-				} else if sprites[xIndex][yIndex] == NorthEast {
+				case NorthEast:
 					bit = 4 | 8
 					bit2 = 1 | 8
-				} else if sprites[xIndex][yIndex] == NorthWest {
+				case NorthWest:
 					bit = 4 | 2
 					bit2 = 1 | 2
-				} else if sprites[xIndex][yIndex] == SouthEast {
+				case SouthEast:
 					bit = 1 | 8
 					bit2 = 4 | 8
-				} else if sprites[xIndex][yIndex] == SouthWest {
+				case SouthWest:
 					bit = 1 | 2
 					bit2 = 4 | 2
 				}
 				if !IsTileBlocking(position.CurX(), position.CurY(), byte(bit2), true) && !IsTileBlocking(adj.CurX(), adj.CurY(), byte(bit), false) {
-					switch sprites[xIndex][yIndex] {
+					switch dir {
 					case NorthEast:
 						if IsTileBlocking(position.CurX(), position.CurY()-1, byte(bit), false) {
 							continue
