@@ -77,11 +77,10 @@ func (p *Pathway) StartingTile() Location {
 	return NewLocation(int(p.StartX), int(p.StartY))
 }
 
-//AddWaypoint Prepends a waypoint to his path.
+//AddWaypoint Prepends a waypoint to this path.
 func (p *Pathway) AddWaypoint(x, y int) *Pathway{
 	p.WaypointsX = append([]int{x}, p.WaypointsX...)
 	p.WaypointsY = append([]int{y}, p.WaypointsY...)
-	p.CurrentWaypoint++
 	return p
 }
 
@@ -117,7 +116,6 @@ func MakePath(start, end Location) *Pathway {
 				break
 			}
 		}
-//		log.Info.Println(active.loc.String())
 
 		active.open = false
 		x, y := position.CurX(), position.CurY()
@@ -218,7 +216,6 @@ func MakePath(start, end Location) *Pathway {
 			position = active.loc
 		}
 	}
-	path.CurrentWaypoint = 0
 	return path
 }
 
