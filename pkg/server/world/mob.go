@@ -399,6 +399,7 @@ type NPC struct {
 	Mob
 	ID         int
 	Boundaries [2]Location
+	StartPoint Location
 }
 
 //NewNpc Creates a new NPC and returns a reference to it
@@ -406,6 +407,7 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 	n := &NPC{ID: id, Mob: Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: Location{X: atomic.NewUint32(uint32(startX)), Y: atomic.NewUint32(uint32(startY))}}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}}
 	n.Boundaries[0] = NewLocation(minX, minY)
 	n.Boundaries[1] = NewLocation(maxX, maxY)
+	n.StartPoint = NewLocation(startX, startY)
 	if id < 794 {
 		n.Skillset.Current[0] = NpcDefs[id].Attack
 		n.Skillset.Current[1] = NpcDefs[id].Defense
@@ -437,6 +439,9 @@ func (n *NPC) UpdateRegion(x, y int) {
 func UpdateNPCPaths() {
 	npcsLock.RLock()
 	for _, n := range Npcs {
+		if n.LongestDelta(DeathSpot) == 0 {
+			continue
+		}
 		if n.TransAttrs.VarBool("fighting", false) {
 			continue
 		}

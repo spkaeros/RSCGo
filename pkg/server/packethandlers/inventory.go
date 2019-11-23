@@ -37,6 +37,9 @@ func init() {
 		}
 	}
 	PacketHandlers["takeitem"] = func(c clients.Client, p *packetbuilders.Packet) {
+		if c.Player().State != world.MSIdle {
+			return
+		}
 		x := p.ReadShort()
 		y := p.ReadShort()
 		id := p.ReadShort()
@@ -71,6 +74,9 @@ func init() {
 		})
 	}
 	PacketHandlers["dropitem"] = func(c clients.Client, p *packetbuilders.Packet) {
+		if c.Player().State != world.MSIdle {
+			return
+		}
 		index := p.ReadShort()
 		item := c.Player().Items.Get(index)
 		if item != nil {
@@ -81,10 +87,17 @@ func init() {
 		}
 	}
 	PacketHandlers["invaction1"] = func(c clients.Client, p *packetbuilders.Packet) {
+		if c.Player().State != world.MSIdle {
+			return
+		}
 		index := p.ReadShort()
 		item := c.Player().Items.Get(index)
 		if item != nil {
+			c.Player().State = world.MSBusy
 			go func() {
+				defer func() {
+					c.Player().State = world.MSIdle
+				}()
 				if !script.Run("invAction", c, "item", item) {
 					c.SendPacket(packetbuilders.DefaultActionMessage)
 				}

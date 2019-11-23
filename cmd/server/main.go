@@ -86,13 +86,13 @@ func main() {
 
 	// Entity locations
 //	asyncExecute(&awaitLaunchJobs, db.LoadObjectLocations)
-	asyncExecute(&awaitLaunchJobs, db.LoadNpcLocations)
 	// Entity action scripting triggers
 //	asyncExecute(&awaitLaunchJobs, script.LoadObjectTriggers)
 //	asyncExecute(&awaitLaunchJobs, script.LoadBoundaryTriggers)
 	//	asyncExecute(&awaitLaunchJobs, script.LoadItemTriggers)
 	awaitLaunchJobs.Wait()
 	db.LoadObjectLocations()
+	db.LoadNpcLocations()
 	if config.Verbose() {
 		log.Info.Printf("Loaded %d landscape sectors.\n", len(world.Sectors))
 		log.Info.Printf("Loaded %d packet handlers.\n", packethandlers.Size())

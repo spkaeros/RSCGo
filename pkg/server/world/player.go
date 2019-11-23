@@ -176,6 +176,7 @@ func (p *Player) ResetFighting() {
 	}
 	p.TransAttrs.UnsetVar("fightTarget")
 	p.TransAttrs.UnsetVar("fightRound")
+	p.SetDirection(North)
 	p.State = MSIdle
 }
 

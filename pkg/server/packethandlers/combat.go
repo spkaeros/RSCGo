@@ -54,21 +54,47 @@ func init() {
 							attacker := c.Player()
 							defender := npc
 							nextHit := rand.Int31N(0, 25)
-							c.SendPacket(packetbuilders.NpcDamage(defender.Index, nextHit, defender.Skillset.Current[3] - nextHit, defender.Skillset.Maximum[3]))
+							if nextHit > defender.Skillset.Current[3] {
+								nextHit = defender.Skillset.Current[3]
+							}
+							defender.Skillset.Current[3] -= nextHit
+							if defender.Skillset.Current[3] <= 0 {
+								npc.SetLocation(world.DeathSpot)
+								go func() {
+									time.Sleep(time.Second * 10)
+									npc.SetLocation(npc.StartPoint)
+									npc.Skillset.Current[3] = npc.Skillset.Maximum[3]
+								}()
+								c.Player().ResetFighting()
+								return
+							}
+							c.SendPacket(packetbuilders.NpcDamage(defender.Index, nextHit, defender.Skillset.Current[3], defender.Skillset.Maximum[3]))
 							for _, p1 := range c.Player().NearbyPlayers() {
 								if c1, ok := clients.FromIndex(p1.Index); ok {
-									c1.SendPacket(packetbuilders.NpcDamage(defender.Index, nextHit, defender.Skillset.Current[3] - nextHit, defender.Skillset.Maximum[3]))
+									c1.SendPacket(packetbuilders.NpcDamage(defender.Index, nextHit, defender.Skillset.Current[3], defender.Skillset.Maximum[3]))
 								}
 							}
+
 							attacker.TransAttrs.SetVar("fightRound", attacker.TransAttrs.VarInt("fightRound", 0) + 1)
 						} else {
 							attacker := npc
 							defender := c.Player()
 							nextHit := rand.Int31N(0, 5)
-							c.SendPacket(packetbuilders.PlayerDamage(defender.Index, nextHit, defender.Skillset.Current[3] - nextHit, defender.Skillset.Maximum[3]))
+							if nextHit > defender.Skillset.Current[3] {
+								nextHit = defender.Skillset.Current[3]
+							}
+							defender.Skillset.Current[3] -= nextHit
+							if defender.Skillset.Current[3] <= 0 {
+								c.Player().ResetFighting()
+								c.SendPacket(packetbuilders.Death)
+								c.Player().Skillset.Current[3] = c.Player().Skillset.Maximum[3]
+								c.Player().Teleport(220, 445)
+								return
+							}
+							c.SendPacket(packetbuilders.PlayerDamage(defender.Index, nextHit, defender.Skillset.Current[3], defender.Skillset.Maximum[3]))
 							for _, p1 := range c.Player().NearbyPlayers() {
 								if c1, ok := clients.FromIndex(p1.Index); ok {
-									c1.SendPacket(packetbuilders.PlayerDamage(defender.Index, nextHit, defender.Skillset.Current[3] - nextHit, defender.Skillset.Maximum[3]))
+									c1.SendPacket(packetbuilders.PlayerDamage(defender.Index, nextHit, defender.Skillset.Current[3], defender.Skillset.Maximum[3]))
 								}
 							}
 							attacker.TransAttrs.SetVar("fightRound", attacker.TransAttrs.VarInt("fightRound", 0) + 1)
