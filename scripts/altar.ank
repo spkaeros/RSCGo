@@ -1,0 +1,17 @@
+func objectAction() {
+	if objectDefs[object.ID].Commands[0] == "recharge at" {
+		max = player.Skillset.Maximum[5]
+		if object.ID == 200 {
+			max += 2
+		}
+		if player.Skillset.Current[5] == max {
+			client.Message("You already have full prayer points")
+			return true
+		}
+		client.Message("You recharge your prayer points")
+		player.Skillset.Current[5] = max
+		client.SendStats()
+		return true
+	}
+	return false
+}

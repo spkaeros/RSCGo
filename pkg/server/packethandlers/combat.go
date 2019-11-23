@@ -16,6 +16,12 @@ func init() {
 			log.Suspicious.Printf("player[%v] tried to attack nil NPC\n", c)
 			return
 		}
+		if c.Player().State != world.MSIdle {
+			return
+		}
+		if !world.NpcDefs[npc.ID].Attackable {
+			return
+		}
 		c.Player().SetDistancedAction(func() bool {
 			if c.Player().WithinRange(npc.Location, 1) {
 				c.Player().ResetPath()
