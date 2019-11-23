@@ -8,6 +8,13 @@ import (
 
 func init() {
 	PacketHandlers["walkto"] = func(c clients.Client, p *packetbuilders.Packet) {
+		if c.Player().TransAttrs.VarBool("fighting", false) {
+			curRound := c.Player().TransAttrs.VarInt("fightRound", 0)
+			if curRound < 3 {
+				c.Message("You can't retreat during the first 3 rounds of combat")
+				return
+			}
+		}
 		startX := p.ReadShort()
 		startY := p.ReadShort()
 		numWaypoints := (len(p.Payload) - 4) / 2

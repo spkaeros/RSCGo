@@ -406,6 +406,16 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 	n := &NPC{ID: id, Mob: Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: Location{X: atomic.NewUint32(uint32(startX)), Y: atomic.NewUint32(uint32(startY))}}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}}
 	n.Boundaries[0] = NewLocation(minX, minY)
 	n.Boundaries[1] = NewLocation(maxX, maxY)
+	if id < 794 {
+		n.Skillset.Current[0] = NpcDefs[id].Attack
+		n.Skillset.Current[1] = NpcDefs[id].Defense
+		n.Skillset.Current[2] = NpcDefs[id].Strength
+		n.Skillset.Current[3] = NpcDefs[id].Hits
+		n.Skillset.Maximum[0] = NpcDefs[id].Attack
+		n.Skillset.Maximum[1] = NpcDefs[id].Defense
+		n.Skillset.Maximum[2] = NpcDefs[id].Strength
+		n.Skillset.Maximum[3] = NpcDefs[id].Hits
+	}
 	npcsLock.Lock()
 	Npcs = append(Npcs, n)
 	npcsLock.Unlock()

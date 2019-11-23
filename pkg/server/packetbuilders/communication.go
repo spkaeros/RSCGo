@@ -65,6 +65,30 @@ func PlayerChat(sender int, msg string) *Packet {
 	return p
 }
 
+//PlayerDamage Builds a packet containing a view-area damage display for this player
+func PlayerDamage(victim int, damage, curHits, maxHits int) *Packet {
+	p := NewOutgoingPacket(234)
+	p.AddShort(1)
+	p.AddShort(uint16(victim))
+	p.AddByte(2)
+	p.AddByte(uint8(damage))
+	p.AddByte(uint8(curHits))
+	p.AddByte(uint8(maxHits))
+	return p
+}
+
+//NpcDamage Builds a packet containing a view-area damage display for this NPC
+func NpcDamage(victim int, damage, curHits, maxHits int) *Packet {
+	p := NewOutgoingPacket(104)
+	p.AddShort(1)
+	p.AddShort(uint16(victim))
+	p.AddByte(2)
+	p.AddByte(uint8(damage))
+	p.AddByte(uint8(curHits))
+	p.AddByte(uint8(maxHits))
+	return p
+}
+
 //PrivacySettings Builds a packet containing the players privacy settings for display in the settings menu.
 func PrivacySettings(player *world.Player) *Packet {
 	p := NewOutgoingPacket(51)

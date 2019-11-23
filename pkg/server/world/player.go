@@ -163,16 +163,19 @@ func (p *Player) ResetFighting() {
 	if target := p.TransAttrs.VarPlayer("fightTarget"); target != nil {
 		target.TransAttrs.UnsetVar("fighting")
 		target.TransAttrs.UnsetVar("fightTarget")
+		target.TransAttrs.UnsetVar("fightRound")
 		target.SetDirection(North)
 		target.State = MSIdle
 	}
 	if target := p.TransAttrs.VarNpc("fightTarget"); target != nil {
 		target.TransAttrs.UnsetVar("fighting")
 		target.TransAttrs.UnsetVar("fightTarget")
+		target.TransAttrs.UnsetVar("fightRound")
 		target.SetDirection(North)
 		target.State = MSIdle
 	}
 	p.TransAttrs.UnsetVar("fightTarget")
+	p.TransAttrs.UnsetVar("fightRound")
 	p.State = MSIdle
 }
 
