@@ -266,6 +266,28 @@ func (attributes *AttributeList) VarInt(name string, zero int) int {
 	return attributes.Set[name].(int)
 }
 
+//VarPlayer If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
+func (attributes *AttributeList) VarPlayer(name string) *Player {
+	attributes.Lock.RLock()
+	defer attributes.Lock.RUnlock()
+	if _, ok := attributes.Set[name].(*Player); !ok {
+		return nil
+	}
+
+	return attributes.Set[name].(*Player)
+}
+
+//VarPlayer If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
+func (attributes *AttributeList) VarNpc(name string) *NPC {
+	attributes.Lock.RLock()
+	defer attributes.Lock.RUnlock()
+	if _, ok := attributes.Set[name].(*NPC); !ok {
+		return nil
+	}
+
+	return attributes.Set[name].(*NPC)
+}
+
 //VarLong If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
 func (attributes *AttributeList) VarLong(name string, zero uint64) uint64 {
 	attributes.Lock.RLock()
@@ -405,6 +427,9 @@ func (n *NPC) UpdateRegion(x, y int) {
 func UpdateNPCPaths() {
 	npcsLock.RLock()
 	for _, n := range Npcs {
+		if n.TransAttrs.VarBool("fighting", false) {
+			continue
+		}
 		if n.TransAttrs.VarTime("nextMove").Before(time.Now()) {
 			for _, r := range SurroundingRegions(int(n.X.Load()), int(n.Y.Load())) {
 				r.Players.lock.RLock()

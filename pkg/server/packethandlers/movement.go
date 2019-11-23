@@ -20,6 +20,10 @@ func init() {
 		c.Player().SetPath(world.NewPathway(uint32(startX), uint32(startY), waypointsX, waypointsY))
 	}
 	PacketHandlers["walktoentity"] = func(c clients.Client, p *packetbuilders.Packet) {
+		if c.Player().TransAttrs.VarBool("fighting", false) {
+			c.Message("You can't do that whilst you are fighting.")
+			return
+		}
 		startX := p.ReadShort()
 		startY := p.ReadShort()
 		numWaypoints := (len(p.Payload) - 4) / 2

@@ -158,9 +158,28 @@ func (p *Player) ResetFollowing() {
 	p.ResetPath()
 }
 
+func (p *Player) ResetFighting() {
+	p.TransAttrs.UnsetVar("fighting")
+	if target := p.TransAttrs.VarPlayer("fightTarget"); target != nil {
+		target.TransAttrs.UnsetVar("fighting")
+		target.TransAttrs.UnsetVar("fightTarget")
+		target.SetDirection(North)
+		target.State = MSIdle
+	}
+	if target := p.TransAttrs.VarNpc("fightTarget"); target != nil {
+		target.TransAttrs.UnsetVar("fighting")
+		target.TransAttrs.UnsetVar("fightTarget")
+		target.SetDirection(North)
+		target.State = MSIdle
+	}
+	p.TransAttrs.UnsetVar("fightTarget")
+	p.State = MSIdle
+}
+
 //ResetFollowing Resets the transient attributes holding: Path, Follow radius, and Distanced action triggers...
 func (p *Player) ResetAll() {
 	p.TransAttrs.UnsetVar("followrad")
+	p.ResetFighting()
 	p.ResetDistancedAction()
 	p.ResetPath()
 }

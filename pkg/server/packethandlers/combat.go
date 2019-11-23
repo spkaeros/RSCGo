@@ -24,7 +24,9 @@ func init() {
 				c.Player().SetDirection(world.LeftFighting)
 				npc.SetDirection(world.RightFighting)
 				c.Player().TransAttrs.SetVar("fighting", true)
+				c.Player().TransAttrs.SetVar("fightTarget", npc)
 				npc.TransAttrs.SetVar("fighting", true)
+				npc.TransAttrs.SetVar("fightTarget", c.Player())
 				return true
 			} else {
 				c.Player().SetPath(world.MakePath(c.Player().Location, npc.Location))
