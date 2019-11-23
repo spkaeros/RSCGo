@@ -65,6 +65,10 @@ func closedConn(c clients.Client, p *packetbuilders.Packet) {
 }
 
 func logout(c clients.Client, _ *packetbuilders.Packet) {
+	if c.Player().TransAttrs.VarBool("fighting", false) {
+		// TODO: send can't logout right now packet
+		return
+	}
 	if c.Player().TransAttrs.VarBool("connected", false) {
 		c.SendPacket(packetbuilders.Logout)
 		c.Destroy()
