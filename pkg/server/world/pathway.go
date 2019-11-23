@@ -272,16 +272,6 @@ func getCheapestNode(open *[]*Node) *Node {
 		}
 	}
 	return node
-
-/*	node := (*open)[0]
-	for !node.open {
-		if len(*open) == 0 {
-			return nil
-		}
-		*open = (*open)[1:]
-		node = (*open)[0]
-	}
-	return node*/
 }
 
 type Node struct {

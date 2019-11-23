@@ -523,10 +523,7 @@ func (c *Client) Read(dst []byte) (int, error) {
 
 //ReadPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode of the next packet frame the client is sending us.
 func (c *Client) ReadPacket() (*packetbuilders.Packet, error) {
-	// Use a pre-allocated buffer for incoming read data..this is an optimization, allocation is expensive.
-	c.DataLock.Lock()
-	header := c.DataBuffer[:2]
-	c.DataLock.Unlock()
+	header := make([]byte, 2)
 	if l, err := c.Read(header); err != nil {
 		return nil, err
 	} else if l < 2 {
@@ -548,9 +545,7 @@ func (c *Client) ReadPacket() (*packetbuilders.Packet, error) {
 		return nil, errors.NewNetworkError("Packet length out of bounds; must be between 0 and 5000.")
 	}
 
-	c.DataLock.Lock()
-	payload := c.DataBuffer[2:length+2]
-	c.DataLock.Unlock()
+	payload := make([]byte, length)
 
 	if length > 0 {
 		if l, err := c.Read(payload); err != nil {
@@ -579,7 +574,7 @@ func (c *Client) WritePacket(p packetbuilders.Packet) {
 	frameLength := len(p.Payload)
 	c.DataLock.Lock()
 	header := c.DataBuffer[0:2]
-	c.DataLock.Unlock()
+	defer c.DataLock.Unlock()
 	if frameLength >= 160 {
 //		header[0] = byte(frameLength/256+160)
 		header[0] = byte(frameLength>>8+160)
