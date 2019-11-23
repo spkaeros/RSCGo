@@ -10,6 +10,9 @@ import (
 
 func init() {
 	PacketHandlers["objectaction"] = func(c clients.Client, p *packetbuilders.Packet) {
+		if c.Player().State != world.MSIdle {
+			return
+		}
 		x := p.ReadShort()
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
@@ -38,6 +41,9 @@ func init() {
 		})
 	}
 	PacketHandlers["objectaction2"] = func(c clients.Client, p *packetbuilders.Packet) {
+		if c.Player().State != world.MSIdle {
+			return
+		}
 		x := p.ReadShort()
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
@@ -65,6 +71,9 @@ func init() {
 		})
 	}
 	PacketHandlers["boundaryaction2"] = func(c clients.Client, p *packetbuilders.Packet) {
+		if c.Player().State != world.MSIdle {
+			return
+		}
 		x := p.ReadShort()
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
@@ -84,6 +93,9 @@ func init() {
 		})
 	}
 	PacketHandlers["boundaryaction"] = func(c clients.Client, p *packetbuilders.Packet) {
+		if c.Player().State != world.MSIdle {
+			return
+		}
 		x := p.ReadShort()
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
@@ -106,6 +118,9 @@ func init() {
 		idx := p.ReadShort()
 		npc := world.GetNpc(idx)
 		if npc == nil {
+			return
+		}
+		if c.Player().State != world.MSIdle {
 			return
 		}
 		c.Player().SetDistancedAction(func() bool {
