@@ -2,11 +2,19 @@ strings = import("strings")
 
 func objectAction() {
     cmd = objectDefs[object.ID].Commands[0]
-    if cmd == "climb-down" || cmd == "climb-up" || cmd == "go-up" {
+    if cmd == "climb-down" || cmd == "climb-up" || cmd == "go up" || cmd == "go down" {
         if strings.HasSuffix(cmd, "up") {
             player.SetLocation(player.Above(), true)
+	        if strings.HasPrefix(cmd, "go") {
+	        	// TODO: Properly handle stairs
+	        	player.SetLocation(newLocation(player.CurX(), player.CurY() + 4), true)
+	        }
         } else {
             player.SetLocation(player.Below(), true)
+   	        if strings.HasPrefix(cmd, "go") {
+	        	// TODO: Properly handle stairs
+   	        	player.SetLocation(newLocation(player.CurX(), player.CurY() - 4), true)
+   	        }
         }
         client.UpdatePlane()
         return true

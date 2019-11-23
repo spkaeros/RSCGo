@@ -106,6 +106,21 @@ func init() {
 			return false
 		})
 	}
+	PacketHandlers["talktonpc"] = func(c clients.Client, p *packetbuilders.Packet) {
+		idx := p.ReadShort()
+		npc := world.GetNpc(idx)
+		if npc == nil {
+			return
+		}
+		c.Player().SetDistancedAction(func() bool {
+			if c.Player().WithinRange(npc.Location, 1) {
+				c.Player().ResetPath()
+				c.SendPacket(packetbuilders.ServerMessage("The " + world.NpcDefs[npc.ID].Name + " does not appear interested in talking"))
+				return true
+			}
+			return false
+		})
+	}
 }
 
 func objectAction(c clients.Client, object *world.Object) {
