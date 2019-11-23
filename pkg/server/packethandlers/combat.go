@@ -33,7 +33,14 @@ func init() {
 					ticker := time.NewTicker(time.Millisecond * 1200)
 					curRound := 0
 					for range ticker.C {
-						if !c.Player().TransAttrs.VarBool("fighting", false) {
+						if !c.Player().TransAttrs.VarBool("fighting", false) || !c.Player().TransAttrs.VarBool("connected", false) {
+							if npc.TransAttrs.VarBool("fighting", false) {
+								npc.TransAttrs.UnsetVar("fighting")
+								npc.TransAttrs.UnsetVar("fightRound")
+								npc.TransAttrs.UnsetVar("fightTarget")
+								npc.State = world.MSIdle
+								npc.SetDirection(world.North)
+							}
 							return
 						}
 						if curRound % 2 == 0 {
