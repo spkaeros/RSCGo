@@ -26,6 +26,8 @@ func init() {
 				c.Player().TransAttrs.SetVar("fighting", true)
 				npc.TransAttrs.SetVar("fighting", true)
 				return true
+			} else {
+				c.Player().SetPath(world.MakePath(c.Player().Location, npc.Location))
 			}
 			return false
 		})
