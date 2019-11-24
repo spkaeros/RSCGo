@@ -24,7 +24,7 @@ func init() {
 		bounds := object.Boundaries()
 		c.Player().SetDistancedAction(func() bool {
 			if world.Objects[object.ID].Type == 2 || world.Objects[object.ID].Type == 3 {
-				if c.Player().NextTo(object.Location) && c.Player().CurX() >= bounds[0].CurX() && c.Player().CurY() >= bounds[0].CurY() && c.Player().CurX() <= bounds[1].CurX() && c.Player().CurY() <= bounds[1].CurY() {
+				if (c.Player().NextTo(bounds[1]) || c.Player().NextTo(bounds[0])) && c.Player().CurX() >= bounds[0].CurX() && c.Player().CurY() >= bounds[0].CurY() && c.Player().CurX() <= bounds[1].CurX() && c.Player().CurY() <= bounds[1].CurY() {
 					c.Player().ResetPath()
 					objectAction(c, object)
 					return true
@@ -55,14 +55,14 @@ func init() {
 		bounds := object.Boundaries()
 		c.Player().SetDistancedAction(func() bool {
 			if world.Objects[object.ID].Type == 2 || world.Objects[object.ID].Type == 3 {
-				if c.Player().NextTo(object.Location) && c.Player().CurX() >= bounds[0].CurX() && c.Player().CurY() >= bounds[0].CurY() && c.Player().CurX() <= bounds[1].CurX() && c.Player().CurY() <= bounds[1].CurY() {
+				if (c.Player().NextTo(bounds[1]) || c.Player().NextTo(bounds[0])) && c.Player().CurX() >= bounds[0].CurX() && c.Player().CurY() >= bounds[0].CurY() && c.Player().CurX() <= bounds[1].CurX() && c.Player().CurY() <= bounds[1].CurY() {
 					c.Player().ResetPath()
 					objectAction(c, object)
 					return true
 				}
 				return false
 			}
-			if c.Player().NextTo(object.Location) && (c.Player().WithinRange(bounds[0], 1) || c.Player().WithinRange(bounds[1], 1)) {
+			if (c.Player().NextTo(bounds[1]) || c.Player().NextTo(bounds[0])) && (c.Player().WithinRange(bounds[0], 1) || c.Player().WithinRange(bounds[1], 1)) {
 				c.Player().ResetPath()
 				objectAction(c, object)
 				return true
@@ -84,7 +84,7 @@ func init() {
 		}
 		bounds := object.Boundaries()
 		c.Player().SetDistancedAction(func() bool {
-			if c.Player().NextTo(object.Location) && c.Player().CurX() >= bounds[0].CurX() && c.Player().CurY() >= bounds[0].CurY() && c.Player().CurX() <= bounds[1].CurX() && c.Player().CurY() <= bounds[1].CurY() {
+			if (c.Player().NextTo(bounds[1]) || c.Player().NextTo(bounds[0])) && c.Player().CurX() >= bounds[0].CurX() && c.Player().CurY() >= bounds[0].CurY() && c.Player().CurX() <= bounds[1].CurX() && c.Player().CurY() <= bounds[1].CurY() {
 				c.Player().ResetPath()
 				boundaryAction(c, object)
 				return true
@@ -106,7 +106,7 @@ func init() {
 		}
 		bounds := object.Boundaries()
 		c.Player().SetDistancedAction(func() bool {
-			if c.Player().NextTo(object.Location) && c.Player().CurX() >= bounds[0].CurX() && c.Player().CurY() >= bounds[0].CurY() && c.Player().CurX() <= bounds[1].CurX() && c.Player().CurY() <= bounds[1].CurY() {
+			if (c.Player().NextTo(bounds[1]) || c.Player().NextTo(bounds[0])) && c.Player().CurX() >= bounds[0].CurX() && c.Player().CurY() >= bounds[0].CurY() && c.Player().CurX() <= bounds[1].CurX() && c.Player().CurY() <= bounds[1].CurY() {
 				c.Player().ResetPath()
 				boundaryAction(c, object)
 				return true

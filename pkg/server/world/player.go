@@ -166,59 +166,59 @@ func (p *Player) NextTo(target Location) bool {
 		dir := curLoc.directionTo(nextTile.X.Load(), nextTile.Y.Load())
 		switch dir {
 		case North:
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallSouth, false) {
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallSouth, true) {
 				return false
 			}
 		case South:
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallNorth, false) {
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallNorth, true) {
 				return false
 			}
 		case East:
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallWest, false) {
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallWest, true) {
 				return false
 			}
 		case West:
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallEast, false) {
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallEast, true) {
 				return false
 			}
 		case NorthWest:
-			if IsTileBlocking(nextTile.CurX()+1, nextTile.CurY(), WallSouth, false) {
+			if IsTileBlocking(nextTile.CurX()+1, nextTile.CurY(), WallSouth, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY()+1, WallEast, false) {
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY()+1, WallEast, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallSouth|WallEast, false) {
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallSouth|WallEast, true) {
 				return false
 			}
 		case NorthEast:
-			if IsTileBlocking(nextTile.CurX()-1, nextTile.CurY(), WallSouth, false) {
+			if IsTileBlocking(nextTile.CurX()-1, nextTile.CurY(), WallSouth, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY()+1, WallWest, false) {
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY()+1, WallWest, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallSouth|WallWest, false) {
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallSouth|WallWest, true) {
 				return false
 			}
 		case SouthWest:
-			if IsTileBlocking(nextTile.CurX()+1, nextTile.CurY(), WallNorth, false) {
+			if IsTileBlocking(nextTile.CurX()+1, nextTile.CurY(), WallNorth, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY()-1, WallEast, false) {
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY()-1, WallEast, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallNorth|WallEast, false) {
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallNorth|WallEast, true) {
 				return false
 			}
 		case SouthEast:
-			if IsTileBlocking(nextTile.CurX()-1, nextTile.CurY(), WallNorth, false) {
+			if IsTileBlocking(nextTile.CurX()-1, nextTile.CurY(), WallNorth, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY()-1, WallWest, false) {
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY()-1, WallWest, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallNorth|WallWest, false) {
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallNorth|WallWest, true) {
 				return false
 			}
 		}
