@@ -115,8 +115,8 @@ func (p *Pathfinder) MakePath() *Pathway {
 				adj := NewLocation(nextX, nextY)
 				sprites := [3][3]int{{SouthWest, West, NorthWest}, {South, -1, North}, {SouthEast, East, NorthEast}}
 				xIndex, yIndex := position.CurX()-adj.CurX()+1, position.CurY()-adj.CurY()+1
-				bit := 4
-				bit2 := 1
+				nextTileMask := 4
+				curTileMask := 1
 				if xIndex < 0 || xIndex >= 3 {
 					continue
 				}
@@ -126,58 +126,58 @@ func (p *Pathfinder) MakePath() *Pathway {
 				dir := sprites[xIndex][yIndex]
 				switch dir {
 				case North:
-					bit = 4
-					bit2 = 1
+					nextTileMask = WallSouth
+					curTileMask = WallNorth
 				case South:
-					bit = 1
-					bit2 = 4
+					nextTileMask = WallNorth
+					curTileMask = WallSouth
 				case East:
-					bit = 8
-					bit2 = 2
+					nextTileMask = WallWest
+					curTileMask = WallEast
 				case West:
-					bit = 2
-					bit2 = 8
+					nextTileMask = WallEast
+					curTileMask = WallWest
 				case NorthEast:
-					bit = 4 | 8
-					bit2 = 1 | 8
+					nextTileMask = WallSouth | WallWest
+					curTileMask = WallNorth | WallWest
 				case NorthWest:
-					bit = 4 | 2
-					bit2 = 1 | 2
+					nextTileMask = WallSouth | WallEast
+					curTileMask = WallNorth | WallEast
 				case SouthEast:
-					bit = 1 | 8
-					bit2 = 4 | 8
+					nextTileMask = WallNorth | WallWest
+					curTileMask = WallSouth | WallWest
 				case SouthWest:
-					bit = 1 | 2
-					bit2 = 4 | 2
+					nextTileMask = WallNorth | WallEast
+					curTileMask = WallSouth | WallEast
 				}
-				if !IsTileBlocking(position.CurX(), position.CurY(), byte(bit2), true) && !IsTileBlocking(adj.CurX(), adj.CurY(), byte(bit), false) {
+				if !IsTileBlocking(position.CurX(), position.CurY(), byte(curTileMask), true) && !IsTileBlocking(adj.CurX(), adj.CurY(), byte(nextTileMask), false) {
 					switch dir {
 					case NorthEast:
-						if IsTileBlocking(position.CurX(), position.CurY()-1, byte(bit), false) {
+						if IsTileBlocking(position.CurX(), position.CurY()-1, byte(nextTileMask), false) {
 							continue
 						}
-						if IsTileBlocking(position.CurX()-1, position.CurY(), byte(bit), false) {
+						if IsTileBlocking(position.CurX()-1, position.CurY(), byte(nextTileMask), false) {
 							continue
 						}
 					case NorthWest:
-						if IsTileBlocking(position.CurX(), position.CurY()-1, byte(bit), false) {
+						if IsTileBlocking(position.CurX(), position.CurY()-1, byte(nextTileMask), false) {
 							continue
 						}
-						if IsTileBlocking(position.CurX()+1, position.CurY(), byte(bit), false) {
+						if IsTileBlocking(position.CurX()+1, position.CurY(), byte(nextTileMask), false) {
 							continue
 						}
 					case SouthEast:
-						if IsTileBlocking(position.CurX(), position.CurY()+1, byte(bit), false) {
+						if IsTileBlocking(position.CurX(), position.CurY()+1, byte(nextTileMask), false) {
 							continue
 						}
-						if IsTileBlocking(position.CurX()-1, position.CurY(), byte(bit), false) {
+						if IsTileBlocking(position.CurX()-1, position.CurY(), byte(nextTileMask), false) {
 							continue
 						}
 					case SouthWest:
-						if IsTileBlocking(position.CurX(), position.CurY()+1, byte(bit), false) {
+						if IsTileBlocking(position.CurX(), position.CurY()+1, byte(nextTileMask), false) {
 							continue
 						}
-						if IsTileBlocking(position.CurX()+1, position.CurY(), byte(bit), false) {
+						if IsTileBlocking(position.CurX()+1, position.CurY(), byte(nextTileMask), false) {
 							continue
 						}
 					}

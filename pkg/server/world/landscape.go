@@ -135,15 +135,15 @@ const (
 	WallNorth = 1
 	//WallSouth Bitmask to represent a wall to the south.
 	WallSouth = 4
-	//WallWest Bitmask to represent a wall to the west.
-	WallWest = 2
-	//WallEast Bitmask to represent a wall to the east.
-	WallEast = 8
-	//WallWest Bitmask to represent a diagonal wall.
+	//WallEast Bitmask to represent a wall to the west.
+	WallEast = 2
+	//WallWest Bitmask to represent a wall to the east.
+	WallWest = 8
+	//WallEast Bitmask to represent a diagonal wall.
 	WallDiag1 = 0x10
-	//WallWest Bitmask to represent a diagonal wall facing the opposite way.
+	//WallEast Bitmask to represent a diagonal wall facing the opposite way.
 	WallDiag2 = 0x20
-	//WallWest Bitmask to represent an object occupying an entire tile.
+	//WallEast Bitmask to represent an object occupying an entire tile.
 	WallObject = 0x40
 )
 
@@ -245,10 +245,10 @@ func LoadSector(data []byte) (s *Sector) {
 				}
 			}
 			if horizontalWalls > 0 && Boundarys[horizontalWalls-1].Unknown == 0 && Boundarys[horizontalWalls-1].Traversable != 0 {
-				s.Tiles[tileIdx].CollisionMask |= WallWest
+				s.Tiles[tileIdx].CollisionMask |= WallEast
 				if tileIdx >= 48 {
 					// -48 is tile x-1,y
-					s.Tiles[tileIdx-48].CollisionMask |= WallEast
+					s.Tiles[tileIdx-48].CollisionMask |= WallWest
 				}
 			}
 			if diagonalWalls > 0 && diagonalWalls < 12000 && Boundarys[diagonalWalls-1].Unknown == 0 && Boundarys[diagonalWalls-1].Traversable != 0 {

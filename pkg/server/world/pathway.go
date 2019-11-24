@@ -27,6 +27,10 @@ func NewPathway(destX, destY uint32, waypointsX, waypointsY []int) *Pathway {
 	return &Pathway{StartX: destX, StartY: destY, WaypointsX: waypointsX, WaypointsY: waypointsY, CurrentWaypoint: -1}
 }
 
+func MakePath(start, end Location) *Pathway {
+	return NewPathfinder(start, end).MakePath()
+}
+
 //CountWaypoints Returns the length of the largest waypoint slice within this path.
 func (p *Pathway) CountWaypoints() int {
 	xCount, yCount := len(p.WaypointsX), len(p.WaypointsY)
@@ -78,10 +82,6 @@ func (p *Pathway) AddWaypoint(x, y int) *Pathway{
 	p.WaypointsX = append([]int{x}, p.WaypointsX...)
 	p.WaypointsY = append([]int{y}, p.WaypointsY...)
 	return p
-}
-
-func MakePath(start, end Location) *Pathway {
-	return NewPathfinder(start, end).MakePath()
 }
 
 //NextTileToward Returns the next tile toward the final destination of this pathway from currentLocation
