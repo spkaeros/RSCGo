@@ -1,0 +1,207 @@
+/*
+ * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
+package world
+
+import "math"
+
+type Node struct {
+	hCost, gCost int
+	cost         int
+	open         bool
+	parent       *Node
+	loc          Location
+}
+
+type Pathfinder struct {
+	nodes map[int]*Node
+	open []*Node
+	start Location
+	end Location
+}
+
+//NewPathfinder Returns a new A* pathfinder instance to derive an optimal path from start to end.
+func NewPathfinder(start, end Location) *Pathfinder {
+	p := &Pathfinder{start: start, end: end, nodes: make(map[int]*Node), open: []*Node{{loc: start, open: true}}}
+	p.nodes[start.CurX() << 32 | start.CurY()] = p.open[0]
+	p.nodes[end.CurX() << 32 | end.CurY()] = &Node{loc: end, open: true}
+	return p
+}
+
+func (p *Pathfinder) hasOpen(node *Node) bool {
+	for _, n := range p.open {
+		if node == n {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Pathfinder) getCheapest() *Node {
+	var node *Node
+	min := math.MaxInt32
+	for _, n := range p.open {
+		if !n.open {
+			continue
+		}
+		if n.cost < min {
+			min = n.cost
+			node = n
+		}
+	}
+	return node
+}
+
+func travelCost(start, end Location) int {
+	deltaX, deltaY := start.DeltaX(end), start.DeltaY(end)
+	shortL, longL := deltaX, deltaY
+	if deltaX > deltaY {
+		shortL = deltaY
+		longL = deltaX
+	}
+	return shortL * 14 + ((longL - shortL) * 10)
+}
+
+func (p *Pathfinder) removeOpen(node *Node) {
+	for i, n := range p.open {
+		if n == node {
+			p.open = append(p.open[:i], p.open[i+1:]...)
+			break
+		}
+	}
+	node.open = false
+}
+
+func (p *Pathfinder) compare(active, other *Node) {
+	gCost := active.gCost + travelCost(active.loc, other.loc)
+	cost := travelCost(other.loc, p.end)
+	fCost := gCost + cost
+	if other.cost > fCost {
+		p.removeOpen(other)
+	} else if other.open && !p.hasOpen(other) {
+		other.gCost = gCost
+		other.hCost = cost
+		other.cost = fCost
+		other.parent = active
+		p.open = append(p.open, other)
+	}
+}
+
+func (p *Pathfinder) MakePath() *Pathway {
+	if IsTileBlocking(p.end.CurX(), p.end.CurY(), 0x40, false) {
+		return NewPathwayToLocation(p.end)
+	}
+	for len(p.open) > 0 {
+		active := p.getCheapest()
+		position := active.loc
+		if position.Equals(p.end) {
+			break
+		}
+		p.removeOpen(active)
+
+		x, y := position.CurX(), position.CurY()
+		for nextX := x - 1; nextX <= x + 1; nextX++ {
+			for nextY := y - 1; nextY <= y + 1; nextY++ {
+				if nextX == x && nextY == y {
+					continue
+				}
+
+				adj := NewLocation(nextX, nextY)
+				sprites := [3][3]int{{SouthWest, West, NorthWest}, {South, -1, North}, {SouthEast, East, NorthEast}}
+				xIndex, yIndex := position.CurX()-adj.CurX()+1, position.CurY()-adj.CurY()+1
+				bit := 4
+				bit2 := 1
+				if xIndex < 0 || xIndex >= 3 {
+					continue
+				}
+				if yIndex < 0 || yIndex >= 3 {
+					continue
+				}
+				dir := sprites[xIndex][yIndex]
+				switch dir {
+				case North:
+					bit = 4
+					bit2 = 1
+				case South:
+					bit = 1
+					bit2 = 4
+				case East:
+					bit = 8
+					bit2 = 2
+				case West:
+					bit = 2
+					bit2 = 8
+				case NorthEast:
+					bit = 4 | 8
+					bit2 = 1 | 8
+				case NorthWest:
+					bit = 4 | 2
+					bit2 = 1 | 2
+				case SouthEast:
+					bit = 1 | 8
+					bit2 = 4 | 8
+				case SouthWest:
+					bit = 1 | 2
+					bit2 = 4 | 2
+				}
+				if !IsTileBlocking(position.CurX(), position.CurY(), byte(bit2), true) && !IsTileBlocking(adj.CurX(), adj.CurY(), byte(bit), false) {
+					switch dir {
+					case NorthEast:
+						if IsTileBlocking(position.CurX(), position.CurY()-1, byte(bit), false) {
+							continue
+						}
+						if IsTileBlocking(position.CurX()-1, position.CurY(), byte(bit), false) {
+							continue
+						}
+					case NorthWest:
+						if IsTileBlocking(position.CurX(), position.CurY()-1, byte(bit), false) {
+							continue
+						}
+						if IsTileBlocking(position.CurX()+1, position.CurY(), byte(bit), false) {
+							continue
+						}
+					case SouthEast:
+						if IsTileBlocking(position.CurX(), position.CurY()+1, byte(bit), false) {
+							continue
+						}
+						if IsTileBlocking(position.CurX()-1, position.CurY(), byte(bit), false) {
+							continue
+						}
+					case SouthWest:
+						if IsTileBlocking(position.CurX(), position.CurY()+1, byte(bit), false) {
+							continue
+						}
+						if IsTileBlocking(position.CurX()+1, position.CurY(), byte(bit), false) {
+							continue
+						}
+					}
+					node, ok := p.nodes[adj.CurX() << 32 | adj.CurY()]//&Node{loc: adj, open: true}
+					if !ok {
+						node = &Node{loc:adj, open:true}
+						p.nodes[adj.CurX() << 32 | adj.CurY()] = node
+					}
+					p.compare(active, node)
+				}
+			}
+		}
+	}
+
+	path := &Pathway{StartX: 0, StartY: 0}
+
+	active := p.nodes[p.end.CurX() << 32 | p.end.CurY()]
+	if active.parent != nil {
+		position := active.loc
+		for !p.start.Equals(position) {
+			path.AddWaypoint(position.CurX(), position.CurY())
+			active = active.parent
+			position = active.loc
+		}
+	}
+	return path
+}
