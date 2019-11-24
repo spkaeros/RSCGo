@@ -2,17 +2,18 @@ package packethandlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/clients"
+	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 )
 
 func init() {
-	PacketHandlers["clientsetting"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["clientsetting"] = func(c clients.Client, p *packet.Packet) {
 		// 2 = mouse buttons
 		// 0 = camera angle manual/auto
 		// 3 = soundFX (false=on, wtf)
 		c.Player().SetClientSetting(int(p.ReadByte()), p.ReadBool())
 	}
-	PacketHandlers["privacysettings"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["privacysettings"] = func(c clients.Client, p *packet.Packet) {
 		chatBlocked := p.ReadBool()
 		friendBlocked := p.ReadBool()
 		tradeBlocked := p.ReadBool()

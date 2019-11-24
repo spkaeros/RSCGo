@@ -2,12 +2,12 @@ package packethandlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/clients"
-	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
+	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 func init() {
-	PacketHandlers["walkto"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["walkto"] = func(c clients.Client, p *packet.Packet) {
 		if c.Player().TransAttrs.VarBool("fighting", false) {
 			curRound := c.Player().TransAttrs.VarInt("fightRound", 0)
 			if curRound < 3 {
@@ -26,7 +26,7 @@ func init() {
 		c.Player().ResetAll()
 		c.Player().SetPath(world.NewPathway(uint32(startX), uint32(startY), waypointsX, waypointsY))
 	}
-	PacketHandlers["walktoentity"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["walktoentity"] = func(c clients.Client, p *packet.Packet) {
 		if c.Player().TransAttrs.VarBool("fighting", false) {
 			c.Message("You can't do that whilst you are fighting.")
 			return
@@ -42,7 +42,7 @@ func init() {
 		c.Player().ResetAll()
 		c.Player().SetPath(world.NewPathway(uint32(startX), uint32(startY), waypointsX, waypointsY))
 	}
-	PacketHandlers["followreq"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["followreq"] = func(c clients.Client, p *packet.Packet) {
 		playerID := p.ReadShort()
 		affectedClient, ok := clients.FromIndex(playerID)
 		if !ok {
@@ -73,7 +73,7 @@ func init() {
 			return false
 		})
 	}
-	PacketHandlers["appearancerequest"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["appearancerequest"] = func(c clients.Client, p *packet.Packet) {
 		playerCount := p.ReadShort()
 		for i := 0; i < playerCount; i++ {
 			serverIndex := p.ReadShort()

@@ -1,6 +1,7 @@
 package world
 
 import (
+	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"go.uber.org/atomic"
 	"strconv"
 	"sync"
@@ -31,6 +32,7 @@ type Player struct {
 	TradeOffer       *Inventory
 	DistancedAction  func() bool
 	ActionLock       sync.RWMutex
+	OutgoingPackets chan *packet.Packet
 	IP               string
 	UID              uint8
 	Websocket        bool
@@ -418,21 +420,8 @@ func (p *Player) SetLocation(location Location, teleported bool) {
 
 //SetCoords Sets the mobs locations coordinates.
 func (p *Player) SetCoords(x, y int) {
-	oldX, oldY := p.CurX(), p.CurY()
+	updateRegionMob(p, x, y)
 	p.Mob.SetCoords(uint32(x), uint32(y))
-	p.UpdateRegion(oldX, oldY)
-}
-
-//UpdateRegion Updates the players region to their current location from the region at x,y.
-func (p *Player) UpdateRegion(x, y int) {
-	newArea := GetRegion(int(p.X.Load()), int(p.Y.Load()))
-	curArea := GetRegion(x, y)
-	if newArea != curArea {
-		if curArea.Players.Contains(p) {
-			curArea.Players.Remove(p)
-		}
-		newArea.Players.Add(p)
-	}
 }
 
 //Teleport Moves the mob to x,y and sets a flag to remove said mob from the local players list of every nearby player.
@@ -465,9 +454,13 @@ func (p *Player) IsFighting() bool {
 	return sprite == LeftFighting || sprite == RightFighting
 }
 
+func (p *Player) SendPacket(packet *packet.Packet) {
+	p.OutgoingPackets <- packet
+}
+
 //NewPlayer Returns a reference to a new player.
 func NewPlayer(index int, ip string) *Player {
-	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Location{atomic.NewUint32(0), atomic.NewUint32(0)}}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})}, LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, LocalItems: &List{}, IP: ip}
+	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Location{atomic.NewUint32(0), atomic.NewUint32(0)}}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})}, LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, LocalItems: &List{}, IP: ip, OutgoingPackets: make(chan *packet.Packet, 20)}
 	p.Equips[0] = p.Appearance.Head
 	p.Equips[1] = p.Appearance.Body
 	p.Equips[2] = p.Appearance.Legs

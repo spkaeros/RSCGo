@@ -3,12 +3,13 @@ package packethandlers
 import (
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 func init() {
-	PacketHandlers["tradereq"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["tradereq"] = func(c clients.Client, p *packet.Packet) {
 		index := p.ReadShort()
 		c1, ok := clients.FromIndex(index)
 		if !ok {
@@ -43,7 +44,7 @@ func init() {
 			c1.Message(c.Player().Username + " wishes to trade with you.")
 		}
 	}
-	PacketHandlers["tradeupdate"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["tradeupdate"] = func(c clients.Client, p *packet.Packet) {
 		if c.Player().TradeTarget() == -1 || c.Player().State != world.MSTrading {
 			log.Suspicious.Printf("player['%v'@'%v'] attempted to decline a non-existant trade!\n", c.Player().Username, c.Player().IP)
 			c.Player().ResetTrade()
@@ -98,7 +99,7 @@ func init() {
 			c.Player().TradeOffer.Add(p.ReadShort(), p.ReadInt())
 		}
 	}
-	PacketHandlers["tradedecline"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["tradedecline"] = func(c clients.Client, p *packet.Packet) {
 		if c.Player().TradeTarget() == -1 || c.Player().State != world.MSTrading {
 			log.Suspicious.Printf("player['%v'@'%v'] attempted to decline a trade it was not in!\n", c.Player().Username, c.Player().IP)
 			c.Player().ResetTrade()
@@ -124,7 +125,7 @@ func init() {
 		c1.Message(c.Player().Username + " has declined the trade.")
 		c1.SendPacket(packetbuilders.TradeClose)
 	}
-	PacketHandlers["tradeaccept"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["tradeaccept"] = func(c clients.Client, p *packet.Packet) {
 		if c.Player().TradeTarget() == -1 || c.Player().State != world.MSTrading {
 			log.Suspicious.Printf("player['%v'@'%v'] attempted to accept a trade it was not in!\n", c.Player().Username, c.Player().IP)
 			c.Player().ResetTrade()
@@ -158,7 +159,7 @@ func init() {
 			c1.SendPacket(packetbuilders.TradeTargetAccept(true))
 		}
 	}
-	PacketHandlers["tradeconfirmaccept"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["tradeconfirmaccept"] = func(c clients.Client, p *packet.Packet) {
 		if c.Player().TradeTarget() == -1 || c.Player().State != world.MSTrading || !c.Player().TransAttrs.VarBool("trade1accept", false) {
 			log.Suspicious.Printf("player['%v'@'%v'] attempted to accept a trade confirmation it was not in!\n", c.Player().Username, c.Player().IP)
 			c.Player().ResetTrade()
@@ -242,7 +243,7 @@ func init() {
 			c1.Message("Trade completed.")
 		}
 	}
-	PacketHandlers["duelreq"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["duelreq"] = func(c clients.Client, p *packet.Packet) {
 		c.Message("@que@@ora@Not yet implemented")
 	}
 }

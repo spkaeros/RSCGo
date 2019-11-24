@@ -2,7 +2,7 @@ amounts = {18: 1, 132: 3, 138: 4, 179: 5, 210: 2, 228: 1, 249: 2, 257: 5, 258: 3
 func invAction() {
 	amount, ok = amounts[toInt(item.ID)]
 	if ok {
-		deltaHp = player.Skillset.Maximum[3] - player.Skillset.Current[3]
+		deltaHp = player.Skillset.Maximum(3) - player.Skillset.Current(3)
 		if deltaHp < amount {
 			amount = deltaHp
 		}
@@ -10,7 +10,7 @@ func invAction() {
 		player.Items.RemoveByID(item.ID, 1)
 		client.SendInventory()
 		if amount > 0 {
-			player.Skillset.Current[3] += amount
+			player.Skillset.IncreaseCur(3, amount)
 			client.SendStats()
 			sleep(tSecond)
 			client.Message("It heals some health.")

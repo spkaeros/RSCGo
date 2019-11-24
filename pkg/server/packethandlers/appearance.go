@@ -2,12 +2,16 @@ package packethandlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/clients"
-	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
+	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 func init() {
-	PacketHandlers["changeappearance"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["changeappearance"] = func(c clients.Client, p *packet.Packet) {
+		if c.Player().State != world.MSChangingAppearance {
+			// Make sure the player either has never logged in before, or talked to the makeover mage to get here.
+			return
+		}
 		headGender := p.ReadBool()
 		headType := p.ReadByte()
 		bodyType := p.ReadByte()
@@ -36,6 +40,7 @@ func init() {
 			SkinColor: int(skinColor),
 		}
 		c.Player().AppearanceTicket++
+		c.Player().State = world.MSIdle
 		c.Player().TransAttrs.SetVar("self", false)
 	}
 }

@@ -5,17 +5,18 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/config"
 	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 )
 
 func init() {
-	PacketHandlers["pingreq"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["pingreq"] = func(c clients.Client, p *packet.Packet) {
 		c.SendPacket(packetbuilders.ResponsePong)
 	}
 }
 
 //handlerFunc Represents a function for handling incoming packetbuilders.
-type handlerFunc func(clients.Client, *packetbuilders.Packet)
+type handlerFunc func(clients.Client, *packet.Packet)
 
 //PacketHandlers A map with descriptive names for the keys, and functions to run for the value.
 var PacketHandlers = make(map[string]handlerFunc)

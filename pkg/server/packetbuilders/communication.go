@@ -2,13 +2,14 @@ package packetbuilders
 
 import (
 	"github.com/spkaeros/rscgo/pkg/rand"
+	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 //FriendList Builds a packet with the players friend list information in it.
-func FriendList(player *world.Player) (p *Packet) {
-	p = NewOutgoingPacket(71)
+func FriendList(player *world.Player) (p *packet.Packet) {
+	p = packet.NewOutgoingPacket(71)
 	p.AddByte(byte(len(player.FriendList)))
 	for hash, online := range player.FriendList {
 		p.AddLong(hash)
@@ -22,8 +23,8 @@ func FriendList(player *world.Player) (p *Packet) {
 }
 
 //PrivateMessage Builds a packet with a private message from hash with content msg.
-func PrivateMessage(hash uint64, msg string) (p *Packet) {
-	p = NewOutgoingPacket(120)
+func PrivateMessage(hash uint64, msg string) (p *packet.Packet) {
+	p = packet.NewOutgoingPacket(120)
 	p.AddLong(hash)
 	p.AddInt(rand.Uint32()) // unique Message ID to prevent duplicate messages somehow arriving or something idk
 	for _, c := range strutil.ChatFilter.Pack(msg) {
@@ -33,8 +34,8 @@ func PrivateMessage(hash uint64, msg string) (p *Packet) {
 }
 
 //IgnoreList Builds a packet with the players ignore list information in it.
-func IgnoreList(player *world.Player) (p *Packet) {
-	p = NewOutgoingPacket(109)
+func IgnoreList(player *world.Player) (p *packet.Packet) {
+	p = packet.NewOutgoingPacket(109)
 	p.AddByte(byte(len(player.IgnoreList)))
 	for _, hash := range player.IgnoreList {
 		p.AddLong(hash)
@@ -43,8 +44,8 @@ func IgnoreList(player *world.Player) (p *Packet) {
 }
 
 //FriendUpdate Builds a packet with an online status update for the player with the specified hash
-func FriendUpdate(hash uint64, online bool) (p *Packet) {
-	p = NewOutgoingPacket(149)
+func FriendUpdate(hash uint64, online bool) (p *packet.Packet) {
+	p = packet.NewOutgoingPacket(149)
 	p.AddLong(hash)
 	if online {
 		p.AddByte(0xFF)
@@ -55,8 +56,8 @@ func FriendUpdate(hash uint64, online bool) (p *Packet) {
 }
 
 //PlayerChat Builds a packet containing a view-area chat message from the player with the index sender and returns it.
-func PlayerChat(sender int, msg string) *Packet {
-	p := NewOutgoingPacket(234)
+func PlayerChat(sender int, msg string) *packet.Packet {
+	p := packet.NewOutgoingPacket(234)
 	p.AddShort(1)
 	p.AddShort(uint16(sender))
 	p.AddByte(1)
@@ -66,8 +67,8 @@ func PlayerChat(sender int, msg string) *Packet {
 }
 
 //PlayerDamage Builds a packet containing a view-area damage display for this player
-func PlayerDamage(victim int, damage, curHits, maxHits int) *Packet {
-	p := NewOutgoingPacket(234)
+func PlayerDamage(victim int, damage, curHits, maxHits int) *packet.Packet {
+	p := packet.NewOutgoingPacket(234)
 	p.AddShort(1)
 	p.AddShort(uint16(victim))
 	p.AddByte(2)
@@ -78,8 +79,8 @@ func PlayerDamage(victim int, damage, curHits, maxHits int) *Packet {
 }
 
 //NpcDamage Builds a packet containing a view-area damage display for this NPC
-func NpcDamage(victim int, damage, curHits, maxHits int) *Packet {
-	p := NewOutgoingPacket(104)
+func NpcDamage(victim int, damage, curHits, maxHits int) *packet.Packet {
+	p := packet.NewOutgoingPacket(104)
 	p.AddShort(1)
 	p.AddShort(uint16(victim))
 	p.AddByte(2)
@@ -90,8 +91,8 @@ func NpcDamage(victim int, damage, curHits, maxHits int) *Packet {
 }
 
 //PrivacySettings Builds a packet containing the players privacy settings for display in the settings menu.
-func PrivacySettings(player *world.Player) *Packet {
-	p := NewOutgoingPacket(51)
+func PrivacySettings(player *world.Player) *packet.Packet {
+	p := packet.NewOutgoingPacket(51)
 	p.AddBool(player.ChatBlocked())
 	p.AddBool(player.FriendBlocked())
 	p.AddBool(player.TradeBlocked())

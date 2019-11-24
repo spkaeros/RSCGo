@@ -2,21 +2,20 @@ package packethandlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/clients"
+	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 func init() {
-	PacketHandlers["chatmsg"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["chatmsg"] = func(c clients.Client, p *packet.Packet) {
 		for _, p1 := range c.Player().NearbyPlayers() {
 			if !p1.ChatBlocked() || p1.Friends(c.Player().UserBase37) {
-				if c1, ok := clients.FromIndex(p1.Index); ok && !p1.Ignoring(c.Player().UserBase37) {
-					c1.SendPacket(packetbuilders.PlayerChat(c.Player().Index, string(p.Payload)))
-				}
+				p1.SendPacket(packetbuilders.PlayerChat(c.Player().Index, string(p.Payload)))
 			}
 		}
 	}
-	PacketHandlers["addfriend"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["addfriend"] = func(c clients.Client, p *packet.Packet) {
 		hash := p.ReadLong()
 		defer func() {
 			c.SendPacket(packetbuilders.FriendList(c.Player()))
@@ -40,14 +39,14 @@ func init() {
 		}
 		c.Player().FriendList[hash] = false
 	}
-	PacketHandlers["privmsg"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["privmsg"] = func(c clients.Client, p *packet.Packet) {
 		if c1, ok := clients.FromUserHash(p.ReadLong()); ok {
 			if !c1.Player().FriendBlocked() || c1.Player().Friends(c.Player().UserBase37) {
 				c1.SendPacket(packetbuilders.PrivateMessage(c.Player().UserBase37, strutil.ChatFilter.Format(strutil.ChatFilter.Unpack(p.Payload[8:]))))
 			}
 		}
 	}
-	PacketHandlers["removefriend"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["removefriend"] = func(c clients.Client, p *packet.Packet) {
 		hash := p.ReadLong()
 		defer func() {
 			c.SendPacket(packetbuilders.FriendList(c.Player()))
@@ -61,7 +60,7 @@ func init() {
 		}
 		delete(c.Player().FriendList, hash)
 	}
-	PacketHandlers["addignore"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["addignore"] = func(c clients.Client, p *packet.Packet) {
 		hash := p.ReadLong()
 		defer func() {
 			c.SendPacket(packetbuilders.IgnoreList(c.Player()))
@@ -76,7 +75,7 @@ func init() {
 		}
 		c.Player().IgnoreList = append(c.Player().IgnoreList, hash)
 	}
-	PacketHandlers["removeignore"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["removeignore"] = func(c clients.Client, p *packet.Packet) {
 		hash := p.ReadLong()
 		defer func() {
 			c.SendPacket(packetbuilders.IgnoreList(c.Player()))

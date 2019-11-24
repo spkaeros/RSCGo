@@ -97,6 +97,26 @@ func LoadPlayerProfile(usernameHash uint64, password string, loginReply chan byt
 	return nil
 }
 
+func LoadPlayerStats(player *world.Player) error {
+	database := Open(config.PlayerDB())
+	defer database.Close()
+	rows, err := database.Query("SELECT cur, exp FROM stats WHERE playerid=? ORDER BY num", player.DatabaseIndex)
+	if err != nil {
+		log.Info.Println("ValidatePlayer(uint64,string): Could not prepare query statement for player:", err)
+		return errors.NewDatabaseError(err.Error())
+	}
+	defer rows.Close()
+	i := 0
+	for rows.Next() {
+		var cur, exp int
+		rows.Scan(&cur, &exp)
+		player.Skillset.SetCur(i, cur)
+		player.Skillset.SetMax(i, cur)
+		player.Skillset.SetExp(i, exp)
+		i++
+	}
+	return nil
+}
 //UpdatePassword Updates the players password to password in the database.
 func UpdatePassword(userHash uint64, password string) bool {
 	database := Open(config.PlayerDB())
@@ -270,6 +290,9 @@ func LoadPlayer(player *world.Player, usernameHash uint64, password string, logi
 	if err := LoadPlayerInventory(player); err != nil {
 		return
 	}
+	if err := LoadPlayerStats(player); err != nil {
+		return
+	}
 
 	player.UserBase37 = usernameHash
 	player.Username = strutil.Base37.Decode(usernameHash)
@@ -417,10 +440,35 @@ func SavePlayer(player *world.Player) {
 			log.Info.Println("Save(): Affected nothing for item insertion!")
 		}
 	}
+	clearStats := func() {
+		if _, err := tx.Exec("DELETE FROM stats WHERE playerid=?", player.DatabaseIndex); err != nil {
+			log.Warning.Println("Save(): DELETE failed for player stats:", err)
+			if err := tx.Rollback(); err != nil {
+				log.Warning.Println("Save(): Transaction delete stats rollback failed:", err)
+			}
+			return
+		}
+	}
+	insertStat := func(idx, cur, exp int) {
+		rs, _ := tx.Exec("INSERT INTO stats(playerid, num, cur, exp) VALUES(?, ?, ?, ?)", player.DatabaseIndex, idx, cur, exp)
+		count, err := rs.RowsAffected()
+		if err != nil {
+			log.Warning.Println("Save(): INSERT failed for player stats:", err)
+			if err := tx.Rollback(); err != nil {
+				log.Warning.Println("Save(): Transaction insert stat rollback failed:", err)
+			}
+			return
+		}
+
+		if count <= 0 {
+			log.Info.Println("Save(): Affected nothing for stat insertion!")
+		}
+	}
 	clearAttributes()
 	clearContactList("friend")
 	clearContactList("ignore")
 	clearItems()
+	clearStats()
 
 	updateLocation()
 	updateAppearance()
@@ -430,6 +478,9 @@ func SavePlayer(player *world.Player) {
 	}
 	for _, hash := range player.IgnoreList {
 		insertContact("ignore", hash)
+	}
+	for stat := 0; stat < 18; stat++ {
+		insertStat(stat, player.Skillset.Current(stat), player.Skillset.Experience(stat))
 	}
 	player.Items.Range(func(item *world.Item) bool {
 		insertItem(item.ID, item.Amount, item.Worn)

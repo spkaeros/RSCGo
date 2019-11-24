@@ -7,6 +7,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/db"
 	"github.com/spkaeros/rscgo/pkg/server/errors"
 	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/packethandlers"
 	"github.com/spkaeros/rscgo/pkg/server/world"
@@ -21,12 +22,12 @@ import (
 type Client struct {
 	Kill                             chan struct{}
 	player                           *world.Player
-	IncomingPackets, OutgoingPackets chan *packetbuilders.Packet
+	IncomingPackets chan *packet.Packet
 	CacheBuffer                      []byte
 	Socket                           net.Conn
 	DataBuffer                       []byte
 	DataLock                         sync.RWMutex
-	destroyer, killer                        sync.Once
+	destroyer, killer                sync.Once
 }
 
 //Player returns the scene player that this client represents
@@ -35,8 +36,8 @@ func (c *Client) Player() *world.Player {
 }
 
 //SendPacket Queue a packet for sending to the client.
-func (c *Client) SendPacket(p *packetbuilders.Packet) {
-	c.OutgoingPackets <- p
+func (c *Client) SendPacket(p *packet.Packet) {
+	c.Player().OutgoingPackets <- p
 }
 
 //Message Builds a new game packet to display a message in the client chat box with msg as its contents, and queues it in the outgoing packet queue.
@@ -74,6 +75,7 @@ func (c *Client) TradeOpen() {
 
 //OpenAppearanceChangePanel Sends a packet to open the player appearance changing panel on the client.
 func (c *Client) OpenAppearanceChangePanel() {
+	c.player.State = world.MSChangingAppearance
 	c.SendPacket(packetbuilders.ChangeAppearance)
 }
 
@@ -83,9 +85,7 @@ func (c *Client) Teleport(x, y int) {
 		return
 	}
 	for _, nearbyPlayer := range c.player.NearbyPlayers() {
-		if c1, ok := clients.FromIndex(nearbyPlayer.Index); ok {
-			c1.TeleBubble(c.player.CurX()-nearbyPlayer.CurX(), c.player.CurY()-nearbyPlayer.CurY())
-		}
+		nearbyPlayer.SendPacket(packetbuilders.TeleBubble(c.player.CurX()-nearbyPlayer.CurX(), c.player.CurY()-nearbyPlayer.CurY()))
 	}
 	c.TeleBubble(0, 0)
 	c.player.Teleport(x, y)
@@ -126,7 +126,7 @@ func (c *Client) startWriter() {
 	defer c.Destroy()
 	for {
 		select {
-		case p := <-c.OutgoingPackets:
+		case p := <-c.Player().OutgoingPackets:
 			if p == nil {
 				return
 			}
@@ -150,7 +150,7 @@ func (c *Client) destroy(wg *sync.WaitGroup) {
 	c.destroyer.Do(func() {
 		(*wg).Wait()
 		c.player.TransAttrs.UnsetVar("connected")
-		close(c.OutgoingPackets)
+		close(c.Player().OutgoingPackets)
 		close(c.IncomingPackets)
 		if err := c.Socket.Close(); err != nil {
 			log.Error.Println("Couldn't close Socket:", err)
@@ -229,7 +229,7 @@ func (c *Client) StartNetworking() {
 }
 
 //HandlePacket Finds the mapped handler function for the specified packet, and calls it with the specified parameters.
-func (c *Client) HandlePacket(p *packetbuilders.Packet) {
+func (c *Client) HandlePacket(p *packet.Packet) {
 	handler := packethandlers.Get(p.Opcode)
 	if handler == nil {
 		log.Info.Printf("Unhandled Packet: {opcode:%d; length:%d};\n", p.Opcode, len(p.Payload))
@@ -253,18 +253,18 @@ func (c *Client) Initialize() {
 	c.player.Change()
 	c.player.TransAttrs.SetVar("changed", true)
 	c.player.TransAttrs.SetVar("connected", true)
-	for i := 0; i < 18; i++ {
-		level := 1
-		exp := 0
-		if i == 3 {
-			level = 10
-			exp = 1154
+	if c.player.Skillset.Current(3) < 10 {
+		for i := 0; i < 18; i++ {
+			level := 1
+			exp := 0
+			if i == 3 {
+				level = 10
+				exp = 1154
+			}
+			c.player.Skillset.SetCur(i, level)
+			c.player.Skillset.SetMax(i, level)
+			c.player.Skillset.SetExp(i, exp)
 		}
-		c.player.Skillset.Lock.Lock()
-		c.player.Skillset.Current[i] = level
-		c.player.Skillset.Maximum[i] = level
-		c.player.Skillset.Experience[i] = exp
-		c.player.Skillset.Lock.Unlock()
 	}
 	c.SendPacket(packetbuilders.PlaneInfo(c.player))
 	c.SendPacket(packetbuilders.FriendList(c.player))
@@ -427,7 +427,7 @@ func (c *Client) HandleRegister(reply chan byte) {
 
 //NewClient Creates a new instance of a Client, launches goroutines to handle I/O for it, and returns a reference to it.
 func NewClient(socket net.Conn, ws bool) *Client {
-	c := &Client{Socket: socket, IncomingPackets: make(chan *packetbuilders.Packet, 20), OutgoingPackets: make(chan *packetbuilders.Packet, 20), Kill: make(chan struct{}), DataBuffer: make([]byte, 5000)}
+	c := &Client{Socket: socket, IncomingPackets: make(chan *packet.Packet, 20), Kill: make(chan struct{}), DataBuffer: make([]byte, 5000)}
 	c.player = world.NewPlayer(clients.NextIndex(), strings.Split(socket.RemoteAddr().String(), ":")[0])
 	c.player.Websocket = ws
 	c.StartNetworking()
@@ -522,7 +522,7 @@ func (c *Client) Read(dst []byte) (int, error) {
 }
 
 //ReadPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode of the next packet frame the client is sending us.
-func (c *Client) ReadPacket() (*packetbuilders.Packet, error) {
+func (c *Client) ReadPacket() (*packet.Packet, error) {
 	header := make([]byte, 2)
 	if l, err := c.Read(header); err != nil {
 		return nil, err
@@ -560,13 +560,13 @@ func (c *Client) ReadPacket() (*packetbuilders.Packet, error) {
 		payload = append(payload, header[1])
 	}
 
-	return packetbuilders.NewPacket(payload[0], payload[1:]), nil
+	return packet.NewPacket(payload[0], payload[1:]), nil
 }
 
 //WritePacket This is a method to send a packet to the client.  If this is a bare packet, the packet payload will
 // be written as-is.  If this is not a bare packet, the packet will have the first 3 bytes changed to the
 // appropriate values for the client to parse the length and opcode for this packet.
-func (c *Client) WritePacket(p packetbuilders.Packet) {
+func (c *Client) WritePacket(p packet.Packet) {
 	if p.Bare {
 		c.Write(p.Payload)
 		return

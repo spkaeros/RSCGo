@@ -5,6 +5,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/db"
 	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
@@ -16,7 +17,7 @@ import (
 )
 
 func init() {
-	PacketHandlers["command"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["command"] = func(c clients.Client, p *packet.Packet) {
 		args := strutil.ModalParse(string(p.Payload))
 		handler, ok := script.CommandHandlers[args[0]]
 		if !ok {

@@ -1,12 +1,13 @@
 package packetbuilders
 
 import (
+	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 //NPCPositions Builds a packet containing view area NPC position and sprite information
-func NPCPositions(player *world.Player) (p *Packet) {
-	p = NewOutgoingPacket(79)
+func NPCPositions(player *world.Player) (p *packet.Packet) {
+	p = packet.NewOutgoingPacket(79)
 	counter := 0
 	p.AddBits(len(player.LocalNPCs.List), 8)
 	var removing = world.List{}
@@ -66,8 +67,8 @@ func NPCPositions(player *world.Player) (p *Packet) {
 
 //PlayerPositions Builds a packet containing view area player position and sprite information, including ones own information, and returns it.
 // If no players need to be updated, returns nil.
-func PlayerPositions(player *world.Player) (p *Packet) {
-	p = NewOutgoingPacket(191)
+func PlayerPositions(player *world.Player) (p *packet.Packet) {
+	p = packet.NewOutgoingPacket(191)
 	// Note: X coords can be held in 10 bits and Y can be held in 12 bits
 	//  Presumably, Jagex used 11 and 13 to evenly fill 3 bytes of data?
 	p.AddBits(player.CurX(), 11)
@@ -144,8 +145,8 @@ func PlayerPositions(player *world.Player) (p *Packet) {
 }
 
 //PlayerAppearances Builds a packet with the view-area player appearance profiles in it.
-func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
-	p = NewOutgoingPacket(234)
+func PlayerAppearances(ourPlayer *world.Player) (p *packet.Packet) {
+	p = packet.NewOutgoingPacket(234)
 	var appearanceList []*world.Player
 	if !ourPlayer.TransAttrs.VarBool("self", false) {
 		appearanceList = append(appearanceList, ourPlayer)
@@ -196,9 +197,9 @@ func PlayerAppearances(ourPlayer *world.Player) (p *Packet) {
 
 //ObjectLocations Builds a packet with the view-area object positions in it, relative to the player.
 // If no new objects are available and no existing local objects are removed from area, returns nil.
-func ObjectLocations(player *world.Player) (p *Packet) {
+func ObjectLocations(player *world.Player) (p *packet.Packet) {
 	counter := 0
-	p = NewOutgoingPacket(48)
+	p = packet.NewOutgoingPacket(48)
 	var removing = world.List{}
 	for _, o := range player.LocalObjects.List {
 		if o, ok := o.(*world.Object); ok {
@@ -237,9 +238,9 @@ func ObjectLocations(player *world.Player) (p *Packet) {
 
 //BoundaryLocations Builds a packet with the view-area boundary positions in it, relative to the player.
 // If no new objects are available and no existing local boundarys are removed from area, returns nil.
-func BoundaryLocations(player *world.Player) (p *Packet) {
+func BoundaryLocations(player *world.Player) (p *packet.Packet) {
 	counter := 0
-	p = NewOutgoingPacket(91)
+	p = packet.NewOutgoingPacket(91)
 	var removing = world.List{}
 	for _, o := range player.LocalObjects.List {
 		if o, ok := o.(*world.Object); ok {
@@ -279,9 +280,9 @@ func BoundaryLocations(player *world.Player) (p *Packet) {
 
 //ItemLocations Builds a packet with the view-area item positions in it, relative to the player.
 // If no new items are available and no existing items are removed from area, returns nil.
-func ItemLocations(player *world.Player) (p *Packet) {
+func ItemLocations(player *world.Player) (p *packet.Packet) {
 	counter := 0
-	p = NewOutgoingPacket(99)
+	p = packet.NewOutgoingPacket(99)
 	var removing = world.List{}
 	for _, i := range player.LocalItems.List {
 		if i, ok := i.(*world.GroundItem); ok {

@@ -33,6 +33,8 @@ const (
 	MSSleeping
 	//MSBusy Generic busy state
 	MSBusy
+	//MSChangingAppearance Indicates that the mob in this state is in the player aooearance changing screen
+	MSChangingAppearance
 )
 
 //Mob Represents a mobile entity within the game world.
@@ -41,6 +43,11 @@ type Mob struct {
 	State      MobState
 	Skillset   *SkillTable
 	TransAttrs *AttributeList
+}
+
+type Locatable interface {
+	CurX() int
+	CurY() int
 }
 
 //Busy Returns true if this mobs state is anything other than idle. otherwise returns false.
@@ -185,6 +192,24 @@ func (m *Mob) TraversePath() {
 	m.Move()
 }
 
+func updateRegionMob(m Locatable, x, y int) {
+	curArea := GetRegion(m.CurX(), m.CurY())
+	newArea := GetRegion(x, y)
+	if newArea != curArea {
+		if _, ok := m.(*Player); ok {
+			if curArea.Players.Contains(m) {
+				curArea.Players.Remove(m)
+			}
+			newArea.Players.Add(m)
+		} else if _, ok := m.(*NPC); ok {
+			if curArea.NPCs.Contains(m) {
+				curArea.NPCs.Remove(m)
+			}
+			newArea.NPCs.Add(m)
+		}
+	}
+}
+
 //FinishedPath Returns true if the mobs path is nil, the paths current waypoint exceeds the number of waypoints available, or the next tile in the path is not a valid location, implying that we have reached our destination.
 func (m *Mob) FinishedPath() bool {
 	path := m.Path()
@@ -204,6 +229,7 @@ func (m *Mob) SetLocation(location Location) {
 
 //SetCoords Sets the mobs locations coordinates.
 func (m *Mob) SetCoords(x, y uint32) {
+	updateRegionMob(m, int(x), int(y))
 	m.X.Store(x)
 	m.Y.Store(y)
 }
@@ -342,20 +368,89 @@ func NewAppearanceTable(head, body int, male bool, hair, top, bottom, skin int) 
 
 //SkillTable Represents a skill table for a mob.
 type SkillTable struct {
-	Current    [18]int
-	Maximum    [18]int
-	Experience [18]int
+	current    [18]int
+	maximum    [18]int
+	experience [18]int
 	Lock       sync.RWMutex
+}
+
+//Current Returns the current level of the skill indicated by idx.
+func (s *SkillTable) Current(idx int) int {
+	s.Lock.RLock()
+	defer s.Lock.RUnlock()
+	return s.current[idx]
+}
+
+func (s *SkillTable) DecreaseCur(idx, delta int) {
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+	s.current[idx] -= delta
+}
+
+func (s *SkillTable) IncreaseCur(idx, delta int) {
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+	s.current[idx] += delta
+}
+
+func (s *SkillTable) SetCur(idx, val int) {
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+	s.current[idx] = val
+}
+
+func (s *SkillTable) DecreaseMax(idx, delta int) {
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+	s.maximum[idx] -= delta
+}
+
+func (s *SkillTable) IncreaseMax(idx, delta int) {
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+	s.maximum[idx] += delta
+}
+
+func (s *SkillTable) SetMax(idx, val int) {
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+	s.maximum[idx] = val
+}
+
+func (s *SkillTable) SetExp(idx, val int) {
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+	s.experience[idx] = val
+}
+
+func (s *SkillTable) IncExp(idx, val int) {
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+	s.experience[idx] += val
+}
+
+//Maximum Returns the maximum level of the skill indicated by idx.
+func (s *SkillTable) Maximum(idx int) int {
+	s.Lock.RLock()
+	defer s.Lock.RUnlock()
+	return s.maximum[idx]
+}
+
+//Experience Returns the current level of the skill indicated by idx.
+func (s *SkillTable) Experience(idx int) int {
+	s.Lock.RLock()
+	defer s.Lock.RUnlock()
+	return s.experience[idx]
 }
 
 //CombatLevel Calculates and returns the combat level for this skill table.
 func (s *SkillTable) CombatLevel() int {
 	s.Lock.RLock()
 	defer s.Lock.RUnlock()
-	aggressiveTotal := float32(s.Maximum[0] + s.Maximum[2])
-	defensiveTotal := float32(s.Maximum[1] + s.Maximum[3])
-	spiritualTotal := float32((s.Maximum[5] + s.Maximum[6]) / 8)
-	ranged := float32(s.Maximum[4])
+	aggressiveTotal := float32(s.maximum[0] + s.maximum[2])
+	defensiveTotal := float32(s.maximum[1] + s.maximum[3])
+	spiritualTotal := float32((s.maximum[5] + s.maximum[6]) / 8)
+	ranged := float32(s.maximum[4])
 	if aggressiveTotal < ranged*1.5 {
 		return int((defensiveTotal / 4) + (ranged * 0.375) + spiritualTotal)
 	}
@@ -400,31 +495,19 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 	n.Boundaries[1] = NewLocation(maxX, maxY)
 	n.StartPoint = NewLocation(startX, startY)
 	if id < 794 {
-		n.Skillset.Current[0] = NpcDefs[id].Attack
-		n.Skillset.Current[1] = NpcDefs[id].Defense
-		n.Skillset.Current[2] = NpcDefs[id].Strength
-		n.Skillset.Current[3] = NpcDefs[id].Hits
-		n.Skillset.Maximum[0] = NpcDefs[id].Attack
-		n.Skillset.Maximum[1] = NpcDefs[id].Defense
-		n.Skillset.Maximum[2] = NpcDefs[id].Strength
-		n.Skillset.Maximum[3] = NpcDefs[id].Hits
+		n.Skillset.current[0] = NpcDefs[id].Attack
+		n.Skillset.current[1] = NpcDefs[id].Defense
+		n.Skillset.current[2] = NpcDefs[id].Strength
+		n.Skillset.current[3] = NpcDefs[id].Hits
+		n.Skillset.maximum[0] = NpcDefs[id].Attack
+		n.Skillset.maximum[1] = NpcDefs[id].Defense
+		n.Skillset.maximum[2] = NpcDefs[id].Strength
+		n.Skillset.maximum[3] = NpcDefs[id].Hits
 	}
 	npcsLock.Lock()
 	Npcs = append(Npcs, n)
 	npcsLock.Unlock()
 	return n
-}
-
-//UpdateRegion Updates the NPCs region to their current location from the region at x,y.
-func (n *NPC) UpdateRegion(x, y int) {
-	newArea := GetRegion(int(n.X.Load()), int(n.Y.Load()))
-	curArea := GetRegion(x, y)
-	if newArea != curArea {
-		if curArea.NPCs.Contains(n) {
-			curArea.NPCs.Remove(n)
-		}
-		newArea.NPCs.Add(n)
-	}
 }
 
 func UpdateNPCPaths() {
@@ -458,9 +541,7 @@ func UpdateNPCPaths() {
 func UpdateNPCPositions() {
 	npcsLock.RLock()
 	for _, n := range Npcs {
-		oldX, oldY := n.CurX(), n.CurY()
 		n.TraversePath()
-		n.UpdateRegion(oldX, oldY)
 	}
 	npcsLock.RUnlock()
 }

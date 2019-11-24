@@ -4,6 +4,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/crypto"
+	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"strings"
 
@@ -20,22 +21,22 @@ func init() {
 	PacketHandlers["logoutreq"] = logout
 	PacketHandlers["closeconn"] = closedConn
 	PacketHandlers["newplayer"] = newPlayer
-	PacketHandlers["forgotpass"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["forgotpass"] = func(c clients.Client, p *packet.Packet) {
 		usernameHash := p.ReadLong()
 		if !db.HasRecoveryQuestions(usernameHash) {
-			c.SendPacket(packetbuilders.NewBarePacket([]byte{0}))
+			c.SendPacket(packet.NewBarePacket([]byte{0}))
 			c.Destroy()
 			return
 		}
-		c.SendPacket(packetbuilders.NewBarePacket([]byte{1}))
+		c.SendPacket(packet.NewBarePacket([]byte{1}))
 		for _, question := range db.GetRecoveryQuestions(usernameHash) {
-			c.SendPacket(packetbuilders.NewBarePacket([]byte{byte(len(question))}).AddBytes([]byte(question)))
+			c.SendPacket(packet.NewBarePacket([]byte{byte(len(question))}).AddBytes([]byte(question)))
 		}
 	}
-	PacketHandlers["cancelpq"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["cancelpq"] = func(c clients.Client, p *packet.Packet) {
 		// empty packet
 	}
-	PacketHandlers["setpq"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["setpq"] = func(c clients.Client, p *packet.Packet) {
 		var questions []string
 		var answers []uint64
 		for i := 0; i < 5; i++ {
@@ -45,10 +46,10 @@ func init() {
 		}
 		log.Info.Println(questions, answers)
 	}
-	PacketHandlers["changepq"] = func(c clients.Client, p *packetbuilders.Packet) {
-		c.SendPacket(packetbuilders.NewOutgoingPacket(224))
+	PacketHandlers["changepq"] = func(c clients.Client, p *packet.Packet) {
+		c.SendPacket(packet.NewOutgoingPacket(224))
 	}
-	PacketHandlers["changepass"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["changepass"] = func(c clients.Client, p *packet.Packet) {
 		oldPassword := strings.TrimSpace(p.ReadString(20))
 		newPassword := strings.TrimSpace(p.ReadString(20))
 		if !db.ValidCredentials(c.Player().UserBase37, crypto.Hash(oldPassword)) {
@@ -61,11 +62,11 @@ func init() {
 	}
 }
 
-func closedConn(c clients.Client, p *packetbuilders.Packet) {
+func closedConn(c clients.Client, p *packet.Packet) {
 	logout(c, p)
 }
 
-func logout(c clients.Client, _ *packetbuilders.Packet) {
+func logout(c clients.Client, _ *packet.Packet) {
 	if c.Player().TransAttrs.VarBool("fighting", false) || c.Player().State != world.MSIdle {
 		// TODO: send can't logout right now packet
 		return
@@ -76,7 +77,7 @@ func logout(c clients.Client, _ *packetbuilders.Packet) {
 	}
 }
 
-func newPlayer(c clients.Client, p *packetbuilders.Packet) {
+func newPlayer(c clients.Client, p *packet.Packet) {
 	reply := make(chan byte)
 	go c.HandleRegister(reply)
 	if version := p.ReadShort(); version != config.Version() {
@@ -108,13 +109,13 @@ func newPlayer(c clients.Client, p *packetbuilders.Packet) {
 	return
 }
 
-func sessionRequest(c clients.Client, p *packetbuilders.Packet) {
+func sessionRequest(c clients.Client, p *packet.Packet) {
 	c.Player().UID = p.ReadByte()
 	c.Player().SetServerSeed(rand.Uint64())
-	c.SendPacket(packetbuilders.NewBarePacket(nil).AddLong(c.Player().ServerSeed()))
+	c.SendPacket(packet.NewBarePacket(nil).AddLong(c.Player().ServerSeed()))
 }
 
-func loginRequest(c clients.Client, p *packetbuilders.Packet) {
+func loginRequest(c clients.Client, p *packet.Packet) {
 	loginReply := make(chan byte)
 	go c.HandleLogin(loginReply)
 	// Login block encrypted with block cipher using shared secret, to send/recv credentials and stream cipher key securely

@@ -82,9 +82,7 @@ func Tick() {
 				c.Player().ResetDistancedAction()
 			}
 		}
-		oldX, oldY := c.Player().CurX(), c.Player().CurY()
 		c.Player().TraversePath()
-		c.Player().UpdateRegion(oldX, oldY)
 	})
 	go world.UpdateNPCPaths()
 	world.UpdateNPCPositions()

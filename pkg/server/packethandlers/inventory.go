@@ -3,13 +3,14 @@ package packethandlers
 import (
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 func init() {
-	PacketHandlers["invwield"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["invwield"] = func(c clients.Client, p *packet.Packet) {
 		index := p.ReadShort()
 		if index < 0 || index >= 30 {
 			log.Suspicious.Printf("Player[%v] tried to wield an item with invalid index: %d\n", c, index)
@@ -22,7 +23,7 @@ func init() {
 			c.EquipItem(item)
 		}
 	}
-	PacketHandlers["removeitem"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["removeitem"] = func(c clients.Client, p *packet.Packet) {
 		index := p.ReadShort()
 		if index < 0 || index >= 30 {
 			log.Suspicious.Printf("Player[%v] tried to wield an item with invalid index: %d\n", c, index)
@@ -36,7 +37,7 @@ func init() {
 			c.DequipItem(item)
 		}
 	}
-	PacketHandlers["takeitem"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["takeitem"] = func(c clients.Client, p *packet.Packet) {
 		if c.Player().State != world.MSIdle {
 			return
 		}
@@ -73,7 +74,7 @@ func init() {
 			return true
 		})
 	}
-	PacketHandlers["dropitem"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["dropitem"] = func(c clients.Client, p *packet.Packet) {
 		if c.Player().State != world.MSIdle {
 			return
 		}
@@ -86,7 +87,7 @@ func init() {
 			}
 		}
 	}
-	PacketHandlers["invaction1"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["invaction1"] = func(c clients.Client, p *packet.Packet) {
 		if c.Player().State != world.MSIdle {
 			return
 		}

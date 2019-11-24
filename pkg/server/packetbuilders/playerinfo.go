@@ -1,15 +1,16 @@
 package packetbuilders
 
 import (
+	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 //ChangeAppearance The appearance changing window.
-var ChangeAppearance = NewOutgoingPacket(59)
+var ChangeAppearance = packet.NewOutgoingPacket(59)
 
 //InventoryItems Builds a packet containing the players inventory items.
-func InventoryItems(player *world.Player) (p *Packet) {
-	p = NewOutgoingPacket(53)
+func InventoryItems(player *world.Player) (p *packet.Packet) {
+	p = packet.NewOutgoingPacket(53)
 	p.AddByte(uint8(player.Items.Size()))
 	player.Items.Range(func(item *world.Item) bool {
 		if item.Worn {
@@ -26,16 +27,16 @@ func InventoryItems(player *world.Player) (p *Packet) {
 }
 
 //FightMode Builds a packet with the players fight mode information in it.
-func FightMode(player *world.Player) (p *Packet) {
+func FightMode(player *world.Player) (p *packet.Packet) {
 	// TODO: 204
-	p = NewOutgoingPacket(132)
+	p = packet.NewOutgoingPacket(132)
 	p.AddByte(byte(player.FightMode()))
 	return p
 }
 
 //Fatigue Builds a packet with the players fatigue percentage in it.
-func Fatigue(player *world.Player) (p *Packet) {
-	p = NewOutgoingPacket(114)
+func Fatigue(player *world.Player) (p *packet.Packet) {
+	p = packet.NewOutgoingPacket(114)
 	// Fatigue is converted to percentage differently in the client.
 	// 100% clientside is 750, serverside is 75000.  Needs the extra precision on the server to match RSC
 	p.AddShort(uint16(player.Fatigue() / 100))
@@ -43,8 +44,8 @@ func Fatigue(player *world.Player) (p *Packet) {
 }
 
 //ClientSettings Builds a packet containing the players client settings, e.g camera mode, mouse mode, sound fx...
-func ClientSettings(player *world.Player) (p *Packet) {
-	p = NewOutgoingPacket(240)
+func ClientSettings(player *world.Player) (p *packet.Packet) {
+	p = packet.NewOutgoingPacket(240)
 	// TODO: Right IDs?
 	if player.GetClientSetting(0) {
 		p.AddByte(1)
@@ -69,33 +70,33 @@ func ClientSettings(player *world.Player) (p *Packet) {
 }
 
 //PlayerStats Builds a packet containing all the player's stat information and returns it.
-func PlayerStats(player *world.Player) *Packet {
-	p := NewOutgoingPacket(156)
+func PlayerStats(player *world.Player) *packet.Packet {
+	p := packet.NewOutgoingPacket(156)
 	for i := 0; i < 18; i++ {
-		p.AddByte(uint8(player.Skillset.Current[i]))
+		p.AddByte(uint8(player.Skillset.Current(i)))
 	}
 
 	for i := 0; i < 18; i++ {
-		p.AddByte(uint8(player.Skillset.Maximum[i]))
+		p.AddByte(uint8(player.Skillset.Maximum(i)))
 	}
 
 	for i := 0; i < 18; i++ {
-		p.AddInt(uint32(player.Skillset.Experience[i]))
+		p.AddInt(uint32(player.Skillset.Experience(i)))
 	}
 	return p
 }
 
 //PlayerStat Builds a packet containing player's stat information for skill at idx and returns it.
-func PlayerStat(player *world.Player, idx int) *Packet {
-	p := NewOutgoingPacket(159)
+func PlayerStat(player *world.Player, idx int) *packet.Packet {
+	p := packet.NewOutgoingPacket(159)
 	p.AddByte(byte(idx))
-	p.AddInt(uint32(player.Skillset.Experience[idx]))
+	p.AddInt(uint32(player.Skillset.Experience(idx)))
 	return p
 }
 
 //EquipmentStats Builds a packet with the players equipment statistics in it.
-func EquipmentStats(player *world.Player) (p *Packet) {
-	p = NewOutgoingPacket(153)
+func EquipmentStats(player *world.Player) (p *packet.Packet) {
+	p = packet.NewOutgoingPacket(153)
 	p.AddByte(uint8(player.ArmourPoints()))
 	p.AddByte(uint8(player.AimPoints()))
 	p.AddByte(uint8(player.PowerPoints()))

@@ -3,13 +3,14 @@ package packethandlers
 import (
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 func init() {
-	PacketHandlers["objectaction"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["objectaction"] = func(c clients.Client, p *packet.Packet) {
 		if c.Player().State != world.MSIdle {
 			return
 		}
@@ -40,7 +41,7 @@ func init() {
 
 		})
 	}
-	PacketHandlers["objectaction2"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["objectaction2"] = func(c clients.Client, p *packet.Packet) {
 		if c.Player().State != world.MSIdle {
 			return
 		}
@@ -70,7 +71,7 @@ func init() {
 			return false
 		})
 	}
-	PacketHandlers["boundaryaction2"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["boundaryaction2"] = func(c clients.Client, p *packet.Packet) {
 		if c.Player().State != world.MSIdle {
 			return
 		}
@@ -92,7 +93,7 @@ func init() {
 			return false
 		})
 	}
-	PacketHandlers["boundaryaction"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["boundaryaction"] = func(c clients.Client, p *packet.Packet) {
 		if c.Player().State != world.MSIdle {
 			return
 		}
@@ -114,7 +115,7 @@ func init() {
 			return false
 		})
 	}
-	PacketHandlers["talktonpc"] = func(c clients.Client, p *packetbuilders.Packet) {
+	PacketHandlers["talktonpc"] = func(c clients.Client, p *packet.Packet) {
 		idx := p.ReadShort()
 		npc := world.GetNpc(idx)
 		if npc == nil {

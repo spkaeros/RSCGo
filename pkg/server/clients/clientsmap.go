@@ -2,6 +2,7 @@ package clients
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/config"
+	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"sync"
@@ -9,7 +10,7 @@ import (
 
 //Client Represents a client
 type Client interface {
-	SendPacket(packet *packetbuilders.Packet)
+	SendPacket(packet *packet.Packet)
 	Player() *world.Player
 	Message(string)
 	Destroy()
