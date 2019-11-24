@@ -66,6 +66,15 @@ func NewLocation(x, y int) Location {
 	return Location{X: atomic.NewUint32(uint32(x)), Y: atomic.NewUint32(uint32(y))}
 }
 
+func (l Location) directionTo(destX, destY uint32) int {
+	sprites := [3][3]int{{SouthWest, West, NorthWest}, {South, -1, North}, {SouthEast, East, NorthEast}}
+	xIndex, yIndex := int(l.X.Load()-destX+1), int(l.Y.Load()-destY+1)
+	if xIndex >= 3 || yIndex >= 3 {
+		xIndex, yIndex = 1, 2 // North
+	}
+	return sprites[xIndex][yIndex]
+}
+
 func (l Location) incX() {
 	l.X.Store(uint32(l.CurX() + 1))
 }
@@ -195,15 +204,15 @@ func (l Location) NextTileToward(other Location) Location {
 	destination := NewLocation(int(currentX), int(currentY))
 	switch {
 	case currentX > destX:
-		destination.decX()
+		destination.X.Dec()
 	case currentX < destX:
-		destination.incX()
+		destination.X.Inc()
 	}
 	switch {
 	case currentY > destY:
-		destination.decY()
+		destination.Y.Dec()
 	case currentY < destY:
-		destination.incY()
+		destination.Y.Inc()
 	}
 	return destination
 }

@@ -158,6 +158,76 @@ func (p *Player) ResetFollowing() {
 	p.ResetPath()
 }
 
+//NextTo Returns true if we can walk a straight line to target without colliding with any walls or objects, otherwise returns false.
+func (p *Player) NextTo(target Location) bool {
+	curLoc := NewLocation(p.CurX(), p.CurY())
+	for !curLoc.Equals(target) {
+		nextTile := curLoc.NextTileToward(target)
+		dir := curLoc.directionTo(nextTile.X.Load(), nextTile.Y.Load())
+		switch dir {
+		case North:
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallSouth, false) {
+				return false
+			}
+		case South:
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallNorth, false) {
+				return false
+			}
+		case East:
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallWest, false) {
+				return false
+			}
+		case West:
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallEast, false) {
+				return false
+			}
+		case NorthWest:
+			if IsTileBlocking(nextTile.CurX()+1, nextTile.CurY(), WallSouth, false) {
+				return false
+			}
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY()+1, WallEast, false) {
+				return false
+			}
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallSouth|WallEast, false) {
+				return false
+			}
+		case NorthEast:
+			if IsTileBlocking(nextTile.CurX()-1, nextTile.CurY(), WallSouth, false) {
+				return false
+			}
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY()+1, WallWest, false) {
+				return false
+			}
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallSouth|WallWest, false) {
+				return false
+			}
+		case SouthWest:
+			if IsTileBlocking(nextTile.CurX()+1, nextTile.CurY(), WallNorth, false) {
+				return false
+			}
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY()-1, WallEast, false) {
+				return false
+			}
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallNorth|WallEast, false) {
+				return false
+			}
+		case SouthEast:
+			if IsTileBlocking(nextTile.CurX()-1, nextTile.CurY(), WallNorth, false) {
+				return false
+			}
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY()-1, WallWest, false) {
+				return false
+			}
+			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallNorth|WallWest, false) {
+				return false
+			}
+		}
+		curLoc = nextTile
+	}
+
+	return true
+}
+
 func (p *Player) ResetFighting() {
 	p.TransAttrs.UnsetVar("fighting")
 	if target := p.TransAttrs.VarPlayer("fightTarget"); target != nil {

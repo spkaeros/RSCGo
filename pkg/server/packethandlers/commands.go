@@ -320,6 +320,11 @@ func init() {
 		y, _ := strconv.Atoi(args[1])
 		c.Player().SetPath(world.MakePath(c.Player().Location, world.NewLocation(x, y)))
 	}
+	script.CommandHandlers["nextto"] = func(c clients.Client, args []string) {
+		x, _ := strconv.Atoi(args[0])
+		y, _ := strconv.Atoi(args[1])
+		c.Message("Next to: " + strconv.FormatBool(c.Player().NextTo(world.NewLocation(x,y))))
+	}
 	script.CommandHandlers["clip"] = func(c clients.Client, args []string) {
 		x := c.Player().CurX()
 		y := c.Player().CurY()

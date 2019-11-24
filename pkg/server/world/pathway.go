@@ -92,15 +92,15 @@ func (p *Pathway) NextTileFrom(currentLocation Location) Location {
 	destination := NewLocation(int(currentX), int(currentY))
 	switch {
 	case currentX > destX:
-		destination.decX()
+		destination.X.Dec()
 	case currentX < destX:
-		destination.incX()
+		destination.X.Inc()
 	}
 	switch {
 	case currentY > destY:
-		destination.decY()
+		destination.Y.Dec()
 	case currentY < destY:
-		destination.incY()
+		destination.Y.Inc()
 	}
 	return destination
 }

@@ -23,7 +23,7 @@ func init() {
 			return
 		}
 		c.Player().SetDistancedAction(func() bool {
-			if c.Player().WithinRange(npc.Location, 1) {
+			if c.Player().NextTo(npc.Location) && c.Player().WithinRange(npc.Location, 1) {
 				c.Player().ResetPath()
 				npc.ResetPath()
 				c.Player().Teleport(npc.CurX(), npc.CurY())

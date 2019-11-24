@@ -194,15 +194,6 @@ func (m *Mob) FinishedPath() bool {
 	return path.CurrentWaypoint >= path.CountWaypoints() || !path.NextTileFrom(m.Location).IsValid()
 }
 
-func (m *Mob) directionTo(destX, destY uint32) int {
-	sprites := [3][3]int{{SouthWest, West, NorthWest}, {South, -1, North}, {SouthEast, East, NorthEast}}
-	xIndex, yIndex := m.X.Load()-destX+1, m.Y.Load()-destY+1
-	if xIndex >= 3 || yIndex >= 3 {
-		xIndex, yIndex = 1, 2 // North
-	}
-	return sprites[xIndex][yIndex]
-}
-
 //SetLocation Sets the mobs location.
 func (m *Mob) SetLocation(location Location) {
 	x := location.X.Load()
