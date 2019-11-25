@@ -27,6 +27,7 @@ func init() {
 			if c.Player().NextTo(npc.Location) && c.Player().WithinRange(npc.Location, 1) {
 				c.Player().ResetPath()
 				npc.ResetPath()
+				world.UpdateRegionMob(c.Player(), npc.CurX(), npc.CurY())
 				c.Player().Teleport(npc.CurX(), npc.CurY())
 				c.Player().State = world.MSFighting
 				npc.State = world.MSFighting
@@ -60,10 +61,12 @@ func init() {
 							}
 							defender.Skillset.DecreaseCur(3, nextHit)
 							if defender.Skillset.Current(3) <= 0 {
-								npc.SetLocation(world.DeathSpot)
+								world.UpdateRegionMob(c.Player(), world.DeathSpot.CurX(), world.DeathSpot.CurY())
+								npc.Teleport(world.DeathSpot.CurX(), world.DeathSpot.CurY())
 								go func() {
 									time.Sleep(time.Second * 10)
-									npc.SetLocation(npc.StartPoint)
+									world.UpdateRegionMob(c.Player(), npc.StartPoint.CurX(), npc.StartPoint.CurY())
+									npc.Teleport(npc.StartPoint.CurX(), npc.StartPoint.CurY())
 									npc.Skillset.SetCur(3, npc.Skillset.Maximum(3))
 								}()
 								c.Player().ResetFighting()
@@ -87,6 +90,7 @@ func init() {
 								c.Player().ResetFighting()
 								c.SendPacket(packetbuilders.Death)
 								c.Player().Skillset.SetCur(3, c.Player().Skillset.Maximum(3))
+								world.UpdateRegionMob(c.Player(), 220, 445)
 								c.Player().Teleport(220, 445)
 								return
 							}

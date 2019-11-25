@@ -88,6 +88,7 @@ func (c *Client) Teleport(x, y int) {
 		nearbyPlayer.SendPacket(packetbuilders.TeleBubble(c.player.CurX()-nearbyPlayer.CurX(), c.player.CurY()-nearbyPlayer.CurY()))
 	}
 	c.TeleBubble(0, 0)
+	world.UpdateRegionMob(c.Player(), x, y)
 	c.player.Teleport(x, y)
 }
 

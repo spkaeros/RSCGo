@@ -410,25 +410,6 @@ func (p *Player) NewNPCs() (npcs []*NPC) {
 	return
 }
 
-//SetLocation Sets the mobs location.
-func (p *Player) SetLocation(location Location, teleported bool) {
-	if teleported {
-		p.TransAttrs.SetVar("remove", true)
-	}
-	p.Mob.SetLocation(location)
-}
-
-//SetCoords Sets the mobs locations coordinates.
-func (p *Player) SetCoords(x, y int) {
-	p.Mob.SetCoords(x, y)
-}
-
-//Teleport Moves the mob to x,y and sets a flag to remove said mob from the local players list of every nearby player.
-func (p *Player) Teleport(x, y int) {
-	p.Remove()
-	p.SetCoords(x, y)
-}
-
 //SetTradeTarget Sets the variable for the index of the player we are trying to trade
 func (p *Player) SetTradeTarget(index int) {
 	p.TransAttrs.SetVar("tradetarget", index)

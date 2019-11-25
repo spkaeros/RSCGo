@@ -238,13 +238,15 @@ func init() {
 	}
 	script.CommandHandlers["goup"] = func(c clients.Client, args []string) {
 		if nextLocation := c.Player().Above(); !nextLocation.Equals(&c.Player().Location) {
-			c.Player().SetLocation(nextLocation, true)
+			world.UpdateRegionMob(c.Player(), nextLocation.CurX(), nextLocation.CurY())
+			c.Player().Teleport(nextLocation.CurX(), nextLocation.CurY())
 			c.UpdatePlane()
 		}
 	}
 	script.CommandHandlers["godown"] = func(c clients.Client, args []string) {
 		if nextLocation := c.Player().Below(); !nextLocation.Equals(&c.Player().Location) {
-			c.Player().SetLocation(nextLocation, true)
+			world.UpdateRegionMob(c.Player(), nextLocation.CurX(), nextLocation.CurY())
+			c.Player().Teleport(nextLocation.CurX(), nextLocation.CurY())
 			c.UpdatePlane()
 		}
 	}
