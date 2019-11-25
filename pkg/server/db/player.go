@@ -90,10 +90,11 @@ func LoadPlayerProfile(usernameHash uint64, password string, loginReply chan byt
 		loginReply <- byte(3)
 		return errors.NewDatabaseError("Could not find player")
 	}
-	var x, y uint32
+	var x, y int
 	rows.Scan(&player.DatabaseIndex, &x, &y, &player.Rank, &player.Appearance.HeadColor, &player.Appearance.BodyColor, &player.Appearance.LegsColor, &player.Appearance.SkinColor, &player.Appearance.Head, &player.Appearance.Body)
-	player.X.Store(x)
-	player.Y.Store(y)
+//	player.Location = world.NewLocation(x, y)
+//	player.Teleport(220, 445)
+	player.SetCoords(x, y)
 	return nil
 }
 
@@ -324,7 +325,7 @@ func SavePlayer(player *world.Player) {
 		return
 	}
 	updateLocation := func() {
-		rs, err := tx.Exec("UPDATE player SET x=?, y=? WHERE id=?", player.X.Load(), player.Y.Load(), player.DatabaseIndex)
+		rs, err := tx.Exec("UPDATE player SET x=?, y=? WHERE id=?", player.CurX(), player.CurY(), player.DatabaseIndex)
 		if err != nil {
 			log.Warning.Println("Save(): UPDATE failed for player location:", err)
 			if err := tx.Rollback(); err != nil {

@@ -165,7 +165,7 @@ func (p *Player) NextTo(target Location) bool {
 	curLoc := NewLocation(p.CurX(), p.CurY())
 	for !curLoc.Equals(target) {
 		nextTile := curLoc.NextTileToward(target)
-		dir := curLoc.directionTo(nextTile.X.Load(), nextTile.Y.Load())
+		dir := curLoc.directionTo(nextTile.CurX(), nextTile.CurY())
 		switch dir {
 		case North:
 			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallSouth, true) {
@@ -342,7 +342,7 @@ func (p *Player) SetFightMode(i int) {
 
 //NearbyPlayers Returns nearby players.
 func (p *Player) NearbyPlayers() (players []*Player) {
-	for _, r := range SurroundingRegions(int(p.X.Load()), int(p.Y.Load())) {
+	for _, r := range SurroundingRegions(p.CurX(), p.CurY()) {
 		players = append(players, r.Players.NearbyPlayers(p)...)
 	}
 
@@ -351,7 +351,7 @@ func (p *Player) NearbyPlayers() (players []*Player) {
 
 //NearbyObjects Returns nearby objects.
 func (p *Player) NearbyObjects() (objects []*Object) {
-	for _, r := range SurroundingRegions(int(p.X.Load()), int(p.Y.Load())) {
+	for _, r := range SurroundingRegions(p.CurX(), p.CurY()) {
 		objects = append(objects, r.Objects.NearbyObjects(p)...)
 	}
 
@@ -360,7 +360,7 @@ func (p *Player) NearbyObjects() (objects []*Object) {
 
 //NewObjects Returns nearby objects that this player is unaware of.
 func (p *Player) NewObjects() (objects []*Object) {
-	for _, r := range SurroundingRegions(int(p.X.Load()), int(p.Y.Load())) {
+	for _, r := range SurroundingRegions(p.CurX(), p.CurY()) {
 		for _, o := range r.Objects.NearbyObjects(p) {
 			if !p.LocalObjects.Contains(o) {
 				objects = append(objects, o)
@@ -373,7 +373,7 @@ func (p *Player) NewObjects() (objects []*Object) {
 
 //NewItems Returns nearby ground items that this player is unaware of.
 func (p *Player) NewItems() (items []*GroundItem) {
-	for _, r := range SurroundingRegions(int(p.X.Load()), int(p.Y.Load())) {
+	for _, r := range SurroundingRegions(p.CurX(), p.CurY()) {
 		for _, i := range r.Items.NearbyItems(p) {
 			if !p.LocalItems.Contains(i) {
 				items = append(items, i)
@@ -386,7 +386,7 @@ func (p *Player) NewItems() (items []*GroundItem) {
 
 //NewPlayers Returns nearby players that this player is unaware of.
 func (p *Player) NewPlayers() (players []*Player) {
-	for _, r := range SurroundingRegions(int(p.X.Load()), int(p.Y.Load())) {
+	for _, r := range SurroundingRegions(p.CurX(), p.CurY()) {
 		for _, p1 := range r.Players.NearbyPlayers(p) {
 			if !p.LocalPlayers.Contains(p1) {
 				players = append(players, p1)
@@ -399,7 +399,7 @@ func (p *Player) NewPlayers() (players []*Player) {
 
 //NewNPCs Returns nearby NPCs that this player is unaware of.
 func (p *Player) NewNPCs() (npcs []*NPC) {
-	for _, r := range SurroundingRegions(int(p.X.Load()), int(p.Y.Load())) {
+	for _, r := range SurroundingRegions(p.CurX(), p.CurY()) {
 		for _, n := range r.NPCs.NearbyNPCs(p) {
 			if !p.LocalNPCs.Contains(n) {
 				npcs = append(npcs, n)
@@ -415,13 +415,12 @@ func (p *Player) SetLocation(location Location, teleported bool) {
 	if teleported {
 		p.TransAttrs.SetVar("remove", true)
 	}
-	p.SetCoords(int(location.X.Load()), int(location.Y.Load()))
+	p.Mob.SetLocation(location)
 }
 
 //SetCoords Sets the mobs locations coordinates.
 func (p *Player) SetCoords(x, y int) {
-	updateRegionMob(p, x, y)
-	p.Mob.SetCoords(uint32(x), uint32(y))
+	p.Mob.SetCoords(x, y)
 }
 
 //Teleport Moves the mob to x,y and sets a flag to remove said mob from the local players list of every nearby player.

@@ -29,7 +29,7 @@ type Object struct {
 }
 
 func (o *Object) String() string {
-	return fmt.Sprintf("[%v, (%v, %v)]", o.ID, o.X.Load(), o.Y.Load())
+	return fmt.Sprintf("[%v, (%v, %v)]", o.ID, o.CurX(), o.CurY())
 }
 
 var ObjectCounter = atomic.NewUint32(0)
@@ -38,7 +38,7 @@ var ObjectCounter = atomic.NewUint32(0)
 func NewObject(id, direction, x, y int, boundary bool) *Object {
 	return &Object{ID: id, Direction: direction, Boundary: boundary,
 		Entity: &Entity{
-			Location: Location{X: atomic.NewUint32(uint32(x)), Y: atomic.NewUint32(uint32(y))},
+			Location: NewLocation(x, y),
 			Index:    int(ObjectCounter.Swap(ObjectCounter.Load() + 1)),
 		},
 	}

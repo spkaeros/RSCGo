@@ -82,7 +82,7 @@ func init() {
 		item := c.Player().Items.Get(index)
 		if item != nil {
 			if c.Player().Items.Remove(index) {
-				world.AddItem(world.NewGroundItemFrom(c.Player().UserBase37, item.ID, item.Amount, int(c.Player().X.Load()), int(c.Player().Y.Load())))
+				world.AddItem(world.NewGroundItemFrom(c.Player().UserBase37, item.ID, item.Amount, c.Player().CurX(), c.Player().CurY()))
 				c.SendPacket(packetbuilders.InventoryItems(c.Player()))
 			}
 		}

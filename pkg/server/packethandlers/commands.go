@@ -30,7 +30,7 @@ func init() {
 	}
 	script.CommandHandlers["dobj"] = func(c clients.Client, args []string) {
 		if len(args) == 0 {
-			args = []string{strconv.Itoa(int(c.Player().X.Load())), strconv.Itoa(int(c.Player().Y.Load()))}
+			args = []string{strconv.Itoa(c.Player().CurX()), strconv.Itoa(c.Player().CurY())}
 		}
 		if len(args) < 2 {
 			c.Message("@que@Invalid args.  Usage: /dobj <x> <y>")
@@ -138,8 +138,8 @@ func init() {
 			c.Message("@que@Invalid args.  Usage: /object <id> <dir>, eg: /object 1154 north")
 			return
 		}
-		x := int(c.Player().X.Load())
-		y := int(c.Player().Y.Load())
+		x := c.Player().CurX()
+		y := c.Player().CurY()
 		if world.GetObject(x, y) != nil {
 			c.Message("@que@You must remove the old object at this location first!")
 			return
@@ -169,8 +169,8 @@ func init() {
 			c.Message("@que@Invalid args.  Usage: /boundary <id> <dir>, eg: /boundary 1 north")
 			return
 		}
-		x := int(c.Player().X.Load())
-		y := int(c.Player().Y.Load())
+		x := c.Player().CurX()
+		y := c.Player().CurY()
 		if world.GetObject(x, y) != nil {
 			c.Message("@que@You must remove the old boundary at this location first!")
 			return
@@ -260,8 +260,8 @@ func init() {
 			return
 		}
 
-		x := int(c.Player().X.Load())
-		y := int(c.Player().Y.Load())
+		x := c.Player().CurX()
+		y := c.Player().CurY()
 
 		world.AddNpc(world.NewNpc(id, x, y, x-5, x+5, y-5, y+5))
 	}
@@ -331,13 +331,13 @@ func init() {
 		y := c.Player().CurY()
 		dir := world.ParseDirection(args[0])
 		if dir == world.North {
-			c.Player().SetPath(world.NewPathwayToCoords(uint32(x), uint32(y-1)))
+			c.Player().SetPath(world.NewPathwayToCoords(x, y-1))
 		} else if dir == world.South {
-			c.Player().SetPath(world.NewPathwayToCoords(uint32(x), uint32(y+1)))
+			c.Player().SetPath(world.NewPathwayToCoords(x, y+1))
 		} else if dir == world.East {
-			c.Player().SetPath(world.NewPathwayToCoords(uint32(x-1), uint32(y)))
+			c.Player().SetPath(world.NewPathwayToCoords(x-1, y))
 		} else if dir == world.West {
-			c.Player().SetPath(world.NewPathwayToCoords(uint32(x+1), uint32(y)))
+			c.Player().SetPath(world.NewPathwayToCoords(x+1, y))
 		}
 	}
 	script.CommandHandlers["clipdata"] = func(c clients.Client, args []string) {
@@ -364,7 +364,7 @@ func teleport(c clients.Client, args []string) {
 		c.Message("@que@Coordinates out of world boundaries.")
 		return
 	}
-	log.Commands.Printf("Teleporting %v from %v,%v to %v,%v\n", c.Player().Username, c.Player().X, c.Player().Y, x, y)
+	log.Commands.Printf("Teleporting %v from %v,%v to %v,%v\n", c.Player().Username, c.Player().CurX(), c.Player().CurY(), x, y)
 	c.Teleport(x, y)
 }
 
@@ -385,8 +385,8 @@ func summon(c clients.Client, args []string) {
 		return
 	}
 
-	log.Commands.Printf("Summoning '%v' from %v,%v to '%v' at %v,%v\n", c1.Player().Username, c1.Player().X.Load(), c1.Player().Y.Load(), c.Player().Username, c.Player().X.Load(), c.Player().Y.Load())
-	c1.Teleport(int(c.Player().X.Load()), int(c.Player().Y.Load()))
+	log.Commands.Printf("Summoning '%v' from %v,%v to '%v' at %v,%v\n", c1.Player().Username, c1.Player().CurX(), c1.Player().CurY(), c.Player().Username, c.Player().CurX(), c.Player().CurY())
+	c1.Teleport(c.Player().CurX(), c.Player().CurY())
 }
 
 func gotoTeleport(c clients.Client, args []string) {
@@ -406,8 +406,8 @@ func gotoTeleport(c clients.Client, args []string) {
 		return
 	}
 
-	log.Commands.Printf("Teleporting '%v' from %v,%v to '%v' at %v,%v\n", c.Player().Username, c.Player().X.Load(), c.Player().Y.Load(), c1.Player().Username, c1.Player().X.Load(), c1.Player().Y.Load())
-	c.Teleport(int(c1.Player().X.Load()), int(c1.Player().Y.Load()))
+	log.Commands.Printf("Teleporting '%v' from %v,%v to '%v' at %v,%v\n", c.Player().Username, c.Player().CurX(), c.Player().CurY(), c1.Player().Username, c1.Player().CurX(), c1.Player().CurY())
+	c.Teleport(c1.Player().CurX(), c1.Player().CurY())
 }
 
 func notYetImplemented(c clients.Client, args []string) {

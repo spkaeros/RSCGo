@@ -82,7 +82,12 @@ func Tick() {
 				c.Player().ResetDistancedAction()
 			}
 		}
-		c.Player().TraversePath()
+		nextTile := c.Player().TraversePath()
+		if nextTile.LongestDelta(c.Player().Location) > 0 {
+			world.UpdateRegionMob(c.Player(), nextTile.CurX(), nextTile.CurY())
+			c.Player().SetLocation(nextTile, false)
+			c.Player().Move()
+		}
 	})
 	go world.UpdateNPCPaths()
 	world.UpdateNPCPositions()

@@ -58,6 +58,14 @@ func (l Location) CurY() int {
 	return int(l.Y.Load())
 }
 
+func (l Location) SetX(x int) {
+	l.X.Store(uint32(x))
+}
+
+func (l Location) SetY(y int) {
+	l.Y.Store(uint32(y))
+}
+
 //DeathSpot The spot where mobs go to die.
 var DeathSpot = NewLocation(0, 0)
 
@@ -66,35 +74,19 @@ func NewLocation(x, y int) Location {
 	return Location{X: atomic.NewUint32(uint32(x)), Y: atomic.NewUint32(uint32(y))}
 }
 
-func (l Location) directionTo(destX, destY uint32) int {
+func (l Location) directionTo(destX, destY int) int {
 	sprites := [3][3]int{{SouthWest, West, NorthWest}, {South, -1, North}, {SouthEast, East, NorthEast}}
-	xIndex, yIndex := int(l.X.Load()-destX+1), int(l.Y.Load()-destY+1)
+	xIndex, yIndex := l.CurX()-destX+1, l.CurY()-destY+1
 	if xIndex >= 3 || yIndex >= 3 {
 		xIndex, yIndex = 1, 2 // North
 	}
 	return sprites[xIndex][yIndex]
 }
 
-func (l Location) incX() {
-	l.X.Store(uint32(l.CurX() + 1))
-}
-
-func (l Location) incY() {
-	l.Y.Store(uint32(l.CurY() + 1))
-}
-
-func (l Location) decX() {
-	l.X.Store(uint32(l.CurX() - 1))
-}
-
-func (l Location) decY() {
-	l.Y.Store(uint32(l.CurY() - 1))
-}
-
 //NewRandomLocation Returns a new random location within the specified bounds.  bounds[0] should be lowest corner, and
 // bounds[1] should be the highest corner.
 func NewRandomLocation(bounds [2]Location) Location {
-	return NewLocation(rand.Int31N(int(bounds[0].CurX()), int(bounds[1].CurX())), rand.Int31N(int(bounds[0].CurY()), int(bounds[1].CurY())))
+	return NewLocation(rand.Int31N(bounds[0].CurX(), bounds[1].CurX()), rand.Int31N(bounds[0].CurY(), bounds[1].CurY()))
 }
 
 //String Returns a string representation of the location
@@ -145,7 +137,7 @@ func (l *Location) DeltaY(other Location) (deltaY int) {
 //LongestDelta Returns the largest difference in coordinates between receiver and other
 func (l *Location) LongestDelta(other Location) int {
 	deltaX, deltaY := l.DeltaX(other), l.DeltaY(other)
-	if deltaX >= deltaY {
+	if deltaX > deltaY {
 		return deltaX
 	}
 	return deltaY
@@ -153,22 +145,22 @@ func (l *Location) LongestDelta(other Location) int {
 
 //WithinRange Returns true if the other location is within radius tiles of the receiver location, otherwise false.
 func (l *Location) WithinRange(other Location, radius int) bool {
-	return int(l.LongestDelta(other)) <= radius
+	return l.LongestDelta(other) <= radius
 }
 
 //Plane Calculates and returns the plane that this location is on.
 func (l *Location) Plane() int {
-	return int(l.CurY()+100) / 944 // / 1000
+	return int(l.Y.Load()+100)/ 944 // / 1000
 }
 
 //Above Returns the location directly above this one, if any.  Otherwise, if we are on the top floor, returns itself.
 func (l *Location) Above() Location {
-	return Location{X: l.X, Y: atomic.NewUint32(uint32(l.PlaneY(true)))}
+	return NewLocation(l.CurX(), l.PlaneY(true))
 }
 
 //Below Returns the location directly below this one, if any.  Otherwise, if we are on the bottom floor, returns itself.
 func (l *Location) Below() Location {
-	return Location{X: l.X, Y: atomic.NewUint32(uint32(l.PlaneY(false)))}
+	return NewLocation(l.CurX(), l.PlaneY(false))
 }
 
 //PlaneY Updates the location's Y coordinate, going up by one plane if up is true, else going down by one plane.  Valid planes: ground=0, 2nd story=1, 3rd story=2, basement=3
@@ -201,7 +193,7 @@ func (l *Location) PlaneY(up bool) int {
 func (l Location) NextTileToward(other Location) Location {
 	destX, destY := other.CurX(), other.CurY()
 	currentX, currentY := l.CurX(), l.CurY()
-	destination := NewLocation(int(currentX), int(currentY))
+	destination := NewLocation(currentX, currentY)
 	switch {
 	case currentX > destX:
 		destination.X.Dec()

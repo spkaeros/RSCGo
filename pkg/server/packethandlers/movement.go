@@ -24,7 +24,7 @@ func init() {
 			waypointsY = append(waypointsY, int(p.ReadSByte()))
 		}
 		c.Player().ResetAll()
-		c.Player().SetPath(world.NewPathway(uint32(startX), uint32(startY), waypointsX, waypointsY))
+		c.Player().SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
 	}
 	PacketHandlers["walktoentity"] = func(c clients.Client, p *packet.Packet) {
 		if c.Player().TransAttrs.VarBool("fighting", false) {
@@ -40,7 +40,7 @@ func init() {
 			waypointsY = append(waypointsY, int(p.ReadSByte()))
 		}
 		c.Player().ResetAll()
-		c.Player().SetPath(world.NewPathway(uint32(startX), uint32(startY), waypointsX, waypointsY))
+		c.Player().SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
 	}
 	PacketHandlers["followreq"] = func(c clients.Client, p *packet.Packet) {
 		playerID := p.ReadShort()
