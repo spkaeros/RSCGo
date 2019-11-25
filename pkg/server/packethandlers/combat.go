@@ -1,7 +1,6 @@
 package packethandlers
 
 import (
-	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
@@ -21,6 +20,7 @@ func init() {
 			return
 		}
 		if !world.NpcDefs[npc.ID].Attackable {
+			log.Info.Println("Player attacked not attackable NPC!", world.NpcDefs[npc.ID])
 			return
 		}
 		c.Player().SetDistancedAction(func() bool {
@@ -55,7 +55,7 @@ func init() {
 						if curRound % 2 == 0 {
 							attacker := c.Player()
 							defender := npc
-							nextHit := rand.Int31N(0, 25)
+							nextHit := attacker.MeleeDamage(defender.Mob)
 							if nextHit > defender.Skillset.Current(3) {
 								nextHit = defender.Skillset.Current(3)
 							}
@@ -81,7 +81,7 @@ func init() {
 						} else {
 							attacker := npc
 							defender := c.Player()
-							nextHit := rand.Int31N(0, 5)
+							nextHit := attacker.MeleeDamage(*defender.Mob)
 							if nextHit > defender.Skillset.Current(3) {
 								nextHit = defender.Skillset.Current(3)
 							}

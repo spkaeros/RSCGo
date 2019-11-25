@@ -561,3 +561,56 @@ func ResetNpcUpdateFlags() {
 	}
 	npcsLock.RUnlock()
 }
+
+func (m *Mob) StyleBonus(stat int) int {
+	mode := m.TransAttrs.VarInt("fight_mode", 0)
+	if mode == 0 {
+		return 1
+	} else if (mode == 1 && stat == 0) || (mode == 2 && stat == 2) || (mode == 3 && stat == 1) {
+		return 3
+	}
+	return 0
+}
+
+//MaxHit Calculates and returns the current max hit for this mob.
+func (m *Mob) MaxHit() int {
+	prayer := float32(1.0)
+	newStr := (float32(m.Skillset.Current(2)) * prayer) + float32(m.StyleBonus(2))
+	return int((newStr * ((float32(m.TransAttrs.VarInt("power_points", 1)) * 0.00175) + 0.1) + 1.05) * 0.95)
+}
+
+func (m *Mob) Accuracy() float32 {
+	styleBonus := float32(m.StyleBonus(0))
+	prayer := float32(1.0)
+	attackLvl := (float32(m.Skillset.Current(0)) * prayer) + styleBonus + 8
+	multiplier := float32(m.TransAttrs.VarInt("aim_points", 1) + 64)
+	return attackLvl * multiplier
+}
+
+func (m *Mob) Defense() float32 {
+	styleBonus := float32(m.StyleBonus(1))
+	prayer := float32(1.0)
+	defenseLvl := (float32(m.Skillset.Current(1)) * prayer) + styleBonus + 8
+	multiplier := float32(m.TransAttrs.VarInt("armour_points", 1) + 64)
+	return defenseLvl * multiplier
+}
+
+func (m *Mob) MeleeDamage(target Mob) int {
+	att := m.Accuracy()
+	def := target.Defense()
+	max := m.MaxHit()
+	if att * 10 < def {
+		return 0
+	}
+
+	finalAtt := int((att / (2.0 * (def + 1.0))) * 10000.0)
+
+	if att > def {
+		finalAtt = int((1.0 - ((def + 2.0) / (2.0 * (att + 1.0)))) * 10000.0)
+	}
+
+	if finalAtt > rand.Int31N(0, 10000) {
+		return rand.Int31N(0, max)
+	}
+	return 0
+}
