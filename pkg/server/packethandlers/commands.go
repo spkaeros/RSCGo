@@ -28,37 +28,6 @@ func init() {
 		log.Commands.Printf("%v: /%v\n", c.Player().Username, string(p.Payload))
 		handler(c, args[1:])
 	}
-	script.CommandHandlers["dobj"] = func(c clients.Client, args []string) {
-		if len(args) == 0 {
-			args = []string{strconv.Itoa(c.Player().CurX()), strconv.Itoa(c.Player().CurY())}
-		}
-		if len(args) < 2 {
-			c.Message("@que@Invalid args.  Usage: /dobj <x> <y>")
-			return
-		}
-		x, err := strconv.Atoi(args[0])
-		if err != nil {
-			c.Message("@que@Invalid args.  Usage: /dobj <x> <y>")
-			return
-		}
-		y, err := strconv.Atoi(args[1])
-		if err != nil {
-			c.Message("@que@Invalid args.  Usage: /dobj <x> <y>")
-			return
-		}
-		if !world.WithinWorld(x, y) {
-			c.Message("@que@Coordinates out of world boundaries.")
-			return
-		}
-		object := world.GetObject(x, y)
-		if object == nil {
-			c.Message(fmt.Sprintf("@que@Can not find object at coords %d,%d", x, y))
-			return
-		}
-
-		log.Commands.Printf("'%v' deleted object{id: %v; dir:%v} at %v,%v\n", c.Player().Username, object.ID, object.Direction, x, y)
-		world.RemoveObject(object)
-	}
 	script.CommandHandlers["kick"] = func(c clients.Client, args []string) {
 		if len(args) < 1 {
 			c.Message("@que@Invalid args.  Usage: /kick <player>")
@@ -144,20 +113,6 @@ func init() {
 			}
 		}()
 	}
-	script.CommandHandlers["goup"] = func(c clients.Client, args []string) {
-		if nextLocation := c.Player().Above(); !nextLocation.Equals(&c.Player().Location) {
-			world.UpdateRegionMob(c.Player(), nextLocation.CurX(), nextLocation.CurY())
-			c.Player().Teleport(nextLocation.CurX(), nextLocation.CurY())
-			c.UpdatePlane()
-		}
-	}
-	script.CommandHandlers["godown"] = func(c clients.Client, args []string) {
-		if nextLocation := c.Player().Below(); !nextLocation.Equals(&c.Player().Location) {
-			world.UpdateRegionMob(c.Player(), nextLocation.CurX(), nextLocation.CurY())
-			c.Player().Teleport(nextLocation.CurX(), nextLocation.CurY())
-			c.UpdatePlane()
-		}
-	}
 	script.CommandHandlers["npc"] = func(c clients.Client, args []string) {
 		if len(args) < 1 {
 			c.Message("@que@Invalid args.  Usage: /npc <id>")
@@ -177,28 +132,6 @@ func init() {
 	}
 	script.CommandHandlers["summon"] = summon
 	script.CommandHandlers["goto"] = gotoTeleport
-	script.CommandHandlers["say"] = func(c clients.Client, args []string) {
-		if len(args) < 1 {
-			c.Message("@que@Invalid args.  Usage: /say <msg>")
-			return
-		}
-		msg := "@whi@[@cya@GLOBAL@whi@] "
-		switch c.Player().Rank {
-		case 2:
-			msg += "@red@~"
-		case 1:
-			msg += "@blu@@"
-		default:
-			msg += "@yel@"
-		}
-		msg += c.Player().Username + "@yel@:"
-		for _, word := range args {
-			msg += " " + word
-		}
-		clients.Range(func(c1 clients.Client) {
-			c1.Message("@que@" + msg)
-		})
-	}
 	script.CommandHandlers["tele"] = teleport
 	script.CommandHandlers["teleport"] = teleport
 	script.CommandHandlers["death"] = func(c clients.Client, args []string) {
