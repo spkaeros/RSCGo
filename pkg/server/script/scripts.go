@@ -10,16 +10,22 @@
 package script
 
 import (
+	"context"
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"strings"
 )
 
 var Scripts []string
 
 var TriggerC = make(chan func(), 20)
+var InvTriggers []func(context.Context, reflect.Value, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
+var ObjectTriggers []func(context.Context, reflect.Value, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
+var BoundaryTriggers []func(context.Context, reflect.Value, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
+var NpcTriggers []func(context.Context, reflect.Value, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 
 func Run(fnName string, c clients.Client, argName string, arg interface{}) bool {
 	env := WorldModule()
@@ -66,7 +72,33 @@ func Load() {
 		return
 	}
 	for _, file := range files {
-		Scripts = append(Scripts, load("./scripts/" + file.Name()))
+//		Scripts = append(Scripts, load("./scripts/" + file.Name()))
+		env := WorldModule()
+		_, err := env.Execute(load("./scripts/" + file.Name()))
+		if err != nil {
+			log.Info.Println("Unrecognized Anko error when attempting to execute the script pipeline:", err)
+			continue
+		}
+		fn, err := env.Get("invAction")
+		action, ok := fn.(func(context.Context, reflect.Value, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
+		if ok {
+			InvTriggers = append(InvTriggers, action)
+		}
+		fn, err = env.Get("objectAction")
+		action, ok = fn.(func(context.Context, reflect.Value, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
+		if ok {
+			ObjectTriggers = append(ObjectTriggers, action)
+		}
+		fn, err = env.Get("boundaryAction")
+		action, ok = fn.(func(context.Context, reflect.Value, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
+		if ok {
+			BoundaryTriggers = append(BoundaryTriggers, action)
+		}
+		fn, err = env.Get("npcAction")
+		action, ok = fn.(func(context.Context, reflect.Value, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
+		if ok {
+			NpcTriggers = append(NpcTriggers, action)
+		}
 	}
 }
 

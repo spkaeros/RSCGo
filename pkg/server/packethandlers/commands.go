@@ -133,68 +133,6 @@ func init() {
 			c.Message("Invalid args.  Usage: /pprof <start|stop>")
 		}
 	}
-	script.CommandHandlers["object"] = func(c clients.Client, args []string) {
-		if len(args) < 1 {
-			c.Message("@que@Invalid args.  Usage: /object <id> <dir>, eg: /object 1154 north")
-			return
-		}
-		x := c.Player().CurX()
-		y := c.Player().CurY()
-		if world.GetObject(x, y) != nil {
-			c.Message("@que@You must remove the old object at this location first!")
-			return
-		}
-		id, err := strconv.Atoi(args[0])
-		if err != nil {
-			c.Message("@que@Invalid args.  Usage: /object <id> <dir>, eg: /object 1154 north")
-			return
-		}
-		direction := world.North
-		if len(args) > 1 {
-			if d, err := strconv.Atoi(args[1]); err == nil {
-				if d < world.North || d > world.NorthEast {
-					c.Message("@que@Invalid direction; must be between 0 and 8, or simply spell out the direction or its initials.")
-					return
-				}
-				direction = d
-			} else {
-				direction = world.ParseDirection(args[1])
-			}
-		}
-		log.Commands.Printf("'%v' spawned new object{id: %v; dir:%v} at %v,%v\n", c.Player().Username, id, direction, x, y)
-		world.AddObject(world.NewObject(id, direction, x, y, false))
-	}
-	script.CommandHandlers["boundary"] = func(c clients.Client, args []string) {
-		if len(args) < 1 {
-			c.Message("@que@Invalid args.  Usage: /boundary <id> <dir>, eg: /boundary 1 north")
-			return
-		}
-		x := c.Player().CurX()
-		y := c.Player().CurY()
-		if world.GetObject(x, y) != nil {
-			c.Message("@que@You must remove the old boundary at this location first!")
-			return
-		}
-		id, err := strconv.Atoi(args[0])
-		if err != nil {
-			c.Message("@que@Invalid args.  Usage: /boundary <id> <dir>, eg: /boundary 1154 north")
-			return
-		}
-		direction := world.North
-		if len(args) > 1 {
-			if d, err := strconv.Atoi(args[1]); err == nil {
-				if d < world.North || d > world.NorthEast {
-					c.Message("@que@Invalid direction; must be between 0 and 8, or simply spell out the direction or its initials.")
-					return
-				}
-				direction = d
-			} else {
-				direction = world.ParseDirection(args[1])
-			}
-		}
-		log.Commands.Printf("'%v' spawned new boundary{id: %v; dir:%v} at %v,%v\n", c.Player().Username, id, direction, x, y)
-		world.AddObject(world.NewObject(id, direction, x, y, true))
-	}
 	script.CommandHandlers["saveobjects"] = func(c clients.Client, args []string) {
 		go func() {
 			if count := db.SaveObjectLocations(); count > 0 {
@@ -205,36 +143,6 @@ func init() {
 				log.Commands.Println(c.Player().Username + " failed to save game objects; count=" + strconv.Itoa(count))
 			}
 		}()
-	}
-	script.CommandHandlers["item"] = func(c clients.Client, args []string) {
-		if len(args) < 1 {
-			c.Message("@que@Invalid args.  Usage: /item <id> <quantity>")
-			return
-		}
-		id, err := strconv.Atoi(args[0])
-		if err != nil || id > 1289 || id < 0 {
-			c.Message("@que@Invalid args.  Usage: /item <id> <quantity>")
-			return
-		}
-		amount := 1
-		if len(args) > 1 {
-			amount, err = strconv.Atoi(args[1])
-			if err != nil || amount <= 0 {
-				c.Message("@que@Invalid args.  Usage: /item <id> <quantity>")
-				return
-			}
-		}
-		if !world.ItemDefs[id].Stackable && amount > 1 {
-			for i := 0; i < amount; i++ {
-				c.Player().Items.Add(id, 1)
-				if c.Player().Items.Size() >= 30 {
-					break
-				}
-			}
-		} else {
-			c.Player().Items.Add(id, amount)
-		}
-		c.SendPacket(packetbuilders.InventoryItems(c.Player()))
 	}
 	script.CommandHandlers["goup"] = func(c clients.Client, args []string) {
 		if nextLocation := c.Player().Above(); !nextLocation.Equals(&c.Player().Location) {
@@ -304,9 +212,12 @@ func init() {
 		env.Execute(line)
 	}
 	script.CommandHandlers["reloadscripts"] = func(c clients.Client, args []string) {
-		script.Scripts = script.Scripts[:0]
+		script.InvTriggers = script.InvTriggers[:0]
+		script.BoundaryTriggers = script.BoundaryTriggers[:0]
+		script.ObjectTriggers = script.ObjectTriggers[:0]
+		script.NpcTriggers = script.NpcTriggers[:0]
 		script.Load()
-		log.Info.Println("Reloaded", len(script.Scripts), "content scripts.")
+		log.Info.Printf("Loaded %d inventory, %d object, %d boundary, and %d NPC action triggers.\n", len(script.InvTriggers), len(script.ObjectTriggers), len(script.BoundaryTriggers), len(script.NpcTriggers))
 	}
 	script.CommandHandlers["tile"] = func(c clients.Client, args []string) {
 		regionX := (2304+c.Player().CurX())/world.RegionSize

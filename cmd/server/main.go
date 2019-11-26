@@ -73,7 +73,6 @@ func main() {
 	var awaitLaunchJobs sync.WaitGroup
 	// Network protocol information
 	asyncExecute(&awaitLaunchJobs, world.LoadMapData)
-	asyncExecute(&awaitLaunchJobs, script.Load)
 	asyncExecute(&awaitLaunchJobs, packethandlers.Initialize)
 
 	// Entity definitions
@@ -91,8 +90,10 @@ func main() {
 //	asyncExecute(&awaitLaunchJobs, script.LoadBoundaryTriggers)
 	//	asyncExecute(&awaitLaunchJobs, script.LoadItemTriggers)
 	awaitLaunchJobs.Wait()
-	db.LoadObjectLocations()
-	db.LoadNpcLocations()
+	asyncExecute(&awaitLaunchJobs, script.Load)
+	asyncExecute(&awaitLaunchJobs, db.LoadObjectLocations)
+	asyncExecute(&awaitLaunchJobs, db.LoadNpcLocations)
+	awaitLaunchJobs.Wait()
 	if config.Verbose() {
 		log.Info.Printf("Loaded %d landscape sectors.\n", len(world.Sectors))
 		log.Info.Printf("Loaded %d packet handlers.\n", packethandlers.Size())
@@ -102,7 +103,7 @@ func main() {
 		log.Info.Printf("Loaded %d boundary definitions.\n", len(world.Boundarys))
 		log.Info.Printf("Loaded %d NPCs.\n", world.NpcCounter.Load())
 		log.Info.Printf("Loaded %d objects and boundaries.\n", world.ObjectCounter.Load())
-		log.Info.Printf("Loaded %d action triggers.\n", len(script.Scripts))
+		log.Info.Printf("Loaded %d inventory, %d object, %d boundary, and %d NPC action triggers.\n", len(script.InvTriggers), len(script.ObjectTriggers), len(script.BoundaryTriggers), len(script.NpcTriggers))
 		log.Info.Printf("Finished initializing entities in: %dms\n", time.Since(start).Milliseconds())
 	}
 	server.StartGameEngine()

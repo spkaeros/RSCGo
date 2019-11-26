@@ -1,6 +1,6 @@
 strings = import("strings")
 
-func objectAction() {
+func objectAction(client, player, object) {
     cmd = objectDefs[object.ID].Commands[0]
     if cmd == "climb-down" || cmd == "climb-up" || cmd == "go up" || cmd == "go down" {
         if strings.HasSuffix(cmd, "up") {

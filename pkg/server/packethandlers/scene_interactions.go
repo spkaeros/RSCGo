@@ -1,12 +1,14 @@
 package packethandlers
 
 import (
+	"context"
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
+	"reflect"
 )
 
 func init() {
@@ -127,6 +129,19 @@ func init() {
 		c.Player().SetDistancedAction(func() bool {
 			if c.Player().NextTo(npc.Location) && c.Player().WithinRange(npc.Location, 1) {
 				c.Player().ResetPath()
+				for _, fn := range script.NpcTriggers {
+					ran, err := fn(context.Background(), reflect.ValueOf(c), reflect.ValueOf(c.Player()), reflect.ValueOf(npc))
+					if !ran.IsValid() {
+						continue
+					}
+					if !err.IsNil() {
+						log.Info.Println(err)
+						continue
+					}
+					if ran.Bool() {
+						return true
+					}
+				}
 				c.SendPacket(packetbuilders.ServerMessage("The " + world.NpcDefs[npc.ID].Name + " does not appear interested in talking"))
 				return true
 			} else {
@@ -148,9 +163,23 @@ func objectAction(c clients.Client, object *world.Object) {
 		defer func() {
 			c.Player().State = world.MSIdle
 		}()
-		if !script.Run("objectAction", c, "object", object) {
-			c.SendPacket(packetbuilders.DefaultActionMessage)
+		for _, fn := range script.ObjectTriggers {
+			ran, err := fn(context.Background(), reflect.ValueOf(c), reflect.ValueOf(c.Player()), reflect.ValueOf(object))
+			if !ran.IsValid() {
+				continue
+			}
+			if !err.IsNil() {
+				log.Info.Println(err)
+				continue
+			}
+			if ran.Bool() {
+				return
+			}
 		}
+		c.SendPacket(packetbuilders.DefaultActionMessage)
+//		if !script.Run("objectAction", c, "object", object) {
+//			c.SendPacket(packetbuilders.DefaultActionMessage)
+//		}
 	}()
 }
 
@@ -164,8 +193,22 @@ func boundaryAction(c clients.Client, object *world.Object) {
 		defer func() {
 			c.Player().State = world.MSIdle
 		}()
-		if !script.Run("boundaryAction", c, "object", object) {
-			c.SendPacket(packetbuilders.DefaultActionMessage)
+		for _, fn := range script.BoundaryTriggers {
+			ran, err := fn(context.Background(), reflect.ValueOf(c), reflect.ValueOf(c.Player()), reflect.ValueOf(object))
+			if !ran.IsValid() {
+				continue
+			}
+			if !err.IsNil() {
+				log.Info.Println(err)
+				continue
+			}
+			if ran.Bool() {
+				return
+			}
 		}
+		c.SendPacket(packetbuilders.DefaultActionMessage)
+//		if !script.Run("boundaryAction", c, "object", object) {
+//			c.SendPacket(packetbuilders.DefaultActionMessage)
+//		}
 	}()
 }

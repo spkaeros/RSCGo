@@ -1,4 +1,4 @@
-func objectAction() {
+func objectAction(client, player, object) {
 	if objectDefs[object.ID].Commands[0] == "recharge at" {
 		max = player.Skillset.Maximum(5)
 		if object.ID == 200 {

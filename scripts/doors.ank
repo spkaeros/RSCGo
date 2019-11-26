@@ -1,4 +1,4 @@
-func objectAction() {
+func objectAction(client, player, object) {
 	doors = {59: 60, 57: 58, 63: 64}
     for open, closed in doors {
         if object.ID == open {
@@ -12,7 +12,7 @@ func objectAction() {
 	return false
 }
 
-func boundaryAction() {
+func boundaryAction(client, player, object) {
 	doors = {1: 2}
 	if object.ID == 109 {
 		old = replaceObject(object, 11)

@@ -1,12 +1,14 @@
 package packethandlers
 
 import (
+	"context"
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
+	"reflect"
 )
 
 func init() {
@@ -99,9 +101,23 @@ func init() {
 				defer func() {
 					c.Player().State = world.MSIdle
 				}()
-				if !script.Run("invAction", c, "item", item) {
-					c.SendPacket(packetbuilders.DefaultActionMessage)
+				for _, fn := range script.InvTriggers {
+					ran, err := fn(context.Background(), reflect.ValueOf(c), reflect.ValueOf(c.Player()), reflect.ValueOf(item))
+					if !ran.IsValid() {
+						continue
+					}
+					if !err.IsNil() {
+						log.Info.Println(err)
+						continue
+					}
+					if ran.Bool() {
+						return
+					}
 				}
+				c.SendPacket(packetbuilders.DefaultActionMessage)
+//				if !script.Run("invAction", c, "item", item) {
+//					c.SendPacket(packetbuilders.DefaultActionMessage)
+//				}
 			}()
 		}
 	}

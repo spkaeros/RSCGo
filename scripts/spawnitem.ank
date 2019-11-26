@@ -1,0 +1,28 @@
+addCommand("item", func(player, args) {
+	try {
+		id = toInt(args[0])
+		if id < 0 || id > 1289 {
+			return
+		}
+		amount = 1
+		if len(args) > 1 {
+			amount = toInt(args[1])
+		}
+		if amount < 1 {
+			return
+		}
+		if !itemDefs[id].Stackable && amount > 1 {
+			for i = 0; i < amount; i++ {
+				player.Items.Add(id, 1)
+				if player.Items.Size() >= 30 {
+					break
+				}
+			}
+		} else {
+			player.Items.Add(id, amount)
+		}
+		player.SendPacket(packets.InventoryItems(player))
+	} catch e {
+		player.SendPacket(packets.ServerMessage("Invalid syntax.  Usage: ::item <id> (<amount>)"))
+	}
+})

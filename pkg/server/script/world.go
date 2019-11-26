@@ -27,10 +27,18 @@ var CommandHandlers = make(map[string]func(clients.Client, []string))
 func WorldModule() *vm.Env {
 	env, err := vm.NewEnv().AddPackage("world", map[string]interface{}{
 		"getPlayerCount": clients.Size,
+		"getPlayers": clients.Clients,
 		"getPlayer": clients.FromIndex,
 		"getPlayerByName": clients.FromUserHash,
 		"replaceObject": world.ReplaceObject,
+		"addObject": world.AddObject,
+		"removeObject": world.RemoveObject,
+		"addNpc": world.AddNpc,
+		"removeNpc": world.RemoveNpc,
+		"addItem": world.AddItem,
+		"removeItem": world.RemoveItem,
 		"getObjectAt": world.GetObject,
+		"newObject": world.NewObject,
 		"getNpc": world.GetNpc,
 		"newPathway": world.NewPathwayToCoords,
 		"newLocation": world.NewLocation,
@@ -42,9 +50,9 @@ func WorldModule() *vm.Env {
 		"npcs": world.Npcs,
 		"itemDefs": world.ItemDefs,
 		"commands": CommandHandlers,
-		"addCommand": func(name string, fn func(args []string)) {
+		"addCommand": func(name string, fn func(p *world.Player, args []string)) {
 			CommandHandlers[name] = func(c clients.Client, args []string) {
-				fn(args)
+				fn(c.Player(), args)
 			}
 		},
 		"broadcast": func(fn func(interface{})) {
@@ -57,7 +65,17 @@ func WorldModule() *vm.Env {
 				c.SendPacket(packetbuilders.ServerMessage("@que@" + msg))
 			})
 		},
+		"parseDirection": world.ParseDirection,
+		"North": world.North,
+		"South": world.South,
+		"East": world.East,
+		"West": world.West,
+		"NorthWest": world.NorthWest,
+		"NorthEast": world.NorthEast,
+		"SouthWest": world.SouthWest,
+		"SouthEast": world.SouthEast,
 	}, map[string]interface{}{
+		"clientMap": reflect.TypeOf(clients.Clients),
 		"client": reflect.TypeOf(clients.Client(nil)),
 		"player": reflect.TypeOf(&world.Player{}),
 		"object": reflect.TypeOf(&world.Object{}),
@@ -66,6 +84,53 @@ func WorldModule() *vm.Env {
 		"npc": reflect.TypeOf(&world.NPC{}),
 		"location": reflect.TypeOf(world.Location{}),
 	})
+	if err != nil {
+		log.Warning.Println("Error initializing VM parameters:", err)
+		return nil
+	}
+	env, err = env.AddPackage("packets", map[string]interface{}{
+		"BigInformationBox": packetbuilders.BigInformationBox,
+		"BoundaryLocations": packetbuilders.BoundaryLocations,
+		"CannotLogout": packetbuilders.CannotLogout,
+		"ChangeAppearance": packetbuilders.ChangeAppearance,
+		"ClientSettings": packetbuilders.ClientSettings,
+		"Death": packetbuilders.Death,
+		"DefaultActionMessage": packetbuilders.DefaultActionMessage,
+		"EquipmentStats": packetbuilders.EquipmentStats,
+		"Fatigue": packetbuilders.Fatigue,
+		"FightMode": packetbuilders.FightMode,
+		"FriendList": packetbuilders.FriendList,
+		"FriendUpdate": packetbuilders.FriendUpdate,
+		"IgnoreList": packetbuilders.IgnoreList,
+		"InventoryItems": packetbuilders.InventoryItems,
+		"ItemLocations": packetbuilders.ItemLocations,
+		"LoginBox": packetbuilders.LoginBox,
+		"LoginResponse": packetbuilders.LoginResponse,
+		"Logout": packetbuilders.Logout,
+		"NPCPositions": packetbuilders.NPCPositions,
+		"NpcDamage": packetbuilders.NpcDamage,
+		"ObjectLocations": packetbuilders.ObjectLocations,
+		"PlaneInfo": packetbuilders.PlaneInfo,
+		"PlayerAppearances": packetbuilders.PlayerAppearances,
+		"PlayerChat": packetbuilders.PlayerChat,
+		"PlayerDamage": packetbuilders.PlayerDamage,
+		"PlayerPositions": packetbuilders.PlayerPositions,
+		"PlayerStat": packetbuilders.PlayerStat,
+		"PlayerStats": packetbuilders.PlayerStats,
+		"PrivacySettings": packetbuilders.PrivacySettings,
+		"PrivateMessage": packetbuilders.PrivateMessage,
+		"ResponsePong": packetbuilders.ResponsePong,
+		"ServerInfo": packetbuilders.ServerInfo,
+		"ServerMessage": packetbuilders.ServerMessage,
+		"TeleBubble": packetbuilders.TeleBubble,
+		"TradeAccept": packetbuilders.TradeAccept,
+		"TradeClose": packetbuilders.TradeClose,
+		"TradeConfirmationOpen": packetbuilders.TradeConfirmationOpen,
+		"TradeOpen": packetbuilders.TradeOpen,
+		"TradeTargetAccept": packetbuilders.TradeTargetAccept,
+		"TradeUpdate": packetbuilders.TradeUpdate,
+		"WelcomeMessage": packetbuilders.WelcomeMessage,
+	}, nil)
 	if err != nil {
 		log.Warning.Println("Error initializing VM parameters:", err)
 		return nil
