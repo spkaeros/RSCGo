@@ -94,7 +94,8 @@ func LoadPlayerProfile(usernameHash uint64, password string, loginReply chan byt
 	rows.Scan(&player.DatabaseIndex, &x, &y, &player.Rank, &player.Appearance.HeadColor, &player.Appearance.BodyColor, &player.Appearance.LegsColor, &player.Appearance.SkinColor, &player.Appearance.Head, &player.Appearance.Body)
 //	player.Location = world.NewLocation(x, y)
 //	player.Teleport(220, 445)
-	player.SetCoords(x, y)
+	player.SetX(x)
+	player.SetY(y)
 	return nil
 }
 

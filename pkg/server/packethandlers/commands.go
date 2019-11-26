@@ -14,6 +14,7 @@ import (
 	"runtime/pprof"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func init() {
@@ -136,6 +137,9 @@ func init() {
 	script.CommandHandlers["teleport"] = teleport
 	script.CommandHandlers["death"] = func(c clients.Client, args []string) {
 		c.SendPacket(packetbuilders.Death)
+		c.Player().Transients().SetVar("deathTime", time.Now())
+		c.Player()
+		c.Player().SetLocation(world.SpawnPoint)
 	}
 	script.CommandHandlers["anko"] = func(c clients.Client, args []string) {
 		line := strings.Join(args, " ")
@@ -166,25 +170,6 @@ func init() {
 		x, _ := strconv.Atoi(args[0])
 		y, _ := strconv.Atoi(args[1])
 		c.Player().SetPath(world.MakePath(c.Player().Location, world.NewLocation(x, y)))
-	}
-	script.CommandHandlers["nextto"] = func(c clients.Client, args []string) {
-		x, _ := strconv.Atoi(args[0])
-		y, _ := strconv.Atoi(args[1])
-		c.Message("Next to: " + strconv.FormatBool(c.Player().NextTo(world.NewLocation(x,y))))
-	}
-	script.CommandHandlers["clip"] = func(c clients.Client, args []string) {
-		x := c.Player().CurX()
-		y := c.Player().CurY()
-		dir := world.ParseDirection(args[0])
-		if dir == world.North {
-			c.Player().SetPath(world.NewPathwayToCoords(x, y-1))
-		} else if dir == world.South {
-			c.Player().SetPath(world.NewPathwayToCoords(x, y+1))
-		} else if dir == world.East {
-			c.Player().SetPath(world.NewPathwayToCoords(x-1, y))
-		} else if dir == world.West {
-			c.Player().SetPath(world.NewPathwayToCoords(x+1, y))
-		}
 	}
 }
 

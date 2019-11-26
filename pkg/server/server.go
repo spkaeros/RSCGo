@@ -84,10 +84,6 @@ func Tick() {
 		break
 	}
 	clients.Range(func(c clients.Client) {
-		if time.Since(c.Player().TransAttrs.VarTime("deathTime")) < 5*time.Second {
-			// Ugly hack to work around a client bug with region loading.
-			return
-		}
 		if fn := c.Player().DistancedAction; fn != nil {
 			if fn() {
 				c.Player().ResetDistancedAction()
@@ -105,7 +101,7 @@ func Tick() {
 		c.UpdatePositions()
 	})
 	clients.Range(func(c clients.Client) {
-		if time.Since(c.Player().TransAttrs.VarTime("deathTime")) < 5*time.Second {
+		if time.Since(c.Player().Transients().VarTime("deathTime")) < 5*time.Second {
 			// Ugly hack to work around a client bug with region loading.
 			return
 		}

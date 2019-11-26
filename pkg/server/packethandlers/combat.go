@@ -171,8 +171,8 @@ func init() {
 							defender = c.Player()
 						}
 						nextHit := attacker.MeleeDamage(defender)
-						if nextHit > defender.Stats().Current(3) {
-							nextHit = defender.Stats().Current(3)
+						if nextHit > defender.Stats().Current(world.StatHits) {
+							nextHit = defender.Stats().Current(world.StatHits)
 						}
 						defender.Stats().DecreaseCur(world.StatHits, nextHit)
 						if defender.Stats().Current(world.StatHits) <= 0 {
@@ -183,7 +183,9 @@ func init() {
 								defender.Transients().SetVar("deathTime", time.Now())
 								defender.SendPacket(packetbuilders.Death)
 								defender.Teleport(world.SpawnPoint.CurX(), world.SpawnPoint.CurY())
-								defender.SendPacket(packetbuilders.PlaneInfo(defender))
+								if defender.Plane() != world.SpawnPoint.Plane() {
+									defender.SendPacket(packetbuilders.PlaneInfo(defender))
+								}
 							}
 							return
 						}
