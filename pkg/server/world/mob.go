@@ -579,25 +579,27 @@ func (m *Mob) MaxHit() int {
 	return int((newStr * ((float32(m.TransAttrs.VarInt("power_points", 1)) * 0.00175) + 0.1) + 1.05) * 0.95)
 }
 
-func (m *Mob) Accuracy() float32 {
+func (m *Mob) Accuracy(npcMul float32) float32 {
 	styleBonus := float32(m.StyleBonus(0))
 	prayer := float32(1.0)
 	attackLvl := (float32(m.Skillset.Current(0)) * prayer) + styleBonus + 8
 	multiplier := float32(m.TransAttrs.VarInt("aim_points", 1) + 64)
+	multiplier *= npcMul
 	return attackLvl * multiplier
 }
 
-func (m *Mob) Defense() float32 {
+func (m *Mob) Defense(npcMul float32) float32 {
 	styleBonus := float32(m.StyleBonus(1))
 	prayer := float32(1.0)
 	defenseLvl := (float32(m.Skillset.Current(1)) * prayer) + styleBonus + 8
 	multiplier := float32(m.TransAttrs.VarInt("armour_points", 1) + 64)
+	multiplier *= npcMul
 	return defenseLvl * multiplier
 }
 
-func (m *Mob) MeleeDamage(target Mob) int {
-	att := m.Accuracy()
-	def := target.Defense()
+func (m *Mob) MeleeDamage(target Mob, mul, theirMul float32) int {
+	att := m.Accuracy(mul)
+	def := target.Defense(theirMul)
 	max := m.MaxHit()
 	if att * 10 < def {
 		return 0

@@ -5,6 +5,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
+	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"time"
 )
@@ -55,21 +56,23 @@ func init() {
 						if curRound % 2 == 0 {
 							attacker := c.Player()
 							defender := npc
-							nextHit := attacker.MeleeDamage(defender.Mob)
+							nextHit := attacker.MeleeDamage(defender.Mob, 1.0, 0.9)
 							if nextHit > defender.Skillset.Current(3) {
 								nextHit = defender.Skillset.Current(3)
 							}
 							defender.Skillset.DecreaseCur(3, nextHit)
 							if defender.Skillset.Current(3) <= 0 {
-								world.UpdateRegionMob(c.Player(), world.DeathSpot.CurX(), world.DeathSpot.CurY())
+								world.UpdateRegionMob(npc, world.DeathSpot.CurX(), world.DeathSpot.CurY())
 								npc.Teleport(world.DeathSpot.CurX(), world.DeathSpot.CurY())
 								go func() {
 									time.Sleep(time.Second * 10)
-									world.UpdateRegionMob(c.Player(), npc.StartPoint.CurX(), npc.StartPoint.CurY())
+									world.UpdateRegionMob(npc, npc.StartPoint.CurX(), npc.StartPoint.CurY())
 									npc.Teleport(npc.StartPoint.CurX(), npc.StartPoint.CurY())
 									npc.Skillset.SetCur(3, npc.Skillset.Maximum(3))
 								}()
+								script.EngineLock.Lock()
 								c.Player().ResetFighting()
+								script.EngineLock.Unlock()
 								return
 							}
 							c.SendPacket(packetbuilders.NpcDamage(defender.Index, nextHit, defender.Skillset.Current(3), defender.Skillset.Maximum(3)))
@@ -81,13 +84,15 @@ func init() {
 						} else {
 							attacker := npc
 							defender := c.Player()
-							nextHit := attacker.MeleeDamage(*defender.Mob)
+							nextHit := attacker.MeleeDamage(*defender.Mob, 0.9, 1.0)
 							if nextHit > defender.Skillset.Current(3) {
 								nextHit = defender.Skillset.Current(3)
 							}
 							defender.Skillset.DecreaseCur(3, nextHit)
 							if defender.Skillset.Current(3) <= 0 {
+								script.EngineLock.Lock()
 								c.Player().ResetFighting()
+								script.EngineLock.Unlock()
 								c.SendPacket(packetbuilders.Death)
 								c.Player().Skillset.SetCur(3, c.Player().Skillset.Maximum(3))
 								world.UpdateRegionMob(c.Player(), 220, 445)
