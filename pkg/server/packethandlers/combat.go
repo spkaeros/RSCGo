@@ -25,90 +25,88 @@ func init() {
 			return
 		}
 		c.Player().SetDistancedAction(func() bool {
-			if c.Player().NextTo(npc.Location) && c.Player().WithinRange(npc.Location, 1) {
+			if c.Player().NextTo(npc.Location) && c.Player().WithinRange(npc.Location, 2) {
 				c.Player().ResetPath()
 				npc.ResetPath()
-				world.UpdateRegionMob(c.Player(), npc.CurX(), npc.CurY())
 				c.Player().Teleport(npc.CurX(), npc.CurY())
 				c.Player().State = world.MSFighting
 				npc.State = world.MSFighting
 				c.Player().SetDirection(world.LeftFighting)
 				npc.SetDirection(world.RightFighting)
-				c.Player().TransAttrs.SetVar("fighting", true)
-				c.Player().TransAttrs.SetVar("fightTarget", npc)
-				npc.TransAttrs.SetVar("fighting", true)
-				npc.TransAttrs.SetVar("fightTarget", c.Player())
+				c.Player().Transients().SetVar("fighting", true)
+				c.Player().Transients().SetVar("fightTarget", npc)
+				npc.Transients().SetVar("fighting", true)
+				npc.Transients().SetVar("fightTarget", c.Player())
 				go func() {
 					ticker := time.NewTicker(time.Millisecond * 1200)
 					defer ticker.Stop()
 					curRound := 0
 					for range ticker.C {
-						if !c.Player().TransAttrs.VarBool("fighting", false) || !c.Player().TransAttrs.VarBool("connected", false) {
-							if npc.TransAttrs.VarBool("fighting", false) {
-								script.TriggerC <- func() {
-									npc.TransAttrs.UnsetVar("fighting")
-									npc.TransAttrs.UnsetVar("fightRound")
-									npc.TransAttrs.UnsetVar("fightTarget")
-									npc.State = world.MSIdle
-									npc.SetDirection(world.North)
+						if !c.Player().Transients().VarBool("fighting", false) || !c.Player().Transients().VarBool("connected", false) {
+							if npc.Transients().VarBool("fighting", false) {
+								script.EngineChannel <- func() {
+									npc.ResetFighting()
 								}
 							}
 							return
 						}
+						var attacker, defender world.MobileEntity
+						var nextHit int
 						if curRound % 2 == 0 {
-							attacker := c.Player()
-							defender := npc
-							nextHit := attacker.MeleeDamage(defender.Mob, 1.0, 0.9)
-							if nextHit > defender.Skillset.Current(3) {
-								nextHit = defender.Skillset.Current(3)
-							}
-							defender.Skillset.DecreaseCur(3, nextHit)
-							if defender.Skillset.Current(3) <= 0 {
+							attacker = c.Player()
+							defender = npc
+						} else {
+							attacker = npc
+							defender = c.Player()
+						}
+						nextHit = attacker.MeleeDamage(defender)
+						if curHits := defender.Stats().Current(world.StatHits); nextHit > curHits {
+							nextHit = curHits
+						}
+						defender.Stats().DecreaseCur(world.StatHits, nextHit)
+						if defender.Stats().Current(world.StatHits) <= 0 {
+							if defenderNpc, ok := defender.(*world.NPC); ok {
+								script.EngineChannel <- func() {
+									attacker.ResetFighting()
+									defenderNpc.Stats().SetCur(world.StatHits, defenderNpc.Stats().Maximum(world.StatHits))
+									defenderNpc.Teleport(world.DeathSpot.CurX(), world.DeathSpot.CurY())
+								}
+
 								go func() {
 									time.Sleep(time.Second * 10)
-									script.TriggerC <- func() {
-										world.UpdateRegionMob(npc, npc.StartPoint.CurX(), npc.StartPoint.CurY())
-										npc.Teleport(npc.StartPoint.CurX(), npc.StartPoint.CurY())
-										npc.Skillset.SetCur(3, npc.Skillset.Maximum(3))
+									script.EngineChannel <- func() {
+										defenderNpc.Teleport(defenderNpc.StartPoint.CurX(), defenderNpc.StartPoint.CurY())
 									}
 								}()
-								script.TriggerC <- func() {
-									world.UpdateRegionMob(npc, world.DeathSpot.CurX(), world.DeathSpot.CurY())
-									npc.Teleport(world.DeathSpot.CurX(), world.DeathSpot.CurY())
-									c.Player().ResetFighting()
+							} else if defenderPlayer, ok := defender.(*world.Player); ok {
+								script.EngineChannel <- func() {
+									attacker.ResetFighting()
+									defenderPlayer.Stats().SetCur(world.StatHits, defenderPlayer.Stats().Maximum(world.StatHits))
+									defenderPlayer.SendPacket(packetbuilders.PlayerStats(defenderPlayer))
+									defenderPlayer.Transients().SetVar("deathTime", time.Now())
+									defenderPlayer.SendPacket(packetbuilders.Death)
+									defenderPlayer.Teleport(world.SpawnPoint.CurX(), world.SpawnPoint.CurY())
+									defenderPlayer.SendPacket(packetbuilders.PlaneInfo(defenderPlayer))
 								}
-								return
 							}
-							c.SendPacket(packetbuilders.NpcDamage(defender.Index, nextHit, defender.Skillset.Current(3), defender.Skillset.Maximum(3)))
-							for _, p1 := range c.Player().NearbyPlayers() {
-								p1.SendPacket(packetbuilders.NpcDamage(defender.Index, nextHit, defender.Skillset.Current(3), defender.Skillset.Maximum(3)))
-							}
-
-							attacker.TransAttrs.SetVar("fightRound", attacker.TransAttrs.VarInt("fightRound", 0) + 1)
-						} else {
-							attacker := npc
-							defender := c.Player()
-							nextHit := attacker.MeleeDamage(*defender.Mob, 0.9, 1.0)
-							if nextHit > defender.Skillset.Current(3) {
-								nextHit = defender.Skillset.Current(3)
-							}
-							defender.Skillset.DecreaseCur(3, nextHit)
-							if defender.Skillset.Current(3) <= 0 {
-								script.TriggerC <- func() {
-									c.Player().ResetFighting()
-									c.SendPacket(packetbuilders.Death)
-									c.Player().Skillset.SetCur(3, c.Player().Skillset.Maximum(3))
-									world.UpdateRegionMob(c.Player(), 220, 445)
-									c.Player().Teleport(220, 445)
-								}
-								return
-							}
-							c.SendPacket(packetbuilders.PlayerDamage(defender.Index, nextHit, defender.Skillset.Current(3), defender.Skillset.Maximum(3)))
-							for _, p1 := range c.Player().NearbyPlayers() {
-								p1.SendPacket(packetbuilders.PlayerDamage(defender.Index, nextHit, defender.Skillset.Current(3), defender.Skillset.Maximum(3)))
-							}
-							attacker.TransAttrs.SetVar("fightRound", attacker.TransAttrs.VarInt("fightRound", 0) + 1)
+							return
 						}
+
+						if defenderNpc, ok := defender.(*world.NPC); ok {
+							hitUpdate := packetbuilders.NpcDamage(defenderNpc, nextHit)
+							c.SendPacket(hitUpdate)
+							for _, p1 := range c.Player().NearbyPlayers() {
+								p1.SendPacket(hitUpdate)
+							}
+						} else if defenderPlayer, ok := defender.(*world.Player); ok {
+							hitUpdate := packetbuilders.PlayerDamage(defenderPlayer, nextHit)
+							c.SendPacket(hitUpdate)
+							for _, p1 := range c.Player().NearbyPlayers() {
+								p1.SendPacket(hitUpdate)
+							}
+						}
+
+						attacker.Transients().SetVar("fightRound", attacker.Transients().VarInt("fightRound", 0) + 1)
 						curRound++
 					}
 				}()
@@ -118,5 +116,100 @@ func init() {
 			}
 			return false
 		})
+	}
+	PacketHandlers["attackplayer"] = func(c clients.Client, p *packet.Packet) {
+		affectedClient, ok := clients.FromIndex(p.ReadShort())
+		if affectedClient == nil || !ok {
+			log.Suspicious.Printf("player[%v] tried to attack nil player\n", c)
+			return
+		}
+		if c.Player().State != world.MSIdle {
+			return
+		}
+		if affectedClient.Player().State != world.MSIdle {
+			log.Info.Printf("Target player busy during attack request  State: %d\n", affectedClient.Player().State)
+			return
+		}
+		affectedPlayer := affectedClient.Player()
+		c.Player().SetDistancedAction(func() bool {
+			if c.Player().NextTo(affectedPlayer.Location) && c.Player().WithinRange(affectedPlayer.Location, 2) {
+				c.Player().ResetPath()
+				affectedPlayer.ResetPath()
+				c.Player().Teleport(affectedPlayer.CurX(), affectedPlayer.CurY())
+				c.Player().State = world.MSFighting
+				affectedPlayer.State = world.MSFighting
+				c.Player().SetDirection(world.LeftFighting)
+				affectedPlayer.SetDirection(world.RightFighting)
+				c.Player().Transients().SetVar("fighting", true)
+				c.Player().Transients().SetVar("fightTarget", affectedPlayer)
+				affectedPlayer.Transients().SetVar("fighting", true)
+				affectedPlayer.Transients().SetVar("fightTarget", c.Player())
+				go func() {
+					ticker := time.NewTicker(time.Millisecond * 1200)
+					defer ticker.Stop()
+					curRound := 0
+					for range ticker.C {
+						if !affectedPlayer.Transients().VarBool("fighting", false) || !c.Player().Transients().VarBool("fighting", false) || !c.Player().Transients().VarBool("connected", false) || !affectedPlayer.Transients().VarBool("connected", false) {
+							if affectedPlayer.Transients().VarBool("fighting", false) {
+								script.EngineChannel <- func() {
+									affectedPlayer.ResetFighting()
+								}
+							}
+							if c.Player().Transients().VarBool("fighting", false) {
+								script.EngineChannel <- func() {
+									c.Player().ResetFighting()
+								}
+							}
+							return
+						}
+						var attacker, defender *world.Player
+						if curRound % 2 == 0 {
+							attacker = c.Player()
+							defender = affectedPlayer
+						} else {
+							attacker = affectedClient.Player()
+							defender = c.Player()
+						}
+						nextHit := attacker.MeleeDamage(defender)
+						if nextHit > defender.Stats().Current(3) {
+							nextHit = defender.Stats().Current(3)
+						}
+						defender.Stats().DecreaseCur(world.StatHits, nextHit)
+						if defender.Stats().Current(world.StatHits) <= 0 {
+							script.EngineChannel <- func() {
+								attacker.ResetFighting()
+								defender.Stats().SetCur(world.StatHits, defender.Stats().Maximum(world.StatHits))
+								defender.SendPacket(packetbuilders.PlayerStats(defender))
+								defender.Transients().SetVar("deathTime", time.Now())
+								defender.SendPacket(packetbuilders.Death)
+								defender.Teleport(world.SpawnPoint.CurX(), world.SpawnPoint.CurY())
+								defender.SendPacket(packetbuilders.PlaneInfo(defender))
+							}
+							return
+						}
+						hitUpdate := packetbuilders.PlayerDamage(defender, nextHit)
+						c.SendPacket(hitUpdate)
+						for _, p1 := range c.Player().NearbyPlayers() {
+							p1.SendPacket(hitUpdate)
+						}
+
+						attacker.Transients().SetVar("fightRound", attacker.Transients().VarInt("fightRound", 0) + 1)
+						curRound++
+					}
+				}()
+				return true
+			} else {
+				c.Player().SetPath(world.MakePath(c.Player().Location, affectedPlayer.Location))
+			}
+			return false
+		})
+	}
+	PacketHandlers["fightmode"] = func(c clients.Client, p *packet.Packet) {
+		mode := p.ReadByte()
+		if mode < 0 || mode > 3 {
+			log.Suspicious.Printf("Invalid fightmode selected (%v) by %v", mode, c.Player().String())
+			return
+		}
+		c.Player().SetFightMode(int(mode))
 	}
 }

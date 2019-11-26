@@ -68,6 +68,8 @@ func (l Location) SetY(y int) {
 
 //DeathSpot The spot where mobs go to die.
 var DeathSpot = NewLocation(0, 0)
+//SpawnPoint The default spawn point, where new players start and dead players respawn.
+var SpawnPoint = NewLocation(220, 445)
 
 //NewLocation Returns a reference to a new instance of the Location data structure.
 func NewLocation(x, y int) Location {

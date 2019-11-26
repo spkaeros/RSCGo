@@ -67,26 +67,26 @@ func PlayerChat(sender int, msg string) *packet.Packet {
 }
 
 //PlayerDamage Builds a packet containing a view-area damage display for this player
-func PlayerDamage(victim int, damage, curHits, maxHits int) *packet.Packet {
+func PlayerDamage(victim *world.Player, damage int) *packet.Packet {
 	p := packet.NewOutgoingPacket(234)
 	p.AddShort(1)
-	p.AddShort(uint16(victim))
+	p.AddShort(uint16(victim.Index))
 	p.AddByte(2)
 	p.AddByte(uint8(damage))
-	p.AddByte(uint8(curHits))
-	p.AddByte(uint8(maxHits))
+	p.AddByte(uint8(victim.Skillset.Current(world.StatHits)))
+	p.AddByte(uint8(victim.Skillset.Maximum(world.StatHits)))
 	return p
 }
 
 //NpcDamage Builds a packet containing a view-area damage display for this NPC
-func NpcDamage(victim int, damage, curHits, maxHits int) *packet.Packet {
+func NpcDamage(victim *world.NPC, damage int) *packet.Packet {
 	p := packet.NewOutgoingPacket(104)
 	p.AddShort(1)
-	p.AddShort(uint16(victim))
+	p.AddShort(uint16(victim.Index))
 	p.AddByte(2)
 	p.AddByte(uint8(damage))
-	p.AddByte(uint8(curHits))
-	p.AddByte(uint8(maxHits))
+	p.AddByte(uint8(victim.Skillset.Current(world.StatHits)))
+	p.AddByte(uint8(victim.Skillset.Maximum(world.StatHits)))
 	return p
 }
 

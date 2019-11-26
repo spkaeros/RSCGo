@@ -88,8 +88,11 @@ func (c *Client) Teleport(x, y int) {
 		nearbyPlayer.SendPacket(packetbuilders.TeleBubble(c.player.CurX()-nearbyPlayer.CurX(), c.player.CurY()-nearbyPlayer.CurY()))
 	}
 	c.TeleBubble(0, 0)
-	world.UpdateRegionMob(c.Player(), x, y)
+	oldPlane := c.player.Plane()
 	c.player.Teleport(x, y)
+	if c.player.Plane() != oldPlane {
+		c.UpdatePlane()
+	}
 }
 
 //startReader Starts the client Socket reader goroutine.  Takes a waitgroup as an argument to facilitate synchronous destruction.

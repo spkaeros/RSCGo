@@ -45,9 +45,22 @@ type Mob struct {
 	TransAttrs *AttributeList
 }
 
-type Locatable interface {
+type MobileEntity interface {
 	CurX() int
 	CurY() int
+	Stats() *SkillTable
+	MeleeDamage(target MobileEntity) int
+	Defense(float32) float32
+	ResetFighting()
+	Transients() *AttributeList
+}
+
+func (m *Mob) Transients() *AttributeList {
+	return m.TransAttrs
+}
+
+func (m *Mob) Stats() *SkillTable {
+	return m.Skillset
 }
 
 //Busy Returns true if this mobs state is anything other than idle. otherwise returns false.
@@ -191,7 +204,7 @@ func (m *Mob) TraversePath() Location {
 	return next
 }
 
-func UpdateRegionMob(m Locatable, x, y int) {
+func UpdateRegionMob(m MobileEntity, x, y int) {
 	curArea := GetRegion(m.CurX(), m.CurY())
 	newArea := GetRegion(x, y)
 	if newArea != curArea {
@@ -226,11 +239,30 @@ func (m *Mob) SetLocation(location Location) {
 	m.SetCoords(x, y)
 }
 
+func (p *Player) SetLocation(l Location) {
+	UpdateRegionMob(p, l.CurX(), l.CurY())
+	p.Mob.SetLocation(l)
+}
+
+func (n *NPC) SetLocation(l Location) {
+	UpdateRegionMob(n, l.CurX(), l.CurY())
+	n.Mob.SetLocation(l)
+}
+
 //SetCoords Sets the mobs locations coordinates.
 func (m *Mob) SetCoords(x, y int) {
-//	m.Location = NewLocation(x, y)
 	m.SetX(x)
 	m.SetY(y)
+}
+
+func (p *Player) SetCoords(x, y int) {
+	UpdateRegionMob(p, x, y)
+	p.Mob.SetCoords(x, y)
+}
+
+func (n *NPC) SetCoords(x, y int) {
+	UpdateRegionMob(n, x, y)
+	n.Mob.SetCoords(x, y)
 }
 
 //Teleport Moves the mob to x,y and sets a flag to remove said mob from the local players list of every nearby player.
@@ -239,6 +271,37 @@ func (m *Mob) Teleport(x, y int) {
 	m.SetCoords(x, y)
 }
 
+func (p *Player) Teleport(x, y int) {
+	UpdateRegionMob(p, x, y)
+	p.Mob.Teleport(x, y)
+}
+
+func (n *NPC) Teleport(x, y int) {
+	UpdateRegionMob(n, x, y)
+	n.Mob.Teleport(x, y)
+}
+
+//ResetFighting Resets melee fight related variables
+func (m *Mob) ResetFighting() {
+	m.TransAttrs.UnsetVar("fighting")
+	if target := m.TransAttrs.VarPlayer("fightTarget"); target != nil {
+		target.TransAttrs.UnsetVar("fighting")
+		target.TransAttrs.UnsetVar("fightTarget")
+		target.TransAttrs.UnsetVar("fightRound")
+		target.SetDirection(North)
+		target.State = MSIdle
+	} else if target := m.TransAttrs.VarNpc("fightTarget"); target != nil {
+		target.TransAttrs.UnsetVar("fighting")
+		target.TransAttrs.UnsetVar("fightTarget")
+		target.TransAttrs.UnsetVar("fightRound")
+		target.SetDirection(North)
+		target.State = MSIdle
+	}
+	m.TransAttrs.UnsetVar("fightTarget")
+	m.TransAttrs.UnsetVar("fightRound")
+	m.SetDirection(North)
+	m.State = MSIdle
+}
 //AttrList A type alias for a map of strings to empty interfaces, to hold generic mob information for easy serialization and to provide dynamic insertion/deletion of new mob properties easily
 type AttrList map[string]interface{}
 
@@ -364,6 +427,27 @@ type AppearanceTable struct {
 func NewAppearanceTable(head, body int, male bool, hair, top, bottom, skin int) AppearanceTable {
 	return AppearanceTable{head, body, 3, male, hair, top, bottom, skin}
 }
+
+const (
+	StatAttack int = iota
+	StatDefense
+	StatStrength
+	StatHits
+	StatRanged
+	StatPrayer
+	StatMagic
+	StatCooking
+	StatWoodcutting
+	StatFletching
+	StatFishing
+	StatFiremaking
+	StatCrafting
+	StatSmithing
+	StatMining
+	StatHerblaw
+	StatAgility
+	StatThieving
+)
 
 //SkillTable Represents a skill table for a mob.
 type SkillTable struct {
@@ -543,7 +627,6 @@ func UpdateNPCPositions() {
 
 		nextTile := n.TraversePath()
 		if nextTile.LongestDelta(n.Location) > 0 {
-			UpdateRegionMob(n, nextTile.CurX(), nextTile.CurY())
 			n.SetLocation(nextTile)
 			n.Move()
 		}
@@ -597,10 +680,14 @@ func (m *Mob) Defense(npcMul float32) float32 {
 	return defenseLvl * multiplier
 }
 
-func (m *Mob) MeleeDamage(target Mob, mul, theirMul float32) int {
-	att := m.Accuracy(mul)
-	def := target.Defense(theirMul)
-	max := m.MaxHit()
+func (n *NPC) MeleeDamage(target MobileEntity) int {
+	att := n.Accuracy(0.9)
+	mul := float32(1.0)
+	if _, ok := target.(*NPC); ok {
+		mul = 0.9
+	}
+	def := target.Defense(mul)
+	max := n.MaxHit()
 	if att * 10 < def {
 		return 0
 	}
@@ -611,7 +698,35 @@ func (m *Mob) MeleeDamage(target Mob, mul, theirMul float32) int {
 		finalAtt = int((1.0 - ((def + 2.0) / (2.0 * (att + 1.0)))) * 10000.0)
 	}
 
-	if finalAtt > rand.Int31N(0, 10000) {
+	roll := rand.Int31N(0, 10000)
+//	log.Info.Println(finalAtt, roll, att, def, max)
+	if finalAtt > roll {
+		return rand.Int31N(0, max)
+	}
+	return 0
+}
+
+func (p *Player) MeleeDamage(target MobileEntity) int {
+	att := p.Accuracy(1.0)
+	mul := float32(1.0)
+	if _, ok := target.(*NPC); ok {
+		mul = 0.9
+	}
+	def := target.Defense(mul)
+	max := p.MaxHit()
+	if att * 10 < def {
+		return 0
+	}
+
+	finalAtt := int((att / (2.0 * (def + 1.0))) * 10000.0)
+
+	if att > def {
+		finalAtt = int((1.0 - ((def + 2.0) / (2.0 * (att + 1.0)))) * 10000.0)
+	}
+
+	roll := rand.Int31N(0, 10000)
+//	log.Info.Println(finalAtt, roll, att, def, max)
+	if finalAtt > roll {
 		return rand.Int31N(0, max)
 	}
 	return 0

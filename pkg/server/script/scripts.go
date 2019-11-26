@@ -21,7 +21,7 @@ import (
 
 var Scripts []string
 
-var TriggerC = make(chan func(), 20)
+var EngineChannel = make(chan func(), 20)
 var InvTriggers []func(context.Context, reflect.Value, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 var ObjectTriggers []func(context.Context, reflect.Value, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 var BoundaryTriggers []func(context.Context, reflect.Value, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)

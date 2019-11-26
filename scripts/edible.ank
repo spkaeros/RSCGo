@@ -12,7 +12,7 @@ func invAction(client, player, item) {
 		if amount > 0 {
 			player.Skillset.IncreaseCur(3, amount)
 			client.SendStats()
-			sleep(tSecond)
+			sleep(tMillis * 350)
 			client.Message("It heals some health.")
 		}
 		return true

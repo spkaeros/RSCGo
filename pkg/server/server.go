@@ -78,13 +78,16 @@ func StartConnectionService() {
 //Tick One game engine 'tick'.  This is to handle movement, to synchronize client, to update movement-related state variables... Runs once per 600ms.
 func Tick() {
 	select {
-	case fn := <-script.TriggerC:
+	case fn := <-script.EngineChannel:
 		fn()
-		break
 	default:
 		break
 	}
 	clients.Range(func(c clients.Client) {
+		if time.Since(c.Player().TransAttrs.VarTime("deathTime")) < 5*time.Second {
+			// Ugly hack to work around a client bug with region loading.
+			return
+		}
 		if fn := c.Player().DistancedAction; fn != nil {
 			if fn() {
 				c.Player().ResetDistancedAction()
@@ -92,7 +95,6 @@ func Tick() {
 		}
 		nextTile := c.Player().TraversePath()
 		if nextTile.LongestDelta(c.Player().Location) > 0 {
-			world.UpdateRegionMob(c.Player(), nextTile.CurX(), nextTile.CurY())
 			c.Player().SetLocation(nextTile)
 			c.Player().Move()
 		}
@@ -103,6 +105,10 @@ func Tick() {
 		c.UpdatePositions()
 	})
 	clients.Range(func(c clients.Client) {
+		if time.Since(c.Player().TransAttrs.VarTime("deathTime")) < 5*time.Second {
+			// Ugly hack to work around a client bug with region loading.
+			return
+		}
 		c.ResetUpdateFlags()
 	})
 	world.ResetNpcUpdateFlags()
