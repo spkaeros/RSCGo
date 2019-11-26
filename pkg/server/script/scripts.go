@@ -15,12 +15,11 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
-	"sync"
 )
 
 var Scripts []string
 
-var EngineLock sync.Mutex
+var TriggerC = make(chan func(), 20)
 
 func Run(fnName string, c clients.Client, argName string, arg interface{}) bool {
 	env := WorldModule()

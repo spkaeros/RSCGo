@@ -45,11 +45,13 @@ func init() {
 					for range ticker.C {
 						if !c.Player().TransAttrs.VarBool("fighting", false) || !c.Player().TransAttrs.VarBool("connected", false) {
 							if npc.TransAttrs.VarBool("fighting", false) {
-								npc.TransAttrs.UnsetVar("fighting")
-								npc.TransAttrs.UnsetVar("fightRound")
-								npc.TransAttrs.UnsetVar("fightTarget")
-								npc.State = world.MSIdle
-								npc.SetDirection(world.North)
+								script.TriggerC <- func() {
+									npc.TransAttrs.UnsetVar("fighting")
+									npc.TransAttrs.UnsetVar("fightRound")
+									npc.TransAttrs.UnsetVar("fightTarget")
+									npc.State = world.MSIdle
+									npc.SetDirection(world.North)
+								}
 							}
 							return
 						}
@@ -62,17 +64,19 @@ func init() {
 							}
 							defender.Skillset.DecreaseCur(3, nextHit)
 							if defender.Skillset.Current(3) <= 0 {
-								world.UpdateRegionMob(npc, world.DeathSpot.CurX(), world.DeathSpot.CurY())
-								npc.Teleport(world.DeathSpot.CurX(), world.DeathSpot.CurY())
 								go func() {
 									time.Sleep(time.Second * 10)
-									world.UpdateRegionMob(npc, npc.StartPoint.CurX(), npc.StartPoint.CurY())
-									npc.Teleport(npc.StartPoint.CurX(), npc.StartPoint.CurY())
-									npc.Skillset.SetCur(3, npc.Skillset.Maximum(3))
+									script.TriggerC <- func() {
+										world.UpdateRegionMob(npc, npc.StartPoint.CurX(), npc.StartPoint.CurY())
+										npc.Teleport(npc.StartPoint.CurX(), npc.StartPoint.CurY())
+										npc.Skillset.SetCur(3, npc.Skillset.Maximum(3))
+									}
 								}()
-								script.EngineLock.Lock()
-								c.Player().ResetFighting()
-								script.EngineLock.Unlock()
+								script.TriggerC <- func() {
+									world.UpdateRegionMob(npc, world.DeathSpot.CurX(), world.DeathSpot.CurY())
+									npc.Teleport(world.DeathSpot.CurX(), world.DeathSpot.CurY())
+									c.Player().ResetFighting()
+								}
 								return
 							}
 							c.SendPacket(packetbuilders.NpcDamage(defender.Index, nextHit, defender.Skillset.Current(3), defender.Skillset.Maximum(3)))
@@ -90,13 +94,13 @@ func init() {
 							}
 							defender.Skillset.DecreaseCur(3, nextHit)
 							if defender.Skillset.Current(3) <= 0 {
-								script.EngineLock.Lock()
-								c.Player().ResetFighting()
-								script.EngineLock.Unlock()
-								c.SendPacket(packetbuilders.Death)
-								c.Player().Skillset.SetCur(3, c.Player().Skillset.Maximum(3))
-								world.UpdateRegionMob(c.Player(), 220, 445)
-								c.Player().Teleport(220, 445)
+								script.TriggerC <- func() {
+									c.Player().ResetFighting()
+									c.SendPacket(packetbuilders.Death)
+									c.Player().Skillset.SetCur(3, c.Player().Skillset.Maximum(3))
+									world.UpdateRegionMob(c.Player(), 220, 445)
+									c.Player().Teleport(220, 445)
+								}
 								return
 							}
 							c.SendPacket(packetbuilders.PlayerDamage(defender.Index, nextHit, defender.Skillset.Current(3), defender.Skillset.Maximum(3)))

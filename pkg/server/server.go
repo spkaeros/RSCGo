@@ -77,7 +77,13 @@ func StartConnectionService() {
 
 //Tick One game engine 'tick'.  This is to handle movement, to synchronize client, to update movement-related state variables... Runs once per 600ms.
 func Tick() {
-	script.EngineLock.Lock()
+	select {
+	case fn := <-script.TriggerC:
+		fn()
+		break
+	default:
+		break
+	}
 	clients.Range(func(c clients.Client) {
 		if fn := c.Player().DistancedAction; fn != nil {
 			if fn() {
@@ -100,7 +106,6 @@ func Tick() {
 		c.ResetUpdateFlags()
 	})
 	world.ResetNpcUpdateFlags()
-	script.EngineLock.Unlock()
 }
 
 //StartGameEngine Launches a goroutine to handle updating the state of the server every 600ms in a synchronized fashion.  This is known as a single game engine 'pulse'.
