@@ -1,14 +1,10 @@
 addCommand("goup", func(player, args) {
 	nextLocation = player.Above()
-	if !nextLocation.Equals(player.Location) {
-		player.Teleport(nextLocation.CurX(), nextLocation.CurY())
-		player.SendPacket(packets.PlaneInfo(player))
-	}
+	player.Teleport(nextLocation.CurX(), nextLocation.CurY())
+	player.SendPacket(packets.PlaneInfo(player))
 })
 addCommand("godown", func(player, args) {
 	nextLocation = player.Below()
-	if !nextLocation.Equals(player.Location) {
-		player.Teleport(nextLocation.CurX(), nextLocation.CurY())
-		player.SendPacket(packets.PlaneInfo(player))
-	}
+	player.Teleport(nextLocation.CurX(), nextLocation.CurY())
+	player.SendPacket(packets.PlaneInfo(player))
 })

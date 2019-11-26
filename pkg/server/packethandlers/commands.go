@@ -186,9 +186,6 @@ func init() {
 			c.Player().SetPath(world.NewPathwayToCoords(x+1, y))
 		}
 	}
-	script.CommandHandlers["clipdata"] = func(c clients.Client, args []string) {
-		fmt.Printf("CollisionMask: %v %v\n", c.Player().Location.String(), world.ClipData(c.Player().CurX(), c.Player().CurY()))
-	}
 }
 
 func teleport(c clients.Client, args []string) {
