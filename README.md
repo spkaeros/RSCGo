@@ -18,7 +18,7 @@ implementation had.
 
 Currently, RSCGo supports logging in, supports multiple players, chat works, walking works, objects are where they should be, etc.
 
-Here is a progress update picture: https://i.imgur.com/ZjzgBcE.png
+Here is a progress update picture: https://i.imgur.com/nhmMCQc.png
 
 Please note, to run or install this software, you must have a working Go 1.11+ compiler installed, and a working C compiler, as this project uses CGo for its SQLite3 driver.
 I use GCC 7.4.0 on my test machine, and Go 1.13.1, on AMD64 Linux 5.0.0-23 kernel.
