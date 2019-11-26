@@ -18,6 +18,8 @@ implementation had.
 
 Currently, RSCGo supports logging in, supports multiple players, chat works, walking works, objects are where they should be, etc.
 
+The only major missing features, to my knowledge, are: dueling, banking, shops, pvp, magic, and prayer
+
 Here is a progress update picture: https://i.imgur.com/nhmMCQc.png
 
 Please note, to run or install this software, you must have a working Go 1.11+ compiler installed, and a working C compiler, as this project uses CGo for its SQLite3 driver.
