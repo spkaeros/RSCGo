@@ -1,58 +1,60 @@
 func npcAction(player, npc) {
 	npcs = [11, 63, 72]
-    for id in npcs {
-        if npc.ID == id {
-            playerChat(player, "Hello", "How's it going?")
-            switch rand(0, 13) {
-            case 0:
-                npcChat(npc, player, "Get out of my way", "I'm in a hurry")
-            case 1:
-                sendMessage(player, "the man ignores you")
-            case 2:
-                npcChat(npc, player, "Not too bad")
-            case 3:
-                npcChat(npc, player, "Very well, thank you")
-            case 4:
-                npcChat(npc, player, "Have this flier")
-                // TODO: add Flier item, get ID from openrsc
-            case 5:
-                npcChat(npc, player, "I'm a little worried",
-                                    "I've heard there's lots of people going about,",
-                                    "killing citizens at random")
-            case 6:
-                npcChat(npc, player, "I'm fine", "How are you?")
-                playerChat(player, "Very well, thank you")
-            case 7:
-                npcChat(npc, player, "Hello")
-            case 8:
-                npcChat(npc, player, "Who are you?")
-                playerChat(player, "I am a bold adventurer")
-                npcChat(npc, player, "A very noble profession")
-            case 9:
-                npcChat(npc, player, "Not too bad", "I'm a little worried about the increase in Goblins these days")
-                playerChat(player, "Don't worry.  I'll kill them")
-            case 10:
-                npcChat(npc, player, "Hello", "Nice weather we've been having")
-            case 11:
-                npcChat(npc, player, "No, I don't want to buy anything")
-            case 12:
-                npcChat(npc, player, "Do I know you?")
-                playerChat(player, "No, I was just wondering if you had anything interesting to say")
-            case 13:
-                npcChat(npc, player, "How can I help you?")
-                switch openOptionMenu(player, "Do you wish to trade?", "I'm in search of a quest", "I'm in search of enemies to kill") {
-               	case 0:
-               		npcChat(npc, player, "No, I have nothing I wish to get rid of",
-   		             					"If you want some trading,",
-   		             					"there are plenty of shops and market stalls around though")
-   		        case 1:
-   		        	npcChat(npc, player, "I'm sorry I can't help you there")
-   		        case 2:
-   		        	npcChat(npc, player, "I've heard there are many fearsome creatures under the ground")
-                }
-            }
-            return true
-        }
-    }
+	for id in npcs {
+		if npc.ID == id {
+			playerChat(player, "Hello", "How's it going?")
+			switch rand(0, 13) {
+			case 0:
+				npcChat(npc, player, "Get out of my way", "I'm in a hurry")
+			case 1:
+				sendMessage(player, "the man ignores you")
+			case 2:
+				npcChat(npc, player, "Not too bad")
+			case 3:
+				npcChat(npc, player, "Very well, thank you")
+			case 4:
+				npcChat(npc, player, "Have this flier")
+				// TODO: add Flier item, get ID from openrsc
+			case 5:
+				npcChat(npc, player, "I'm a little worried",
+									 "I've heard there's lots of people going about,",
+									 "killing citizens at random")
+			case 6:
+				npcChat(npc, player, "I'm fine", "How are you?")
+				playerChat(player, "Very well, thank you")
+			case 7:
+				npcChat(npc, player, "Hello")
+			case 8:
+				npcChat(npc, player, "Who are you?")
+				playerChat(player, "I am a bold adventurer")
+				npcChat(npc, player, "A very noble profession")
+			case 9:
+				npcChat(npc, player, "Not too bad", "I'm a little worried about the increase in Goblins these days")
+				playerChat(player, "Don't worry.  I'll kill them")
+			case 10:
+				npcChat(npc, player, "Hello", "Nice weather we've been having")
+			case 11:
+				npcChat(npc, player, "No, I don't want to buy anything")
+			case 12:
+				npcChat(npc, player, "Do I know you?")
+				playerChat(player, "No, I was just wondering if you had anything interesting to say")
+			case 13:
+				npcChat(npc, player, "How can I help you?")
+				switch openOptionMenu(player, "Do you wish to trade?",
+											 "I'm in search of a quest",
+											 "I'm in search of enemies to kill") {
+				case 0:
+					npcChat(npc, player, "No, I have nothing I wish to get rid of",
+										 "If you want some trading,",
+										 "there are plenty of shops and market stalls around though")
+				case 1:
+					npcChat(npc, player, "I'm sorry I can't help you there")
+				case 2:
+					npcChat(npc, player, "I've heard there are many fearsome creatures under the ground")
+				}
+			}
+			return true
+		}
+	}
 	return false
 }

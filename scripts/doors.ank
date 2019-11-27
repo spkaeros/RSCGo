@@ -1,14 +1,14 @@
 func objectAction(player, object) {
 	doors = {59: 60, 57: 58, 63: 64}
-    for open, closed in doors {
-        if object.ID == open {
-            replaceObject(object, closed)
-            return true
-        } else if object.ID == closed {
-            replaceObject(object, open)
-            return true
-        }
-    }
+	for open, closed in doors {
+		if object.ID == open {
+			replaceObject(object, closed)
+			return true
+		} else if object.ID == closed {
+			replaceObject(object, open)
+			return true
+		}
+	}
 	return false
 }
 
