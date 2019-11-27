@@ -4,6 +4,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
+	"github.com/spkaeros/rscgo/pkg/server/world"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
@@ -92,5 +93,16 @@ func init() {
 				return
 			}
 		}
+	}
+	PacketHandlers["chooseoption"] = func(c clients.Client, p *packet.Packet) {
+		choice := p.ReadByte()
+		if c.Player().State != world.MSMenuChoosing {
+			return
+		}
+		if choice < 0 {
+			return
+		}
+		c.Player().State = world.MSBusy
+		c.Player().OptionMenuC <- int8(choice)
 	}
 }

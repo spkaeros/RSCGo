@@ -129,20 +129,31 @@ func init() {
 		c.Player().SetDistancedAction(func() bool {
 			if c.Player().NextTo(npc.Location) && c.Player().WithinRange(npc.Location, 1) {
 				c.Player().ResetPath()
-				for _, fn := range script.NpcTriggers {
-					ran, err := fn(context.Background(), reflect.ValueOf(c.Player()), reflect.ValueOf(npc))
-					if !ran.IsValid() {
-						continue
+				npc.ResetPath()
+				c.Player().SetDirection(c.Player().DirectionTo(npc.X(), npc.Y()))
+				npc.SetDirection(npc.DirectionTo(c.Player().X(), c.Player().Y()))
+				c.Player().State = world.MSBusy
+				npc.State = world.MSBusy
+				go func() {
+					defer func() {
+						c.Player().State = world.MSIdle
+						npc.State = world.MSIdle
+					}()
+					for _, fn := range script.NpcTriggers {
+						ran, err := fn(context.Background(), reflect.ValueOf(c.Player()), reflect.ValueOf(npc))
+						if !ran.IsValid() {
+							continue
+						}
+						if !err.IsNil() {
+							log.Info.Println(err)
+							continue
+						}
+						if ran.Bool() {
+							return
+						}
 					}
-					if !err.IsNil() {
-						log.Info.Println(err)
-						continue
-					}
-					if ran.Bool() {
-						return true
-					}
-				}
-				c.SendPacket(packetbuilders.ServerMessage("The " + world.NpcDefs[npc.ID].Name + " does not appear interested in talking"))
+					c.SendPacket(packetbuilders.ServerMessage("The " + world.NpcDefs[npc.ID].Name + " does not appear interested in talking"))
+				}()
 				return true
 			} else {
 				c.Player().SetPath(world.MakePath(c.Player().Location, npc.Location))

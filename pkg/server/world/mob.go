@@ -353,7 +353,7 @@ func (n *NPC) SetLocation(l Location, teleport bool) {
 //SetCoords Sets the mobs locations coordinates.
 func (m *Mob) SetCoords(x, y int, teleport bool) {
 	if !teleport {
-		m.SetDirection(m.directionTo(x, y))
+		m.SetDirection(m.DirectionTo(x, y))
 		m.Move()
 	} else {
 		m.Remove()
@@ -697,7 +697,7 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 func UpdateNPCPositions() {
 	npcsLock.RLock()
 	for _, n := range Npcs {
-		if n.TransAttrs.VarBool("fighting", false) || n.Equals(DeathSpot) {
+		if n.State != MSIdle || n.TransAttrs.VarBool("fighting", false) || n.Equals(DeathSpot) {
 			continue
 		}
 		if n.TransAttrs.VarTime("nextMove").Before(time.Now()) {

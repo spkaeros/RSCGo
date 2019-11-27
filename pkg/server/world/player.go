@@ -32,7 +32,8 @@ type Player struct {
 	TradeOffer       *Inventory
 	DistancedAction  func() bool
 	ActionLock       sync.RWMutex
-	OutgoingPackets chan *packet.Packet
+	OutgoingPackets  chan *packet.Packet
+	OptionMenuC 	 chan int8
 	IP               string
 	UID              uint8
 	Websocket        bool
@@ -169,7 +170,7 @@ func (p *Player) NextTo(target Location) bool {
 	curLoc := NewLocation(p.X(), p.Y())
 	for !curLoc.Equals(target) {
 		nextTile := curLoc.NextTileToward(target)
-		dir := curLoc.directionTo(nextTile.X(), nextTile.Y())
+		dir := curLoc.DirectionTo(nextTile.X(), nextTile.Y())
 		switch dir {
 		case North:
 			if IsTileBlocking(nextTile.X(), nextTile.Y(), WallSouth, true) {
@@ -422,7 +423,7 @@ func (p *Player) SendPacket(packet *packet.Packet) {
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer(index int, ip string) *Player {
-	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Location{atomic.NewUint32(0), atomic.NewUint32(0)}}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})}, LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, LocalItems: &List{}, IP: ip, OutgoingPackets: make(chan *packet.Packet, 20)}
+	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Location{atomic.NewUint32(0), atomic.NewUint32(0)}}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})}, LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, LocalItems: &List{}, IP: ip, OutgoingPackets: make(chan *packet.Packet, 20), OptionMenuC: make(chan int8)}
 	p.Equips[0] = p.Appearance.Head
 	p.Equips[1] = p.Appearance.Body
 	p.Equips[2] = p.Appearance.Legs

@@ -86,7 +86,7 @@ func init() {
 			c.Player().SetDistancedAction(func() bool {
 				if c.Player().FinishedPath() {
 					if c.Player().Items.Remove(index, item.Amount) {
-						world.AddItem(world.NewGroundItemFrom(c.Player().UserBase37, item.ID, item.Amount, c.Player().X(), c.Player().Y()))
+						world.AddItem(world.NewGroundItemFor(c.Player().UserBase37, item.ID, item.Amount, c.Player().X(), c.Player().Y()))
 						c.SendPacket(packetbuilders.InventoryItems(c.Player()))
 					}
 					return true

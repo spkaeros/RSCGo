@@ -13,6 +13,7 @@ import (
 	"github.com/mattn/anko/core"
 	"github.com/mattn/anko/packages"
 	"github.com/mattn/anko/vm"
+	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
@@ -92,20 +93,57 @@ func WorldModule() *vm.Env {
 		"HERBLAW": world.StatHerblaw,
 		"AGILITY": world.StatAgility,
 		"THIEVING": world.StatThieving,
+		"IDLE": world.MSIdle,
+		"BUSY": world.MSBusy,
+		"MENUCHOOSING": world.MSMenuChoosing,
 		"teleport": func(player *world.Player, x, y int) {
 			player.Teleport(x, y)
 		},
-		"npcChat": func(sender *world.NPC, target *world.Player, msg string) {
-			for _, player := range target.NearbyPlayers() {
-				player.SendPacket(packetbuilders.NpcMessage(sender, msg, target))
-			}
-			target.SendPacket(packetbuilders.NpcMessage(sender, msg, target))
+		"openOptionMenu": func(player *world.Player, questions ...string) {
+			player.SendPacket(packetbuilders.OptionMenuOpen(questions...))
+			player.State = world.MSMenuChoosing
 		},
-		"playerChat": func(sender *world.Player, msg string) {
-			for _, player := range sender.NearbyPlayers() {
-				player.SendPacket(packetbuilders.PlayerMessage(sender, msg))
+		"handleOptionChoice": func(player *world.Player, options ...string) int {
+			if player.State != world.MSMenuChoosing {
+				return -1
 			}
-			sender.SendPacket(packetbuilders.PlayerMessage(sender, msg))
+			select {
+			case reply := <-player.OptionMenuC:
+				if reply < 0 || int(reply) > len(options) {
+					return -1
+				}
+
+				for _, player2 := range player.NearbyPlayers() {
+					player2.SendPacket(packetbuilders.PlayerMessage(player, options[reply]))
+				}
+				player.SendPacket(packetbuilders.PlayerMessage(player, options[reply]))
+				time.Sleep(time.Millisecond * 1800)
+				return int(reply)
+			case <-time.After(time.Second * 10):
+				return -1
+			}
+		},
+		"closeOptionMenu": func(player *world.Player, questions ...string) {
+			player.SendPacket(packetbuilders.OptionMenuClose)
+		},
+		"rand": rand.Int31N,
+		"npcChat": func(sender *world.NPC, target *world.Player, msgs ...string) {
+			for _, msg := range msgs {
+				for _, player := range target.NearbyPlayers() {
+					player.SendPacket(packetbuilders.NpcMessage(sender, msg, target))
+				}
+				target.SendPacket(packetbuilders.NpcMessage(sender, msg, target))
+				time.Sleep(time.Millisecond * 1800)
+			}
+		},
+		"playerChat": func(sender *world.Player, msg ...string) {
+			for _, s := range msg {
+				for _, player := range sender.NearbyPlayers() {
+					player.SendPacket(packetbuilders.PlayerMessage(sender, s))
+				}
+				sender.SendPacket(packetbuilders.PlayerMessage(sender, s))
+				time.Sleep(time.Millisecond * 1800)
+			}
 		},
 		"playerDamage": func(target *world.Player, damage int) {
 			for _, player := range target.NearbyPlayers() {
@@ -219,6 +257,11 @@ func WorldModule() *vm.Env {
 		return nil
 	}
 	err = env.DefineGlobal("runAfter", time.AfterFunc)
+	if err != nil {
+		log.Warning.Println("Error initializing VM parameters:", err)
+		return nil
+	}
+	err = env.DefineGlobal("after", time.After)
 	if err != nil {
 		log.Warning.Println("Error initializing VM parameters:", err)
 		return nil

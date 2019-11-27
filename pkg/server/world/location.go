@@ -78,7 +78,7 @@ func NewLocation(x, y int) Location {
 	return Location{x: atomic.NewUint32(uint32(x)), y: atomic.NewUint32(uint32(y))}
 }
 
-func (l Location) directionTo(destX, destY int) int {
+func (l Location) DirectionTo(destX, destY int) int {
 	sprites := [3][3]int{{SouthWest, West, NorthWest}, {South, -1, North}, {SouthEast, East, NorthEast}}
 	xIndex, yIndex := l.X()-destX+1, l.Y()-destY+1
 	if xIndex >= 3 || yIndex >= 3 {

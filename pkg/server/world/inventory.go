@@ -21,6 +21,9 @@ type ItemDefinition struct {
 	Members     bool
 }
 
+//ItemDefs This holds the defining characteristics for all of the game's items, ordered by ID.
+var ItemDefs []ItemDefinition
+
 type EquipmentDefinition struct {
 	ID       int
 	Sprite   int
@@ -35,10 +38,7 @@ type EquipmentDefinition struct {
 	Female   bool
 }
 
-var Equipment []EquipmentDefinition
-
-//ItemDefs This holds the defining characteristics for all of the game's items, ordered by ID.
-var ItemDefs []ItemDefinition
+var EquipmentDefs []EquipmentDefinition
 
 //Item Represents a single item in the game.
 type Item struct {
@@ -73,8 +73,8 @@ func NewGroundItem(id, amount, x, y int) *GroundItem {
 	}
 }
 
-//NewGroundItemFrom Creates a new ground item with an owner in the game world and returns a reference to it.
-func NewGroundItemFrom(owner uint64, id, amount, x, y int) *GroundItem {
+//NewGroundItemFor Creates a new ground item with an owner in the game world and returns a reference to it.
+func NewGroundItemFor(owner uint64, id, amount, x, y int) *GroundItem {
 	gi := &GroundItem{owner: owner, spawnTime: time.Now(), removed: false,
 		Item: Item{
 			ID:     id,

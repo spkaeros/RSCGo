@@ -46,4 +46,5 @@ packets = [
 	{ name = 'fightmode', opcode = 29},
 	{ name = 'takeitem', opcode = 247},
 	{ name = 'removeitem', opcode = 170},
+	{ name = 'chooseoption', opcode = 116},
 ]

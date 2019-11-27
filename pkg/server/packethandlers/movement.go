@@ -15,6 +15,13 @@ func init() {
 				return
 			}
 		}
+		if c.Player().State == world.MSMenuChoosing {
+			c.Player().OptionMenuC <- -1
+			c.Player().State = world.MSIdle
+		}
+		if c.Player().State != world.MSIdle {
+			return
+		}
 		startX := p.ReadShort()
 		startY := p.ReadShort()
 		numWaypoints := (len(p.Payload) - 4) / 2
@@ -31,6 +38,9 @@ func init() {
 			c.Message("You can't do that whilst you are fighting.")
 			return
 		}
+		if c.Player().State != world.MSIdle {
+			return
+		}
 		startX := p.ReadShort()
 		startY := p.ReadShort()
 		numWaypoints := (len(p.Payload) - 4) / 2
@@ -43,6 +53,9 @@ func init() {
 		c.Player().SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
 	}
 	PacketHandlers["followreq"] = func(c clients.Client, p *packet.Packet) {
+		if c.Player().State != world.MSIdle {
+			return
+		}
 		playerID := p.ReadShort()
 		affectedClient, ok := clients.FromIndex(playerID)
 		if !ok {

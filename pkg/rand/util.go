@@ -45,7 +45,7 @@ func Int31n(bound int) int {
 
 //Int31N Returns a randomized 31-bit signed integer from the ISAAC instance seeded by the system CSPRNG, landing between low and high.
 func Int31N(low, high int) int {
-	return Int31n(high-low) + low
+	return Int31n((high+1)-low) + low
 }
 
 //Uint64 Gets 8 random bytes of data from the PRNG and returns them as a single 64-bit long integer

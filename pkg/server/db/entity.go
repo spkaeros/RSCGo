@@ -8,7 +8,7 @@ import (
 )
 
 func GetEquipmentDefinition(id int) *world.EquipmentDefinition {
-	for _, e := range world.Equipment {
+	for _, e := range world.EquipmentDefs {
 		if e.ID == id {
 			return &e
 		}
@@ -49,7 +49,7 @@ func LoadEquipmentDefinitions() {
 	for rows.Next() {
 		nextDef := world.EquipmentDefinition{}
 		rows.Scan(&nextDef.ID, &nextDef.Sprite, &nextDef.Type, &nextDef.Armour, &nextDef.Magic, &nextDef.Prayer, &nextDef.Ranged, &nextDef.Aim, &nextDef.Power, &nextDef.Position, &nextDef.Female)
-		world.Equipment = append(world.Equipment, nextDef)
+		world.EquipmentDefs = append(world.EquipmentDefs, nextDef)
 	}
 }
 

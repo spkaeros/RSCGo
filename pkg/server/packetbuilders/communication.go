@@ -117,8 +117,9 @@ func PlayerMessage(sender *world.Player, message string) (p *packet.Packet) {
 		message = message[:255]
 	}
 	message = strutil.ChatFilter.Format(message)
-	p.AddByte(uint8(len(message)))
-	for _, c := range strutil.ChatFilter.Pack(message) {
+	messageRaw := strutil.ChatFilter.Pack(message)
+	p.AddByte(uint8(len(messageRaw)))
+	for _, c := range messageRaw {
 		p.AddByte(c)
 	}
 	return
@@ -133,3 +134,15 @@ func PrivacySettings(player *world.Player) *packet.Packet {
 	p.AddBool(player.DuelBlocked())
 	return p
 }
+
+func OptionMenuOpen(questions ...string) *packet.Packet {
+	p := packet.NewOutgoingPacket(245)
+	p.AddByte(uint8(len(questions)))
+	for _, question := range questions {
+		p.AddByte(uint8(len(question)))
+		p.AddBytes([]byte(question))
+	}
+	return p
+}
+
+var OptionMenuClose = packet.NewOutgoingPacket(252)
