@@ -46,13 +46,35 @@ type Mob struct {
 }
 
 type MobileEntity interface {
-	CurX() int
-	CurY() int
+	X() int
+	Y() int
 	Stats() *SkillTable
 	MeleeDamage(target MobileEntity) int
 	Defense(float32) float32
 	ResetFighting()
 	Transients() *AttributeList
+	Busy() bool
+	Move()
+	Remove()
+	SetX(int)
+	SetY(int)
+	SetCoords(int, int, bool)
+	Teleport(int, int)
+	Direction() int
+	SetDirection(int)
+	Change()
+	ResetMoved()
+	ResetRemoved()
+	ResetChanged()
+	Path() *Pathway
+	ResetPath()
+	SetPath(*Pathway)
+	TraversePath()
+	UpdateSelf()
+	ResetNeedsSelf()
+	FinishedPath() bool
+	SetLocation(Location, bool)
+
 }
 
 func (m *Mob) Transients() *AttributeList {
@@ -120,6 +142,13 @@ func (m *Mob) SetPath(path *Pathway) {
 	m.TransAttrs.SetVar("path", path)
 }
 
+func (m *Mob) WalkTo(end Location) {
+	path := MakePath(m.Location, end)
+	EngineChannel <- func() {
+		m.SetPath(path)
+	}
+}
+
 //Path returns the path that this mob is trying to traverse.
 func (m *Mob) Path() *Pathway {
 	return m.TransAttrs.VarPath("path")
@@ -132,93 +161,170 @@ func (m *Mob) ResetPath() {
 }
 
 //TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
-func (m *Mob) TraversePath() Location {
-	path := m.Path()
+func (p *Player) TraversePath() {
+	path := p.Path()
 	if path == nil {
-		return m.Location
+		return
 	}
-	if m.AtLocation(path.NextWaypointTile()) {
+	if p.AtLocation(path.NextWaypointTile()) {
 		path.CurrentWaypoint++
 	}
-	if m.FinishedPath() {
-		m.ResetPath()
-		return m.Location
+	if p.FinishedPath() {
+		p.ResetPath()
+		return
 	}
 	dst := path.NextWaypointTile()
-	x, y := m.CurX(), m.CurY()
+	x, y := p.X(), p.Y()
 	next := NewLocation(x, y)
 	xBlocked, yBlocked := false, false
 	newXBlocked, newYBlocked := false, false
-	if y > dst.CurY() {
+	if y > dst.Y() {
 		yBlocked = IsTileBlocking(x, y, 1, true)
 		newYBlocked = IsTileBlocking(x, y-1, 4, false)
 		if !newYBlocked {
-			next.Y.Dec()
+			next.y.Dec()
 		}
-	} else if y < dst.CurY() {
+	} else if y < dst.Y() {
 		yBlocked = IsTileBlocking(x, y, 4, true)
 		newYBlocked = IsTileBlocking(x, y+1, 1, false)
 		if !newYBlocked {
-			next.Y.Inc()
+			next.y.Inc()
 		}
 	}
-	if x > dst.CurX() {
-		xBlocked = IsTileBlocking(x, next.CurY(), 2, true)
-		newXBlocked = IsTileBlocking(x-1, next.CurY(), 8, false)
+	if x > dst.X() {
+		xBlocked = IsTileBlocking(x, next.Y(), 2, true)
+		newXBlocked = IsTileBlocking(x-1, next.Y(), 8, false)
 		if !newXBlocked {
-			next.X.Dec()
+			next.x.Dec()
 		}
-	} else if x < dst.CurX() {
-		xBlocked = IsTileBlocking(x, next.CurY(), 8, true)
-		newXBlocked = IsTileBlocking(x+1, next.CurY(), 2, false)
+	} else if x < dst.X() {
+		xBlocked = IsTileBlocking(x, next.Y(), 8, true)
+		newXBlocked = IsTileBlocking(x+1, next.Y(), 2, false)
 		if !newXBlocked {
-			next.X.Inc()
+			next.x.Inc()
 		}
 	}
 
-	if (xBlocked && yBlocked) || (xBlocked && y == dst.CurY()) || (yBlocked && x == dst.CurX()) {
-		m.ResetPath()
-		return m.Location
+	if (xBlocked && yBlocked) || (xBlocked && y == dst.Y()) || (yBlocked && x == dst.X()) {
+		p.ResetPath()
+		return
 	}
-	if (newXBlocked && newYBlocked) || (newXBlocked && x != next.CurX() && y == next.CurY()) || (newYBlocked && y != next.CurY() && x == next.CurX()) {
-		m.ResetPath()
-		return m.Location
-	}
-
-	if next.CurX() > x {
-		newXBlocked = IsTileBlocking(next.CurX(), next.CurY(), 2, false)
-	} else if next.CurX() < x {
-		newXBlocked = IsTileBlocking(next.CurX(), next.CurY(), 8, false)
-	}
-	if next.CurY() > y {
-		newYBlocked = IsTileBlocking(next.CurX(), next.CurY(), 1, false)
-	} else if next.CurY() < y {
-		newYBlocked = IsTileBlocking(next.CurX(), next.CurY(), 4, false)
+	if (newXBlocked && newYBlocked) || (newXBlocked && x != next.X() && y == next.Y()) || (newYBlocked && y != next.Y() && x == next.X()) {
+		p.ResetPath()
+		return
 	}
 
-	if (newXBlocked && newYBlocked) || (newXBlocked && y == next.CurY()) || (newYBlocked && x == next.CurX()) {
-		m.ResetPath()
-		return m.Location
+	if next.X() > x {
+		newXBlocked = IsTileBlocking(next.X(), next.Y(), 2, false)
+	} else if next.X() < x {
+		newXBlocked = IsTileBlocking(next.X(), next.Y(), 8, false)
+	}
+	if next.Y() > y {
+		newYBlocked = IsTileBlocking(next.X(), next.Y(), 1, false)
+	} else if next.Y() < y {
+		newYBlocked = IsTileBlocking(next.X(), next.Y(), 4, false)
 	}
 
-	return next
+	if (newXBlocked && newYBlocked) || (newXBlocked && y == next.Y()) || (newYBlocked && x == next.X()) {
+		p.ResetPath()
+		return
+	}
+
+	p.SetLocation(next, false)
 }
 
-func UpdateRegionMob(m MobileEntity, x, y int) {
-	curArea := GetRegion(m.CurX(), m.CurY())
+//TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
+func (n *NPC) TraversePath() {
+	path := n.Path()
+	if path == nil {
+		return
+	}
+	if n.AtLocation(path.NextWaypointTile()) {
+		path.CurrentWaypoint++
+	}
+	if n.FinishedPath() {
+		n.ResetPath()
+		return
+	}
+	dst := path.NextWaypointTile()
+	x, y := n.X(), n.Y()
+	next := NewLocation(x, y)
+	xBlocked, yBlocked := false, false
+	newXBlocked, newYBlocked := false, false
+	if y > dst.Y() {
+		yBlocked = IsTileBlocking(x, y, 1, true)
+		newYBlocked = IsTileBlocking(x, y-1, 4, false)
+		if !newYBlocked {
+			next.y.Dec()
+		}
+	} else if y < dst.Y() {
+		yBlocked = IsTileBlocking(x, y, 4, true)
+		newYBlocked = IsTileBlocking(x, y+1, 1, false)
+		if !newYBlocked {
+			next.y.Inc()
+		}
+	}
+	if x > dst.X() {
+		xBlocked = IsTileBlocking(x, next.Y(), 2, true)
+		newXBlocked = IsTileBlocking(x-1, next.Y(), 8, false)
+		if !newXBlocked {
+			next.x.Dec()
+		}
+	} else if x < dst.X() {
+		xBlocked = IsTileBlocking(x, next.Y(), 8, true)
+		newXBlocked = IsTileBlocking(x+1, next.Y(), 2, false)
+		if !newXBlocked {
+			next.x.Inc()
+		}
+	}
+
+	if (xBlocked && yBlocked) || (xBlocked && y == dst.Y()) || (yBlocked && x == dst.X()) {
+		n.ResetPath()
+		return
+	}
+	if (newXBlocked && newYBlocked) || (newXBlocked && x != next.X() && y == next.Y()) || (newYBlocked && y != next.Y() && x == next.X()) {
+		n.ResetPath()
+		return
+	}
+
+	if next.X() > x {
+		newXBlocked = IsTileBlocking(next.X(), next.Y(), 2, false)
+	} else if next.X() < x {
+		newXBlocked = IsTileBlocking(next.X(), next.Y(), 8, false)
+	}
+	if next.Y() > y {
+		newYBlocked = IsTileBlocking(next.X(), next.Y(), 1, false)
+	} else if next.Y() < y {
+		newYBlocked = IsTileBlocking(next.X(), next.Y(), 4, false)
+	}
+
+	if (newXBlocked && newYBlocked) || (newXBlocked && y == next.Y()) || (newYBlocked && x == next.X()) {
+		n.ResetPath()
+		return
+	}
+
+	n.SetLocation(next, false)
+}
+
+func (p *Player) UpdateRegion(x, y int) {
+	curArea := GetRegion(p.X(), p.Y())
 	newArea := GetRegion(x, y)
 	if newArea != curArea {
-		if _, ok := m.(*Player); ok {
-			if curArea.Players.Contains(m) {
-				curArea.Players.Remove(m)
-			}
-			newArea.Players.Add(m)
-		} else if _, ok := m.(*NPC); ok {
-			if curArea.NPCs.Contains(m) {
-				curArea.NPCs.Remove(m)
-			}
-			newArea.NPCs.Add(m)
+		if curArea.Players.Contains(p) {
+			curArea.Players.Remove(p)
 		}
+		newArea.Players.Add(p)
+	}
+}
+
+func (n *NPC) UpdateRegion(x, y int) {
+	curArea := GetRegion(n.X(), n.Y())
+	newArea := GetRegion(x, y)
+	if newArea != curArea {
+		if curArea.NPCs.Contains(n) {
+			curArea.NPCs.Remove(n)
+		}
+		newArea.NPCs.Add(n)
 	}
 }
 
@@ -232,53 +338,48 @@ func (m *Mob) FinishedPath() bool {
 }
 
 //SetLocation Sets the mobs location.
-func (m *Mob) SetLocation(location Location) {
-	x := location.CurX()
-	y := location.CurY()
-	m.SetDirection(m.directionTo(x, y))
-	m.SetCoords(x, y)
+func (m *Mob) SetLocation(location Location, teleport bool) {
+	m.SetCoords(location.X(), location.Y(), teleport)
 }
 
-func (p *Player) SetLocation(l Location) {
-	UpdateRegionMob(p, l.CurX(), l.CurY())
-	p.Mob.SetLocation(l)
+func (p *Player) SetLocation(l Location, teleport bool) {
+	p.UpdateRegion(l.X(), l.Y())
+	p.Mob.SetLocation(l, teleport)
 }
 
-func (n *NPC) SetLocation(l Location) {
-	UpdateRegionMob(n, l.CurX(), l.CurY())
-	n.Mob.SetLocation(l)
+func (n *NPC) SetLocation(l Location, teleport bool) {
+	n.UpdateRegion(l.X(), l.Y())
+	n.Mob.SetLocation(l, teleport)
 }
 
 //SetCoords Sets the mobs locations coordinates.
-func (m *Mob) SetCoords(x, y int) {
+func (m *Mob) SetCoords(x, y int, teleport bool) {
+	if !teleport {
+		m.SetDirection(m.directionTo(x, y))
+		m.Move()
+	} else {
+		m.Remove()
+	}
 	m.SetX(x)
 	m.SetY(y)
 }
 
-func (p *Player) SetCoords(x, y int) {
-	UpdateRegionMob(p, x, y)
-	p.Mob.SetCoords(x, y)
+func (p *Player) SetCoords(x, y int, teleport bool) {
+	p.UpdateRegion(x, y)
+	p.Mob.SetCoords(x, y, teleport)
 }
 
-func (n *NPC) SetCoords(x, y int) {
-	UpdateRegionMob(n, x, y)
-	n.Mob.SetCoords(x, y)
-}
-
-//Teleport Moves the mob to x,y and sets a flag to remove said mob from the local players list of every nearby player.
-func (m *Mob) Teleport(x, y int) {
-	m.Remove()
-	m.SetCoords(x, y)
+func (n *NPC) SetCoords(x, y int, teleport bool) {
+	n.UpdateRegion(x, y)
+	n.Mob.SetCoords(x, y, teleport)
 }
 
 func (p *Player) Teleport(x, y int) {
-	UpdateRegionMob(p, x, y)
-	p.Mob.Teleport(x, y)
+	p.SetCoords(x, y, true)
 }
 
 func (n *NPC) Teleport(x, y int) {
-	UpdateRegionMob(n, x, y)
-	n.Mob.Teleport(x, y)
+	n.SetCoords(x, y, true)
 }
 
 //ResetFighting Resets melee fight related variables
@@ -565,7 +666,7 @@ var npcsLock sync.RWMutex
 
 //NPC Represents a single non-playable character within the game world.
 type NPC struct {
-	Mob
+	*Mob
 	ID         int
 	Boundaries [2]Location
 	StartPoint Location
@@ -573,7 +674,7 @@ type NPC struct {
 
 //NewNpc Creates a new NPC and returns a reference to it
 func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
-	n := &NPC{ID: id, Mob: Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: NewLocation(startX,startY)}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}}
+	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: NewLocation(startX,startY)}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}}
 	n.Boundaries[0] = NewLocation(minX, minY)
 	n.Boundaries[1] = NewLocation(maxX, maxY)
 	n.StartPoint = NewLocation(startX, startY)
@@ -603,13 +704,12 @@ func UpdateNPCPaths() {
 			continue
 		}
 		if n.TransAttrs.VarTime("nextMove").Before(time.Now()) {
-			for _, r := range SurroundingRegions(n.CurX(), n.CurY()) {
+			for _, r := range SurroundingRegions(n.X(), n.Y()) {
 				r.Players.lock.RLock()
 				if len(r.Players.List) > 0 {
 					r.Players.lock.RUnlock()
 					n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
-					n.SetPath(MakePath(n.Location, NewRandomLocation(n.Boundaries)))
-					//n.SetPath(NewPathwayToLocation(NewRandomLocation(n.Boundaries)))
+					n.WalkTo(NewRandomLocation(n.Boundaries))
 					break
 				}
 				r.Players.lock.RUnlock()
@@ -624,12 +724,7 @@ func UpdateNPCPaths() {
 func UpdateNPCPositions() {
 	npcsLock.RLock()
 	for _, n := range Npcs {
-
-		nextTile := n.TraversePath()
-		if nextTile.LongestDelta(n.Location) > 0 {
-			n.SetLocation(nextTile)
-			n.Move()
-		}
+		n.TraversePath()
 	}
 	npcsLock.RUnlock()
 }

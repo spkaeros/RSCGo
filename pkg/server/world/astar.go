@@ -29,8 +29,8 @@ type Pathfinder struct {
 //NewPathfinder Returns a new A* pathfinder instance to derive an optimal path from start to end.
 func NewPathfinder(start, end Location) *Pathfinder {
 	p := &Pathfinder{start: start, end: end, nodes: make(map[int]*Node), open: []*Node{{loc: start, open: true}}}
-	p.nodes[start.CurX() << 32 | start.CurY()] = p.open[0]
-	p.nodes[end.CurX() << 32 | end.CurY()] = &Node{loc: end, open: true}
+	p.nodes[start.X() << 32 | start.Y()] = p.open[0]
+	p.nodes[end.X() << 32 | end.Y()] = &Node{loc: end, open: true}
 	return p
 }
 
@@ -94,7 +94,7 @@ func (p *Pathfinder) compare(active, other *Node) {
 }
 
 func (p *Pathfinder) MakePath() *Pathway {
-	if IsTileBlocking(p.end.CurX(), p.end.CurY(), 0x40, false) {
+	if IsTileBlocking(p.end.X(), p.end.Y(), 0x40, false) {
 		return NewPathwayToLocation(p.end)
 	}
 	for len(p.open) > 0 {
@@ -105,7 +105,7 @@ func (p *Pathfinder) MakePath() *Pathway {
 		}
 		p.removeOpen(active)
 
-		x, y := position.CurX(), position.CurY()
+		x, y := position.X(), position.Y()
 		for nextX := x - 1; nextX <= x + 1; nextX++ {
 			for nextY := y - 1; nextY <= y + 1; nextY++ {
 				if nextX == x && nextY == y {
@@ -114,7 +114,7 @@ func (p *Pathfinder) MakePath() *Pathway {
 
 				adj := NewLocation(nextX, nextY)
 				sprites := [3][3]int{{SouthWest, West, NorthWest}, {South, -1, North}, {SouthEast, East, NorthEast}}
-				xIndex, yIndex := position.CurX()-adj.CurX()+1, position.CurY()-adj.CurY()+1
+				xIndex, yIndex := position.X()-adj.X()+1, position.Y()-adj.Y()+1
 				nextTileMask := 4
 				curTileMask := 1
 				if xIndex < 0 || xIndex >= 3 {
@@ -150,41 +150,41 @@ func (p *Pathfinder) MakePath() *Pathway {
 					nextTileMask = WallNorth | WallEast
 					curTileMask = WallSouth | WallEast
 				}
-				if !IsTileBlocking(position.CurX(), position.CurY(), byte(curTileMask), true) && !IsTileBlocking(adj.CurX(), adj.CurY(), byte(nextTileMask), false) {
+				if !IsTileBlocking(position.X(), position.Y(), byte(curTileMask), true) && !IsTileBlocking(adj.X(), adj.Y(), byte(nextTileMask), false) {
 					switch dir {
 					case NorthEast:
-						if IsTileBlocking(position.CurX(), position.CurY()-1, byte(nextTileMask), false) {
+						if IsTileBlocking(position.X(), position.Y()-1, byte(nextTileMask), false) {
 							continue
 						}
-						if IsTileBlocking(position.CurX()-1, position.CurY(), byte(nextTileMask), false) {
+						if IsTileBlocking(position.X()-1, position.Y(), byte(nextTileMask), false) {
 							continue
 						}
 					case NorthWest:
-						if IsTileBlocking(position.CurX(), position.CurY()-1, byte(nextTileMask), false) {
+						if IsTileBlocking(position.X(), position.Y()-1, byte(nextTileMask), false) {
 							continue
 						}
-						if IsTileBlocking(position.CurX()+1, position.CurY(), byte(nextTileMask), false) {
+						if IsTileBlocking(position.X()+1, position.Y(), byte(nextTileMask), false) {
 							continue
 						}
 					case SouthEast:
-						if IsTileBlocking(position.CurX(), position.CurY()+1, byte(nextTileMask), false) {
+						if IsTileBlocking(position.X(), position.Y()+1, byte(nextTileMask), false) {
 							continue
 						}
-						if IsTileBlocking(position.CurX()-1, position.CurY(), byte(nextTileMask), false) {
+						if IsTileBlocking(position.X()-1, position.Y(), byte(nextTileMask), false) {
 							continue
 						}
 					case SouthWest:
-						if IsTileBlocking(position.CurX(), position.CurY()+1, byte(nextTileMask), false) {
+						if IsTileBlocking(position.X(), position.Y()+1, byte(nextTileMask), false) {
 							continue
 						}
-						if IsTileBlocking(position.CurX()+1, position.CurY(), byte(nextTileMask), false) {
+						if IsTileBlocking(position.X()+1, position.Y(), byte(nextTileMask), false) {
 							continue
 						}
 					}
-					node, ok := p.nodes[adj.CurX() << 32 | adj.CurY()]//&Node{loc: adj, open: true}
+					node, ok := p.nodes[adj.X() << 32 | adj.Y()] //&Node{loc: adj, open: true}
 					if !ok {
 						node = &Node{loc:adj, open:true}
-						p.nodes[adj.CurX() << 32 | adj.CurY()] = node
+						p.nodes[adj.X() << 32 | adj.Y()] = node
 					}
 					p.compare(active, node)
 				}
@@ -194,11 +194,11 @@ func (p *Pathfinder) MakePath() *Pathway {
 
 	path := &Pathway{StartX: 0, StartY: 0}
 
-	active := p.nodes[p.end.CurX() << 32 | p.end.CurY()]
+	active := p.nodes[p.end.X() << 32 | p.end.Y()]
 	if active.parent != nil {
 		position := active.loc
 		for !p.start.Equals(position) {
-			path.AddWaypoint(position.CurX(), position.CurY())
+			path.AddWaypoint(position.X(), position.Y())
 			active = active.parent
 			position = active.loc
 		}

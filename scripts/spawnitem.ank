@@ -21,8 +21,8 @@ addCommand("item", func(player, args) {
 		} else {
 			player.Items.Add(id, amount)
 		}
-		player.SendPacket(packets.InventoryItems(player))
+		sendInventory(player)
 	} catch e {
-		player.SendPacket(packets.ServerMessage("Invalid syntax.  Usage: ::item <id> (<amount>)"))
+		sendMessage(player, "Invalid syntax.  Usage: ::item <id> (<amount>)")
 	}
 })

@@ -146,7 +146,7 @@ func TestRead(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
-	expected := "W{3Ey%`^X%1Y:`k-Dc>e;U]}=KRdx@uhr}*<T4ia7)2&m'g($npst]jCgJBa"
+	expected := "W{3Ey%`^x%1Y:`k-Dc>e;U]}=KRdx@uhr}*<T4ia7)2&m'g($npst]jCgJBa"
 	rng := New(make([]uint64, 256))
 	next := rng.String(60)
 	if expected != next {

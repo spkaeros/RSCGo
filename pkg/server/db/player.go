@@ -326,7 +326,7 @@ func SavePlayer(player *world.Player) {
 		return
 	}
 	updateLocation := func() {
-		rs, err := tx.Exec("UPDATE player SET x=?, y=? WHERE id=?", player.CurX(), player.CurY(), player.DatabaseIndex)
+		rs, err := tx.Exec("UPDATE player SET x=?, y=? WHERE id=?", player.X(), player.Y(), player.DatabaseIndex)
 		if err != nil {
 			log.Warning.Println("Save(): UPDATE failed for player location:", err)
 			if err := tx.Rollback(); err != nil {

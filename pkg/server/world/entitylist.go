@@ -12,12 +12,12 @@ type Entity struct {
 
 //AtLocation Returns true if the entity is at the specified location, otherwise returns false
 func (e *Entity) AtLocation(location Location) bool {
-	return e.AtCoords(location.CurX(), location.CurY())
+	return e.AtCoords(location.X(), location.Y())
 }
 
 //AtCoords Returns true if the entity is at the specified coordinates, otherwise returns false
 func (e *Entity) AtCoords(x, y int) bool {
-	return e.CurX() == x && e.CurY() == y
+	return e.X() == x && e.Y() == y
 }
 
 //List Represents a list of scene entities.

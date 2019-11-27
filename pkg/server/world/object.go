@@ -29,7 +29,7 @@ type Object struct {
 }
 
 func (o *Object) String() string {
-	return fmt.Sprintf("[%v, (%v, %v)]", o.ID, o.CurX(), o.CurY())
+	return fmt.Sprintf("[%v, (%v, %v)]", o.ID, o.X(), o.Y())
 }
 
 var ObjectCounter = atomic.NewUint32(0)
@@ -46,8 +46,8 @@ func NewObject(id, direction, x, y int, boundary bool) *Object {
 
 func (o *Object) Boundaries() [2]Location {
 	dir := o.Direction
-	minX := o.CurX()
-	minY := o.CurY()
+	minX := o.X()
+	minY := o.Y()
 	maxX := minX
 	maxY := minY
 	if !o.Boundary {
@@ -74,8 +74,8 @@ func (o *Object) Boundaries() [2]Location {
 				width++
 			}
 		}
-		maxX = width + o.CurX() - 1
-		maxY = height + o.CurY() - 1
+		maxX = width + o.X() - 1
+		maxY = height + o.Y() - 1
 	} else {
 		if dir == 0 {
 			minY--

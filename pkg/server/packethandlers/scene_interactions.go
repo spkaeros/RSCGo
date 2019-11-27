@@ -27,7 +27,7 @@ func init() {
 		bounds := object.Boundaries()
 		c.Player().SetDistancedAction(func() bool {
 			if world.Objects[object.ID].Type == 2 || world.Objects[object.ID].Type == 3 {
-				if (c.Player().NextTo(bounds[1]) || c.Player().NextTo(bounds[0])) && c.Player().CurX() >= bounds[0].CurX() && c.Player().CurY() >= bounds[0].CurY() && c.Player().CurX() <= bounds[1].CurX() && c.Player().CurY() <= bounds[1].CurY() {
+				if (c.Player().NextTo(bounds[1]) || c.Player().NextTo(bounds[0])) && c.Player().X() >= bounds[0].X() && c.Player().Y() >= bounds[0].Y() && c.Player().X() <= bounds[1].X() && c.Player().Y() <= bounds[1].Y() {
 					c.Player().ResetPath()
 					objectAction(c, object)
 					return true
@@ -58,7 +58,7 @@ func init() {
 		bounds := object.Boundaries()
 		c.Player().SetDistancedAction(func() bool {
 			if world.Objects[object.ID].Type == 2 || world.Objects[object.ID].Type == 3 {
-				if (c.Player().NextTo(bounds[1]) || c.Player().NextTo(bounds[0])) && c.Player().CurX() >= bounds[0].CurX() && c.Player().CurY() >= bounds[0].CurY() && c.Player().CurX() <= bounds[1].CurX() && c.Player().CurY() <= bounds[1].CurY() {
+				if (c.Player().NextTo(bounds[1]) || c.Player().NextTo(bounds[0])) && c.Player().X() >= bounds[0].X() && c.Player().Y() >= bounds[0].Y() && c.Player().X() <= bounds[1].X() && c.Player().Y() <= bounds[1].Y() {
 					c.Player().ResetPath()
 					objectAction(c, object)
 					return true
@@ -87,7 +87,7 @@ func init() {
 		}
 		bounds := object.Boundaries()
 		c.Player().SetDistancedAction(func() bool {
-			if (c.Player().NextTo(bounds[1]) || c.Player().NextTo(bounds[0])) && c.Player().CurX() >= bounds[0].CurX() && c.Player().CurY() >= bounds[0].CurY() && c.Player().CurX() <= bounds[1].CurX() && c.Player().CurY() <= bounds[1].CurY() {
+			if (c.Player().NextTo(bounds[1]) || c.Player().NextTo(bounds[0])) && c.Player().X() >= bounds[0].X() && c.Player().Y() >= bounds[0].Y() && c.Player().X() <= bounds[1].X() && c.Player().Y() <= bounds[1].Y() {
 				c.Player().ResetPath()
 				boundaryAction(c, object)
 				return true
@@ -109,7 +109,7 @@ func init() {
 		}
 		bounds := object.Boundaries()
 		c.Player().SetDistancedAction(func() bool {
-			if (c.Player().NextTo(bounds[1]) || c.Player().NextTo(bounds[0])) && c.Player().CurX() >= bounds[0].CurX() && c.Player().CurY() >= bounds[0].CurY() && c.Player().CurX() <= bounds[1].CurX() && c.Player().CurY() <= bounds[1].CurY() {
+			if (c.Player().NextTo(bounds[1]) || c.Player().NextTo(bounds[0])) && c.Player().X() >= bounds[0].X() && c.Player().Y() >= bounds[0].Y() && c.Player().X() <= bounds[1].X() && c.Player().Y() <= bounds[1].Y() {
 				c.Player().ResetPath()
 				boundaryAction(c, object)
 				return true
@@ -130,7 +130,7 @@ func init() {
 			if c.Player().NextTo(npc.Location) && c.Player().WithinRange(npc.Location, 1) {
 				c.Player().ResetPath()
 				for _, fn := range script.NpcTriggers {
-					ran, err := fn(context.Background(), reflect.ValueOf(c), reflect.ValueOf(c.Player()), reflect.ValueOf(npc))
+					ran, err := fn(context.Background(), reflect.ValueOf(c.Player()), reflect.ValueOf(npc))
 					if !ran.IsValid() {
 						continue
 					}
@@ -153,7 +153,7 @@ func init() {
 }
 
 func objectAction(c clients.Client, object *world.Object) {
-	if c.Player().State != world.MSIdle || world.GetObject(object.CurX(), object.CurY()) != object {
+	if c.Player().State != world.MSIdle || world.GetObject(object.X(), object.Y()) != object {
 		// If somehow we became busy, the object changed before arriving, we do nothing.
 		return
 	}
@@ -164,7 +164,7 @@ func objectAction(c clients.Client, object *world.Object) {
 			c.Player().State = world.MSIdle
 		}()
 		for _, fn := range script.ObjectTriggers {
-			ran, err := fn(context.Background(), reflect.ValueOf(c), reflect.ValueOf(c.Player()), reflect.ValueOf(object))
+			ran, err := fn(context.Background(), reflect.ValueOf(c.Player()), reflect.ValueOf(object))
 			if !ran.IsValid() {
 				continue
 			}
@@ -184,7 +184,7 @@ func objectAction(c clients.Client, object *world.Object) {
 }
 
 func boundaryAction(c clients.Client, object *world.Object) {
-	if c.Player().State != world.MSIdle || world.GetObject(object.CurX(), object.CurY()) != object {
+	if c.Player().State != world.MSIdle || world.GetObject(object.X(), object.Y()) != object {
 		// If somehow we became busy, the object changed before arriving, we do nothing.
 		return
 	}
@@ -194,7 +194,7 @@ func boundaryAction(c clients.Client, object *world.Object) {
 			c.Player().State = world.MSIdle
 		}()
 		for _, fn := range script.BoundaryTriggers {
-			ran, err := fn(context.Background(), reflect.ValueOf(c), reflect.ValueOf(c.Player()), reflect.ValueOf(object))
+			ran, err := fn(context.Background(), reflect.ValueOf(c.Player()), reflect.ValueOf(object))
 			if !ran.IsValid() {
 				continue
 			}

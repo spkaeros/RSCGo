@@ -45,11 +45,11 @@ func NPCPositions(player *world.Player) (p *packet.Packet) {
 		newCount++
 		player.LocalNPCs.Add(n)
 		p.AddBits(n.Index, 12)
-		offsetX := n.CurX() - player.CurX()
+		offsetX := n.X() - player.X()
 		if offsetX < 0 {
 			offsetX += 32
 		}
-		offsetY := n.CurY() - player.CurY()
+		offsetY := n.Y() - player.Y()
 		if offsetY < 0 {
 			offsetY += 32
 		}
@@ -69,10 +69,10 @@ func NPCPositions(player *world.Player) (p *packet.Packet) {
 // If no players need to be updated, returns nil.
 func PlayerPositions(player *world.Player) (p *packet.Packet) {
 	p = packet.NewOutgoingPacket(191)
-	// Note: X coords can be held in 10 bits and Y can be held in 12 bits
+	// Note: x coords can be held in 10 bits and y can be held in 12 bits
 	//  Presumably, Jagex used 11 and 13 to evenly fill 3 bytes of data?
-	p.AddBits(player.CurX(), 11)
-	p.AddBits(player.CurY(), 13)
+	p.AddBits(player.X(), 11)
+	p.AddBits(player.Y(), 13)
 	p.AddBits(player.Direction(), 4)
 	p.AddBits(len(player.LocalPlayers.List), 8)
 	counter := 0
@@ -117,11 +117,11 @@ func PlayerPositions(player *world.Player) (p *packet.Packet) {
 		}
 		newPlayerCount++
 		p.AddBits(p1.Index, 11)
-		offsetX := p1.CurX() - player.CurX()
+		offsetX := p1.X() - player.X()
 		if offsetX < 0 {
 			offsetX += 32
 		}
-		offsetY := p1.CurY() - player.CurY()
+		offsetY := p1.Y() - player.Y()
 		if offsetY < 0 {
 			offsetY += 32
 		}
@@ -206,10 +206,10 @@ func ObjectLocations(player *world.Player) (p *packet.Packet) {
 			if o.Boundary {
 				continue
 			}
-			if !player.WithinRange(o.Location, 21) || world.GetObject(o.CurX(), o.CurY()) != o {
+			if !player.WithinRange(o.Location, 21) || world.GetObject(o.X(), o.Y()) != o {
 				p.AddShort(60000)
-				p.AddByte(byte(o.CurX() - player.CurX()))
-				p.AddByte(byte(o.CurY() - player.CurY()))
+				p.AddByte(byte(o.X() - player.X()))
+				p.AddByte(byte(o.Y() - player.Y()))
 				//				p.AddByte(byte(o.Direction))
 				removing.Add(o)
 				counter++
@@ -224,8 +224,8 @@ func ObjectLocations(player *world.Player) (p *packet.Packet) {
 			continue
 		}
 		p.AddShort(uint16(o.ID))
-		p.AddByte(byte(o.CurX() - player.CurX()))
-		p.AddByte(byte(o.CurY() - player.CurY()))
+		p.AddByte(byte(o.X() - player.X()))
+		p.AddByte(byte(o.Y() - player.Y()))
 		//		p.AddByte(byte(o.Direction))
 		player.LocalObjects.Add(o)
 		counter++
@@ -250,8 +250,8 @@ func BoundaryLocations(player *world.Player) (p *packet.Packet) {
 			if !player.WithinRange(o.Location, 21) {
 				//p.AddShort(65535)
 				p.AddByte(255)
-				p.AddByte(byte(o.CurX() - player.CurX()))
-				p.AddByte(byte(o.CurY() - player.CurY()))
+				p.AddByte(byte(o.X() - player.X()))
+				p.AddByte(byte(o.Y() - player.Y()))
 				//p.AddByte(byte(o.Direction))
 				removing.Add(o)
 				counter++
@@ -266,8 +266,8 @@ func BoundaryLocations(player *world.Player) (p *packet.Packet) {
 			continue
 		}
 		p.AddShort(uint16(o.ID))
-		p.AddByte(byte(o.CurX() - player.CurX()))
-		p.AddByte(byte(o.CurY() - player.CurY()))
+		p.AddByte(byte(o.X() - player.X()))
+		p.AddByte(byte(o.Y() - player.Y()))
 		p.AddByte(byte(o.Direction))
 		player.LocalObjects.Add(o)
 		counter++
@@ -286,17 +286,17 @@ func ItemLocations(player *world.Player) (p *packet.Packet) {
 	var removing = world.List{}
 	for _, i := range player.LocalItems.List {
 		if i, ok := i.(*world.GroundItem); ok {
-			x, y := i.CurX(), i.CurY()
+			x, y := i.X(), i.Y()
 			if !player.WithinRange(i.Location, 21) {
 				p.AddByte(255)
-				p.AddByte(byte(x - player.CurX()))
-				p.AddByte(byte(y - player.CurY()))
+				p.AddByte(byte(x - player.X()))
+				p.AddByte(byte(y - player.Y()))
 				removing.Add(i)
 				counter++
 			} else if !i.VisibleTo(player) || !world.GetRegion(x, y).Items.Contains(i) {
 				p.AddShort(uint16(i.ID + 0x8000)) // + 32768
-				p.AddByte(byte(x - player.CurX()))
-				p.AddByte(byte(y - player.CurY()))
+				p.AddByte(byte(x - player.X()))
+				p.AddByte(byte(y - player.Y()))
 				removing.Add(i)
 				counter++
 			}
@@ -307,8 +307,8 @@ func ItemLocations(player *world.Player) (p *packet.Packet) {
 	}
 	for _, i := range player.NewItems() {
 		p.AddShort(uint16(i.ID))
-		p.AddByte(byte(i.CurX() - player.CurX()))
-		p.AddByte(byte(i.CurY() - player.CurY()))
+		p.AddByte(byte(i.X() - player.X()))
+		p.AddByte(byte(i.Y() - player.Y()))
 		player.LocalItems.Add(i)
 		counter++
 	}

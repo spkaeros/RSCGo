@@ -90,6 +90,40 @@ func NpcDamage(victim *world.NPC, damage int) *packet.Packet {
 	return p
 }
 
+func NpcMessage(sender *world.NPC, message string, target *world.Player) (p *packet.Packet) {
+	p = packet.NewOutgoingPacket(104)
+	p.AddShort(1)
+	p.AddShort(uint16(sender.Index))
+	p.AddByte(1)
+	p.AddShort(uint16(target.Index))
+	if len(message) > 255 {
+		message = message[:255]
+	}
+	message = strutil.ChatFilter.Format(message)
+	messageRaw := strutil.ChatFilter.Pack(message)
+	p.AddByte(uint8(len(messageRaw)))
+	for _, c := range messageRaw {
+		p.AddByte(c)
+	}
+	return
+}
+
+func PlayerMessage(sender *world.Player, message string) (p *packet.Packet) {
+	p = packet.NewOutgoingPacket(234)
+	p.AddShort(1)
+	p.AddShort(uint16(sender.Index))
+	p.AddByte(6)
+	if len(message) > 255 {
+		message = message[:255]
+	}
+	message = strutil.ChatFilter.Format(message)
+	p.AddByte(uint8(len(message)))
+	for _, c := range strutil.ChatFilter.Pack(message) {
+		p.AddByte(c)
+	}
+	return
+}
+
 //PrivacySettings Builds a packet containing the players privacy settings for display in the settings menu.
 func PrivacySettings(player *world.Player) *packet.Packet {
 	p := packet.NewOutgoingPacket(51)

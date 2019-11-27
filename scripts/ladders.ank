@@ -1,22 +1,22 @@
 strings = import("strings")
 
-func objectAction(client, player, object) {
+func objectAction(player, object) {
     cmd = objectDefs[object.ID].Commands[0]
     if cmd == "climb-down" || cmd == "climb-up" || cmd == "go up" || cmd == "go down" {
         if strings.HasSuffix(cmd, "up") {
             player.SetLocation(player.Above(), true)
 	        if strings.HasPrefix(cmd, "go") {
 	        	// TODO: Properly handle stairs
-	        	player.SetLocation(newLocation(player.CurX(), player.CurY() + 4), true)
+	        	player.SetLocation(newLocation(player.X(), player.Y() + 4), true)
 	        }
         } else {
             player.SetLocation(player.Below(), true)
    	        if strings.HasPrefix(cmd, "go") {
 	        	// TODO: Properly handle stairs
-   	        	player.SetLocation(newLocation(player.CurX(), player.CurY() - 4), true)
+   	        	player.SetLocation(newLocation(player.X(), player.Y() - 4), true)
    	        }
         }
-        client.UpdatePlane()
+        sendPlane(player)
         return true
     }
     return false

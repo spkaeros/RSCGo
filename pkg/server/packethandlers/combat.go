@@ -28,7 +28,7 @@ func init() {
 			if c.Player().NextTo(npc.Location) && c.Player().WithinRange(npc.Location, 2) {
 				c.Player().ResetPath()
 				npc.ResetPath()
-				c.Player().Teleport(npc.CurX(), npc.CurY())
+				c.Player().SetLocation(npc.Location, true)
 				c.Player().State = world.MSFighting
 				npc.State = world.MSFighting
 				c.Player().SetDirection(world.LeftFighting)
@@ -69,13 +69,13 @@ func init() {
 								script.EngineChannel <- func() {
 									attacker.ResetFighting()
 									defenderNpc.Stats().SetCur(world.StatHits, defenderNpc.Stats().Maximum(world.StatHits))
-									defenderNpc.Teleport(world.DeathSpot.CurX(), world.DeathSpot.CurY())
+									defenderNpc.SetLocation(world.DeathSpot, true)
 								}
 
 								go func() {
 									time.Sleep(time.Second * 10)
 									script.EngineChannel <- func() {
-										defenderNpc.Teleport(defenderNpc.StartPoint.CurX(), defenderNpc.StartPoint.CurY())
+										defenderNpc.SetLocation(defenderNpc.StartPoint, true)
 									}
 								}()
 							} else if defenderPlayer, ok := defender.(*world.Player); ok {
@@ -85,7 +85,7 @@ func init() {
 									defenderPlayer.SendPacket(packetbuilders.PlayerStats(defenderPlayer))
 									defenderPlayer.Transients().SetVar("deathTime", time.Now())
 									defenderPlayer.SendPacket(packetbuilders.Death)
-									defenderPlayer.Teleport(world.SpawnPoint.CurX(), world.SpawnPoint.CurY())
+									defenderPlayer.SetLocation(world.SpawnPoint, true)
 									defenderPlayer.SendPacket(packetbuilders.PlaneInfo(defenderPlayer))
 								}
 							}
@@ -135,7 +135,7 @@ func init() {
 			if c.Player().NextTo(affectedPlayer.Location) && c.Player().WithinRange(affectedPlayer.Location, 2) {
 				c.Player().ResetPath()
 				affectedPlayer.ResetPath()
-				c.Player().Teleport(affectedPlayer.CurX(), affectedPlayer.CurY())
+				c.Player().SetLocation(affectedPlayer.Location, true)
 				c.Player().State = world.MSFighting
 				affectedPlayer.State = world.MSFighting
 				c.Player().SetDirection(world.LeftFighting)
@@ -182,7 +182,7 @@ func init() {
 								defender.SendPacket(packetbuilders.PlayerStats(defender))
 								defender.Transients().SetVar("deathTime", time.Now())
 								defender.SendPacket(packetbuilders.Death)
-								defender.Teleport(world.SpawnPoint.CurX(), world.SpawnPoint.CurY())
+								defender.SetLocation(world.SpawnPoint, true)
 								if defender.Plane() != world.SpawnPoint.Plane() {
 									defender.SendPacket(packetbuilders.PlaneInfo(defender))
 								}

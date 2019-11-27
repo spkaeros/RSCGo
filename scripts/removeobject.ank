@@ -1,16 +1,16 @@
 addCommand("dobj", func(player, args) {
 	if len(args) == 0 {
-		args = [toString(player.CurX()), toString(player.CurY())]
+		args = [toString(player.X()), toString(player.Y())]
 	}
 	if len(args) < 2 {
-		player.SendPacket(packets.ServerMessage("Invalid args.  Usage: ::dobj <x> <y>"))
+		sendMessage(player, "Invalid args.  Usage: ::dobj <x> <y>")
 		return
 	}
 	x = toInt(args[0])
 	y = toInt(args[1])
 	object = getObjectAt(x, y)
 	if object == nil {
-		player.SendPacket(packets.ServerMessage("Can not find object."))
+		sendMessage(player, "Can not find object.")
 		return
 	}
 

@@ -1,8 +1,8 @@
 addCommand("object", func(player, args) {
-	x = player.CurX()
-	y = player.CurY()
+	x = player.X()
+	y = player.Y()
 	if getObjectAt(x, y) != nil {
-		player.SendPacket(packets.ServerMessage("There is already an object here."))
+		sendMessage(player, "There is already an object here.")
 		return
 	}
 	try {
@@ -14,14 +14,14 @@ addCommand("object", func(player, args) {
 		addObject(newObject(id, North, x, y, false))
 		log.cmdf("'%v' spawned a new object{id:%v, dir:%v} at %v,%v", player.String(), id, dir, x, y)
 	} catch e {
-		player.SendPacket(packets.ServerMessage("Invalid syntax.  Usage: ::object <id> (<dir>)"))
+		sendMessage(player, "Invalid syntax.  Usage: ::object <id> (<dir>)")
 	}
 })
 addCommand("boundary", func(player, args) {
-	x = player.CurX()
-	y = player.CurY()
+	x = player.X()
+	y = player.Y()
 	if getObjectAt(x, y) != nil {
-		player.SendPacket(packets.ServerMessage("There is already an object here."))
+		sendMessage(player, "There is already an object here.")
 		return
 	}
 	try {
@@ -33,6 +33,6 @@ addCommand("boundary", func(player, args) {
 		addObject(newObject(id, North, x, y, true))
 		log.cmdf("'%v' spawned a new boundary{id:%v, dir:%v} at %v,%v", player.String(), id, dir, x, y)
 	} catch e {
-		player.SendPacket(packets.ServerMessage("Invalid syntax.  Usage: ::boundary <id> (<dir>)"))
+		sendMessage(player, "Invalid syntax.  Usage: ::boundary <id> (<dir>)")
 	}
 })

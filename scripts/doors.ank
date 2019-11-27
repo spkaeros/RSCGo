@@ -1,4 +1,4 @@
-func objectAction(client, player, object) {
+func objectAction(player, object) {
 	doors = {59: 60, 57: 58, 63: 64}
     for open, closed in doors {
         if object.ID == open {
@@ -12,11 +12,11 @@ func objectAction(client, player, object) {
 	return false
 }
 
-func boundaryAction(client, player, object) {
+func boundaryAction(player, object) {
 	doors = {1: 2}
 	if object.ID == 109 {
 		old = replaceObject(object, 11)
-		player.Teleport(161, player.CurY() > 464 ? 464 : 465)
+		player.Teleport(161, player.Y() > 464 ? 464 : 465)
 		runAfter(tSecond, func() {
 			replaceObject(old, 109)
 		})

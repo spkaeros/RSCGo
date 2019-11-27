@@ -74,6 +74,60 @@ func WorldModule() *vm.Env {
 		"NorthEast": world.NorthEast,
 		"SouthWest": world.SouthWest,
 		"SouthEast": world.SouthEast,
+		"ATTACK": world.StatAttack,
+		"DEFENSE": world.StatDefense,
+		"STRENGTH": world.StatStrength,
+		"HITPOINTS": world.StatHits,
+		"RANGED": world.StatRanged,
+		"PRAYER": world.StatPrayer,
+		"MAGIC": world.StatMagic,
+		"COOKING": world.StatCooking,
+		"WOODCUTTING": world.StatWoodcutting,
+		"FLETCHING": world.StatFletching,
+		"FISHING": world.StatFishing,
+		"FIREMAKING": world.StatFiremaking,
+		"CRAFTING": world.StatCrafting,
+		"SMITHING": world.StatSmithing,
+		"MINIG": world.StatMining,
+		"HERBLAW": world.StatHerblaw,
+		"AGILITY": world.StatAgility,
+		"THIEVING": world.StatThieving,
+		"teleport": func(player *world.Player, x, y int) {
+			player.Teleport(x, y)
+		},
+		"npcChat": func(sender *world.NPC, target *world.Player, msg string) {
+			for _, player := range target.NearbyPlayers() {
+				player.SendPacket(packetbuilders.NpcMessage(sender, msg, target))
+			}
+			target.SendPacket(packetbuilders.NpcMessage(sender, msg, target))
+		},
+		"playerChat": func(sender *world.Player, msg string) {
+			for _, player := range sender.NearbyPlayers() {
+				player.SendPacket(packetbuilders.PlayerMessage(sender, msg))
+			}
+			sender.SendPacket(packetbuilders.PlayerMessage(sender, msg))
+		},
+		"playerDamage": func(target *world.Player, damage int) {
+			for _, player := range target.NearbyPlayers() {
+				player.SendPacket(packetbuilders.PlayerDamage(target, damage))
+			}
+			target.SendPacket(packetbuilders.PlayerDamage(target, damage))
+		},
+		"sendStats": func(target *world.Player) {
+			target.SendPacket(packetbuilders.PlayerStats(target))
+		},
+		"sendInventory": func(target *world.Player) {
+			target.SendPacket(packetbuilders.InventoryItems(target))
+		},
+		"sendDeath": func(target *world.Player) {
+			target.SendPacket(packetbuilders.Death)
+		},
+		"sendPlane": func(target *world.Player) {
+			target.SendPacket(packetbuilders.PlaneInfo(target))
+		},
+		"sendMessage": func(target *world.Player, msg string) {
+			target.SendPacket(packetbuilders.ServerMessage(msg))
+		},
 	}, map[string]interface{}{
 		"clientMap": reflect.TypeOf(clients.Clients),
 		"client": reflect.TypeOf(clients.Client(nil)),

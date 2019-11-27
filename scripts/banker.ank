@@ -1,6 +1,6 @@
-func npcAction(client, player, npc) {
+func npcAction(player, npc) {
 	if npc.ID == 95 {
-		player.SendPacket(packets.ServerMessage("Testing"))
+		npcChat(npc, player, "Testing")
 		return true
 	}
 	return false

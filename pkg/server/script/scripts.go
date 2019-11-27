@@ -22,10 +22,10 @@ import (
 var Scripts []string
 
 var EngineChannel = make(chan func(), 20)
-var InvTriggers []func(context.Context, reflect.Value, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
-var ObjectTriggers []func(context.Context, reflect.Value, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
-var BoundaryTriggers []func(context.Context, reflect.Value, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
-var NpcTriggers []func(context.Context, reflect.Value, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
+var InvTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
+var ObjectTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
+var BoundaryTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
+var NpcTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 
 func Run(fnName string, c clients.Client, argName string, arg interface{}) bool {
 	env := WorldModule()
@@ -80,22 +80,22 @@ func Load() {
 			continue
 		}
 		fn, err := env.Get("invAction")
-		action, ok := fn.(func(context.Context, reflect.Value, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
+		action, ok := fn.(func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
 		if ok {
 			InvTriggers = append(InvTriggers, action)
 		}
 		fn, err = env.Get("objectAction")
-		action, ok = fn.(func(context.Context, reflect.Value, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
+		action, ok = fn.(func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
 		if ok {
 			ObjectTriggers = append(ObjectTriggers, action)
 		}
 		fn, err = env.Get("boundaryAction")
-		action, ok = fn.(func(context.Context, reflect.Value, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
+		action, ok = fn.(func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
 		if ok {
 			BoundaryTriggers = append(BoundaryTriggers, action)
 		}
 		fn, err = env.Get("npcAction")
-		action, ok = fn.(func(context.Context, reflect.Value, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
+		action, ok = fn.(func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
 		if ok {
 			NpcTriggers = append(NpcTriggers, action)
 		}

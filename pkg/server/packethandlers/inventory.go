@@ -83,10 +83,16 @@ func init() {
 		index := p.ReadShort()
 		item := c.Player().Items.Get(index)
 		if item != nil {
-			if c.Player().Items.Remove(index) {
-				world.AddItem(world.NewGroundItemFrom(c.Player().UserBase37, item.ID, item.Amount, c.Player().CurX(), c.Player().CurY()))
-				c.SendPacket(packetbuilders.InventoryItems(c.Player()))
-			}
+			c.Player().SetDistancedAction(func() bool {
+				if c.Player().FinishedPath() {
+					if c.Player().Items.Remove(index) {
+						world.AddItem(world.NewGroundItemFrom(c.Player().UserBase37, item.ID, item.Amount, c.Player().X(), c.Player().Y()))
+						c.SendPacket(packetbuilders.InventoryItems(c.Player()))
+					}
+					return true
+				}
+				return false
+			})
 		}
 	}
 	PacketHandlers["invaction1"] = func(c clients.Client, p *packet.Packet) {
@@ -102,7 +108,7 @@ func init() {
 					c.Player().State = world.MSIdle
 				}()
 				for _, fn := range script.InvTriggers {
-					ran, err := fn(context.Background(), reflect.ValueOf(c), reflect.ValueOf(c.Player()), reflect.ValueOf(item))
+					ran, err := fn(context.Background(), reflect.ValueOf(c.Player()), reflect.ValueOf(item))
 					if !ran.IsValid() {
 						continue
 					}

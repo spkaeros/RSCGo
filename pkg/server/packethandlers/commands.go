@@ -126,8 +126,8 @@ func init() {
 			return
 		}
 
-		x := c.Player().CurX()
-		y := c.Player().CurY()
+		x := c.Player().X()
+		y := c.Player().Y()
 
 		world.AddNpc(world.NewNpc(id, x, y, x-5, x+5, y-5, y+5))
 	}
@@ -138,8 +138,11 @@ func init() {
 	script.CommandHandlers["death"] = func(c clients.Client, args []string) {
 		c.SendPacket(packetbuilders.Death)
 		c.Player().Transients().SetVar("deathTime", time.Now())
-		c.Player()
-		c.Player().SetLocation(world.SpawnPoint)
+		plane := c.Player().Plane()
+		c.Player().SetLocation(world.SpawnPoint, true)
+		if c.Player().Plane() != plane {
+			c.Player().SendPacket(packetbuilders.PlaneInfo(c.Player()))
+		}
 	}
 	script.CommandHandlers["anko"] = func(c clients.Client, args []string) {
 		line := strings.Join(args, " ")
@@ -157,12 +160,12 @@ func init() {
 		log.Info.Printf("Loaded %d inventory, %d object, %d boundary, and %d NPC action triggers.\n", len(script.InvTriggers), len(script.ObjectTriggers), len(script.BoundaryTriggers), len(script.NpcTriggers))
 	}
 	script.CommandHandlers["tile"] = func(c clients.Client, args []string) {
-		regionX := (2304+c.Player().CurX())/world.RegionSize
-		regionY := (1776+c.Player().CurY()-(944*c.Player().Plane()))/world.RegionSize
+		regionX := (2304+c.Player().X())/world.RegionSize
+		regionY := (1776+c.Player().Y()-(944*c.Player().Plane()))/world.RegionSize
 		mapSector := fmt.Sprintf("h%dx%dy%d", c.Player().Plane(), regionX, regionY)
-		areaX := (2304+c.Player().CurX()) % 48
-		areaY := (1776+c.Player().CurY()-(944*c.Player().Plane())) % 48
-		tile := world.ClipData(c.Player().CurX(), c.Player().CurY())
+		areaX := (2304+c.Player().X()) % 48
+		areaY := (1776+c.Player().Y()-(944*c.Player().Plane())) % 48
+		tile := world.ClipData(c.Player().X(), c.Player().Y())
 //		c.Message(fmt.Sprintf("@que@%v sector(%v rel:(%v,%v)): V:%v, H:%v, D:%v, R:%v, O:%v, T:%v, E:%v, bitmask:%v", c.Player().Location.String(), mapSector, areaX, areaY, tile.VerticalWalls, tile.HorizontalWalls, tile.DiagonalWalls, tile.Roofs, tile.GroundOverlay, tile.GroundTexture, tile.GroundElevation, tile.CollisionMask))
 		c.Message(fmt.Sprintf("@que@%v sector(%v rel:(%v,%v)): Overlay:%v, bitmask:%v", c.Player().Location.String(), mapSector, areaX, areaY, tile.GroundOverlay, tile.CollisionMask))
 	}
@@ -192,7 +195,7 @@ func teleport(c clients.Client, args []string) {
 		c.Message("@que@Coordinates out of world boundaries.")
 		return
 	}
-	log.Commands.Printf("Teleporting %v from %v,%v to %v,%v\n", c.Player().Username, c.Player().CurX(), c.Player().CurY(), x, y)
+	log.Commands.Printf("Teleporting %v from %v,%v to %v,%v\n", c.Player().Username, c.Player().X(), c.Player().Y(), x, y)
 	c.Teleport(x, y)
 }
 
@@ -213,8 +216,8 @@ func summon(c clients.Client, args []string) {
 		return
 	}
 
-	log.Commands.Printf("Summoning '%v' from %v,%v to '%v' at %v,%v\n", c1.Player().Username, c1.Player().CurX(), c1.Player().CurY(), c.Player().Username, c.Player().CurX(), c.Player().CurY())
-	c1.Teleport(c.Player().CurX(), c.Player().CurY())
+	log.Commands.Printf("Summoning '%v' from %v,%v to '%v' at %v,%v\n", c1.Player().Username, c1.Player().X(), c1.Player().Y(), c.Player().Username, c.Player().X(), c.Player().Y())
+	c1.Teleport(c.Player().X(), c.Player().Y())
 }
 
 func gotoTeleport(c clients.Client, args []string) {
@@ -234,8 +237,8 @@ func gotoTeleport(c clients.Client, args []string) {
 		return
 	}
 
-	log.Commands.Printf("Teleporting '%v' from %v,%v to '%v' at %v,%v\n", c.Player().Username, c.Player().CurX(), c.Player().CurY(), c1.Player().Username, c1.Player().CurX(), c1.Player().CurY())
-	c.Teleport(c1.Player().CurX(), c1.Player().CurY())
+	log.Commands.Printf("Teleporting '%v' from %v,%v to '%v' at %v,%v\n", c.Player().Username, c.Player().X(), c.Player().Y(), c1.Player().Username, c1.Player().X(), c1.Player().Y())
+	c.Teleport(c1.Player().X(), c1.Player().Y())
 }
 
 func notYetImplemented(c clients.Client, args []string) {

@@ -194,7 +194,7 @@ func SaveObjectLocations() int {
 
 	totalInserts := 0
 	for _, v := range world.GetAllObjects() {
-		stmt, err := tx.Exec("INSERT INTO game_object_locations(id, direction, x, y, boundary) VALUES(?, ?, ?, ?, ?)", v.ID, v.Direction, v.CurX(), v.CurY(), v.Boundary)
+		stmt, err := tx.Exec("INSERT INTO game_object_locations(id, direction, x, y, boundary) VALUES(?, ?, ?, ?, ?)", v.ID, v.Direction, v.X(), v.Y(), v.Boundary)
 		if err != nil {
 			log.Warning.Println("Error inserting game object location to database:", err)
 			continue

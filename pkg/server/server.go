@@ -80,6 +80,8 @@ func Tick() {
 	select {
 	case fn := <-script.EngineChannel:
 		fn()
+	case fn := <-world.EngineChannel:
+		fn()
 	default:
 		break
 	}
@@ -89,11 +91,7 @@ func Tick() {
 				c.Player().ResetDistancedAction()
 			}
 		}
-		nextTile := c.Player().TraversePath()
-		if nextTile.LongestDelta(c.Player().Location) > 0 {
-			c.Player().SetLocation(nextTile)
-			c.Player().Move()
-		}
+		c.Player().TraversePath()
 	})
 	go world.UpdateNPCPaths()
 	world.UpdateNPCPositions()

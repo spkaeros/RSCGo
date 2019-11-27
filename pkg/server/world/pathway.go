@@ -9,17 +9,17 @@ type Pathway struct {
 }
 
 //NewPathwayToCoords returns a new Pathway pointing to the specified location.  Will attempt traversal to l via a
-// simple algorithm: if curX < destX then increase, if curX > destX then decrease, same for Y, until equal.
+// simple algorithm: if curX < destX then increase, if curX > destX then decrease, same for y, until equal.
 // TODO: No clipping is attempted yet, and no path waypoints are generated to avoid obstacles yet.  Gotta do it
 func NewPathwayToCoords(destX, destY int) *Pathway {
 	return NewPathway(destX, destY, []int{}, []int{})
 }
 
 //NewPathwayToLocation returns a new Pathway pointing to the specified location.  Will attempt traversal to l via a
-// simple algorithm: if curX < destX then increase, if curX > destX then decrease, same for Y, until equal.
+// simple algorithm: if curX < destX then increase, if curX > destX then decrease, same for y, until equal.
 // TODO: No clipping is attempted yet, and no path waypoints are generated to avoid obstacles yet.  Gotta do it
 func NewPathwayToLocation(l Location) *Pathway {
-	return NewPathwayToCoords(l.CurX(), l.CurY())
+	return NewPathwayToCoords(l.X(), l.Y())
 }
 
 //NewPathway returns a new Pathway with the specified variables.  destX and destY are a straight line, and waypoints define turns from that point.
@@ -40,8 +40,8 @@ func (p *Pathway) CountWaypoints() int {
 	return yCount
 }
 
-//WaypointX Returns the X coordinate of the specified waypoint, by taking the waypointX delta at w, and adding it to StartX.
-// If w is out of bounds, returns the StartX coordinate, aka the X coord to start turning at.
+//WaypointX Returns the x coordinate of the specified waypoint, by taking the waypointX delta at w, and adding it to StartX.
+// If w is out of bounds, returns the StartX coordinate, aka the x coord to start turning at.
 func (p *Pathway) WaypointX(w int) int {
 	offset := func(w int) int {
 		if w >= p.CountWaypoints() || w < 0 {
@@ -52,8 +52,8 @@ func (p *Pathway) WaypointX(w int) int {
 	return p.StartX + offset
 }
 
-//WaypointY Returns the Y coordinate of the specified waypoint, by taking the waypointY delta at w, and adding it to StartY.
-// If w is out of bounds, returns the StartY coordinate, aka the Y coord to start turning at.
+//WaypointY Returns the y coordinate of the specified waypoint, by taking the waypointY delta at w, and adding it to StartY.
+// If w is out of bounds, returns the StartY coordinate, aka the y coord to start turning at.
 func (p *Pathway) WaypointY(w int) int {
 	offset := func(w int) int {
 		if w >= p.CountWaypoints() || w < 0 {
@@ -87,20 +87,20 @@ func (p *Pathway) AddWaypoint(x, y int) *Pathway{
 //NextTileToward Returns the next tile toward the final destination of this pathway from currentLocation
 func (p *Pathway) NextTileFrom(currentLocation Location) Location {
 	dest := p.NextWaypointTile()
-	destX, destY := dest.CurX(), dest.CurY()
-	currentX, currentY := currentLocation.CurX(), currentLocation.CurY()
+	destX, destY := dest.X(), dest.Y()
+	currentX, currentY := currentLocation.X(), currentLocation.Y()
 	destination := NewLocation(currentX, currentY)
 	switch {
 	case currentX > destX:
-		destination.X.Dec()
+		destination.x.Dec()
 	case currentX < destX:
-		destination.X.Inc()
+		destination.x.Inc()
 	}
 	switch {
 	case currentY > destY:
-		destination.Y.Dec()
+		destination.y.Dec()
 	case currentY < destY:
-		destination.Y.Inc()
+		destination.y.Inc()
 	}
 	return destination
 }

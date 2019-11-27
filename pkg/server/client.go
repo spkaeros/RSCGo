@@ -85,11 +85,11 @@ func (c *Client) Teleport(x, y int) {
 		return
 	}
 	for _, nearbyPlayer := range c.player.NearbyPlayers() {
-		nearbyPlayer.SendPacket(packetbuilders.TeleBubble(c.player.CurX()-nearbyPlayer.CurX(), c.player.CurY()-nearbyPlayer.CurY()))
+		nearbyPlayer.SendPacket(packetbuilders.TeleBubble(c.player.X()-nearbyPlayer.X(), c.player.Y()-nearbyPlayer.Y()))
 	}
 	c.TeleBubble(0, 0)
 	oldPlane := c.player.Plane()
-	c.player.Teleport(x, y)
+	c.player.SetLocation(world.NewLocation(x, y), true)
 	if c.player.Plane() != oldPlane {
 		c.UpdatePlane()
 	}

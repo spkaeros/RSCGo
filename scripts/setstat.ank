@@ -1,6 +1,6 @@
 addCommand("stat", func(player, args) {
 	if len(args) < 2 {
-		player.SendPacket(packets.ServerMessage("Invalid args.  Usage: ::stat <idx> <lvl>"))
+		sendMessage(player, "Invalid args.  Usage: ::stat <idx> <lvl>")
 		return
 	}
 
@@ -8,5 +8,5 @@ addCommand("stat", func(player, args) {
 	lvl = toInt(args[1])
 	player.Skillset.SetCur(idx, lvl)
 	player.Skillset.SetMax(idx, lvl)
-	player.SendPacket(packets.PlayerStats(player))
+	sendStats(player)
 })

@@ -162,65 +162,65 @@ func (p *Player) ResetFollowing() {
 
 //NextTo Returns true if we can walk a straight line to target without colliding with any walls or objects, otherwise returns false.
 func (p *Player) NextTo(target Location) bool {
-	curLoc := NewLocation(p.CurX(), p.CurY())
+	curLoc := NewLocation(p.X(), p.Y())
 	for !curLoc.Equals(target) {
 		nextTile := curLoc.NextTileToward(target)
-		dir := curLoc.directionTo(nextTile.CurX(), nextTile.CurY())
+		dir := curLoc.directionTo(nextTile.X(), nextTile.Y())
 		switch dir {
 		case North:
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallSouth, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y(), WallSouth, true) {
 				return false
 			}
 		case South:
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallNorth, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y(), WallNorth, true) {
 				return false
 			}
 		case East:
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallWest, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y(), WallWest, true) {
 				return false
 			}
 		case West:
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallEast, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y(), WallEast, true) {
 				return false
 			}
 		case NorthWest:
-			if IsTileBlocking(nextTile.CurX()+1, nextTile.CurY(), WallSouth, true) {
+			if IsTileBlocking(nextTile.X()+1, nextTile.Y(), WallSouth, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY()+1, WallEast, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y()+1, WallEast, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallSouth|WallEast, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y(), WallSouth|WallEast, true) {
 				return false
 			}
 		case NorthEast:
-			if IsTileBlocking(nextTile.CurX()-1, nextTile.CurY(), WallSouth, true) {
+			if IsTileBlocking(nextTile.X()-1, nextTile.Y(), WallSouth, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY()+1, WallWest, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y()+1, WallWest, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallSouth|WallWest, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y(), WallSouth|WallWest, true) {
 				return false
 			}
 		case SouthWest:
-			if IsTileBlocking(nextTile.CurX()+1, nextTile.CurY(), WallNorth, true) {
+			if IsTileBlocking(nextTile.X()+1, nextTile.Y(), WallNorth, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY()-1, WallEast, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y()-1, WallEast, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallNorth|WallEast, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y(), WallNorth|WallEast, true) {
 				return false
 			}
 		case SouthEast:
-			if IsTileBlocking(nextTile.CurX()-1, nextTile.CurY(), WallNorth, true) {
+			if IsTileBlocking(nextTile.X()-1, nextTile.Y(), WallNorth, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY()-1, WallWest, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y()-1, WallWest, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.CurX(), nextTile.CurY(), WallNorth|WallWest, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y(), WallNorth|WallWest, true) {
 				return false
 			}
 		}
@@ -320,7 +320,7 @@ func (p *Player) SetFightMode(i int) {
 
 //NearbyPlayers Returns nearby players.
 func (p *Player) NearbyPlayers() (players []*Player) {
-	for _, r := range SurroundingRegions(p.CurX(), p.CurY()) {
+	for _, r := range SurroundingRegions(p.X(), p.Y()) {
 		players = append(players, r.Players.NearbyPlayers(p)...)
 	}
 
@@ -329,7 +329,7 @@ func (p *Player) NearbyPlayers() (players []*Player) {
 
 //NearbyObjects Returns nearby objects.
 func (p *Player) NearbyObjects() (objects []*Object) {
-	for _, r := range SurroundingRegions(p.CurX(), p.CurY()) {
+	for _, r := range SurroundingRegions(p.X(), p.Y()) {
 		objects = append(objects, r.Objects.NearbyObjects(p)...)
 	}
 
@@ -338,7 +338,7 @@ func (p *Player) NearbyObjects() (objects []*Object) {
 
 //NewObjects Returns nearby objects that this player is unaware of.
 func (p *Player) NewObjects() (objects []*Object) {
-	for _, r := range SurroundingRegions(p.CurX(), p.CurY()) {
+	for _, r := range SurroundingRegions(p.X(), p.Y()) {
 		for _, o := range r.Objects.NearbyObjects(p) {
 			if !p.LocalObjects.Contains(o) {
 				objects = append(objects, o)
@@ -351,7 +351,7 @@ func (p *Player) NewObjects() (objects []*Object) {
 
 //NewItems Returns nearby ground items that this player is unaware of.
 func (p *Player) NewItems() (items []*GroundItem) {
-	for _, r := range SurroundingRegions(p.CurX(), p.CurY()) {
+	for _, r := range SurroundingRegions(p.X(), p.Y()) {
 		for _, i := range r.Items.NearbyItems(p) {
 			if !p.LocalItems.Contains(i) {
 				items = append(items, i)
@@ -364,7 +364,7 @@ func (p *Player) NewItems() (items []*GroundItem) {
 
 //NewPlayers Returns nearby players that this player is unaware of.
 func (p *Player) NewPlayers() (players []*Player) {
-	for _, r := range SurroundingRegions(p.CurX(), p.CurY()) {
+	for _, r := range SurroundingRegions(p.X(), p.Y()) {
 		for _, p1 := range r.Players.NearbyPlayers(p) {
 			if !p.LocalPlayers.Contains(p1) {
 				players = append(players, p1)
@@ -377,7 +377,7 @@ func (p *Player) NewPlayers() (players []*Player) {
 
 //NewNPCs Returns nearby NPCs that this player is unaware of.
 func (p *Player) NewNPCs() (npcs []*NPC) {
-	for _, r := range SurroundingRegions(p.CurX(), p.CurY()) {
+	for _, r := range SurroundingRegions(p.X(), p.Y()) {
 		for _, n := range r.NPCs.NearbyNPCs(p) {
 			if !p.LocalNPCs.Contains(n) {
 				npcs = append(npcs, n)

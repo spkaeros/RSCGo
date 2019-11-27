@@ -16,6 +16,8 @@ const (
 	LowerBound = RegionSize / 2
 )
 
+var EngineChannel = make(chan func(), 20)
+
 //Region Represents a 48x48 section of map.  The purpose of this is to keep track of entities in the entire world without having to allocate tiles individually, which would make search algorithms slower and utilizes a great deal of memory.
 type Region struct {
 	Players *List
@@ -33,27 +35,27 @@ func WithinWorld(x, y int) bool {
 
 //AddPlayer Add a player to the region.
 func AddPlayer(p *Player) {
-	GetRegion(p.CurX(), p.CurY()).Players.Add(p)
+	GetRegion(p.X(), p.Y()).Players.Add(p)
 }
 
 //RemovePlayer Remove a player from the region.
 func RemovePlayer(p *Player) {
-	GetRegion(p.CurX(), p.CurY()).Players.Remove(p)
+	GetRegion(p.X(), p.Y()).Players.Remove(p)
 }
 
 //AddNpc Add a NPC to the region.
 func AddNpc(n *NPC) {
-	GetRegion(n.CurX(), n.CurY()).NPCs.Add(n)
+	GetRegion(n.X(), n.Y()).NPCs.Add(n)
 }
 
 //RemoveNpc Remove a NPC from the region.
 func RemoveNpc(n *NPC) {
-	GetRegion(n.CurX(), n.CurY()).NPCs.Remove(n)
+	GetRegion(n.X(), n.Y()).NPCs.Remove(n)
 }
 
 //AddItem Add a ground item to the region.
 func AddItem(i *GroundItem) {
-	GetRegion(i.CurX(), i.CurY()).Items.Add(i)
+	GetRegion(i.X(), i.Y()).Items.Add(i)
 }
 
 //GetItem Returns the item at x,y with the specified id.  Returns nil if it can not find the item.
@@ -63,7 +65,7 @@ func GetItem(x, y, id int) *GroundItem {
 	defer region.Items.lock.RUnlock()
 	for _, i := range region.Items.List {
 		if i, ok := i.(*GroundItem); ok {
-			if i.ID == id && i.CurX() == x && i.CurY() == y {
+			if i.ID == id && i.X() == x && i.Y() == y {
 				return i
 			}
 		}
@@ -74,12 +76,12 @@ func GetItem(x, y, id int) *GroundItem {
 
 //RemoveItem Remove a ground item to the region.
 func RemoveItem(i *GroundItem) {
-	GetRegion(i.CurX(), i.CurY()).Items.Remove(i)
+	GetRegion(i.X(), i.Y()).Items.Remove(i)
 }
 
 //AddObject Add an object to the region.
 func AddObject(o *Object) {
-	GetRegion(o.CurX(), o.CurY()).Objects.Add(o)
+	GetRegion(o.X(), o.Y()).Objects.Add(o)
 	if !o.Boundary {
 		def := Objects[o.ID]
 		if def.Type != 1 && def.Type != 2 {
@@ -95,7 +97,7 @@ func AddObject(o *Object) {
 		}
 		for xOffset := 0; xOffset < width; xOffset++ {
 			for yOffset := 0; yOffset < height; yOffset++ {
-				x, y := o.CurX()+xOffset, o.CurY()+yOffset
+				x, y := o.X()+xOffset, o.Y()+yOffset
 				areaX := (2304+x) % RegionSize
 				areaY := (1776+y-(944*((y+100)/944))) % RegionSize
 				if SectorFromCoords(x, y) == nil {
@@ -131,7 +133,7 @@ func AddObject(o *Object) {
 		if def.Traversable != 1 {
 			return
 		}
-		x, y := o.CurX(), o.CurY()
+		x, y := o.X(), o.Y()
 		areaX := (2304+x) % RegionSize
 		areaY := (1776+y-(944*((y+100)/944))) % RegionSize
 		if SectorFromCoords(x, y) == nil {
@@ -157,7 +159,7 @@ func AddObject(o *Object) {
 
 //RemoveObject Remove an object from the region.
 func RemoveObject(o *Object) {
-	GetRegion(o.CurX(), o.CurY()).Objects.Remove(o)
+	GetRegion(o.X(), o.Y()).Objects.Remove(o)
 	if !o.Boundary {
 		def := Objects[o.ID]
 		if def.Type != 1 && def.Type != 2 {
@@ -173,7 +175,7 @@ func RemoveObject(o *Object) {
 		}
 		for xOffset := 0; xOffset < width; xOffset++ {
 			for yOffset := 0; yOffset < height; yOffset++ {
-				x, y := o.CurX()+xOffset, o.CurY()+yOffset
+				x, y := o.X()+xOffset, o.Y()+yOffset
 				areaX := (2304+x) % RegionSize
 				areaY := (1776+y-(944*((y+100)/944))) % RegionSize
 				if def.Type == 1 {
@@ -206,7 +208,7 @@ func RemoveObject(o *Object) {
 		if def.Traversable != 1 {
 			return
 		}
-		x, y := o.CurX(), o.CurY()
+		x, y := o.X(), o.Y()
 		areaX := (2304+x) % RegionSize
 		areaY := (1776+y-(944*((y+100)/944))) % RegionSize
 		if o.Direction == 0 {
@@ -230,7 +232,7 @@ func RemoveObject(o *Object) {
 //ReplaceObject Replaces old with a new game object with all of the same characteristics, except it's ID set to newID.
 func ReplaceObject(old *Object, newID int) *Object {
 	RemoveObject(old)
-	object := NewObject(newID, old.Direction, old.CurX(), old.CurY(), old.Boundary)
+	object := NewObject(newID, old.Direction, old.X(), old.Y(), old.Boundary)
 	AddObject(object)
 	return object
 }
@@ -261,7 +263,7 @@ func GetObject(x, y int) *Object {
 	defer r.Objects.lock.RUnlock()
 	for _, o := range r.Objects.List {
 		if o, ok := o.(*Object); ok {
-			if o.CurX() == x && o.CurY() == y {
+			if o.X() == x && o.Y() == y {
 				return o
 			}
 		}
@@ -308,7 +310,7 @@ func GetRegion(x, y int) *Region {
 
 //GetRegionFromLocation Returns the region that corresponds with the given location.  If it does not exist yet, it will allocate a new onr and store it for the lifetime of the application in the regions map.
 func GetRegionFromLocation(loc *Location) *Region {
-	return getRegionFromIndex(loc.CurX()/RegionSize, loc.CurY()/RegionSize)
+	return getRegionFromIndex(loc.X()/RegionSize, loc.Y()/RegionSize)
 }
 
 //SurroundingRegions Returns the regions surrounding the given coordinates.  It wil
