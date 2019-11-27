@@ -10,6 +10,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/packethandlers"
+	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"io"
 	"net"
@@ -275,6 +276,9 @@ func (c *Client) Initialize() {
 			c.player.Skillset.SetMax(i, level)
 			c.player.Skillset.SetExp(i, exp)
 		}
+	}
+	if s := time.Until(script.UpdateTime).Seconds(); s > 0 {
+		c.SendPacket(packetbuilders.SystemUpdate(int(s)))
 	}
 	c.SendPacket(packetbuilders.PlaneInfo(c.player))
 	c.SendPacket(packetbuilders.FriendList(c.player))

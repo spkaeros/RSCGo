@@ -43,6 +43,12 @@ func TeleBubble(offsetX, offsetY int) (p *packet.Packet) {
 	return
 }
 
+func SystemUpdate(t int) *packet.Packet {
+	p := packet.NewOutgoingPacket(52)
+	p.AddShort(uint16((t * 50) / 32))
+	return p
+}
+
 func Sound(name string) *packet.Packet {
 	return packet.NewOutgoingPacket(204).AddBytes([]byte(name))
 }

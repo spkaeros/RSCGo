@@ -5,8 +5,10 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/crypto"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
+	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"strings"
+	"time"
 
 	"github.com/spkaeros/rscgo/pkg/server/config"
 	"github.com/spkaeros/rscgo/pkg/server/db"
@@ -159,6 +161,10 @@ func loginRequest(c clients.Client, p *packet.Packet) {
 	}
 	if _, ok := clients.FromUserHash(usernameHash); ok {
 		loginReply <- byte(4)
+		return
+	}
+	if !script.UpdateTime.IsZero() && time.Until(script.UpdateTime).Seconds() <= 0 {
+		loginReply <- 8
 		return
 	}
 	go db.LoadPlayer(c.Player(), usernameHash, password, loginReply)

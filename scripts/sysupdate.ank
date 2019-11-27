@@ -1,0 +1,10 @@
+addCommand("sysupdate", func(player, args) {
+	if len(args) < 1 {
+		args = [toString(60)]
+	}
+	time = toInt(args[0])
+	if time < 0 {
+		return
+	}
+	systemUpdate(time)
+})

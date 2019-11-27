@@ -18,12 +18,15 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/world"
+	"os"
 	"reflect"
 	"time"
 )
 
 //CommandHandlers A map to assign in-game commands to the functions they should execute.
 var CommandHandlers = make(map[string]func(clients.Client, []string))
+
+var UpdateTime time.Time
 
 func WorldModule() *vm.Env {
 	env, err := vm.NewEnv().AddPackage("world", map[string]interface{}{
@@ -156,6 +159,21 @@ func WorldModule() *vm.Env {
 		},
 		"sendStat": func(target *world.Player, idx int) {
 			target.SendPacket(packetbuilders.PlayerStat(target, idx))
+		},
+		"systemUpdate": func(t int) {
+			UpdateTime = time.Now().Add(time.Second * time.Duration(t))
+			go func() {
+				time.Sleep(time.Second * time.Duration(t))
+				clients.Range(func(c clients.Client) {
+					c.SendPacket(packetbuilders.Logout)
+					c.Destroy()
+				})
+				time.Sleep(300*time.Millisecond)
+				os.Exit(200)
+			}()
+			clients.Range(func(c clients.Client) {
+				c.SendPacket(packetbuilders.SystemUpdate(t))
+			})
 		},
 		"sendInventory": func(target *world.Player) {
 			target.SendPacket(packetbuilders.InventoryItems(target))
