@@ -23,8 +23,10 @@ addCommand("stat", func(player, args) {
 	player.Skills().SetMax(idx, lvl)
 	player.Skills().SetExp(idx, lvlToExp(lvl))
 	sendStat(player, idx)
+	player.AppearanceLock.Lock()
 	player.AppearanceTicket++
-	player.Transients().SetVar("self", false)
+	player.AppearanceLock.Unlock()
+	player.ResetNeedsSelf()
 })
 
 addCommand("stats", func(player, args) {
@@ -53,4 +55,9 @@ addCommand("stats", func(player, args) {
 	player.Skills().SetCur(HITPOINTS, expToLvl(hpXp))
 	player.Skills().SetExp(HITPOINTS, hpXp)
 	sendStat(player, HITPOINTS)
+
+	player.AppearanceLock.Lock()
+	player.AppearanceTicket++
+	player.AppearanceLock.Unlock()
+	player.ResetNeedsSelf()
 })
