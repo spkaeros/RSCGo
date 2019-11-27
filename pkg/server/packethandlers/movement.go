@@ -9,31 +9,31 @@ import (
 )
 
 func init() {
-	PacketHandlers["walkto"] = func(c *world.Player, p *packet.Packet) {
-		if c.HasState(world.MSMenuChoosing) {
-			c.OptionMenuC <- -1
-			c.RemoveState(world.MSMenuChoosing)
+	PacketHandlers["walkto"] = func(player *world.Player, p *packet.Packet) {
+		if player.HasState(world.MSMenuChoosing) {
+			player.OptionMenuC <- -1
+			player.RemoveState(world.MSMenuChoosing)
 		}
-		if c.IsFighting() {
-			target := c.FightTarget()
+		if player.IsFighting() {
+			target := player.FightTarget()
 			if target == nil {
-				c.ResetFighting()
+				player.ResetFighting()
 				return
 			}
 			curRound := target.FightRound()
 			if curRound < 3 {
-				c.SendPacket(packetbuilders.ServerMessage("You can't retreat during the first 3 rounds of combat"))
+				player.SendPacket(packetbuilders.ServerMessage("You can't retreat during the first 3 rounds of combat"))
 				return
 			}
 			if target, ok := target.(*world.Player); ok {
 				target.SendPacket(packetbuilders.Sound("retreat"))
 				target.SendPacket(packetbuilders.ServerMessage("Your opponent is retreating"))
 			}
-			c.TransAttrs.SetVar("lastRetreat", time.Now())
-			c.UpdateLastRetreat()
-			c.ResetFighting()
+			player.TransAttrs.SetVar("lastRetreat", time.Now())
+			player.UpdateLastRetreat()
+			player.ResetFighting()
 		}
-		if c.Busy() {
+		if player.Busy() {
 			return
 		}
 		startX := p.ReadShort()
@@ -44,11 +44,11 @@ func init() {
 			waypointsX = append(waypointsX, int(p.ReadSByte()))
 			waypointsY = append(waypointsY, int(p.ReadSByte()))
 		}
-		c.ResetAll()
-		c.SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
+		player.ResetAll()
+		player.SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
 	}
-	PacketHandlers["walktoentity"] = func(c *world.Player, p *packet.Packet) {
-		if c.Busy() {
+	PacketHandlers["walktoentity"] = func(player *world.Player, p *packet.Packet) {
+		if player.Busy() {
 			return
 		}
 		startX := p.ReadShort()
@@ -59,55 +59,55 @@ func init() {
 			waypointsX = append(waypointsX, int(p.ReadSByte()))
 			waypointsY = append(waypointsY, int(p.ReadSByte()))
 		}
-		c.ResetAll()
-		c.SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
+		player.ResetAll()
+		player.SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
 	}
-	PacketHandlers["followreq"] = func(c *world.Player, p *packet.Packet) {
-		if c.Busy() {
+	PacketHandlers["followreq"] = func(player *world.Player, p *packet.Packet) {
+		if player.Busy() {
 			return
 		}
 		playerID := p.ReadShort()
 		affectedClient, ok := players.FromIndex(playerID)
 		if !ok {
-			c.SendPacket(packetbuilders.ServerMessage("@que@Could not find the player you're looking for."))
+			player.SendPacket(packetbuilders.ServerMessage("@que@Could not find the player you're looking for."))
 			return
 		}
-		c.ResetAll()
-		c.StartFollowing(2)
-		c.SendPacket(packetbuilders.ServerMessage("@que@Following " + affectedClient.Username))
-		c.SetDistancedAction(func() bool {
-			if !c.IsFollowing() {
+		player.ResetAll()
+		player.StartFollowing(2)
+		player.SendPacket(packetbuilders.ServerMessage("@que@Following " + affectedClient.Username))
+		player.SetDistancedAction(func() bool {
+			if !player.IsFollowing() {
 				// Following vars have been reset.
 				return true
 			}
 			if affectedClient == nil || !affectedClient.Connected() ||
-				!c.WithinRange(affectedClient.Location, 16) {
+				!player.WithinRange(affectedClient.Location, 16) {
 				// We think we have a target, but they're miles away now or no longer exist
-				c.ResetFollowing()
+				player.ResetFollowing()
 				return true
 			}
-			if !c.FinishedPath() && c.WithinRange(affectedClient.Location, c.FollowRadius()) {
+			if !player.FinishedPath() && player.WithinRange(affectedClient.Location, player.FollowRadius()) {
 				// We're not done moving toward our target, but we're close enough that we should stop
-				c.ResetPath()
-			} else if !c.WithinRange(affectedClient.Location, c.FollowRadius()) {
+				player.ResetPath()
+			} else if !player.WithinRange(affectedClient.Location, player.FollowRadius()) {
 				// We're not moving, but our target is moving away, so we must try to get closer
-				c.SetPath(world.MakePath(c.Location, affectedClient.Location))
+				player.SetPath(world.MakePath(player.Location, affectedClient.Location))
 			}
 			return false
 		})
 	}
-	PacketHandlers["appearancerequest"] = func(c *world.Player, p *packet.Packet) {
+	PacketHandlers["appearancerequest"] = func(player *world.Player, p *packet.Packet) {
 		playerCount := p.ReadShort()
 		for i := 0; i < playerCount; i++ {
 			serverIndex := p.ReadShort()
 			appearanceTicket := p.ReadShort()
-			c.AppearanceLock.Lock()
-			if ticket, ok := c.KnownAppearances[serverIndex]; !ok || ticket != appearanceTicket {
+			player.AppearanceLock.Lock()
+			if ticket, ok := player.KnownAppearances[serverIndex]; !ok || ticket != appearanceTicket {
 				if c1, ok := players.FromIndex(serverIndex); ok {
-					c.AppearanceReq = append(c.AppearanceReq, c1)
+					player.AppearanceReq = append(player.AppearanceReq, c1)
 				}
 			}
-			c.AppearanceLock.Unlock()
+			player.AppearanceLock.Unlock()
 		}
 	}
 }

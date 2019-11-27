@@ -86,50 +86,50 @@ func Tick() {
 	default:
 		break
 	}
-	players.Range(func(c *world.Player) {
-		if fn := c.DistancedAction; fn != nil {
+	players.Range(func(p *world.Player) {
+		if fn := p.DistancedAction; fn != nil {
 			if fn() {
-				c.ResetDistancedAction()
+				p.ResetDistancedAction()
 			}
 		}
-		c.TraversePath()
+		p.TraversePath()
 	})
 	world.UpdateNPCPositions()
-	players.Range(func(c *world.Player) {
+	players.Range(func(p *world.Player) {
 		// Everything is updated relative to our player's position, so player position packet comes first
-		if positions := packetbuilders.PlayerPositions(c); positions != nil {
-			c.SendPacket(positions)
+		if positions := packetbuilders.PlayerPositions(p); positions != nil {
+			p.SendPacket(positions)
 		}
-		if appearances := packetbuilders.PlayerAppearances(c); appearances != nil {
-			c.SendPacket(appearances)
+		if appearances := packetbuilders.PlayerAppearances(p); appearances != nil {
+			p.SendPacket(appearances)
 		}
-		if npcUpdates := packetbuilders.NPCPositions(c); npcUpdates != nil {
-			c.SendPacket(npcUpdates)
+		if npcUpdates := packetbuilders.NPCPositions(p); npcUpdates != nil {
+			p.SendPacket(npcUpdates)
 		}
 		/*
-			if npcAppearances := packetbuilders.NpcAppearances(c.player); npcAppearances != nil {
-				c.SendPacket(npcAppearances)
+			if npcAppearances := packetbuilders.NpcAppearances(p.player); npcAppearances != nil {
+				p.SendPacket(npcAppearances)
 			}
 		*/
-		if itemUpdates := packetbuilders.ItemLocations(c); itemUpdates != nil {
-			c.SendPacket(itemUpdates)
+		if itemUpdates := packetbuilders.ItemLocations(p); itemUpdates != nil {
+			p.SendPacket(itemUpdates)
 		}
-		if objectUpdates := packetbuilders.ObjectLocations(c); objectUpdates != nil {
-			c.SendPacket(objectUpdates)
+		if objectUpdates := packetbuilders.ObjectLocations(p); objectUpdates != nil {
+			p.SendPacket(objectUpdates)
 		}
-		if boundaryUpdates := packetbuilders.BoundaryLocations(c); boundaryUpdates != nil {
-			c.SendPacket(boundaryUpdates)
+		if boundaryUpdates := packetbuilders.BoundaryLocations(p); boundaryUpdates != nil {
+			p.SendPacket(boundaryUpdates)
 		}
 	})
-	players.Range(func(c *world.Player) {
-		if time.Since(c.Transients().VarTime("deathTime")) < 5*time.Second {
+	players.Range(func(p *world.Player) {
+		if time.Since(p.Transients().VarTime("deathTime")) < 5*time.Second {
 			// Ugly hack to work around a client bug with region loading.
 			return
 		}
-		c.TransAttrs.SetVar("self", true)
-		c.TransAttrs.UnsetVar("remove")
-		c.TransAttrs.UnsetVar("moved")
-		c.TransAttrs.UnsetVar("changed")
+		p.TransAttrs.SetVar("self", true)
+		p.TransAttrs.UnsetVar("remove")
+		p.TransAttrs.UnsetVar("moved")
+		p.TransAttrs.UnsetVar("changed")
 	})
 	world.ResetNpcUpdateFlags()
 }

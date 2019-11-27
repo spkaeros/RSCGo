@@ -23,22 +23,22 @@ func init() {
 	PacketHandlers["logoutreq"] = logout
 	PacketHandlers["closeconn"] = closedConn
 	PacketHandlers["newplayer"] = newPlayer
-	PacketHandlers["forgotpass"] = func(c *world.Player, p *packet.Packet) {
+	PacketHandlers["forgotpass"] = func(player *world.Player, p *packet.Packet) {
 		usernameHash := p.ReadLong()
 		if !db.HasRecoveryQuestions(usernameHash) {
-			c.SendPacket(packet.NewBarePacket([]byte{0}))
-			c.Destroy()
+			player.SendPacket(packet.NewBarePacket([]byte{0}))
+			player.Destroy()
 			return
 		}
-		c.SendPacket(packet.NewBarePacket([]byte{1}))
+		player.SendPacket(packet.NewBarePacket([]byte{1}))
 		for _, question := range db.GetRecoveryQuestions(usernameHash) {
-			c.SendPacket(packet.NewBarePacket([]byte{byte(len(question))}).AddBytes([]byte(question)))
+			player.SendPacket(packet.NewBarePacket([]byte{byte(len(question))}).AddBytes([]byte(question)))
 		}
 	}
-	PacketHandlers["cancelpq"] = func(c *world.Player, p *packet.Packet) {
+	PacketHandlers["cancelpq"] = func(player *world.Player, p *packet.Packet) {
 		// empty packet
 	}
-	PacketHandlers["setpq"] = func(c *world.Player, p *packet.Packet) {
+	PacketHandlers["setpq"] = func(player *world.Player, p *packet.Packet) {
 		var questions []string
 		var answers []uint64
 		for i := 0; i < 5; i++ {
@@ -48,56 +48,56 @@ func init() {
 		}
 		log.Info.Println(questions, answers)
 	}
-	PacketHandlers["changepq"] = func(c *world.Player, p *packet.Packet) {
-		c.SendPacket(packet.NewOutgoingPacket(224))
+	PacketHandlers["changepq"] = func(player *world.Player, p *packet.Packet) {
+		player.SendPacket(packet.NewOutgoingPacket(224))
 	}
-	PacketHandlers["changepass"] = func(c *world.Player, p *packet.Packet) {
+	PacketHandlers["changepass"] = func(player *world.Player, p *packet.Packet) {
 		oldPassword := strings.TrimSpace(p.ReadString(20))
 		newPassword := strings.TrimSpace(p.ReadString(20))
-		if !db.ValidCredentials(c.UserBase37, crypto.Hash(oldPassword)) {
-			c.SendPacket(packetbuilders.ServerMessage("The old password you provided does not appear to be valid.  Try again."))
+		if !db.ValidCredentials(player.UserBase37, crypto.Hash(oldPassword)) {
+			player.SendPacket(packetbuilders.ServerMessage("The old password you provided does not appear to be valid.  Try again."))
 			return
 		}
-		db.UpdatePassword(c.UserBase37, crypto.Hash(newPassword))
-		c.SendPacket(packetbuilders.ServerMessage("Successfully updated your password to the new password you have provided."))
+		db.UpdatePassword(player.UserBase37, crypto.Hash(newPassword))
+		player.SendPacket(packetbuilders.ServerMessage("Successfully updated your password to the new password you have provided."))
 		return
 	}
 }
 
-func closedConn(c *world.Player, p *packet.Packet) {
-	logout(c, p)
+func closedConn(player *world.Player, p *packet.Packet) {
+	logout(player, p)
 }
 
-func logout(c *world.Player, _ *packet.Packet) {
-	if c.Busy() {
-		c.SendPacket(packetbuilders.CannotLogout)
+func logout(player *world.Player, _ *packet.Packet) {
+	if player.Busy() {
+		player.SendPacket(packetbuilders.CannotLogout)
 		return
 	}
-	if c.Connected() {
-		c.SendPacket(packetbuilders.Logout)
-		c.Destroy()
+	if player.Connected() {
+		player.SendPacket(packetbuilders.Logout)
+		player.Destroy()
 	}
 }
 
 //handleRegister This method will block until a byte is sent down the reply channel with the registration response to send to the client, or if this doesn't occur, it will timeout after 10 seconds.
-func handleRegister(c *world.Player, reply chan byte) {
-	defer c.Destroy()
+func handleRegister(player *world.Player, reply chan byte) {
+	defer player.Destroy()
 	defer close(reply)
 	select {
 	case r := <-reply:
-		c.SendPacket(packetbuilders.LoginResponse(int(r)))
+		player.SendPacket(packetbuilders.LoginResponse(int(r)))
 		return
 	case <-time.After(time.Second * 10):
-		c.SendPacket(packetbuilders.LoginResponse(0))
+		player.SendPacket(packetbuilders.LoginResponse(0))
 		return
 	}
 }
 
-func newPlayer(c *world.Player, p *packet.Packet) {
+func newPlayer(player *world.Player, p *packet.Packet) {
 	reply := make(chan byte)
-	go handleRegister(c, reply)
+	go handleRegister(player, reply)
 	if version := p.ReadShort(); version != config.Version() {
-		log.Info.Printf("New player denied: [ Reason:'Wrong client version'; ip='%s'; version=%d ]\n", c.IP, version)
+		log.Info.Printf("New player denied: [ Reason:'Wrong client version'; ip='%s'; version=%d ]\n", player.IP, version)
 		reply <- 5
 		return
 	}
@@ -105,43 +105,43 @@ func newPlayer(c *world.Player, p *packet.Packet) {
 	password := strings.TrimSpace(p.ReadString(20))
 	if userLen, passLen := len(username), len(password); userLen < 2 || userLen > 12 || passLen < 5 || passLen > 20 {
 		log.Suspicious.Printf("New player request contained invalid lengths: username:'%v'; password:'%v'\n", username, password)
-		log.Info.Printf("New player denied: [ Reason:'username or password invalid length'; username='%s'; ip='%s'; passLen=%d ]\n", username, c.IP, passLen)
+		log.Info.Printf("New player denied: [ Reason:'username or password invalid length'; username='%s'; ip='%s'; passLen=%d ]\n", username, player.IP, passLen)
 		reply <- 0
 		return
 	}
 	if db.UsernameExists(username) {
-		log.Info.Printf("New player denied: [ Reason:'Username is taken'; username='%s'; ip='%s' ]\n", username, c.IP)
+		log.Info.Printf("New player denied: [ Reason:'Username is taken'; username='%s'; ip='%s' ]\n", username, player.IP)
 		reply <- 3
 		return
 	}
 
 	if db.CreatePlayer(username, password) {
-		log.Info.Printf("New player accepted: [ username='%s'; ip='%s' ]", username, c.IP)
+		log.Info.Printf("New player accepted: [ username='%s'; ip='%s' ]", username, player.IP)
 		reply <- 2
 		return
 	}
-	log.Info.Printf("New player denied: [ Reason:'Most probably database related.  Debug required'; username='%s'; ip='%s' ]\n", username, c.IP)
+	log.Info.Printf("New player denied: [ Reason:'Most probably database related.  Debug required'; username='%s'; ip='%s' ]\n", username, player.IP)
 	reply <- 0
 	return
 }
 
-func sessionRequest(c *world.Player, p *packet.Packet) {
-	c.UID = p.ReadByte()
-	c.SetServerSeed(rand.Uint64())
-	c.SendPacket(packet.NewBarePacket(nil).AddLong(c.ServerSeed()))
+func sessionRequest(player *world.Player, p *packet.Packet) {
+	player.UID = p.ReadByte()
+	player.SetServerSeed(rand.Uint64())
+	player.SendPacket(packet.NewBarePacket(nil).AddLong(player.ServerSeed()))
 }
 
 //initialize
-func initialize(c *world.Player) {
-	for user := range c.FriendList {
+func initialize(player *world.Player) {
+	for user := range player.FriendList {
 		if players.ContainsHash(user) {
-			c.FriendList[user] = true
+			player.FriendList[user] = true
 		}
 	}
-	world.AddPlayer(c)
-	c.Change()
-	c.SetConnected(true)
-	if c.Skills().Experience(world.StatHits) < 10 {
+	world.AddPlayer(player)
+	player.Change()
+	player.SetConnected(true)
+	if player.Skills().Experience(world.StatHits) < 10 {
 		for i := 0; i < 18; i++ {
 			level := 1
 			exp := 0
@@ -149,29 +149,29 @@ func initialize(c *world.Player) {
 				level = 10
 				exp = 1154
 			}
-			c.Skills().SetCur(i, level)
-			c.Skills().SetMax(i, level)
-			c.Skills().SetExp(i, exp)
+			player.Skills().SetCur(i, level)
+			player.Skills().SetMax(i, level)
+			player.Skills().SetExp(i, exp)
 		}
 	}
 	if s := time.Until(script.UpdateTime).Seconds(); s > 0 {
-		c.SendPacket(packetbuilders.SystemUpdate(int(s)))
+		player.SendPacket(packetbuilders.SystemUpdate(int(s)))
 	}
-	c.SendPacket(packetbuilders.PlaneInfo(c))
-	c.SendPacket(packetbuilders.FriendList(c))
-	c.SendPacket(packetbuilders.IgnoreList(c))
-	if !c.Reconnecting() {
+	player.SendPacket(packetbuilders.PlaneInfo(player))
+	player.SendPacket(packetbuilders.FriendList(player))
+	player.SendPacket(packetbuilders.IgnoreList(player))
+	if !player.Reconnecting() {
 		// Reconnecting implies that the client has all of this data already, so as an optimization, we don't send it again
-		c.SendPacket(packetbuilders.PlayerStats(c))
-		c.SendPacket(packetbuilders.EquipmentStats(c))
-		c.SendPacket(packetbuilders.Fatigue(c))
-		c.SendPacket(packetbuilders.InventoryItems(c))
+		player.SendPacket(packetbuilders.PlayerStats(player))
+		player.SendPacket(packetbuilders.EquipmentStats(player))
+		player.SendPacket(packetbuilders.Fatigue(player))
+		player.SendPacket(packetbuilders.InventoryItems(player))
 		// TODO: Not canonical RSC, but definitely good QoL update...
-		//  c.SendPacket(packetbuilders.FightMode(c)
-		c.SendPacket(packetbuilders.ClientSettings(c))
-		c.SendPacket(packetbuilders.PrivacySettings(c))
-		c.SendPacket(packetbuilders.WelcomeMessage)
-		t, err := time.Parse(time.ANSIC, c.Attributes.VarString("lastLogin", time.Time{}.Format(time.ANSIC)))
+		//  player.SendPacket(packetbuilders.FightMode(player)
+		player.SendPacket(packetbuilders.ClientSettings(player))
+		player.SendPacket(packetbuilders.PrivacySettings(player))
+		player.SendPacket(packetbuilders.WelcomeMessage)
+		t, err := time.Parse(time.ANSIC, player.Attributes.VarString("lastLogin", time.Time{}.Format(time.ANSIC)))
 		if err != nil {
 			log.Info.Println(err)
 			return
@@ -181,19 +181,19 @@ func initialize(c *world.Player) {
 		if t.IsZero() {
 			days = 0
 		}
-		c.Attributes.SetVar("lastLogin", time.Now().Format(time.ANSIC))
-		c.SendPacket(packetbuilders.LoginBox(days, c.Attributes.VarString("lastIP", "127.0.0.1")))
+		player.Attributes.SetVar("lastLogin", time.Now().Format(time.ANSIC))
+		player.SendPacket(packetbuilders.LoginBox(days, player.Attributes.VarString("lastIP", "127.0.0.1")))
 	}
-	players.BroadcastLogin(c, true)
-	if c.FirstLogin() {
-		c.SetFirstLogin(false)
-		c.AddState(world.MSChangingAppearance)
-		c.SendPacket(packetbuilders.ChangeAppearance)
+	players.BroadcastLogin(player, true)
+	if player.FirstLogin() {
+		player.SetFirstLogin(false)
+		player.AddState(world.MSChangingAppearance)
+		player.SendPacket(packetbuilders.ChangeAppearance)
 	}
 }
 
 //handleLogin This method will block until a byte is sent down the reply channel with the login response to send to the client, or if this doesn't occur, it will timeout after 10 seconds.
-func handleLogin(c *world.Player, reply chan byte) {
+func handleLogin(player *world.Player, reply chan byte) {
 	isValid := func(r byte) bool {
 		valid := [...]byte{0, 1, 24, 25}
 		for _, i := range valid {
@@ -206,25 +206,25 @@ func handleLogin(c *world.Player, reply chan byte) {
 	defer close(reply)
 	select {
 	case r := <-reply:
-		c.SendPacket(packetbuilders.LoginResponse(int(r)))
+		player.SendPacket(packetbuilders.LoginResponse(int(r)))
 		if isValid(r) {
-			players.Put(c)
-			log.Info.Printf("Registered: %v\n", c)
-			initialize(c)
+			players.Put(player)
+			log.Info.Printf("Registered: %v\n", player)
+			initialize(player)
 			return
 		}
-		log.Info.Printf("Denied Client: {IP:'%v', username:'%v', Response='%v'}\n", c.IP, c.Username, r)
-		c.Destroy()
+		log.Info.Printf("Denied Client: {IP:'%v', username:'%v', Response='%v'}\n", player.IP, player.Username, r)
+		player.Destroy()
 		return
 	case <-time.After(time.Second * 10):
-		c.SendPacket(packetbuilders.LoginResponse(-1))
+		player.SendPacket(packetbuilders.LoginResponse(-1))
 		return
 	}
 }
 
-func loginRequest(c *world.Player, p *packet.Packet) {
+func loginRequest(player *world.Player, p *packet.Packet) {
 	loginReply := make(chan byte)
-	go handleLogin(c, loginReply)
+	go handleLogin(player, loginReply)
 	// Login block encrypted with block cipher using shared secret, to send/recv credentials and stream cipher key securely
 	// TODO: Re-enable RSA for 204 once JS implementation exists...
 	/*
@@ -235,7 +235,7 @@ func loginRequest(c *world.Player, p *packet.Packet) {
 			return
 		}
 	*/
-	c.SetReconnecting(p.ReadBool())
+	player.SetReconnecting(p.ReadBool())
 	if ver := p.ReadShort(); ver != config.Version() {
 		log.Info.Printf("Invalid client version attempted to login: %d\n", ver)
 		loginReply <- byte(5)
@@ -258,7 +258,7 @@ func loginRequest(c *world.Player, p *packet.Packet) {
 	p.ReadInt()
 
 	usernameHash := strutil.Base37.Encode(strings.TrimSpace(p.ReadString(20)))
-	c.Username = strutil.Base37.Decode(usernameHash)
+	player.Username = strutil.Base37.Decode(usernameHash)
 	password := strings.TrimSpace(p.ReadString(20))
 	if !db.UsernameExists(strutil.Base37.Decode(usernameHash)) {
 		loginReply <- 3
@@ -272,5 +272,5 @@ func loginRequest(c *world.Player, p *packet.Packet) {
 		loginReply <- 8
 		return
 	}
-	go db.LoadPlayer(c, usernameHash, password, loginReply)
+	go db.LoadPlayer(player, usernameHash, password, loginReply)
 }

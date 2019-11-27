@@ -37,20 +37,20 @@ func FromIndex(index int) (*world.Player, bool) {
 }
 
 //Add Puts a client into the map.
-func Put(c *world.Player) {
+func Put(player *world.Player) {
 	nextIndex := NextIndex()
 	Players.lock.Lock()
-	c.Index = nextIndex
-	Players.usernames[c.UserBase37] = c
-	Players.indices[nextIndex] = c
+	player.Index = nextIndex
+	Players.usernames[player.UserBase37] = player
+	Players.indices[nextIndex] = player
 	Players.lock.Unlock()
 }
 
 //Remove Removes a client from the map.
-func Remove(c *world.Player) {
+func Remove(player *world.Player) {
 	Players.lock.Lock()
-	delete(Players.usernames, c.UserBase37)
-	delete(Players.indices, c.Index)
+	delete(Players.usernames, player.UserBase37)
+	delete(Players.indices, player.Index)
 	Players.lock.Unlock()
 }
 
@@ -86,11 +86,11 @@ func NextIndex() int {
 
 //BroadcastLogin Broadcasts the login status of player to the whole server.
 func BroadcastLogin(player *world.Player, online bool) {
-	Range(func(c *world.Player) {
-		if c.Friends(player.UserBase37) {
-			if !player.FriendBlocked() || player.Friends(c.UserBase37) {
-				c.FriendList[player.UserBase37] = online
-				c.SendPacket(packetbuilders.FriendUpdate(player.UserBase37, online))
+	Range(func(rangedPlayer *world.Player) {
+		if rangedPlayer.Friends(player.UserBase37) {
+			if !player.FriendBlocked() || player.Friends(rangedPlayer.UserBase37) {
+				rangedPlayer.FriendList[player.UserBase37] = online
+				rangedPlayer.SendPacket(packetbuilders.FriendUpdate(player.UserBase37, online))
 			}
 		}
 	})

@@ -28,14 +28,14 @@ var ObjectTriggers []func(context.Context, reflect.Value, reflect.Value) (reflec
 var BoundaryTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 var NpcTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 
-func Run(fnName string, c *world.Player, argName string, arg interface{}) bool {
+func Run(fnName string, player *world.Player, argName string, arg interface{}) bool {
 	env := WorldModule()
-	err := env.Define("client", c)
+	err := env.Define("client", player)
 	if err != nil {
 		log.Info.Println("Error initializing scripting environment:", err)
 		return false
 	}
-	err = env.Define("player", c)
+	err = env.Define("player", player)
 	if err != nil {
 		log.Info.Println("Error initializing scripting environment:", err)
 		return false

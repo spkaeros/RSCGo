@@ -17,8 +17,8 @@ import (
 	"time"
 )
 
-//Client Represents a single connecting client.
-type Client struct {
+//client Represents a single connecting client.
+type client struct {
 	player          *world.Player
 	IncomingPackets chan *packet.Packet
 	CacheBuffer     []byte
@@ -29,7 +29,7 @@ type Client struct {
 }
 
 //startReader Starts the client Socket reader goroutine.  Takes a waitgroup as an argument to facilitate synchronous destruction.
-func (c *Client) startReader() {
+func (c *client) startReader() {
 	defer c.player.Destroy()
 	for {
 		select {
@@ -57,7 +57,7 @@ func (c *Client) startReader() {
 }
 
 //startWriter Starts the client Socket writer goroutine.
-func (c *Client) startWriter() {
+func (c *client) startWriter() {
 	defer c.player.Destroy()
 	for {
 		select {
@@ -73,7 +73,7 @@ func (c *Client) startWriter() {
 }
 
 //destroy Safely tears down a client, saves it to the database, and removes it from server-wide players.
-func (c *Client) destroy(wg *sync.WaitGroup) {
+func (c *client) destroy(wg *sync.WaitGroup) {
 	// Wait for network goroutines to finish.
 	c.destroyer.Do(func() {
 		(*wg).Wait()
@@ -98,7 +98,7 @@ func (c *Client) destroy(wg *sync.WaitGroup) {
 }
 
 //startNetworking Starts up 3 new goroutines; one for reading incoming data from the Socket, one for writing outgoing data to the Socket, and one for client state updates and parsing plus handling incoming packetbuilders.  When the client kill signal is sent through the kill channel, the state update and packet handling goroutine will wait for both the reader and writer goroutines to complete their operations before unregistering the client.
-func (c *Client) startNetworking() {
+func (c *client) startNetworking() {
 	var nwg sync.WaitGroup
 	nwg.Add(2)
 	go func() {
@@ -126,7 +126,7 @@ func (c *Client) startNetworking() {
 }
 
 //handlePacket Finds the mapped handler function for the specified packet, and calls it with the specified parameters.
-func (c *Client) handlePacket(p *packet.Packet) {
+func (c *client) handlePacket(p *packet.Packet) {
 	handler := packethandlers.Get(p.Opcode)
 	if handler == nil {
 		log.Info.Printf("Unhandled Packet: {opcode:%d; length:%d};\n", p.Opcode, len(p.Payload))
@@ -137,9 +137,9 @@ func (c *Client) handlePacket(p *packet.Packet) {
 	handler(c.player, p)
 }
 
-//newClient Creates a new instance of a Client, launches goroutines to handle I/O for it, and returns a reference to it.
-func newClient(socket net.Conn, ws bool) *Client {
-	c := &Client{Socket: socket, IncomingPackets: make(chan *packet.Packet, 20), DataBuffer: make([]byte, 5000)}
+//newClient Creates a new instance of a client, launches goroutines to handle I/O for it, and returns a reference to it.
+func newClient(socket net.Conn, ws bool) *client {
+	c := &client{Socket: socket, IncomingPackets: make(chan *packet.Packet, 20), DataBuffer: make([]byte, 5000)}
 	c.player = world.NewPlayer(players.NextIndex(), strings.Split(socket.RemoteAddr().String(), ":")[0])
 	c.player.Websocket = ws
 	c.startNetworking()
@@ -147,7 +147,7 @@ func newClient(socket net.Conn, ws bool) *Client {
 }
 
 //Write Writes data to the client's Socket from `b`.  Returns the length of the written bytes.
-func (c *Client) Write(src []byte) int {
+func (c *client) Write(src []byte) int {
 	var err error
 	var dataLen int
 	if c.player.Websocket {
@@ -165,7 +165,7 @@ func (c *Client) Write(src []byte) int {
 }
 
 //Read Reads data off of the client's Socket into 'dst'.  Returns length read into dst upon success.  Otherwise, returns -1 with a meaningful error message.
-func (c *Client) Read(dst []byte) (int, error) {
+func (c *client) Read(dst []byte) (int, error) {
 	// Set the read deadline for the socket to 10 seconds from now.
 	err := c.Socket.SetReadDeadline(time.Now().Add(time.Second * 10))
 	if err != nil {
@@ -229,7 +229,7 @@ func (c *Client) Read(dst []byte) (int, error) {
 }
 
 //readPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode of the next packet frame the client is sending us.
-func (c *Client) readPacket() (*packet.Packet, error) {
+func (c *client) readPacket() (*packet.Packet, error) {
 	header := make([]byte, 2)
 	if l, err := c.Read(header); err != nil {
 		return nil, err
@@ -273,7 +273,7 @@ func (c *Client) readPacket() (*packet.Packet, error) {
 //writePacket This is a method to send a packet to the client.  If this is a bare packet, the packet payload will
 // be written as-is.  If this is not a bare packet, the packet will have the first 3 bytes changed to the
 // appropriate values for the client to parse the length and opcode for this packet.
-func (c *Client) writePacket(p packet.Packet) {
+func (c *client) writePacket(p packet.Packet) {
 	if p.Bare {
 		c.Write(p.Payload)
 		return

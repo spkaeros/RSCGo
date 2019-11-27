@@ -10,8 +10,8 @@ import (
 )
 
 func init() {
-	PacketHandlers["pingreq"] = func(c *world.Player, p *packet.Packet) {
-		c.SendPacket(packetbuilders.ResponsePong)
+	PacketHandlers["pingreq"] = func(player *world.Player, p *packet.Packet) {
+		player.SendPacket(packetbuilders.ResponsePong)
 	}
 }
 

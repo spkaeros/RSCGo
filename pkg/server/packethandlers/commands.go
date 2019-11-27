@@ -16,42 +16,42 @@ import (
 )
 
 func init() {
-	PacketHandlers["command"] = func(c *world.Player, p *packet.Packet) {
+	PacketHandlers["command"] = func(player *world.Player, p *packet.Packet) {
 		args := strutil.ModalParse(string(p.Payload))
 		handler, ok := script.CommandHandlers[args[0]]
 		if !ok {
-			c.SendPacket(packetbuilders.ServerMessage("@que@Invalid command."))
-			log.Commands.Printf("%v sent invalid command: /%v\n", c.Username, string(p.Payload))
+			player.SendPacket(packetbuilders.ServerMessage("@que@Invalid command."))
+			log.Commands.Printf("%v sent invalid command: /%v\n", player.Username, string(p.Payload))
 			return
 		}
-		log.Commands.Printf("%v: /%v\n", c.Username, string(p.Payload))
-		handler(c, args[1:])
+		log.Commands.Printf("%v: /%v\n", player.Username, string(p.Payload))
+		handler(player, args[1:])
 	}
-	script.CommandHandlers["memdump"] = func(c *world.Player, args []string) {
+	script.CommandHandlers["memdump"] = func(player *world.Player, args []string) {
 		file, err := os.Create("rscgo.mprof")
 		if err != nil {
 			log.Warning.Println("Could not open file to dump memory profile:", err)
-			c.SendPacket(packetbuilders.ServerMessage("Error encountered opening profile output file."))
+			player.SendPacket(packetbuilders.ServerMessage("Error encountered opening profile output file."))
 			return
 		}
 		err = pprof.WriteHeapProfile(file)
 		if err != nil {
 			log.Warning.Println("Could not write heap profile to file::", err)
-			c.SendPacket(packetbuilders.ServerMessage("Error encountered writing profile output file."))
+			player.SendPacket(packetbuilders.ServerMessage("Error encountered writing profile output file."))
 			return
 		}
 		err = file.Close()
 		if err != nil {
 			log.Warning.Println("Could not close heap file::", err)
-			c.SendPacket(packetbuilders.ServerMessage("Error encountered closing profile output file."))
+			player.SendPacket(packetbuilders.ServerMessage("Error encountered closing profile output file."))
 			return
 		}
-		log.Commands.Println(c.Username + " dumped memory profile of the server to rscgo.mprof")
-		c.SendPacket(packetbuilders.ServerMessage("Dumped memory profile."))
+		log.Commands.Println(player.Username + " dumped memory profile of the server to rscgo.mprof")
+		player.SendPacket(packetbuilders.ServerMessage("Dumped memory profile."))
 	}
-	script.CommandHandlers["pprof"] = func(c *world.Player, args []string) {
+	script.CommandHandlers["pprof"] = func(player *world.Player, args []string) {
 		if len(args) < 1 {
-			c.SendPacket(packetbuilders.ServerMessage("Invalid args.  Usage: /pprof <start|stop>"))
+			player.SendPacket(packetbuilders.ServerMessage("Invalid args.  Usage: /pprof <start|stop>"))
 			return
 		}
 		switch args[0] {
@@ -59,67 +59,67 @@ func init() {
 			file, err := os.Create("rscgo.pprof")
 			if err != nil {
 				log.Warning.Println("Could not open file to dump CPU profile:", err)
-				c.SendPacket(packetbuilders.ServerMessage("Error encountered opening profile output file."))
+				player.SendPacket(packetbuilders.ServerMessage("Error encountered opening profile output file."))
 				return
 			}
 			err = pprof.StartCPUProfile(file)
 			if err != nil {
 				log.Warning.Println("Could not start CPU profile:", err)
-				c.SendPacket(packetbuilders.ServerMessage("Error encountered starting CPU profile."))
+				player.SendPacket(packetbuilders.ServerMessage("Error encountered starting CPU profile."))
 				return
 			}
-			log.Commands.Println(c.Username + " began profiling CPU time.")
-			c.SendPacket(packetbuilders.ServerMessage("CPU profiling started."))
+			log.Commands.Println(player.Username + " began profiling CPU time.")
+			player.SendPacket(packetbuilders.ServerMessage("CPU profiling started."))
 		case "stop":
 			pprof.StopCPUProfile()
-			log.Commands.Println(c.Username + " has finished profiling CPU time, output should be in rscgo.pprof")
-			c.SendPacket(packetbuilders.ServerMessage("CPU profiling finished."))
+			log.Commands.Println(player.Username + " has finished profiling CPU time, output should be in rscgo.pprof")
+			player.SendPacket(packetbuilders.ServerMessage("CPU profiling finished."))
 		default:
-			c.SendPacket(packetbuilders.ServerMessage("Invalid args.  Usage: /pprof <start|stop>"))
+			player.SendPacket(packetbuilders.ServerMessage("Invalid args.  Usage: /pprof <start|stop>"))
 		}
 	}
-	script.CommandHandlers["saveobjects"] = func(c *world.Player, args []string) {
+	script.CommandHandlers["saveobjects"] = func(player *world.Player, args []string) {
 		go func() {
 			if count := db.SaveObjectLocations(); count > 0 {
-				c.SendPacket(packetbuilders.ServerMessage("Saved " + strconv.Itoa(count) + " game objects to world.db"))
-				log.Commands.Println(c.Username + " saved " + strconv.Itoa(count) + " game objects to world.db")
+				player.SendPacket(packetbuilders.ServerMessage("Saved " + strconv.Itoa(count) + " game objects to world.db"))
+				log.Commands.Println(player.Username + " saved " + strconv.Itoa(count) + " game objects to world.db")
 			} else {
-				c.SendPacket(packetbuilders.ServerMessage("Appears to have been an issue saving game objects to world.db.  Check server logs."))
-				log.Commands.Println(c.Username + " failed to save game objects; count=" + strconv.Itoa(count))
+				player.SendPacket(packetbuilders.ServerMessage("Appears to have been an issue saving game objects to world.db.  Check server logs."))
+				log.Commands.Println(player.Username + " failed to save game objects; count=" + strconv.Itoa(count))
 			}
 		}()
 	}
-	script.CommandHandlers["npc"] = func(c *world.Player, args []string) {
+	script.CommandHandlers["npc"] = func(player *world.Player, args []string) {
 		if len(args) < 1 {
-			c.SendPacket(packetbuilders.ServerMessage("@que@Invalid args.  Usage: /npc <id>"))
+			player.SendPacket(packetbuilders.ServerMessage("@que@Invalid args.  Usage: /npc <id>"))
 			return
 		}
 
 		id, err := strconv.Atoi(args[0])
 		if err != nil || id > 793 || id < 0 {
-			c.SendPacket(packetbuilders.ServerMessage("@que@Invalid args.  Usage: /npc <id>"))
+			player.SendPacket(packetbuilders.ServerMessage("@que@Invalid args.  Usage: /npc <id>"))
 			return
 		}
 
-		x := c.X()
-		y := c.Y()
+		x := player.X()
+		y := player.Y()
 
 		world.AddNpc(world.NewNpc(id, x, y, x-5, x+5, y-5, y+5))
 	}
-	script.CommandHandlers["anko"] = func(c *world.Player, args []string) {
+	script.CommandHandlers["anko"] = func(player *world.Player, args []string) {
 		line := strings.Join(args, " ")
 		env := script.WorldModule()
 		env.Define("println", fmt.Println)
-		env.Define("player", c)
+		env.Define("player", player)
 		env.Execute(line)
 	}
-	script.CommandHandlers["reloadscripts"] = func(c *world.Player, args []string) {
+	script.CommandHandlers["reloadscripts"] = func(player *world.Player, args []string) {
 		script.Clear()
 		script.Load()
 		log.Info.Printf("Loaded %d inventory, %d object, %d boundary, and %d NPC action triggers.\n", len(script.InvTriggers), len(script.ObjectTriggers), len(script.BoundaryTriggers), len(script.NpcTriggers))
 	}
 }
 
-func notYetImplemented(c *world.Player, args []string) {
-	c.SendPacket(packetbuilders.ServerMessage("@que@@ora@Not yet implemented"))
+func notYetImplemented(player *world.Player, args []string) {
+	player.SendPacket(packetbuilders.ServerMessage("@que@@ora@Not yet implemented"))
 }

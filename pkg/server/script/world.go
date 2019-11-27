@@ -62,18 +62,18 @@ func WorldModule() *vm.Env {
 			client.Destroy()
 		},
 		"addCommand": func(name string, fn func(p *world.Player, args []string)) {
-			CommandHandlers[name] = func(c *world.Player, args []string) {
-				fn(c, args)
+			CommandHandlers[name] = func(player *world.Player, args []string) {
+				fn(player, args)
 			}
 		},
 		"broadcast": func(fn func(interface{})) {
-			players.Range(func(c *world.Player) {
-				fn(c)
+			players.Range(func(player *world.Player) {
+				fn(player)
 			})
 		},
 		"announce": func(msg string) {
-			players.Range(func(c *world.Player) {
-				c.SendPacket(packetbuilders.ServerMessage("@que@" + msg))
+			players.Range(func(player *world.Player) {
+				player.SendPacket(packetbuilders.ServerMessage("@que@" + msg))
 			})
 		},
 		"parseDirection":     world.ParseDirection,
@@ -203,15 +203,15 @@ func WorldModule() *vm.Env {
 			UpdateTime = time.Now().Add(time.Second * time.Duration(t))
 			go func() {
 				time.Sleep(time.Second * time.Duration(t))
-				players.Range(func(c *world.Player) {
-					c.SendPacket(packetbuilders.Logout)
-					c.Destroy()
+				players.Range(func(player *world.Player) {
+					player.SendPacket(packetbuilders.Logout)
+					player.Destroy()
 				})
 				time.Sleep(300 * time.Millisecond)
 				os.Exit(200)
 			}()
-			players.Range(func(c *world.Player) {
-				c.SendPacket(packetbuilders.SystemUpdate(t))
+			players.Range(func(player *world.Player) {
+				player.SendPacket(packetbuilders.SystemUpdate(t))
 			})
 		},
 		"sendInventory": func(target *world.Player) {

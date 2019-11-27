@@ -8,32 +8,32 @@ import (
 )
 
 func init() {
-	PacketHandlers["clientsetting"] = func(c *world.Player, p *packet.Packet) {
+	PacketHandlers["clientsetting"] = func(player *world.Player, p *packet.Packet) {
 		// 2 = mouse buttons
 		// 0 = camera angle manual/auto
 		// 3 = soundFX (false=on, wtf)
-		c.SetClientSetting(int(p.ReadByte()), p.ReadBool())
+		player.SetClientSetting(int(p.ReadByte()), p.ReadBool())
 	}
-	PacketHandlers["privacysettings"] = func(c *world.Player, p *packet.Packet) {
+	PacketHandlers["privacysettings"] = func(player *world.Player, p *packet.Packet) {
 		chatBlocked := p.ReadBool()
 		friendBlocked := p.ReadBool()
 		tradeBlocked := p.ReadBool()
 		duelBlocked := p.ReadBool()
-		if c.FriendBlocked() && !friendBlocked {
+		if player.FriendBlocked() && !friendBlocked {
 			// turning off private chat block
 			players.Range(func(c1 *world.Player) {
-				if c1.Friends(c.UserBase37) && !c.Friends(c1.UserBase37) {
-					c1.SendPacket(packetbuilders.FriendUpdate(c.UserBase37, true))
+				if c1.Friends(player.UserBase37) && !player.Friends(c1.UserBase37) {
+					c1.SendPacket(packetbuilders.FriendUpdate(player.UserBase37, true))
 				}
 			})
-		} else if !c.FriendBlocked() && friendBlocked {
+		} else if !player.FriendBlocked() && friendBlocked {
 			// turning on private chat block
 			players.Range(func(c1 *world.Player) {
-				if c1.Friends(c.UserBase37) && !c.Friends(c1.UserBase37) {
-					c1.SendPacket(packetbuilders.FriendUpdate(c.UserBase37, false))
+				if c1.Friends(player.UserBase37) && !player.Friends(c1.UserBase37) {
+					c1.SendPacket(packetbuilders.FriendUpdate(player.UserBase37, false))
 				}
 			})
 		}
-		c.SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, duelBlocked)
+		player.SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, duelBlocked)
 	}
 }

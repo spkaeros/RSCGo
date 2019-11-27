@@ -32,8 +32,8 @@ func inArray(a []int, i int) bool {
 }
 
 func init() {
-	PacketHandlers["changeappearance"] = func(c *world.Player, p *packet.Packet) {
-		if !c.HasState(world.MSChangingAppearance) {
+	PacketHandlers["changeappearance"] = func(player *world.Player, p *packet.Packet) {
+		if !player.HasState(world.MSChangingAppearance) {
 			// Make sure the player either has never logged in before, or talked to the makeover mage to get here.
 			return
 		}
@@ -50,39 +50,39 @@ func init() {
 				!inArray(validSkinColors, int(skinColor)) || legType != 2 {*/
 		if hairColor >= len(validHeadColors) || !inArray(validHeads, headType) || topColor >= len(validBodyLegColors) ||
 			legColor >= len(validBodyLegColors) || skinColor >= len(validSkinColors) || !inArray(validBodys, bodyType) || legType != 3 || legColor >= len(validBodyLegColors) {
-			log.Info.Printf("Invalid appearance data provided by %v: (headType:%v, bodyType:%v, legType:%v, hairColor:%v, topColor:%v, legColor:%v, skinColor:%v, gender:%v)\n", c.String(), headType, bodyType, legType, hairColor, topColor, legColor, skinColor, isMale)
+			log.Info.Printf("Invalid appearance data provided by %v: (headType:%v, bodyType:%v, legType:%v, hairColor:%v, topColor:%v, legColor:%v, skinColor:%v, gender:%v)\n", player.String(), headType, bodyType, legType, hairColor, topColor, legColor, skinColor, isMale)
 			return
 		}
 		log.Info.Printf("(headType:%v, bodyType:%v, legType:%v, hairColor:%v, topColor:%v, legColor:%v, skinColor:%v, gender:%v)\n", headType, bodyType, legType, hairColor, topColor, legColor, skinColor, isMale)
 		if !isMale {
 			if bodyType != femaleBody {
-				log.Info.Println("Correcting invalid packet data: female asked for male body type; setting to female body type, from", c)
+				log.Info.Println("Correcting invalid packet data: female asked for male body type; setting to female body type, from", player)
 				bodyType = femaleBody
 			}
 			if headType == beardHead {
-				log.Info.Println("Correcting invalid packet data: female asked for male head type; setting to female head type, from", c)
+				log.Info.Println("Correcting invalid packet data: female asked for male head type; setting to female head type, from", player)
 				headType = metalHead
 			}
 		}
-		c.AppearanceLock.Lock()
+		player.AppearanceLock.Lock()
 		{
-			if c.Equips[0] == c.Appearance.Head {
-				c.Equips[0] = headType
+			if player.Equips[0] == player.Appearance.Head {
+				player.Equips[0] = headType
 			}
-			if c.Equips[1] == c.Appearance.Body {
-				c.Equips[1] = bodyType
+			if player.Equips[1] == player.Appearance.Body {
+				player.Equips[1] = bodyType
 			}
-			c.Appearance.Body = bodyType
-			c.Appearance.Head = headType
-			c.Appearance.Male = isMale
-			c.Appearance.HeadColor = hairColor
-			c.Appearance.SkinColor = skinColor
-			c.Appearance.BodyColor = topColor
-			c.Appearance.LegsColor = legColor
-			c.ResetNeedsSelf()
-			c.AppearanceTicket++
+			player.Appearance.Body = bodyType
+			player.Appearance.Head = headType
+			player.Appearance.Male = isMale
+			player.Appearance.HeadColor = hairColor
+			player.Appearance.SkinColor = skinColor
+			player.Appearance.BodyColor = topColor
+			player.Appearance.LegsColor = legColor
+			player.ResetNeedsSelf()
+			player.AppearanceTicket++
 		}
-		c.AppearanceLock.Unlock()
-		c.RemoveState(world.MSChangingAppearance)
+		player.AppearanceLock.Unlock()
+		player.RemoveState(world.MSChangingAppearance)
 	}
 }
