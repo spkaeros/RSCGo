@@ -148,6 +148,9 @@ func WorldModule() *vm.Env {
 			}
 			target.SendPacket(packetbuilders.PlayerDamage(target, damage))
 		},
+		"sendSound": func(target *world.Player, sound string) {
+			target.SendPacket(packetbuilders.Sound(sound))
+		},
 		"sendStats": func(target *world.Player) {
 			target.SendPacket(packetbuilders.PlayerStats(target))
 		},

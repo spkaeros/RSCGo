@@ -68,7 +68,7 @@ func closedConn(c clients.Client, p *packet.Packet) {
 
 func logout(c clients.Client, _ *packet.Packet) {
 	if c.Player().TransAttrs.VarBool("fighting", false) || c.Player().State != world.MSIdle {
-		// TODO: send can't logout right now packet
+		c.SendPacket(packetbuilders.CannotLogout)
 		return
 	}
 	if c.Player().TransAttrs.VarBool("connected", false) {

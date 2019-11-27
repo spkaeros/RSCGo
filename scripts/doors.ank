@@ -2,9 +2,11 @@ func objectAction(player, object) {
 	doors = {59: 60, 57: 58, 63: 64}
 	for open, closed in doors {
 		if object.ID == open {
+			sendSound(player, "opendoor")
 			replaceObject(object, closed)
 			return true
 		} else if object.ID == closed {
+			sendSound(player, "closedoor")
 			replaceObject(object, open)
 			return true
 		}
@@ -15,18 +17,22 @@ func objectAction(player, object) {
 func boundaryAction(player, object) {
 	doors = {1: 2}
 	if object.ID == 109 {
+		sendSound(player, "opendoor")
 		old = replaceObject(object, 11)
 		player.Teleport(161, player.Y() > 464 ? 464 : 465)
 		runAfter(tSecond, func() {
+			sendSound(player, "closedoor")
 			replaceObject(old, 109)
 		})
 		return true
 	}
 	for open, closed in doors {
 		if object.ID == open {
+			sendSound(player, "opendoor")
 			replaceObject(object, closed)
 			return true
 		} else if object.ID == closed {
+			sendSound(player, "closedoor")
 			replaceObject(object, open)
 			return true
 		}

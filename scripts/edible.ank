@@ -9,6 +9,7 @@ func invAction(player, item) {
 		sendMessage(player, "You eat the " + itemDefs[item.ID].Name + "...")
 		player.Items.Remove(item.Index, item.Amount)
 		sendInventory(player)
+		sendSound(player, "eat")
 		if amount > 0 {
 			player.Stats().IncreaseCur(HITPOINTS, amount)
 			sendStat(player, HITPOINTS)

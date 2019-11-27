@@ -43,6 +43,10 @@ func TeleBubble(offsetX, offsetY int) (p *packet.Packet) {
 	return
 }
 
+func Sound(name string) *packet.Packet {
+	return packet.NewOutgoingPacket(204).AddBytes([]byte(name))
+}
+
 //ServerInfo Builds a packet with the server information in it.
 func ServerInfo(onlineCount int) (p *packet.Packet) {
 	// TODO: Real 204 RSC doesn't have this?

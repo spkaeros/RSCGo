@@ -67,6 +67,12 @@ func init() {
 						if defender.Stats().Current(world.StatHits) <= 0 {
 							if defenderNpc, ok := defender.(*world.NPC); ok {
 								script.EngineChannel <- func() {
+									if attackerPlayer, ok := attacker.(*world.Player); ok {
+										attackerPlayer.SendPacket(packetbuilders.Sound("victory"))
+										world.AddItem(world.NewGroundItemFor(attackerPlayer.UserBase37, 20, 1, defender.X(), defender.Y()))
+									} else {
+										world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
+									}
 									attacker.ResetFighting()
 									defenderNpc.Stats().SetCur(world.StatHits, defenderNpc.Stats().Maximum(world.StatHits))
 									defenderNpc.SetLocation(world.DeathSpot, true)
@@ -81,8 +87,16 @@ func init() {
 							} else if defenderPlayer, ok := defender.(*world.Player); ok {
 								script.EngineChannel <- func() {
 									attacker.ResetFighting()
+									world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
 									defenderPlayer.Stats().SetCur(world.StatHits, defenderPlayer.Stats().Maximum(world.StatHits))
 									defenderPlayer.SendPacket(packetbuilders.PlayerStats(defenderPlayer))
+									defenderPlayer.SendPacket(packetbuilders.Sound("death"))
+									// TODO: Keep 3 most valuable items
+									defenderPlayer.Inventory().Range(func(item *world.Item) bool {
+										world.AddItem(world.NewGroundItem(item.ID, item.Amount, defender.X(), defender.Y()))
+										return true
+									})
+									defenderPlayer.Inventory().Clear()
 									defenderPlayer.Transients().SetVar("deathTime", time.Now())
 									defenderPlayer.SendPacket(packetbuilders.Death)
 									defenderPlayer.SetLocation(world.SpawnPoint, true)
@@ -133,6 +147,7 @@ func init() {
 		affectedPlayer := affectedClient.Player()
 		c.Player().SetDistancedAction(func() bool {
 			if c.Player().NextTo(affectedPlayer.Location) && c.Player().WithinRange(affectedPlayer.Location, 2) {
+				affectedPlayer.SendPacket(packetbuilders.Sound("underattack"))
 				c.Player().ResetPath()
 				affectedPlayer.ResetPath()
 				c.Player().SetLocation(affectedPlayer.Location, true)
@@ -178,6 +193,16 @@ func init() {
 						if defender.Stats().Current(world.StatHits) <= 0 {
 							script.EngineChannel <- func() {
 								attacker.ResetFighting()
+								world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
+								attacker.SendPacket(packetbuilders.Sound("victory"))
+								defender.SendPacket(packetbuilders.Sound("death"))
+								// TODO: Keep 3 most valuable items
+								defender.Inventory().Range(func(item *world.Item) bool {
+									world.AddItem(world.NewGroundItemFor(attacker.UserBase37, item.ID, item.Amount, defender.X(), defender.Y()))
+									return true
+								})
+								defender.Inventory().Clear()
+								attacker.SendPacket(packetbuilders.ServerMessage("You have defeated " + defender.Username + "!"))
 								defender.Stats().SetCur(world.StatHits, defender.Stats().Maximum(world.StatHits))
 								defender.SendPacket(packetbuilders.PlayerStats(defender))
 								defender.Transients().SetVar("deathTime", time.Now())

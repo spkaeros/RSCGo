@@ -22,6 +22,7 @@ func init() {
 			if item.Worn {
 				return
 			}
+			c.SendPacket(packetbuilders.Sound("click"))
 			c.EquipItem(item)
 		}
 	}
@@ -36,6 +37,7 @@ func init() {
 			if !item.Worn {
 				return
 			}
+			c.SendPacket(packetbuilders.Sound("click"))
 			c.DequipItem(item)
 		}
 	}
@@ -65,6 +67,7 @@ func init() {
 			if !c.Player().WithinRange(item.Location, 0) {
 				return false
 			}
+			c.Player().SendPacket(packetbuilders.Sound("takeobject"))
 			c.Player().ResetPath()
 			if c.Player().Items.Size() >= 30 {
 				c.Message("You do not have room for that item in your inventory.")
@@ -88,6 +91,7 @@ func init() {
 					if c.Player().Items.Remove(index, item.Amount) {
 						world.AddItem(world.NewGroundItemFor(c.Player().UserBase37, item.ID, item.Amount, c.Player().X(), c.Player().Y()))
 						c.SendPacket(packetbuilders.InventoryItems(c.Player()))
+						c.Player().SendPacket(packetbuilders.Sound("dropobject"))
 					}
 					return true
 				}

@@ -3,24 +3,30 @@ package packethandlers
 import (
 	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
+	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 func init() {
 	PacketHandlers["walkto"] = func(c clients.Client, p *packet.Packet) {
-		if c.Player().TransAttrs.VarBool("fighting", false) {
-			curRound := c.Player().TransAttrs.VarInt("fightRound", 0)
-			if curRound < 3 {
-				c.Message("You can't retreat during the first 3 rounds of combat")
-				return
-			}
-		}
 		if c.Player().State == world.MSMenuChoosing {
 			c.Player().OptionMenuC <- -1
 			c.Player().State = world.MSIdle
 		}
 		if c.Player().State != world.MSIdle {
 			return
+		}
+		if c.Player().TransAttrs.VarBool("fighting", false) {
+			curRound := c.Player().TransAttrs.VarInt("fightRound", 0)
+			if curRound < 3 {
+				c.Message("You can't retreat during the first 3 rounds of combat")
+				return
+			}
+			if target := c.Player().TransAttrs.VarPlayer("fightTarget"); target != nil {
+				target.SendPacket(packetbuilders.Sound("retreat"))
+				target.SendPacket(packetbuilders.ServerMessage("Your opponent is retreating"))
+			}
+			c.Player().ResetFighting()
 		}
 		startX := p.ReadShort()
 		startY := p.ReadShort()
