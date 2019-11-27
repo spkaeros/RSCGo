@@ -11,8 +11,8 @@ package script
 
 import (
 	"context"
-	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/server/world"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -28,14 +28,14 @@ var ObjectTriggers []func(context.Context, reflect.Value, reflect.Value) (reflec
 var BoundaryTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 var NpcTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 
-func Run(fnName string, c clients.Client, argName string, arg interface{}) bool {
+func Run(fnName string, c *world.Player, argName string, arg interface{}) bool {
 	env := WorldModule()
 	err := env.Define("client", c)
 	if err != nil {
 		log.Info.Println("Error initializing scripting environment:", err)
 		return false
 	}
-	err = env.Define("player", c.Player())
+	err = env.Define("player", c)
 	if err != nil {
 		log.Info.Println("Error initializing scripting environment:", err)
 		return false

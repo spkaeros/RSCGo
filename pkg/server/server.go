@@ -3,7 +3,8 @@ package server
 import (
 	"fmt"
 	"github.com/gobwas/ws"
-	"github.com/spkaeros/rscgo/pkg/server/clients"
+	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
+	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"net"
 	"os"
@@ -56,7 +57,7 @@ func Bind(port int) {
 					continue
 				}
 			}
-			if clients.Size() >= config.MaxPlayers() {
+			if players.Size() >= config.MaxPlayers() {
 				if n, err := socket.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 14}); err != nil || n != 9 {
 					if config.Verbosity > 0 {
 						log.Error.Println("Could not send world is full response to rejected client:", err)
@@ -65,7 +66,7 @@ func Bind(port int) {
 				continue
 			}
 
-			NewClient(socket, port == config.WSPort())
+			newClient(socket, port == config.WSPort())
 		}
 	}()
 }
@@ -85,24 +86,50 @@ func Tick() {
 	default:
 		break
 	}
-	clients.Range(func(c clients.Client) {
-		if fn := c.Player().DistancedAction; fn != nil {
+	players.Range(func(c *world.Player) {
+		if fn := c.DistancedAction; fn != nil {
 			if fn() {
-				c.Player().ResetDistancedAction()
+				c.ResetDistancedAction()
 			}
 		}
-		c.Player().TraversePath()
+		c.TraversePath()
 	})
 	world.UpdateNPCPositions()
-	clients.Range(func(c clients.Client) {
-		c.UpdatePositions()
+	players.Range(func(c *world.Player) {
+		// Everything is updated relative to our player's position, so player position packet comes first
+		if positions := packetbuilders.PlayerPositions(c); positions != nil {
+			c.SendPacket(positions)
+		}
+		if appearances := packetbuilders.PlayerAppearances(c); appearances != nil {
+			c.SendPacket(appearances)
+		}
+		if npcUpdates := packetbuilders.NPCPositions(c); npcUpdates != nil {
+			c.SendPacket(npcUpdates)
+		}
+		/*
+			if npcAppearances := packetbuilders.NpcAppearances(c.player); npcAppearances != nil {
+				c.SendPacket(npcAppearances)
+			}
+		*/
+		if itemUpdates := packetbuilders.ItemLocations(c); itemUpdates != nil {
+			c.SendPacket(itemUpdates)
+		}
+		if objectUpdates := packetbuilders.ObjectLocations(c); objectUpdates != nil {
+			c.SendPacket(objectUpdates)
+		}
+		if boundaryUpdates := packetbuilders.BoundaryLocations(c); boundaryUpdates != nil {
+			c.SendPacket(boundaryUpdates)
+		}
 	})
-	clients.Range(func(c clients.Client) {
-		if time.Since(c.Player().Transients().VarTime("deathTime")) < 5*time.Second {
+	players.Range(func(c *world.Player) {
+		if time.Since(c.Transients().VarTime("deathTime")) < 5*time.Second {
 			// Ugly hack to work around a client bug with region loading.
 			return
 		}
-		c.ResetUpdateFlags()
+		c.TransAttrs.SetVar("self", true)
+		c.TransAttrs.UnsetVar("remove")
+		c.TransAttrs.UnsetVar("moved")
+		c.TransAttrs.UnsetVar("changed")
 	})
 	world.ResetNpcUpdateFlags()
 }

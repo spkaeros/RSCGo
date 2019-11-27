@@ -14,9 +14,9 @@ import (
 	"github.com/mattn/anko/packages"
 	"github.com/mattn/anko/vm"
 	"github.com/spkaeros/rscgo/pkg/rand"
-	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
+	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 	"os"
@@ -25,16 +25,16 @@ import (
 )
 
 //CommandHandlers A map to assign in-game commands to the functions they should execute.
-var CommandHandlers = make(map[string]func(clients.Client, []string))
+var CommandHandlers = make(map[string]func(*world.Player, []string))
 
 var UpdateTime time.Time
 
 func WorldModule() *vm.Env {
 	env, err := vm.NewEnv().AddPackage("world", map[string]interface{}{
-		"getPlayerCount":  clients.Size,
-		"getPlayers":      clients.Clients,
-		"getPlayer":       clients.FromIndex,
-		"getPlayerByName": clients.FromUserHash,
+		"getPlayerCount":  players.Size,
+		"getPlayers":      players.Players,
+		"getPlayer":       players.FromIndex,
+		"getPlayerByName": players.FromUserHash,
 		"replaceObject":   world.ReplaceObject,
 		"addObject":       world.AddObject,
 		"removeObject":    world.RemoveObject,
@@ -57,22 +57,22 @@ func WorldModule() *vm.Env {
 		"npcs":            world.Npcs,
 		"itemDefs":        world.ItemDefs,
 		"commands":        CommandHandlers,
-		"kick": func(client clients.Client) {
+		"kick": func(client *world.Player) {
 			client.SendPacket(packetbuilders.Logout)
 			client.Destroy()
 		},
 		"addCommand": func(name string, fn func(p *world.Player, args []string)) {
-			CommandHandlers[name] = func(c clients.Client, args []string) {
-				fn(c.Player(), args)
+			CommandHandlers[name] = func(c *world.Player, args []string) {
+				fn(c, args)
 			}
 		},
 		"broadcast": func(fn func(interface{})) {
-			clients.Range(func(c clients.Client) {
+			players.Range(func(c *world.Player) {
 				fn(c)
 			})
 		},
 		"announce": func(msg string) {
-			clients.Range(func(c clients.Client) {
+			players.Range(func(c *world.Player) {
 				c.SendPacket(packetbuilders.ServerMessage("@que@" + msg))
 			})
 		},
@@ -203,14 +203,14 @@ func WorldModule() *vm.Env {
 			UpdateTime = time.Now().Add(time.Second * time.Duration(t))
 			go func() {
 				time.Sleep(time.Second * time.Duration(t))
-				clients.Range(func(c clients.Client) {
+				players.Range(func(c *world.Player) {
 					c.SendPacket(packetbuilders.Logout)
 					c.Destroy()
 				})
 				time.Sleep(300 * time.Millisecond)
 				os.Exit(200)
 			}()
-			clients.Range(func(c clients.Client) {
+			players.Range(func(c *world.Player) {
 				c.SendPacket(packetbuilders.SystemUpdate(t))
 			})
 		},
@@ -247,8 +247,7 @@ func WorldModule() *vm.Env {
 		"lvlToExp":    world.LevelToExperience,
 		"withinWorld": world.WithinWorld,
 	}, map[string]interface{}{
-		"clientMap":  reflect.TypeOf(clients.Clients),
-		"client":     reflect.TypeOf(clients.Client(nil)),
+		"clientMap":  reflect.TypeOf(players.Players),
 		"player":     reflect.TypeOf(&world.Player{}),
 		"object":     reflect.TypeOf(&world.Object{}),
 		"item":       reflect.TypeOf(&world.Item{}),

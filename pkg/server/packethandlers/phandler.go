@@ -2,21 +2,21 @@ package packethandlers
 
 import (
 	"github.com/BurntSushi/toml"
-	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/config"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
+	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 func init() {
-	PacketHandlers["pingreq"] = func(c clients.Client, p *packet.Packet) {
+	PacketHandlers["pingreq"] = func(c *world.Player, p *packet.Packet) {
 		c.SendPacket(packetbuilders.ResponsePong)
 	}
 }
 
 //handlerFunc Represents a function for handling incoming packetbuilders.
-type handlerFunc func(clients.Client, *packet.Packet)
+type handlerFunc func(*world.Player, *packet.Packet)
 
 //PacketHandlers A map with descriptive names for the keys, and functions to run for the value.
 var PacketHandlers = make(map[string]handlerFunc)

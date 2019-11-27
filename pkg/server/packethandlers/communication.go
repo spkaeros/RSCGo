@@ -1,108 +1,108 @@
 package packethandlers
 
 import (
-	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
+	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 func init() {
-	PacketHandlers["chatmsg"] = func(c clients.Client, p *packet.Packet) {
-		for _, p1 := range c.Player().NearbyPlayers() {
-			if !p1.ChatBlocked() || p1.Friends(c.Player().UserBase37) {
-				p1.SendPacket(packetbuilders.PlayerChat(c.Player().Index, string(p.Payload)))
+	PacketHandlers["chatmsg"] = func(c *world.Player, p *packet.Packet) {
+		for _, p1 := range c.NearbyPlayers() {
+			if !p1.ChatBlocked() || p1.Friends(c.UserBase37) {
+				p1.SendPacket(packetbuilders.PlayerChat(c.Index, string(p.Payload)))
 			}
 		}
 	}
-	PacketHandlers["addfriend"] = func(c clients.Client, p *packet.Packet) {
+	PacketHandlers["addfriend"] = func(c *world.Player, p *packet.Packet) {
 		hash := p.ReadLong()
 		defer func() {
-			c.SendPacket(packetbuilders.FriendList(c.Player()))
+			c.SendPacket(packetbuilders.FriendList(c))
 		}()
-		if c.Player().Friends(hash) {
-			c.Message("@que@You are already friends with that person!")
+		if c.Friends(hash) {
+			c.SendPacket(packetbuilders.ServerMessage(("@que@You are already friends with that person!")))
 			return
 		}
-		if c.Player().Ignoring(hash) {
-			c.Message("@que@Please remove '" + strutil.Base37.Decode(hash) + "' from your ignore list before friending them.")
+		if c.Ignoring(hash) {
+			c.SendPacket(packetbuilders.ServerMessage("@que@Please remove '" + strutil.Base37.Decode(hash) + "' from your ignore list before friending them."))
 			return
 		}
-		if c1, ok := clients.FromUserHash(hash); ok {
-			if c1.Player().Friends(c.Player().UserBase37) && c.Player().FriendBlocked() {
-				c1.SendPacket(packetbuilders.FriendUpdate(c.Player().UserBase37, true))
+		if c1, ok := players.FromUserHash(hash); ok {
+			if c1.Friends(c.UserBase37) && c.FriendBlocked() {
+				c1.SendPacket(packetbuilders.FriendUpdate(c.UserBase37, true))
 			}
-			if !c1.Player().FriendBlocked() || c1.Player().Friends(c.Player().UserBase37) {
-				c.Player().FriendList[hash] = true
+			if !c1.FriendBlocked() || c1.Friends(c.UserBase37) {
+				c.FriendList[hash] = true
 				return
 			}
 		}
-		c.Player().FriendList[hash] = false
+		c.FriendList[hash] = false
 	}
-	PacketHandlers["privmsg"] = func(c clients.Client, p *packet.Packet) {
-		if c1, ok := clients.FromUserHash(p.ReadLong()); ok {
-			if !c1.Player().FriendBlocked() || c1.Player().Friends(c.Player().UserBase37) {
-				c1.SendPacket(packetbuilders.PrivateMessage(c.Player().UserBase37, strutil.ChatFilter.Format(strutil.ChatFilter.Unpack(p.Payload[8:]))))
+	PacketHandlers["privmsg"] = func(c *world.Player, p *packet.Packet) {
+		if c1, ok := players.FromUserHash(p.ReadLong()); ok {
+			if !c1.FriendBlocked() || c1.Friends(c.UserBase37) {
+				c1.SendPacket(packetbuilders.PrivateMessage(c.UserBase37, strutil.ChatFilter.Format(strutil.ChatFilter.Unpack(p.Payload[8:]))))
 			}
 		}
 	}
-	PacketHandlers["removefriend"] = func(c clients.Client, p *packet.Packet) {
+	PacketHandlers["removefriend"] = func(c *world.Player, p *packet.Packet) {
 		hash := p.ReadLong()
 		defer func() {
-			c.SendPacket(packetbuilders.FriendList(c.Player()))
+			c.SendPacket(packetbuilders.FriendList(c))
 		}()
-		if !c.Player().Friends(hash) {
-			c.Message("@que@You are not friends with that person!")
+		if !c.Friends(hash) {
+			c.SendPacket(packetbuilders.ServerMessage("@que@You are not friends with that person!"))
 			return
 		}
-		if c1, ok := clients.FromUserHash(hash); ok && c1.Player().Friends(c.Player().UserBase37) && c.Player().FriendBlocked() {
-			c1.SendPacket(packetbuilders.FriendUpdate(c.Player().UserBase37, false))
+		if c1, ok := players.FromUserHash(hash); ok && c1.Friends(c.UserBase37) && c.FriendBlocked() {
+			c1.SendPacket(packetbuilders.FriendUpdate(c.UserBase37, false))
 		}
-		delete(c.Player().FriendList, hash)
+		delete(c.FriendList, hash)
 	}
-	PacketHandlers["addignore"] = func(c clients.Client, p *packet.Packet) {
+	PacketHandlers["addignore"] = func(c *world.Player, p *packet.Packet) {
 		hash := p.ReadLong()
 		defer func() {
-			c.SendPacket(packetbuilders.IgnoreList(c.Player()))
+			c.SendPacket(packetbuilders.IgnoreList(c))
 		}()
-		if c.Player().Friends(hash) {
-			c.Message("@que@Please remove '" + strutil.Base37.Decode(hash) + "' from your friend list before ignoring them.")
+		if c.Friends(hash) {
+			c.SendPacket(packetbuilders.ServerMessage("@que@Please remove '" + strutil.Base37.Decode(hash) + "' from your friend list before ignoring them."))
 			return
 		}
-		if c.Player().Ignoring(hash) {
-			c.Message("@que@You are already ignoring that person!")
+		if c.Ignoring(hash) {
+			c.SendPacket(packetbuilders.ServerMessage("@que@You are already ignoring that person!"))
 			return
 		}
-		c.Player().IgnoreList = append(c.Player().IgnoreList, hash)
+		c.IgnoreList = append(c.IgnoreList, hash)
 	}
-	PacketHandlers["removeignore"] = func(c clients.Client, p *packet.Packet) {
+	PacketHandlers["removeignore"] = func(c *world.Player, p *packet.Packet) {
 		hash := p.ReadLong()
 		defer func() {
-			c.SendPacket(packetbuilders.IgnoreList(c.Player()))
+			c.SendPacket(packetbuilders.IgnoreList(c))
 		}()
-		if !c.Player().Ignoring(hash) {
-			c.Message("@que@You are not ignoring that person!")
+		if !c.Ignoring(hash) {
+			c.SendPacket(packetbuilders.ServerMessage("@que@You are not ignoring that person!"))
 			return
 		}
-		for i, v := range c.Player().IgnoreList {
+		for i, v := range c.IgnoreList {
 			if v == hash {
-				newSize := len(c.Player().IgnoreList) - 1
-				c.Player().IgnoreList[i] = c.Player().IgnoreList[newSize]
-				c.Player().IgnoreList = c.Player().IgnoreList[:newSize]
+				newSize := len(c.IgnoreList) - 1
+				c.IgnoreList[i] = c.IgnoreList[newSize]
+				c.IgnoreList = c.IgnoreList[:newSize]
 				return
 			}
 		}
 	}
-	PacketHandlers["chooseoption"] = func(c clients.Client, p *packet.Packet) {
+	PacketHandlers["chooseoption"] = func(c *world.Player, p *packet.Packet) {
 		choice := p.ReadByte()
-		if !c.Player().HasState(world.MSMenuChoosing) {
+		if !c.HasState(world.MSMenuChoosing) {
 			return
 		}
 		if choice < 0 {
 			return
 		}
-		c.Player().RemoveState(world.MSMenuChoosing)
-		c.Player().OptionMenuC <- int8(choice)
+		c.RemoveState(world.MSMenuChoosing)
+		c.OptionMenuC <- int8(choice)
 	}
 }

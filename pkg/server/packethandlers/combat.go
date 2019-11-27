@@ -1,23 +1,23 @@
 package packethandlers
 
 import (
-	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
+	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"time"
 )
 
 func init() {
-	PacketHandlers["attacknpc"] = func(c clients.Client, p *packet.Packet) {
+	PacketHandlers["attacknpc"] = func(c *world.Player, p *packet.Packet) {
 		npc := world.GetNpc(p.ReadShort())
 		if npc == nil {
 			log.Suspicious.Printf("player[%v] tried to attack nil NPC\n", c)
 			return
 		}
-		if c.Player().Busy() {
+		if c.Busy() {
 			return
 		}
 		if !world.NpcDefs[npc.ID].Attackable {
@@ -25,23 +25,23 @@ func init() {
 			return
 		}
 		log.Info.Println(npc.ID)
-		c.Player().SetDistancedAction(func() bool {
-			if c.Player().NextTo(npc.Location) && c.Player().WithinRange(npc.Location, 2) {
-				c.Player().ResetPath()
+		c.SetDistancedAction(func() bool {
+			if c.NextTo(npc.Location) && c.WithinRange(npc.Location, 2) {
+				c.ResetPath()
 				npc.ResetPath()
-				c.Player().SetLocation(npc.Location, true)
-				c.Player().AddState(world.MSFighting)
+				c.SetLocation(npc.Location, true)
+				c.AddState(world.MSFighting)
 				npc.AddState(world.MSFighting)
-				c.Player().SetDirection(world.LeftFighting)
+				c.SetDirection(world.LeftFighting)
 				npc.SetDirection(world.RightFighting)
-				c.Player().SetFightTarget(npc)
-				npc.SetFightTarget(c.Player())
+				c.SetFightTarget(npc)
+				npc.SetFightTarget(c)
 				go func() {
 					ticker := time.NewTicker(time.Millisecond * 1200)
 					defer ticker.Stop()
 					curRound := 0
 					for range ticker.C {
-						if !c.Player().HasState(world.MSFighting) || !c.Player().Connected() {
+						if !c.HasState(world.MSFighting) || !c.Connected() {
 							if npc.HasState(world.MSFighting) {
 								script.EngineChannel <- func() {
 									npc.ResetFighting()
@@ -52,11 +52,11 @@ func init() {
 						var attacker, defender world.MobileEntity
 						var nextHit int
 						if curRound%2 == 0 {
-							attacker = c.Player()
+							attacker = c
 							defender = npc
 						} else {
 							attacker = npc
-							defender = c.Player()
+							defender = c
 						}
 						nextHit = attacker.MeleeDamage(defender)
 						if curHits := defender.Skills().Current(world.StatHits); nextHit > curHits {
@@ -118,13 +118,13 @@ func init() {
 						if defenderNpc, ok := defender.(*world.NPC); ok {
 							hitUpdate := packetbuilders.NpcDamage(defenderNpc, nextHit)
 							c.SendPacket(hitUpdate)
-							for _, p1 := range c.Player().NearbyPlayers() {
+							for _, p1 := range c.NearbyPlayers() {
 								p1.SendPacket(hitUpdate)
 							}
 						} else if defenderPlayer, ok := defender.(*world.Player); ok {
 							hitUpdate := packetbuilders.PlayerDamage(defenderPlayer, nextHit)
 							c.SendPacket(hitUpdate)
-							for _, p1 := range c.Player().NearbyPlayers() {
+							for _, p1 := range c.NearbyPlayers() {
 								p1.SendPacket(hitUpdate)
 							}
 						}
@@ -135,65 +135,65 @@ func init() {
 				}()
 				return true
 			} else {
-				c.Player().SetPath(world.MakePath(c.Player().Location, npc.Location))
+				c.SetPath(world.MakePath(c.Location, npc.Location))
 			}
 			return false
 		})
 	}
-	PacketHandlers["attackplayer"] = func(c clients.Client, p *packet.Packet) {
-		affectedClient, ok := clients.FromIndex(p.ReadShort())
+	PacketHandlers["attackplayer"] = func(c *world.Player, p *packet.Packet) {
+		affectedClient, ok := players.FromIndex(p.ReadShort())
 		if affectedClient == nil || !ok {
 			log.Suspicious.Printf("player[%v] tried to attack nil player\n", c)
 			return
 		}
-		if c.Player().Busy() {
+		if c.Busy() {
 			return
 		}
-		if affectedClient.Player().Busy() {
-			log.Info.Printf("Target player busy during attack request  State: %d\n", affectedClient.Player().State)
+		if affectedClient.Busy() {
+			log.Info.Printf("Target player busy during attack request  State: %d\n", affectedClient.State)
 			return
 		}
-		affectedPlayer := affectedClient.Player()
-		c.Player().SetDistancedAction(func() bool {
-			if c.Player().NextTo(affectedPlayer.Location) && c.Player().WithinRange(affectedPlayer.Location, 2) {
-				c.Player().ResetPath()
+		affectedPlayer := affectedClient
+		c.SetDistancedAction(func() bool {
+			if c.NextTo(affectedPlayer.Location) && c.WithinRange(affectedPlayer.Location, 2) {
+				c.ResetPath()
 				if time.Since(affectedPlayer.TransAttrs.VarTime("lastRetreat")) <= time.Second*3 {
 					return false
 				}
 				affectedPlayer.ResetPath()
 				affectedPlayer.SendPacket(packetbuilders.Sound("underattack"))
-				c.Player().SetLocation(affectedPlayer.Location, true)
-				c.Player().AddState(world.MSFighting)
+				c.SetLocation(affectedPlayer.Location, true)
+				c.AddState(world.MSFighting)
 				affectedPlayer.AddState(world.MSFighting)
-				c.Player().SetDirection(world.LeftFighting)
+				c.SetDirection(world.LeftFighting)
 				affectedPlayer.SetDirection(world.RightFighting)
-				c.Player().Transients().SetVar("fightTarget", affectedPlayer)
-				affectedPlayer.Transients().SetVar("fightTarget", c.Player())
+				c.Transients().SetVar("fightTarget", affectedPlayer)
+				affectedPlayer.Transients().SetVar("fightTarget", c)
 				go func() {
 					ticker := time.NewTicker(time.Millisecond * 1200)
 					defer ticker.Stop()
 					curRound := 0
 					for range ticker.C {
-						if !affectedPlayer.HasState(world.MSFighting) || !c.Player().HasState(world.MSFighting) || !c.Player().Connected() || !affectedPlayer.Connected() {
+						if !affectedPlayer.HasState(world.MSFighting) || !c.HasState(world.MSFighting) || !c.Connected() || !affectedPlayer.Connected() {
 							if affectedPlayer.HasState(world.MSFighting) {
 								script.EngineChannel <- func() {
 									affectedPlayer.ResetFighting()
 								}
 							}
-							if c.Player().HasState(world.MSFighting) {
+							if c.HasState(world.MSFighting) {
 								script.EngineChannel <- func() {
-									c.Player().ResetFighting()
+									c.ResetFighting()
 								}
 							}
 							return
 						}
 						var attacker, defender *world.Player
 						if curRound%2 == 0 {
-							attacker = c.Player()
+							attacker = c
 							defender = affectedPlayer
 						} else {
-							attacker = affectedClient.Player()
-							defender = c.Player()
+							attacker = affectedClient
+							defender = c
 						}
 						nextHit := attacker.MeleeDamage(defender)
 						if nextHit > defender.Skills().Current(world.StatHits) {
@@ -226,7 +226,7 @@ func init() {
 						}
 						hitUpdate := packetbuilders.PlayerDamage(defender, nextHit)
 						c.SendPacket(hitUpdate)
-						for _, p1 := range c.Player().NearbyPlayers() {
+						for _, p1 := range c.NearbyPlayers() {
 							p1.SendPacket(hitUpdate)
 						}
 
@@ -236,15 +236,15 @@ func init() {
 				}()
 				return true
 			}
-			return c.Player().FinishedPath()
+			return c.FinishedPath()
 		})
 	}
-	PacketHandlers["fightmode"] = func(c clients.Client, p *packet.Packet) {
+	PacketHandlers["fightmode"] = func(c *world.Player, p *packet.Packet) {
 		mode := p.ReadByte()
 		if mode < 0 || mode > 3 {
-			log.Suspicious.Printf("Invalid fightmode selected (%v) by %v", mode, c.Player().String())
+			log.Suspicious.Printf("Invalid fightmode selected (%v) by %v", mode, c.String())
 			return
 		}
-		c.Player().SetFightMode(int(mode))
+		c.SetFightMode(int(mode))
 	}
 }

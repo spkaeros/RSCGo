@@ -2,7 +2,6 @@ package packethandlers
 
 import (
 	"context"
-	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
@@ -12,41 +11,41 @@ import (
 )
 
 func init() {
-	PacketHandlers["invwield"] = func(c clients.Client, p *packet.Packet) {
+	PacketHandlers["invwield"] = func(c *world.Player, p *packet.Packet) {
 		index := p.ReadShort()
 		if index < 0 || index >= 30 {
 			log.Suspicious.Printf("Player[%v] tried to wield an item with invalid index: %d\n", c, index)
 			return
 		}
-		if item := c.Player().Items.Get(index); item != nil {
+		if item := c.Items.Get(index); item != nil {
 			if item.Worn {
 				return
 			}
 			c.SendPacket(packetbuilders.Sound("click"))
-			c.Player().EquipItem(item)
-			c.SendPacket(packetbuilders.EquipmentStats(c.Player()))
-			c.SendPacket(packetbuilders.InventoryItems(c.Player()))
+			c.EquipItem(item)
+			c.SendPacket(packetbuilders.EquipmentStats(c))
+			c.SendPacket(packetbuilders.InventoryItems(c))
 		}
 	}
-	PacketHandlers["removeitem"] = func(c clients.Client, p *packet.Packet) {
+	PacketHandlers["removeitem"] = func(c *world.Player, p *packet.Packet) {
 		index := p.ReadShort()
 		if index < 0 || index >= 30 {
 			log.Suspicious.Printf("Player[%v] tried to wield an item with invalid index: %d\n", c, index)
 			return
 		}
 		// TODO: Wielding
-		if item := c.Player().Items.Get(index); item != nil {
+		if item := c.Items.Get(index); item != nil {
 			if !item.Worn {
 				return
 			}
 			c.SendPacket(packetbuilders.Sound("click"))
-			c.Player().DequipItem(item)
-			c.SendPacket(packetbuilders.EquipmentStats(c.Player()))
-			c.SendPacket(packetbuilders.InventoryItems(c.Player()))
+			c.DequipItem(item)
+			c.SendPacket(packetbuilders.EquipmentStats(c))
+			c.SendPacket(packetbuilders.InventoryItems(c))
 		}
 	}
-	PacketHandlers["takeitem"] = func(c clients.Client, p *packet.Packet) {
-		if c.Player().Busy() {
+	PacketHandlers["takeitem"] = func(c *world.Player, p *packet.Packet) {
+		if c.Busy() {
 			return
 		}
 		x := p.ReadShort()
@@ -62,40 +61,40 @@ func init() {
 			return
 		}
 
-		c.Player().SetDistancedAction(func() bool {
+		c.SetDistancedAction(func() bool {
 			item := world.GetItem(x, y, id)
-			if item == nil || !item.VisibleTo(c.Player()) {
+			if item == nil || !item.VisibleTo(c) {
 				log.Suspicious.Printf("Player[%v] attempted to pick up an item that doesn't exist: %d,%d,%d\n", c, id, x, y)
 				return true
 			}
-			if !c.Player().WithinRange(item.Location, 0) {
+			if !c.WithinRange(item.Location, 0) {
 				return false
 			}
-			c.Player().SendPacket(packetbuilders.Sound("takeobject"))
-			c.Player().ResetPath()
-			if c.Player().Items.Size() >= 30 {
-				c.Message("You do not have room for that item in your inventory.")
+			c.SendPacket(packetbuilders.Sound("takeobject"))
+			c.ResetPath()
+			if c.Items.Size() >= 30 {
+				c.SendPacket(packetbuilders.ServerMessage("You do not have room for that item in your inventory."))
 				return true
 			}
 			item.Remove()
-			c.Player().Items.Add(item.ID, item.Amount)
-			c.SendPacket(packetbuilders.InventoryItems(c.Player()))
+			c.Items.Add(item.ID, item.Amount)
+			c.SendPacket(packetbuilders.InventoryItems(c))
 			return true
 		})
 	}
-	PacketHandlers["dropitem"] = func(c clients.Client, p *packet.Packet) {
-		if c.Player().Busy() {
+	PacketHandlers["dropitem"] = func(c *world.Player, p *packet.Packet) {
+		if c.Busy() {
 			return
 		}
 		index := p.ReadShort()
-		item := c.Player().Items.Get(index)
+		item := c.Items.Get(index)
 		if item != nil {
-			c.Player().SetDistancedAction(func() bool {
-				if c.Player().FinishedPath() {
-					if c.Player().Items.Remove(index, item.Amount) {
-						world.AddItem(world.NewGroundItemFor(c.Player().UserBase37, item.ID, item.Amount, c.Player().X(), c.Player().Y()))
-						c.SendPacket(packetbuilders.InventoryItems(c.Player()))
-						c.Player().SendPacket(packetbuilders.Sound("dropobject"))
+			c.SetDistancedAction(func() bool {
+				if c.FinishedPath() {
+					if c.Items.Remove(index, item.Amount) {
+						world.AddItem(world.NewGroundItemFor(c.UserBase37, item.ID, item.Amount, c.X(), c.Y()))
+						c.SendPacket(packetbuilders.InventoryItems(c))
+						c.SendPacket(packetbuilders.Sound("dropobject"))
 					}
 					return true
 				}
@@ -103,20 +102,20 @@ func init() {
 			})
 		}
 	}
-	PacketHandlers["invaction1"] = func(c clients.Client, p *packet.Packet) {
-		if c.Player().Busy() {
+	PacketHandlers["invaction1"] = func(c *world.Player, p *packet.Packet) {
+		if c.Busy() {
 			return
 		}
 		index := p.ReadShort()
-		item := c.Player().Items.Get(index)
+		item := c.Items.Get(index)
 		if item != nil {
-			c.Player().AddState(world.MSBusy)
+			c.AddState(world.MSBusy)
 			go func() {
 				defer func() {
-					c.Player().RemoveState(world.MSBusy)
+					c.RemoveState(world.MSBusy)
 				}()
 				for _, fn := range script.InvTriggers {
-					ran, err := fn(context.Background(), reflect.ValueOf(c.Player()), reflect.ValueOf(item))
+					ran, err := fn(context.Background(), reflect.ValueOf(c), reflect.ValueOf(item))
 					if !ran.IsValid() {
 						continue
 					}

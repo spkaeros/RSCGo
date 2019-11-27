@@ -2,7 +2,6 @@ package packethandlers
 
 import (
 	"context"
-	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
@@ -12,8 +11,8 @@ import (
 )
 
 func init() {
-	PacketHandlers["objectaction"] = func(c clients.Client, p *packet.Packet) {
-		if c.Player().Busy() {
+	PacketHandlers["objectaction"] = func(c *world.Player, p *packet.Packet) {
+		if c.Busy() {
 			return
 		}
 		x := p.ReadShort()
@@ -25,17 +24,17 @@ func init() {
 			return
 		}
 		bounds := object.Boundaries()
-		c.Player().SetDistancedAction(func() bool {
+		c.SetDistancedAction(func() bool {
 			if world.Objects[object.ID].Type == 2 || world.Objects[object.ID].Type == 3 {
-				if (c.Player().NextTo(bounds[1]) || c.Player().NextTo(bounds[0])) && c.Player().X() >= bounds[0].X() && c.Player().Y() >= bounds[0].Y() && c.Player().X() <= bounds[1].X() && c.Player().Y() <= bounds[1].Y() {
-					c.Player().ResetPath()
+				if (c.NextTo(bounds[1]) || c.NextTo(bounds[0])) && c.X() >= bounds[0].X() && c.Y() >= bounds[0].Y() && c.X() <= bounds[1].X() && c.Y() <= bounds[1].Y() {
+					c.ResetPath()
 					objectAction(c, object)
 					return true
 				}
 				return false
 			}
-			if c.Player().NextTo(object.Location) && (c.Player().WithinRange(bounds[0], 1) || c.Player().WithinRange(bounds[1], 1)) {
-				c.Player().ResetPath()
+			if c.NextTo(object.Location) && (c.WithinRange(bounds[0], 1) || c.WithinRange(bounds[1], 1)) {
+				c.ResetPath()
 				objectAction(c, object)
 				return true
 			}
@@ -43,8 +42,8 @@ func init() {
 
 		})
 	}
-	PacketHandlers["objectaction2"] = func(c clients.Client, p *packet.Packet) {
-		if c.Player().Busy() {
+	PacketHandlers["objectaction2"] = func(c *world.Player, p *packet.Packet) {
+		if c.Busy() {
 			return
 		}
 		x := p.ReadShort()
@@ -56,25 +55,25 @@ func init() {
 			return
 		}
 		bounds := object.Boundaries()
-		c.Player().SetDistancedAction(func() bool {
+		c.SetDistancedAction(func() bool {
 			if world.Objects[object.ID].Type == 2 || world.Objects[object.ID].Type == 3 {
-				if (c.Player().NextTo(bounds[1]) || c.Player().NextTo(bounds[0])) && c.Player().X() >= bounds[0].X() && c.Player().Y() >= bounds[0].Y() && c.Player().X() <= bounds[1].X() && c.Player().Y() <= bounds[1].Y() {
-					c.Player().ResetPath()
+				if (c.NextTo(bounds[1]) || c.NextTo(bounds[0])) && c.X() >= bounds[0].X() && c.Y() >= bounds[0].Y() && c.X() <= bounds[1].X() && c.Y() <= bounds[1].Y() {
+					c.ResetPath()
 					objectAction(c, object)
 					return true
 				}
 				return false
 			}
-			if (c.Player().NextTo(bounds[1]) || c.Player().NextTo(bounds[0])) && (c.Player().WithinRange(bounds[0], 1) || c.Player().WithinRange(bounds[1], 1)) {
-				c.Player().ResetPath()
+			if (c.NextTo(bounds[1]) || c.NextTo(bounds[0])) && (c.WithinRange(bounds[0], 1) || c.WithinRange(bounds[1], 1)) {
+				c.ResetPath()
 				objectAction(c, object)
 				return true
 			}
 			return false
 		})
 	}
-	PacketHandlers["boundaryaction2"] = func(c clients.Client, p *packet.Packet) {
-		if c.Player().Busy() {
+	PacketHandlers["boundaryaction2"] = func(c *world.Player, p *packet.Packet) {
+		if c.Busy() {
 			return
 		}
 		x := p.ReadShort()
@@ -86,17 +85,17 @@ func init() {
 			return
 		}
 		bounds := object.Boundaries()
-		c.Player().SetDistancedAction(func() bool {
-			if (c.Player().NextTo(bounds[1]) || c.Player().NextTo(bounds[0])) && c.Player().X() >= bounds[0].X() && c.Player().Y() >= bounds[0].Y() && c.Player().X() <= bounds[1].X() && c.Player().Y() <= bounds[1].Y() {
-				c.Player().ResetPath()
+		c.SetDistancedAction(func() bool {
+			if (c.NextTo(bounds[1]) || c.NextTo(bounds[0])) && c.X() >= bounds[0].X() && c.Y() >= bounds[0].Y() && c.X() <= bounds[1].X() && c.Y() <= bounds[1].Y() {
+				c.ResetPath()
 				boundaryAction(c, object)
 				return true
 			}
 			return false
 		})
 	}
-	PacketHandlers["boundaryaction"] = func(c clients.Client, p *packet.Packet) {
-		if c.Player().Busy() {
+	PacketHandlers["boundaryaction"] = func(c *world.Player, p *packet.Packet) {
+		if c.Busy() {
 			return
 		}
 		x := p.ReadShort()
@@ -108,53 +107,53 @@ func init() {
 			return
 		}
 		bounds := object.Boundaries()
-		c.Player().SetDistancedAction(func() bool {
-			if (c.Player().NextTo(bounds[1]) || c.Player().NextTo(bounds[0])) && c.Player().X() >= bounds[0].X() && c.Player().Y() >= bounds[0].Y() && c.Player().X() <= bounds[1].X() && c.Player().Y() <= bounds[1].Y() {
-				c.Player().ResetPath()
+		c.SetDistancedAction(func() bool {
+			if (c.NextTo(bounds[1]) || c.NextTo(bounds[0])) && c.X() >= bounds[0].X() && c.Y() >= bounds[0].Y() && c.X() <= bounds[1].X() && c.Y() <= bounds[1].Y() {
+				c.ResetPath()
 				boundaryAction(c, object)
 				return true
 			}
 			return false
 		})
 	}
-	PacketHandlers["talktonpc"] = func(c clients.Client, p *packet.Packet) {
+	PacketHandlers["talktonpc"] = func(c *world.Player, p *packet.Packet) {
 		idx := p.ReadShort()
 		npc := world.GetNpc(idx)
 		if npc == nil {
 			return
 		}
-		if c.Player().Busy() {
+		if c.Busy() {
 			return
 		}
-		c.Player().SetDistancedAction(func() bool {
-			if c.Player().NextTo(npc.Location) && c.Player().WithinRange(npc.Location, 1) && !npc.Busy() {
-				if c.Player().Location.Equals(npc.Location) {
-					if c.Player().NextTo(world.NewLocation(c.Player().X(), c.Player().Y()-1)) {
-						c.Player().SetCoords(c.Player().X(), c.Player().Y()-1, false)
-					} else if c.Player().NextTo(world.NewLocation(c.Player().X(), c.Player().Y()+1)) {
-						c.Player().SetCoords(c.Player().X(), c.Player().Y()+1, false)
-					} else if c.Player().NextTo(world.NewLocation(c.Player().X()-1, c.Player().Y())) {
-						c.Player().SetCoords(c.Player().X()-1, c.Player().Y(), false)
-					} else if c.Player().NextTo(world.NewLocation(c.Player().X()+1, c.Player().Y())) {
-						c.Player().SetCoords(c.Player().X()+1, c.Player().Y(), false)
+		c.SetDistancedAction(func() bool {
+			if c.NextTo(npc.Location) && c.WithinRange(npc.Location, 1) && !npc.Busy() {
+				if c.Location.Equals(npc.Location) {
+					if c.NextTo(world.NewLocation(c.X(), c.Y()-1)) {
+						c.SetCoords(c.X(), c.Y()-1, false)
+					} else if c.NextTo(world.NewLocation(c.X(), c.Y()+1)) {
+						c.SetCoords(c.X(), c.Y()+1, false)
+					} else if c.NextTo(world.NewLocation(c.X()-1, c.Y())) {
+						c.SetCoords(c.X()-1, c.Y(), false)
+					} else if c.NextTo(world.NewLocation(c.X()+1, c.Y())) {
+						c.SetCoords(c.X()+1, c.Y(), false)
 					} else {
-						c.Player().SetPath(world.MakePath(c.Player().Location, npc.Location))
+						c.SetPath(world.MakePath(c.Location, npc.Location))
 						return false
 					}
 				}
-				c.Player().ResetPath()
+				c.ResetPath()
 				npc.ResetPath()
-				c.Player().SetDirection(c.Player().DirectionTo(npc.X(), npc.Y()))
-				npc.SetDirection(npc.DirectionTo(c.Player().X(), c.Player().Y()))
-				c.Player().AddState(world.MSChatting)
+				c.SetDirection(c.DirectionTo(npc.X(), npc.Y()))
+				npc.SetDirection(npc.DirectionTo(c.X(), c.Y()))
+				c.AddState(world.MSChatting)
 				npc.AddState(world.MSChatting)
 				go func() {
 					defer func() {
-						c.Player().RemoveState(world.MSChatting)
+						c.RemoveState(world.MSChatting)
 						npc.RemoveState(world.MSChatting)
 					}()
 					for _, fn := range script.NpcTriggers {
-						ran, err := fn(context.Background(), reflect.ValueOf(c.Player()), reflect.ValueOf(npc))
+						ran, err := fn(context.Background(), reflect.ValueOf(c), reflect.ValueOf(npc))
 						if !ran.IsValid() {
 							continue
 						}
@@ -170,26 +169,26 @@ func init() {
 				}()
 				return true
 			} else {
-				c.Player().SetPath(world.MakePath(c.Player().Location, npc.Location))
+				c.SetPath(world.MakePath(c.Location, npc.Location))
 			}
 			return false
 		})
 	}
 }
 
-func objectAction(c clients.Client, object *world.Object) {
-	if c.Player().Busy() || world.GetObject(object.X(), object.Y()) != object {
+func objectAction(c *world.Player, object *world.Object) {
+	if c.Busy() || world.GetObject(object.X(), object.Y()) != object {
 		// If somehow we became busy, the object changed before arriving, we do nothing.
 		return
 	}
-	c.Player().AddState(world.MSBusy)
+	c.AddState(world.MSBusy)
 
 	go func() {
 		defer func() {
-			c.Player().RemoveState(world.MSBusy)
+			c.RemoveState(world.MSBusy)
 		}()
 		for _, fn := range script.ObjectTriggers {
-			ran, err := fn(context.Background(), reflect.ValueOf(c.Player()), reflect.ValueOf(object))
+			ran, err := fn(context.Background(), reflect.ValueOf(c), reflect.ValueOf(object))
 			if !ran.IsValid() {
 				continue
 			}
@@ -208,18 +207,18 @@ func objectAction(c clients.Client, object *world.Object) {
 	}()
 }
 
-func boundaryAction(c clients.Client, object *world.Object) {
-	if c.Player().Busy() || world.GetObject(object.X(), object.Y()) != object {
+func boundaryAction(c *world.Player, object *world.Object) {
+	if c.Busy() || world.GetObject(object.X(), object.Y()) != object {
 		// If somehow we became busy, the object changed before arriving, we do nothing.
 		return
 	}
-	c.Player().AddState(world.MSBusy)
+	c.AddState(world.MSBusy)
 	go func() {
 		defer func() {
-			c.Player().RemoveState(world.MSBusy)
+			c.RemoveState(world.MSBusy)
 		}()
 		for _, fn := range script.BoundaryTriggers {
-			ran, err := fn(context.Background(), reflect.ValueOf(c.Player()), reflect.ValueOf(object))
+			ran, err := fn(context.Background(), reflect.ValueOf(c), reflect.ValueOf(object))
 			if !ran.IsValid() {
 				continue
 			}

@@ -1,6 +1,7 @@
 package world
 
 import (
+	"fmt"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"go.uber.org/atomic"
 	"strconv"
@@ -38,12 +39,14 @@ type Player struct {
 	UID              uint8
 	Websocket        bool
 	Equips           [12]int
+	killer           sync.Once
+	Kill             chan struct{}
 	*Mob
 }
 
 //String Returns a string populated with the more identifying features of this player.
 func (p *Player) String() string {
-	return "[" + p.Username + ", " + p.IP + "]"
+	return fmt.Sprintf("Player[%d] {'%v'@'%v'}", p.Index, p.Username, p.IP)
 }
 
 func (p *Player) Inventory() *Inventory {
@@ -311,7 +314,7 @@ func (p *Player) EquipItem(item *Item) {
 	p.AppearanceLock.Unlock()
 }
 
-//DequipItem Removes an item from this clients player equips, and sends inventory and equipment bonuses.
+//DequipItem Removes an item from this players player equips, and sends inventory and equipment bonuses.
 func (p *Player) DequipItem(item *Item) {
 	def := GetEquipmentDefinition(item.ID)
 	if def == nil {
@@ -469,9 +472,20 @@ func (p *Player) SendPacket(packet *packet.Packet) {
 	p.OutgoingPackets <- packet
 }
 
+func (p *Player) Destroy() {
+	p.killer.Do(func() {
+		close(p.Kill)
+	})
+}
+
 //NewPlayer Returns a reference to a new player.
 func NewPlayer(index int, ip string) *Player {
-	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Location{atomic.NewUint32(0), atomic.NewUint32(0)}}, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})}, LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, LocalItems: &List{}, IP: ip, OutgoingPackets: make(chan *packet.Packet, 20), OptionMenuC: make(chan int8)}
+	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Location{atomic.NewUint32(0), atomic.NewUint32(0)}},
+		TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})},
+		LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0),
+		FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30},
+		TradeOffer: &Inventory{Capacity: 12}, LocalItems: &List{}, IP: ip, OutgoingPackets: make(chan *packet.Packet, 20),
+		OptionMenuC: make(chan int8), Kill: make(chan struct{})}
 	p.Transients().SetVar("skills", &SkillTable{})
 	p.Attributes.SetVar("lastIP", ip)
 	p.Equips[0] = p.Appearance.Head

@@ -1,18 +1,17 @@
 package packethandlers
 
 import (
-	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 var (
-	crewHead = 1
-	metalHead = 4
-	downsHead = 6
-	beardHead = 7
-	baldHead = 8
+	crewHead           = 1
+	metalHead          = 4
+	downsHead          = 6
+	beardHead          = 7
+	baldHead           = 8
 	validHeads         = []int{crewHead, metalHead, downsHead, beardHead, baldHead}
 	validFemaleHeads   = []int{crewHead, metalHead, downsHead, baldHead}
 	maleBody           = 2
@@ -33,15 +32,15 @@ func inArray(a []int, i int) bool {
 }
 
 func init() {
-	PacketHandlers["changeappearance"] = func(c clients.Client, p *packet.Packet) {
-		if !c.Player().HasState(world.MSChangingAppearance) {
+	PacketHandlers["changeappearance"] = func(c *world.Player, p *packet.Packet) {
+		if !c.HasState(world.MSChangingAppearance) {
 			// Make sure the player either has never logged in before, or talked to the makeover mage to get here.
 			return
 		}
 		isMale := p.ReadBool()
-		headType := int(p.ReadByte()+1)
-		bodyType := int(p.ReadByte()+1)
-		legType := int(p.ReadByte()+1) // appearance2Colour, seems to be a client const, value seems to remain 2.  ofc, legs never change
+		headType := int(p.ReadByte() + 1)
+		bodyType := int(p.ReadByte() + 1)
+		legType := int(p.ReadByte() + 1) // appearance2Colour, seems to be a client const, value seems to remain 2.  ofc, legs never change
 		hairColor := int(p.ReadByte())
 		topColor := int(p.ReadByte())
 		legColor := int(p.ReadByte())
@@ -51,39 +50,39 @@ func init() {
 				!inArray(validSkinColors, int(skinColor)) || legType != 2 {*/
 		if hairColor >= len(validHeadColors) || !inArray(validHeads, headType) || topColor >= len(validBodyLegColors) ||
 			legColor >= len(validBodyLegColors) || skinColor >= len(validSkinColors) || !inArray(validBodys, bodyType) || legType != 3 || legColor >= len(validBodyLegColors) {
-			log.Info.Printf("Invalid appearance data provided by %v: (headType:%v, bodyType:%v, legType:%v, hairColor:%v, topColor:%v, legColor:%v, skinColor:%v, gender:%v)\n", c.Player().String(), headType, bodyType, legType, hairColor, topColor, legColor, skinColor, isMale)
+			log.Info.Printf("Invalid appearance data provided by %v: (headType:%v, bodyType:%v, legType:%v, hairColor:%v, topColor:%v, legColor:%v, skinColor:%v, gender:%v)\n", c.String(), headType, bodyType, legType, hairColor, topColor, legColor, skinColor, isMale)
 			return
 		}
 		log.Info.Printf("(headType:%v, bodyType:%v, legType:%v, hairColor:%v, topColor:%v, legColor:%v, skinColor:%v, gender:%v)\n", headType, bodyType, legType, hairColor, topColor, legColor, skinColor, isMale)
 		if !isMale {
 			if bodyType != femaleBody {
-				log.Info.Println("Correcting invalid packet data: female asked for male body type; setting to female body type, from", c.Player())
+				log.Info.Println("Correcting invalid packet data: female asked for male body type; setting to female body type, from", c)
 				bodyType = femaleBody
 			}
 			if headType == beardHead {
-				log.Info.Println("Correcting invalid packet data: female asked for male head type; setting to female head type, from", c.Player())
+				log.Info.Println("Correcting invalid packet data: female asked for male head type; setting to female head type, from", c)
 				headType = metalHead
 			}
 		}
-		c.Player().AppearanceLock.Lock()
+		c.AppearanceLock.Lock()
 		{
-			if c.Player().Equips[0] == c.Player().Appearance.Head {
-				c.Player().Equips[0] = headType
+			if c.Equips[0] == c.Appearance.Head {
+				c.Equips[0] = headType
 			}
-			if c.Player().Equips[1] == c.Player().Appearance.Body {
-				c.Player().Equips[1] = bodyType
+			if c.Equips[1] == c.Appearance.Body {
+				c.Equips[1] = bodyType
 			}
-			c.Player().Appearance.Body = bodyType
-			c.Player().Appearance.Head = headType
-			c.Player().Appearance.Male = isMale
-			c.Player().Appearance.HeadColor = hairColor
-			c.Player().Appearance.SkinColor = skinColor
-			c.Player().Appearance.BodyColor = topColor
-			c.Player().Appearance.LegsColor = legColor
-			c.Player().ResetNeedsSelf()
-			c.Player().AppearanceTicket++
+			c.Appearance.Body = bodyType
+			c.Appearance.Head = headType
+			c.Appearance.Male = isMale
+			c.Appearance.HeadColor = hairColor
+			c.Appearance.SkinColor = skinColor
+			c.Appearance.BodyColor = topColor
+			c.Appearance.LegsColor = legColor
+			c.ResetNeedsSelf()
+			c.AppearanceTicket++
 		}
-		c.Player().AppearanceLock.Unlock()
-		c.Player().RemoveState(world.MSChangingAppearance)
+		c.AppearanceLock.Unlock()
+		c.RemoveState(world.MSChangingAppearance)
 	}
 }

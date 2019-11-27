@@ -1,38 +1,39 @@
 package packethandlers
 
 import (
-	"github.com/spkaeros/rscgo/pkg/server/clients"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
+	"github.com/spkaeros/rscgo/pkg/server/players"
+	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 func init() {
-	PacketHandlers["clientsetting"] = func(c clients.Client, p *packet.Packet) {
+	PacketHandlers["clientsetting"] = func(c *world.Player, p *packet.Packet) {
 		// 2 = mouse buttons
 		// 0 = camera angle manual/auto
 		// 3 = soundFX (false=on, wtf)
-		c.Player().SetClientSetting(int(p.ReadByte()), p.ReadBool())
+		c.SetClientSetting(int(p.ReadByte()), p.ReadBool())
 	}
-	PacketHandlers["privacysettings"] = func(c clients.Client, p *packet.Packet) {
+	PacketHandlers["privacysettings"] = func(c *world.Player, p *packet.Packet) {
 		chatBlocked := p.ReadBool()
 		friendBlocked := p.ReadBool()
 		tradeBlocked := p.ReadBool()
 		duelBlocked := p.ReadBool()
-		if c.Player().FriendBlocked() && !friendBlocked {
+		if c.FriendBlocked() && !friendBlocked {
 			// turning off private chat block
-			clients.Range(func(c1 clients.Client) {
-				if c1.Player().Friends(c.Player().UserBase37) && !c.Player().Friends(c1.Player().UserBase37) {
-					c1.SendPacket(packetbuilders.FriendUpdate(c.Player().UserBase37, true))
+			players.Range(func(c1 *world.Player) {
+				if c1.Friends(c.UserBase37) && !c.Friends(c1.UserBase37) {
+					c1.SendPacket(packetbuilders.FriendUpdate(c.UserBase37, true))
 				}
 			})
-		} else if !c.Player().FriendBlocked() && friendBlocked {
+		} else if !c.FriendBlocked() && friendBlocked {
 			// turning on private chat block
-			clients.Range(func(c1 clients.Client) {
-				if c1.Player().Friends(c.Player().UserBase37) && !c.Player().Friends(c1.Player().UserBase37) {
-					c1.SendPacket(packetbuilders.FriendUpdate(c.Player().UserBase37, false))
+			players.Range(func(c1 *world.Player) {
+				if c1.Friends(c.UserBase37) && !c.Friends(c1.UserBase37) {
+					c1.SendPacket(packetbuilders.FriendUpdate(c.UserBase37, false))
 				}
 			})
 		}
-		c.Player().SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, duelBlocked)
+		c.SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, duelBlocked)
 	}
 }
