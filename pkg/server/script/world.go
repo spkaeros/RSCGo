@@ -99,14 +99,9 @@ func WorldModule() *vm.Env {
 		"teleport": func(player *world.Player, x, y int) {
 			player.Teleport(x, y)
 		},
-		"openOptionMenu": func(player *world.Player, questions ...string) {
-			player.SendPacket(packetbuilders.OptionMenuOpen(questions...))
+		"openOptionMenu": func(player *world.Player, options ...string) int {
+			player.SendPacket(packetbuilders.OptionMenuOpen(options...))
 			player.State = world.MSMenuChoosing
-		},
-		"handleOptionChoice": func(player *world.Player, options ...string) int {
-			if player.State != world.MSMenuChoosing {
-				return -1
-			}
 			select {
 			case reply := <-player.OptionMenuC:
 				if reply < 0 || int(reply) > len(options) {

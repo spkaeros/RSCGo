@@ -40,9 +40,7 @@ func npcAction(player, npc) {
                 playerChat(player, "No, I was just wondering if you had anything interesting to say")
             case 13:
                 npcChat(npc, player, "How can I help you?")
-                options = ["Do you wish to trade?", "I'm in search of a quest", "I'm in search of enemies to kill"]
-                openOptionMenu(player, options...)
-                switch handleOptionChoice(player, options...) {
+                switch openOptionMenu(player, "Do you wish to trade?", "I'm in search of a quest", "I'm in search of enemies to kill") {
                	case 0:
                		npcChat(npc, player, "No, I have nothing I wish to get rid of",
    		             					"If you want some trading,",
