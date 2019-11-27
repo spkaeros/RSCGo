@@ -112,9 +112,9 @@ func LoadPlayerStats(player *world.Player) error {
 	for rows.Next() {
 		var cur, exp int
 		rows.Scan(&cur, &exp)
-		player.Skillset.SetCur(i, cur)
-		player.Skillset.SetMax(i, world.ExperienceToLevel(exp))
-		player.Skillset.SetExp(i, exp)
+		player.Skills().SetCur(i, cur)
+		player.Skills().SetMax(i, world.ExperienceToLevel(exp))
+		player.Skills().SetExp(i, exp)
 		i++
 	}
 	return nil
@@ -483,7 +483,7 @@ func SavePlayer(player *world.Player) {
 		insertContact("ignore", hash)
 	}
 	for stat := 0; stat < 18; stat++ {
-		insertStat(stat, player.Skillset.Current(stat), player.Skillset.Experience(stat))
+		insertStat(stat, player.Skills().Current(stat), player.Skills().Experience(stat))
 	}
 	player.Items.Range(func(item *world.Item) bool {
 		insertItem(item.ID, item.Amount, item.Worn)

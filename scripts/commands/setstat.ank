@@ -19,9 +19,9 @@ addCommand("stat", func(player, args) {
 		return
 	}
 
-	player.Skillset.SetCur(idx, lvl)
-	player.Skillset.SetMax(idx, lvl)
-	player.Stats().SetExp(idx, lvlToExp(lvl))
+	player.Skills().SetCur(idx, lvl)
+	player.Skills().SetMax(idx, lvl)
+	player.Skills().SetExp(idx, lvlToExp(lvl))
 	sendStat(player, idx)
 	player.AppearanceTicket++
 	player.Transients().SetVar("self", false)

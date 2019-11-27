@@ -73,8 +73,8 @@ func PlayerDamage(victim *world.Player, damage int) *packet.Packet {
 	p.AddShort(uint16(victim.Index))
 	p.AddByte(2)
 	p.AddByte(uint8(damage))
-	p.AddByte(uint8(victim.Skillset.Current(world.StatHits)))
-	p.AddByte(uint8(victim.Skillset.Maximum(world.StatHits)))
+	p.AddByte(uint8(victim.Skills().Current(world.StatHits)))
+	p.AddByte(uint8(victim.Skills().Maximum(world.StatHits)))
 	return p
 }
 
@@ -85,8 +85,8 @@ func NpcDamage(victim *world.NPC, damage int) *packet.Packet {
 	p.AddShort(uint16(victim.Index))
 	p.AddByte(2)
 	p.AddByte(uint8(damage))
-	p.AddByte(uint8(victim.Skillset.Current(world.StatHits)))
-	p.AddByte(uint8(victim.Skillset.Maximum(world.StatHits)))
+	p.AddByte(uint8(victim.Skills().Current(world.StatHits)))
+	p.AddByte(uint8(victim.Skills().Maximum(world.StatHits)))
 	return p
 }
 

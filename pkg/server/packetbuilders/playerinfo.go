@@ -73,15 +73,15 @@ func ClientSettings(player *world.Player) (p *packet.Packet) {
 func PlayerStats(player *world.Player) *packet.Packet {
 	p := packet.NewOutgoingPacket(156)
 	for i := 0; i < 18; i++ {
-		p.AddByte(uint8(player.Skillset.Current(i)))
+		p.AddByte(uint8(player.Skills().Current(i)))
 	}
 
 	for i := 0; i < 18; i++ {
-		p.AddByte(uint8(player.Skillset.Maximum(i)))
+		p.AddByte(uint8(player.Skills().Maximum(i)))
 	}
 
 	for i := 0; i < 18; i++ {
-		p.AddInt(uint32(player.Skillset.Experience(i) * 4))
+		p.AddInt(uint32(player.Skills().Experience(i) * 4))
 	}
 	return p
 }
@@ -90,7 +90,7 @@ func PlayerStats(player *world.Player) *packet.Packet {
 func PlayerExperience(player *world.Player, idx int) *packet.Packet {
 	p := packet.NewOutgoingPacket(33)
 	p.AddByte(byte(idx))
-	p.AddInt(uint32(player.Skillset.Experience(idx)) * 4)
+	p.AddInt(uint32(player.Skills().Experience(idx)) * 4)
 	return p
 }
 
@@ -98,9 +98,9 @@ func PlayerExperience(player *world.Player, idx int) *packet.Packet {
 func PlayerStat(player *world.Player, idx int) *packet.Packet {
 	p := packet.NewOutgoingPacket(159)
 	p.AddByte(byte(idx))
-	p.AddByte(byte(player.Stats().Current(idx)))
-	p.AddByte(byte(player.Stats().Maximum(idx)))
-	p.AddInt(uint32(player.Stats().Experience(idx)) * 4)
+	p.AddByte(byte(player.Skills().Current(idx)))
+	p.AddByte(byte(player.Skills().Maximum(idx)))
+	p.AddInt(uint32(player.Skills().Experience(idx)) * 4)
 	return p
 }
 

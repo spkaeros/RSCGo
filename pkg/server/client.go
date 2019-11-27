@@ -264,7 +264,7 @@ func (c *Client) Initialize() {
 	c.player.Change()
 	c.player.TransAttrs.SetVar("changed", true)
 	c.player.TransAttrs.SetVar("connected", true)
-	if c.player.Skillset.Experience(world.StatHits) < 10 {
+	if c.player.Skills().Experience(world.StatHits) < 10 {
 		for i := 0; i < 18; i++ {
 			level := 1
 			exp := 0
@@ -272,9 +272,9 @@ func (c *Client) Initialize() {
 				level = 10
 				exp = 1154
 			}
-			c.player.Skillset.SetCur(i, level)
-			c.player.Skillset.SetMax(i, level)
-			c.player.Skillset.SetExp(i, exp)
+			c.player.Skills().SetCur(i, level)
+			c.player.Skills().SetMax(i, level)
+			c.player.Skills().SetExp(i, exp)
 		}
 	}
 	if s := time.Until(script.UpdateTime).Seconds(); s > 0 {

@@ -59,11 +59,11 @@ func init() {
 							defender = c.Player()
 						}
 						nextHit = attacker.MeleeDamage(defender)
-						if curHits := defender.Stats().Current(world.StatHits); nextHit > curHits {
+						if curHits := defender.Skills().Current(world.StatHits); nextHit > curHits {
 							nextHit = curHits
 						}
-						defender.Stats().DecreaseCur(world.StatHits, nextHit)
-						if defender.Stats().Current(world.StatHits) <= 0 {
+						defender.Skills().DecreaseCur(world.StatHits, nextHit)
+						if defender.Skills().Current(world.StatHits) <= 0 {
 							if defenderNpc, ok := defender.(*world.NPC); ok {
 								script.EngineChannel <- func() {
 									if attackerPlayer, ok := attacker.(*world.Player); ok {
@@ -73,7 +73,7 @@ func init() {
 										world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
 									}
 									attacker.ResetFighting()
-									defenderNpc.Stats().SetCur(world.StatHits, defenderNpc.Stats().Maximum(world.StatHits))
+									defenderNpc.Skills().SetCur(world.StatHits, defenderNpc.Skills().Maximum(world.StatHits))
 									defenderNpc.SetLocation(world.DeathPoint, true)
 								}
 
@@ -88,7 +88,7 @@ func init() {
 									attacker.ResetFighting()
 									world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
 									for i := 0; i < 18; i++ {
-										defenderPlayer.Stats().SetCur(i, defenderPlayer.Stats().Maximum(i))
+										defenderPlayer.Skills().SetCur(i, defenderPlayer.Skills().Maximum(i))
 									}
 									defenderPlayer.SendPacket(packetbuilders.PlayerStats(defenderPlayer))
 									defenderPlayer.SendPacket(packetbuilders.Death)
@@ -200,11 +200,11 @@ func init() {
 							defender = c.Player()
 						}
 						nextHit := attacker.MeleeDamage(defender)
-						if nextHit > defender.Stats().Current(world.StatHits) {
-							nextHit = defender.Stats().Current(world.StatHits)
+						if nextHit > defender.Skills().Current(world.StatHits) {
+							nextHit = defender.Skills().Current(world.StatHits)
 						}
-						defender.Stats().DecreaseCur(world.StatHits, nextHit)
-						if defender.Stats().Current(world.StatHits) <= 0 {
+						defender.Skills().DecreaseCur(world.StatHits, nextHit)
+						if defender.Skills().Current(world.StatHits) <= 0 {
 							script.EngineChannel <- func() {
 								attacker.ResetFighting()
 								world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
@@ -217,7 +217,7 @@ func init() {
 								})
 								defender.Inventory().Clear()
 								attacker.SendPacket(packetbuilders.ServerMessage("You have defeated " + defender.Username + "!"))
-								defender.Stats().SetCur(world.StatHits, defender.Stats().Maximum(world.StatHits))
+								defender.Skills().SetCur(world.StatHits, defender.Skills().Maximum(world.StatHits))
 								defender.SendPacket(packetbuilders.PlayerStats(defender))
 								defender.Transients().SetVar("deathTime", time.Now())
 								defender.SendPacket(packetbuilders.Death)

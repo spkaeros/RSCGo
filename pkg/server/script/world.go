@@ -169,7 +169,7 @@ func WorldModule() *vm.Env {
 			target.SendPacket(packetbuilders.Sound("death"))
 			target.Transients().SetVar("deathTime", time.Now())
 			for i := 0; i < 18; i++ {
-				target.Stats().SetCur(i, target.Stats().Maximum(i))
+				target.Skills().SetCur(i, target.Skills().Maximum(i))
 			}
 			target.SendPacket(packetbuilders.PlayerStats(target))
 			// TODO: Keep 3 most valuable items

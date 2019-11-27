@@ -2,7 +2,7 @@ amounts = {18: 1, 132: 3, 138: 4, 179: 5, 210: 2, 228: 1, 249: 2, 257: 5, 258: 3
 func invAction(player, item) {
 	amount, ok = amounts[toInt(item.ID)]
 	if ok {
-		deltaHp = player.Stats().Maximum(HITPOINTS) - player.Stats().Current(HITPOINTS)
+		deltaHp = player.Skills().Maximum(HITPOINTS) - player.Skills().Current(HITPOINTS)
 		if deltaHp < amount {
 			amount = deltaHp
 		}
@@ -11,7 +11,7 @@ func invAction(player, item) {
 		sendInventory(player)
 		sendSound(player, "eat")
 		if amount > 0 {
-			player.Stats().IncreaseCur(HITPOINTS, amount)
+			player.Skills().IncreaseCur(HITPOINTS, amount)
 			sendStat(player, HITPOINTS)
 			sleep(tMillis * 350)
 			sendMessage(player, "It heals some health.")

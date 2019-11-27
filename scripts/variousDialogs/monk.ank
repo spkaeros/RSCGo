@@ -9,9 +9,9 @@ func npcAction(player, npc) {
 				sendMessage(player, "The monk places his hands on your head")
 				sleep(tMillis*1800)
 				sendMessage(player, "You feel a little better")
-				deltaHp = player.Stats().Maximum(HITPOINTS) - player.Stats().Current(HITPOINTS)
+				deltaHp = player.Skills().Maximum(HITPOINTS) - player.Skills().Current(HITPOINTS)
 				if deltaHp > 0 {
-					player.Stats().SetCur(HITPOINTS, deltaHp < 5 ? player.Stats().Current(HITPOINTS) + deltaHp : player.Stats().Current(HITPOINTS) + 5)
+					player.Skills().SetCur(HITPOINTS, deltaHp < 5 ? player.Skills().Current(HITPOINTS) + deltaHp : player.Skills().Current(HITPOINTS) + 5)
 					sendStat(player, HITPOINTS)
 				}
 			case 1:

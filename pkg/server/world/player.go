@@ -327,70 +327,10 @@ func (p *Player) DequipItem(item *Item) {
 
 //ResetFollowing Resets the transient attributes holding: Path, Follow radius, and Distanced action triggers...
 func (p *Player) ResetAll() {
-	p.TransAttrs.UnsetVar("followrad")
 	p.ResetFighting()
+	p.ResetTrade()
 	p.ResetDistancedAction()
-	p.ResetPath()
-}
-
-//ArmourPoints Returns the players armour points.
-func (p *Player) ArmourPoints() int {
-	return p.TransAttrs.VarInt("armour_points", 1)
-}
-
-//SetArmourPoints Sets the players armour points to i.
-func (p *Player) SetArmourPoints(i int) {
-	p.TransAttrs.SetVar("armour_points", i)
-}
-
-//PowerPoints Returns the players power points.
-func (p *Player) PowerPoints() int {
-	return p.TransAttrs.VarInt("power_points", 1)
-}
-
-//SetPowerPoints Sets the players power points to i
-func (p *Player) SetPowerPoints(i int) {
-	p.TransAttrs.SetVar("power_points", i)
-}
-
-//AimPoints Returns the players aim points
-func (p *Player) AimPoints() int {
-	return p.TransAttrs.VarInt("aim_points", 1)
-}
-
-//SetAimPoints Sets the players aim points to i.
-func (p *Player) SetAimPoints(i int) {
-	p.TransAttrs.SetVar("aim_points", i)
-}
-
-//MagicPoints Returns the players magic points
-func (p *Player) MagicPoints() int {
-	return p.TransAttrs.VarInt("magic_points", 1)
-}
-
-//SetMagicPoints Sets the players magic points to i
-func (p *Player) SetMagicPoints(i int) {
-	p.TransAttrs.SetVar("magic_points", i)
-}
-
-//PrayerPoints Returns the players prayer points
-func (p *Player) PrayerPoints() int {
-	return p.TransAttrs.VarInt("prayer_points", 1)
-}
-
-//SetPrayerPoints Sets the players prayer points to i
-func (p *Player) SetPrayerPoints(i int) {
-	p.TransAttrs.SetVar("prayer_points", i)
-}
-
-//RangedPoints Returns the players ranged points.
-func (p *Player) RangedPoints() int {
-	return p.TransAttrs.VarInt("ranged_points", 1)
-}
-
-//SetRangedPoints Sets the players ranged points tp i.
-func (p *Player) SetRangedPoints(i int) {
-	p.TransAttrs.SetVar("ranged_points", i)
+	p.ResetFollowing()
 }
 
 //Fatigue Returns the players current fatigue.
@@ -401,16 +341,6 @@ func (p *Player) Fatigue() int {
 //SetFatigue Sets the players current fatigue to i.
 func (p *Player) SetFatigue(i int) {
 	p.Attributes.SetVar("fatigue", i)
-}
-
-//FightMode Returns the players current fight mode.
-func (p *Player) FightMode() int {
-	return p.Attributes.VarInt("fight_mode", 0)
-}
-
-//SetFightMode Sets the players fightmode to i.  0=all,1=attack,2=defense,3=strength
-func (p *Player) SetFightMode(i int) {
-	p.Attributes.SetVar("fight_mode", i)
 }
 
 //NearbyPlayers Returns nearby players.
@@ -496,6 +426,9 @@ func (p *Player) NewNPCs() (npcs []*NPC) {
 func (p *Player) SetTradeTarget(index int) {
 	p.TransAttrs.SetVar("tradetarget", index)
 }
+func (p *Player) IsTrading() bool {
+	return p.HasState(MSTrading)
+}
 
 //ResetTrade Resets trade-related variables.
 func (p *Player) ResetTrade() {
@@ -503,6 +436,7 @@ func (p *Player) ResetTrade() {
 	p.TransAttrs.UnsetVar("trade1accept")
 	p.TransAttrs.UnsetVar("trade2accept")
 	p.TradeOffer.Clear()
+	p.RemoveState(MSTrading)
 }
 
 //TradeTarget Returns the server index of the player we are trying to trade with, or -1 if we have not made a trade request.
@@ -516,7 +450,8 @@ func (p *Player) SendPacket(packet *packet.Packet) {
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer(index int, ip string) *Player {
-	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Location{atomic.NewUint32(0), atomic.NewUint32(0)}}, Skillset: &SkillTable{}, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})}, LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, LocalItems: &List{}, IP: ip, OutgoingPackets: make(chan *packet.Packet, 20), OptionMenuC: make(chan int8)}
+	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Location{atomic.NewUint32(0), atomic.NewUint32(0)}}, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})}, LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, LocalItems: &List{}, IP: ip, OutgoingPackets: make(chan *packet.Packet, 20), OptionMenuC: make(chan int8)}
+	p.Transients().SetVar("skills", &SkillTable{})
 	p.Equips[0] = p.Appearance.Head
 	p.Equips[1] = p.Appearance.Body
 	p.Equips[2] = p.Appearance.Legs

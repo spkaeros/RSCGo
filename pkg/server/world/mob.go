@@ -35,18 +35,22 @@ const (
 //Mob Represents a mobile entity within the game world.
 type Mob struct {
 	*Entity
-	Skillset   *SkillTable
 	TransAttrs *AttributeList
 }
 
 type MobileEntity interface {
 	X() int
 	Y() int
-	Stats() *SkillTable
+	Skills() *SkillTable
 	MeleeDamage(target MobileEntity) int
 	Defense(float32) float32
 	ResetFighting()
 	Transients() *AttributeList
+	IsFighting() bool
+	HasState(int) bool
+	AddState(int)
+	RemoveState(int)
+	State() int
 	Busy() bool
 	Move()
 	Remove()
@@ -74,17 +78,13 @@ func (m *Mob) Transients() *AttributeList {
 	return m.TransAttrs
 }
 
-func (m *Mob) Stats() *SkillTable {
-	return m.Skillset
-}
-
 //Busy Returns true if this mobs state is anything other than idle. otherwise returns false.
 func (m *Mob) Busy() bool {
 	return m.State() != MSIdle
 }
 
 func (m *Mob) IsFighting() bool {
-	return m.HasState(MSFighting)
+	return m.HasState(MSFighting) && m.Transients().VarMob("fightTarget") != nil
 }
 
 //Direction Returns the mobs direction.
@@ -390,29 +390,102 @@ func (m *Mob) AddState(state int) {
 }
 
 func (m *Mob) RemoveState(state int) {
+	if !m.HasState(state) {
+		//log.Warning.Println("Attempted to remove a Mobstate that we did not add:", state)
+		return
+	}
 	m.Transients().UnmaskInt("state", state)
 }
 
 //ResetFighting Resets melee fight related variables
 func (m *Mob) ResetFighting() {
-	if target := m.TransAttrs.VarPlayer("fightTarget"); target != nil {
-		target.TransAttrs.UnsetVar("fightTarget")
-		target.TransAttrs.UnsetVar("fightRound")
-		target.SetDirection(North)
-		target.RemoveState(MSFighting)
-	} else if target := m.TransAttrs.VarNpc("fightTarget"); target != nil {
-		target.TransAttrs.UnsetVar("fightTarget")
-		target.TransAttrs.UnsetVar("fightRound")
+	target := m.TransAttrs.VarMob("fightTarget")
+	if target != nil {
+		target.Transients().UnsetVar("fightTarget")
+		target.Transients().UnsetVar("fightRound")
 		target.SetDirection(North)
 		target.RemoveState(MSFighting)
 	}
-	if m.IsFighting() {
-		m.TransAttrs.UnsetVar("fightTarget")
-		m.TransAttrs.UnsetVar("fightRound")
-		m.SetDirection(North)
-		m.RemoveState(MSFighting)
-	}
+	m.TransAttrs.UnsetVar("fightTarget")
+	m.TransAttrs.UnsetVar("fightRound")
+	m.SetDirection(North)
+	m.RemoveState(MSFighting)
 }
+
+//FightMode Returns the players current fight mode.
+func (m *Mob) FightMode() int {
+	return m.TransAttrs.VarInt("fight_mode", 0)
+}
+
+//SetFightMode Sets the players fightmode to i.  0=all,1=attack,2=defense,3=strength
+func (m *Mob) SetFightMode(i int) {
+	m.TransAttrs.SetVar("fight_mode", i)
+}
+
+//ArmourPoints Returns the players armour points.
+func (m *Mob) ArmourPoints() int {
+	return m.TransAttrs.VarInt("armour_points", 1)
+}
+
+//SetArmourPoints Sets the players armour points to i.
+func (m *Mob) SetArmourPoints(i int) {
+	m.TransAttrs.SetVar("armour_points", i)
+}
+
+//PowerPoints Returns the players power points.
+func (m *Mob) PowerPoints() int {
+	return m.TransAttrs.VarInt("power_points", 1)
+}
+
+//SetPowerPoints Sets the players power points to i
+func (m *Mob) SetPowerPoints(i int) {
+	m.TransAttrs.SetVar("power_points", i)
+}
+
+//AimPoints Returns the players aim points
+func (m *Mob) AimPoints() int {
+	return m.TransAttrs.VarInt("aim_points", 1)
+}
+
+//SetAimPoints Sets the players aim points to i.
+func (m *Mob) SetAimPoints(i int) {
+	m.TransAttrs.SetVar("aim_points", i)
+}
+
+//MagicPoints Returns the players magic points
+func (m *Mob) MagicPoints() int {
+	return m.TransAttrs.VarInt("magic_points", 1)
+}
+
+//SetMagicPoints Sets the players magic points to i
+func (m *Mob) SetMagicPoints(i int) {
+	m.TransAttrs.SetVar("magic_points", i)
+}
+
+//PrayerPoints Returns the players prayer points
+func (m *Mob) PrayerPoints() int {
+	return m.TransAttrs.VarInt("prayer_points", 1)
+}
+
+//SetPrayerPoints Sets the players prayer points to i
+func (m *Mob) SetPrayerPoints(i int) {
+	m.TransAttrs.SetVar("prayer_points", i)
+}
+
+//RangedPoints Returns the players ranged points.
+func (m *Mob) RangedPoints() int {
+	return m.TransAttrs.VarInt("ranged_points", 1)
+}
+
+//SetRangedPoints Sets the players ranged points tp i.
+func (m *Mob) SetRangedPoints(i int) {
+	m.TransAttrs.SetVar("ranged_points", i)
+}
+
+func (m *Mob) Skills() *SkillTable {
+	return m.TransAttrs.VarSkills("skills")
+}
+
 
 //AttrList A type alias for a map of strings to empty interfaces, to hold generic mob information for easy serialization and to provide dynamic insertion/deletion of new mob properties easily
 type AttrList map[string]interface{}
@@ -489,7 +562,18 @@ func (attributes *AttributeList) CheckMask(name string, mask int) bool {
 	return 0 & mask != 0
 }
 
-//VarPlayer If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
+//VarMob If there is a MobileEntity attribute assigned to the specified name, returns it.  Otherwise, returns nil
+func (attributes *AttributeList) VarMob(name string) MobileEntity {
+	attributes.Lock.RLock()
+	defer attributes.Lock.RUnlock()
+	if _, ok := attributes.Set[name].(MobileEntity); !ok {
+		return nil
+	}
+
+	return attributes.Set[name].(MobileEntity)
+}
+
+//VarPlayer If there is a *Player attribute assigned to the specified name, returns it.  Otherwise, returns nil
 func (attributes *AttributeList) VarPlayer(name string) *Player {
 	attributes.Lock.RLock()
 	defer attributes.Lock.RUnlock()
@@ -500,15 +584,15 @@ func (attributes *AttributeList) VarPlayer(name string) *Player {
 	return attributes.Set[name].(*Player)
 }
 
-//VarPlayer If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
-func (attributes *AttributeList) VarNpc(name string) *NPC {
+//VarSkills If there is a *SkillTable attribute assigned to the specified name, returns it.  Otherwise, returns nil
+func (attributes *AttributeList) VarSkills(name string) *SkillTable {
 	attributes.Lock.RLock()
 	defer attributes.Lock.RUnlock()
-	if _, ok := attributes.Set[name].(*NPC); !ok {
+	if _, ok := attributes.Set[name].(*SkillTable); !ok {
 		return nil
 	}
 
-	return attributes.Set[name].(*NPC)
+	return attributes.Set[name].(*SkillTable)
 }
 
 //VarLong If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
@@ -719,19 +803,20 @@ type NPC struct {
 
 //NewNpc Creates a new NPC and returns a reference to it
 func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
-	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: NewLocation(startX, startY)}, Skillset: &SkillTable{}, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, ChatTarget: -1, ChatMessage: ""}
+	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: NewLocation(startX, startY)}, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, ChatTarget: -1, ChatMessage: ""}
+	n.Transients().SetVar("skills", &SkillTable{})
 	n.Boundaries[0] = NewLocation(minX, minY)
 	n.Boundaries[1] = NewLocation(maxX, maxY)
 	n.StartPoint = NewLocation(startX, startY)
 	if id < 794 {
-		n.Skillset.current[0] = NpcDefs[id].Attack
-		n.Skillset.current[1] = NpcDefs[id].Defense
-		n.Skillset.current[2] = NpcDefs[id].Strength
-		n.Skillset.current[3] = NpcDefs[id].Hits
-		n.Skillset.maximum[0] = NpcDefs[id].Attack
-		n.Skillset.maximum[1] = NpcDefs[id].Defense
-		n.Skillset.maximum[2] = NpcDefs[id].Strength
-		n.Skillset.maximum[3] = NpcDefs[id].Hits
+		n.Skills().current[0] = NpcDefs[id].Attack
+		n.Skills().current[1] = NpcDefs[id].Defense
+		n.Skills().current[2] = NpcDefs[id].Strength
+		n.Skills().current[3] = NpcDefs[id].Hits
+		n.Skills().maximum[0] = NpcDefs[id].Attack
+		n.Skills().maximum[1] = NpcDefs[id].Defense
+		n.Skills().maximum[2] = NpcDefs[id].Strength
+		n.Skills().maximum[3] = NpcDefs[id].Hits
 	}
 	npcsLock.Lock()
 	Npcs = append(Npcs, n)
@@ -788,14 +873,14 @@ func (m *Mob) StyleBonus(stat int) int {
 //MaxHit Calculates and returns the current max hit for this mob.
 func (m *Mob) MaxHit() int {
 	prayer := float32(1.0)
-	newStr := (float32(m.Skillset.Current(2)) * prayer) + float32(m.StyleBonus(2))
+	newStr := (float32(m.Skills().Current(2)) * prayer) + float32(m.StyleBonus(2))
 	return int((newStr*((float32(m.TransAttrs.VarInt("power_points", 1))*0.00175)+0.1) + 1.05) * 0.95)
 }
 
 func (m *Mob) Accuracy(npcMul float32) float32 {
 	styleBonus := float32(m.StyleBonus(0))
 	prayer := float32(1.0)
-	attackLvl := (float32(m.Skillset.Current(0)) * prayer) + styleBonus + 8
+	attackLvl := (float32(m.Skills().Current(0)) * prayer) + styleBonus + 8
 	multiplier := float32(m.TransAttrs.VarInt("aim_points", 1) + 64)
 	multiplier *= npcMul
 	return attackLvl * multiplier
@@ -804,7 +889,7 @@ func (m *Mob) Accuracy(npcMul float32) float32 {
 func (m *Mob) Defense(npcMul float32) float32 {
 	styleBonus := float32(m.StyleBonus(1))
 	prayer := float32(1.0)
-	defenseLvl := (float32(m.Skillset.Current(1)) * prayer) + styleBonus + 8
+	defenseLvl := (float32(m.Skills().Current(1)) * prayer) + styleBonus + 8
 	multiplier := float32(m.TransAttrs.VarInt("armour_points", 1) + 64)
 	multiplier *= npcMul
 	return defenseLvl * multiplier
