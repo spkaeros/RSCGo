@@ -113,7 +113,7 @@ func LoadPlayerStats(player *world.Player) error {
 		var cur, exp int
 		rows.Scan(&cur, &exp)
 		player.Skillset.SetCur(i, cur)
-		player.Skillset.SetMax(i, cur)
+		player.Skillset.SetMax(i, world.ExperienceToLevel(exp))
 		player.Skillset.SetExp(i, exp)
 		i++
 	}

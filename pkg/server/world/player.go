@@ -45,6 +45,10 @@ func (p *Player) String() string {
 	return "[" + p.Username + ", " + p.IP + "]"
 }
 
+func (p *Player) Inventory() *Inventory {
+	return p.Items
+}
+
 //SetDistancedAction Queues a distanced action to run every game engine tick before path traversal, if action returns true, it will be reset.
 func (p *Player) SetDistancedAction(action func() bool) {
 	p.ActionLock.Lock()

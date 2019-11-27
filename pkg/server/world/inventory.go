@@ -141,6 +141,10 @@ func (i *Inventory) Add(id int, qty int) int {
 	if curSize >= i.Capacity {
 		return -1
 	}
+	if item := i.GetByID(id); ItemDefs[id].Stackable && item != nil {
+		item.Amount += qty
+		return item.Index
+	}
 
 	newItem := &Item{id, qty, curSize, false}
 	i.Lock.Lock()
@@ -150,13 +154,21 @@ func (i *Inventory) Add(id int, qty int) int {
 }
 
 //Remove Removes item at index from this inventory.
-func (i *Inventory) Remove(index int) bool {
+func (i *Inventory) Remove(index int, amt int) bool {
 	size := i.Size()
 	if index >= size {
 		log.Suspicious.Printf("Attempted removing item out of inventory bounds.  index:%d,size:%d,capacity:%d\n", index, size, i.Capacity)
 		return false
 	}
 	i.Lock.Lock()
+	if i.List[index] == nil || i.List[index].Amount < amt {
+		log.Suspicious.Printf("Attempted removing too much of an item.  item:%v, removeAmt:%v\n", i.List[index], amt)
+		return false
+	}
+	if ItemDefs[i.List[index].ID].Stackable && i.List[index].Amount > amt {
+		i.List[index].Amount -= amt
+		return true
+	}
 	if index < size-1 {
 		copy(i.List[index:], i.List[index+1:])
 	}
@@ -170,12 +182,7 @@ func (i *Inventory) Remove(index int) bool {
 func (i *Inventory) RemoveByID(id, amt int) int {
 	size := i.Size()
 	for idx := 0; idx < size; idx++ {
-		if item := i.Get(idx); item != nil && item.ID == id {
-			if item.Amount > amt {
-				item.Amount -= amt
-			} else {
-				i.Remove(idx)
-			}
+		if item := i.Get(idx); item != nil && item.ID == id && i.Remove(idx, amt) {
 			return idx
 		}
 	}
@@ -207,7 +214,7 @@ func (i *Inventory) GetByID(ID int) *Item {
 func (i *Inventory) RemoveAll(offer *Inventory) int {
 	count := 0
 	offer.Range(func(item *Item) bool {
-		if i.RemoveByID(item.ID, item.Amount) != -1 {
+		if i.Remove(item.Index, item.Amount) {
 			count++
 		}
 		return true

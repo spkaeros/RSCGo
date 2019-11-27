@@ -10,7 +10,7 @@ func objectAction(player, object) {
 		}
 		sendMessage(player, "You recharge your prayer points")
 		player.Stats().SetCur(PRAYER, max)
-		sendStats(player)
+		sendStat(player, PRAYER)
 		return true
 	}
 	return false

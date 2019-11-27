@@ -7,11 +7,11 @@ func invAction(player, item) {
 			amount = deltaHp
 		}
 		sendMessage(player, "You eat the " + itemDefs[item.ID].Name + "...")
-		player.Items.RemoveByID(item.ID, 1)
+		player.Items.Remove(item.Index, 1)
 		sendInventory(player)
 		if amount > 0 {
 			player.Stats().IncreaseCur(HITPOINTS, amount)
-			sendStats(player)
+			sendStat(player, HITPOINTS)
 			sleep(tMillis * 350)
 			sendMessage(player, "It heals some health.")
 		}

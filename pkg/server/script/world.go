@@ -116,6 +116,9 @@ func WorldModule() *vm.Env {
 		"sendStats": func(target *world.Player) {
 			target.SendPacket(packetbuilders.PlayerStats(target))
 		},
+		"sendStat": func(target *world.Player, idx int) {
+			target.SendPacket(packetbuilders.PlayerStat(target, idx))
+		},
 		"sendInventory": func(target *world.Player) {
 			target.SendPacket(packetbuilders.InventoryItems(target))
 		},
@@ -128,6 +131,11 @@ func WorldModule() *vm.Env {
 		"sendMessage": func(target *world.Player, msg string) {
 			target.SendPacket(packetbuilders.ServerMessage(msg))
 		},
+		"getSkillIndex": func(name string) int {
+			return world.ParseSkill(name)
+		},
+		"expToLvl": world.ExperienceToLevel,
+		"lvlToExp": world.LevelToExperience,
 	}, map[string]interface{}{
 		"clientMap": reflect.TypeOf(clients.Clients),
 		"client": reflect.TypeOf(clients.Client(nil)),
@@ -211,6 +219,16 @@ func WorldModule() *vm.Env {
 		return nil
 	}
 	err = env.DefineGlobal("runAfter", time.AfterFunc)
+	if err != nil {
+		log.Warning.Println("Error initializing VM parameters:", err)
+		return nil
+	}
+	err = env.DefineGlobal("tMinute", time.Second * 60)
+	if err != nil {
+		log.Warning.Println("Error initializing VM parameters:", err)
+		return nil
+	}
+	err = env.DefineGlobal("tHour", time.Second * 60 * 60)
 	if err != nil {
 		log.Warning.Println("Error initializing VM parameters:", err)
 		return nil
