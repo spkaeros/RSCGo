@@ -161,6 +161,7 @@ func (i *Inventory) Remove(index int, amt int) bool {
 		return false
 	}
 	i.Lock.Lock()
+	defer i.Lock.Unlock()
 	if i.List[index] == nil || i.List[index].Amount < amt {
 		log.Suspicious.Printf("Attempted removing too much of an item.  item:%v, removeAmt:%v\n", i.List[index], amt)
 		return false
@@ -169,12 +170,14 @@ func (i *Inventory) Remove(index int, amt int) bool {
 		i.List[index].Amount -= amt
 		return true
 	}
-	if index < size-1 {
-		copy(i.List[index:], i.List[index+1:])
+	if index >= size-1 {
+		i.List = i.List[:index]
+		return true
 	}
-	i.List[size-1] = nil
-	i.List = i.List[:size-1]
-	i.Lock.Unlock()
+	i.List = append(i.List[:index], i.List[index+1:]...)
+	for idx := range i.List {
+		i.List[idx].Index = idx
+	}
 	return true
 }
 
