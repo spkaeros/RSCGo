@@ -114,7 +114,7 @@ func (c *Client) startReader() {
 				c.Destroy()
 				return
 			}
-			if !c.player.TransAttrs.VarBool("connected", false) && p.Opcode != 32 && p.Opcode != 0 && p.Opcode != 2 && p.Opcode != 220 {
+			if !c.player.Connected() && p.Opcode != 32 && p.Opcode != 0 && p.Opcode != 2 && p.Opcode != 220 {
 				log.Warning.Printf("Unauthorized packet[opcode:%v,len:%v] rejected from: %v\n", p.Opcode, len(p.Payload), c)
 				c.Destroy()
 				return
@@ -262,8 +262,7 @@ func (c *Client) Initialize() {
 	}
 	world.AddPlayer(c.player)
 	c.player.Change()
-	c.player.TransAttrs.SetVar("changed", true)
-	c.player.TransAttrs.SetVar("connected", true)
+	c.player.SetConnected(true)
 	if c.player.Skills().Experience(world.StatHits) < 10 {
 		for i := 0; i < 18; i++ {
 			level := 1
@@ -297,8 +296,8 @@ func (c *Client) Initialize() {
 		c.SendPacket(packetbuilders.LoginBox(0, c.player.IP))
 	}
 	clients.BroadcastLogin(c.player, true)
-	if c.player.Attributes.VarBool("first_login", true) {
-		c.player.Attributes.SetVar("first_login", false)
+	if c.player.FirstLogin() {
+		c.player.SetFirstLogin(false)
 		c.OpenAppearanceChangePanel()
 	}
 }

@@ -34,14 +34,14 @@ func init() {
 				npc.AddState(world.MSFighting)
 				c.Player().SetDirection(world.LeftFighting)
 				npc.SetDirection(world.RightFighting)
-				c.Player().Transients().SetVar("fightTarget", npc)
-				npc.Transients().SetVar("fightTarget", c.Player())
+				c.Player().SetFightTarget(npc)
+				npc.SetFightTarget(c.Player())
 				go func() {
 					ticker := time.NewTicker(time.Millisecond * 1200)
 					defer ticker.Stop()
 					curRound := 0
 					for range ticker.C {
-						if !c.Player().HasState(world.MSFighting) || !c.Player().Transients().VarBool("connected", false) {
+						if !c.Player().HasState(world.MSFighting) || !c.Player().Connected() {
 							if npc.HasState(world.MSFighting) {
 								script.EngineChannel <- func() {
 									npc.ResetFighting()
@@ -178,7 +178,7 @@ func init() {
 					defer ticker.Stop()
 					curRound := 0
 					for range ticker.C {
-						if !affectedPlayer.HasState(world.MSFighting) || !c.Player().HasState(world.MSFighting) || !c.Player().Transients().VarBool("connected", false) || !affectedPlayer.Transients().VarBool("connected", false) {
+						if !affectedPlayer.HasState(world.MSFighting) || !c.Player().HasState(world.MSFighting) || !c.Player().Connected() || !affectedPlayer.Connected() {
 							if affectedPlayer.HasState(world.MSFighting) {
 								script.EngineChannel <- func() {
 									affectedPlayer.ResetFighting()

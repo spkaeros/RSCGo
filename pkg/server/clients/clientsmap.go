@@ -76,7 +76,7 @@ func Remove(c Client) {
 func Range(action func(Client)) {
 	Clients.lock.RLock()
 	for _, c := range Clients.indices {
-		if c != nil && c.Player().TransAttrs.VarBool("connected", false) {
+		if c != nil && c.Player().Connected() {
 			action(c)
 		}
 	}

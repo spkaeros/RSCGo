@@ -2,6 +2,7 @@ package world
 
 import (
 	"github.com/spkaeros/rscgo/pkg/rand"
+	"github.com/spkaeros/rscgo/pkg/server/log"
 	"go.uber.org/atomic"
 	"sync"
 	"time"
@@ -44,9 +45,13 @@ type MobileEntity interface {
 	Skills() *SkillTable
 	MeleeDamage(target MobileEntity) int
 	Defense(float32) float32
-	ResetFighting()
 	Transients() *AttributeList
 	IsFighting() bool
+	FightTarget() MobileEntity
+	SetFightTarget(MobileEntity)
+	FightRound() int
+	SetFightRound(int)
+	ResetFighting()
 	HasState(int) bool
 	AddState(int)
 	RemoveState(int)
@@ -72,6 +77,10 @@ type MobileEntity interface {
 	ResetNeedsSelf()
 	FinishedPath() bool
 	SetLocation(Location, bool)
+	UpdateLastFight()
+	LastFight() time.Time
+	UpdateLastRetreat()
+	LastRetreat() time.Time
 }
 
 func (m *Mob) Transients() *AttributeList {
@@ -85,6 +94,38 @@ func (m *Mob) Busy() bool {
 
 func (m *Mob) IsFighting() bool {
 	return m.HasState(MSFighting) && m.Transients().VarMob("fightTarget") != nil
+}
+
+func (m *Mob) FightTarget() MobileEntity {
+	return m.TransAttrs.VarMob("fightTarget")
+}
+
+func (m *Mob) SetFightTarget(m2 MobileEntity) {
+	m.TransAttrs.SetVar("fightTarget", m2)
+}
+
+func (m *Mob) FightRound() int {
+	return m.TransAttrs.VarInt("fightRound", 0)
+}
+
+func (m *Mob) SetFightRound(i int) {
+	m.TransAttrs.SetVar("fightRound", i)
+}
+
+func (m *Mob) LastRetreat() time.Time {
+	return m.TransAttrs.VarTime("lastRetreat")
+}
+
+func (m *Mob) LastFight() time.Time {
+	return m.TransAttrs.VarTime("lastFight")
+}
+
+func (m *Mob) UpdateLastRetreat() {
+	m.TransAttrs.SetVar("lastRetreat", time.Now())
+}
+
+func (m *Mob) UpdateLastFight() {
+	m.TransAttrs.SetVar("lastFight", time.Now())
 }
 
 //Direction Returns the mobs direction.
@@ -386,6 +427,10 @@ func (m *Mob) HasState(state int) bool {
 }
 
 func (m *Mob) AddState(state int) {
+	if m.HasState(state) {
+		log.Warning.Println("Attempted to add a Mobstate that we already have:", state)
+		return
+	}
 	m.Transients().MaskInt("state", state)
 }
 
@@ -400,16 +445,20 @@ func (m *Mob) RemoveState(state int) {
 //ResetFighting Resets melee fight related variables
 func (m *Mob) ResetFighting() {
 	target := m.TransAttrs.VarMob("fightTarget")
-	if target != nil {
+	if target != nil && target.IsFighting() {
+		target.UpdateLastFight()
 		target.Transients().UnsetVar("fightTarget")
 		target.Transients().UnsetVar("fightRound")
 		target.SetDirection(North)
 		target.RemoveState(MSFighting)
 	}
-	m.TransAttrs.UnsetVar("fightTarget")
-	m.TransAttrs.UnsetVar("fightRound")
-	m.SetDirection(North)
-	m.RemoveState(MSFighting)
+	if m.IsFighting() {
+		m.TransAttrs.UnsetVar("fightTarget")
+		m.TransAttrs.UnsetVar("fightRound")
+		m.SetDirection(North)
+		m.RemoveState(MSFighting)
+		m.UpdateLastFight()
+	}
 }
 
 //FightMode Returns the players current fight mode.

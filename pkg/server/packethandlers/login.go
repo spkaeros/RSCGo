@@ -72,7 +72,7 @@ func logout(c clients.Client, _ *packet.Packet) {
 		c.SendPacket(packetbuilders.CannotLogout)
 		return
 	}
-	if c.Player().TransAttrs.VarBool("connected", false) {
+	if c.Player().Connected() {
 		c.SendPacket(packetbuilders.Logout)
 		c.Destroy()
 	}

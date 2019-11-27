@@ -149,6 +149,26 @@ func (p *Player) SetReconnecting(flag bool) {
 	p.TransAttrs.SetVar("reconnecting", flag)
 }
 
+//Connected Returns true if the player is connected, false otherwise.
+func (p *Player) Connected() bool {
+	return p.TransAttrs.VarBool("connected", false)
+}
+
+//SetConnected Sets the player's connected status to flag.
+func (p *Player) SetConnected(flag bool) {
+	p.TransAttrs.SetVar("connected", flag)
+}
+
+//FirstLogin Returns true if this player has never logged in before, otherwise false.
+func (p *Player) FirstLogin() bool {
+	return p.Attributes.VarBool("first_login", true)
+}
+
+//SetFirstLogin Sets the player's persistent logged in before status to flag.
+func (p *Player) SetFirstLogin(flag bool) {
+	p.Attributes.SetVar("first_login", flag)
+}
+
 //StartFollowing Sets the transient attribute for storing the server index of the player we want to follow to index.
 func (p *Player) StartFollowing(radius int) {
 	p.TransAttrs.SetVar("followrad", radius)
@@ -426,6 +446,7 @@ func (p *Player) NewNPCs() (npcs []*NPC) {
 func (p *Player) SetTradeTarget(index int) {
 	p.TransAttrs.SetVar("tradetarget", index)
 }
+
 func (p *Player) IsTrading() bool {
 	return p.HasState(MSTrading)
 }

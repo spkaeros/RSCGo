@@ -2,7 +2,6 @@ package packethandlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/clients"
-	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/world"
@@ -16,16 +15,22 @@ func init() {
 			c.Player().RemoveState(world.MSMenuChoosing)
 		}
 		if c.Player().IsFighting() {
-			curRound := c.Player().TransAttrs.VarInt("fightRound", 0)
+			target := c.Player().FightTarget()
+			if target == nil {
+				c.Player().ResetFighting()
+				return
+			}
+			curRound := target.FightRound()
 			if curRound < 3 {
 				c.Message("You can't retreat during the first 3 rounds of combat")
 				return
 			}
-			if target := c.Player().TransAttrs.VarPlayer("fightTarget"); target != nil {
+			if target, ok := target.(*world.Player); ok {
 				target.SendPacket(packetbuilders.Sound("retreat"))
 				target.SendPacket(packetbuilders.ServerMessage("Your opponent is retreating"))
 			}
 			c.Player().TransAttrs.SetVar("lastRetreat", time.Now())
+			c.Player().UpdateLastRetreat()
 			c.Player().ResetFighting()
 		}
 		if c.Player().Busy() {
@@ -43,11 +48,6 @@ func init() {
 		c.Player().SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
 	}
 	PacketHandlers["walktoentity"] = func(c clients.Client, p *packet.Packet) {
-		if c.Player().IsFighting() {
-			log.Info.Println(c.Player().State())
-			c.Message("You can't do that whilst you are fighting.")
-			return
-		}
 		if c.Player().Busy() {
 			return
 		}
@@ -80,7 +80,7 @@ func init() {
 				// Following vars have been reset.
 				return true
 			}
-			if affectedClient == nil || !affectedClient.Player().TransAttrs.VarBool("connected", false) ||
+			if affectedClient == nil || !affectedClient.Player().Connected() ||
 				!c.Player().WithinRange(affectedClient.Player().Location, 16) {
 				// We think we have a target, but they're miles away now or no longer exist
 				c.Player().ResetFollowing()

@@ -231,7 +231,7 @@ func (i *Inventory) GetByID(ID int) *Item {
 func (i *Inventory) RemoveAll(offer *Inventory) int {
 	count := 0
 	offer.Range(func(item *Item) bool {
-		if i.Remove(item.Index, item.Amount) {
+		if i.RemoveByID(item.ID, item.Amount) > -1 {
 			count++
 		}
 		return true
