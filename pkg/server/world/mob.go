@@ -2,7 +2,6 @@ package world
 
 import (
 	"github.com/spkaeros/rscgo/pkg/rand"
-	"github.com/spkaeros/rscgo/pkg/server/log"
 	"go.uber.org/atomic"
 	"sync"
 	"time"
@@ -387,12 +386,10 @@ func (m *Mob) HasState(state int) bool {
 }
 
 func (m *Mob) AddState(state int) {
-	log.Info.Println(state)
 	m.Transients().MaskInt("state", state)
 }
 
 func (m *Mob) RemoveState(state int) {
-	log.Info.Println(state)
 	m.Transients().UnmaskInt("state", state)
 }
 

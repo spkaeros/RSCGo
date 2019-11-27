@@ -15,10 +15,7 @@ func init() {
 			c.Player().OptionMenuC <- -1
 			c.Player().RemoveState(world.MSMenuChoosing)
 		}
-		if c.Player().Busy() {
-			return
-		}
-		if c.Player().HasState(world.MSFighting) {
+		if c.Player().IsFighting() {
 			curRound := c.Player().TransAttrs.VarInt("fightRound", 0)
 			if curRound < 3 {
 				c.Message("You can't retreat during the first 3 rounds of combat")
@@ -30,6 +27,9 @@ func init() {
 			}
 			c.Player().TransAttrs.SetVar("lastRetreat", time.Now())
 			c.Player().ResetFighting()
+		}
+		if c.Player().Busy() {
+			return
 		}
 		startX := p.ReadShort()
 		startY := p.ReadShort()
