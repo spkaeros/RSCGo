@@ -144,9 +144,7 @@ func (m *Mob) SetPath(path *Pathway) {
 
 func (m *Mob) WalkTo(end Location) {
 	path := MakePath(m.Location, end)
-	EngineChannel <- func() {
-		m.SetPath(path)
-	}
+	m.SetPath(path)
 }
 
 //Path returns the path that this mob is trying to traverse.
@@ -694,13 +692,12 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 	return n
 }
 
-func UpdateNPCPaths() {
+//UpdateNPCPositions Loops through the global NPC list and, if they are by a player, updates their path to a new path every so often,
+// within their boundaries, and traverses each NPC along said path if necessary.
+func UpdateNPCPositions() {
 	npcsLock.RLock()
 	for _, n := range Npcs {
-		if n.LongestDelta(DeathSpot) == 0 {
-			continue
-		}
-		if n.TransAttrs.VarBool("fighting", false) {
+		if n.TransAttrs.VarBool("fighting", false) || n.Equals(DeathSpot) {
 			continue
 		}
 		if n.TransAttrs.VarTime("nextMove").Before(time.Now()) {
@@ -709,21 +706,12 @@ func UpdateNPCPaths() {
 				if len(r.Players.List) > 0 {
 					r.Players.lock.RUnlock()
 					n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
-					n.WalkTo(NewRandomLocation(n.Boundaries))
+					go n.WalkTo(NewRandomLocation(n.Boundaries))
 					break
 				}
 				r.Players.lock.RUnlock()
 			}
 		}
-	}
-	npcsLock.RUnlock()
-}
-
-//UpdateNPCPositions Loops through the global NPC list and, if they are by a player, updates their path to a new path every so often,
-// within their boundaries, and traverses each NPC along said path if necessary.
-func UpdateNPCPositions() {
-	npcsLock.RLock()
-	for _, n := range Npcs {
 		n.TraversePath()
 	}
 	npcsLock.RUnlock()

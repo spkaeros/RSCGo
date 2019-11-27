@@ -93,7 +93,6 @@ func Tick() {
 		}
 		c.Player().TraversePath()
 	})
-	go world.UpdateNPCPaths()
 	world.UpdateNPCPositions()
 	clients.Range(func(c clients.Client) {
 		c.UpdatePositions()
