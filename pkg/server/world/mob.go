@@ -699,7 +699,7 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 func UpdateNPCPositions() {
 	npcsLock.RLock()
 	for _, n := range Npcs {
-		if n.State != MSIdle || n.TransAttrs.VarBool("fighting", false) || n.Equals(DeathSpot) {
+		if n.State != MSIdle || n.TransAttrs.VarBool("fighting", false) || n.Equals(DeathPoint) {
 			continue
 		}
 		if n.TransAttrs.VarTime("nextMove").Before(time.Now()) {
@@ -734,7 +734,7 @@ func (m *Mob) StyleBonus(stat int) int {
 	mode := m.TransAttrs.VarInt("fight_mode", 0)
 	if mode == 0 {
 		return 1
-	} else if (mode == 1 && stat == 0) || (mode == 2 && stat == 2) || (mode == 3 && stat == 1) {
+	} else if (mode == 2 && stat == 0) || (mode == 1 && stat == 2) || (mode == 3 && stat == 1) {
 		return 3
 	}
 	return 0

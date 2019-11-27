@@ -68,11 +68,19 @@ func (l Location) SetY(y int) {
 	l.y.Store(uint32(y))
 }
 
-//DeathSpot The spot where mobs go to die.
-var DeathSpot = NewLocation(0, 0)
 
-//SpawnPoint The default spawn point, where new players start and dead players respawn.
-var SpawnPoint = NewLocation(220, 445)
+var (
+	//DeathSpot The spot where NPCs go to be dead.
+	DeathPoint = NewLocation(0, 0)
+	//SpawnPoint The default spawn point, where new players start and dead players respawn.
+	SpawnPoint = Lumbridge
+	//Lumbridge Lumbridge teleport point
+	Lumbridge = NewLocation(122, 647)
+	//Varrock Varrock teleport point
+	Varrock = NewLocation(122, 647)
+	//Edgeville Edgeville teleport point
+	Edgeville = NewLocation(220, 445)
+)
 
 //NewLocation Returns a reference to a new instance of the Location data structure.
 func NewLocation(x, y int) Location {

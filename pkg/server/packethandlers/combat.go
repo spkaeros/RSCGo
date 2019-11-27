@@ -24,6 +24,7 @@ func init() {
 			log.Info.Println("Player attacked not attackable NPC!", world.NpcDefs[npc.ID])
 			return
 		}
+		log.Info.Println(npc.ID)
 		c.Player().SetDistancedAction(func() bool {
 			if c.Player().NextTo(npc.Location) && c.Player().WithinRange(npc.Location, 2) {
 				c.Player().ResetPath()
@@ -75,7 +76,7 @@ func init() {
 									}
 									attacker.ResetFighting()
 									defenderNpc.Stats().SetCur(world.StatHits, defenderNpc.Stats().Maximum(world.StatHits))
-									defenderNpc.SetLocation(world.DeathSpot, true)
+									defenderNpc.SetLocation(world.DeathPoint, true)
 								}
 
 								go func() {
