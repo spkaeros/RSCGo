@@ -2,6 +2,7 @@ package packethandlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/clients"
+	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/world"
@@ -10,14 +11,14 @@ import (
 
 func init() {
 	PacketHandlers["walkto"] = func(c clients.Client, p *packet.Packet) {
-		if c.Player().State == world.MSMenuChoosing {
+		if c.Player().HasState(world.MSMenuChoosing) {
 			c.Player().OptionMenuC <- -1
-			c.Player().State = world.MSIdle
+			c.Player().RemoveState(world.MSMenuChoosing)
 		}
-		if c.Player().State != world.MSIdle {
+		if c.Player().Busy() {
 			return
 		}
-		if c.Player().TransAttrs.VarBool("fighting", false) {
+		if c.Player().HasState(world.MSFighting) {
 			curRound := c.Player().TransAttrs.VarInt("fightRound", 0)
 			if curRound < 3 {
 				c.Message("You can't retreat during the first 3 rounds of combat")
@@ -42,11 +43,12 @@ func init() {
 		c.Player().SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
 	}
 	PacketHandlers["walktoentity"] = func(c clients.Client, p *packet.Packet) {
-		if c.Player().TransAttrs.VarBool("fighting", false) {
+		if c.Player().IsFighting() {
+			log.Info.Println(c.Player().State())
 			c.Message("You can't do that whilst you are fighting.")
 			return
 		}
-		if c.Player().State != world.MSIdle {
+		if c.Player().Busy() {
 			return
 		}
 		startX := p.ReadShort()
@@ -61,7 +63,7 @@ func init() {
 		c.Player().SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
 	}
 	PacketHandlers["followreq"] = func(c clients.Client, p *packet.Packet) {
-		if c.Player().State != world.MSIdle {
+		if c.Player().Busy() {
 			return
 		}
 		playerID := p.ReadShort()

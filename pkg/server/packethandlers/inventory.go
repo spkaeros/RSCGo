@@ -23,7 +23,9 @@ func init() {
 				return
 			}
 			c.SendPacket(packetbuilders.Sound("click"))
-			c.EquipItem(item)
+			c.Player().EquipItem(item)
+			c.SendPacket(packetbuilders.EquipmentStats(c.Player()))
+			c.SendPacket(packetbuilders.InventoryItems(c.Player()))
 		}
 	}
 	PacketHandlers["removeitem"] = func(c clients.Client, p *packet.Packet) {
@@ -38,11 +40,13 @@ func init() {
 				return
 			}
 			c.SendPacket(packetbuilders.Sound("click"))
-			c.DequipItem(item)
+			c.Player().DequipItem(item)
+			c.SendPacket(packetbuilders.EquipmentStats(c.Player()))
+			c.SendPacket(packetbuilders.InventoryItems(c.Player()))
 		}
 	}
 	PacketHandlers["takeitem"] = func(c clients.Client, p *packet.Packet) {
-		if c.Player().State != world.MSIdle {
+		if c.Player().Busy() {
 			return
 		}
 		x := p.ReadShort()
@@ -80,7 +84,7 @@ func init() {
 		})
 	}
 	PacketHandlers["dropitem"] = func(c clients.Client, p *packet.Packet) {
-		if c.Player().State != world.MSIdle {
+		if c.Player().Busy() {
 			return
 		}
 		index := p.ReadShort()
@@ -100,16 +104,16 @@ func init() {
 		}
 	}
 	PacketHandlers["invaction1"] = func(c clients.Client, p *packet.Packet) {
-		if c.Player().State != world.MSIdle {
+		if c.Player().Busy() {
 			return
 		}
 		index := p.ReadShort()
 		item := c.Player().Items.Get(index)
 		if item != nil {
-			c.Player().State = world.MSBusy
+			c.Player().AddState(world.MSBusy)
 			go func() {
 				defer func() {
-					c.Player().State = world.MSIdle
+					c.Player().RemoveState(world.MSBusy)
 				}()
 				for _, fn := range script.InvTriggers {
 					ran, err := fn(context.Background(), reflect.ValueOf(c.Player()), reflect.ValueOf(item))

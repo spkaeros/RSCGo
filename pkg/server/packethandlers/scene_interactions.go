@@ -13,7 +13,7 @@ import (
 
 func init() {
 	PacketHandlers["objectaction"] = func(c clients.Client, p *packet.Packet) {
-		if c.Player().State != world.MSIdle {
+		if c.Player().Busy() {
 			return
 		}
 		x := p.ReadShort()
@@ -44,7 +44,7 @@ func init() {
 		})
 	}
 	PacketHandlers["objectaction2"] = func(c clients.Client, p *packet.Packet) {
-		if c.Player().State != world.MSIdle {
+		if c.Player().Busy() {
 			return
 		}
 		x := p.ReadShort()
@@ -74,7 +74,7 @@ func init() {
 		})
 	}
 	PacketHandlers["boundaryaction2"] = func(c clients.Client, p *packet.Packet) {
-		if c.Player().State != world.MSIdle {
+		if c.Player().Busy() {
 			return
 		}
 		x := p.ReadShort()
@@ -96,7 +96,7 @@ func init() {
 		})
 	}
 	PacketHandlers["boundaryaction"] = func(c clients.Client, p *packet.Packet) {
-		if c.Player().State != world.MSIdle {
+		if c.Player().Busy() {
 			return
 		}
 		x := p.ReadShort()
@@ -123,11 +123,11 @@ func init() {
 		if npc == nil {
 			return
 		}
-		if c.Player().State != world.MSIdle {
+		if c.Player().Busy() {
 			return
 		}
 		c.Player().SetDistancedAction(func() bool {
-			if c.Player().NextTo(npc.Location) && c.Player().WithinRange(npc.Location, 1) {
+			if c.Player().NextTo(npc.Location) && c.Player().WithinRange(npc.Location, 1) && !npc.Busy() {
 				if c.Player().Location.Equals(npc.Location) {
 					if c.Player().NextTo(world.NewLocation(c.Player().X(), c.Player().Y()-1)) {
 						c.Player().SetCoords(c.Player().X(), c.Player().Y()-1, false)
@@ -146,12 +146,12 @@ func init() {
 				npc.ResetPath()
 				c.Player().SetDirection(c.Player().DirectionTo(npc.X(), npc.Y()))
 				npc.SetDirection(npc.DirectionTo(c.Player().X(), c.Player().Y()))
-				c.Player().State = world.MSBusy
-				npc.State = world.MSBusy
+				c.Player().AddState(world.MSChatting)
+				npc.AddState(world.MSChatting)
 				go func() {
 					defer func() {
-						c.Player().State = world.MSIdle
-						npc.State = world.MSIdle
+						c.Player().RemoveState(world.MSChatting)
+						npc.RemoveState(world.MSChatting)
 					}()
 					for _, fn := range script.NpcTriggers {
 						ran, err := fn(context.Background(), reflect.ValueOf(c.Player()), reflect.ValueOf(npc))
@@ -178,15 +178,15 @@ func init() {
 }
 
 func objectAction(c clients.Client, object *world.Object) {
-	if c.Player().State != world.MSIdle || world.GetObject(object.X(), object.Y()) != object {
+	if c.Player().Busy() || world.GetObject(object.X(), object.Y()) != object {
 		// If somehow we became busy, the object changed before arriving, we do nothing.
 		return
 	}
-	c.Player().State = world.MSBusy
+	c.Player().AddState(world.MSBusy)
 
 	go func() {
 		defer func() {
-			c.Player().State = world.MSIdle
+			c.Player().RemoveState(world.MSBusy)
 		}()
 		for _, fn := range script.ObjectTriggers {
 			ran, err := fn(context.Background(), reflect.ValueOf(c.Player()), reflect.ValueOf(object))
@@ -209,14 +209,14 @@ func objectAction(c clients.Client, object *world.Object) {
 }
 
 func boundaryAction(c clients.Client, object *world.Object) {
-	if c.Player().State != world.MSIdle || world.GetObject(object.X(), object.Y()) != object {
+	if c.Player().Busy() || world.GetObject(object.X(), object.Y()) != object {
 		// If somehow we became busy, the object changed before arriving, we do nothing.
 		return
 	}
-	c.Player().State = world.MSBusy
+	c.Player().AddState(world.MSBusy)
 	go func() {
 		defer func() {
-			c.Player().State = world.MSIdle
+			c.Player().RemoveState(world.MSBusy)
 		}()
 		for _, fn := range script.BoundaryTriggers {
 			ran, err := fn(context.Background(), reflect.ValueOf(c.Player()), reflect.ValueOf(object))

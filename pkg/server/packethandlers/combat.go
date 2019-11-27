@@ -17,7 +17,7 @@ func init() {
 			log.Suspicious.Printf("player[%v] tried to attack nil NPC\n", c)
 			return
 		}
-		if c.Player().State != world.MSIdle {
+		if c.Player().Busy() {
 			return
 		}
 		if !world.NpcDefs[npc.ID].Attackable {
@@ -30,21 +30,19 @@ func init() {
 				c.Player().ResetPath()
 				npc.ResetPath()
 				c.Player().SetLocation(npc.Location, true)
-				c.Player().State = world.MSFighting
-				npc.State = world.MSFighting
+				c.Player().AddState(world.MSFighting)
+				npc.AddState(world.MSFighting)
 				c.Player().SetDirection(world.LeftFighting)
 				npc.SetDirection(world.RightFighting)
-				c.Player().Transients().SetVar("fighting", true)
 				c.Player().Transients().SetVar("fightTarget", npc)
-				npc.Transients().SetVar("fighting", true)
 				npc.Transients().SetVar("fightTarget", c.Player())
 				go func() {
 					ticker := time.NewTicker(time.Millisecond * 1200)
 					defer ticker.Stop()
 					curRound := 0
 					for range ticker.C {
-						if !c.Player().Transients().VarBool("fighting", false) || !c.Player().Transients().VarBool("connected", false) {
-							if npc.Transients().VarBool("fighting", false) {
+						if !c.Player().HasState(world.MSFighting) || !c.Player().Transients().VarBool("connected", false) {
+							if npc.HasState(world.MSFighting) {
 								script.EngineChannel <- func() {
 									npc.ResetFighting()
 								}
@@ -101,6 +99,14 @@ func init() {
 										world.AddItem(world.NewGroundItem(item.ID, item.Amount, defender.X(), defender.Y()))
 										return true
 									})
+									for i := range defenderPlayer.Equips {
+										if i == 1 {
+
+										}
+										if i > 3 {
+											defenderPlayer.Equips[i] = 0
+										}
+									}
 									defenderPlayer.Inventory().Clear()
 									defenderPlayer.SendPacket(packetbuilders.InventoryItems(defenderPlayer))
 									plane := defenderPlayer.Plane()
@@ -144,10 +150,10 @@ func init() {
 			log.Suspicious.Printf("player[%v] tried to attack nil player\n", c)
 			return
 		}
-		if c.Player().State != world.MSIdle {
+		if c.Player().Busy() {
 			return
 		}
-		if affectedClient.Player().State != world.MSIdle {
+		if affectedClient.Player().Busy() {
 			log.Info.Printf("Target player busy during attack request  State: %d\n", affectedClient.Player().State)
 			return
 		}
@@ -161,26 +167,24 @@ func init() {
 				affectedPlayer.ResetPath()
 				affectedPlayer.SendPacket(packetbuilders.Sound("underattack"))
 				c.Player().SetLocation(affectedPlayer.Location, true)
-				c.Player().State = world.MSFighting
-				affectedPlayer.State = world.MSFighting
+				c.Player().AddState(world.MSFighting)
+				affectedPlayer.AddState(world.MSFighting)
 				c.Player().SetDirection(world.LeftFighting)
 				affectedPlayer.SetDirection(world.RightFighting)
-				c.Player().Transients().SetVar("fighting", true)
 				c.Player().Transients().SetVar("fightTarget", affectedPlayer)
-				affectedPlayer.Transients().SetVar("fighting", true)
 				affectedPlayer.Transients().SetVar("fightTarget", c.Player())
 				go func() {
 					ticker := time.NewTicker(time.Millisecond * 1200)
 					defer ticker.Stop()
 					curRound := 0
 					for range ticker.C {
-						if !affectedPlayer.Transients().VarBool("fighting", false) || !c.Player().Transients().VarBool("fighting", false) || !c.Player().Transients().VarBool("connected", false) || !affectedPlayer.Transients().VarBool("connected", false) {
-							if affectedPlayer.Transients().VarBool("fighting", false) {
+						if !affectedPlayer.HasState(world.MSFighting) || !c.Player().HasState(world.MSFighting) || !c.Player().Transients().VarBool("connected", false) || !affectedPlayer.Transients().VarBool("connected", false) {
+							if affectedPlayer.HasState(world.MSFighting) {
 								script.EngineChannel <- func() {
 									affectedPlayer.ResetFighting()
 								}
 							}
-							if c.Player().Transients().VarBool("fighting", false) {
+							if c.Player().HasState(world.MSFighting) {
 								script.EngineChannel <- func() {
 									c.Player().ResetFighting()
 								}

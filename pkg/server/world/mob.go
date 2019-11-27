@@ -2,45 +2,40 @@ package world
 
 import (
 	"github.com/spkaeros/rscgo/pkg/rand"
+	"github.com/spkaeros/rscgo/pkg/server/log"
 	"go.uber.org/atomic"
 	"sync"
 	"time"
 )
 
-//MobState Mob state.
-type MobState uint8
-
 const (
 	//MSIdle The default MobState, means doing nothing.
-	MSIdle MobState = iota
-	//MSWalking The mob is walking.
-	MSWalking
+	MSIdle int = 0
 	//MSBanking The mob is banking.
-	MSBanking
+	MSBanking = 1
 	//MSChatting The mob is chatting with a NPC
-	MSChatting
+	MSChatting = 2
 	//MSMenuChoosing The mob is in a query menu
-	MSMenuChoosing
+	MSMenuChoosing = 4
 	//MSTrading The mob is negotiating a trade.
-	MSTrading
+	MSTrading = 8
 	//MSDueling The mob is negotiating a duel.
-	MSDueling
+	MSDueling = 16
 	//MSFighting The mob is fighting.
-	MSFighting
+	MSFighting = 32
 	//MSBatching The mob is performing a skill that repeats itself an arbitrary number of times.
-	MSBatching
+	MSBatching = 64
 	//MSSleeping The mob is using a bed or sleeping bag, and trying to solve a CAPTCHA
-	MSSleeping
+	MSSleeping = 128
 	//MSBusy Generic busy state
-	MSBusy
+	MSBusy = 256
 	//MSChangingAppearance Indicates that the mob in this state is in the player aooearance changing screen
-	MSChangingAppearance
+	MSChangingAppearance = 512
 )
 
 //Mob Represents a mobile entity within the game world.
 type Mob struct {
 	*Entity
-	State      MobState
 	Skillset   *SkillTable
 	TransAttrs *AttributeList
 }
@@ -86,7 +81,11 @@ func (m *Mob) Stats() *SkillTable {
 
 //Busy Returns true if this mobs state is anything other than idle. otherwise returns false.
 func (m *Mob) Busy() bool {
-	return m.State != MSIdle
+	return m.State() != MSIdle
+}
+
+func (m *Mob) IsFighting() bool {
+	return m.HasState(MSFighting)
 }
 
 //Direction Returns the mobs direction.
@@ -379,26 +378,43 @@ func (n *NPC) Teleport(x, y int) {
 	n.SetCoords(x, y, true)
 }
 
+func (m *Mob) State() int {
+	return m.TransAttrs.VarInt("state", 0)
+}
+
+func (m *Mob) HasState(state int) bool {
+	return m.State() & state == state
+}
+
+func (m *Mob) AddState(state int) {
+	log.Info.Println(state)
+	m.Transients().MaskInt("state", state)
+}
+
+func (m *Mob) RemoveState(state int) {
+	log.Info.Println(state)
+	m.Transients().UnmaskInt("state", state)
+}
+
 //ResetFighting Resets melee fight related variables
 func (m *Mob) ResetFighting() {
-	m.TransAttrs.UnsetVar("fighting")
 	if target := m.TransAttrs.VarPlayer("fightTarget"); target != nil {
-		target.TransAttrs.UnsetVar("fighting")
 		target.TransAttrs.UnsetVar("fightTarget")
 		target.TransAttrs.UnsetVar("fightRound")
 		target.SetDirection(North)
-		target.State = MSIdle
+		target.RemoveState(MSFighting)
 	} else if target := m.TransAttrs.VarNpc("fightTarget"); target != nil {
-		target.TransAttrs.UnsetVar("fighting")
 		target.TransAttrs.UnsetVar("fightTarget")
 		target.TransAttrs.UnsetVar("fightRound")
 		target.SetDirection(North)
-		target.State = MSIdle
+		target.RemoveState(MSFighting)
 	}
-	m.TransAttrs.UnsetVar("fightTarget")
-	m.TransAttrs.UnsetVar("fightRound")
-	m.SetDirection(North)
-	m.State = MSIdle
+	if m.IsFighting() {
+		m.TransAttrs.UnsetVar("fightTarget")
+		m.TransAttrs.UnsetVar("fightRound")
+		m.SetDirection(North)
+		m.RemoveState(MSFighting)
+	}
 }
 
 //AttrList A type alias for a map of strings to empty interfaces, to hold generic mob information for easy serialization and to provide dynamic insertion/deletion of new mob properties easily
@@ -442,6 +458,38 @@ func (attributes *AttributeList) VarInt(name string, zero int) int {
 	}
 
 	return attributes.Set[name].(int)
+}
+
+//MaskInt Mask attribute `name` with the specified bitmask.
+func (attributes *AttributeList) MaskInt(name string, mask int) {
+	attributes.Lock.RLock()
+	defer attributes.Lock.RUnlock()
+	if val, ok := attributes.Set[name].(int); ok {
+		attributes.Set[name] = val | mask
+		return
+	}
+	attributes.Set[name] = MSIdle | mask
+}
+
+//UnmaskInt Mask attribute `name` with the specified bitmask.
+func (attributes *AttributeList) UnmaskInt(name string, mask int) {
+	attributes.Lock.RLock()
+	defer attributes.Lock.RUnlock()
+	if val, ok := attributes.Set[name].(int); ok {
+		attributes.Set[name] = val & 0xFFFFFFFF - mask
+		return
+	}
+	attributes.Set[name] = MSIdle
+}
+
+//CheckMask Check if a bitmask attribute has a mask set.
+func (attributes *AttributeList) CheckMask(name string, mask int) bool {
+	attributes.Lock.RLock()
+	defer attributes.Lock.RUnlock()
+	if val, ok := attributes.Set[name].(int); !ok {
+		return val & mask != 0
+	}
+	return 0 & mask != 0
 }
 
 //VarPlayer If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
@@ -674,7 +722,7 @@ type NPC struct {
 
 //NewNpc Creates a new NPC and returns a reference to it
 func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
-	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: NewLocation(startX, startY)}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, ChatTarget: -1, ChatMessage: ""}
+	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: NewLocation(startX, startY)}, Skillset: &SkillTable{}, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, ChatTarget: -1, ChatMessage: ""}
 	n.Boundaries[0] = NewLocation(minX, minY)
 	n.Boundaries[1] = NewLocation(maxX, maxY)
 	n.StartPoint = NewLocation(startX, startY)
@@ -699,7 +747,7 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 func UpdateNPCPositions() {
 	npcsLock.RLock()
 	for _, n := range Npcs {
-		if n.State != MSIdle || n.TransAttrs.VarBool("fighting", false) || n.Equals(DeathPoint) {
+		if n.Busy() || n.IsFighting() || n.Equals(DeathPoint) {
 			continue
 		}
 		if n.TransAttrs.VarTime("nextMove").Before(time.Now()) {

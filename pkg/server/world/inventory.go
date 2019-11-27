@@ -40,6 +40,16 @@ type EquipmentDefinition struct {
 
 var EquipmentDefs []EquipmentDefinition
 
+func GetEquipmentDefinition(id int) *EquipmentDefinition {
+	for _, e := range EquipmentDefs {
+		if e.ID == id {
+			return &e
+		}
+	}
+
+	return nil
+}
+
 //Item Represents a single item in the game.
 type Item struct {
 	ID     int

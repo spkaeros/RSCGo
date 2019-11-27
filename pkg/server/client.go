@@ -76,7 +76,7 @@ func (c *Client) TradeOpen() {
 
 //OpenAppearanceChangePanel Sends a packet to open the player appearance changing panel on the client.
 func (c *Client) OpenAppearanceChangePanel() {
-	c.player.State = world.MSChangingAppearance
+	c.player.AddState(world.MSChangingAppearance)
 	c.SendPacket(packetbuilders.ChangeAppearance)
 }
 
@@ -264,7 +264,7 @@ func (c *Client) Initialize() {
 	c.player.Change()
 	c.player.TransAttrs.SetVar("changed", true)
 	c.player.TransAttrs.SetVar("connected", true)
-	if c.player.Skillset.Current(3) < 10 {
+	if c.player.Skillset.Experience(world.StatHits) < 10 {
 		for i := 0; i < 18; i++ {
 			level := 1
 			exp := 0
@@ -331,97 +331,6 @@ func (c *Client) HandleLogin(reply chan byte) {
 		c.SendPacket(packetbuilders.LoginResponse(-1))
 		return
 	}
-}
-
-//EquipItem Equips an item to this clients player, and sends inventory and equipment bonuses.
-func (c *Client) EquipItem(item *world.Item) {
-	var itemAffectedTypes = map[int][]int{32: {32, 33}, 33: {32, 33}, 64: {64, 322}, 512: {512, 640, 644},
-		8: {8, 24, 8216}, 1024: {1024}, 128: {128, 640, 644}, 644: {128, 512, 640, 644},
-		640: {128, 512, 640, 644}, 2048: {2048}, 16: {16, 24, 8216}, 256: {256, 322},
-		322: {64, 256, 322}, 24: {8, 16, 24, 8216}, 8216: {8, 16, 24, 8216},
-	}
-	def := db.GetEquipmentDefinition(item.ID)
-	if def == nil {
-		return
-	}
-	c.player.TransAttrs.SetVar("self", false)
-	c.player.Items.Range(func(otherItem *world.Item) bool {
-		if otherDef := db.GetEquipmentDefinition(otherItem.ID); otherDef != nil {
-			if otherItem == item || !otherItem.Worn {
-				return true
-			}
-			for _, i := range itemAffectedTypes[def.Type] {
-				if i == otherDef.Type {
-					c.Player().SetAimPoints(c.Player().AimPoints() - otherDef.Aim)
-					c.Player().SetPowerPoints(c.Player().PowerPoints() - otherDef.Power)
-					c.Player().SetArmourPoints(c.Player().ArmourPoints() - otherDef.Armour)
-					c.Player().SetMagicPoints(c.Player().MagicPoints() - otherDef.Magic)
-					c.Player().SetPrayerPoints(c.Player().PrayerPoints() - otherDef.Prayer)
-					c.Player().SetRangedPoints(c.Player().RangedPoints() - otherDef.Ranged)
-					otherItem.Worn = false
-					var value int
-					switch otherDef.Position {
-					case 0:
-						value = c.player.Appearance.Head
-					case 1:
-						value = c.player.Appearance.Body
-					case 2:
-						value = c.player.Appearance.Legs
-					default:
-						value = 0
-					}
-					c.Player().Equips[otherDef.Position] = value
-				}
-			}
-		}
-		return true
-	})
-	item.Worn = true
-	c.player.SetAimPoints(c.player.AimPoints() + def.Aim)
-	c.player.SetPowerPoints(c.player.PowerPoints() + def.Power)
-	c.player.SetArmourPoints(c.player.ArmourPoints() + def.Armour)
-	c.player.SetMagicPoints(c.player.MagicPoints() + def.Magic)
-	c.player.SetPrayerPoints(c.player.PrayerPoints() + def.Prayer)
-	c.player.SetRangedPoints(c.player.RangedPoints() + def.Ranged)
-	c.player.AppearanceLock.Lock()
-	c.player.Equips[def.Position] = def.Sprite
-	c.player.AppearanceTicket++
-	c.player.AppearanceLock.Unlock()
-	c.SendPacket(packetbuilders.EquipmentStats(c.player))
-	c.SendPacket(packetbuilders.InventoryItems(c.player))
-}
-
-//DequipItem Removes an item from this clients player equips, and sends inventory and equipment bonuses.
-func (c *Client) DequipItem(item *world.Item) {
-	def := db.GetEquipmentDefinition(item.ID)
-	if def == nil {
-		return
-	}
-	c.player.TransAttrs.SetVar("self", false)
-	item.Worn = false
-	c.player.SetAimPoints(c.player.AimPoints() - def.Aim)
-	c.player.SetPowerPoints(c.player.PowerPoints() - def.Power)
-	c.player.SetArmourPoints(c.player.ArmourPoints() - def.Armour)
-	c.player.SetMagicPoints(c.player.MagicPoints() - def.Magic)
-	c.player.SetPrayerPoints(c.player.PrayerPoints() - def.Prayer)
-	c.player.SetRangedPoints(c.player.RangedPoints() - def.Ranged)
-	var value int
-	switch def.Position {
-	case 0:
-		value = c.player.Appearance.Head
-	case 1:
-		value = c.player.Appearance.Body
-	case 2:
-		value = c.player.Appearance.Legs
-	default:
-		value = 0
-	}
-	c.player.AppearanceLock.Lock()
-	c.player.Equips[def.Position] = value
-	c.player.AppearanceTicket++
-	c.player.AppearanceLock.Unlock()
-	c.SendPacket(packetbuilders.EquipmentStats(c.player))
-	c.SendPacket(packetbuilders.InventoryItems(c.player))
 }
 
 //HandleRegister This method will block until a byte is sent down the reply channel with the registration response to send to the client, or if this doesn't occur, it will timeout after 10 seconds.

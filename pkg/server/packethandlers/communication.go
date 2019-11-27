@@ -96,13 +96,13 @@ func init() {
 	}
 	PacketHandlers["chooseoption"] = func(c clients.Client, p *packet.Packet) {
 		choice := p.ReadByte()
-		if c.Player().State != world.MSMenuChoosing {
+		if !c.Player().HasState(world.MSMenuChoosing) {
 			return
 		}
 		if choice < 0 {
 			return
 		}
-		c.Player().State = world.MSBusy
+		c.Player().RemoveState(world.MSMenuChoosing)
 		c.Player().OptionMenuC <- int8(choice)
 	}
 }

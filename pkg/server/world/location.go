@@ -175,6 +175,11 @@ func (l *Location) Below() Location {
 	return NewLocation(l.X(), l.PlaneY(false))
 }
 
+func (l *Location) DirectionToward(end Location) int {
+	tile := l.NextTileToward(end)
+	return l.DirectionTo(tile.X(), tile.Y())
+}
+
 //PlaneY Updates the location's y coordinate, going up by one plane if up is true, else going down by one plane.  Valid planes: ground=0, 2nd story=1, 3rd story=2, basement=3
 func (l *Location) PlaneY(up bool) int {
 	curPlane := l.Plane()

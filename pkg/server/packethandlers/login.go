@@ -6,7 +6,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/crypto"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/script"
-	"github.com/spkaeros/rscgo/pkg/server/world"
 	"strings"
 	"time"
 
@@ -69,7 +68,7 @@ func closedConn(c clients.Client, p *packet.Packet) {
 }
 
 func logout(c clients.Client, _ *packet.Packet) {
-	if c.Player().TransAttrs.VarBool("fighting", false) || c.Player().State != world.MSIdle {
+	if c.Player().Busy() {
 		c.SendPacket(packetbuilders.CannotLogout)
 		return
 	}

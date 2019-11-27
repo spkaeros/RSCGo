@@ -7,16 +7,6 @@ import (
 	"strings"
 )
 
-func GetEquipmentDefinition(id int) *world.EquipmentDefinition {
-	for _, e := range world.EquipmentDefs {
-		if e.ID == id {
-			return &e
-		}
-	}
-
-	return nil
-}
-
 //LoadObjectDefinitions Loads game object data into memory for quick access.
 func LoadObjectDefinitions() {
 	database := Open(config.WorldDB())

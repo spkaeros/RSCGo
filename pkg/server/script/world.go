@@ -108,7 +108,7 @@ func WorldModule() *vm.Env {
 		"MENUCHOOSING":   world.MSMenuChoosing,
 		"openOptionMenu": func(player *world.Player, options ...string) int {
 			player.SendPacket(packetbuilders.OptionMenuOpen(options...))
-			player.State = world.MSMenuChoosing
+			player.AddState(world.MSMenuChoosing)
 			select {
 			case reply := <-player.OptionMenuC:
 				if reply < 0 || int(reply) > len(options) {
@@ -174,6 +174,7 @@ func WorldModule() *vm.Env {
 			target.SendPacket(packetbuilders.PlayerStats(target))
 			// TODO: Keep 3 most valuable items
 			target.Inventory().Range(func(item *world.Item) bool {
+				target.DequipItem(item)
 				world.AddItem(world.NewGroundItem(item.ID, item.Amount, target.X(), target.Y()))
 				return true
 			})

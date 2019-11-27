@@ -235,6 +235,96 @@ func (p *Player) NextTo(target Location) bool {
 	return true
 }
 
+//EquipItem Equips an item to this player, and sends inventory and equipment bonuses.
+func (p *Player) EquipItem(item *Item) {
+	var itemAffectedTypes = map[int][]int{32: {32, 33}, 33: {32, 33}, 64: {64, 322}, 512: {512, 640, 644},
+		8: {8, 24, 8216}, 1024: {1024}, 128: {128, 640, 644}, 644: {128, 512, 640, 644},
+		640: {128, 512, 640, 644}, 2048: {2048}, 16: {16, 24, 8216}, 256: {256, 322},
+		322: {64, 256, 322}, 24: {8, 16, 24, 8216}, 8216: {8, 16, 24, 8216},
+	}
+	def := GetEquipmentDefinition(item.ID)
+	if def == nil {
+		return
+	}
+	p.TransAttrs.SetVar("self", false)
+	p.Items.Range(func(otherItem *Item) bool {
+		if otherDef := GetEquipmentDefinition(otherItem.ID); otherDef != nil {
+			if otherItem == item || !otherItem.Worn {
+				return true
+			}
+			for _, i := range itemAffectedTypes[def.Type] {
+				if i == otherDef.Type {
+					p.SetAimPoints(p.AimPoints() - otherDef.Aim)
+					p.SetPowerPoints(p.PowerPoints() - otherDef.Power)
+					p.SetArmourPoints(p.ArmourPoints() - otherDef.Armour)
+					p.SetMagicPoints(p.MagicPoints() - otherDef.Magic)
+					p.SetPrayerPoints(p.PrayerPoints() - otherDef.Prayer)
+					p.SetRangedPoints(p.RangedPoints() - otherDef.Ranged)
+					otherItem.Worn = false
+					var value int
+					switch otherDef.Position {
+					case 0:
+						value = p.Appearance.Head
+					case 1:
+						value = p.Appearance.Body
+					case 2:
+						value = p.Appearance.Legs
+					default:
+						value = 0
+					}
+					p.Equips[otherDef.Position] = value
+				}
+			}
+		}
+		return true
+	})
+	item.Worn = true
+	p.SetAimPoints(p.AimPoints() + def.Aim)
+	p.SetPowerPoints(p.PowerPoints() + def.Power)
+	p.SetArmourPoints(p.ArmourPoints() + def.Armour)
+	p.SetMagicPoints(p.MagicPoints() + def.Magic)
+	p.SetPrayerPoints(p.PrayerPoints() + def.Prayer)
+	p.SetRangedPoints(p.RangedPoints() + def.Ranged)
+	p.AppearanceLock.Lock()
+	p.Equips[def.Position] = def.Sprite
+	p.AppearanceTicket++
+	p.AppearanceLock.Unlock()
+}
+
+//DequipItem Removes an item from this clients player equips, and sends inventory and equipment bonuses.
+func (p *Player) DequipItem(item *Item) {
+	def := GetEquipmentDefinition(item.ID)
+	if def == nil {
+		return
+	}
+	if !item.Worn {
+		return
+	}
+	p.TransAttrs.SetVar("self", false)
+	item.Worn = false
+	p.SetAimPoints(p.AimPoints() - def.Aim)
+	p.SetPowerPoints(p.PowerPoints() - def.Power)
+	p.SetArmourPoints(p.ArmourPoints() - def.Armour)
+	p.SetMagicPoints(p.MagicPoints() - def.Magic)
+	p.SetPrayerPoints(p.PrayerPoints() - def.Prayer)
+	p.SetRangedPoints(p.RangedPoints() - def.Ranged)
+	var value int
+	switch def.Position {
+	case 0:
+		value = p.Appearance.Head
+	case 1:
+		value = p.Appearance.Body
+	case 2:
+		value = p.Appearance.Legs
+	default:
+		value = 0
+	}
+	p.AppearanceLock.Lock()
+	p.Equips[def.Position] = value
+	p.AppearanceTicket++
+	p.AppearanceLock.Unlock()
+}
+
 //ResetFollowing Resets the transient attributes holding: Path, Follow radius, and Distanced action triggers...
 func (p *Player) ResetAll() {
 	p.TransAttrs.UnsetVar("followrad")
@@ -420,19 +510,13 @@ func (p *Player) TradeTarget() int {
 	return p.TransAttrs.VarInt("tradetarget", -1)
 }
 
-//IsFighting Returns true if this player is currently in a fighting stance, otherwise returns false.
-func (p *Player) IsFighting() bool {
-	sprite := p.Direction() // Prevent locking too frequently
-	return sprite == LeftFighting || sprite == RightFighting
-}
-
 func (p *Player) SendPacket(packet *packet.Packet) {
 	p.OutgoingPackets <- packet
 }
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer(index int, ip string) *Player {
-	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Location{atomic.NewUint32(0), atomic.NewUint32(0)}}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})}, LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, LocalItems: &List{}, IP: ip, OutgoingPackets: make(chan *packet.Packet, 20), OptionMenuC: make(chan int8)}
+	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Location{atomic.NewUint32(0), atomic.NewUint32(0)}}, Skillset: &SkillTable{}, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})}, LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, LocalItems: &List{}, IP: ip, OutgoingPackets: make(chan *packet.Packet, 20), OptionMenuC: make(chan int8)}
 	p.Equips[0] = p.Appearance.Head
 	p.Equips[1] = p.Appearance.Body
 	p.Equips[2] = p.Appearance.Legs
