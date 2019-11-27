@@ -96,21 +96,15 @@ func init() {
 									defenderPlayer.Transients().SetVar("deathTime", time.Now())
 									// TODO: Keep 3 most valuable items
 									defenderPlayer.Inventory().Range(func(item *world.Item) bool {
+										if item.Worn {
+											defenderPlayer.DequipItem(item)
+										}
 										world.AddItem(world.NewGroundItem(item.ID, item.Amount, defender.X(), defender.Y()))
 										return true
 									})
-									defenderPlayer.AppearanceLock.Lock()
-									for i := range defenderPlayer.Equips {
-										if i == 1 {
-
-										}
-										if i > 3 {
-											defenderPlayer.Equips[i] = 0
-										}
-									}
-									defenderPlayer.AppearanceLock.Unlock()
 									defenderPlayer.Inventory().Clear()
 									defenderPlayer.SendPacket(packetbuilders.InventoryItems(defenderPlayer))
+									defenderPlayer.SendPacket(packetbuilders.EquipmentStats(defenderPlayer))
 									plane := defenderPlayer.Plane()
 									defenderPlayer.SetLocation(world.SpawnPoint, true)
 									if defenderPlayer.Plane() != plane {

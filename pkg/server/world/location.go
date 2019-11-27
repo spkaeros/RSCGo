@@ -3,7 +3,6 @@ package world
 import (
 	"fmt"
 	"github.com/spkaeros/rscgo/pkg/rand"
-	"github.com/spkaeros/rscgo/pkg/server/log"
 	"go.uber.org/atomic"
 	"math"
 )
@@ -292,7 +291,6 @@ func init() {
 		i += i1
 		ExperienceLevels[lvl] = (int(i) & 0xfffffffc) / 4
 	}
-	log.Info.Println(ExperienceToLevel(1154), LevelToExperience(10), LevelToExperience(99))
 }
 
 func LevelToExperience(lvl int) int {

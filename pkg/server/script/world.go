@@ -189,6 +189,7 @@ func WorldModule() *vm.Env {
 			target.Inventory().Clear()
 			world.AddItem(world.NewGroundItem(20, 1, target.X(), target.Y()))
 			target.SendPacket(packetbuilders.InventoryItems(target))
+			target.SendPacket(packetbuilders.EquipmentStats(target))
 			plane := target.Plane()
 			target.SetLocation(world.SpawnPoint, true)
 			if target.Plane() != plane {
