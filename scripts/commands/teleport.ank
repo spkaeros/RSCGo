@@ -1,0 +1,77 @@
+strings = import("strings")
+fmt = import("fmt")
+
+addCommand("tele", func(player, args) {
+	if len(args) < 2 {
+		sendMessage(player, "Invalid args.  Usage: ::tele <x> <y>")
+		return
+	}
+	x = toInt(args[0])
+	y = toInt(args[1])
+	if !withinWorld(x, y) {
+		sendMessage(player, "Coords out of bounds.")
+		return
+	}
+	teleport(player, x, y, true)
+})
+
+addCommand("goto", func(player, args) {
+  	if len(args) < 1 {
+  		sendMessage(player, "Invalid args.  Usage: ::goto <username>")
+  		return
+  	}
+	target, ok = getPlayerByName(base37(strings.TrimSpace(strings.Join(args, " "))))
+	if target == nil || !ok {
+  		sendMessage(player, "Could not find player.")
+		return
+	}
+  	teleport(player, target.Player().X(), target.Player().Y(), true)
+})
+
+addCommand("summon", func(player, args) {
+  	if len(args) < 1 {
+  		sendMessage(player, "Invalid args.  Usage: ::summon <username>")
+  		return
+  	}
+	target, ok = getPlayerByName(base37(strings.TrimSpace(strings.Join(args, " "))))
+	if !ok || target == nil {
+  		sendMessage(player, "Could not find player.")
+		return
+	}
+  	teleport(target.Player(), player.X(), player.Y(), true)
+})
+
+addCommand("walkto", func(player, args) {
+	if len(args) < 2 {
+		sendMessage(player, "Invalid args.  Usage: ::walkto <x> <y>")
+		return
+	}
+	x = toInt(args[0])
+	y = toInt(args[1])
+	walkTo(player, x, y)
+})
+
+addCommand("tile", func(player, args) {
+	regionX = toInt((2304 + player.X()) / 48)
+	regionY = toInt((1776 + player.Y() - (944 * player.Plane())) / 48)
+	mapSector = fmt.Sprintf("h%dx%dy%d", player.Plane(), regionX, regionY)
+	areaX = (2304 + player.X()) % 48
+	areaY = (1776 + player.Y() - (944 * player.Plane())) % 48
+	tile = tileData(player.X(), player.Y())
+	sendMessage(player, fmt.Sprintf("@que@worldX,Y:(%v,%v) Sector(%v sectorX,Y:(%v,%v)): overlay:%v, bitmask:%v",
+			player.X(), player.Y(), mapSector, areaX, areaY, tile.GroundOverlay, tile.CollisionMask))
+})
+
+addCommand("goup", func(player, args) {
+	if player.Plane() != 2 {
+		player.SetLocation(player.Above(), true)
+		sendPlane(player)
+	}
+})
+
+addCommand("godown", func(player, args) {
+	if player.Plane() != 3 {
+		player.SetLocation(player.Below(), true)
+		sendPlane(player)
+	}
+})

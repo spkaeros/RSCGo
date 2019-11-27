@@ -196,10 +196,10 @@ func (c *Client) UpdatePositions() {
 		c.SendPacket(npcUpdates)
 	}
 	/*
-	if npcAppearances := packetbuilders.NpcAppearances(c.player); npcAppearances != nil {
-		c.SendPacket(npcAppearances)
-	}
-	 */
+		if npcAppearances := packetbuilders.NpcAppearances(c.player); npcAppearances != nil {
+			c.SendPacket(npcAppearances)
+		}
+	*/
 	if itemUpdates := packetbuilders.ItemLocations(c.player); itemUpdates != nil {
 		c.SendPacket(itemUpdates)
 	}

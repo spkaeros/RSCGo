@@ -18,6 +18,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/world"
+	"github.com/spkaeros/rscgo/pkg/strutil"
 	"os"
 	"reflect"
 	"time"
@@ -45,8 +46,10 @@ func WorldModule() *vm.Env {
 		"newObject":       world.NewObject,
 		"getNpc":          world.GetNpc,
 		"newPathway":      world.NewPathwayToCoords,
+		"newNpc":          world.NewNpc,
 		"newLocation":     world.NewLocation,
 		"checkCollisions": world.IsTileBlocking,
+		"tileData":        world.ClipData,
 		"objectDefs":      world.Objects,
 		"objects":         world.Npcs,
 		"boundaryDefs":    world.Boundarys,
@@ -54,6 +57,10 @@ func WorldModule() *vm.Env {
 		"npcs":            world.Npcs,
 		"itemDefs":        world.ItemDefs,
 		"commands":        CommandHandlers,
+		"kick": func(client clients.Client) {
+			client.SendPacket(packetbuilders.Logout)
+			client.Destroy()
+		},
 		"addCommand": func(name string, fn func(p *world.Player, args []string)) {
 			CommandHandlers[name] = func(c clients.Client, args []string) {
 				fn(c.Player(), args)
@@ -99,9 +106,6 @@ func WorldModule() *vm.Env {
 		"IDLE":           world.MSIdle,
 		"BUSY":           world.MSBusy,
 		"MENUCHOOSING":   world.MSMenuChoosing,
-		"teleport": func(player *world.Player, x, y int) {
-			player.Teleport(x, y)
-		},
 		"openOptionMenu": func(player *world.Player, options ...string) int {
 			player.SendPacket(packetbuilders.OptionMenuOpen(options...))
 			player.State = world.MSMenuChoosing
@@ -160,6 +164,31 @@ func WorldModule() *vm.Env {
 		"sendStat": func(target *world.Player, idx int) {
 			target.SendPacket(packetbuilders.PlayerStat(target, idx))
 		},
+		"kill": func(target *world.Player) {
+			target.SendPacket(packetbuilders.Death)
+			target.SendPacket(packetbuilders.Sound("death"))
+			target.Transients().SetVar("deathTime", time.Now())
+			for i := 0; i < 18; i++ {
+				target.Stats().SetCur(i, target.Stats().Maximum(i))
+			}
+			target.SendPacket(packetbuilders.PlayerStats(target))
+			// TODO: Keep 3 most valuable items
+			target.Inventory().Range(func(item *world.Item) bool {
+				world.AddItem(world.NewGroundItem(item.ID, item.Amount, target.X(), target.Y()))
+				return true
+			})
+			target.Inventory().Clear()
+			world.AddItem(world.NewGroundItem(20, 1, target.X(), target.Y()))
+			target.SendPacket(packetbuilders.InventoryItems(target))
+			plane := target.Plane()
+			target.SetLocation(world.SpawnPoint, true)
+			if target.Plane() != plane {
+				target.SendPacket(packetbuilders.PlaneInfo(target))
+			}
+		},
+		"walkTo": func(target *world.Player, x, y int) {
+			target.WalkTo(world.NewLocation(x, y))
+		},
 		"systemUpdate": func(t int) {
 			UpdateTime = time.Now().Add(time.Second * time.Duration(t))
 			go func() {
@@ -168,7 +197,7 @@ func WorldModule() *vm.Env {
 					c.SendPacket(packetbuilders.Logout)
 					c.Destroy()
 				})
-				time.Sleep(300*time.Millisecond)
+				time.Sleep(300 * time.Millisecond)
 				os.Exit(200)
 			}()
 			clients.Range(func(c clients.Client) {
@@ -181,6 +210,20 @@ func WorldModule() *vm.Env {
 		"sendDeath": func(target *world.Player) {
 			target.SendPacket(packetbuilders.Death)
 		},
+		"base37": strutil.Base37.Encode,
+		"teleport": func(target *world.Player, x, y int, bubble bool) {
+			if bubble {
+				target.SendPacket(packetbuilders.TeleBubble(0, 0))
+				for _, nearbyPlayer := range target.NearbyPlayers() {
+					nearbyPlayer.SendPacket(packetbuilders.TeleBubble(target.X()-nearbyPlayer.X(), target.Y()-nearbyPlayer.Y()))
+				}
+			}
+			plane := target.Plane()
+			target.Teleport(x, y)
+			if target.Plane() != plane {
+				target.SendPacket(packetbuilders.PlaneInfo(target))
+			}
+		},
 		"sendPlane": func(target *world.Player) {
 			target.SendPacket(packetbuilders.PlaneInfo(target))
 		},
@@ -190,8 +233,9 @@ func WorldModule() *vm.Env {
 		"getSkillIndex": func(name string) int {
 			return world.ParseSkill(name)
 		},
-		"expToLvl": world.ExperienceToLevel,
-		"lvlToExp": world.LevelToExperience,
+		"expToLvl":    world.ExperienceToLevel,
+		"lvlToExp":    world.LevelToExperience,
+		"withinWorld": world.WithinWorld,
 	}, map[string]interface{}{
 		"clientMap":  reflect.TypeOf(clients.Clients),
 		"client":     reflect.TypeOf(clients.Client(nil)),

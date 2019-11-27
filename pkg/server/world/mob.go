@@ -665,11 +665,11 @@ var npcsLock sync.RWMutex
 //NPC Represents a single non-playable character within the game world.
 type NPC struct {
 	*Mob
-	ID         int
-	Boundaries [2]Location
-	StartPoint Location
+	ID          int
+	Boundaries  [2]Location
+	StartPoint  Location
 	ChatMessage string
-	ChatTarget int
+	ChatTarget  int
 }
 
 //NewNpc Creates a new NPC and returns a reference to it

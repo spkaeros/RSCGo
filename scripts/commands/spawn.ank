@@ -1,0 +1,113 @@
+addCommand("npc", func(player, args) {
+	if len(args) < 1 {
+		sendMessage(player, "Invalid syntax.  Usage: ::npc <id> (<radius>)")
+		return
+	}
+	try {
+		x = player.X()
+		y = player.Y()
+		id = toInt(args[0])
+		rad = 5
+		if len(args) > 1 {
+			rad = toInt(args[1])
+		}
+		if rad < 0 {
+			rad = 0
+		}
+
+		addNpc(newNpc(id, x, y, x-rad, x+rad, y-rad, y+rad))
+		log.cmdf("'%v' spawned a new NPC{id:%v, rad:%v} at %v,%v", player.String(), id, rad, x, y)
+	} catch {
+		sendMessage(player, "Invalid syntax.  Usage: ::npc <id> (<radius>)")
+		return
+	}
+})
+
+addCommand("item", func(player, args) {
+	try {
+		id = toInt(args[0])
+		if id < 0 || id > 1289 {
+			return
+		}
+		amount = 1
+		if len(args) > 1 {
+			amount = toInt(args[1])
+		}
+		if amount < 1 {
+			amount = 1
+		}
+		if !itemDefs[id].Stackable {
+			for i = 0; i < amount; i++ {
+				player.Items.Add(id, 1)
+				if player.Items.Size() >= 30 {
+					break
+				}
+			}
+		} else {
+			player.Items.Add(id, amount)
+		}
+		sendInventory(player)
+	} catch e {
+		sendMessage(player, "Invalid syntax.  Usage: ::item <id> (<amount>)")
+	}
+})
+
+addCommand("object", func(player, args) {
+	x = player.X()
+	y = player.Y()
+	if getObjectAt(x, y) != nil {
+		sendMessage(player, "There is already an object here.")
+		return
+	}
+	try {
+		id = toInt(args[0])
+		dir = North
+		if len(args) > 1 {
+			dir = parseDirection(args[1])
+		}
+		addObject(newObject(id, North, x, y, false))
+		log.cmdf("'%v' spawned a new object{id:%v, dir:%v} at %v,%v", player.String(), id, dir, x, y)
+	} catch e {
+		sendMessage(player, "Invalid syntax.  Usage: ::object <id> (<dir>)")
+	}
+})
+
+addCommand("dobj", func(player, args) {
+	if len(args) == 0 {
+		args = [toString(player.X()), toString(player.Y())]
+	}
+	if len(args) < 2 {
+		sendMessage(player, "Invalid args.  Usage: ::dobj <x> <y>")
+		return
+	}
+	x = toInt(args[0])
+	y = toInt(args[1])
+	object = getObjectAt(x, y)
+	if object == nil {
+		sendMessage(player, "Can not find object.")
+		return
+	}
+
+	log.cmdf("%v deleted object %v", player, object)
+	removeObject(object)
+})
+
+addCommand("boundary", func(player, args) {
+	x = player.X()
+	y = player.Y()
+	if getObjectAt(x, y) != nil {
+		sendMessage(player, "There is already an object here.")
+		return
+	}
+	try {
+		id = toInt(args[0])
+		dir = North
+		if len(args) > 1 {
+			dir = parseDirection(args[1])
+		}
+		addObject(newObject(id, North, x, y, true))
+		log.cmdf("'%v' spawned a new boundary{id:%v, dir:%v} at %v,%v", player.String(), id, dir, x, y)
+	} catch e {
+		sendMessage(player, "Invalid syntax.  Usage: ::boundary <id> (<dir>)")
+	}
+})

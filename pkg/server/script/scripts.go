@@ -65,6 +65,13 @@ func Run(fnName string, c clients.Client, argName string, arg interface{}) bool 
 	return false
 }
 
+func Clear() {
+	InvTriggers = InvTriggers[:0]
+	BoundaryTriggers = BoundaryTriggers[:0]
+	ObjectTriggers = ObjectTriggers[:0]
+	NpcTriggers = NpcTriggers[:0]
+}
+
 //Load Loads all of the scripts in ./scripts and stores them in the Scripts slice.
 func Load() {
 	err := filepath.Walk("./scripts", func(path string, info os.FileInfo, err error) error {

@@ -138,6 +138,10 @@ func (i *Inventory) Size() int {
 //Add Puts an item into the inventory with the specified id and quantity, and returns its index.
 func (i *Inventory) Add(id int, qty int) int {
 	curSize := i.Size()
+	if item := i.GetByID(id); ItemDefs[id].Stackable && item != nil {
+		item.Amount += qty
+		return item.Index
+	}
 	if curSize >= i.Capacity {
 		return -1
 	}

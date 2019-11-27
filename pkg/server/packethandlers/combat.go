@@ -89,19 +89,25 @@ func init() {
 								script.EngineChannel <- func() {
 									attacker.ResetFighting()
 									world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
-									defenderPlayer.Stats().SetCur(world.StatHits, defenderPlayer.Stats().Maximum(world.StatHits))
+									for i := 0; i < 18; i++ {
+										defenderPlayer.Stats().SetCur(i, defenderPlayer.Stats().Maximum(i))
+									}
 									defenderPlayer.SendPacket(packetbuilders.PlayerStats(defenderPlayer))
+									defenderPlayer.SendPacket(packetbuilders.Death)
 									defenderPlayer.SendPacket(packetbuilders.Sound("death"))
+									defenderPlayer.Transients().SetVar("deathTime", time.Now())
 									// TODO: Keep 3 most valuable items
 									defenderPlayer.Inventory().Range(func(item *world.Item) bool {
 										world.AddItem(world.NewGroundItem(item.ID, item.Amount, defender.X(), defender.Y()))
 										return true
 									})
 									defenderPlayer.Inventory().Clear()
-									defenderPlayer.Transients().SetVar("deathTime", time.Now())
-									defenderPlayer.SendPacket(packetbuilders.Death)
+									defenderPlayer.SendPacket(packetbuilders.InventoryItems(defenderPlayer))
+									plane := defenderPlayer.Plane()
 									defenderPlayer.SetLocation(world.SpawnPoint, true)
-									defenderPlayer.SendPacket(packetbuilders.PlaneInfo(defenderPlayer))
+									if defenderPlayer.Plane() != plane {
+										defenderPlayer.SendPacket(packetbuilders.PlaneInfo(defenderPlayer))
+									}
 								}
 							}
 							return
@@ -149,7 +155,7 @@ func init() {
 		c.Player().SetDistancedAction(func() bool {
 			if c.Player().NextTo(affectedPlayer.Location) && c.Player().WithinRange(affectedPlayer.Location, 2) {
 				c.Player().ResetPath()
-				if time.Since(affectedPlayer.TransAttrs.VarTime("lastRetreat")) <= time.Second * 3 {
+				if time.Since(affectedPlayer.TransAttrs.VarTime("lastRetreat")) <= time.Second*3 {
 					return false
 				}
 				affectedPlayer.ResetPath()

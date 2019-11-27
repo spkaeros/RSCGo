@@ -68,7 +68,6 @@ func (l Location) SetY(y int) {
 	l.y.Store(uint32(y))
 }
 
-
 var (
 	//DeathSpot The spot where NPCs go to be dead.
 	DeathPoint = NewLocation(0, 0)
