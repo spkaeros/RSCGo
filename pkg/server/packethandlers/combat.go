@@ -146,7 +146,7 @@ func init() {
 		}
 		affectedPlayer := affectedClient.Player()
 		c.Player().SetDistancedAction(func() bool {
-			if c.Player().NextTo(affectedPlayer.Location) && c.Player().WithinRange(affectedPlayer.Location, 2) {
+			if c.Player().NextTo(affectedPlayer.Location) && c.Player().WithinRange(affectedPlayer.Location, 2) || time.Since(affectedPlayer.TransAttrs.VarTime("lastRetreat")) <= time.Second * 3 {
 				affectedPlayer.SendPacket(packetbuilders.Sound("underattack"))
 				c.Player().ResetPath()
 				affectedPlayer.ResetPath()
@@ -225,8 +225,6 @@ func init() {
 					}
 				}()
 				return true
-			} else {
-				c.Player().SetPath(world.MakePath(c.Player().Location, affectedPlayer.Location))
 			}
 			return false
 		})

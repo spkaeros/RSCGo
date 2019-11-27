@@ -5,6 +5,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/world"
+	"time"
 )
 
 func init() {
@@ -26,6 +27,7 @@ func init() {
 				target.SendPacket(packetbuilders.Sound("retreat"))
 				target.SendPacket(packetbuilders.ServerMessage("Your opponent is retreating"))
 			}
+			c.Player().TransAttrs.SetVar("lastRetreat", time.Now())
 			c.Player().ResetFighting()
 		}
 		startX := p.ReadShort()
