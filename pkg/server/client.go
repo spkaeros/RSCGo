@@ -299,7 +299,11 @@ func (c *Client) Initialize() {
 			return
 		}
 
-		days := int(time.Since(t).Hours()/24)
+		days := int(time.Since(t).Hours() / 24)
+		if t.IsZero() {
+			days = 0
+		}
+		c.player.Attributes.SetVar("lastLogin", time.Now().Format(time.ANSIC))
 		c.SendPacket(packetbuilders.LoginBox(days, c.player.Attributes.VarString("lastIP", "127.0.0.1")))
 	}
 	clients.BroadcastLogin(c.player, true)

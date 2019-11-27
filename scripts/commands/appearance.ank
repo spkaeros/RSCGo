@@ -1,0 +1,4 @@
+addCommand("appearance", func(player, args) {
+	player.AddState(CHANGINGAPPEARANCE)
+	player.SendPacket(packets.ChangeAppearance)
+})

@@ -423,7 +423,7 @@ func (m *Mob) State() int {
 }
 
 func (m *Mob) HasState(state int) bool {
-	return m.State() & state == state
+	return m.State()&state == state
 }
 
 func (m *Mob) AddState(state int) {
@@ -535,7 +535,6 @@ func (m *Mob) Skills() *SkillTable {
 	return m.TransAttrs.VarSkills("skills")
 }
 
-
 //AttrList A type alias for a map of strings to empty interfaces, to hold generic mob information for easy serialization and to provide dynamic insertion/deletion of new mob properties easily
 type AttrList map[string]interface{}
 
@@ -606,7 +605,7 @@ func (attributes *AttributeList) UnmaskInt(name string, mask int) {
 	attributes.Lock.RLock()
 	defer attributes.Lock.RUnlock()
 	if val, ok := attributes.Set[name].(int); ok {
-		attributes.Set[name] = val & 0xFFFFFFFF - mask
+		attributes.Set[name] = val&0xFFFFFFFF - mask
 		return
 	}
 	attributes.Set[name] = MSIdle
@@ -617,9 +616,9 @@ func (attributes *AttributeList) CheckMask(name string, mask int) bool {
 	attributes.Lock.RLock()
 	defer attributes.Lock.RUnlock()
 	if val, ok := attributes.Set[name].(int); !ok {
-		return val & mask != 0
+		return val&mask != 0
 	}
-	return 0 & mask != 0
+	return 0&mask != 0
 }
 
 //VarMob If there is a MobileEntity attribute assigned to the specified name, returns it.  Otherwise, returns nil

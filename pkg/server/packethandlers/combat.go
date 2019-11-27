@@ -99,6 +99,7 @@ func init() {
 										world.AddItem(world.NewGroundItem(item.ID, item.Amount, defender.X(), defender.Y()))
 										return true
 									})
+									defenderPlayer.AppearanceLock.Lock()
 									for i := range defenderPlayer.Equips {
 										if i == 1 {
 
@@ -107,6 +108,7 @@ func init() {
 											defenderPlayer.Equips[i] = 0
 										}
 									}
+									defenderPlayer.AppearanceLock.Unlock()
 									defenderPlayer.Inventory().Clear()
 									defenderPlayer.SendPacket(packetbuilders.InventoryItems(defenderPlayer))
 									plane := defenderPlayer.Plane()
