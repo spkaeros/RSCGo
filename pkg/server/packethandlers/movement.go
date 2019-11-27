@@ -70,7 +70,7 @@ func init() {
 				// Following vars have been reset.
 				return true
 			}
-			if affectedClient == nil || !affectedClient.Player().TransAttrs.VarBool("connected", false)||
+			if affectedClient == nil || !affectedClient.Player().TransAttrs.VarBool("connected", false) ||
 				!c.Player().WithinRange(affectedClient.Player().Location, 16) {
 				// We think we have a target, but they're miles away now or no longer exist
 				c.Player().ResetFollowing()

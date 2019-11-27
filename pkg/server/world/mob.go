@@ -74,7 +74,6 @@ type MobileEntity interface {
 	ResetNeedsSelf()
 	FinishedPath() bool
 	SetLocation(Location, bool)
-
 }
 
 func (m *Mob) Transients() *AttributeList {
@@ -401,6 +400,7 @@ func (m *Mob) ResetFighting() {
 	m.SetDirection(North)
 	m.State = MSIdle
 }
+
 //AttrList A type alias for a map of strings to empty interfaces, to hold generic mob information for easy serialization and to provide dynamic insertion/deletion of new mob properties easily
 type AttrList map[string]interface{}
 
@@ -672,7 +672,7 @@ type NPC struct {
 
 //NewNpc Creates a new NPC and returns a reference to it
 func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
-	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: NewLocation(startX,startY)}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}}
+	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: NewLocation(startX, startY)}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}}
 	n.Boundaries[0] = NewLocation(minX, minY)
 	n.Boundaries[1] = NewLocation(maxX, maxY)
 	n.StartPoint = NewLocation(startX, startY)
@@ -742,7 +742,7 @@ func (m *Mob) StyleBonus(stat int) int {
 func (m *Mob) MaxHit() int {
 	prayer := float32(1.0)
 	newStr := (float32(m.Skillset.Current(2)) * prayer) + float32(m.StyleBonus(2))
-	return int((newStr * ((float32(m.TransAttrs.VarInt("power_points", 1)) * 0.00175) + 0.1) + 1.05) * 0.95)
+	return int((newStr*((float32(m.TransAttrs.VarInt("power_points", 1))*0.00175)+0.1) + 1.05) * 0.95)
 }
 
 func (m *Mob) Accuracy(npcMul float32) float32 {
@@ -771,7 +771,7 @@ func (n *NPC) MeleeDamage(target MobileEntity) int {
 	}
 	def := target.Defense(mul)
 	max := n.MaxHit()
-	if att * 10 < def {
+	if att*10 < def {
 		return 0
 	}
 
@@ -782,7 +782,7 @@ func (n *NPC) MeleeDamage(target MobileEntity) int {
 	}
 
 	roll := rand.Int31N(0, 10000)
-//	log.Info.Println(finalAtt, roll, att, def, max)
+	//	log.Info.Println(finalAtt, roll, att, def, max)
 	if finalAtt > roll {
 		return rand.Int31N(0, max)
 	}
@@ -797,7 +797,7 @@ func (p *Player) MeleeDamage(target MobileEntity) int {
 	}
 	def := target.Defense(mul)
 	max := p.MaxHit()
-	if att * 10 < def {
+	if att*10 < def {
 		return 0
 	}
 
@@ -808,7 +808,7 @@ func (p *Player) MeleeDamage(target MobileEntity) int {
 	}
 
 	roll := rand.Int31N(0, 10000)
-//	log.Info.Println(finalAtt, roll, att, def, max)
+	//	log.Info.Println(finalAtt, roll, att, def, max)
 	if finalAtt > roll {
 		return rand.Int31N(0, max)
 	}

@@ -27,75 +27,75 @@ var CommandHandlers = make(map[string]func(clients.Client, []string))
 
 func WorldModule() *vm.Env {
 	env, err := vm.NewEnv().AddPackage("world", map[string]interface{}{
-		"getPlayerCount": clients.Size,
-		"getPlayers": clients.Clients,
-		"getPlayer": clients.FromIndex,
+		"getPlayerCount":  clients.Size,
+		"getPlayers":      clients.Clients,
+		"getPlayer":       clients.FromIndex,
 		"getPlayerByName": clients.FromUserHash,
-		"replaceObject": world.ReplaceObject,
-		"addObject": world.AddObject,
-		"removeObject": world.RemoveObject,
-		"addNpc": world.AddNpc,
-		"removeNpc": world.RemoveNpc,
-		"addItem": world.AddItem,
-		"removeItem": world.RemoveItem,
-		"getObjectAt": world.GetObject,
-		"newObject": world.NewObject,
-		"getNpc": world.GetNpc,
-		"newPathway": world.NewPathwayToCoords,
-		"newLocation": world.NewLocation,
+		"replaceObject":   world.ReplaceObject,
+		"addObject":       world.AddObject,
+		"removeObject":    world.RemoveObject,
+		"addNpc":          world.AddNpc,
+		"removeNpc":       world.RemoveNpc,
+		"addItem":         world.AddItem,
+		"removeItem":      world.RemoveItem,
+		"getObjectAt":     world.GetObject,
+		"newObject":       world.NewObject,
+		"getNpc":          world.GetNpc,
+		"newPathway":      world.NewPathwayToCoords,
+		"newLocation":     world.NewLocation,
 		"checkCollisions": world.IsTileBlocking,
-		"objectDefs": world.Objects,
-		"objects": world.Npcs,
-		"boundaryDefs": world.Boundarys,
-		"npcDefs": world.NpcDefs,
-		"npcs": world.Npcs,
-		"itemDefs": world.ItemDefs,
-		"commands": CommandHandlers,
+		"objectDefs":      world.Objects,
+		"objects":         world.Npcs,
+		"boundaryDefs":    world.Boundarys,
+		"npcDefs":         world.NpcDefs,
+		"npcs":            world.Npcs,
+		"itemDefs":        world.ItemDefs,
+		"commands":        CommandHandlers,
 		"addCommand": func(name string, fn func(p *world.Player, args []string)) {
 			CommandHandlers[name] = func(c clients.Client, args []string) {
 				fn(c.Player(), args)
 			}
 		},
 		"broadcast": func(fn func(interface{})) {
-			clients.Range(func (c clients.Client) {
+			clients.Range(func(c clients.Client) {
 				fn(c)
 			})
 		},
 		"announce": func(msg string) {
-			clients.Range(func (c clients.Client) {
+			clients.Range(func(c clients.Client) {
 				c.SendPacket(packetbuilders.ServerMessage("@que@" + msg))
 			})
 		},
 		"parseDirection": world.ParseDirection,
-		"North": world.North,
-		"South": world.South,
-		"East": world.East,
-		"West": world.West,
-		"NorthWest": world.NorthWest,
-		"NorthEast": world.NorthEast,
-		"SouthWest": world.SouthWest,
-		"SouthEast": world.SouthEast,
-		"ATTACK": world.StatAttack,
-		"DEFENSE": world.StatDefense,
-		"STRENGTH": world.StatStrength,
-		"HITPOINTS": world.StatHits,
-		"RANGED": world.StatRanged,
-		"PRAYER": world.StatPrayer,
-		"MAGIC": world.StatMagic,
-		"COOKING": world.StatCooking,
-		"WOODCUTTING": world.StatWoodcutting,
-		"FLETCHING": world.StatFletching,
-		"FISHING": world.StatFishing,
-		"FIREMAKING": world.StatFiremaking,
-		"CRAFTING": world.StatCrafting,
-		"SMITHING": world.StatSmithing,
-		"MINIG": world.StatMining,
-		"HERBLAW": world.StatHerblaw,
-		"AGILITY": world.StatAgility,
-		"THIEVING": world.StatThieving,
-		"IDLE": world.MSIdle,
-		"BUSY": world.MSBusy,
-		"MENUCHOOSING": world.MSMenuChoosing,
+		"North":          world.North,
+		"South":          world.South,
+		"East":           world.East,
+		"West":           world.West,
+		"NorthWest":      world.NorthWest,
+		"NorthEast":      world.NorthEast,
+		"SouthWest":      world.SouthWest,
+		"SouthEast":      world.SouthEast,
+		"ATTACK":         world.StatAttack,
+		"DEFENSE":        world.StatDefense,
+		"STRENGTH":       world.StatStrength,
+		"HITPOINTS":      world.StatHits,
+		"RANGED":         world.StatRanged,
+		"PRAYER":         world.StatPrayer,
+		"MAGIC":          world.StatMagic,
+		"COOKING":        world.StatCooking,
+		"WOODCUTTING":    world.StatWoodcutting,
+		"FLETCHING":      world.StatFletching,
+		"FISHING":        world.StatFishing,
+		"FIREMAKING":     world.StatFiremaking,
+		"CRAFTING":       world.StatCrafting,
+		"SMITHING":       world.StatSmithing,
+		"MINIG":          world.StatMining,
+		"HERBLAW":        world.StatHerblaw,
+		"AGILITY":        world.StatAgility,
+		"THIEVING":       world.StatThieving,
+		"IDLE":           world.MSIdle,
+		"BUSY":           world.MSBusy,
+		"MENUCHOOSING":   world.MSMenuChoosing,
 		"teleport": func(player *world.Player, x, y int) {
 			player.Teleport(x, y)
 		},
@@ -170,77 +170,77 @@ func WorldModule() *vm.Env {
 		"expToLvl": world.ExperienceToLevel,
 		"lvlToExp": world.LevelToExperience,
 	}, map[string]interface{}{
-		"clientMap": reflect.TypeOf(clients.Clients),
-		"client": reflect.TypeOf(clients.Client(nil)),
-		"player": reflect.TypeOf(&world.Player{}),
-		"object": reflect.TypeOf(&world.Object{}),
-		"item": reflect.TypeOf(&world.Item{}),
+		"clientMap":  reflect.TypeOf(clients.Clients),
+		"client":     reflect.TypeOf(clients.Client(nil)),
+		"player":     reflect.TypeOf(&world.Player{}),
+		"object":     reflect.TypeOf(&world.Object{}),
+		"item":       reflect.TypeOf(&world.Item{}),
 		"groundItem": reflect.TypeOf(&world.GroundItem{}),
-		"npc": reflect.TypeOf(&world.NPC{}),
-		"location": reflect.TypeOf(world.Location{}),
+		"npc":        reflect.TypeOf(&world.NPC{}),
+		"location":   reflect.TypeOf(world.Location{}),
 	})
 	if err != nil {
 		log.Warning.Println("Error initializing VM parameters:", err)
 		return nil
 	}
 	env, err = env.AddPackage("packets", map[string]interface{}{
-		"BigInformationBox": packetbuilders.BigInformationBox,
-		"BoundaryLocations": packetbuilders.BoundaryLocations,
-		"CannotLogout": packetbuilders.CannotLogout,
-		"ChangeAppearance": packetbuilders.ChangeAppearance,
-		"ClientSettings": packetbuilders.ClientSettings,
-		"Death": packetbuilders.Death,
-		"DefaultActionMessage": packetbuilders.DefaultActionMessage,
-		"EquipmentStats": packetbuilders.EquipmentStats,
-		"Fatigue": packetbuilders.Fatigue,
-		"FightMode": packetbuilders.FightMode,
-		"FriendList": packetbuilders.FriendList,
-		"FriendUpdate": packetbuilders.FriendUpdate,
-		"IgnoreList": packetbuilders.IgnoreList,
-		"InventoryItems": packetbuilders.InventoryItems,
-		"ItemLocations": packetbuilders.ItemLocations,
-		"LoginBox": packetbuilders.LoginBox,
-		"LoginResponse": packetbuilders.LoginResponse,
-		"Logout": packetbuilders.Logout,
-		"NPCPositions": packetbuilders.NPCPositions,
-		"NpcDamage": packetbuilders.NpcDamage,
-		"ObjectLocations": packetbuilders.ObjectLocations,
-		"PlaneInfo": packetbuilders.PlaneInfo,
-		"PlayerAppearances": packetbuilders.PlayerAppearances,
-		"PlayerChat": packetbuilders.PlayerChat,
-		"PlayerDamage": packetbuilders.PlayerDamage,
-		"PlayerPositions": packetbuilders.PlayerPositions,
-		"PlayerStat": packetbuilders.PlayerStat,
-		"PlayerStats": packetbuilders.PlayerStats,
-		"PrivacySettings": packetbuilders.PrivacySettings,
-		"PrivateMessage": packetbuilders.PrivateMessage,
-		"ResponsePong": packetbuilders.ResponsePong,
-		"ServerInfo": packetbuilders.ServerInfo,
-		"ServerMessage": packetbuilders.ServerMessage,
-		"TeleBubble": packetbuilders.TeleBubble,
-		"TradeAccept": packetbuilders.TradeAccept,
-		"TradeClose": packetbuilders.TradeClose,
+		"BigInformationBox":     packetbuilders.BigInformationBox,
+		"BoundaryLocations":     packetbuilders.BoundaryLocations,
+		"CannotLogout":          packetbuilders.CannotLogout,
+		"ChangeAppearance":      packetbuilders.ChangeAppearance,
+		"ClientSettings":        packetbuilders.ClientSettings,
+		"Death":                 packetbuilders.Death,
+		"DefaultActionMessage":  packetbuilders.DefaultActionMessage,
+		"EquipmentStats":        packetbuilders.EquipmentStats,
+		"Fatigue":               packetbuilders.Fatigue,
+		"FightMode":             packetbuilders.FightMode,
+		"FriendList":            packetbuilders.FriendList,
+		"FriendUpdate":          packetbuilders.FriendUpdate,
+		"IgnoreList":            packetbuilders.IgnoreList,
+		"InventoryItems":        packetbuilders.InventoryItems,
+		"ItemLocations":         packetbuilders.ItemLocations,
+		"LoginBox":              packetbuilders.LoginBox,
+		"LoginResponse":         packetbuilders.LoginResponse,
+		"Logout":                packetbuilders.Logout,
+		"NPCPositions":          packetbuilders.NPCPositions,
+		"NpcDamage":             packetbuilders.NpcDamage,
+		"ObjectLocations":       packetbuilders.ObjectLocations,
+		"PlaneInfo":             packetbuilders.PlaneInfo,
+		"PlayerAppearances":     packetbuilders.PlayerAppearances,
+		"PlayerChat":            packetbuilders.PlayerChat,
+		"PlayerDamage":          packetbuilders.PlayerDamage,
+		"PlayerPositions":       packetbuilders.PlayerPositions,
+		"PlayerStat":            packetbuilders.PlayerStat,
+		"PlayerStats":           packetbuilders.PlayerStats,
+		"PrivacySettings":       packetbuilders.PrivacySettings,
+		"PrivateMessage":        packetbuilders.PrivateMessage,
+		"ResponsePong":          packetbuilders.ResponsePong,
+		"ServerInfo":            packetbuilders.ServerInfo,
+		"ServerMessage":         packetbuilders.ServerMessage,
+		"TeleBubble":            packetbuilders.TeleBubble,
+		"TradeAccept":           packetbuilders.TradeAccept,
+		"TradeClose":            packetbuilders.TradeClose,
 		"TradeConfirmationOpen": packetbuilders.TradeConfirmationOpen,
-		"TradeOpen": packetbuilders.TradeOpen,
-		"TradeTargetAccept": packetbuilders.TradeTargetAccept,
-		"TradeUpdate": packetbuilders.TradeUpdate,
-		"WelcomeMessage": packetbuilders.WelcomeMessage,
+		"TradeOpen":             packetbuilders.TradeOpen,
+		"TradeTargetAccept":     packetbuilders.TradeTargetAccept,
+		"TradeUpdate":           packetbuilders.TradeUpdate,
+		"WelcomeMessage":        packetbuilders.WelcomeMessage,
 	}, nil)
 	if err != nil {
 		log.Warning.Println("Error initializing VM parameters:", err)
 		return nil
 	}
 	env, err = env.AddPackage("log", map[string]interface{}{
-		"debug": log.Info.Println,
+		"debug":  log.Info.Println,
 		"debugf": log.Info.Printf,
-		"warn":  log.Warning.Println,
-		"warnf": log.Warning.Printf,
-		"err":   log.Error.Println,
-		"errf": log.Error.Printf,
-		"cheat": log.Suspicious.Println,
+		"warn":   log.Warning.Println,
+		"warnf":  log.Warning.Printf,
+		"err":    log.Error.Println,
+		"errf":   log.Error.Printf,
+		"cheat":  log.Suspicious.Println,
 		"cheatf": log.Suspicious.Printf,
-		"cmd":   log.Commands.Println,
-		"cmdf": log.Commands.Printf,
+		"cmd":    log.Commands.Println,
+		"cmdf":   log.Commands.Printf,
 	}, nil)
 	if err != nil {
 		log.Warning.Println("Error initializing VM parameters:", err)
@@ -261,12 +261,12 @@ func WorldModule() *vm.Env {
 		log.Warning.Println("Error initializing VM parameters:", err)
 		return nil
 	}
-	err = env.DefineGlobal("tMinute", time.Second * 60)
+	err = env.DefineGlobal("tMinute", time.Second*60)
 	if err != nil {
 		log.Warning.Println("Error initializing VM parameters:", err)
 		return nil
 	}
-	err = env.DefineGlobal("tHour", time.Second * 60 * 60)
+	err = env.DefineGlobal("tHour", time.Second*60*60)
 	if err != nil {
 		log.Warning.Println("Error initializing VM parameters:", err)
 		return nil
@@ -290,4 +290,3 @@ func WorldModule() *vm.Env {
 	packages.DefineImport(env)
 	return env
 }
-

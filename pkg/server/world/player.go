@@ -33,7 +33,7 @@ type Player struct {
 	DistancedAction  func() bool
 	ActionLock       sync.RWMutex
 	OutgoingPackets  chan *packet.Packet
-	OptionMenuC 	 chan int8
+	OptionMenuC      chan int8
 	IP               string
 	UID              uint8
 	Websocket        bool

@@ -21,16 +21,16 @@ type Node struct {
 
 type Pathfinder struct {
 	nodes map[int]*Node
-	open []*Node
+	open  []*Node
 	start Location
-	end Location
+	end   Location
 }
 
 //NewPathfinder Returns a new A* pathfinder instance to derive an optimal path from start to end.
 func NewPathfinder(start, end Location) *Pathfinder {
 	p := &Pathfinder{start: start, end: end, nodes: make(map[int]*Node), open: []*Node{{loc: start, open: true}}}
-	p.nodes[start.X() << 32 | start.Y()] = p.open[0]
-	p.nodes[end.X() << 32 | end.Y()] = &Node{loc: end, open: true}
+	p.nodes[start.X()<<32|start.Y()] = p.open[0]
+	p.nodes[end.X()<<32|end.Y()] = &Node{loc: end, open: true}
 	return p
 }
 
@@ -65,7 +65,7 @@ func travelCost(start, end Location) int {
 		shortL = deltaY
 		longL = deltaX
 	}
-	return shortL * 14 + ((longL - shortL) * 10)
+	return shortL*14 + ((longL - shortL) * 10)
 }
 
 func (p *Pathfinder) removeOpen(node *Node) {
@@ -106,8 +106,8 @@ func (p *Pathfinder) MakePath() *Pathway {
 		p.removeOpen(active)
 
 		x, y := position.X(), position.Y()
-		for nextX := x - 1; nextX <= x + 1; nextX++ {
-			for nextY := y - 1; nextY <= y + 1; nextY++ {
+		for nextX := x - 1; nextX <= x+1; nextX++ {
+			for nextY := y - 1; nextY <= y+1; nextY++ {
 				if nextX == x && nextY == y {
 					continue
 				}
@@ -181,10 +181,10 @@ func (p *Pathfinder) MakePath() *Pathway {
 							continue
 						}
 					}
-					node, ok := p.nodes[adj.X() << 32 | adj.Y()] //&Node{loc: adj, open: true}
+					node, ok := p.nodes[adj.X()<<32|adj.Y()] //&Node{loc: adj, open: true}
 					if !ok {
-						node = &Node{loc:adj, open:true}
-						p.nodes[adj.X() << 32 | adj.Y()] = node
+						node = &Node{loc: adj, open: true}
+						p.nodes[adj.X()<<32|adj.Y()] = node
 					}
 					p.compare(active, node)
 				}
@@ -194,7 +194,7 @@ func (p *Pathfinder) MakePath() *Pathway {
 
 	path := &Pathway{StartX: 0, StartY: 0}
 
-	active := p.nodes[p.end.X() << 32 | p.end.Y()]
+	active := p.nodes[p.end.X()<<32|p.end.Y()]
 	if active.parent != nil {
 		position := active.loc
 		for !p.start.Equals(position) {

@@ -20,14 +20,14 @@ import (
 
 //Client Represents a single connecting client.
 type Client struct {
-	Kill                             chan struct{}
-	player                           *world.Player
-	IncomingPackets chan *packet.Packet
-	CacheBuffer                      []byte
-	Socket                           net.Conn
-	DataBuffer                       []byte
-	DataLock                         sync.RWMutex
-	destroyer, killer                sync.Once
+	Kill              chan struct{}
+	player            *world.Player
+	IncomingPackets   chan *packet.Packet
+	CacheBuffer       []byte
+	Socket            net.Conn
+	DataBuffer        []byte
+	DataLock          sync.RWMutex
+	destroyer, killer sync.Once
 }
 
 //Player returns the scene player that this client represents
@@ -324,7 +324,6 @@ func (c *Client) HandleLogin(reply chan byte) {
 	}
 }
 
-
 //EquipItem Equips an item to this clients player, and sends inventory and equipment bonuses.
 func (c *Client) EquipItem(item *world.Item) {
 	var itemAffectedTypes = map[int][]int{32: {32, 33}, 33: {32, 33}, 64: {64, 322}, 512: {512, 640, 644},
@@ -523,7 +522,7 @@ func (c *Client) Read(dst []byte) (int, error) {
 			c.CacheBuffer = dst[cacheLen+dataLen:]
 		}
 	}
-	return dataLen+cacheLen, nil
+	return dataLen + cacheLen, nil
 }
 
 //ReadPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode of the next packet frame the client is sending us.
@@ -581,8 +580,8 @@ func (c *Client) WritePacket(p packet.Packet) {
 	header := c.DataBuffer[0:2]
 	defer c.DataLock.Unlock()
 	if frameLength >= 160 {
-//		header[0] = byte(frameLength/256+160)
-		header[0] = byte(frameLength>>8+160)
+		//		header[0] = byte(frameLength/256+160)
+		header[0] = byte(frameLength>>8 + 160)
 		header[1] = byte(frameLength)
 	} else {
 		header[0] = byte(frameLength)

@@ -160,13 +160,13 @@ func init() {
 		log.Info.Printf("Loaded %d inventory, %d object, %d boundary, and %d NPC action triggers.\n", len(script.InvTriggers), len(script.ObjectTriggers), len(script.BoundaryTriggers), len(script.NpcTriggers))
 	}
 	script.CommandHandlers["tile"] = func(c clients.Client, args []string) {
-		regionX := (2304+c.Player().X())/world.RegionSize
-		regionY := (1776+c.Player().Y()-(944*c.Player().Plane()))/world.RegionSize
+		regionX := (2304 + c.Player().X()) / world.RegionSize
+		regionY := (1776 + c.Player().Y() - (944 * c.Player().Plane())) / world.RegionSize
 		mapSector := fmt.Sprintf("h%dx%dy%d", c.Player().Plane(), regionX, regionY)
-		areaX := (2304+c.Player().X()) % 48
-		areaY := (1776+c.Player().Y()-(944*c.Player().Plane())) % 48
+		areaX := (2304 + c.Player().X()) % 48
+		areaY := (1776 + c.Player().Y() - (944 * c.Player().Plane())) % 48
 		tile := world.ClipData(c.Player().X(), c.Player().Y())
-//		c.Message(fmt.Sprintf("@que@%v sector(%v rel:(%v,%v)): V:%v, H:%v, D:%v, R:%v, O:%v, T:%v, E:%v, bitmask:%v", c.Player().Location.String(), mapSector, areaX, areaY, tile.VerticalWalls, tile.HorizontalWalls, tile.DiagonalWalls, tile.Roofs, tile.GroundOverlay, tile.GroundTexture, tile.GroundElevation, tile.CollisionMask))
+		//		c.Message(fmt.Sprintf("@que@%v sector(%v rel:(%v,%v)): V:%v, H:%v, D:%v, R:%v, O:%v, T:%v, E:%v, bitmask:%v", c.Player().Location.String(), mapSector, areaX, areaY, tile.VerticalWalls, tile.HorizontalWalls, tile.DiagonalWalls, tile.Roofs, tile.GroundOverlay, tile.GroundTexture, tile.GroundElevation, tile.CollisionMask))
 		c.Message(fmt.Sprintf("@que@%v sector(%v rel:(%v,%v)): Overlay:%v, bitmask:%v", c.Player().Location.String(), mapSector, areaX, areaY, tile.GroundOverlay, tile.CollisionMask))
 	}
 	script.CommandHandlers["walk"] = func(c clients.Client, args []string) {

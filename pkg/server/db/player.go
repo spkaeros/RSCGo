@@ -92,8 +92,8 @@ func LoadPlayerProfile(usernameHash uint64, password string, loginReply chan byt
 	}
 	var x, y int
 	rows.Scan(&player.DatabaseIndex, &x, &y, &player.Rank, &player.Appearance.HeadColor, &player.Appearance.BodyColor, &player.Appearance.LegsColor, &player.Appearance.SkinColor, &player.Appearance.Head, &player.Appearance.Body)
-//	player.Location = world.NewLocation(x, y)
-//	player.Teleport(220, 445)
+	//	player.Location = world.NewLocation(x, y)
+	//	player.Teleport(220, 445)
 	player.SetX(x)
 	player.SetY(y)
 	return nil
@@ -119,6 +119,7 @@ func LoadPlayerStats(player *world.Player) error {
 	}
 	return nil
 }
+
 //UpdatePassword Updates the players password to password in the database.
 func UpdatePassword(userHash uint64, password string) bool {
 	database := Open(config.PlayerDB())

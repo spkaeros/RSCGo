@@ -70,6 +70,7 @@ func (l Location) SetY(y int) {
 
 //DeathSpot The spot where mobs go to die.
 var DeathSpot = NewLocation(0, 0)
+
 //SpawnPoint The default spawn point, where new players start and dead players respawn.
 var SpawnPoint = NewLocation(220, 445)
 
@@ -154,7 +155,7 @@ func (l *Location) WithinRange(other Location, radius int) bool {
 
 //Plane Calculates and returns the plane that this location is on.
 func (l *Location) Plane() int {
-	return int(l.y.Load()+100)/ 944 // / 1000
+	return int(l.y.Load()+100) / 944 // / 1000
 }
 
 //Above Returns the location directly above this one, if any.  Otherwise, if we are on the top floor, returns itself.
@@ -190,7 +191,7 @@ func (l *Location) PlaneY(up bool) int {
 			newPlane = curPlane - 1
 		}
 	}
-	return (newPlane*944) + (l.Y() % 944)
+	return (newPlane * 944) + (l.Y() % 944)
 }
 
 //NextTileToward Returns the next tile toward the final destination of this pathway from currentLocation
@@ -274,8 +275,8 @@ var ExperienceLevels [104]int
 func init() {
 	i := float64(0)
 	for lvl := 0; lvl < 104; lvl++ {
-		k := float64(lvl+1)
-		i1 := k + 300 * math.Pow(2, k / 7)
+		k := float64(lvl + 1)
+		i1 := k + 300*math.Pow(2, k/7)
 		i += i1
 		ExperienceLevels[lvl] = (int(i) & 0xfffffffc) / 4
 	}
@@ -287,7 +288,7 @@ func LevelToExperience(lvl int) int {
 	if index < 0 || index > 104 {
 		return 0
 	}
-	return ExperienceLevels[index]-1
+	return ExperienceLevels[index] - 1
 }
 
 func ExperienceToLevel(exp int) int {

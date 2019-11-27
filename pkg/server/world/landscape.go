@@ -19,15 +19,15 @@ import (
 //TileData Represents a single tile in the game's landscape.
 type TileData struct {
 	/*
-	DiagonalWalls int
-	HorizontalWalls byte
-	VerticalWalls byte
-	GroundElevation byte
-	Roofs byte
-	GroundTexture byte
-	 */
-	GroundOverlay   byte
-	CollisionMask   int
+		DiagonalWalls int
+		HorizontalWalls byte
+		VerticalWalls byte
+		GroundElevation byte
+		Roofs byte
+		GroundTexture byte
+	*/
+	GroundOverlay byte
+	CollisionMask int
 }
 
 //Sector Represents a sector of 48x48(2304) tiles in the game's landscape.
@@ -56,8 +56,8 @@ func LoadMapData() {
 }
 
 type TileDefinition struct {
-	Color int
-	Visible int
+	Color      int
+	Visible    int
 	ObjectType int
 }
 
@@ -163,19 +163,19 @@ func IsTileBlocking(x, y int, bit byte, current bool) bool {
 }
 
 func (t TileData) blocked(bit byte, current bool) bool {
-	if t.CollisionMask & int(bit) != 0 {
+	if t.CollisionMask&int(bit) != 0 {
 		return true
 	}
 	// Diag
-	if !current && (t.CollisionMask & WallDiag1) != 0 {
+	if !current && (t.CollisionMask&WallDiag1) != 0 {
 		return true
 	}
 	// oppososite diag
-	if !current && (t.CollisionMask & WallDiag2) != 0 {
+	if !current && (t.CollisionMask&WallDiag2) != 0 {
 		return true
 	}
 	// tile entirely blocked
-	if !current && (t.CollisionMask & WallObject) != 0 {
+	if !current && (t.CollisionMask&WallObject) != 0 {
 		return true
 	}
 	// if it's not a traversable ground type
@@ -183,8 +183,8 @@ func (t TileData) blocked(bit byte, current bool) bool {
 }
 
 func SectorName(x, y int) string {
-	regionX := (2304+x)/RegionSize
-	regionY := (1776+y-(944*((y+100)/944)))/RegionSize
+	regionX := (2304 + x) / RegionSize
+	regionY := (1776 + y - (944 * ((y + 100) / 944))) / RegionSize
 	return fmt.Sprintf("h%dx%dy%d", (y+100)/944, regionX, regionY)
 }
 
@@ -193,15 +193,15 @@ func SectorFromCoords(x, y int) *Sector {
 }
 
 func (s *Sector) Tile(x, y int) TileData {
-	areaX := (2304+x) % RegionSize
-	areaY := (1776+y-(944*((y+100)/944))) % RegionSize
-	return s.Tiles[areaX * RegionSize + areaY]
+	areaX := (2304 + x) % RegionSize
+	areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
+	return s.Tiles[areaX*RegionSize+areaY]
 }
 
 func ClipData(x, y int) TileData {
 	sector := SectorFromCoords(x, y)
 	if sector == nil {
-		return TileData{GroundOverlay:0, CollisionMask:0x40}
+		return TileData{GroundOverlay: 0, CollisionMask: 0x40}
 	}
 	return sector.Tile(x, y)
 }
@@ -214,17 +214,17 @@ func LoadSector(data []byte) (s *Sector) {
 		return nil
 	}
 	s = &Sector{Tiles: make([]TileData, 2304)}
- 	offset := 0
+	offset := 0
 
- 	blankCount := 0
- 	for x := 0; x < RegionSize; x++ {
- 		for y := 0; y < RegionSize; y++ {
+	blankCount := 0
+	for x := 0; x < RegionSize; x++ {
+		for y := 0; y < RegionSize; y++ {
 			groundTexture := data[offset+1] & 0xFF
 			groundOverlay := data[offset+2] & 0xFF
-//			roofTexture := data[offset+3] & 0xFF
+			//			roofTexture := data[offset+3] & 0xFF
 			horizontalWalls := data[offset+4] & 0xFF
 			verticalWalls := data[offset+5] & 0xFF
-			diagonalWalls := int(uint32(data[offset+6]&0xFF) << 24 + uint32(data[offset+7]&0xFF) << 16 + uint32(data[offset+8]&0xFF) << 8 + uint32(data[offset+9]&0xFF))
+			diagonalWalls := int(uint32(data[offset+6]&0xFF)<<24 + uint32(data[offset+7]&0xFF)<<16 + uint32(data[offset+8]&0xFF)<<8 + uint32(data[offset+9]&0xFF))
 			if groundOverlay == 250 {
 				// -6 overflows to 250, and is water tile
 				groundOverlay = 2
@@ -232,7 +232,7 @@ func LoadSector(data []byte) (s *Sector) {
 			if (groundOverlay == 0 && (groundTexture) == 0) || groundOverlay == OverlayWater || groundOverlay == OverlayBlack {
 				blankCount++
 			}
-			tileIdx := x*RegionSize+y
+			tileIdx := x*RegionSize + y
 			s.Tiles[tileIdx].GroundOverlay = groundOverlay
 			if groundOverlay > 0 && Tiles[groundOverlay-1].ObjectType != 0 {
 				s.Tiles[tileIdx].CollisionMask |= 0x40

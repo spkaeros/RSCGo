@@ -84,10 +84,10 @@ func main() {
 	asyncExecute(&awaitLaunchJobs, db.LoadTileDefinitions)
 
 	// Entity locations
-//	asyncExecute(&awaitLaunchJobs, db.LoadObjectLocations)
+	//	asyncExecute(&awaitLaunchJobs, db.LoadObjectLocations)
 	// Entity action scripting triggers
-//	asyncExecute(&awaitLaunchJobs, script.LoadObjectTriggers)
-//	asyncExecute(&awaitLaunchJobs, script.LoadBoundaryTriggers)
+	//	asyncExecute(&awaitLaunchJobs, script.LoadObjectTriggers)
+	//	asyncExecute(&awaitLaunchJobs, script.LoadBoundaryTriggers)
 	//	asyncExecute(&awaitLaunchJobs, script.LoadItemTriggers)
 	awaitLaunchJobs.Wait()
 	asyncExecute(&awaitLaunchJobs, script.Load)

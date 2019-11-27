@@ -188,9 +188,9 @@ func objectAction(c clients.Client, object *world.Object) {
 			}
 		}
 		c.SendPacket(packetbuilders.DefaultActionMessage)
-//		if !script.Run("objectAction", c, "object", object) {
-//			c.SendPacket(packetbuilders.DefaultActionMessage)
-//		}
+		//		if !script.Run("objectAction", c, "object", object) {
+		//			c.SendPacket(packetbuilders.DefaultActionMessage)
+		//		}
 	}()
 }
 
@@ -218,8 +218,8 @@ func boundaryAction(c clients.Client, object *world.Object) {
 			}
 		}
 		c.SendPacket(packetbuilders.DefaultActionMessage)
-//		if !script.Run("boundaryAction", c, "object", object) {
-//			c.SendPacket(packetbuilders.DefaultActionMessage)
-//		}
+		//		if !script.Run("boundaryAction", c, "object", object) {
+		//			c.SendPacket(packetbuilders.DefaultActionMessage)
+		//		}
 	}()
 }

@@ -53,8 +53,6 @@ func LoadEquipmentDefinitions() {
 	}
 }
 
-
-
 //LoadTileDefinitions Loads game tile attribute data into memory for quick access.
 func LoadTileDefinitions() {
 	database := Open(config.WorldDB())

@@ -5,7 +5,6 @@ import (
 	"go.uber.org/atomic"
 )
 
-
 //ObjectDefinition This represents a single definition for a single object in the game.
 type ObjectDefinition struct {
 	ID            int

@@ -78,7 +78,7 @@ func (p *Pathway) StartingTile() Location {
 }
 
 //AddWaypoint Prepends a waypoint to this path.
-func (p *Pathway) AddWaypoint(x, y int) *Pathway{
+func (p *Pathway) AddWaypoint(x, y int) *Pathway {
 	p.WaypointsX = append([]int{x}, p.WaypointsX...)
 	p.WaypointsY = append([]int{y}, p.WaypointsY...)
 	return p

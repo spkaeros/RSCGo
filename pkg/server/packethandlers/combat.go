@@ -52,7 +52,7 @@ func init() {
 						}
 						var attacker, defender world.MobileEntity
 						var nextHit int
-						if curRound % 2 == 0 {
+						if curRound%2 == 0 {
 							attacker = c.Player()
 							defender = npc
 						} else {
@@ -106,7 +106,7 @@ func init() {
 							}
 						}
 
-						attacker.Transients().SetVar("fightRound", attacker.Transients().VarInt("fightRound", 0) + 1)
+						attacker.Transients().SetVar("fightRound", attacker.Transients().VarInt("fightRound", 0)+1)
 						curRound++
 					}
 				}()
@@ -163,7 +163,7 @@ func init() {
 							return
 						}
 						var attacker, defender *world.Player
-						if curRound % 2 == 0 {
+						if curRound%2 == 0 {
 							attacker = c.Player()
 							defender = affectedPlayer
 						} else {
@@ -195,7 +195,7 @@ func init() {
 							p1.SendPacket(hitUpdate)
 						}
 
-						attacker.Transients().SetVar("fightRound", attacker.Transients().VarInt("fightRound", 0) + 1)
+						attacker.Transients().SetVar("fightRound", attacker.Transients().VarInt("fightRound", 0)+1)
 						curRound++
 					}
 				}()

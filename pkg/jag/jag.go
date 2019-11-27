@@ -25,9 +25,9 @@ type Archive struct {
 	//FileCount How many files this JAG archive contains
 	FileCount int
 	//MetaData The meta data for each file.  4-byte int nameHash, 3-byte decompLen, 3-byte compLen
-	MetaData  []byte
+	MetaData []byte
 	//FileData The raw, consecutive file data.
-	FileData  []byte
+	FileData []byte
 }
 
 //decoder Returns an io.Reader that reads JAG archive file data and turns it into the raw, decompressed data that
@@ -51,7 +51,7 @@ func New(file string) *Archive {
 		return nil
 	}
 	count := readUShort(buf, 2)
-	return &Archive{count, buf[2:count*10+2], buf[count*10+2:]}
+	return &Archive{count, buf[2 : count*10+2], buf[count*10+2:]}
 }
 
 //readUShort Reads an unsigned short from data, starting at caret-2

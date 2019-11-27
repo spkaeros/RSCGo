@@ -50,7 +50,7 @@ func Run(fnName string, c clients.Client, argName string, arg interface{}) bool 
 		}
 		stopPipeline, err := env.Execute(s +
 			`
-`+fnName+`()`)
+` + fnName + `()`)
 		if err != nil {
 			log.Info.Println("Unrecognized Anko error when attempting to execute the script pipeline:", err)
 			continue
@@ -72,7 +72,7 @@ func Load() {
 		return
 	}
 	for _, file := range files {
-//		Scripts = append(Scripts, load("./scripts/" + file.Name()))
+		//		Scripts = append(Scripts, load("./scripts/" + file.Name()))
 		env := WorldModule()
 		_, err := env.Execute(load("./scripts/" + file.Name()))
 		if err != nil {

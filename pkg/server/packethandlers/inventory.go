@@ -121,9 +121,9 @@ func init() {
 					}
 				}
 				c.SendPacket(packetbuilders.DefaultActionMessage)
-//				if !script.Run("invAction", c, "item", item) {
-//					c.SendPacket(packetbuilders.DefaultActionMessage)
-//				}
+				//				if !script.Run("invAction", c, "item", item) {
+				//					c.SendPacket(packetbuilders.DefaultActionMessage)
+				//				}
 			}()
 		}
 	}
