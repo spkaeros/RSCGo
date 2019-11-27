@@ -5,6 +5,7 @@ import (
 	"go.uber.org/atomic"
 	"strconv"
 	"sync"
+	"time"
 )
 
 //player Represents a single player.
@@ -473,6 +474,8 @@ func (p *Player) SendPacket(packet *packet.Packet) {
 func NewPlayer(index int, ip string) *Player {
 	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Location{atomic.NewUint32(0), atomic.NewUint32(0)}}, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})}, LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, LocalItems: &List{}, IP: ip, OutgoingPackets: make(chan *packet.Packet, 20), OptionMenuC: make(chan int8)}
 	p.Transients().SetVar("skills", &SkillTable{})
+	p.Attributes.SetVar("lastIP", ip)
+	p.Attributes.SetVar("lastLogin", time.Now().Format(time.ANSIC))
 	p.Equips[0] = p.Appearance.Head
 	p.Equips[1] = p.Appearance.Body
 	p.Equips[2] = p.Appearance.Legs

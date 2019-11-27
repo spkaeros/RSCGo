@@ -293,7 +293,14 @@ func (c *Client) Initialize() {
 		c.SendPacket(packetbuilders.ClientSettings(c.player))
 		c.SendPacket(packetbuilders.PrivacySettings(c.player))
 		c.SendPacket(packetbuilders.WelcomeMessage)
-		c.SendPacket(packetbuilders.LoginBox(0, c.player.IP))
+		t, err := time.Parse(time.ANSIC, c.player.Attributes.VarString("lastLogin", time.Time{}.Format(time.ANSIC)))
+		if err != nil {
+			log.Info.Println(err)
+			return
+		}
+
+		days := int(time.Since(t).Hours()/24)
+		c.SendPacket(packetbuilders.LoginBox(days, c.player.Attributes.VarString("lastIP", "127.0.0.1")))
 	}
 	clients.BroadcastLogin(c.player, true)
 	if c.player.FirstLogin() {

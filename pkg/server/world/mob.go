@@ -569,6 +569,17 @@ func (attributes *AttributeList) UnsetVar(name string) {
 }
 
 //VarInt If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
+func (attributes *AttributeList) VarString(name string, zero string) string {
+	attributes.Lock.RLock()
+	defer attributes.Lock.RUnlock()
+	if _, ok := attributes.Set[name].(string); !ok {
+		return zero
+	}
+
+	return attributes.Set[name].(string)
+}
+
+//VarInt If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
 func (attributes *AttributeList) VarInt(name string, zero int) int {
 	attributes.Lock.RLock()
 	defer attributes.Lock.RUnlock()

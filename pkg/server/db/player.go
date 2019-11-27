@@ -218,6 +218,9 @@ func LoadPlayerAttributes(player *world.Player) error {
 			}
 			player.Attributes.SetVar(name, val)
 			break
+		case 's':
+			player.Attributes.SetVar(name, value[1:])
+			break
 		}
 	}
 	return nil
@@ -379,6 +382,10 @@ func SavePlayer(player *world.Player) {
 				val = "b1"
 			} else {
 				val = "b0"
+			}
+		case string:
+			if v, ok := value.(string); ok {
+				val = "s" + v
 			}
 		}
 		rs, _ := tx.Exec("INSERT INTO player_attr(player_id, name, value) VALUES(?, ?, ?)", player.DatabaseIndex, name, val)
