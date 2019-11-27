@@ -15,6 +15,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 )
@@ -66,39 +67,44 @@ func Run(fnName string, c clients.Client, argName string, arg interface{}) bool 
 
 //Load Loads all of the scripts in ./scripts and stores them in the Scripts slice.
 func Load() {
-	files, err := ioutil.ReadDir("./scripts")
-	if err != nil {
-		log.Info.Println("Error attempting to read scripts directory:", err)
-		return
-	}
-	for _, file := range files {
-		//		Scripts = append(Scripts, load("./scripts/" + file.Name()))
-		env := WorldModule()
-		_, err := env.Execute(load("./scripts/" + file.Name()))
+	err := filepath.Walk("./scripts", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			log.Info.Println("Unrecognized Anko error when attempting to execute the script pipeline:", err)
-			continue
+			log.Info.Println(err)
+			return err
 		}
-		fn, err := env.Get("invAction")
-		action, ok := fn.(func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
-		if ok {
-			InvTriggers = append(InvTriggers, action)
+		if !info.IsDir() && strings.HasSuffix(path, "ank") {
+			env := WorldModule()
+			_, err := env.Execute(load(path))
+			if err != nil {
+				log.Info.Println("Unrecognized Anko error when attempting to execute the script pipeline:", err)
+				return nil
+			}
+			fn, err := env.Get("invAction")
+			action, ok := fn.(func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
+			if ok {
+				InvTriggers = append(InvTriggers, action)
+			}
+			fn, err = env.Get("objectAction")
+			action, ok = fn.(func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
+			if ok {
+				ObjectTriggers = append(ObjectTriggers, action)
+			}
+			fn, err = env.Get("boundaryAction")
+			action, ok = fn.(func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
+			if ok {
+				BoundaryTriggers = append(BoundaryTriggers, action)
+			}
+			fn, err = env.Get("npcAction")
+			action, ok = fn.(func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
+			if ok {
+				NpcTriggers = append(NpcTriggers, action)
+			}
 		}
-		fn, err = env.Get("objectAction")
-		action, ok = fn.(func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
-		if ok {
-			ObjectTriggers = append(ObjectTriggers, action)
-		}
-		fn, err = env.Get("boundaryAction")
-		action, ok = fn.(func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
-		if ok {
-			BoundaryTriggers = append(BoundaryTriggers, action)
-		}
-		fn, err = env.Get("npcAction")
-		action, ok = fn.(func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
-		if ok {
-			NpcTriggers = append(NpcTriggers, action)
-		}
+		return nil
+	})
+	if err != nil {
+		log.Info.Println(err)
+		return
 	}
 }
 
