@@ -284,12 +284,12 @@ func ParseSkill(s string) int {
 var ExperienceLevels [104]int
 
 func init() {
-	i := float64(0)
+	i := 0
 	for lvl := 0; lvl < 104; lvl++ {
 		k := float64(lvl + 1)
-		i1 := k + 300*math.Pow(2, k/7)
+		i1 := int(k + 300*math.Pow(2, k/7))
 		i += i1
-		ExperienceLevels[lvl] = (int(i) & 0xfffffffc) / 4
+		ExperienceLevels[lvl] = (i & 0xfffffffc) / 4
 	}
 }
 
@@ -298,12 +298,12 @@ func LevelToExperience(lvl int) int {
 	if index < 0 || index > 104 {
 		return 0
 	}
-	return ExperienceLevels[index] - 1
+	return ExperienceLevels[index]
 }
 
 func ExperienceToLevel(exp int) int {
 	for lvl := 0; lvl < 104; lvl++ {
-		if exp < ExperienceLevels[lvl]-1 {
+		if exp < ExperienceLevels[lvl] {
 			return lvl + 1
 		}
 	}
