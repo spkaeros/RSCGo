@@ -6,7 +6,7 @@ addCommand("stat", func(player, args) {
 		return
 	}
 	idx = -1
-	if regexp.MatchString(args[0]) {
+	if regexp.MustCompile("^[0-9]+$").MatchString(args[0]) {
 		idx = toInt(args[0])
 	} else {
 		idx = getSkillIndex(args[0])
