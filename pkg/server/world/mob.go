@@ -668,11 +668,13 @@ type NPC struct {
 	ID         int
 	Boundaries [2]Location
 	StartPoint Location
+	ChatMessage string
+	ChatTarget int
 }
 
 //NewNpc Creates a new NPC and returns a reference to it
 func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
-	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: NewLocation(startX, startY)}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}}
+	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: NewLocation(startX, startY)}, Skillset: &SkillTable{}, State: MSIdle, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, ChatTarget: -1, ChatMessage: ""}
 	n.Boundaries[0] = NewLocation(minX, minY)
 	n.Boundaries[1] = NewLocation(maxX, maxY)
 	n.StartPoint = NewLocation(startX, startY)

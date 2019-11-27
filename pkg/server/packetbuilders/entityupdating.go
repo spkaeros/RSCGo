@@ -3,6 +3,7 @@ package packetbuilders
 import (
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/world"
+	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 //NPCPositions Builds a packet containing view area NPC position and sprite information
@@ -276,6 +277,38 @@ func BoundaryLocations(player *world.Player) (p *packet.Packet) {
 		return nil
 	}
 	return
+}
+
+func NpcAppearances(player *world.Player) *packet.Packet {
+	p := packet.NewOutgoingPacket(104)
+	toUpdate := 0
+	p.AddShort(0)
+	for _, npc := range player.LocalNPCs.List {
+		if npc, ok := npc.(*world.NPC); ok {
+			if npc.ChatMessage != "" && npc.ChatTarget > -1 {
+				message := npc.ChatMessage
+				npc.ChatMessage = ""
+				toUpdate++
+				p.AddShort(uint16(npc.Index))
+				p.AddByte(1)
+				p.AddShort(uint16(npc.ChatTarget))
+				npc.ChatTarget = -1
+				if len(message) > 255 {
+					message = message[:255]
+				}
+				message = strutil.ChatFilter.Format(message)
+				messageRaw := strutil.ChatFilter.Pack(message)
+				p.AddByte(uint8(len(messageRaw)))
+				p.AddBytes(messageRaw)
+			}
+		}
+	}
+	if toUpdate > 0 {
+		p.SetShort(0, uint16(toUpdate))
+	} else {
+		return nil
+	}
+	return p
 }
 
 //ItemLocations Builds a packet with the view-area item positions in it, relative to the player.

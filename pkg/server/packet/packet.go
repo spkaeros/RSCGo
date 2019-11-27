@@ -146,6 +146,16 @@ func (p *Packet) AddInt2(i uint32) *Packet {
 	return p
 }
 
+func (p *Packet) SetShort(offset int, s uint16) *Packet {
+	if offset >= len(p.Payload) || offset < 0 {
+		log.Warning.Println("Attempted out of bounds Packet.SetShort: ", offset, s)
+		return p
+	}
+	p.Payload[offset+1] = byte(s >> 8)
+	p.Payload[offset+2] = byte(s)
+	return p
+}
+
 //AddShort Adds a 16-bit integer to the packet payload.
 func (p *Packet) AddShort(s uint16) *Packet {
 	p.Payload = append(p.Payload, byte(s>>8), byte(s))

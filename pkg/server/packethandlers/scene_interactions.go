@@ -128,6 +128,20 @@ func init() {
 		}
 		c.Player().SetDistancedAction(func() bool {
 			if c.Player().NextTo(npc.Location) && c.Player().WithinRange(npc.Location, 1) {
+				if c.Player().Location.Equals(npc.Location) {
+					if c.Player().NextTo(world.NewLocation(c.Player().X(), c.Player().Y() - 1)) {
+						c.Player().SetCoords(c.Player().X(), c.Player().Y()-1, false)
+					} else if c.Player().NextTo(world.NewLocation(c.Player().X(), c.Player().Y() + 1)) {
+						c.Player().SetCoords(c.Player().X(), c.Player().Y()+1, false)
+					} else if c.Player().NextTo(world.NewLocation(c.Player().X()-1, c.Player().Y())) {
+						c.Player().SetCoords(c.Player().X()-1, c.Player().Y(), false)
+					} else if c.Player().NextTo(world.NewLocation(c.Player().X()+1, c.Player().Y())) {
+						c.Player().SetCoords(c.Player().X()+1, c.Player().Y(), false)
+					} else {
+						c.Player().SetPath(world.MakePath(c.Player().Location, npc.Location))
+						return false
+					}
+				}
 				c.Player().ResetPath()
 				npc.ResetPath()
 				c.Player().SetDirection(c.Player().DirectionTo(npc.X(), npc.Y()))

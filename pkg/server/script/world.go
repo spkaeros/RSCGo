@@ -128,6 +128,8 @@ func WorldModule() *vm.Env {
 					player.SendPacket(packetbuilders.NpcMessage(sender, msg, target))
 				}
 				target.SendPacket(packetbuilders.NpcMessage(sender, msg, target))
+				//sender.ChatTarget = target.Index
+				//sender.ChatMessage = msg
 				time.Sleep(time.Millisecond * 1800)
 			}
 		},
