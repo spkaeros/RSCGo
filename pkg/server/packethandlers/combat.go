@@ -146,10 +146,13 @@ func init() {
 		}
 		affectedPlayer := affectedClient.Player()
 		c.Player().SetDistancedAction(func() bool {
-			if c.Player().NextTo(affectedPlayer.Location) && c.Player().WithinRange(affectedPlayer.Location, 2) || time.Since(affectedPlayer.TransAttrs.VarTime("lastRetreat")) <= time.Second * 3 {
-				affectedPlayer.SendPacket(packetbuilders.Sound("underattack"))
+			if c.Player().NextTo(affectedPlayer.Location) && c.Player().WithinRange(affectedPlayer.Location, 2) {
 				c.Player().ResetPath()
+				if time.Since(affectedPlayer.TransAttrs.VarTime("lastRetreat")) <= time.Second * 3 {
+					return false
+				}
 				affectedPlayer.ResetPath()
+				affectedPlayer.SendPacket(packetbuilders.Sound("underattack"))
 				c.Player().SetLocation(affectedPlayer.Location, true)
 				c.Player().State = world.MSFighting
 				affectedPlayer.State = world.MSFighting
@@ -226,7 +229,7 @@ func init() {
 				}()
 				return true
 			}
-			return false
+			return c.Player().FinishedPath()
 		})
 	}
 	PacketHandlers["fightmode"] = func(c clients.Client, p *packet.Packet) {
