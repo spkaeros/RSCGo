@@ -38,7 +38,7 @@ func (c *client) startReader() {
 			if err != nil {
 				if err, ok := err.(errors.NetError); ok && err.Error() != "Connection closed." && err.Error() != "Connection timed out." {
 					if err.Error() != "SHORT_DATA" {
-						log.Warning.Printf("Rejected Packet from: %s\n", c)
+						log.Warning.Printf("Rejected Packet from: %s\n", c.player.String())
 						log.Warning.Println(err)
 					}
 					continue
@@ -84,9 +84,7 @@ func (c *client) destroy(wg *sync.WaitGroup) {
 		if err := c.Socket.Close(); err != nil {
 			log.Error.Println("Couldn't close Socket:", err)
 		}
-		if _, ok := players.FromUserHash(c.player.UserBase37); ok {
-			// Always try to launch I/O-heavy functions in their own goroutine.
-			// Goroutines are light-weight and made for this kind of thing.
+		if player, ok := players.FromIndex(c.player.Index); ok && player == c.player {
 			go db.SavePlayer(c.player)
 			world.RemovePlayer(c.player)
 			c.player.TransAttrs.SetVar("remove", true)

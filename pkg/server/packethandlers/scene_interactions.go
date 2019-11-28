@@ -127,26 +127,30 @@ func init() {
 		}
 		player.SetDistancedAction(func() bool {
 			if player.NextTo(npc.Location) && player.WithinRange(npc.Location, 1) && !npc.Busy() {
+				player.ResetPath()
+				npc.ResetPath()
+				player.AddState(world.MSChatting)
+				npc.AddState(world.MSChatting)
 				if player.Location.Equals(npc.Location) {
-					if player.NextTo(world.NewLocation(player.X(), player.Y()-1)) {
-						player.SetCoords(player.X(), player.Y()-1, false)
-					} else if player.NextTo(world.NewLocation(player.X(), player.Y()+1)) {
-						player.SetCoords(player.X(), player.Y()+1, false)
-					} else if player.NextTo(world.NewLocation(player.X()-1, player.Y())) {
-						player.SetCoords(player.X()-1, player.Y(), false)
-					} else if player.NextTo(world.NewLocation(player.X()+1, player.Y())) {
-						player.SetCoords(player.X()+1, player.Y(), false)
-					} else {
-						player.SetPath(world.MakePath(player.Location, npc.Location))
+				outer:
+					for offX := -1; offX <= 1; offX++ {
+						for offY := -1; offY <= 1; offY++ {
+							if offX == 0 && offY == 0 {
+								continue
+							}
+							newLoc := world.NewLocation(player.X() + offX, player.Y() + offY)
+							if player.NextTo(newLoc) {
+								player.SetLocation(newLoc, true)
+								break outer
+							}
+						}
+					}
+					if player.Location.Equals(npc.Location) {
 						return false
 					}
 				}
-				player.ResetPath()
-				npc.ResetPath()
 				player.SetDirection(player.DirectionTo(npc.X(), npc.Y()))
 				npc.SetDirection(npc.DirectionTo(player.X(), player.Y()))
-				player.AddState(world.MSChatting)
-				npc.AddState(world.MSChatting)
 				go func() {
 					defer func() {
 						player.RemoveState(world.MSChatting)

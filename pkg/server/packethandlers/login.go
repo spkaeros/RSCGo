@@ -213,7 +213,7 @@ func handleLogin(player *world.Player, reply chan byte) {
 			initialize(player)
 			return
 		}
-		log.Info.Printf("Denied Client: {IP:'%v', username:'%v', Response='%v'}\n", player.IP, player.Username, r)
+		log.Info.Printf("Denied: %v (Response='%v')\n", player.String(), r)
 		player.Destroy()
 		return
 	case <-time.After(time.Second * 10):

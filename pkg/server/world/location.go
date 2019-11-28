@@ -88,7 +88,7 @@ func NewLocation(x, y int) Location {
 func (l Location) DirectionTo(destX, destY int) int {
 	sprites := [3][3]int{{SouthWest, West, NorthWest}, {South, -1, North}, {SouthEast, East, NorthEast}}
 	xIndex, yIndex := l.X()-destX+1, l.Y()-destY+1
-	if xIndex >= 3 || yIndex >= 3 {
+	if xIndex >= 3 || yIndex >= 3 || yIndex < 0 || xIndex < 0 {
 		xIndex, yIndex = 1, 2 // North
 	}
 	return sprites[xIndex][yIndex]
