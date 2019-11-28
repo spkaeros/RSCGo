@@ -8,6 +8,23 @@ import (
 	"sync"
 )
 
+//AppearanceTable Represents a players appearance.
+type AppearanceTable struct {
+	Head      int
+	Body      int
+	Legs      int
+	Male      bool
+	HeadColor int
+	BodyColor int
+	LegsColor int
+	SkinColor int
+}
+
+//NewAppearanceTable Returns a reference to a new appearance table with specified parameters
+func NewAppearanceTable(head, body int, male bool, hair, top, bottom, skin int) AppearanceTable {
+	return AppearanceTable{head, body, 3, male, hair, top, bottom, skin}
+}
+
 //player Represents a single player.
 type Player struct {
 	Username         string
@@ -256,6 +273,90 @@ func (p *Player) NextTo(target Location) bool {
 	}
 
 	return true
+}
+
+//TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
+func (p *Player) TraversePath() {
+	path := p.Path()
+	if path == nil {
+		return
+	}
+	if p.AtLocation(path.NextWaypointTile()) {
+		path.CurrentWaypoint++
+	}
+	if p.FinishedPath() {
+		p.ResetPath()
+		return
+	}
+	dst := path.NextWaypointTile()
+	x, y := p.X(), p.Y()
+	next := NewLocation(x, y)
+	xBlocked, yBlocked := false, false
+	newXBlocked, newYBlocked := false, false
+	if y > dst.Y() {
+		yBlocked = IsTileBlocking(x, y, 1, true)
+		newYBlocked = IsTileBlocking(x, y-1, 4, false)
+		if !newYBlocked {
+			next.y.Dec()
+		}
+	} else if y < dst.Y() {
+		yBlocked = IsTileBlocking(x, y, 4, true)
+		newYBlocked = IsTileBlocking(x, y+1, 1, false)
+		if !newYBlocked {
+			next.y.Inc()
+		}
+	}
+	if x > dst.X() {
+		xBlocked = IsTileBlocking(x, next.Y(), 2, true)
+		newXBlocked = IsTileBlocking(x-1, next.Y(), 8, false)
+		if !newXBlocked {
+			next.x.Dec()
+		}
+	} else if x < dst.X() {
+		xBlocked = IsTileBlocking(x, next.Y(), 8, true)
+		newXBlocked = IsTileBlocking(x+1, next.Y(), 2, false)
+		if !newXBlocked {
+			next.x.Inc()
+		}
+	}
+
+	if (xBlocked && yBlocked) || (xBlocked && y == dst.Y()) || (yBlocked && x == dst.X()) {
+		p.ResetPath()
+		return
+	}
+	if (newXBlocked && newYBlocked) || (newXBlocked && x != next.X() && y == next.Y()) || (newYBlocked && y != next.Y() && x == next.X()) {
+		p.ResetPath()
+		return
+	}
+
+	if next.X() > x {
+		newXBlocked = IsTileBlocking(next.X(), next.Y(), 2, false)
+	} else if next.X() < x {
+		newXBlocked = IsTileBlocking(next.X(), next.Y(), 8, false)
+	}
+	if next.Y() > y {
+		newYBlocked = IsTileBlocking(next.X(), next.Y(), 1, false)
+	} else if next.Y() < y {
+		newYBlocked = IsTileBlocking(next.X(), next.Y(), 4, false)
+	}
+
+	if (newXBlocked && newYBlocked) || (newXBlocked && y == next.Y()) || (newYBlocked && x == next.X()) {
+		p.ResetPath()
+		return
+	}
+
+	p.SetLocation(next, false)
+}
+
+func (p *Player) UpdateRegion(x, y int) {
+	curArea := GetRegion(p.X(), p.Y())
+	newArea := GetRegion(x, y)
+	if newArea != curArea {
+		if curArea.Players.Contains(p) {
+			curArea.Players.Remove(p)
+		}
+		newArea.Players.Add(p)
+	}
 }
 
 //EquipItem Equips an item to this player, and sends inventory and equipment bonuses.
