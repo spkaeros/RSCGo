@@ -39,7 +39,7 @@ addCommand("stats", func(player, args) {
 	player.SetStat(ATTACK, atk)
 	player.SetStat(DEFENSE, def)
 	player.SetStat(STRENGTH, str)
-	player.SetStat(HITPOINTS, hits)
+	player.SetStat(HITPOINTS, expToLvl(hpXp))
 
 	player.AppearanceLock.Lock()
 	player.AppearanceTicket++
