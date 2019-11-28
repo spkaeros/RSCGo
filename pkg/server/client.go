@@ -7,6 +7,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/errors"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
+	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/packethandlers"
 	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/world"
@@ -66,6 +67,8 @@ func (c *client) startWriter() {
 				return
 			}
 			c.writePacket(*p)
+		case <-time.After(time.Second * 10):
+			c.writePacket(*packetbuilders.ResponsePong)
 		case <-c.player.Kill:
 			return
 		}

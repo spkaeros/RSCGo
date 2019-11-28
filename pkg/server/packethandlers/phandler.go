@@ -5,13 +5,12 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/config"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
-	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 func init() {
 	PacketHandlers["pingreq"] = func(player *world.Player, p *packet.Packet) {
-		player.SendPacket(packetbuilders.ResponsePong)
+//		player.SendPacket(packetbuilders.ResponsePong)
 	}
 }
 
