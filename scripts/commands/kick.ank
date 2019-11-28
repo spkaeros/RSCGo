@@ -10,6 +10,6 @@ addCommand("kick", func(player, args) {
   		sendMessage(player, "Could not find player.")
 		return
 	}
-	sendMessage(player, "Kicking: '" + target.Player().Username + "'")
+	sendMessage(player, "Kicking: '" + target.Username + "'")
 	kick(target)
 })

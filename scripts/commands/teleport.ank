@@ -25,7 +25,7 @@ addCommand("goto", func(player, args) {
   		sendMessage(player, "Could not find player.")
 		return
 	}
-  	teleport(player, target.Player().X(), target.Player().Y(), true)
+  	teleport(player, target.X(), target.Y(), true)
 })
 
 addCommand("summon", func(player, args) {
@@ -38,7 +38,7 @@ addCommand("summon", func(player, args) {
   		sendMessage(player, "Could not find player.")
 		return
 	}
-  	teleport(target.Player(), player.X(), player.Y(), true)
+  	teleport(target, player.X(), player.Y(), true)
 })
 
 addCommand("walkto", func(player, args) {
