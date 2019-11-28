@@ -25,7 +25,7 @@ addCommand("stat", func(player, args) {
 	player.AppearanceLock.Lock()
 	player.AppearanceTicket++
 	player.AppearanceLock.Unlock()
-	player.ResetNeedsSelf()
+	player.NeedsSelf()
 })
 
 addCommand("stats", func(player, args) {
@@ -57,5 +57,5 @@ addCommand("stats", func(player, args) {
 	player.AppearanceLock.Lock()
 	player.AppearanceTicket++
 	player.AppearanceLock.Unlock()
-	player.ResetNeedsSelf()
+	player.NeedsSelf()
 })

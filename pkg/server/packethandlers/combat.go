@@ -30,6 +30,7 @@ func init() {
 				player.ResetPath()
 				npc.ResetPath()
 				player.SetLocation(npc.Location, true)
+				player.Remove()
 				player.AddState(world.MSFighting)
 				npc.AddState(world.MSFighting)
 				player.SetDirection(world.LeftFighting)

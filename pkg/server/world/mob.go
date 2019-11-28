@@ -6,29 +6,39 @@ import (
 	"time"
 )
 
+
+//MSIdle The default MobState, means doing nothing.
 const (
 	//MSIdle The default MobState, means doing nothing.
-	MSIdle int = 0
+	MSIdle = iota
 	//MSBanking The mob is banking.
-	MSBanking = 1
+	MSBanking
 	//MSChatting The mob is chatting with a NPC
-	MSChatting = 2
+	MSChatting
 	//MSMenuChoosing The mob is in a query menu
-	MSMenuChoosing = 4
+	MSMenuChoosing
 	//MSTrading The mob is negotiating a trade.
-	MSTrading = 8
+	MSTrading
 	//MSDueling The mob is negotiating a duel.
-	MSDueling = 16
+	MSDueling
 	//MSFighting The mob is fighting.
-	MSFighting = 32
+	MSFighting
 	//MSBatching The mob is performing a skill that repeats itself an arbitrary number of times.
-	MSBatching = 64
+	MSBatching
 	//MSSleeping The mob is using a bed or sleeping bag, and trying to solve a CAPTCHA
-	MSSleeping = 128
+	MSSleeping
 	//MSBusy Generic busy state
-	MSBusy = 256
+	MSBusy
 	//MSChangingAppearance Indicates that the mob in this state is in the player aooearance changing screen
-	MSChangingAppearance = 512
+	MSChangingAppearance
+)
+
+const (
+	SyncBlank = 0
+	SyncChanged = iota
+	SyncMoved
+	SyncRemoved
+	SyncSelf
 )
 
 //Mob Represents a mobile entity within the game world.
@@ -90,7 +100,7 @@ func (m *Mob) Busy() bool {
 }
 
 func (m *Mob) IsFighting() bool {
-	return m.HasState(MSFighting) && m.Transients().VarMob("fightTarget") != nil
+	return m.HasState(MSFighting)
 }
 
 func (m *Mob) FightTarget() MobileEntity {
@@ -138,33 +148,37 @@ func (m *Mob) SetDirection(direction int) {
 
 //Change Sets the synchronization flag for whether this mob changed directions to true.
 func (m *Mob) Change() {
-	m.TransAttrs.SetVar("changed", true)
+	m.TransAttrs.StoreMask("sync", SyncChanged)
 }
 
 //Remove Sets the synchronization flag for whether this mob needs to be removed to true.
 func (m *Mob) Remove() {
-	m.TransAttrs.SetVar("remove", true)
+	m.TransAttrs.StoreMask("sync", SyncRemoved)
 }
 
 //UpdateSelf Sets the synchronization flag for whether this mob has moved to true.
 func (m *Mob) Move() {
-	m.TransAttrs.SetVar("moved", true)
+	m.TransAttrs.StoreMask("sync", SyncMoved)
+}
+
+func (m *Mob) NeedsSelf() {
+	m.TransAttrs.RemoveMask("sync", SyncSelf)
 }
 
 func (m *Mob) ResetMoved() {
-	m.TransAttrs.UnsetVar("moved")
+	m.TransAttrs.RemoveMask("sync", SyncMoved)
 }
 
 func (m *Mob) ResetRemoved() {
-	m.TransAttrs.UnsetVar("remove")
+	m.TransAttrs.RemoveMask("sync", SyncRemoved)
 }
 
 func (m *Mob) ResetNeedsSelf() {
-	m.TransAttrs.UnsetVar("self")
+	m.TransAttrs.StoreMask("sync", SyncSelf)
 }
 
 func (m *Mob) ResetChanged() {
-	m.TransAttrs.UnsetVar("changed")
+	m.TransAttrs.RemoveMask("sync", SyncChanged)
 }
 
 //SetPath Sets the mob's current pathway to path.  If path is nil, effectively resets the mobs path.
@@ -184,7 +198,6 @@ func (m *Mob) Path() *Pathway {
 
 //ResetPath Sets the mobs path to nil, to stop the traversal of the path instantly
 func (m *Mob) ResetPath() {
-	m.ResetMoved()
 	m.TransAttrs.UnsetVar("path")
 }
 
@@ -243,27 +256,34 @@ func (n *NPC) Teleport(x, y int) {
 }
 
 func (m *Mob) State() int {
-	return m.TransAttrs.VarInt("state", 0)
+	return m.TransAttrs.VarInt("state", MSIdle)
 }
 
 func (m *Mob) HasState(state int) bool {
-	return m.State()&state == state
+	return m.Transients().HasMask("state", state)
 }
 
 func (m *Mob) AddState(state int) {
+	if state == MSIdle {
+		m.Transients().SetVar("state", MSIdle)
+		return
+	}
 	if m.HasState(state) {
 		log.Warning.Println("Attempted to add a Mobstate that we already have:", state)
 		return
 	}
-	m.Transients().MaskInt("state", state)
+	m.Transients().StoreMask("state", state)
 }
 
 func (m *Mob) RemoveState(state int) {
+	if state == MSIdle {
+		return
+	}
 	if !m.HasState(state) {
 		log.Warning.Println("Attempted to remove a Mobstate that we did not add:", state)
 		return
 	}
-	m.Transients().UnmaskInt("state", state)
+	m.Transients().RemoveMask("state", state)
 }
 
 //ResetFighting Resets melee fight related variables

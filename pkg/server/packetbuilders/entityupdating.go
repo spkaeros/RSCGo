@@ -14,15 +14,15 @@ func NPCPositions(player *world.Player) (p *packet.Packet) {
 	var removing = world.List{}
 	for _, n := range player.LocalNPCs.List {
 		if n, ok := n.(*world.NPC); ok {
-			if n.LongestDelta(player.Location) > 15 || n.TransAttrs.VarBool("remove", false) {
+			if n.LongestDelta(player.Location) > 15 || n.TransAttrs.HasMask("sync", world.SyncRemoved) {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
 				removing.List = append(removing.List, n)
 				counter++
-			} else if n.TransAttrs.VarBool("moved", false) || n.TransAttrs.VarBool("changed", false) {
+			} else if n.TransAttrs.CheckMask("sync", (1<<world.SyncMoved)|(1<<world.SyncChanged)) {
 				p.AddBits(1, 1)
-				if n.TransAttrs.VarBool("moved", false) {
+				if n.TransAttrs.HasMask("sync", world.SyncMoved) {
 					p.AddBits(0, 1)
 					p.AddBits(n.Direction(), 3)
 				} else {
@@ -77,13 +77,13 @@ func PlayerPositions(player *world.Player) (p *packet.Packet) {
 	p.AddBits(player.Direction(), 4)
 	p.AddBits(len(player.LocalPlayers.List), 8)
 	counter := 0
-	if player.TransAttrs.VarBool("remove", false) || !player.TransAttrs.VarBool("self", false) || player.TransAttrs.VarBool("moved", false) || player.TransAttrs.VarBool("changed", false) {
+	if player.TransAttrs.CheckMask("sync", (1<<world.SyncRemoved)|(1<<world.SyncMoved)|(1<<world.SyncChanged)) || !player.Transients().CheckMask("sync", 1<<world.SyncSelf) {
 		counter++
 	}
 	var removing = world.List{}
 	for _, p1 := range player.LocalPlayers.List {
 		if p1, ok := p1.(*world.Player); ok {
-			if p1.LongestDelta(player.Location) > 15 || p1.TransAttrs.VarBool("remove", false) {
+			if p1.LongestDelta(player.Location) > 15 || p1.TransAttrs.HasMask("sync", world.SyncRemoved) {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
@@ -92,9 +92,9 @@ func PlayerPositions(player *world.Player) (p *packet.Packet) {
 				delete(player.KnownAppearances, p1.Index)
 				player.AppearanceLock.Unlock()
 				counter++
-			} else if p1.TransAttrs.VarBool("moved", false) || p1.TransAttrs.VarBool("changed", false) {
+			} else if p1.TransAttrs.CheckMask("sync", (1<<world.SyncMoved)|(1<<world.SyncChanged)) {
 				p.AddBits(1, 1)
-				if p1.TransAttrs.VarBool("moved", false) {
+				if p1.TransAttrs.HasMask("sync", world.SyncMoved) {
 					p.AddBits(0, 1)
 					p.AddBits(p1.Direction(), 3)
 				} else {
@@ -149,7 +149,7 @@ func PlayerPositions(player *world.Player) (p *packet.Packet) {
 func PlayerAppearances(ourPlayer *world.Player) (p *packet.Packet) {
 	p = packet.NewOutgoingPacket(234)
 	var appearanceList []*world.Player
-	if !ourPlayer.TransAttrs.VarBool("self", false) {
+	if !ourPlayer.TransAttrs.HasMask("sync", world.SyncSelf) {
 		appearanceList = append(appearanceList, ourPlayer)
 	}
 	ourPlayer.AppearanceLock.Lock()

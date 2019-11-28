@@ -126,10 +126,10 @@ func Tick() {
 			// Ugly hack to work around a client bug with region loading.
 			return
 		}
-		p.TransAttrs.SetVar("self", true)
-		p.TransAttrs.UnsetVar("remove")
-		p.TransAttrs.UnsetVar("moved")
-		p.TransAttrs.UnsetVar("changed")
+		p.ResetNeedsSelf()
+		p.ResetChanged()
+		p.ResetMoved()
+		p.ResetRemoved()
 	})
 	world.ResetNpcUpdateFlags()
 }

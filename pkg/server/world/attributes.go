@@ -69,35 +69,38 @@ func (attributes *AttributeList) VarInt(name string, zero int) int {
 }
 
 //MaskInt Mask attribute `name` with the specified bitmask.
-func (attributes *AttributeList) MaskInt(name string, mask int) {
-	attributes.Lock.RLock()
-	defer attributes.Lock.RUnlock()
+func (attributes *AttributeList) StoreMask(name string, mask int) {
+	attributes.Lock.Lock()
+	defer attributes.Lock.Unlock()
 	if val, ok := attributes.Set[name].(int); ok {
-		attributes.Set[name] = val | mask
+		attributes.Set[name] = val | 1<<mask
 		return
 	}
-	attributes.Set[name] = MSIdle | mask
+	attributes.Set[name] = 0|1<<mask
+}
+
+func (attributes *AttributeList) HasMask(name string, mask int) bool {
+	attributes.Lock.RLock()
+	defer attributes.Lock.RUnlock()
+	return attributes.VarInt(name, 0) & (1 << mask) != 0
 }
 
 //UnmaskInt Mask attribute `name` with the specified bitmask.
-func (attributes *AttributeList) UnmaskInt(name string, mask int) {
-	attributes.Lock.RLock()
-	defer attributes.Lock.RUnlock()
+func (attributes *AttributeList) RemoveMask(name string, mask int) {
+	attributes.Lock.Lock()
+	defer attributes.Lock.Unlock()
 	if val, ok := attributes.Set[name].(int); ok {
-		attributes.Set[name] = val&0xFFFFFFFF - mask
+		attributes.Set[name] = val & ^(1 << mask)
 		return
 	}
-	attributes.Set[name] = MSIdle
+	attributes.Set[name] = 0 & ^(1<<mask)
 }
 
 //CheckMask Check if a bitmask attribute has a mask set.
 func (attributes *AttributeList) CheckMask(name string, mask int) bool {
 	attributes.Lock.RLock()
 	defer attributes.Lock.RUnlock()
-	if val, ok := attributes.Set[name].(int); !ok {
-		return val&mask != 0
-	}
-	return 0&mask != 0
+	return attributes.VarInt(name, 0) & mask != 0
 }
 
 //VarMob If there is a MobileEntity attribute assigned to the specified name, returns it.  Otherwise, returns nil

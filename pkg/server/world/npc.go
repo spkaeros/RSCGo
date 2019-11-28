@@ -112,9 +112,9 @@ func (n *NPC) UpdateRegion(x, y int) {
 func ResetNpcUpdateFlags() {
 	npcsLock.RLock()
 	for _, n := range Npcs {
-		n.TransAttrs.UnsetVar("changed")
-		n.TransAttrs.UnsetVar("moved")
-		n.TransAttrs.UnsetVar("remove")
+		n.ResetChanged()
+		n.ResetMoved()
+		n.ResetRemoved()
 	}
 	npcsLock.RUnlock()
 }

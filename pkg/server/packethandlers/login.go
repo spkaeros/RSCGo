@@ -139,7 +139,6 @@ func initialize(player *world.Player) {
 		}
 	}
 	world.AddPlayer(player)
-	player.Change()
 	player.SetConnected(true)
 	if player.Skills().Experience(world.StatHits) < 10 {
 		for i := 0; i < 18; i++ {

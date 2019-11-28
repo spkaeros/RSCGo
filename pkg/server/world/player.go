@@ -370,7 +370,7 @@ func (p *Player) EquipItem(item *Item) {
 	if def == nil {
 		return
 	}
-	p.TransAttrs.SetVar("self", false)
+	p.NeedsSelf()
 	p.Items.Range(func(otherItem *Item) bool {
 		if otherDef := GetEquipmentDefinition(otherItem.ID); otherDef != nil {
 			if otherItem == item || !otherItem.Worn {
@@ -424,7 +424,7 @@ func (p *Player) DequipItem(item *Item) {
 	if !item.Worn {
 		return
 	}
-	p.TransAttrs.SetVar("self", false)
+	p.NeedsSelf()
 	item.Worn = false
 	p.SetAimPoints(p.AimPoints() - def.Aim)
 	p.SetPowerPoints(p.PowerPoints() - def.Power)
@@ -557,11 +557,13 @@ func (p *Player) IsTrading() bool {
 
 //ResetTrade Resets trade-related variables.
 func (p *Player) ResetTrade() {
-	p.TransAttrs.UnsetVar("tradetarget")
-	p.TransAttrs.UnsetVar("trade1accept")
-	p.TransAttrs.UnsetVar("trade2accept")
-	p.TradeOffer.Clear()
-	p.RemoveState(MSTrading)
+	if p.IsTrading() {
+		p.TransAttrs.UnsetVar("tradetarget")
+		p.TransAttrs.UnsetVar("trade1accept")
+		p.TransAttrs.UnsetVar("trade2accept")
+		p.TradeOffer.Clear()
+		p.RemoveState(MSTrading)
+	}
 }
 
 //TradeTarget Returns the server index of the player we are trying to trade with, or -1 if we have not made a trade request.
