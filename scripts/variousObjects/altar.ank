@@ -9,9 +9,8 @@ func objectAction(player, object) {
 			return true
 		}
 		player.Message("You recharge your prayer points")
-		player.Skills().SetCur(PRAYER, max)
-		sendStat(player, PRAYER)
-		sendSound(player, "recharge")
+		player.SetCurStat(PRAYER, max)
+		player.PlaySound("recharge")
 		return true
 	}
 	return false

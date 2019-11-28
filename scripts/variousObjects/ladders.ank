@@ -7,7 +7,7 @@ func objectAction(player, object) {
 		coords = modCoords(player, object, strings.HasSuffix(cmd, "up"))
 		player.SetCoords(coords[0], coords[1], true)
 		if oldPlane != player.Plane() {
-			sendPlane(player)
+			player.SendPlane()
 		}
 		player.Message("You " + strings.Replace(cmd, "-", " ", -1) + " the " + objectDefs[object.ID].Name)
 		return true

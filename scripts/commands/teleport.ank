@@ -63,15 +63,21 @@ addCommand("tile", func(player, args) {
 })
 
 addCommand("goup", func(player, args) {
-	if player.Plane() != 2 {
+	oldPlane = player.Plane()
+	if oldPlane != 2 {
 		player.SetLocation(player.Above(), true)
-		sendPlane(player)
+		if oldPlane != player.Plane() {
+			player.SendPlane()
+		}
 	}
 })
 
 addCommand("godown", func(player, args) {
-	if player.Plane() != 3 {
+	oldPlane = player.Plane()
+	if oldPlane != 3 {
 		player.SetLocation(player.Below(), true)
-		sendPlane(player)
+		if oldPlane != player.Plane() {
+			player.SendPlane()
+		}
 	}
 })

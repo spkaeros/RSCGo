@@ -299,6 +299,7 @@ func (m *Mob) ResetFighting() {
 		target.RemoveState(MSFighting)
 	}
 	if m.IsFighting() {
+		target.UpdateLastFight()
 		m.TransAttrs.UnsetVar("fightTarget")
 		m.TransAttrs.UnsetVar("fightRound")
 		m.SetDirection(North)

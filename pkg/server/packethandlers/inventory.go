@@ -29,7 +29,7 @@ func init() {
 			if item.Worn {
 				return
 			}
-			player.SendPacket(world.Sound("click"))
+			player.PlaySound("click")
 			player.EquipItem(item)
 			player.SendPacket(world.EquipmentStats(player))
 			player.SendPacket(world.InventoryItems(player))
@@ -46,7 +46,7 @@ func init() {
 			if !item.Worn {
 				return
 			}
-			player.SendPacket(world.Sound("click"))
+			player.PlaySound("click")
 			player.DequipItem(item)
 			player.SendPacket(world.EquipmentStats(player))
 			player.SendPacket(world.InventoryItems(player))
@@ -78,7 +78,7 @@ func init() {
 			if !player.WithinRange(item.Location, 0) {
 				return false
 			}
-			player.SendPacket(world.Sound("takeobject"))
+			player.PlaySound("takeobject")
 			player.ResetPath()
 			if player.Items.Size() >= 30 {
 				player.Message("You do not have room for that item in your inventory.")
@@ -102,7 +102,7 @@ func init() {
 					if player.Items.Remove(index, item.Amount) {
 						world.AddItem(world.NewGroundItemFor(player.UserBase37, item.ID, item.Amount, player.X(), player.Y()))
 						player.SendPacket(world.InventoryItems(player))
-						player.SendPacket(world.Sound("dropobject"))
+						player.PlaySound("dropobject")
 					}
 					return true
 				}

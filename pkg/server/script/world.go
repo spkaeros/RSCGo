@@ -114,45 +114,6 @@ func WorldModule() *vm.Env {
 		"SLEEPING":           world.MSSleeping,
 		"CHANGINGAPPEARANCE": world.MSChangingAppearance,
 		"rand": rand.Int31N,
-		"playerDamage": func(target *world.Player, damage int) {
-			for _, player := range target.NearbyPlayers() {
-				player.SendPacket(world.PlayerDamage(target, damage))
-			}
-			target.SendPacket(world.PlayerDamage(target, damage))
-		},
-		"sendSound": func(target *world.Player, sound string) {
-			target.SendPacket(world.Sound(sound))
-		},
-		"sendStats": func(target *world.Player) {
-			target.SendPacket(world.PlayerStats(target))
-		},
-		"sendStat": func(target *world.Player, idx int) {
-			target.SendPacket(world.PlayerStat(target, idx))
-		},
-		"kill": func(target *world.Player) {
-			target.SendPacket(world.Death)
-			target.SendPacket(world.Sound("death"))
-			target.Transients().SetVar("deathTime", time.Now())
-			for i := 0; i < 18; i++ {
-				target.Skills().SetCur(i, target.Skills().Maximum(i))
-			}
-			target.SendPacket(world.PlayerStats(target))
-			// TODO: Keep 3 most valuable items
-			target.Inventory().Range(func(item *world.Item) bool {
-				target.DequipItem(item)
-				world.AddItem(world.NewGroundItem(item.ID, item.Amount, target.X(), target.Y()))
-				return true
-			})
-			target.Inventory().Clear()
-			world.AddItem(world.NewGroundItem(20, 1, target.X(), target.Y()))
-			target.SendPacket(world.InventoryItems(target))
-			target.SendPacket(world.EquipmentStats(target))
-			plane := target.Plane()
-			target.SetLocation(world.SpawnPoint, true)
-			if target.Plane() != plane {
-				target.SendPacket(world.PlaneInfo(target))
-			}
-		},
 		"walkTo": func(target *world.Player, x, y int) {
 			target.WalkTo(world.NewLocation(x, y))
 		},
@@ -171,12 +132,6 @@ func WorldModule() *vm.Env {
 				player.SendPacket(world.SystemUpdate(t))
 			})
 		},
-		"sendInventory": func(target *world.Player) {
-			target.SendPacket(world.InventoryItems(target))
-		},
-		"sendDeath": func(target *world.Player) {
-			target.SendPacket(world.Death)
-		},
 		"base37": strutil.Base37.Encode,
 		"teleport": func(target *world.Player, x, y int, bubble bool) {
 			if bubble {
@@ -190,9 +145,6 @@ func WorldModule() *vm.Env {
 			if target.Plane() != plane {
 				target.SendPacket(world.PlaneInfo(target))
 			}
-		},
-		"sendPlane": func(target *world.Player) {
-			target.SendPacket(world.PlaneInfo(target))
 		},
 		"getSkillIndex": func(name string) int {
 			return world.ParseSkill(name)

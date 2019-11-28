@@ -40,13 +40,11 @@ func npcAction(player, npc) {
 				player.Chat("No, I was just wondering if you had anything interesting to say")
 			case 13:
 				npc.Chat(player, "How can I help you?")
-				switch player.OpenOptionMenu("Do you wish to trade?",
-											 "I'm in search of a quest",
-											 "I'm in search of enemies to kill") {
+				switch player.OpenOptionMenu("Do you wish to trade?", "I'm in search of a quest",
+						"I'm in search of enemies to kill") {
 				case 0:
-					npc.Chat(player, "No, I have nothing I wish to get rid of",
-										 "If you want some trading,",
-										 "there are plenty of shops and market stalls around though")
+					npc.Chat(player, "No, I have nothing I wish to get rid of", "If you want some trading,",
+							"there are plenty of shops and market stalls around though")
 				case 1:
 					npc.Chat(player, "I'm sorry I can't help you there")
 				case 2:

@@ -705,3 +705,111 @@ func (p *Player) CanWalk() bool {
 	}
 	return !p.HasState(MSBatching, MSFighting, MSTrading, MSDueling, MSChangingAppearance, MSSleeping, MSChatting, MSBusy)
 }
+
+func (p *Player) PlaySound(soundName string) {
+	p.SendPacket(Sound(soundName))
+}
+
+func (p *Player) SendStat(idx int) {
+	p.SendPacket(PlayerStat(p, idx))
+}
+
+func (p *Player) SendStats() {
+	p.SendPacket(PlayerStats(p))
+}
+
+func (p *Player) SendInventory() {
+	p.SendPacket(InventoryItems(p))
+}
+
+func (p *Player) SetCurStat(idx int, lvl int) {
+	p.Skills().SetCur(idx, lvl)
+	p.SendStat(idx)
+}
+
+func (p *Player) SetMaxStat(idx int, lvl int) {
+	p.Skills().SetMax(idx, lvl)
+	p.Skills().SetExp(idx, LevelToExperience(lvl))
+	p.SendStat(idx)
+}
+
+func (p *Player) AddItem(id, amount int) {
+	if !ItemDefs[id].Stackable {
+		for i := 0; i < amount; i++ {
+			if p.Inventory().Size() >= p.Inventory().Capacity {
+				break
+			}
+			p.Inventory().Add(id, 1)
+		}
+	} else {
+		p.Inventory().Add(id, amount)
+	}
+	p.SendInventory()
+}
+
+func (p *Player) Killed() {
+	p.Transients().SetVar("deathTime", time.Now())
+	p.PlaySound("death")
+	p.SendPacket(Death)
+	for i := 0; i < 18; i++ {
+		p.Skills().SetCur(i, p.Skills().Maximum(i))
+	}
+	p.SendStats()
+	// TODO: Keep 3 most valuable items
+
+	if killer, ok := p.FightTarget().(*Player); killer != nil && ok {
+		AddItem(NewGroundItemFor(killer.UserBase37, 20, 1, p.X(), p.Y()))
+		p.Inventory().Range(func(item *Item) bool {
+			p.DequipItem(item)
+			AddItem(NewGroundItemFor(killer.UserBase37, item.ID, item.Amount, p.X(), p.Y()))
+			return true
+		})
+	} else {
+		p.Inventory().Range(func(item *Item) bool {
+			p.DequipItem(item)
+			AddItem(NewGroundItem(item.ID, item.Amount, p.X(), p.Y()))
+			return true
+		})
+	}
+	p.Inventory().Clear()
+	p.SendInventory()
+	p.SendEquipBonuses()
+	p.ResetFighting()
+	plane := p.Plane()
+	p.SetLocation(SpawnPoint, true)
+	if p.Plane() != plane {
+		p.SendPlane()
+	}
+}
+
+func (p *Player) SendPlane() {
+	p.SendPacket(PlaneInfo(p))
+}
+
+func (p *Player) SendEquipBonuses() {
+	p.SendPacket(EquipmentStats(p))
+}
+
+func (p *Player) RemoveItem(index, amount int) {
+	p.Inventory().Remove(index, amount)
+	p.SendInventory()
+}
+
+func (p *Player) RemoveItemByID(id, amount int) {
+	p.Inventory().RemoveByID(id, amount)
+	p.SendInventory()
+}
+
+func (p *Player) Damage(amt int) {
+	for _, player := range p.NearbyPlayers() {
+		player.SendPacket(PlayerDamage(p, amt))
+	}
+	p.SendPacket(PlayerDamage(p, amt))
+}
+
+func (p *Player) SetStat(idx, lvl int) {
+	p.Skills().SetCur(idx, lvl)
+	p.Skills().SetMax(idx, lvl)
+	p.Skills().SetExp(idx, LevelToExperience(lvl))
+	p.SendStat(idx)
+}

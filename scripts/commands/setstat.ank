@@ -18,10 +18,8 @@ addCommand("stat", func(player, args) {
 		return
 	}
 
-	player.Skills().SetCur(idx, lvl)
-	player.Skills().SetMax(idx, lvl)
-	player.Skills().SetExp(idx, lvlToExp(lvl))
-	sendStat(player, idx)
+	player.SetStat(idx, lvl)
+
 	player.AppearanceLock.Lock()
 	player.AppearanceTicket++
 	player.AppearanceLock.Unlock()
@@ -37,22 +35,11 @@ addCommand("stats", func(player, args) {
 	def = toInt(args[1])
 	str = toInt(args[2])
 	hpXp = toInt((lvlToExp(atk) + lvlToExp(def) + lvlToExp(str)) / 3) + 1154
-	player.Skills().SetMax(ATTACK, atk)
-	player.Skills().SetCur(ATTACK, atk)
-	player.Skills().SetExp(ATTACK, lvlToExp(atk))
-	sendStat(player, ATTACK)
-	player.Skills().SetMax(DEFENSE, def)
-	player.Skills().SetCur(DEFENSE, def)
-	player.Skills().SetExp(DEFENSE, lvlToExp(def))
-	sendStat(player, DEFENSE)
-	player.Skills().SetMax(STRENGTH, str)
-	player.Skills().SetCur(STRENGTH, str)
-	player.Skills().SetExp(STRENGTH, lvlToExp(str))
-	sendStat(player, STRENGTH)
-	player.Skills().SetMax(HITPOINTS, expToLvl(hpXp))
-	player.Skills().SetCur(HITPOINTS, expToLvl(hpXp))
-	player.Skills().SetExp(HITPOINTS, hpXp)
-	sendStat(player, HITPOINTS)
+
+	player.SetStat(ATTACK, atk)
+	player.SetStat(DEFENSE, def)
+	player.SetStat(STRENGTH, str)
+	player.SetStat(HITPOINTS, hits)
 
 	player.AppearanceLock.Lock()
 	player.AppearanceTicket++

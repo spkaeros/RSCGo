@@ -1,3 +1,12 @@
+/*
+ * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
 package packethandlers
 
 import (
@@ -67,7 +76,7 @@ func init() {
 							if defenderNpc, ok := defender.(*world.NPC); ok {
 								script.EngineChannel <- func() {
 									if attackerPlayer, ok := attacker.(*world.Player); ok {
-										attackerPlayer.SendPacket(world.Sound("victory"))
+										attackerPlayer.PlaySound("victory")
 										world.AddItem(world.NewGroundItemFor(attackerPlayer.UserBase37, 20, 1, defender.X(), defender.Y()))
 									} else {
 										world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
@@ -85,14 +94,14 @@ func init() {
 								}()
 							} else if defenderPlayer, ok := defender.(*world.Player); ok {
 								script.EngineChannel <- func() {
-									attacker.ResetFighting()
+/*									attacker.ResetFighting()
 									world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
 									for i := 0; i < 18; i++ {
 										defenderPlayer.Skills().SetCur(i, defenderPlayer.Skills().Maximum(i))
 									}
 									defenderPlayer.SendPacket(world.PlayerStats(defenderPlayer))
 									defenderPlayer.SendPacket(world.Death)
-									defenderPlayer.SendPacket(world.Sound("death"))
+									defenderPlayer.PlaySound("death")
 									defenderPlayer.Transients().SetVar("deathTime", time.Now())
 									// TODO: Keep 3 most valuable items
 									defenderPlayer.Inventory().Range(func(item *world.Item) bool {
@@ -109,7 +118,8 @@ func init() {
 									defenderPlayer.SetLocation(world.SpawnPoint, true)
 									if defenderPlayer.Plane() != plane {
 										defenderPlayer.SendPacket(world.PlaneInfo(defenderPlayer))
-									}
+									}*/
+									defenderPlayer.Killed()
 								}
 							}
 							return
@@ -122,11 +132,7 @@ func init() {
 								p1.SendPacket(hitUpdate)
 							}
 						} else if defenderPlayer, ok := defender.(*world.Player); ok {
-							hitUpdate := world.PlayerDamage(defenderPlayer, nextHit)
-							player.SendPacket(hitUpdate)
-							for _, p1 := range player.NearbyPlayers() {
-								p1.SendPacket(hitUpdate)
-							}
+							defenderPlayer.Damage(nextHit)
 						}
 
 						attacker.Transients().SetVar("fightRound", attacker.Transients().VarInt("fightRound", 0)+1)
@@ -161,7 +167,7 @@ func init() {
 					return false
 				}
 				affectedPlayer.ResetPath()
-				affectedPlayer.SendPacket(world.Sound("underattack"))
+				affectedPlayer.PlaySound("underattack")
 				player.SetLocation(affectedPlayer.Location, true)
 				player.AddState(world.MSFighting)
 				affectedPlayer.AddState(world.MSFighting)
@@ -202,10 +208,11 @@ func init() {
 						defender.Skills().DecreaseCur(world.StatHits, nextHit)
 						if defender.Skills().Current(world.StatHits) <= 0 {
 							script.EngineChannel <- func() {
+								/*
 								attacker.ResetFighting()
 								world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
-								attacker.SendPacket(world.Sound("victory"))
-								defender.SendPacket(world.Sound("death"))
+								attacker.PlaySound("victory")
+								defender.PlaySound("death")
 								// TODO: Keep 3 most valuable items
 								defender.Inventory().Range(func(item *world.Item) bool {
 									world.AddItem(world.NewGroundItemFor(attacker.UserBase37, item.ID, item.Amount, defender.X(), defender.Y()))
@@ -221,14 +228,13 @@ func init() {
 								if defender.Plane() != world.SpawnPoint.Plane() {
 									defender.SendPacket(world.PlaneInfo(defender))
 								}
+								*/
+
+								defender.Killed()
 							}
 							return
 						}
-						hitUpdate := world.PlayerDamage(defender, nextHit)
-						player.SendPacket(hitUpdate)
-						for _, p1 := range player.NearbyPlayers() {
-							p1.SendPacket(hitUpdate)
-						}
+						defender.Damage(nextHit)
 
 						attacker.Transients().SetVar("fightRound", attacker.Transients().VarInt("fightRound", 0)+1)
 						curRound++

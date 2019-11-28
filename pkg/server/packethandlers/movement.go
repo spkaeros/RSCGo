@@ -30,7 +30,7 @@ func init() {
 				return
 			}
 			if target, ok := target.(*world.Player); ok {
-				target.SendPacket(world.Sound("retreat"))
+				target.PlaySound("retreat")
 				target.Message("Your opponent is retreating")
 			}
 			player.TransAttrs.SetVar("lastRetreat", time.Now())

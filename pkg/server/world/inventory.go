@@ -58,6 +58,13 @@ type Item struct {
 	Worn   bool
 }
 
+func (i *Item) Name() string {
+	if i.ID >= len(ItemDefs) || i.ID < 0 {
+		return "nil"
+	}
+	return ItemDefs[i.ID].Name
+}
+
 //GroundItem Represents a single ground item within the game.
 type GroundItem struct {
 	owner     uint64

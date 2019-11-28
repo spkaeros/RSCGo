@@ -36,17 +36,7 @@ addCommand("item", func(player, args) {
 		if amount < 1 {
 			amount = 1
 		}
-		if !itemDefs[id].Stackable {
-			for i = 0; i < amount; i++ {
-				player.Items.Add(id, 1)
-				if player.Items.Size() >= 30 {
-					break
-				}
-			}
-		} else {
-			player.Items.Add(id, amount)
-		}
-		sendInventory(player)
+		player.AddItem(id, amount)
 	} catch e {
 		player.Message("Invalid syntax.  Usage: ::item <id> (<amount>)")
 	}
