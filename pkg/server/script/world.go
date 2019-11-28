@@ -15,7 +15,6 @@ import (
 	"github.com/mattn/anko/vm"
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/server/log"
-	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"github.com/spkaeros/rscgo/pkg/strutil"
@@ -58,7 +57,7 @@ func WorldModule() *vm.Env {
 		"itemDefs":        world.ItemDefs,
 		"commands":        CommandHandlers,
 		"kick": func(client *world.Player) {
-			client.SendPacket(packetbuilders.Logout)
+			client.SendPacket(world.Logout)
 			client.Destroy()
 		},
 		"addCommand": func(name string, fn func(p *world.Player, args []string)) {
@@ -73,7 +72,7 @@ func WorldModule() *vm.Env {
 		},
 		"announce": func(msg string) {
 			players.Range(func(player *world.Player) {
-				player.SendPacket(packetbuilders.ServerMessage("@que@" + msg))
+				player.Message("@que@" + msg)
 			})
 		},
 		"parseDirection":     world.ParseDirection,
@@ -105,7 +104,7 @@ func WorldModule() *vm.Env {
 		"THIEVING":           world.StatThieving,
 		"IDLE":               world.MSIdle,
 		"BUSY":               world.MSBusy,
-		"MENUCHOOSING":       world.MSMenuChoosing,
+		"MENUCHOOSING":       world.MSOptionMenu,
 		"CHATTING":           world.MSChatting,
 		"BANKING":            world.MSBanking,
 		"TRADING":            world.MSTrading,
@@ -114,72 +113,30 @@ func WorldModule() *vm.Env {
 		"BATCHING":           world.MSBatching,
 		"SLEEPING":           world.MSSleeping,
 		"CHANGINGAPPEARANCE": world.MSChangingAppearance,
-		"openOptionMenu": func(player *world.Player, options ...string) int {
-			player.SendPacket(packetbuilders.OptionMenuOpen(options...))
-			player.AddState(world.MSMenuChoosing)
-			select {
-			case reply := <-player.OptionMenuC:
-				if reply < 0 || int(reply) > len(options) {
-					return -1
-				}
-
-				for _, player2 := range player.NearbyPlayers() {
-					player2.SendPacket(packetbuilders.PlayerMessage(player, options[reply]))
-				}
-				player.SendPacket(packetbuilders.PlayerMessage(player, options[reply]))
-				time.Sleep(time.Millisecond * 1800)
-				return int(reply)
-			case <-time.After(time.Second * 10):
-				return -1
-			}
-		},
-		"closeOptionMenu": func(player *world.Player, questions ...string) {
-			player.SendPacket(packetbuilders.OptionMenuClose)
-		},
 		"rand": rand.Int31N,
-		"npcChat": func(sender *world.NPC, target *world.Player, msgs ...string) {
-			for _, msg := range msgs {
-				for _, player := range target.NearbyPlayers() {
-					player.SendPacket(packetbuilders.NpcMessage(sender, msg, target))
-				}
-				target.SendPacket(packetbuilders.NpcMessage(sender, msg, target))
-				//sender.ChatTarget = target.Index
-				//sender.ChatMessage = msg
-				time.Sleep(time.Millisecond * 1800)
-			}
-		},
-		"playerChat": func(sender *world.Player, msg ...string) {
-			for _, s := range msg {
-				for _, player := range sender.NearbyPlayers() {
-					player.SendPacket(packetbuilders.PlayerMessage(sender, s))
-				}
-				sender.SendPacket(packetbuilders.PlayerMessage(sender, s))
-				time.Sleep(time.Millisecond * 1800)
-			}
-		},
 		"playerDamage": func(target *world.Player, damage int) {
 			for _, player := range target.NearbyPlayers() {
-				player.SendPacket(packetbuilders.PlayerDamage(target, damage))
+				player.SendPacket(world.PlayerDamage(target, damage))
 			}
-			target.SendPacket(packetbuilders.PlayerDamage(target, damage))
+			target.SendPacket(world.PlayerDamage(target, damage))
 		},
 		"sendSound": func(target *world.Player, sound string) {
-			target.SendPacket(packetbuilders.Sound(sound))
+			target.SendPacket(world.Sound(sound))
 		},
 		"sendStats": func(target *world.Player) {
-			target.SendPacket(packetbuilders.PlayerStats(target))
+			target.SendPacket(world.PlayerStats(target))
 		},
 		"sendStat": func(target *world.Player, idx int) {
-			target.SendPacket(packetbuilders.PlayerStat(target, idx))
+			target.SendPacket(world.PlayerStat(target, idx))
 		},
 		"kill": func(target *world.Player) {
-			target.SendPacket(packetbuilders.Death)
-			target.SendPacket(packetbuilders.Sound("death"))
+			target.SendPacket(world.Death)
+			target.SendPacket(world.Sound("death"))
 			target.Transients().SetVar("deathTime", time.Now())
 			for i := 0; i < 18; i++ {
 				target.Skills().SetCur(i, target.Skills().Maximum(i))
 			}
-			target.SendPacket(packetbuilders.PlayerStats(target))
+			target.SendPacket(world.PlayerStats(target))
 			// TODO: Keep 3 most valuable items
 			target.Inventory().Range(func(item *world.Item) bool {
 				target.DequipItem(item)
@@ -188,12 +145,12 @@ func WorldModule() *vm.Env {
 			})
 			target.Inventory().Clear()
 			world.AddItem(world.NewGroundItem(20, 1, target.X(), target.Y()))
-			target.SendPacket(packetbuilders.InventoryItems(target))
-			target.SendPacket(packetbuilders.EquipmentStats(target))
+			target.SendPacket(world.InventoryItems(target))
+			target.SendPacket(world.EquipmentStats(target))
 			plane := target.Plane()
 			target.SetLocation(world.SpawnPoint, true)
 			if target.Plane() != plane {
-				target.SendPacket(packetbuilders.PlaneInfo(target))
+				target.SendPacket(world.PlaneInfo(target))
 			}
 		},
 		"walkTo": func(target *world.Player, x, y int) {
@@ -204,41 +161,38 @@ func WorldModule() *vm.Env {
 			go func() {
 				time.Sleep(time.Second * time.Duration(t))
 				players.Range(func(player *world.Player) {
-					player.SendPacket(packetbuilders.Logout)
+					player.SendPacket(world.Logout)
 					player.Destroy()
 				})
 				time.Sleep(300 * time.Millisecond)
 				os.Exit(200)
 			}()
 			players.Range(func(player *world.Player) {
-				player.SendPacket(packetbuilders.SystemUpdate(t))
+				player.SendPacket(world.SystemUpdate(t))
 			})
 		},
 		"sendInventory": func(target *world.Player) {
-			target.SendPacket(packetbuilders.InventoryItems(target))
+			target.SendPacket(world.InventoryItems(target))
 		},
 		"sendDeath": func(target *world.Player) {
-			target.SendPacket(packetbuilders.Death)
+			target.SendPacket(world.Death)
 		},
 		"base37": strutil.Base37.Encode,
 		"teleport": func(target *world.Player, x, y int, bubble bool) {
 			if bubble {
-				target.SendPacket(packetbuilders.TeleBubble(0, 0))
+				target.SendPacket(world.TeleBubble(0, 0))
 				for _, nearbyPlayer := range target.NearbyPlayers() {
-					nearbyPlayer.SendPacket(packetbuilders.TeleBubble(target.X()-nearbyPlayer.X(), target.Y()-nearbyPlayer.Y()))
+					nearbyPlayer.SendPacket(world.TeleBubble(target.X()-nearbyPlayer.X(), target.Y()-nearbyPlayer.Y()))
 				}
 			}
 			plane := target.Plane()
 			target.Teleport(x, y)
 			if target.Plane() != plane {
-				target.SendPacket(packetbuilders.PlaneInfo(target))
+				target.SendPacket(world.PlaneInfo(target))
 			}
 		},
 		"sendPlane": func(target *world.Player) {
-			target.SendPacket(packetbuilders.PlaneInfo(target))
-		},
-		"sendMessage": func(target *world.Player, msg string) {
-			target.SendPacket(packetbuilders.ServerMessage(msg))
+			target.SendPacket(world.PlaneInfo(target))
 		},
 		"getSkillIndex": func(name string) int {
 			return world.ParseSkill(name)
@@ -260,47 +214,46 @@ func WorldModule() *vm.Env {
 		return nil
 	}
 	env, err = env.AddPackage("packets", map[string]interface{}{
-		"BigInformationBox":     packetbuilders.BigInformationBox,
-		"BoundaryLocations":     packetbuilders.BoundaryLocations,
-		"CannotLogout":          packetbuilders.CannotLogout,
-		"ChangeAppearance":      packetbuilders.ChangeAppearance,
-		"ClientSettings":        packetbuilders.ClientSettings,
-		"Death":                 packetbuilders.Death,
-		"DefaultActionMessage":  packetbuilders.DefaultActionMessage,
-		"EquipmentStats":        packetbuilders.EquipmentStats,
-		"Fatigue":               packetbuilders.Fatigue,
-		"FightMode":             packetbuilders.FightMode,
-		"FriendList":            packetbuilders.FriendList,
-		"FriendUpdate":          packetbuilders.FriendUpdate,
-		"IgnoreList":            packetbuilders.IgnoreList,
-		"InventoryItems":        packetbuilders.InventoryItems,
-		"ItemLocations":         packetbuilders.ItemLocations,
-		"LoginBox":              packetbuilders.LoginBox,
-		"LoginResponse":         packetbuilders.LoginResponse,
-		"Logout":                packetbuilders.Logout,
-		"NPCPositions":          packetbuilders.NPCPositions,
-		"NpcDamage":             packetbuilders.NpcDamage,
-		"ObjectLocations":       packetbuilders.ObjectLocations,
-		"PlaneInfo":             packetbuilders.PlaneInfo,
-		"PlayerAppearances":     packetbuilders.PlayerAppearances,
-		"PlayerChat":            packetbuilders.PlayerChat,
-		"PlayerDamage":          packetbuilders.PlayerDamage,
-		"PlayerPositions":       packetbuilders.PlayerPositions,
-		"PlayerStat":            packetbuilders.PlayerStat,
-		"PlayerStats":           packetbuilders.PlayerStats,
-		"PrivacySettings":       packetbuilders.PrivacySettings,
-		"PrivateMessage":        packetbuilders.PrivateMessage,
-		"ResponsePong":          packetbuilders.ResponsePong,
-		"ServerInfo":            packetbuilders.ServerInfo,
-		"ServerMessage":         packetbuilders.ServerMessage,
-		"TeleBubble":            packetbuilders.TeleBubble,
-		"TradeAccept":           packetbuilders.TradeAccept,
-		"TradeClose":            packetbuilders.TradeClose,
-		"TradeConfirmationOpen": packetbuilders.TradeConfirmationOpen,
-		"TradeOpen":             packetbuilders.TradeOpen,
-		"TradeTargetAccept":     packetbuilders.TradeTargetAccept,
-		"TradeUpdate":           packetbuilders.TradeUpdate,
-		"WelcomeMessage":        packetbuilders.WelcomeMessage,
+		"BigInformationBox":     world.BigInformationBox,
+		"BoundaryLocations":     world.BoundaryLocations,
+		"CannotLogout":          world.CannotLogout,
+		"OpenChangeAppearance":      world.OpenChangeAppearance,
+		"ClientSettings":        world.ClientSettings,
+		"Death":                 world.Death,
+		"DefaultActionMessage":  world.DefaultActionMessage,
+		"EquipmentStats":        world.EquipmentStats,
+		"Fatigue":               world.Fatigue,
+		"FightMode":             world.FightMode,
+		"FriendList":            world.FriendList,
+		"FriendUpdate":          world.FriendUpdate,
+		"IgnoreList":            world.IgnoreList,
+		"InventoryItems":        world.InventoryItems,
+		"ItemLocations":         world.ItemLocations,
+		"LoginBox":              world.LoginBox,
+		"LoginResponse":         world.LoginResponse,
+		"Logout":                world.Logout,
+		"NPCPositions":          world.NPCPositions,
+		"NpcDamage":             world.NpcDamage,
+		"ObjectLocations":       world.ObjectLocations,
+		"PlaneInfo":             world.PlaneInfo,
+		"PlayerAppearances":     world.PlayerAppearances,
+		"PlayerChat":            world.PlayerChat,
+		"PlayerDamage":          world.PlayerDamage,
+		"PlayerPositions":       world.PlayerPositions,
+		"PlayerStat":            world.PlayerStat,
+		"PlayerStats":           world.PlayerStats,
+		"PrivacySettings":       world.PrivacySettings,
+		"PrivateMessage":        world.PrivateMessage,
+		"ResponsePong":          world.ResponsePong,
+		"ServerMessage":         world.ServerMessage,
+		"TeleBubble":            world.TeleBubble,
+		"TradeAccept":           world.TradeAccept,
+		"TradeClose":            world.TradeClose,
+		"TradeConfirmationOpen": world.TradeConfirmationOpen,
+		"TradeOpen":             world.TradeOpen,
+		"TradeTargetAccept":     world.TradeTargetAccept,
+		"TradeUpdate":           world.TradeUpdate,
+		"WelcomeMessage":        world.WelcomeMessage,
 	}, nil)
 	if err != nil {
 		log.Warning.Println("Error initializing VM parameters:", err)
@@ -353,6 +306,11 @@ func WorldModule() *vm.Env {
 		return nil
 	}
 	err = env.DefineGlobal("tMillis", time.Millisecond)
+	if err != nil {
+		log.Warning.Println("Error initializing VM parameters:", err)
+		return nil
+	}
+	err = env.DefineGlobal("ChatDelay", time.Millisecond*1800)
 	if err != nil {
 		log.Warning.Println("Error initializing VM parameters:", err)
 		return nil

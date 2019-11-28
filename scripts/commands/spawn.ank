@@ -1,6 +1,6 @@
 addCommand("npc", func(player, args) {
 	if len(args) < 1 {
-		sendMessage(player, "Invalid syntax.  Usage: ::npc <id> (<radius>)")
+		player.Message("Invalid syntax.  Usage: ::npc <id> (<radius>)")
 		return
 	}
 	try {
@@ -18,7 +18,7 @@ addCommand("npc", func(player, args) {
 		addNpc(newNpc(id, x, y, x-rad, x+rad, y-rad, y+rad))
 		log.cmdf("'%v' spawned a new NPC{id:%v, rad:%v} at %v,%v", player.String(), id, rad, x, y)
 	} catch {
-		sendMessage(player, "Invalid syntax.  Usage: ::npc <id> (<radius>)")
+		player.Message("Invalid syntax.  Usage: ::npc <id> (<radius>)")
 		return
 	}
 })
@@ -48,7 +48,7 @@ addCommand("item", func(player, args) {
 		}
 		sendInventory(player)
 	} catch e {
-		sendMessage(player, "Invalid syntax.  Usage: ::item <id> (<amount>)")
+		player.Message("Invalid syntax.  Usage: ::item <id> (<amount>)")
 	}
 })
 
@@ -56,7 +56,7 @@ addCommand("object", func(player, args) {
 	x = player.X()
 	y = player.Y()
 	if getObjectAt(x, y) != nil {
-		sendMessage(player, "There is already an object here.")
+		player.Message("There is already an object here.")
 		return
 	}
 	try {
@@ -68,7 +68,7 @@ addCommand("object", func(player, args) {
 		addObject(newObject(id, North, x, y, false))
 		log.cmdf("'%v' spawned a new object{id:%v, dir:%v} at %v,%v", player.String(), id, dir, x, y)
 	} catch e {
-		sendMessage(player, "Invalid syntax.  Usage: ::object <id> (<dir>)")
+		player.Message("Invalid syntax.  Usage: ::object <id> (<dir>)")
 	}
 })
 
@@ -77,14 +77,14 @@ addCommand("dobj", func(player, args) {
 		args = [toString(player.X()), toString(player.Y())]
 	}
 	if len(args) < 2 {
-		sendMessage(player, "Invalid args.  Usage: ::dobj <x> <y>")
+		player.Message("Invalid args.  Usage: ::dobj <x> <y>")
 		return
 	}
 	x = toInt(args[0])
 	y = toInt(args[1])
 	object = getObjectAt(x, y)
 	if object == nil {
-		sendMessage(player, "Can not find object.")
+		player.Message("Can not find object.")
 		return
 	}
 
@@ -96,7 +96,7 @@ addCommand("boundary", func(player, args) {
 	x = player.X()
 	y = player.Y()
 	if getObjectAt(x, y) != nil {
-		sendMessage(player, "There is already an object here.")
+		player.Message("There is already an object here.")
 		return
 	}
 	try {
@@ -108,6 +108,6 @@ addCommand("boundary", func(player, args) {
 		addObject(newObject(id, North, x, y, true))
 		log.cmdf("'%v' spawned a new boundary{id:%v, dir:%v} at %v,%v", player.String(), id, dir, x, y)
 	} catch e {
-		sendMessage(player, "Invalid syntax.  Usage: ::boundary <id> (<dir>)")
+		player.Message("Invalid syntax.  Usage: ::boundary <id> (<dir>)")
 	}
 })

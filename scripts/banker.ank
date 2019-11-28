@@ -1,6 +1,6 @@
 func npcAction(player, npc) {
 	if npc.ID == 95 {
-		npcChat(npc, player, "Testing")
+		npc.Chat(player, "Testing")
 		return true
 	}
 	return false

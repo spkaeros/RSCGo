@@ -5,10 +5,10 @@ func objectAction(player, object) {
 			max += 2
 		}
 		if player.Skills().Current(PRAYER) == max {
-			sendMessage(player, "You already have full prayer points")
+			player.Message("You already have full prayer points")
 			return true
 		}
-		sendMessage(player, "You recharge your prayer points")
+		player.Message("You recharge your prayer points")
 		player.Skills().SetCur(PRAYER, max)
 		sendStat(player, PRAYER)
 		sendSound(player, "recharge")

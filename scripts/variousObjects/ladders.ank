@@ -9,7 +9,7 @@ func objectAction(player, object) {
 		if oldPlane != player.Plane() {
 			sendPlane(player)
 		}
-		sendMessage(player, "You " + strings.Replace(cmd, "-", " ", -1) + " the " + objectDefs[object.ID].Name)
+		player.Message("You " + strings.Replace(cmd, "-", " ", -1) + " the " + objectDefs[object.ID].Name)
 		return true
 	}
 	return false

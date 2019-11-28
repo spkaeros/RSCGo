@@ -7,7 +7,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/errors"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
-	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/packethandlers"
 	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/world"
@@ -68,7 +67,7 @@ func (c *client) startWriter() {
 			}
 			c.writePacket(*p)
 		case <-time.After(time.Second * 10):
-			c.writePacket(*packetbuilders.ResponsePong)
+			c.writePacket(*world.ResponsePong)
 		case <-c.player.Kill:
 			return
 		}
@@ -98,7 +97,7 @@ func (c *client) destroy(wg *sync.WaitGroup) {
 	})
 }
 
-//startNetworking Starts up 3 new goroutines; one for reading incoming data from the Socket, one for writing outgoing data to the Socket, and one for client state updates and parsing plus handling incoming packetbuilders.  When the client kill signal is sent through the kill channel, the state update and packet handling goroutine will wait for both the reader and writer goroutines to complete their operations before unregistering the client.
+//startNetworking Starts up 3 new goroutines; one for reading incoming data from the Socket, one for writing outgoing data to the Socket, and one for client state updates and parsing plus handling incoming world.  When the client kill signal is sent through the kill channel, the state update and packet handling goroutine will wait for both the reader and writer goroutines to complete their operations before unregistering the client.
 func (c *client) startNetworking() {
 	var nwg sync.WaitGroup
 	nwg.Add(2)

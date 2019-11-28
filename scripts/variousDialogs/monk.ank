@@ -2,20 +2,20 @@ func npcAction(player, npc) {
 	npcs = [93, 174]
 	for id in npcs {
 		if npc.ID == id {
-			npcChat(npc, player, "Greetings traveller")
-			switch openOptionMenu(player, "Can you heal me? I'm injured", "Isn't this place built a bit out the way?") {
+			npc.Chat(player, "Greetings traveller")
+			switch player.OpenOptionMenu("Can you heal me? I'm injured", "Isn't this place built a bit out the way?") {
 			case 0:
-				npcChat(npc, player, "Ok")
-				sendMessage(player, "The monk places his hands on your head")
+				npc.Chat(player, "Ok")
+				player.Message("The monk places his hands on your head")
 				sleep(tMillis*1800)
-				sendMessage(player, "You feel a little better")
+				player.Message("You feel a little better")
 				deltaHp = player.Skills().Maximum(HITPOINTS) - player.Skills().Current(HITPOINTS)
 				if deltaHp > 0 {
 					player.Skills().SetCur(HITPOINTS, deltaHp < 5 ? player.Skills().Current(HITPOINTS) + deltaHp : player.Skills().Current(HITPOINTS) + 5)
 					sendStat(player, HITPOINTS)
 				}
 			case 1:
-				npcChat(npc, player, "We like it that way", "We get disturbed less", "We still get rather a large amount of travellers",
+				npc.Chat(player, "We like it that way", "We get disturbed less", "We still get rather a large amount of travellers",
 									 "looking for sanctuary and healing here as it is")
 				
 			}

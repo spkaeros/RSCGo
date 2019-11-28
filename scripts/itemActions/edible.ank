@@ -6,7 +6,7 @@ func invAction(player, item) {
 		if deltaHp < amount {
 			amount = deltaHp
 		}
-		sendMessage(player, "You eat the " + itemDefs[item.ID].Name + "...")
+		player.Message("You eat the " + itemDefs[item.ID].Name + "...")
 		player.Items.Remove(item.Index, item.Amount)
 		sendInventory(player)
 		sendSound(player, "eat")
@@ -14,7 +14,7 @@ func invAction(player, item) {
 			player.Skills().IncreaseCur(HITPOINTS, amount)
 			sendStat(player, HITPOINTS)
 			sleep(tMillis * 350)
-			sendMessage(player, "It heals some health.")
+			player.Message("It heals some health.")
 		}
 		return true
 	}

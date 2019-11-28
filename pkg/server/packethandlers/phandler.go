@@ -10,11 +10,11 @@ import (
 
 func init() {
 	PacketHandlers["pingreq"] = func(player *world.Player, p *packet.Packet) {
-//		player.SendPacket(packetbuilders.ResponsePong)
+//		player.SendPacket(world.ResponsePong)
 	}
 }
 
-//handlerFunc Represents a function for handling incoming packetbuilders.
+//handlerFunc Represents a function for handling incoming world.
 type handlerFunc func(*world.Player, *packet.Packet)
 
 //PacketHandlers A map with descriptive names for the keys, and functions to run for the value.

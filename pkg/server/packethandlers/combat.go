@@ -3,7 +3,6 @@ package packethandlers
 import (
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
-	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
@@ -68,7 +67,7 @@ func init() {
 							if defenderNpc, ok := defender.(*world.NPC); ok {
 								script.EngineChannel <- func() {
 									if attackerPlayer, ok := attacker.(*world.Player); ok {
-										attackerPlayer.SendPacket(packetbuilders.Sound("victory"))
+										attackerPlayer.SendPacket(world.Sound("victory"))
 										world.AddItem(world.NewGroundItemFor(attackerPlayer.UserBase37, 20, 1, defender.X(), defender.Y()))
 									} else {
 										world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
@@ -91,9 +90,9 @@ func init() {
 									for i := 0; i < 18; i++ {
 										defenderPlayer.Skills().SetCur(i, defenderPlayer.Skills().Maximum(i))
 									}
-									defenderPlayer.SendPacket(packetbuilders.PlayerStats(defenderPlayer))
-									defenderPlayer.SendPacket(packetbuilders.Death)
-									defenderPlayer.SendPacket(packetbuilders.Sound("death"))
+									defenderPlayer.SendPacket(world.PlayerStats(defenderPlayer))
+									defenderPlayer.SendPacket(world.Death)
+									defenderPlayer.SendPacket(world.Sound("death"))
 									defenderPlayer.Transients().SetVar("deathTime", time.Now())
 									// TODO: Keep 3 most valuable items
 									defenderPlayer.Inventory().Range(func(item *world.Item) bool {
@@ -104,12 +103,12 @@ func init() {
 										return true
 									})
 									defenderPlayer.Inventory().Clear()
-									defenderPlayer.SendPacket(packetbuilders.InventoryItems(defenderPlayer))
-									defenderPlayer.SendPacket(packetbuilders.EquipmentStats(defenderPlayer))
+									defenderPlayer.SendPacket(world.InventoryItems(defenderPlayer))
+									defenderPlayer.SendPacket(world.EquipmentStats(defenderPlayer))
 									plane := defenderPlayer.Plane()
 									defenderPlayer.SetLocation(world.SpawnPoint, true)
 									if defenderPlayer.Plane() != plane {
-										defenderPlayer.SendPacket(packetbuilders.PlaneInfo(defenderPlayer))
+										defenderPlayer.SendPacket(world.PlaneInfo(defenderPlayer))
 									}
 								}
 							}
@@ -117,13 +116,13 @@ func init() {
 						}
 
 						if defenderNpc, ok := defender.(*world.NPC); ok {
-							hitUpdate := packetbuilders.NpcDamage(defenderNpc, nextHit)
+							hitUpdate := world.NpcDamage(defenderNpc, nextHit)
 							player.SendPacket(hitUpdate)
 							for _, p1 := range player.NearbyPlayers() {
 								p1.SendPacket(hitUpdate)
 							}
 						} else if defenderPlayer, ok := defender.(*world.Player); ok {
-							hitUpdate := packetbuilders.PlayerDamage(defenderPlayer, nextHit)
+							hitUpdate := world.PlayerDamage(defenderPlayer, nextHit)
 							player.SendPacket(hitUpdate)
 							for _, p1 := range player.NearbyPlayers() {
 								p1.SendPacket(hitUpdate)
@@ -162,7 +161,7 @@ func init() {
 					return false
 				}
 				affectedPlayer.ResetPath()
-				affectedPlayer.SendPacket(packetbuilders.Sound("underattack"))
+				affectedPlayer.SendPacket(world.Sound("underattack"))
 				player.SetLocation(affectedPlayer.Location, true)
 				player.AddState(world.MSFighting)
 				affectedPlayer.AddState(world.MSFighting)
@@ -205,27 +204,27 @@ func init() {
 							script.EngineChannel <- func() {
 								attacker.ResetFighting()
 								world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
-								attacker.SendPacket(packetbuilders.Sound("victory"))
-								defender.SendPacket(packetbuilders.Sound("death"))
+								attacker.SendPacket(world.Sound("victory"))
+								defender.SendPacket(world.Sound("death"))
 								// TODO: Keep 3 most valuable items
 								defender.Inventory().Range(func(item *world.Item) bool {
 									world.AddItem(world.NewGroundItemFor(attacker.UserBase37, item.ID, item.Amount, defender.X(), defender.Y()))
 									return true
 								})
 								defender.Inventory().Clear()
-								attacker.SendPacket(packetbuilders.ServerMessage("You have defeated " + defender.Username + "!"))
+								attacker.SendPacket(world.ServerMessage("You have defeated " + defender.Username + "!"))
 								defender.Skills().SetCur(world.StatHits, defender.Skills().Maximum(world.StatHits))
-								defender.SendPacket(packetbuilders.PlayerStats(defender))
+								defender.SendPacket(world.PlayerStats(defender))
 								defender.Transients().SetVar("deathTime", time.Now())
-								defender.SendPacket(packetbuilders.Death)
+								defender.SendPacket(world.Death)
 								defender.SetLocation(world.SpawnPoint, true)
 								if defender.Plane() != world.SpawnPoint.Plane() {
-									defender.SendPacket(packetbuilders.PlaneInfo(defender))
+									defender.SendPacket(world.PlaneInfo(defender))
 								}
 							}
 							return
 						}
-						hitUpdate := packetbuilders.PlayerDamage(defender, nextHit)
+						hitUpdate := world.PlayerDamage(defender, nextHit)
 						player.SendPacket(hitUpdate)
 						for _, p1 := range player.NearbyPlayers() {
 							p1.SendPacket(hitUpdate)

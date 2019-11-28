@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"github.com/gobwas/ws"
-	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"net"
@@ -97,27 +96,27 @@ func Tick() {
 	world.UpdateNPCPositions()
 	players.Range(func(p *world.Player) {
 		// Everything is updated relative to our player's position, so player position packet comes first
-		if positions := packetbuilders.PlayerPositions(p); positions != nil {
+		if positions := world.PlayerPositions(p); positions != nil {
 			p.SendPacket(positions)
 		}
-		if appearances := packetbuilders.PlayerAppearances(p); appearances != nil {
+		if appearances := world.PlayerAppearances(p); appearances != nil {
 			p.SendPacket(appearances)
 		}
-		if npcUpdates := packetbuilders.NPCPositions(p); npcUpdates != nil {
+		if npcUpdates := world.NPCPositions(p); npcUpdates != nil {
 			p.SendPacket(npcUpdates)
 		}
 		/*
-			if npcAppearances := packetbuilders.NpcAppearances(p.player); npcAppearances != nil {
+			if npcAppearances := world.NpcAppearances(p.player); npcAppearances != nil {
 				p.SendPacket(npcAppearances)
 			}
 		*/
-		if itemUpdates := packetbuilders.ItemLocations(p); itemUpdates != nil {
+		if itemUpdates := world.ItemLocations(p); itemUpdates != nil {
 			p.SendPacket(itemUpdates)
 		}
-		if objectUpdates := packetbuilders.ObjectLocations(p); objectUpdates != nil {
+		if objectUpdates := world.ObjectLocations(p); objectUpdates != nil {
 			p.SendPacket(objectUpdates)
 		}
-		if boundaryUpdates := packetbuilders.BoundaryLocations(p); boundaryUpdates != nil {
+		if boundaryUpdates := world.BoundaryLocations(p); boundaryUpdates != nil {
 			p.SendPacket(boundaryUpdates)
 		}
 	})

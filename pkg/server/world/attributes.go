@@ -68,7 +68,7 @@ func (attributes *AttributeList) VarInt(name string, zero int) int {
 	return attributes.Set[name].(int)
 }
 
-//MaskInt Mask attribute `name` with the specified bitmask.
+//StoreMask Mask attribute `name` with the specified bitmask.
 func (attributes *AttributeList) StoreMask(name string, mask int) {
 	attributes.Lock.Lock()
 	defer attributes.Lock.Unlock()
@@ -79,13 +79,19 @@ func (attributes *AttributeList) StoreMask(name string, mask int) {
 	attributes.Set[name] = 0|1<<mask
 }
 
-func (attributes *AttributeList) HasMask(name string, mask int) bool {
+//HasMasks Returns true if the attribute `name` has any of the provided bits set.
+func (attributes *AttributeList) HasMasks(name string, masks... int) bool {
 	attributes.Lock.RLock()
 	defer attributes.Lock.RUnlock()
-	return attributes.VarInt(name, 0) & (1 << mask) != 0
+	for _, mask := range masks {
+		if attributes.VarInt(name, 0) & (1 << mask) != 0 {
+			return true
+		}
+	}
+	return false
 }
 
-//UnmaskInt Mask attribute `name` with the specified bitmask.
+//RemoveMask Mask attribute `name` with the specified bitmask.
 func (attributes *AttributeList) RemoveMask(name string, mask int) {
 	attributes.Lock.Lock()
 	defer attributes.Lock.Unlock()

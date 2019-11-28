@@ -1,8 +1,16 @@
+/*
+ * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
 package packethandlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/packet"
-	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"time"
@@ -10,10 +18,6 @@ import (
 
 func init() {
 	PacketHandlers["walkto"] = func(player *world.Player, p *packet.Packet) {
-		if player.HasState(world.MSMenuChoosing) {
-			player.OptionMenuC <- -1
-			player.RemoveState(world.MSMenuChoosing)
-		}
 		if player.IsFighting() {
 			target := player.FightTarget()
 			if target == nil {
@@ -22,18 +26,18 @@ func init() {
 			}
 			curRound := target.FightRound()
 			if curRound < 3 {
-				player.SendPacket(packetbuilders.ServerMessage("You can't retreat during the first 3 rounds of combat"))
+				player.Message("You can't retreat during the first 3 rounds of combat")
 				return
 			}
 			if target, ok := target.(*world.Player); ok {
-				target.SendPacket(packetbuilders.Sound("retreat"))
-				target.SendPacket(packetbuilders.ServerMessage("Your opponent is retreating"))
+				target.SendPacket(world.Sound("retreat"))
+				target.Message("Your opponent is retreating")
 			}
 			player.TransAttrs.SetVar("lastRetreat", time.Now())
 			player.UpdateLastRetreat()
 			player.ResetFighting()
 		}
-		if player.Busy() {
+		if !player.CanWalk() {
 			return
 		}
 		startX := p.ReadShort()
@@ -48,7 +52,10 @@ func init() {
 		player.SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
 	}
 	PacketHandlers["walktoentity"] = func(player *world.Player, p *packet.Packet) {
-		if player.Busy() {
+		if player.IsFighting() {
+			return
+		}
+		if !player.CanWalk() {
 			return
 		}
 		startX := p.ReadShort()
@@ -63,18 +70,21 @@ func init() {
 		player.SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
 	}
 	PacketHandlers["followreq"] = func(player *world.Player, p *packet.Packet) {
-		if player.Busy() {
+		if player.IsFighting() {
+			return
+		}
+		if !player.CanWalk() {
 			return
 		}
 		playerID := p.ReadShort()
 		affectedClient, ok := players.FromIndex(playerID)
 		if !ok {
-			player.SendPacket(packetbuilders.ServerMessage("@que@Could not find the player you're looking for."))
+			player.Message("@que@Could not find the player you're looking for.")
 			return
 		}
 		player.ResetAll()
 		player.StartFollowing(2)
-		player.SendPacket(packetbuilders.ServerMessage("@que@Following " + affectedClient.Username))
+		player.Message("@que@Following " + affectedClient.Username)
 		player.SetDistancedAction(func() bool {
 			if !player.IsFollowing() {
 				// Following vars have been reset.

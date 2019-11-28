@@ -1,3 +1,12 @@
+/*
+ * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
 package packethandlers
 
 import (
@@ -5,7 +14,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/db"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
-	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"github.com/spkaeros/rscgo/pkg/strutil"
@@ -20,7 +28,7 @@ func init() {
 		args := strutil.ModalParse(string(p.Payload))
 		handler, ok := script.CommandHandlers[args[0]]
 		if !ok {
-			player.SendPacket(packetbuilders.ServerMessage("@que@Invalid command."))
+			player.Message("@que@Invalid command.")
 			log.Commands.Printf("%v sent invalid command: /%v\n", player.Username, string(p.Payload))
 			return
 		}
@@ -31,27 +39,27 @@ func init() {
 		file, err := os.Create("rscgo.mprof")
 		if err != nil {
 			log.Warning.Println("Could not open file to dump memory profile:", err)
-			player.SendPacket(packetbuilders.ServerMessage("Error encountered opening profile output file."))
+			player.Message("Error encountered opening profile output file.")
 			return
 		}
 		err = pprof.WriteHeapProfile(file)
 		if err != nil {
 			log.Warning.Println("Could not write heap profile to file::", err)
-			player.SendPacket(packetbuilders.ServerMessage("Error encountered writing profile output file."))
+			player.Message("Error encountered writing profile output file.")
 			return
 		}
 		err = file.Close()
 		if err != nil {
 			log.Warning.Println("Could not close heap file::", err)
-			player.SendPacket(packetbuilders.ServerMessage("Error encountered closing profile output file."))
+			player.Message("Error encountered closing profile output file.")
 			return
 		}
 		log.Commands.Println(player.Username + " dumped memory profile of the server to rscgo.mprof")
-		player.SendPacket(packetbuilders.ServerMessage("Dumped memory profile."))
+		player.Message("Dumped memory profile.")
 	}
 	script.CommandHandlers["pprof"] = func(player *world.Player, args []string) {
 		if len(args) < 1 {
-			player.SendPacket(packetbuilders.ServerMessage("Invalid args.  Usage: /pprof <start|stop>"))
+			player.Message("Invalid args.  Usage: /pprof <start|stop>")
 			return
 		}
 		switch args[0] {
@@ -59,45 +67,45 @@ func init() {
 			file, err := os.Create("rscgo.pprof")
 			if err != nil {
 				log.Warning.Println("Could not open file to dump CPU profile:", err)
-				player.SendPacket(packetbuilders.ServerMessage("Error encountered opening profile output file."))
+				player.Message("Error encountered opening profile output file.")
 				return
 			}
 			err = pprof.StartCPUProfile(file)
 			if err != nil {
 				log.Warning.Println("Could not start CPU profile:", err)
-				player.SendPacket(packetbuilders.ServerMessage("Error encountered starting CPU profile."))
+				player.Message("Error encountered starting CPU profile.")
 				return
 			}
 			log.Commands.Println(player.Username + " began profiling CPU time.")
-			player.SendPacket(packetbuilders.ServerMessage("CPU profiling started."))
+			player.Message("CPU profiling started.")
 		case "stop":
 			pprof.StopCPUProfile()
 			log.Commands.Println(player.Username + " has finished profiling CPU time, output should be in rscgo.pprof")
-			player.SendPacket(packetbuilders.ServerMessage("CPU profiling finished."))
+			player.Message("CPU profiling finished.")
 		default:
-			player.SendPacket(packetbuilders.ServerMessage("Invalid args.  Usage: /pprof <start|stop>"))
+			player.Message("Invalid args.  Usage: /pprof <start|stop>")
 		}
 	}
 	script.CommandHandlers["saveobjects"] = func(player *world.Player, args []string) {
 		go func() {
 			if count := db.SaveObjectLocations(); count > 0 {
-				player.SendPacket(packetbuilders.ServerMessage("Saved " + strconv.Itoa(count) + " game objects to world.db"))
+				player.Message("Saved " + strconv.Itoa(count) + " game objects to world.db")
 				log.Commands.Println(player.Username + " saved " + strconv.Itoa(count) + " game objects to world.db")
 			} else {
-				player.SendPacket(packetbuilders.ServerMessage("Appears to have been an issue saving game objects to world.db.  Check server logs."))
+				player.Message("Appears to have been an issue saving game objects to world.db.  Check server logs.")
 				log.Commands.Println(player.Username + " failed to save game objects; count=" + strconv.Itoa(count))
 			}
 		}()
 	}
 	script.CommandHandlers["npc"] = func(player *world.Player, args []string) {
 		if len(args) < 1 {
-			player.SendPacket(packetbuilders.ServerMessage("@que@Invalid args.  Usage: /npc <id>"))
+			player.Message("@que@Invalid args.  Usage: /npc <id>")
 			return
 		}
 
 		id, err := strconv.Atoi(args[0])
 		if err != nil || id > 793 || id < 0 {
-			player.SendPacket(packetbuilders.ServerMessage("@que@Invalid args.  Usage: /npc <id>"))
+			player.Message("@que@Invalid args.  Usage: /npc <id>")
 			return
 		}
 
@@ -121,5 +129,5 @@ func init() {
 }
 
 func notYetImplemented(player *world.Player, args []string) {
-	player.SendPacket(packetbuilders.ServerMessage("@que@@ora@Not yet implemented"))
+	player.Message("@que@@ora@Not yet implemented")
 }

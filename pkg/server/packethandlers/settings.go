@@ -2,7 +2,6 @@ package packethandlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/packet"
-	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
@@ -23,14 +22,14 @@ func init() {
 			// turning off private chat block
 			players.Range(func(c1 *world.Player) {
 				if c1.Friends(player.UserBase37) && !player.Friends(c1.UserBase37) {
-					c1.SendPacket(packetbuilders.FriendUpdate(player.UserBase37, true))
+					c1.SendPacket(world.FriendUpdate(player.UserBase37, true))
 				}
 			})
 		} else if !player.FriendBlocked() && friendBlocked {
 			// turning on private chat block
 			players.Range(func(c1 *world.Player) {
 				if c1.Friends(player.UserBase37) && !player.Friends(c1.UserBase37) {
-					c1.SendPacket(packetbuilders.FriendUpdate(player.UserBase37, false))
+					c1.SendPacket(world.FriendUpdate(player.UserBase37, false))
 				}
 			})
 		}

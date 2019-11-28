@@ -6,6 +6,7 @@ import (
 	"go.uber.org/atomic"
 	"strconv"
 	"sync"
+	"time"
 )
 
 //AppearanceTable Represents a players appearance.
@@ -455,6 +456,7 @@ func (p *Player) ResetAll() {
 	p.ResetTrade()
 	p.ResetDistancedAction()
 	p.ResetFollowing()
+	p.CloseOptionMenu()
 }
 
 //Fatigue Returns the players current fatigue.
@@ -588,11 +590,118 @@ func NewPlayer(index int, ip string) *Player {
 		LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0),
 		FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30},
 		TradeOffer: &Inventory{Capacity: 12}, LocalItems: &List{}, IP: ip, OutgoingPackets: make(chan *packet.Packet, 20),
-		OptionMenuC: make(chan int8), Kill: make(chan struct{})}
+		Kill: make(chan struct{})}
 	p.Transients().SetVar("skills", &SkillTable{})
 	p.Attributes.SetVar("lastIP", ip)
 	p.Equips[0] = p.Appearance.Head
 	p.Equips[1] = p.Appearance.Body
 	p.Equips[2] = p.Appearance.Legs
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			if !p.Connected() {
+				return
+			}
+
+			p.Skills().Lock.Lock()
+			for idx, stat := range p.Skills().current {
+				if idx == StatPrayer {
+					continue
+				}
+				max := p.Skills().maximum[idx]
+				delta := max - stat
+
+				if delta > 0 && idx != StatHits {
+					p.Skills().current[idx] += 1
+				} else if delta < 0 {
+					p.Skills().current[idx] -= 1
+				}
+				if delta == 1 || delta == -1 {
+					p.Message("todo back to normal")
+				}
+			}
+			p.Skills().Lock.Unlock()
+		}
+	}()
 	return p
+}
+
+//Message Sends a message packet to the player.
+func (p *Player) Message(msg string) {
+	p.SendPacket(ServerMessage(msg))
+}
+
+func (p *Player) OpenAppearanceChanger() {
+	if p.Busy() {
+		return
+	}
+	p.AddState(MSChangingAppearance)
+	p.SendPacket(OpenChangeAppearance)
+}
+
+//Chat Sends a player NPC chat message packet to the player and all other players around it.  If multiple msgs are
+// provided, will sleep the goroutine for 1800ms between each message.
+func (p *Player) Chat(msgs... string) {
+	for _, msg := range msgs {
+		for _, player := range p.NearbyPlayers() {
+			player.SendPacket(PlayerMessage(p, msg))
+		}
+		p.SendPacket(PlayerMessage(p, msg))
+
+//		if i < len(msgs)-1 {
+			time.Sleep(time.Millisecond * 1800)
+			// TODO: is 3 ticks right?
+//		}
+	}
+}
+
+//OpenOptionMenu Opens an option menu with the provided options, and returns the reply index, or -1 upon timeout..
+func (p *Player) OpenOptionMenu(options... string) int {
+	// Can get option menu during most states, even fighting, but not trading, or if we're already in a menu...
+	if p.IsTrading() || p.HasState(MSOptionMenu) {
+		return -1
+	}
+	p.OptionMenuC = make(chan int8)
+	p.AddState(MSOptionMenu)
+	defer func() {
+		if p.HasState(MSOptionMenu) {
+			p.RemoveState(MSOptionMenu)
+			close(p.OptionMenuC)
+		}
+	}()
+	p.SendPacket(OptionMenuOpen(options...))
+
+	select {
+	case reply := <-p.OptionMenuC:
+		if reply < 0 || int(reply) > len(options)-1 || !p.HasState(MSOptionMenu) {
+			return -1
+		}
+
+		if p.HasState(MSChatting) {
+			p.Chat(options[reply])
+		}
+		return int(reply)
+	case <-time.After(time.Second * 10):
+		p.SendPacket(OptionMenuClose)
+		return -1
+	}
+}
+
+//CloseOptionMenu Closes any open option menus.
+func (p *Player) CloseOptionMenu() {
+	if p.HasState(MSOptionMenu) {
+		p.RemoveState(MSOptionMenu)
+		close(p.OptionMenuC)
+		p.SendPacket(OptionMenuClose)
+	}
+}
+
+func (p *Player) CanWalk() bool {
+	if p.HasState(MSOptionMenu) && p.HasState(MSChatting) {
+		// If player tries to walk but is in an option menu, they clearly have closed the menu, so we will kill the
+		// routine waiting for a reply when ResetAll is called before the new path is set.
+		return true
+	}
+	return !p.HasState(MSBatching, MSFighting, MSTrading, MSDueling, MSChangingAppearance, MSSleeping, MSChatting, MSBusy)
 }

@@ -1,3 +1,12 @@
+/*
+ * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
 package packethandlers
 
 import (
@@ -13,7 +22,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/config"
 	"github.com/spkaeros/rscgo/pkg/server/db"
 	"github.com/spkaeros/rscgo/pkg/server/log"
-	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
@@ -55,11 +63,11 @@ func init() {
 		oldPassword := strings.TrimSpace(p.ReadString(20))
 		newPassword := strings.TrimSpace(p.ReadString(20))
 		if !db.ValidCredentials(player.UserBase37, crypto.Hash(oldPassword)) {
-			player.SendPacket(packetbuilders.ServerMessage("The old password you provided does not appear to be valid.  Try again."))
+			player.Message("The old password you provided does not appear to be valid.  Try again.")
 			return
 		}
 		db.UpdatePassword(player.UserBase37, crypto.Hash(newPassword))
-		player.SendPacket(packetbuilders.ServerMessage("Successfully updated your password to the new password you have provided."))
+		player.Message("Successfully updated your password to the new password you have provided.")
 		return
 	}
 }
@@ -70,11 +78,11 @@ func closedConn(player *world.Player, p *packet.Packet) {
 
 func logout(player *world.Player, _ *packet.Packet) {
 	if player.Busy() {
-		player.SendPacket(packetbuilders.CannotLogout)
+		player.SendPacket(world.CannotLogout)
 		return
 	}
 	if player.Connected() {
-		player.SendPacket(packetbuilders.Logout)
+		player.SendPacket(world.Logout)
 		player.Destroy()
 	}
 }
@@ -85,10 +93,10 @@ func handleRegister(player *world.Player, reply chan byte) {
 	defer close(reply)
 	select {
 	case r := <-reply:
-		player.SendPacket(packetbuilders.LoginResponse(int(r)))
+		player.SendPacket(world.LoginResponse(int(r)))
 		return
 	case <-time.After(time.Second * 10):
-		player.SendPacket(packetbuilders.LoginResponse(0))
+		player.SendPacket(world.LoginResponse(0))
 		return
 	}
 }
@@ -154,22 +162,22 @@ func initialize(player *world.Player) {
 		}
 	}
 	if s := time.Until(script.UpdateTime).Seconds(); s > 0 {
-		player.SendPacket(packetbuilders.SystemUpdate(int(s)))
+		player.SendPacket(world.SystemUpdate(int(s)))
 	}
-	player.SendPacket(packetbuilders.PlaneInfo(player))
-	player.SendPacket(packetbuilders.FriendList(player))
-	player.SendPacket(packetbuilders.IgnoreList(player))
+	player.SendPacket(world.PlaneInfo(player))
+	player.SendPacket(world.FriendList(player))
+	player.SendPacket(world.IgnoreList(player))
 	if !player.Reconnecting() {
 		// Reconnecting implies that the client has all of this data already, so as an optimization, we don't send it again
-		player.SendPacket(packetbuilders.PlayerStats(player))
-		player.SendPacket(packetbuilders.EquipmentStats(player))
-		player.SendPacket(packetbuilders.Fatigue(player))
-		player.SendPacket(packetbuilders.InventoryItems(player))
+		player.SendPacket(world.PlayerStats(player))
+		player.SendPacket(world.EquipmentStats(player))
+		player.SendPacket(world.Fatigue(player))
+		player.SendPacket(world.InventoryItems(player))
 		// TODO: Not canonical RSC, but definitely good QoL update...
-		//  player.SendPacket(packetbuilders.FightMode(player)
-		player.SendPacket(packetbuilders.ClientSettings(player))
-		player.SendPacket(packetbuilders.PrivacySettings(player))
-		player.SendPacket(packetbuilders.WelcomeMessage)
+		//  player.SendPacket(world.FightMode(player)
+		player.SendPacket(world.ClientSettings(player))
+		player.SendPacket(world.PrivacySettings(player))
+		player.SendPacket(world.WelcomeMessage)
 		t, err := time.Parse(time.ANSIC, player.Attributes.VarString("lastLogin", time.Time{}.Format(time.ANSIC)))
 		if err != nil {
 			log.Info.Println(err)
@@ -181,13 +189,13 @@ func initialize(player *world.Player) {
 			days = 0
 		}
 		player.Attributes.SetVar("lastLogin", time.Now().Format(time.ANSIC))
-		player.SendPacket(packetbuilders.LoginBox(days, player.Attributes.VarString("lastIP", "127.0.0.1")))
+		player.SendPacket(world.LoginBox(days, player.Attributes.VarString("lastIP", "127.0.0.1")))
 	}
 	players.BroadcastLogin(player, true)
 	if player.FirstLogin() {
 		player.SetFirstLogin(false)
 		player.AddState(world.MSChangingAppearance)
-		player.SendPacket(packetbuilders.ChangeAppearance)
+		player.SendPacket(world.OpenChangeAppearance)
 	}
 }
 
@@ -205,7 +213,7 @@ func handleLogin(player *world.Player, reply chan byte) {
 	defer close(reply)
 	select {
 	case r := <-reply:
-		player.SendPacket(packetbuilders.LoginResponse(int(r)))
+		player.SendPacket(world.LoginResponse(int(r)))
 		if isValid(r) {
 			players.Put(player)
 			log.Info.Printf("Registered: %v\n", player)
@@ -216,7 +224,7 @@ func handleLogin(player *world.Player, reply chan byte) {
 		player.Destroy()
 		return
 	case <-time.After(time.Second * 10):
-		player.SendPacket(packetbuilders.LoginResponse(-1))
+		player.SendPacket(world.LoginResponse(-1))
 		return
 	}
 }

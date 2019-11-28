@@ -2,14 +2,14 @@ strings = import("strings")
 
 addCommand("kick", func(player, args) {
   	if len(args) < 1 {
-  		sendMessage(player, "Invalid args.  Usage: ::kick <username>")
+  		player.Message("Invalid args.  Usage: ::kick <username>")
   		return
   	}
 	target, ok = getPlayerByName(base37(strings.TrimSpace(strings.Join(args, " "))))
 	if target == nil || !ok {
-  		sendMessage(player, "Could not find player.")
+  		player.Message("Could not find player.")
 		return
 	}
-	sendMessage(player, "Kicking: '" + target.Username + "'")
+	player.Message("Kicking: '" + target.Username + "'")
 	kick(target)
 })

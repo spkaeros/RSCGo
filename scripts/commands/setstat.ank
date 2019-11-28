@@ -2,7 +2,7 @@ regexp = import("regexp")
 
 addCommand("stat", func(player, args) {
 	if len(args) < 2 {
-		sendMessage(player, "Invalid args.  Usage: ::stat <skill> <lvl>")
+		player.Message("Invalid args.  Usage: ::stat <skill> <lvl>")
 		return
 	}
 	idx = -1
@@ -14,7 +14,7 @@ addCommand("stat", func(player, args) {
 	lvl = toInt(args[1])
 
 	if idx < 0 || lvl < 1 || lvl > 99 {
-		sendMessage(player, "Invalid args.  Usage: ::stat <skill> <lvl>")
+		player.Message("Invalid args.  Usage: ::stat <skill> <lvl>")
 		return
 	}
 
@@ -30,7 +30,7 @@ addCommand("stat", func(player, args) {
 
 addCommand("stats", func(player, args) {
 	if len(args) < 3 {
-		sendMessage(player, "Invalid args.  Usage: ::stats <atk> <def> <str>")
+		player.Message("Invalid args.  Usage: ::stats <atk> <def> <str>")
 		return
 	}
 	atk = toInt(args[0])

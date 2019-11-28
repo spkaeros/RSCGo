@@ -3,13 +3,13 @@ fmt = import("fmt")
 
 addCommand("tele", func(player, args) {
 	if len(args) < 2 {
-		sendMessage(player, "Invalid args.  Usage: ::tele <x> <y>")
+		player.Message("Invalid args.  Usage: ::tele <x> <y>")
 		return
 	}
 	x = toInt(args[0])
 	y = toInt(args[1])
 	if !withinWorld(x, y) {
-		sendMessage(player, "Coords out of bounds.")
+		player.Message("Coords out of bounds.")
 		return
 	}
 	teleport(player, x, y, true)
@@ -17,12 +17,12 @@ addCommand("tele", func(player, args) {
 
 addCommand("goto", func(player, args) {
   	if len(args) < 1 {
-  		sendMessage(player, "Invalid args.  Usage: ::goto <username>")
+  		player.Message("Invalid args.  Usage: ::goto <username>")
   		return
   	}
 	target, ok = getPlayerByName(base37(strings.TrimSpace(strings.Join(args, " "))))
 	if target == nil || !ok {
-  		sendMessage(player, "Could not find player.")
+  		player.Message("Could not find player.")
 		return
 	}
   	teleport(player, target.X(), target.Y(), true)
@@ -30,12 +30,12 @@ addCommand("goto", func(player, args) {
 
 addCommand("summon", func(player, args) {
   	if len(args) < 1 {
-  		sendMessage(player, "Invalid args.  Usage: ::summon <username>")
+  		player.Message("Invalid args.  Usage: ::summon <username>")
   		return
   	}
 	target, ok = getPlayerByName(base37(strings.TrimSpace(strings.Join(args, " "))))
 	if !ok || target == nil {
-  		sendMessage(player, "Could not find player.")
+  		player.Message("Could not find player.")
 		return
 	}
   	teleport(target, player.X(), player.Y(), true)
@@ -43,7 +43,7 @@ addCommand("summon", func(player, args) {
 
 addCommand("walkto", func(player, args) {
 	if len(args) < 2 {
-		sendMessage(player, "Invalid args.  Usage: ::walkto <x> <y>")
+		player.Message("Invalid args.  Usage: ::walkto <x> <y>")
 		return
 	}
 	x = toInt(args[0])
@@ -58,7 +58,7 @@ addCommand("tile", func(player, args) {
 	areaX = (2304 + player.X()) % 48
 	areaY = (1776 + player.Y() - (944 * player.Plane())) % 48
 	tile = tileData(player.X(), player.Y())
-	sendMessage(player, fmt.Sprintf("@que@worldX,Y:(%v,%v) Sector(%v sectorX,Y:(%v,%v)): overlay:%v, bitmask:%v",
+	player.Message(fmt.Sprintf("@que@worldX,Y:(%v,%v) Sector(%v sectorX,Y:(%v,%v)): overlay:%v, bitmask:%v",
 			player.X(), player.Y(), mapSector, areaX, areaY, tile.GroundOverlay, tile.CollisionMask))
 })
 

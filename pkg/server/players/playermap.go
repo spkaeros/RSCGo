@@ -2,7 +2,6 @@ package players
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/config"
-	"github.com/spkaeros/rscgo/pkg/server/packetbuilders"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"sync"
 )
@@ -90,7 +89,7 @@ func BroadcastLogin(player *world.Player, online bool) {
 		if rangedPlayer.Friends(player.UserBase37) {
 			if !player.FriendBlocked() || player.Friends(rangedPlayer.UserBase37) {
 				rangedPlayer.FriendList[player.UserBase37] = online
-				rangedPlayer.SendPacket(packetbuilders.FriendUpdate(player.UserBase37, online))
+				rangedPlayer.SendPacket(world.FriendUpdate(player.UserBase37, online))
 			}
 		}
 	})

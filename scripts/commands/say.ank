@@ -1,6 +1,6 @@
 addCommand("say", func(player, args) {
 	if len(args) < 1 {
-		sendMessage(player, "Invalid args.  Usage: ::say <msg>")
+		player.Message("Invalid args.  Usage: ::say <msg>")
 		return
 	}
 	msg = "@whi@[@cya@GLOBAL@whi@] "

@@ -15,8 +15,9 @@ const (
 	MSBanking
 	//MSChatting The mob is chatting with a NPC
 	MSChatting
-	//MSMenuChoosing The mob is in a query menu
-	MSMenuChoosing
+	//MSOptionMenu The mob is in an option menu.  The option menu handling routines will remove this state as soon
+	// as they end, so if this is activated, there is an option menu waiting for a reply.
+	MSOptionMenu
 	//MSTrading The mob is negotiating a trade.
 	MSTrading
 	//MSDueling The mob is negotiating a duel.
@@ -60,7 +61,7 @@ type MobileEntity interface {
 	FightRound() int
 	SetFightRound(int)
 	ResetFighting()
-	HasState(int) bool
+	HasState(...int) bool
 	AddState(int)
 	RemoveState(int)
 	State() int
@@ -259,8 +260,9 @@ func (m *Mob) State() int {
 	return m.TransAttrs.VarInt("state", MSIdle)
 }
 
-func (m *Mob) HasState(state int) bool {
-	return m.Transients().HasMask("state", state)
+//HasState Returns true if the mob has any of these states
+func (m *Mob) HasState(state... int) bool {
+	return m.Transients().HasMasks("state", state...)
 }
 
 func (m *Mob) AddState(state int) {
