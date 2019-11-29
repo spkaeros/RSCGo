@@ -296,6 +296,7 @@ func (m *Mob) ResetFighting() {
 		target.Transients().UnsetVar("fightRound")
 		target.SetDirection(North)
 		target.RemoveState(MSFighting)
+		target.UpdateLastFight()
 	}
 	if m.IsFighting() {
 		target.UpdateLastFight()

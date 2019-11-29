@@ -13,7 +13,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/world"
-	"time"
 )
 
 func init() {
@@ -33,7 +32,6 @@ func init() {
 				target.PlaySound("retreat")
 				target.Message("Your opponent is retreating")
 			}
-			player.TransAttrs.SetVar("lastRetreat", time.Now())
 			player.UpdateLastRetreat()
 			player.ResetFighting()
 		}

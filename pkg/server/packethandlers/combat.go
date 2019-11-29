@@ -35,7 +35,7 @@ func init() {
 		log.Info.Println(npc.ID)
 		player.SetDistancedAction(func() bool {
 			if player.NextTo(npc.Location) && player.WithinRange(npc.Location, 1) {
-				if time.Since(npc.TransAttrs.VarTime("lastRetreat")) <= time.Second*2 || npc.IsFighting() {
+				if time.Since(npc.TransAttrs.VarTime("lastFight")) <= time.Second*2 || npc.IsFighting() {
 					return false
 				}
 				player.ResetPath()
