@@ -94,31 +94,31 @@ func init() {
 								}()
 							} else if defenderPlayer, ok := defender.(*world.Player); ok {
 								script.EngineChannel <- func() {
-/*									attacker.ResetFighting()
-									world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
-									for i := 0; i < 18; i++ {
-										defenderPlayer.Skills().SetCur(i, defenderPlayer.Skills().Maximum(i))
-									}
-									defenderPlayer.SendPacket(world.PlayerStats(defenderPlayer))
-									defenderPlayer.SendPacket(world.Death)
-									defenderPlayer.PlaySound("death")
-									defenderPlayer.Transients().SetVar("deathTime", time.Now())
-									// TODO: Keep 3 most valuable items
-									defenderPlayer.Inventory().Range(func(item *world.Item) bool {
-										if item.Worn {
-											defenderPlayer.DequipItem(item)
-										}
-										world.AddItem(world.NewGroundItem(item.ID, item.Amount, defender.X(), defender.Y()))
-										return true
-									})
-									defenderPlayer.Inventory().Clear()
-									defenderPlayer.SendPacket(world.InventoryItems(defenderPlayer))
-									defenderPlayer.SendPacket(world.EquipmentStats(defenderPlayer))
-									plane := defenderPlayer.Plane()
-									defenderPlayer.SetLocation(world.SpawnPoint, true)
-									if defenderPlayer.Plane() != plane {
-										defenderPlayer.SendPacket(world.PlaneInfo(defenderPlayer))
-									}*/
+									/*									attacker.ResetFighting()
+																		world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
+																		for i := 0; i < 18; i++ {
+																			defenderPlayer.Skills().SetCur(i, defenderPlayer.Skills().Maximum(i))
+																		}
+																		defenderPlayer.SendPacket(world.PlayerStats(defenderPlayer))
+																		defenderPlayer.SendPacket(world.Death)
+																		defenderPlayer.PlaySound("death")
+																		defenderPlayer.Transients().SetVar("deathTime", time.Now())
+																		// TODO: Keep 3 most valuable items
+																		defenderPlayer.Inventory().Range(func(item *world.Item) bool {
+																			if item.Worn {
+																				defenderPlayer.DequipItem(item)
+																			}
+																			world.AddItem(world.NewGroundItem(item.ID, item.Amount, defender.X(), defender.Y()))
+																			return true
+																		})
+																		defenderPlayer.Inventory().Clear()
+																		defenderPlayer.SendPacket(world.InventoryItems(defenderPlayer))
+																		defenderPlayer.SendPacket(world.EquipmentStats(defenderPlayer))
+																		plane := defenderPlayer.Plane()
+																		defenderPlayer.SetLocation(world.SpawnPoint, true)
+																		if defenderPlayer.Plane() != plane {
+																			defenderPlayer.SendPacket(world.PlaneInfo(defenderPlayer))
+																		}*/
 									defenderPlayer.Killed()
 								}
 							}
@@ -209,25 +209,25 @@ func init() {
 						if defender.Skills().Current(world.StatHits) <= 0 {
 							script.EngineChannel <- func() {
 								/*
-								attacker.ResetFighting()
-								world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
-								attacker.PlaySound("victory")
-								defender.PlaySound("death")
-								// TODO: Keep 3 most valuable items
-								defender.Inventory().Range(func(item *world.Item) bool {
-									world.AddItem(world.NewGroundItemFor(attacker.UserBase37, item.ID, item.Amount, defender.X(), defender.Y()))
-									return true
-								})
-								defender.Inventory().Clear()
-								attacker.SendPacket(world.ServerMessage("You have defeated " + defender.Username + "!"))
-								defender.Skills().SetCur(world.StatHits, defender.Skills().Maximum(world.StatHits))
-								defender.SendPacket(world.PlayerStats(defender))
-								defender.Transients().SetVar("deathTime", time.Now())
-								defender.SendPacket(world.Death)
-								defender.SetLocation(world.SpawnPoint, true)
-								if defender.Plane() != world.SpawnPoint.Plane() {
-									defender.SendPacket(world.PlaneInfo(defender))
-								}
+									attacker.ResetFighting()
+									world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
+									attacker.PlaySound("victory")
+									defender.PlaySound("death")
+									// TODO: Keep 3 most valuable items
+									defender.Inventory().Range(func(item *world.Item) bool {
+										world.AddItem(world.NewGroundItemFor(attacker.UserBase37, item.ID, item.Amount, defender.X(), defender.Y()))
+										return true
+									})
+									defender.Inventory().Clear()
+									attacker.SendPacket(world.ServerMessage("You have defeated " + defender.Username + "!"))
+									defender.Skills().SetCur(world.StatHits, defender.Skills().Maximum(world.StatHits))
+									defender.SendPacket(world.PlayerStats(defender))
+									defender.Transients().SetVar("deathTime", time.Now())
+									defender.SendPacket(world.Death)
+									defender.SetLocation(world.SpawnPoint, true)
+									if defender.Plane() != world.SpawnPoint.Plane() {
+										defender.SendPacket(world.PlaneInfo(defender))
+									}
 								*/
 
 								defender.Killed()

@@ -146,7 +146,7 @@ func init() {
 							if offX == 0 && offY == 0 {
 								continue
 							}
-							newLoc := world.NewLocation(player.X() + offX, player.Y() + offY)
+							newLoc := world.NewLocation(player.X()+offX, player.Y()+offY)
 							if player.NextTo(newLoc) {
 								player.SetLocation(newLoc, true)
 								break outer

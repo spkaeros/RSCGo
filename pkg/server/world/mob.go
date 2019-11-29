@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-
 //MSIdle The default MobState, means doing nothing.
 const (
 	//MSIdle The default MobState, means doing nothing.
@@ -35,7 +34,7 @@ const (
 )
 
 const (
-	SyncBlank = 0
+	SyncBlank   = 0
 	SyncChanged = iota
 	SyncMoved
 	SyncRemoved
@@ -261,7 +260,7 @@ func (m *Mob) State() int {
 }
 
 //HasState Returns true if the mob has any of these states
-func (m *Mob) HasState(state... int) bool {
+func (m *Mob) HasState(state ...int) bool {
 	return m.Transients().HasMasks("state", state...)
 }
 

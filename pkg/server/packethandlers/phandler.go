@@ -10,7 +10,7 @@ import (
 
 func init() {
 	PacketHandlers["pingreq"] = func(player *world.Player, p *packet.Packet) {
-//		player.SendPacket(world.ResponsePong)
+		//		player.SendPacket(world.ResponsePong)
 	}
 }
 

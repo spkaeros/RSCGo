@@ -192,16 +192,16 @@ func (n *NPC) TraversePath() {
 	n.SetLocation(next, false)
 }
 
-func (n *NPC) Chat(target *Player, msgs... string) {
+func (n *NPC) Chat(target *Player, msgs ...string) {
 	for _, msg := range msgs {
 		for _, player := range target.NearbyPlayers() {
 			player.SendPacket(NpcMessage(n, msg, target))
 		}
 		target.SendPacket(NpcMessage(n, msg, target))
 
-//		if i < len(msgs)-1 {
-			time.Sleep(time.Millisecond * 1800)
-			// TODO: is 3 ticks right?
-//		}
+		//		if i < len(msgs)-1 {
+		time.Sleep(time.Millisecond * 1800)
+		// TODO: is 3 ticks right?
+		//		}
 	}
 }

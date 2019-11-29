@@ -134,10 +134,10 @@ func (i *GroundItem) VisibleTo(p *Player) bool {
 
 //Inventory Represents an inventory of items in the game.
 type Inventory struct {
-	List     []*Item
-	Capacity int
+	List            []*Item
+	Capacity        int
 	stackEverything bool
-	Lock     sync.RWMutex
+	Lock            sync.RWMutex
 }
 
 func (i *Inventory) Range(fn func(*Item) bool) int {

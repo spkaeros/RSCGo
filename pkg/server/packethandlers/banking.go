@@ -26,7 +26,7 @@ func init() {
 			log.Suspicious.Println("Attempted to deposit less than 1:", player.String())
 			return
 		}
-//		botCheck := p.ReadInt()
+		//		botCheck := p.ReadInt()
 		count := player.Inventory.CountID(id)
 		if count < amount {
 			log.Suspicious.Println("Attempted to deposit more than owned:", player.String())
@@ -60,7 +60,7 @@ func init() {
 		}
 		id := p.ReadShort()
 		amount := p.ReadShort()
-//		botCheck := p.ReadInt()
+		//		botCheck := p.ReadInt()
 		item := player.Bank.GetByID(id)
 		if item == nil || item.Amount < amount {
 			log.Suspicious.Println("Attempted withdraw of items they do not have:", player.String(), id, amount)

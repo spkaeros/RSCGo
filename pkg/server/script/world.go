@@ -113,7 +113,7 @@ func WorldModule() *vm.Env {
 		"BATCHING":           world.MSBatching,
 		"SLEEPING":           world.MSSleeping,
 		"CHANGINGAPPEARANCE": world.MSChangingAppearance,
-		"rand": rand.Int31N,
+		"rand":               rand.Int31N,
 		"walkTo": func(target *world.Player, x, y int) {
 			target.WalkTo(world.NewLocation(x, y))
 		},
@@ -169,7 +169,7 @@ func WorldModule() *vm.Env {
 		"BigInformationBox":     world.BigInformationBox,
 		"BoundaryLocations":     world.BoundaryLocations,
 		"CannotLogout":          world.CannotLogout,
-		"OpenChangeAppearance":      world.OpenChangeAppearance,
+		"OpenChangeAppearance":  world.OpenChangeAppearance,
 		"ClientSettings":        world.ClientSettings,
 		"Death":                 world.Death,
 		"DefaultActionMessage":  world.DefaultActionMessage,

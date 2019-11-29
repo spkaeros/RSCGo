@@ -280,7 +280,6 @@ func LoadPlayerInventory(player *world.Player) error {
 	return nil
 }
 
-
 //LoadPlayerBank Loads the bank items this player has
 func LoadPlayerBank(player *world.Player) error {
 	database := Open(config.PlayerDB())

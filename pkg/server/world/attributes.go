@@ -76,15 +76,15 @@ func (attributes *AttributeList) StoreMask(name string, mask int) {
 		attributes.Set[name] = val | 1<<mask
 		return
 	}
-	attributes.Set[name] = 0|1<<mask
+	attributes.Set[name] = 0 | 1<<mask
 }
 
 //HasMasks Returns true if the attribute `name` has any of the provided bits set.
-func (attributes *AttributeList) HasMasks(name string, masks... int) bool {
+func (attributes *AttributeList) HasMasks(name string, masks ...int) bool {
 	attributes.Lock.RLock()
 	defer attributes.Lock.RUnlock()
 	for _, mask := range masks {
-		if attributes.VarInt(name, 0) & (1 << mask) != 0 {
+		if attributes.VarInt(name, 0)&(1<<mask) != 0 {
 			return true
 		}
 	}
@@ -99,14 +99,14 @@ func (attributes *AttributeList) RemoveMask(name string, mask int) {
 		attributes.Set[name] = val & ^(1 << mask)
 		return
 	}
-	attributes.Set[name] = 0 & ^(1<<mask)
+	attributes.Set[name] = 0 & ^(1 << mask)
 }
 
 //CheckMask Check if a bitmask attribute has a mask set.
 func (attributes *AttributeList) CheckMask(name string, mask int) bool {
 	attributes.Lock.RLock()
 	defer attributes.Lock.RUnlock()
-	return attributes.VarInt(name, 0) & mask != 0
+	return attributes.VarInt(name, 0)&mask != 0
 }
 
 //VarMob If there is a MobileEntity attribute assigned to the specified name, returns it.  Otherwise, returns nil

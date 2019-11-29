@@ -67,6 +67,7 @@ type Player struct {
 func (p *Player) String() string {
 	return fmt.Sprintf("Player[%d] {'%v'@'%v'}", p.Index, p.Username, p.IP)
 }
+
 //SetDistancedAction Queues a distanced action to run every game engine tick before path traversal, if action returns true, it will be reset.
 func (p *Player) SetDistancedAction(action func() bool) {
 	p.ActionLock.Lock()
@@ -586,7 +587,7 @@ func NewPlayer(index int, ip string) *Player {
 		LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0),
 		FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Inventory: &Inventory{Capacity: 30},
 		TradeOffer: &Inventory{Capacity: 12}, LocalItems: &List{}, IP: ip, OutgoingPackets: make(chan *packet.Packet, 20),
-		Kill: make(chan struct{}), Bank: &Inventory{Capacity:48*4, stackEverything: true}}
+		Kill: make(chan struct{}), Bank: &Inventory{Capacity: 48 * 4, stackEverything: true}}
 	p.Transients().SetVar("skills", &SkillTable{})
 	p.Attributes.SetVar("lastIP", ip)
 	p.Equips[0] = p.Appearance.Head
@@ -638,22 +639,22 @@ func (p *Player) OpenAppearanceChanger() {
 
 //Chat Sends a player NPC chat message packet to the player and all other players around it.  If multiple msgs are
 // provided, will sleep the goroutine for 1800ms between each message.
-func (p *Player) Chat(msgs... string) {
+func (p *Player) Chat(msgs ...string) {
 	for _, msg := range msgs {
 		for _, player := range p.NearbyPlayers() {
 			player.SendPacket(PlayerMessage(p, msg))
 		}
 		p.SendPacket(PlayerMessage(p, msg))
 
-//		if i < len(msgs)-1 {
-			time.Sleep(time.Millisecond * 1800)
-			// TODO: is 3 ticks right?
-//		}
+		//		if i < len(msgs)-1 {
+		time.Sleep(time.Millisecond * 1800)
+		// TODO: is 3 ticks right?
+		//		}
 	}
 }
 
 //OpenOptionMenu Opens an option menu with the provided options, and returns the reply index, or -1 upon timeout..
-func (p *Player) OpenOptionMenu(options... string) int {
+func (p *Player) OpenOptionMenu(options ...string) int {
 	// Can get option menu during most states, even fighting, but not trading, or if we're already in a menu...
 	if p.IsTrading() || p.HasState(MSOptionMenu) {
 		return -1
