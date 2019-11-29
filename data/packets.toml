@@ -47,4 +47,7 @@ packets = [
 	{ name = 'takeitem', opcode = 247},
 	{ name = 'removeitem', opcode = 170},
 	{ name = 'chooseoption', opcode = 116},
+	{ name = 'closebank', opcode = 212},
+	{ name = 'depositbank', opcode = 23},
+	{ name = 'withdrawbank', opcode = 22},
 ]

@@ -25,7 +25,7 @@ func init() {
 			log.Suspicious.Printf("Player[%v] tried to wield an item with invalid index: %d\n", player, index)
 			return
 		}
-		if item := player.Items.Get(index); item != nil {
+		if item := player.Inventory.Get(index); item != nil {
 			if item.Worn {
 				return
 			}
@@ -42,7 +42,7 @@ func init() {
 			return
 		}
 		// TODO: Wielding
-		if item := player.Items.Get(index); item != nil {
+		if item := player.Inventory.Get(index); item != nil {
 			if !item.Worn {
 				return
 			}
@@ -80,12 +80,12 @@ func init() {
 			}
 			player.PlaySound("takeobject")
 			player.ResetPath()
-			if player.Items.Size() >= 30 {
+			if player.Inventory.Size() >= 30 {
 				player.Message("You do not have room for that item in your inventory.")
 				return true
 			}
 			item.Remove()
-			player.Items.Add(item.ID, item.Amount)
+			player.Inventory.Add(item.ID, item.Amount)
 			player.SendPacket(world.InventoryItems(player))
 			return true
 		})
@@ -95,11 +95,11 @@ func init() {
 			return
 		}
 		index := p.ReadShort()
-		item := player.Items.Get(index)
+		item := player.Inventory.Get(index)
 		if item != nil {
 			player.SetDistancedAction(func() bool {
 				if player.FinishedPath() {
-					if player.Items.Remove(index, item.Amount) {
+					if player.Inventory.Remove(index, item.Amount) {
 						world.AddItem(world.NewGroundItemFor(player.UserBase37, item.ID, item.Amount, player.X(), player.Y()))
 						player.SendPacket(world.InventoryItems(player))
 						player.PlaySound("dropobject")
@@ -115,7 +115,7 @@ func init() {
 			return
 		}
 		index := p.ReadShort()
-		item := player.Items.Get(index)
+		item := player.Inventory.Get(index)
 		if item != nil {
 			player.AddState(world.MSBusy)
 			go func() {

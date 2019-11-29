@@ -175,9 +175,9 @@ func init() {
 		player.TransAttrs.SetVar("trade2accept", true)
 		if c1.TransAttrs.VarBool("trade2accept", false) {
 			neededSlots := c1.TradeOffer.Size()
-			availSlots := player.Items.Capacity - player.Items.Size() + player.TradeOffer.Size()
+			availSlots := player.Inventory.Capacity - player.Inventory.Size() + player.TradeOffer.Size()
 			theirNeededSlots := player.TradeOffer.Size()
-			theirAvailSlots := c1.Items.Capacity - c1.Items.Size() + c1.TradeOffer.Size()
+			theirAvailSlots := c1.Inventory.Capacity - c1.Inventory.Size() + c1.TradeOffer.Size()
 			if theirNeededSlots > theirAvailSlots {
 				player.Message("The other player does not have room to accept your items.")
 				player.ResetTrade()
@@ -204,21 +204,21 @@ func init() {
 				c1.SendPacket(world.TradeClose)
 				c1.ResetTrade()
 			}()
-			if player.Items.RemoveAll(player.TradeOffer) != player.TradeOffer.Size() {
+			if player.Inventory.RemoveAll(player.TradeOffer) != player.TradeOffer.Size() {
 				log.Suspicious.Printf("Players{ 1:['%v'@'%v'];2:['%v'@'%v'] } involved in a trade, player 1 did not have all items to give.", player.Username, player.IP, c1.Username, c1.IP)
 				return
 			}
-			if c1.Items.RemoveAll(c1.TradeOffer) != c1.TradeOffer.Size() {
+			if c1.Inventory.RemoveAll(c1.TradeOffer) != c1.TradeOffer.Size() {
 				log.Suspicious.Printf("Players{ 1:['%v'@'%v'];2:['%v'@'%v'] } involved in a trade, player 2 did not have all items to give.", player.Username, player.IP, c1.Username, c1.IP)
 				return
 			}
 			for i := 0; i < c1.TradeOffer.Size(); i++ {
 				item := c1.TradeOffer.Get(i)
-				player.Items.Add(item.ID, item.Amount)
+				player.Inventory.Add(item.ID, item.Amount)
 			}
 			for i := 0; i < player.TradeOffer.Size(); i++ {
 				item := player.TradeOffer.Get(i)
-				c1.Items.Add(item.ID, item.Amount)
+				c1.Inventory.Add(item.ID, item.Amount)
 			}
 			player.Message("Trade completed.")
 			c1.Message("Trade completed.")

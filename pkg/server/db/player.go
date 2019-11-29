@@ -265,9 +265,9 @@ func LoadPlayerInventory(player *world.Player) error {
 		var id, amt int
 		wielded := false
 		rows.Scan(&id, &amt, &wielded)
-		index := player.Items.Add(id, amt)
+		index := player.Inventory.Add(id, amt)
 		if e := world.GetEquipmentDefinition(id); e != nil && wielded {
-			player.Items.Get(index).Worn = true
+			player.Inventory.Get(index).Worn = true
 			player.Equips[e.Position] = e.Sprite
 			player.SetAimPoints(player.AimPoints() + e.Aim)
 			player.SetPowerPoints(player.PowerPoints() + e.Power)
@@ -276,6 +276,25 @@ func LoadPlayerInventory(player *world.Player) error {
 			player.SetPrayerPoints(player.PrayerPoints() + e.Prayer)
 			player.SetRangedPoints(player.RangedPoints() + e.Ranged)
 		}
+	}
+	return nil
+}
+
+
+//LoadPlayerBank Loads the bank items this player has
+func LoadPlayerBank(player *world.Player) error {
+	database := Open(config.PlayerDB())
+	defer database.Close()
+	rows, err := database.Query("SELECT itemid, amount FROM bank WHERE playerid=?", player.DatabaseIndex)
+	if err != nil {
+		log.Info.Println("LoadPlayer(uint64,string): Could not execute query statement for player inventory:", err)
+		return errors.NewDatabaseError("Statement could not execute.")
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, amt int
+		rows.Scan(&id, &amt)
+		player.Bank.Add(id, amt)
 	}
 	return nil
 }
@@ -296,6 +315,9 @@ func LoadPlayer(player *world.Player, usernameHash uint64, password string, logi
 		return
 	}
 	if err := LoadPlayerInventory(player); err != nil {
+		return
+	}
+	if err := LoadPlayerBank(player); err != nil {
 		return
 	}
 	if err := LoadPlayerStats(player); err != nil {
@@ -437,6 +459,15 @@ func SavePlayer(player *world.Player) {
 			return
 		}
 	}
+	clearBank := func() {
+		if _, err := tx.Exec("DELETE FROM bank WHERE playerid=?", player.DatabaseIndex); err != nil {
+			log.Warning.Println("Save(): DELETE failed for player bank:", err)
+			if err := tx.Rollback(); err != nil {
+				log.Warning.Println("Save(): Transaction delete bank rollback failed:", err)
+			}
+			return
+		}
+	}
 	insertItem := func(id, amt int, worn bool) {
 		rs, _ := tx.Exec("INSERT INTO inventory(playerid, itemid, amount, wielded) VALUES(?, ?, ?, ?)", player.DatabaseIndex, id, amt, worn)
 		count, err := rs.RowsAffected()
@@ -450,6 +481,21 @@ func SavePlayer(player *world.Player) {
 
 		if count <= 0 {
 			log.Info.Println("Save(): Affected nothing for item insertion!")
+		}
+	}
+	insertBank := func(id, amt int) {
+		rs, _ := tx.Exec("INSERT INTO bank(playerid, itemid, amount) VALUES(?, ?, ?)", player.DatabaseIndex, id, amt)
+		count, err := rs.RowsAffected()
+		if err != nil {
+			log.Warning.Println("Save(): INSERT failed for player bank items:", err)
+			if err := tx.Rollback(); err != nil {
+				log.Warning.Println("Save(): Transaction insert bank item rollback failed:", err)
+			}
+			return
+		}
+
+		if count <= 0 {
+			log.Info.Println("Save(): Affected nothing for bank item insertion!")
 		}
 	}
 	clearStats := func() {
@@ -480,6 +526,7 @@ func SavePlayer(player *world.Player) {
 	clearContactList("friend")
 	clearContactList("ignore")
 	clearItems()
+	clearBank()
 	clearStats()
 
 	updateLocation()
@@ -494,8 +541,12 @@ func SavePlayer(player *world.Player) {
 	for stat := 0; stat < 18; stat++ {
 		insertStat(stat, player.Skills().Current(stat), player.Skills().Experience(stat))
 	}
-	player.Items.Range(func(item *world.Item) bool {
+	player.Inventory.Range(func(item *world.Item) bool {
 		insertItem(item.ID, item.Amount, item.Worn)
+		return true
+	})
+	player.Bank.Range(func(item *world.Item) bool {
+		insertBank(item.ID, item.Amount)
 		return true
 	})
 

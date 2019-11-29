@@ -506,8 +506,8 @@ var OpenChangeAppearance = packet.NewOutgoingPacket(59)
 //InventoryItems Builds a packet containing the players inventory items.
 func InventoryItems(player *Player) (p *packet.Packet) {
 	p = packet.NewOutgoingPacket(53)
-	p.AddByte(uint8(player.Items.Size()))
-	player.Items.Range(func(item *Item) bool {
+	p.AddByte(uint8(player.Inventory.Size()))
+	player.Inventory.Range(func(item *Item) bool {
 		if item.Worn {
 			p.AddShort(uint16(item.ID + 0x8000))
 		} else {
@@ -609,6 +609,27 @@ func EquipmentStats(player *Player) (p *packet.Packet) {
 	p.AddByte(uint8(player.PrayerPoints()))
 	p.AddByte(uint8(player.RangedPoints()))
 	return
+}
+
+var BankClose = packet.NewOutgoingPacket(203)
+
+func BankOpen(player *Player) *packet.Packet {
+	p := packet.NewOutgoingPacket(42)
+	p.AddByte(uint8(player.Bank.Size()))
+	p.AddByte(uint8(player.Bank.Capacity))
+	for _, item := range player.Bank.List {
+		p.AddShort(uint16(item.ID))
+		p.AddInt2(uint32(item.Amount))
+	}
+	return p
+}
+
+func BankUpdateItem(item *Item) *packet.Packet {
+	p := packet.NewOutgoingPacket(249)
+	p.AddByte(uint8(item.Index))
+	p.AddShort(uint16(item.ID))
+	p.AddInt2(uint32(item.Amount))
+	return p
 }
 
 //TradeClose Closes a trade window

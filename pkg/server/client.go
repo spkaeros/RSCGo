@@ -81,7 +81,6 @@ func (c *client) destroy(wg *sync.WaitGroup) {
 		(*wg).Wait()
 		c.player.TransAttrs.UnsetVar("connected")
 		close(c.player.OutgoingPackets)
-		close(c.player.OptionMenuC)
 		close(c.IncomingPackets)
 		if err := c.Socket.Close(); err != nil {
 			log.Error.Println("Couldn't close Socket:", err)

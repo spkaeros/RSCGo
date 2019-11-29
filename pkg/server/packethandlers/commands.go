@@ -128,6 +128,6 @@ func init() {
 	}
 }
 
-func notYetImplemented(player *world.Player, args []string) {
+func notYetImplemented(player *world.Player) {
 	player.Message("@que@@ora@Not yet implemented")
 }

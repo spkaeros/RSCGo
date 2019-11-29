@@ -47,7 +47,8 @@ type Player struct {
 	AppearanceReq    []*Player
 	AppearanceLock   sync.RWMutex
 	Attributes       *AttributeList
-	Items            *Inventory
+	Inventory        *Inventory
+	Bank             *Inventory
 	TradeOffer       *Inventory
 	DistancedAction  func() bool
 	ActionLock       sync.RWMutex
@@ -66,11 +67,6 @@ type Player struct {
 func (p *Player) String() string {
 	return fmt.Sprintf("Player[%d] {'%v'@'%v'}", p.Index, p.Username, p.IP)
 }
-
-func (p *Player) Inventory() *Inventory {
-	return p.Items
-}
-
 //SetDistancedAction Queues a distanced action to run every game engine tick before path traversal, if action returns true, it will be reset.
 func (p *Player) SetDistancedAction(action func() bool) {
 	p.ActionLock.Lock()
@@ -372,7 +368,7 @@ func (p *Player) EquipItem(item *Item) {
 		return
 	}
 	p.NeedsSelf()
-	p.Items.Range(func(otherItem *Item) bool {
+	p.Inventory.Range(func(otherItem *Item) bool {
 		if otherDef := GetEquipmentDefinition(otherItem.ID); otherDef != nil {
 			if otherItem == item || !otherItem.Worn {
 				return true
@@ -588,9 +584,9 @@ func NewPlayer(index int, ip string) *Player {
 	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Location{atomic.NewUint32(0), atomic.NewUint32(0)}},
 		TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})},
 		LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0),
-		FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Items: &Inventory{Capacity: 30},
+		FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Inventory: &Inventory{Capacity: 30},
 		TradeOffer: &Inventory{Capacity: 12}, LocalItems: &List{}, IP: ip, OutgoingPackets: make(chan *packet.Packet, 20),
-		Kill: make(chan struct{})}
+		Kill: make(chan struct{}), Bank: &Inventory{Capacity:48*4, stackEverything: true}}
 	p.Transients().SetVar("skills", &SkillTable{})
 	p.Attributes.SetVar("lastIP", ip)
 	p.Equips[0] = p.Appearance.Head
@@ -736,13 +732,13 @@ func (p *Player) SetMaxStat(idx int, lvl int) {
 func (p *Player) AddItem(id, amount int) {
 	if !ItemDefs[id].Stackable {
 		for i := 0; i < amount; i++ {
-			if p.Inventory().Size() >= p.Inventory().Capacity {
+			if p.Inventory.Size() >= p.Inventory.Capacity {
 				break
 			}
-			p.Inventory().Add(id, 1)
+			p.Inventory.Add(id, 1)
 		}
 	} else {
-		p.Inventory().Add(id, amount)
+		p.Inventory.Add(id, amount)
 	}
 	p.SendInventory()
 }
@@ -759,19 +755,19 @@ func (p *Player) Killed() {
 
 	if killer, ok := p.FightTarget().(*Player); killer != nil && ok {
 		AddItem(NewGroundItemFor(killer.UserBase37, 20, 1, p.X(), p.Y()))
-		p.Inventory().Range(func(item *Item) bool {
+		p.Inventory.Range(func(item *Item) bool {
 			p.DequipItem(item)
 			AddItem(NewGroundItemFor(killer.UserBase37, item.ID, item.Amount, p.X(), p.Y()))
 			return true
 		})
 	} else {
-		p.Inventory().Range(func(item *Item) bool {
+		p.Inventory.Range(func(item *Item) bool {
 			p.DequipItem(item)
 			AddItem(NewGroundItem(item.ID, item.Amount, p.X(), p.Y()))
 			return true
 		})
 	}
-	p.Inventory().Clear()
+	p.Inventory.Clear()
 	p.SendInventory()
 	p.SendEquipBonuses()
 	p.ResetFighting()
@@ -791,12 +787,12 @@ func (p *Player) SendEquipBonuses() {
 }
 
 func (p *Player) RemoveItem(index, amount int) {
-	p.Inventory().Remove(index, amount)
+	p.Inventory.Remove(index, amount)
 	p.SendInventory()
 }
 
 func (p *Player) RemoveItemByID(id, amount int) {
-	p.Inventory().RemoveByID(id, amount)
+	p.Inventory.RemoveByID(id, amount)
 	p.SendInventory()
 }
 
@@ -812,4 +808,20 @@ func (p *Player) SetStat(idx, lvl int) {
 	p.Skills().SetMax(idx, lvl)
 	p.Skills().SetExp(idx, LevelToExperience(lvl))
 	p.SendStat(idx)
+}
+
+func (p *Player) OpenBank() {
+	if p.IsFighting() || p.IsTrading() || p.HasState(MSBanking) {
+		return
+	}
+	p.AddState(MSBanking)
+	p.SendPacket(BankOpen(p))
+}
+
+func (p *Player) CloseBank() {
+	if !p.HasState(MSBanking) {
+		return
+	}
+	p.RemoveState(MSBanking)
+	p.SendPacket(BankClose)
 }

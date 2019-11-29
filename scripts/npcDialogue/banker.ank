@@ -1,0 +1,25 @@
+func npcAction(player, npc) {
+	npcs = [95, 224, 268, 540, 617]
+	for id in npcs {
+		if npc.ID == id {
+			npc.Chat(player, "Good day" + (id == 617 ? " Bwana" : "") + ", how may I help you?")
+			switch player.OpenOptionMenu("I'd like to access my bank account please", "What is this place?") {
+			case 0:
+				npc.Chat(player, "Certainly " + (player.Appearance.Male ? "Sir" : "Miss"))
+				player.OpenBank()
+			case 1:
+				npc.Chat(player, "This is a branch of the bank of Runescape", "We have branches in many towns")
+				switch player.OpenOptionMenu("And what do you do?", "Didn't you used to be called the bank of Varrock") {
+				case 0:
+					npc.Chat(player, "We will look after your items and money for you",
+							"So leave your valuables with us if you want to keep them safe")
+				case 1:
+					npc.Chat(player, "Yes we did, but people kept on coming into our branches outside of varrock",
+							"And telling us our signs were wrong", "As if we didn't know what town we were in or something!")
+				}
+			}
+			return true
+		}
+	}
+	return false
+}

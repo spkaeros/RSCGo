@@ -1,7 +1,0 @@
-func npcAction(player, npc) {
-	if npc.ID == 95 {
-		npc.Chat(player, "Testing")
-		return true
-	}
-	return false
-}

@@ -65,6 +65,13 @@ func (i *Item) Name() string {
 	return ItemDefs[i.ID].Name
 }
 
+func (i *Item) Stackable() bool {
+	if i.ID >= len(ItemDefs) || i.ID < 0 {
+		return false
+	}
+	return ItemDefs[i.ID].Stackable
+}
+
 //GroundItem Represents a single ground item within the game.
 type GroundItem struct {
 	owner     uint64
@@ -129,6 +136,7 @@ func (i *GroundItem) VisibleTo(p *Player) bool {
 type Inventory struct {
 	List     []*Item
 	Capacity int
+	stackEverything bool
 	Lock     sync.RWMutex
 }
 
@@ -155,16 +163,12 @@ func (i *Inventory) Size() int {
 //Add Puts an item into the inventory with the specified id and quantity, and returns its index.
 func (i *Inventory) Add(id int, qty int) int {
 	curSize := i.Size()
-	if item := i.GetByID(id); ItemDefs[id].Stackable && item != nil {
+	if item := i.GetByID(id); (i.stackEverything || ItemDefs[id].Stackable) && item != nil {
 		item.Amount += qty
 		return item.Index
 	}
 	if curSize >= i.Capacity {
 		return -1
-	}
-	if item := i.GetByID(id); ItemDefs[id].Stackable && item != nil {
-		item.Amount += qty
-		return item.Index
 	}
 
 	newItem := &Item{id, qty, curSize, false}
@@ -183,12 +187,13 @@ func (i *Inventory) Remove(index int, amt int) bool {
 	}
 	i.Lock.Lock()
 	defer i.Lock.Unlock()
-	if i.List[index] == nil || i.List[index].Amount < amt {
-		log.Suspicious.Printf("Attempted removing too much of an item.  item:%v, removeAmt:%v\n", i.List[index], amt)
+	item := i.List[index]
+	if item == nil || item.Amount < amt {
+		log.Suspicious.Printf("Attempted removing too much of an item.  item:%v, removeAmt:%v\n", item, amt)
 		return false
 	}
-	if ItemDefs[i.List[index].ID].Stackable && i.List[index].Amount > amt {
-		i.List[index].Amount -= amt
+	item.Amount -= amt
+	if (i.stackEverything || ItemDefs[item.ID].Stackable) && item.Amount > 0 {
 		return true
 	}
 	if index >= size-1 {
@@ -204,10 +209,20 @@ func (i *Inventory) Remove(index int, amt int) bool {
 
 //RemoveByID Removes amt items from this inventory by ID, returns the items index if successful, otherwise returns -1
 func (i *Inventory) RemoveByID(id, amt int) int {
-	size := i.Size()
-	for idx := 0; idx < size; idx++ {
-		if item := i.Get(idx); item != nil && item.ID == id && i.Remove(idx, amt) {
-			return idx
+	if i.CountID(id) < amt {
+		return -1
+	}
+	if i.stackEverything || ItemDefs[id].Stackable {
+		item := i.GetByID(id)
+		if i.Remove(item.Index, amt) {
+			return item.Index
+		}
+	} else {
+		for j := 0; j < amt; j++ {
+			item := i.GetByID(id)
+			if i.Remove(item.Index, 1) {
+				return item.Index
+			}
 		}
 	}
 	return -1
@@ -232,6 +247,21 @@ func (i *Inventory) GetByID(ID int) *Item {
 		return true
 	})
 	return i.Get(idx)
+}
+
+//CountID Returns the total amount of all the items with this ID in this inventory.
+func (i *Inventory) CountID(id int) int {
+	count := 0
+	i.Range(func(item *Item) bool {
+		if item.ID == id {
+			count += item.Amount
+		}
+		return true
+	})
+	if count == 0 {
+		return -1
+	}
+	return count
 }
 
 //RemoveAll Removes all of the items in offer from this inventory, returns count of items removed.
