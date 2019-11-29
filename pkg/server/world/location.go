@@ -273,6 +273,15 @@ var SkillNames = map[string]int{
 	"mining": StatMining, "herblaw": StatHerblaw, "agility": StatAgility, "thieving": StatThieving,
 }
 
+func SkillName(id int) string {
+	for name, idx := range SkillNames {
+		if idx == id {
+			return name
+		}
+	}
+	return "nil"
+}
+
 //ParseDirection Tries to parse the direction indicated in s.  If it can not match any direction, returns the zero-value for direction: north.
 func ParseSkill(s string) int {
 	if skill, ok := SkillNames[s]; ok {

@@ -86,6 +86,11 @@ func NextIndex() int {
 //BroadcastLogin Broadcasts the login status of player to the whole server.
 func BroadcastLogin(player *world.Player, online bool) {
 	Range(func(rangedPlayer *world.Player) {
+		if player.Friends(rangedPlayer.UserBase37) {
+			if !rangedPlayer.FriendBlocked() || rangedPlayer.Friends(rangedPlayer.UserBase37) {
+				player.FriendList[rangedPlayer.UserBase37] = online
+			}
+		}
 		if rangedPlayer.Friends(player.UserBase37) {
 			if !player.FriendBlocked() || player.Friends(rangedPlayer.UserBase37) {
 				rangedPlayer.FriendList[player.UserBase37] = online

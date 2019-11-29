@@ -139,66 +139,6 @@ func sessionRequest(player *world.Player, p *packet.Packet) {
 	player.SendPacket(packet.NewBarePacket(nil).AddLong(player.ServerSeed()))
 }
 
-//initialize
-func initialize(player *world.Player) {
-	for user := range player.FriendList {
-		if players.ContainsHash(user) {
-			player.FriendList[user] = true
-		}
-	}
-	world.AddPlayer(player)
-	player.SetConnected(true)
-	if player.Skills().Experience(world.StatHits) < 10 {
-		for i := 0; i < 18; i++ {
-			level := 1
-			exp := 0
-			if i == 3 {
-				level = 10
-				exp = 1154
-			}
-			player.Skills().SetCur(i, level)
-			player.Skills().SetMax(i, level)
-			player.Skills().SetExp(i, exp)
-		}
-	}
-	if s := time.Until(script.UpdateTime).Seconds(); s > 0 {
-		player.SendPacket(world.SystemUpdate(int(s)))
-	}
-	player.SendPacket(world.PlaneInfo(player))
-	player.SendPacket(world.FriendList(player))
-	player.SendPacket(world.IgnoreList(player))
-	if !player.Reconnecting() {
-		// Reconnecting implies that the client has all of this data already, so as an optimization, we don't send it again
-		player.SendPacket(world.PlayerStats(player))
-		player.SendPacket(world.EquipmentStats(player))
-		player.SendPacket(world.Fatigue(player))
-		player.SendPacket(world.InventoryItems(player))
-		// TODO: Not canonical RSC, but definitely good QoL update...
-		//  player.SendPacket(world.FightMode(player)
-		player.SendPacket(world.ClientSettings(player))
-		player.SendPacket(world.PrivacySettings(player))
-		player.SendPacket(world.WelcomeMessage)
-		t, err := time.Parse(time.ANSIC, player.Attributes.VarString("lastLogin", time.Time{}.Format(time.ANSIC)))
-		if err != nil {
-			log.Info.Println(err)
-			return
-		}
-
-		days := int(time.Since(t).Hours() / 24)
-		if t.IsZero() {
-			days = 0
-		}
-		player.Attributes.SetVar("lastLogin", time.Now().Format(time.ANSIC))
-		player.SendPacket(world.LoginBox(days, player.Attributes.VarString("lastIP", "127.0.0.1")))
-	}
-	players.BroadcastLogin(player, true)
-	if player.FirstLogin() {
-		player.SetFirstLogin(false)
-		player.AddState(world.MSChangingAppearance)
-		player.SendPacket(world.OpenChangeAppearance)
-	}
-}
-
 //handleLogin This method will block until a byte is sent down the reply channel with the login response to send to the client, or if this doesn't occur, it will timeout after 10 seconds.
 func handleLogin(player *world.Player, reply chan byte) {
 	isValid := func(r byte) bool {
@@ -216,8 +156,13 @@ func handleLogin(player *world.Player, reply chan byte) {
 		player.SendPacket(world.LoginResponse(int(r)))
 		if isValid(r) {
 			players.Put(player)
+			players.BroadcastLogin(player, true)
+			// TODO: Probably handle these in Anko scripts or something?
+			player.Initialize()
+			if s := time.Until(script.UpdateTime).Seconds(); s > 0 && !script.UpdateTime.IsZero() {
+				player.SendPacket(world.SystemUpdate(int(s)))
+			}
 			log.Info.Printf("Registered: %v\n", player)
-			initialize(player)
 			return
 		}
 		log.Info.Printf("Denied: %v (Response='%v')\n", player.String(), r)

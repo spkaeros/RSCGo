@@ -2,6 +2,7 @@ package world
 
 import (
 	"fmt"
+	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"go.uber.org/atomic"
 	"strconv"
@@ -576,8 +577,52 @@ func (p *Player) SendPacket(packet *packet.Packet) {
 
 func (p *Player) Destroy() {
 	p.killer.Do(func() {
+		p.Attributes.SetVar("lastIP", p.IP)
 		close(p.Kill)
 	})
+}
+
+func (p *Player) Initialize() {
+	p.SetConnected(true)
+	AddPlayer(p)
+	p.SendPacket(FriendList(p))
+	p.SendPacket(IgnoreList(p))
+	p.SendPlane()
+	p.SendEquipBonuses()
+	p.SendInventory()
+	p.SendPacket(Fatigue(p))
+	// TODO: Not canonical RSC, but definitely good QoL update...
+	//  p.SendPacket(FightMode(p))
+	p.SendPacket(ClientSettings(p))
+	p.SendPacket(PrivacySettings(p))
+	if !p.Reconnecting() {
+		p.SendPacket(WelcomeMessage)
+		if !p.FirstLogin() {
+			if tString := p.Attributes.VarString("lastLogin", ""); tString != "" {
+				if t, err := time.Parse(time.ANSIC, tString); err == nil {
+					p.SendPacket(LoginBox(int(time.Since(t).Hours()/24), p.Attributes.VarString("lastIP", "0.0.0.0")))
+				} else {
+					log.Info.Println(err)
+				}
+			}
+		} else {
+			p.SetFirstLogin(false)
+			for i := 0; i < 18; i++ {
+				exp := 0
+				if i == 3 {
+					exp = 1154
+				}
+				p.Skills().SetCur(i, ExperienceToLevel(exp))
+				p.Skills().SetMax(i, ExperienceToLevel(exp))
+				p.Skills().SetExp(i, exp)
+			}
+			p.OpenAppearanceChanger()
+		}
+
+
+	}
+	p.SendStats()
+	p.Attributes.SetVar("lastLogin", time.Now().Format(time.ANSIC))
 }
 
 //NewPlayer Returns a reference to a new player.
@@ -589,7 +634,6 @@ func NewPlayer(index int, ip string) *Player {
 		TradeOffer: &Inventory{Capacity: 12}, LocalItems: &List{}, IP: ip, OutgoingPackets: make(chan *packet.Packet, 20),
 		Kill: make(chan struct{}), Bank: &Inventory{Capacity: 48 * 4, stackEverything: true}}
 	p.Transients().SetVar("skills", &SkillTable{})
-	p.Attributes.SetVar("lastIP", ip)
 	p.Equips[0] = p.Appearance.Head
 	p.Equips[1] = p.Appearance.Body
 	p.Equips[2] = p.Appearance.Legs
@@ -601,24 +645,20 @@ func NewPlayer(index int, ip string) *Player {
 				return
 			}
 
-			p.Skills().Lock.Lock()
 			for idx, stat := range p.Skills().current {
-				if idx == StatPrayer {
-					continue
-				}
 				max := p.Skills().maximum[idx]
 				delta := max - stat
 
-				if delta > 0 && idx != StatHits {
-					p.Skills().current[idx] += 1
+				if delta > 0 && idx != StatPrayer {
+					p.SetCurStat(idx, stat+1)
 				} else if delta < 0 {
-					p.Skills().current[idx] -= 1
+					p.SetCurStat(idx, stat-1)
 				}
-				if delta == 1 || delta == -1 {
-					p.Message("todo back to normal")
+				if idx != 3 && delta == 1 || delta == -1 {
+					// TODO: Look this real message up
+					p.Message("Your " + SkillName(idx) + " level has returned to normal.")
 				}
 			}
-			p.Skills().Lock.Unlock()
 		}
 	}()
 	return p
