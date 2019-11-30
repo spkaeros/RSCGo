@@ -35,8 +35,8 @@ func init() {
 		log.Info.Println(npc.ID)
 		player.SetDistancedAction(func() bool {
 			if player.NextTo(npc.Location) && player.WithinRange(npc.Location, 1) {
-				if time.Since(npc.TransAttrs.VarTime("lastFight")) <= time.Second*2 || npc.IsFighting() {
-					return false
+				if time.Since(npc.TransAttrs.VarTime("lastFight")) <= time.Second*2 || npc.Busy() {
+					return true
 				}
 				player.ResetPath()
 				npc.ResetPath()
@@ -167,7 +167,7 @@ func init() {
 			if player.NextTo(affectedPlayer.Location) && player.WithinRange(affectedPlayer.Location, 2) {
 				player.ResetPath()
 				if time.Since(affectedPlayer.TransAttrs.VarTime("lastRetreat")) <= time.Second*3 || affectedPlayer.IsFighting() {
-					return false
+					return true
 				}
 				affectedPlayer.ResetPath()
 				affectedPlayer.PlaySound("underattack")
