@@ -12,26 +12,22 @@ type Entity struct {
 
 //AtLocation Returns true if the entity is at the specified location, otherwise returns false
 func (e *Entity) AtLocation(location Location) bool {
-	return e.AtCoords(location.X(), location.Y())
+	return e.Location.Equals(location)
 }
 
-//AtCoords Returns true if the entity is at the specified coordinates, otherwise returns false
-func (e *Entity) AtCoords(x, y int) bool {
-	return e.X() == x && e.Y() == y
-}
-
-//List Represents a list of scene entities.
-type List struct {
-	List []interface{}
+//entityList Represents a entityList of scene entities.
+type entityList struct {
+	set  []interface{}
 	lock sync.RWMutex
 }
 
-//NearbyPlayers Might remove
-func (l *List) NearbyPlayers(p *Player) []*Player {
+//NearbyPlayers creates a slice of *Player and populates it with players within p's view area that are in this region,
+// and returns it.
+func (l *entityList) NearbyPlayers(p *Player) []*Player {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
 	var players []*Player
-	for _, v := range l.List {
+	for _, v := range l.set {
 		if v, ok := v.(*Player); ok && v.Index != p.Index && p.LongestDelta(v.Location) <= 15 {
 			players = append(players, v)
 		}
@@ -39,12 +35,13 @@ func (l *List) NearbyPlayers(p *Player) []*Player {
 	return players
 }
 
-//NearbyNPCs Might remove
-func (l *List) NearbyNPCs(p *Player) []*NPC {
+//NearbyNpcs creates a slice of *NPC and populates it with npcs within p's view area that are in this region,
+// and returns it.
+func (l *entityList) NearbyNpcs(p *Player) []*NPC {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
 	var npcs []*NPC
-	for _, v := range l.List {
+	for _, v := range l.set {
 		if v, ok := v.(*NPC); ok && p.LongestDelta(v.Location) <= 15 {
 			npcs = append(npcs, v)
 		}
@@ -52,25 +49,13 @@ func (l *List) NearbyNPCs(p *Player) []*NPC {
 	return npcs
 }
 
-//RemovingPlayers Might remove
-func (l *List) RemovingPlayers(p *Player) []*Player {
-	l.lock.RLock()
-	defer l.lock.RUnlock()
-	var players []*Player
-	for _, v := range l.List {
-		if v, ok := v.(*Player); ok && v.Index != p.Index && p.LongestDelta(v.Location) > 15 {
-			players = append(players, p)
-		}
-	}
-	return players
-}
-
-//NearbyObjects Might remove
-func (l *List) NearbyObjects(p *Player) []*Object {
+//NearbyObjects creates a slice of *Object and populates it with objects within p's view area that are in this region,
+// and returns it.
+func (l *entityList) NearbyObjects(p *Player) []*Object {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
 	var objects []*Object
-	for _, o1 := range l.List {
+	for _, o1 := range l.set {
 		if o1, ok := o1.(*Object); ok && p.LongestDelta(o1.Location) <= 20 {
 			objects = append(objects, o1)
 		}
@@ -78,12 +63,13 @@ func (l *List) NearbyObjects(p *Player) []*Object {
 	return objects
 }
 
-//NearbyItems Might remove
-func (l *List) NearbyItems(p *Player) []*GroundItem {
+//NearbyItems creates a slice of *GroundItem and populates it with ground items within p's view area that are in this region,
+// and returns it.
+func (l *entityList) NearbyItems(p *Player) []*GroundItem {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
 	var items []*GroundItem
-	for _, i := range l.List {
+	for _, i := range l.set {
 		if i, ok := i.(*GroundItem); ok && i.VisibleTo(p) && p.WithinRange(i.Location, 21) {
 			items = append(items, i)
 		}
@@ -91,31 +77,18 @@ func (l *List) NearbyItems(p *Player) []*GroundItem {
 	return items
 }
 
-//RemovingObjects Might remove
-func (l *List) RemovingObjects(p *Player) []*Object {
-	l.lock.RLock()
-	defer l.lock.RUnlock()
-	var objects []*Object
-	for _, o1 := range l.List {
-		if o1, ok := o1.(*Object); ok && p.LongestDelta(o1.Location) > 20 {
-			objects = append(objects, o1)
-		}
-	}
-	return objects
-}
-
-//Add Add an entity to the list.
-func (l *List) Add(e interface{}) {
+//Add puts e entity into the collection set.
+func (l *entityList) Add(e interface{}) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
-	l.List = append(l.List, e)
+	l.set = append(l.set, e)
 }
 
-//Contains Returns true if e is an element of l, otherwise returns false.
-func (l *List) Contains(e interface{}) bool {
+//Contains checks the collection set for e and returns true if it finds it.
+func (l *entityList) Contains(e interface{}) bool {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
-	for _, v := range l.List {
+	for _, v := range l.set {
 		if v == e {
 			// Pointers should be comparable?
 			return true
@@ -125,11 +98,11 @@ func (l *List) Contains(e interface{}) bool {
 	return false
 }
 
-//Remove Removes Entity e from List l.
-func (l *List) Remove(e interface{}) {
+//Remove removes e from the collection set.
+func (l *entityList) Remove(e interface{}) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
-	elems := l.List
+	elems := l.set
 	for i, v := range elems {
 		if v == e {
 			last := len(elems) - 1
@@ -137,7 +110,7 @@ func (l *List) Remove(e interface{}) {
 				copy(elems[i:], elems[i+1:])
 			}
 			elems[last] = nil
-			l.List = elems[:last]
+			l.set = elems[:last]
 			return
 		}
 	}

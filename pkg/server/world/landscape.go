@@ -38,20 +38,19 @@ type Sector struct {
 //Sectors A map to store landscape sectors by their hashed file name.
 var Sectors = make(map[int]*Sector)
 
-//LoadMapData Loads the JAG archive './data/landscape.jag', decodes it, and stores the map sectors it holds in
+//LoadCollisionData Loads the JAG archive './data/landscape.jag', decodes it, and stores the map sectors it holds in
 // memory for quick access.
-func LoadMapData() {
+func LoadCollisionData() {
 	archive := jag.New("./data/landscape.jag")
 
 	entryFileCaret := 0
 	metaDataCaret := 0
 	for i := 0; i < archive.FileCount; i++ {
-		metaDataCaret += 4
-		id := readInt(archive.MetaData, metaDataCaret)
-		metaDataCaret += 6
+		id := int(uint32(archive.MetaData[metaDataCaret]&0xFF)<<24 | uint32(archive.MetaData[metaDataCaret+1]&0xFF)<<16 | uint32(archive.MetaData[metaDataCaret+2]&0xFF)<<8 | uint32(archive.MetaData[metaDataCaret+3]&0xFF))
 		startCaret := entryFileCaret
-		entryFileCaret += readU24BitInt(archive.MetaData, metaDataCaret)
-		Sectors[id] = LoadSector(archive.FileData[startCaret:entryFileCaret])
+		entryFileCaret += int(uint32(archive.MetaData[metaDataCaret+7]&0xFF)<<16 | uint32(archive.MetaData[metaDataCaret+8]&0xFF)<<8 | uint32(archive.MetaData[metaDataCaret+9]&0xFF))
+		Sectors[id] = loadSector(archive.FileData[startCaret:entryFileCaret])
+		metaDataCaret += 10
 	}
 }
 
@@ -61,10 +60,10 @@ type TileDefinition struct {
 	ObjectType int
 }
 
-var Tiles []TileDefinition
+var TileDefs []TileDefinition
 
-//Boundarys This holds the defining characteristics for all of the game's boundary scene objects, ordered by ID.
-var Boundarys []BoundaryDefinition
+//BoundaryDefs This holds the defining characteristics for all of the game's boundary scene objects, ordered by ID.
+var BoundaryDefs []BoundaryDefinition
 
 //BoundaryDefinition This represents a single definition for a single boundary object in the game.
 type BoundaryDefinition struct {
@@ -131,26 +130,26 @@ const (
 )
 
 const (
-	//WallNorth Bitmask to represent a wall to the north.
-	WallNorth = 1
-	//WallSouth Bitmask to represent a wall to the south.
-	WallSouth = 4
-	//WallEast Bitmask to represent a wall to the west.
-	WallEast = 2
-	//WallWest Bitmask to represent a wall to the east.
-	WallWest = 8
-	//WallEast Bitmask to represent a diagonal wall.
-	WallDiag1 = 0x10
-	//WallEast Bitmask to represent a diagonal wall facing the opposite way.
-	WallDiag2 = 0x20
-	//WallEast Bitmask to represent an object occupying an entire tile.
-	WallObject = 0x40
+	//ClipNorth Bitmask to represent a wall to the north.
+	ClipNorth = 1
+	//ClipEast Bitmask to represent a wall to the west.
+	ClipEast = 1 << 1
+	//ClipSouth Bitmask to represent a wall to the south.
+	ClipSouth = 1 << 2
+	//ClipWest Bitmask to represent a wall to the east.
+	ClipWest = 1 << 3
+	//ClipEast Bitmask to represent a diagonal wall.
+	ClipDiag1 = 1 << 4
+	//ClipEast Bitmask to represent a diagonal wall facing the opposite way.
+	ClipDiag2 = 1 << 5
+	//ClipFullBlock+- Bitmask to represent an object occupying an entire tile.
+	ClipFullBlock = 1 << 6
 )
 
-var BlockedOverlays = [...]int{OverlayWater, OverlayDarkWater, OverlayBlack, OverlayWhite, OverlayLava, OverlayBlack2, OverlayBlack3, OverlayBlack4}
+var blockedOverlays = [...]int{OverlayWater, OverlayDarkWater, OverlayBlack, OverlayWhite, OverlayLava, OverlayBlack2, OverlayBlack3, OverlayBlack4}
 
 func isOverlayBlocked(overlay int) bool {
-	for _, v := range BlockedOverlays {
+	for _, v := range blockedOverlays {
 		if v == overlay {
 			return true
 		}
@@ -159,7 +158,7 @@ func isOverlayBlocked(overlay int) bool {
 }
 
 func IsTileBlocking(x, y int, bit byte, current bool) bool {
-	return ClipData(x, y).blocked(bit, current)
+	return CollisionData(x, y).blocked(bit, current)
 }
 
 func (t TileData) blocked(bit byte, current bool) bool {
@@ -167,47 +166,47 @@ func (t TileData) blocked(bit byte, current bool) bool {
 		return true
 	}
 	// Diag
-	if !current && (t.CollisionMask&WallDiag1) != 0 {
+	if !current && (t.CollisionMask&ClipDiag1) != 0 {
 		return true
 	}
 	// oppososite diag
-	if !current && (t.CollisionMask&WallDiag2) != 0 {
+	if !current && (t.CollisionMask&ClipDiag2) != 0 {
 		return true
 	}
 	// tile entirely blocked
-	if !current && (t.CollisionMask&WallObject) != 0 {
+	if !current && (t.CollisionMask&ClipFullBlock) != 0 {
 		return true
 	}
 	// if it's not a traversable ground type
 	return !current && isOverlayBlocked(int(t.GroundOverlay))
 }
 
-func SectorName(x, y int) string {
+func sectorName(x, y int) string {
 	regionX := (2304 + x) / RegionSize
 	regionY := (1776 + y - (944 * ((y + 100) / 944))) / RegionSize
 	return fmt.Sprintf("h%dx%dy%d", (y+100)/944, regionX, regionY)
 }
 
-func SectorFromCoords(x, y int) *Sector {
-	return Sectors[strutil.JagHash(SectorName(x, y))]
+func sectorFromCoords(x, y int) *Sector {
+	return Sectors[strutil.JagHash(sectorName(x, y))]
 }
 
-func (s *Sector) Tile(x, y int) TileData {
+func (s *Sector) tile(x, y int) TileData {
 	areaX := (2304 + x) % RegionSize
 	areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
 	return s.Tiles[areaX*RegionSize+areaY]
 }
 
-func ClipData(x, y int) TileData {
-	sector := SectorFromCoords(x, y)
+func CollisionData(x, y int) TileData {
+	sector := sectorFromCoords(x, y)
 	if sector == nil {
-		return TileData{GroundOverlay: 0, CollisionMask: 0x40}
+		return TileData{GroundOverlay: 0, CollisionMask: ClipFullBlock}
 	}
-	return sector.Tile(x, y)
+	return sector.tile(x, y)
 }
 
-//LoadSector Parses raw data into data structures that make up a 48x48 map sector.
-func LoadSector(data []byte) (s *Sector) {
+//loadSector Parses raw data into data structures that make up a 48x48 map sector.
+func loadSector(data []byte) (s *Sector) {
 	// If we were given less than the length of a decompressed, raw map sector
 	if len(data) < 23040 {
 		log.Warning.Printf("Too short sector data: %d\n", len(data))
@@ -234,28 +233,28 @@ func LoadSector(data []byte) (s *Sector) {
 			}
 			tileIdx := x*RegionSize + y
 			s.Tiles[tileIdx].GroundOverlay = groundOverlay
-			if groundOverlay > 0 && Tiles[groundOverlay-1].ObjectType != 0 {
+			if groundOverlay > 0 && TileDefs[groundOverlay-1].ObjectType != 0 {
 				s.Tiles[tileIdx].CollisionMask |= 0x40
 			}
-			if verticalWalls > 0 && Boundarys[verticalWalls-1].Unknown == 0 && Boundarys[verticalWalls-1].Traversable != 0 {
-				s.Tiles[tileIdx].CollisionMask |= WallNorth
+			if verticalWalls > 0 && BoundaryDefs[verticalWalls-1].Unknown == 0 && BoundaryDefs[verticalWalls-1].Traversable != 0 {
+				s.Tiles[tileIdx].CollisionMask |= ClipNorth
 				if tileIdx >= 1 {
 					// -1 is tile x,y-1
-					s.Tiles[tileIdx-1].CollisionMask |= WallSouth
+					s.Tiles[tileIdx-1].CollisionMask |= ClipSouth
 				}
 			}
-			if horizontalWalls > 0 && Boundarys[horizontalWalls-1].Unknown == 0 && Boundarys[horizontalWalls-1].Traversable != 0 {
-				s.Tiles[tileIdx].CollisionMask |= WallEast
+			if horizontalWalls > 0 && BoundaryDefs[horizontalWalls-1].Unknown == 0 && BoundaryDefs[horizontalWalls-1].Traversable != 0 {
+				s.Tiles[tileIdx].CollisionMask |= ClipEast
 				if tileIdx >= 48 {
 					// -48 is tile x-1,y
-					s.Tiles[tileIdx-48].CollisionMask |= WallWest
+					s.Tiles[tileIdx-48].CollisionMask |= ClipWest
 				}
 			}
-			if diagonalWalls > 0 && diagonalWalls < 12000 && Boundarys[diagonalWalls-1].Unknown == 0 && Boundarys[diagonalWalls-1].Traversable != 0 {
-				s.Tiles[tileIdx].CollisionMask |= WallDiag2
+			if diagonalWalls > 0 && diagonalWalls < 12000 && BoundaryDefs[diagonalWalls-1].Unknown == 0 && BoundaryDefs[diagonalWalls-1].Traversable != 0 {
+				s.Tiles[tileIdx].CollisionMask |= ClipDiag2
 			}
-			if diagonalWalls >= 12000 && diagonalWalls < 24000 && Boundarys[diagonalWalls-12001].Unknown == 0 && Boundarys[diagonalWalls-12001].Traversable != 0 {
-				s.Tiles[tileIdx].CollisionMask |= WallDiag1
+			if diagonalWalls >= 12000 && diagonalWalls < 24000 && BoundaryDefs[diagonalWalls-12001].Unknown == 0 && BoundaryDefs[diagonalWalls-12001].Traversable != 0 {
+				s.Tiles[tileIdx].CollisionMask |= ClipDiag1
 			}
 			offset += 10
 		}
@@ -265,14 +264,4 @@ func LoadSector(data []byte) (s *Sector) {
 	}
 
 	return
-}
-
-//readU24BitInt Reads an unsigned 3-byte int from data, starting at caret-3
-func readU24BitInt(data []byte, caret int) int {
-	return int(uint32(data[caret-3]&0xFF)<<16 + uint32(data[caret-2]&0xFF)<<8 + uint32(data[caret-1]&0xFF))
-}
-
-//readInt Reads an unsigned 3-byte int from data, starting at caret-3
-func readInt(data []byte, caret int) int {
-	return int(uint32(data[caret-4]&0xFF)<<24 + uint32(data[caret-3]&0xFF)<<16 + uint32(data[caret-2]&0xFF)<<8 + uint32(data[caret-1]&0xFF))
 }

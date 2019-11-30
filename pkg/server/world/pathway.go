@@ -31,8 +31,8 @@ func MakePath(start, end Location) *Pathway {
 	return NewPathfinder(start, end).MakePath()
 }
 
-//CountWaypoints Returns the length of the largest waypoint slice within this path.
-func (p *Pathway) CountWaypoints() int {
+//countWaypoints Returns the length of the largest waypoint slice within this path.
+func (p *Pathway) countWaypoints() int {
 	xCount, yCount := len(p.WaypointsX), len(p.WaypointsY)
 	if xCount >= yCount {
 		return xCount
@@ -40,11 +40,11 @@ func (p *Pathway) CountWaypoints() int {
 	return yCount
 }
 
-//WaypointX Returns the x coordinate of the specified waypoint, by taking the waypointX delta at w, and adding it to StartX.
+//waypointX Returns the x coordinate of the specified waypoint, by taking the waypointX delta at w, and adding it to StartX.
 // If w is out of bounds, returns the StartX coordinate, aka the x coord to start turning at.
-func (p *Pathway) WaypointX(w int) int {
+func (p *Pathway) waypointX(w int) int {
 	offset := func(w int) int {
-		if w >= p.CountWaypoints() || w < 0 {
+		if w >= p.countWaypoints() || w < 0 {
 			return 0
 		}
 		return p.WaypointsX[w]
@@ -52,11 +52,11 @@ func (p *Pathway) WaypointX(w int) int {
 	return p.StartX + offset
 }
 
-//WaypointY Returns the y coordinate of the specified waypoint, by taking the waypointY delta at w, and adding it to StartY.
+//waypointY Returns the y coordinate of the specified waypoint, by taking the waypointY delta at w, and adding it to StartY.
 // If w is out of bounds, returns the StartY coordinate, aka the y coord to start turning at.
-func (p *Pathway) WaypointY(w int) int {
+func (p *Pathway) waypointY(w int) int {
 	offset := func(w int) int {
-		if w >= p.CountWaypoints() || w < 0 {
+		if w >= p.countWaypoints() || w < 0 {
 			return 0
 		}
 		return p.WaypointsY[w]
@@ -64,29 +64,29 @@ func (p *Pathway) WaypointY(w int) int {
 	return p.StartY + offset
 }
 
-//NextWaypointTile Returns the next destination within our path.  If our current waypoint is out of bounds, it will return
-// the same value as StartingTile.
-func (p *Pathway) NextWaypointTile() Location {
-	return NewLocation(p.WaypointX(p.CurrentWaypoint), p.WaypointY(p.CurrentWaypoint))
+//nextTile Returns the next destination within our path.  If our current waypoint is out of bounds, it will return
+// the same value as startingTile.
+func (p *Pathway) nextTile() Location {
+	return NewLocation(p.waypointX(p.CurrentWaypoint), p.waypointY(p.CurrentWaypoint))
 }
 
-//StartingTile Returns the location of the start of the path,  This location is actually not our starting location,
+//startingTile Returns the location of the start of the path,  This location is actually not our starting location,
 // but the first tile that we begin traversing our waypoint deltas from.  Required to walk to this location to start
 // traversing waypoints,
-func (p *Pathway) StartingTile() Location {
+func (p *Pathway) startingTile() Location {
 	return NewLocation(p.StartX, p.StartY)
 }
 
-//AddWaypoint Prepends a waypoint to this path.
-func (p *Pathway) AddWaypoint(x, y int) *Pathway {
+//addFirstWaypoint Prepends a waypoint to this path.
+func (p *Pathway) addFirstWaypoint(x, y int) *Pathway {
 	p.WaypointsX = append([]int{x}, p.WaypointsX...)
 	p.WaypointsY = append([]int{y}, p.WaypointsY...)
 	return p
 }
 
 //NextTileToward Returns the next tile toward the final destination of this pathway from currentLocation
-func (p *Pathway) NextTileFrom(currentLocation Location) Location {
-	dest := p.NextWaypointTile()
+func (p *Pathway) nextTileFrom(currentLocation Location) Location {
+	dest := p.nextTile()
 	destX, destY := dest.X(), dest.Y()
 	currentX, currentY := currentLocation.X(), currentLocation.Y()
 	destination := NewLocation(currentX, currentY)

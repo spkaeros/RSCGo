@@ -15,7 +15,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
-//FriendList Builds a packet with the players friend list information in it.
+//FriendList Builds a packet with the players friend entityList information in it.
 func FriendList(player *Player) (p *packet.Packet) {
 	p = packet.NewOutgoingPacket(71)
 	p.AddByte(byte(len(player.FriendList)))
@@ -41,7 +41,7 @@ func PrivateMessage(hash uint64, msg string) (p *packet.Packet) {
 	return p
 }
 
-//IgnoreList Builds a packet with the players ignore list information in it.
+//IgnoreList Builds a packet with the players ignore entityList information in it.
 func IgnoreList(player *Player) (p *packet.Packet) {
 	p = packet.NewOutgoingPacket(109)
 	p.AddByte(byte(len(player.IgnoreList)))
@@ -159,15 +159,15 @@ var OptionMenuClose = packet.NewOutgoingPacket(252)
 func NPCPositions(player *Player) (p *packet.Packet) {
 	p = packet.NewOutgoingPacket(79)
 	counter := 0
-	p.AddBits(len(player.LocalNPCs.List), 8)
-	var removing = List{}
-	for _, n := range player.LocalNPCs.List {
+	p.AddBits(len(player.LocalNPCs.set), 8)
+	var removing = entityList{}
+	for _, n := range player.LocalNPCs.set {
 		if n, ok := n.(*NPC); ok {
 			if n.LongestDelta(player.Location) > 15 || n.TransAttrs.HasMasks("sync", SyncRemoved) {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
-				removing.List = append(removing.List, n)
+				removing.set = append(removing.set, n)
 				counter++
 			} else if n.TransAttrs.HasMasks("sync", SyncMoved, SyncChanged) {
 				p.AddBits(1, 1)
@@ -184,12 +184,12 @@ func NPCPositions(player *Player) (p *packet.Packet) {
 			}
 		}
 	}
-	for _, n := range removing.List {
+	for _, n := range removing.set {
 		player.LocalNPCs.Remove(n)
 	}
 	newCount := 0
 	for _, n := range player.NewNPCs() {
-		if len(player.LocalNPCs.List) >= 255 || newCount >= 25 {
+		if len(player.LocalNPCs.set) >= 255 || newCount >= 25 {
 			break
 		}
 		newCount++
@@ -224,19 +224,19 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 	p.AddBits(player.X(), 11)
 	p.AddBits(player.Y(), 13)
 	p.AddBits(player.Direction(), 4)
-	p.AddBits(len(player.LocalPlayers.List), 8)
+	p.AddBits(len(player.LocalPlayers.set), 8)
 	counter := 0
 	if player.TransAttrs.HasMasks("sync", SyncRemoved, SyncMoved, SyncChanged) || !player.Transients().HasMasks("sync", SyncSelf) {
 		counter++
 	}
-	var removing = List{}
-	for _, p1 := range player.LocalPlayers.List {
+	var removing = entityList{}
+	for _, p1 := range player.LocalPlayers.set {
 		if p1, ok := p1.(*Player); ok {
 			if p1.LongestDelta(player.Location) > 15 || p1.TransAttrs.HasMasks("sync", SyncRemoved) {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
-				removing.List = append(removing.List, p1)
+				removing.set = append(removing.set, p1)
 				player.AppearanceLock.Lock()
 				delete(player.KnownAppearances, p1.Index)
 				player.AppearanceLock.Unlock()
@@ -256,12 +256,12 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 			}
 		}
 	}
-	for _, p1 := range removing.List {
+	for _, p1 := range removing.set {
 		player.LocalPlayers.Remove(p1)
 	}
 	newPlayerCount := 0
 	for _, p1 := range player.NewPlayers() {
-		if len(player.LocalPlayers.List) >= 255 || newPlayerCount >= 25 {
+		if len(player.LocalPlayers.set) >= 255 || newPlayerCount >= 25 {
 			// No more than 255 players in view at once, no more than 25 new players at once.
 			break
 		}
@@ -305,7 +305,7 @@ func PlayerAppearances(ourPlayer *Player) (p *packet.Packet) {
 	appearanceList = append(appearanceList, ourPlayer.AppearanceReq...)
 	ourPlayer.AppearanceReq = ourPlayer.AppearanceReq[:0]
 	ourPlayer.AppearanceLock.Unlock()
-	for _, p1 := range ourPlayer.LocalPlayers.List {
+	for _, p1 := range ourPlayer.LocalPlayers.set {
 		if p1, ok := p1.(*Player); ok {
 			ourPlayer.AppearanceLock.RLock()
 			if ticket, ok := ourPlayer.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket {
@@ -350,8 +350,8 @@ func PlayerAppearances(ourPlayer *Player) (p *packet.Packet) {
 func ObjectLocations(player *Player) (p *packet.Packet) {
 	counter := 0
 	p = packet.NewOutgoingPacket(48)
-	var removing = List{}
-	for _, o := range player.LocalObjects.List {
+	var removing = entityList{}
+	for _, o := range player.LocalObjects.set {
 		if o, ok := o.(*Object); ok {
 			if o.Boundary {
 				continue
@@ -366,7 +366,7 @@ func ObjectLocations(player *Player) (p *packet.Packet) {
 			}
 		}
 	}
-	for _, p1 := range removing.List {
+	for _, p1 := range removing.set {
 		player.LocalObjects.Remove(p1)
 	}
 	for _, o := range player.NewObjects() {
@@ -391,8 +391,8 @@ func ObjectLocations(player *Player) (p *packet.Packet) {
 func BoundaryLocations(player *Player) (p *packet.Packet) {
 	counter := 0
 	p = packet.NewOutgoingPacket(91)
-	var removing = List{}
-	for _, o := range player.LocalObjects.List {
+	var removing = entityList{}
+	for _, o := range player.LocalObjects.set {
 		if o, ok := o.(*Object); ok {
 			if !o.Boundary {
 				continue
@@ -408,7 +408,7 @@ func BoundaryLocations(player *Player) (p *packet.Packet) {
 			}
 		}
 	}
-	for _, p1 := range removing.List {
+	for _, p1 := range removing.set {
 		player.LocalObjects.Remove(p1)
 	}
 	for _, o := range player.NewObjects() {
@@ -432,7 +432,7 @@ func NpcAppearances(player *Player) *packet.Packet {
 	p := packet.NewOutgoingPacket(104)
 	toUpdate := 0
 	p.AddShort(0)
-	for _, npc := range player.LocalNPCs.List {
+	for _, npc := range player.LocalNPCs.set {
 		if npc, ok := npc.(*NPC); ok {
 			if npc.ChatMessage != "" && npc.ChatTarget > -1 {
 				message := npc.ChatMessage
@@ -465,8 +465,8 @@ func NpcAppearances(player *Player) *packet.Packet {
 func ItemLocations(player *Player) (p *packet.Packet) {
 	counter := 0
 	p = packet.NewOutgoingPacket(99)
-	var removing = List{}
-	for _, i := range player.LocalItems.List {
+	var removing = entityList{}
+	for _, i := range player.LocalItems.set {
 		if i, ok := i.(*GroundItem); ok {
 			x, y := i.X(), i.Y()
 			if !player.WithinRange(i.Location, 21) {
@@ -475,7 +475,7 @@ func ItemLocations(player *Player) (p *packet.Packet) {
 				p.AddByte(byte(y - player.Y()))
 				removing.Add(i)
 				counter++
-			} else if !i.VisibleTo(player) || !GetRegion(x, y).Items.Contains(i) {
+			} else if !i.VisibleTo(player) || !getRegion(x, y).Items.Contains(i) {
 				p.AddShort(uint16(i.ID + 0x8000)) // + 32768
 				p.AddByte(byte(x - player.X()))
 				p.AddByte(byte(y - player.Y()))
@@ -484,7 +484,7 @@ func ItemLocations(player *Player) (p *packet.Packet) {
 			}
 		}
 	}
-	for _, p1 := range removing.List {
+	for _, p1 := range removing.set {
 		player.LocalItems.Remove(p1)
 	}
 	for _, i := range player.NewItems() {

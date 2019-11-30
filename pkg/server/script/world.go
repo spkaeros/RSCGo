@@ -48,10 +48,10 @@ func WorldModule() *vm.Env {
 		"newNpc":          world.NewNpc,
 		"newLocation":     world.NewLocation,
 		"checkCollisions": world.IsTileBlocking,
-		"tileData":        world.ClipData,
+		"tileData":        world.CollisionData,
 		"objectDefs":      world.Objects,
 		"objects":         world.Npcs,
-		"boundaryDefs":    world.Boundarys,
+		"boundaryDefs":    world.BoundaryDefs,
 		"npcDefs":         world.NpcDefs,
 		"npcs":            world.Npcs,
 		"itemDefs":        world.ItemDefs,
@@ -147,7 +147,7 @@ func WorldModule() *vm.Env {
 			}
 		},
 		"getSkillIndex": func(name string) int {
-			return world.ParseSkill(name)
+			return world.SkillIndex(name)
 		},
 		"expToLvl":    world.ExperienceToLevel,
 		"lvlToExp":    world.LevelToExperience,

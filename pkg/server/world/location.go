@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"go.uber.org/atomic"
-	"math"
 )
 
 const (
@@ -263,59 +262,4 @@ func ParseDirection(s string) int {
 	}
 
 	return North
-}
-
-//SkillNames Maps skill names to their indexes.
-var SkillNames = map[string]int{
-	"attack": StatAttack, "defense": StatDefense, "strength": StatStrength, "hits": StatHits, "hitpoints": StatHits, "hp": StatHits,
-	"ranged": StatRanged, "prayer": StatPrayer, "magic": StatMagic, "cooking": StatCooking, "woodcutting": StatWoodcutting,
-	"fletching": StatFletching, "fishing": StatFishing, "firemaking": StatFiremaking, "crafting": StatCrafting, "smithing": StatSmithing,
-	"mining": StatMining, "herblaw": StatHerblaw, "agility": StatAgility, "thieving": StatThieving,
-}
-
-func SkillName(id int) string {
-	for name, idx := range SkillNames {
-		if idx == id {
-			return name
-		}
-	}
-	return "nil"
-}
-
-//ParseDirection Tries to parse the direction indicated in s.  If it can not match any direction, returns the zero-value for direction: north.
-func ParseSkill(s string) int {
-	if skill, ok := SkillNames[s]; ok {
-		return skill
-	}
-	return -1
-}
-
-var ExperienceLevels [104]int
-
-func init() {
-	i := 0
-	for lvl := 0; lvl < 104; lvl++ {
-		k := float64(lvl + 1)
-		i1 := int(k + 300*math.Pow(2, k/7))
-		i += i1
-		ExperienceLevels[lvl] = (i & 0xfffffffc) / 4
-	}
-}
-
-func LevelToExperience(lvl int) int {
-	index := lvl - 2
-	if index < 0 || index > 104 {
-		return 0
-	}
-	return ExperienceLevels[index]
-}
-
-func ExperienceToLevel(exp int) int {
-	for lvl := 0; lvl < 104; lvl++ {
-		if exp < ExperienceLevels[lvl] {
-			return lvl + 1
-		}
-	}
-
-	return 99
 }

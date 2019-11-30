@@ -43,6 +43,14 @@ func NewObject(id, direction, x, y int, boundary bool) *Object {
 	}
 }
 
+//Name checks if an object definition exists for this object, and if so returns the name associated with it.
+func (o *Object) Name() string {
+	if o.ID < 0 || o.ID > 1188 {
+		return "nil"
+	}
+	return Objects[o.ID].Name
+}
+
 func (o *Object) Boundaries() [2]Location {
 	dir := o.Direction
 	minX := o.X()

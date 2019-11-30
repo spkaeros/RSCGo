@@ -72,7 +72,7 @@ func main() {
 	//  their own goroutines should save some initialization time.
 	var awaitLaunchJobs sync.WaitGroup
 	// Network protocol information
-	asyncExecute(&awaitLaunchJobs, world.LoadMapData)
+	asyncExecute(&awaitLaunchJobs, world.LoadCollisionData)
 	asyncExecute(&awaitLaunchJobs, packethandlers.Initialize)
 
 	// Entity definitions
@@ -100,7 +100,7 @@ func main() {
 		log.Info.Printf("Loaded %d item definitions.\n", len(world.ItemDefs))
 		log.Info.Printf("Loaded %d NPC definitions.\n", len(world.NpcDefs))
 		log.Info.Printf("Loaded %d object definitions.\n", len(world.Objects))
-		log.Info.Printf("Loaded %d boundary definitions.\n", len(world.Boundarys))
+		log.Info.Printf("Loaded %d boundary definitions.\n", len(world.BoundaryDefs))
 		log.Info.Printf("Loaded %d NPCs.\n", world.NpcCounter.Load())
 		log.Info.Printf("Loaded %d objects and boundaries.\n", world.ObjectCounter.Load())
 		log.Info.Printf("Loaded %d inventory, %d object, %d boundary, and %d NPC action triggers.\n", len(script.InvTriggers), len(script.ObjectTriggers), len(script.BoundaryTriggers), len(script.NpcTriggers))

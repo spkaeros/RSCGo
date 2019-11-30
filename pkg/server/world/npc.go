@@ -51,7 +51,7 @@ type NPC struct {
 
 //NewNpc Creates a new NPC and returns a reference to it
 func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
-	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: NewLocation(startX, startY)}, TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, ChatTarget: -1, ChatMessage: ""}
+	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: NewLocation(startX, startY)}, TransAttrs: &AttributeList{set: make(map[string]interface{})}}, ChatTarget: -1, ChatMessage: ""}
 	n.Transients().SetVar("skills", &SkillTable{})
 	n.Boundaries[0] = NewLocation(minX, minY)
 	n.Boundaries[1] = NewLocation(maxX, maxY)
@@ -72,7 +72,7 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 	return n
 }
 
-//UpdateNPCPositions Loops through the global NPC list and, if they are by a player, updates their path to a new path every so often,
+//UpdateNPCPositions Loops through the global NPC entityList and, if they are by a player, updates their path to a new path every so often,
 // within their boundaries, and traverses each NPC along said path if necessary.
 func UpdateNPCPositions() {
 	npcsLock.RLock()
@@ -81,9 +81,9 @@ func UpdateNPCPositions() {
 			continue
 		}
 		if n.TransAttrs.VarTime("nextMove").Before(time.Now()) {
-			for _, r := range SurroundingRegions(n.X(), n.Y()) {
+			for _, r := range surroundingRegions(n.X(), n.Y()) {
 				r.Players.lock.RLock()
-				if len(r.Players.List) > 0 {
+				if len(r.Players.set) > 0 {
 					r.Players.lock.RUnlock()
 					n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
 					go n.WalkTo(NewRandomLocation(n.Boundaries))
@@ -98,8 +98,8 @@ func UpdateNPCPositions() {
 }
 
 func (n *NPC) UpdateRegion(x, y int) {
-	curArea := GetRegion(n.X(), n.Y())
-	newArea := GetRegion(x, y)
+	curArea := getRegion(n.X(), n.Y())
+	newArea := getRegion(x, y)
 	if newArea != curArea {
 		if curArea.NPCs.Contains(n) {
 			curArea.NPCs.Remove(n)
@@ -125,14 +125,14 @@ func (n *NPC) TraversePath() {
 	if path == nil {
 		return
 	}
-	if n.AtLocation(path.NextWaypointTile()) {
+	if n.AtLocation(path.nextTile()) {
 		path.CurrentWaypoint++
 	}
 	if n.FinishedPath() {
 		n.ResetPath()
 		return
 	}
-	dst := path.NextWaypointTile()
+	dst := path.nextTile()
 	x, y := n.X(), n.Y()
 	next := NewLocation(x, y)
 	xBlocked, yBlocked := false, false

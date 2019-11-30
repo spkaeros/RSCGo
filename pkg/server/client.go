@@ -165,7 +165,7 @@ func (c *client) Write(src []byte) int {
 
 //Read Reads data off of the client's Socket into 'dst'.  Returns length read into dst upon success.  Otherwise, returns -1 with a meaningful error message.
 func (c *client) Read(dst []byte) (int, error) {
-	// Set the read deadline for the socket to 10 seconds from now.
+	// set the read deadline for the socket to 10 seconds from now.
 	err := c.Socket.SetReadDeadline(time.Now().Add(time.Second * 10))
 	if err != nil {
 		return -1, errors.ConnDeadline

@@ -34,10 +34,10 @@ type Player struct {
 	Password         string
 	FriendList       map[uint64]bool
 	IgnoreList       []uint64
-	LocalPlayers     *List
-	LocalNPCs        *List
-	LocalObjects     *List
-	LocalItems       *List
+	LocalPlayers     *entityList
+	LocalNPCs        *entityList
+	LocalObjects     *entityList
+	LocalItems       *entityList
 	Updating         bool
 	Appearances      []int
 	DatabaseIndex    int
@@ -83,7 +83,7 @@ func (p *Player) ResetDistancedAction() {
 	p.ActionLock.Unlock()
 }
 
-//Friends Returns true if specified username is in our friend list.
+//Friends Returns true if specified username is in our friend entityList.
 func (p *Player) Friends(other uint64) bool {
 	for hash := range p.FriendList {
 		if hash == other {
@@ -93,7 +93,7 @@ func (p *Player) Friends(other uint64) bool {
 	return false
 }
 
-//Ignoring Returns true if specified username is in our ignore list.
+//Ignoring Returns true if specified username is in our ignore entityList.
 func (p *Player) Ignoring(hash uint64) bool {
 	for _, v := range p.IgnoreList {
 		if v == hash {
@@ -212,59 +212,59 @@ func (p *Player) NextTo(target Location) bool {
 		dir := curLoc.DirectionTo(nextTile.X(), nextTile.Y())
 		switch dir {
 		case North:
-			if IsTileBlocking(nextTile.X(), nextTile.Y(), WallSouth, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y(), ClipSouth, true) {
 				return false
 			}
 		case South:
-			if IsTileBlocking(nextTile.X(), nextTile.Y(), WallNorth, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y(), ClipNorth, true) {
 				return false
 			}
 		case East:
-			if IsTileBlocking(nextTile.X(), nextTile.Y(), WallWest, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y(), ClipWest, true) {
 				return false
 			}
 		case West:
-			if IsTileBlocking(nextTile.X(), nextTile.Y(), WallEast, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y(), ClipEast, true) {
 				return false
 			}
 		case NorthWest:
-			if IsTileBlocking(nextTile.X()+1, nextTile.Y(), WallSouth, true) {
+			if IsTileBlocking(nextTile.X()+1, nextTile.Y(), ClipSouth, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.X(), nextTile.Y()+1, WallEast, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y()+1, ClipEast, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.X(), nextTile.Y(), WallSouth|WallEast, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y(), ClipSouth|ClipEast, true) {
 				return false
 			}
 		case NorthEast:
-			if IsTileBlocking(nextTile.X()-1, nextTile.Y(), WallSouth, true) {
+			if IsTileBlocking(nextTile.X()-1, nextTile.Y(), ClipSouth, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.X(), nextTile.Y()+1, WallWest, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y()+1, ClipWest, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.X(), nextTile.Y(), WallSouth|WallWest, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y(), ClipSouth|ClipWest, true) {
 				return false
 			}
 		case SouthWest:
-			if IsTileBlocking(nextTile.X()+1, nextTile.Y(), WallNorth, true) {
+			if IsTileBlocking(nextTile.X()+1, nextTile.Y(), ClipNorth, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.X(), nextTile.Y()-1, WallEast, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y()-1, ClipEast, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.X(), nextTile.Y(), WallNorth|WallEast, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y(), ClipNorth|ClipEast, true) {
 				return false
 			}
 		case SouthEast:
-			if IsTileBlocking(nextTile.X()-1, nextTile.Y(), WallNorth, true) {
+			if IsTileBlocking(nextTile.X()-1, nextTile.Y(), ClipNorth, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.X(), nextTile.Y()-1, WallWest, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y()-1, ClipWest, true) {
 				return false
 			}
-			if IsTileBlocking(nextTile.X(), nextTile.Y(), WallNorth|WallWest, true) {
+			if IsTileBlocking(nextTile.X(), nextTile.Y(), ClipNorth|ClipWest, true) {
 				return false
 			}
 		}
@@ -280,14 +280,14 @@ func (p *Player) TraversePath() {
 	if path == nil {
 		return
 	}
-	if p.AtLocation(path.NextWaypointTile()) {
+	if p.AtLocation(path.nextTile()) {
 		path.CurrentWaypoint++
 	}
 	if p.FinishedPath() {
 		p.ResetPath()
 		return
 	}
-	dst := path.NextWaypointTile()
+	dst := path.nextTile()
 	x, y := p.X(), p.Y()
 	next := NewLocation(x, y)
 	xBlocked, yBlocked := false, false
@@ -348,8 +348,8 @@ func (p *Player) TraversePath() {
 }
 
 func (p *Player) UpdateRegion(x, y int) {
-	curArea := GetRegion(p.X(), p.Y())
-	newArea := GetRegion(x, y)
+	curArea := getRegion(p.X(), p.Y())
+	newArea := getRegion(x, y)
 	if newArea != curArea {
 		if curArea.Players.Contains(p) {
 			curArea.Players.Remove(p)
@@ -469,7 +469,7 @@ func (p *Player) SetFatigue(i int) {
 
 //NearbyPlayers Returns nearby players.
 func (p *Player) NearbyPlayers() (players []*Player) {
-	for _, r := range SurroundingRegions(p.X(), p.Y()) {
+	for _, r := range surroundingRegions(p.X(), p.Y()) {
 		players = append(players, r.Players.NearbyPlayers(p)...)
 	}
 
@@ -478,8 +478,8 @@ func (p *Player) NearbyPlayers() (players []*Player) {
 
 //NearbyPlayers Returns nearby players.
 func (p *Player) NearbyNpcs() (npcs []*NPC) {
-	for _, r := range SurroundingRegions(p.X(), p.Y()) {
-		npcs = append(npcs, r.Players.NearbyNPCs(p)...)
+	for _, r := range surroundingRegions(p.X(), p.Y()) {
+		npcs = append(npcs, r.Players.NearbyNpcs(p)...)
 	}
 
 	return
@@ -487,7 +487,7 @@ func (p *Player) NearbyNpcs() (npcs []*NPC) {
 
 //NearbyObjects Returns nearby objects.
 func (p *Player) NearbyObjects() (objects []*Object) {
-	for _, r := range SurroundingRegions(p.X(), p.Y()) {
+	for _, r := range surroundingRegions(p.X(), p.Y()) {
 		objects = append(objects, r.Objects.NearbyObjects(p)...)
 	}
 
@@ -496,7 +496,7 @@ func (p *Player) NearbyObjects() (objects []*Object) {
 
 //NewObjects Returns nearby objects that this player is unaware of.
 func (p *Player) NewObjects() (objects []*Object) {
-	for _, r := range SurroundingRegions(p.X(), p.Y()) {
+	for _, r := range surroundingRegions(p.X(), p.Y()) {
 		for _, o := range r.Objects.NearbyObjects(p) {
 			if !p.LocalObjects.Contains(o) {
 				objects = append(objects, o)
@@ -509,7 +509,7 @@ func (p *Player) NewObjects() (objects []*Object) {
 
 //NewItems Returns nearby ground items that this player is unaware of.
 func (p *Player) NewItems() (items []*GroundItem) {
-	for _, r := range SurroundingRegions(p.X(), p.Y()) {
+	for _, r := range surroundingRegions(p.X(), p.Y()) {
 		for _, i := range r.Items.NearbyItems(p) {
 			if !p.LocalItems.Contains(i) {
 				items = append(items, i)
@@ -522,7 +522,7 @@ func (p *Player) NewItems() (items []*GroundItem) {
 
 //NewPlayers Returns nearby players that this player is unaware of.
 func (p *Player) NewPlayers() (players []*Player) {
-	for _, r := range SurroundingRegions(p.X(), p.Y()) {
+	for _, r := range surroundingRegions(p.X(), p.Y()) {
 		for _, p1 := range r.Players.NearbyPlayers(p) {
 			if !p.LocalPlayers.Contains(p1) {
 				players = append(players, p1)
@@ -535,8 +535,8 @@ func (p *Player) NewPlayers() (players []*Player) {
 
 //NewNPCs Returns nearby NPCs that this player is unaware of.
 func (p *Player) NewNPCs() (npcs []*NPC) {
-	for _, r := range SurroundingRegions(p.X(), p.Y()) {
-		for _, n := range r.NPCs.NearbyNPCs(p) {
+	for _, r := range surroundingRegions(p.X(), p.Y()) {
+		for _, n := range r.NPCs.NearbyNpcs(p) {
 			if !p.LocalNPCs.Contains(n) {
 				npcs = append(npcs, n)
 			}
@@ -628,10 +628,10 @@ func (p *Player) Initialize() {
 //NewPlayer Returns a reference to a new player.
 func NewPlayer(index int, ip string) *Player {
 	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Location{atomic.NewUint32(0), atomic.NewUint32(0)}},
-		TransAttrs: &AttributeList{Set: make(map[string]interface{})}}, Attributes: &AttributeList{Set: make(map[string]interface{})},
-		LocalPlayers: &List{}, LocalNPCs: &List{}, LocalObjects: &List{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0),
+		TransAttrs: &AttributeList{set: make(map[string]interface{})}}, Attributes: &AttributeList{set: make(map[string]interface{})},
+		LocalPlayers: &entityList{}, LocalNPCs: &entityList{}, LocalObjects: &entityList{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0),
 		FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Inventory: &Inventory{Capacity: 30},
-		TradeOffer: &Inventory{Capacity: 12}, LocalItems: &List{}, IP: ip, OutgoingPackets: make(chan *packet.Packet, 20),
+		TradeOffer: &Inventory{Capacity: 12}, LocalItems: &entityList{}, IP: ip, OutgoingPackets: make(chan *packet.Packet, 20),
 		Kill: make(chan struct{}), Bank: &Inventory{Capacity: 48 * 4, stackEverything: true}}
 	p.Transients().SetVar("skills", &SkillTable{})
 	p.Equips[0] = p.Appearance.Head

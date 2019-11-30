@@ -56,7 +56,7 @@ func LoadTileDefinitions() {
 	for rows.Next() {
 		nextDef := world.TileDefinition{}
 		rows.Scan(&nextDef.Color, &nextDef.Visible, &nextDef.ObjectType)
-		world.Tiles = append(world.Tiles, nextDef)
+		world.TileDefs = append(world.TileDefs, nextDef)
 	}
 }
 
@@ -76,7 +76,7 @@ func LoadBoundaryDefinitions() {
 			nextDef.Commands[i] = strings.ToLower(c)
 		}
 		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.Traversable, &nextDef.Unknown)
-		world.Boundarys = append(world.Boundarys, nextDef)
+		world.BoundaryDefs = append(world.BoundaryDefs, nextDef)
 	}
 }
 

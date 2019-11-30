@@ -18,15 +18,15 @@ const (
 
 var EngineChannel = make(chan func(), 20)
 
-//Region Represents a 48x48 section of map.  The purpose of this is to keep track of entities in the entire world without having to allocate tiles individually, which would make search algorithms slower and utilizes a great deal of memory.
-type Region struct {
-	Players *List
-	NPCs    *List
-	Objects *List
-	Items   *List
+//region Represents a 48x48 section of map.  The purpose of this is to keep track of entities in the entire world without having to allocate tiles individually, which would make search algorithms slower and utilizes a great deal of memory.
+type region struct {
+	Players *entityList
+	NPCs    *entityList
+	Objects *entityList
+	Items   *entityList
 }
 
-var regions [HorizontalPlanes][VerticalPlanes]*Region
+var regions [HorizontalPlanes][VerticalPlanes]*region
 
 //IsValid Returns true if the tile at x,y is within world boundaries, false otherwise.
 func WithinWorld(x, y int) bool {
@@ -35,35 +35,35 @@ func WithinWorld(x, y int) bool {
 
 //AddPlayer Add a player to the region.
 func AddPlayer(p *Player) {
-	GetRegion(p.X(), p.Y()).Players.Add(p)
+	getRegion(p.X(), p.Y()).Players.Add(p)
 }
 
 //RemovePlayer Remove a player from the region.
 func RemovePlayer(p *Player) {
-	GetRegion(p.X(), p.Y()).Players.Remove(p)
+	getRegion(p.X(), p.Y()).Players.Remove(p)
 }
 
 //AddNpc Add a NPC to the region.
 func AddNpc(n *NPC) {
-	GetRegion(n.X(), n.Y()).NPCs.Add(n)
+	getRegion(n.X(), n.Y()).NPCs.Add(n)
 }
 
 //RemoveNpc Remove a NPC from the region.
 func RemoveNpc(n *NPC) {
-	GetRegion(n.X(), n.Y()).NPCs.Remove(n)
+	getRegion(n.X(), n.Y()).NPCs.Remove(n)
 }
 
 //AddItem Add a ground item to the region.
 func AddItem(i *GroundItem) {
-	GetRegion(i.X(), i.Y()).Items.Add(i)
+	getRegion(i.X(), i.Y()).Items.Add(i)
 }
 
 //GetItem Returns the item at x,y with the specified id.  Returns nil if it can not find the item.
 func GetItem(x, y, id int) *GroundItem {
-	region := GetRegion(x, y)
+	region := getRegion(x, y)
 	region.Items.lock.RLock()
 	defer region.Items.lock.RUnlock()
-	for _, i := range region.Items.List {
+	for _, i := range region.Items.set {
 		if i, ok := i.(*GroundItem); ok {
 			if i.ID == id && i.X() == x && i.Y() == y {
 				return i
@@ -76,12 +76,12 @@ func GetItem(x, y, id int) *GroundItem {
 
 //RemoveItem Remove a ground item to the region.
 func RemoveItem(i *GroundItem) {
-	GetRegion(i.X(), i.Y()).Items.Remove(i)
+	getRegion(i.X(), i.Y()).Items.Remove(i)
 }
 
 //AddObject Add an object to the region.
 func AddObject(o *Object) {
-	GetRegion(o.X(), o.Y()).Objects.Add(o)
+	getRegion(o.X(), o.Y()).Objects.Add(o)
 	if !o.Boundary {
 		def := Objects[o.ID]
 		if def.Type != 1 && def.Type != 2 {
@@ -100,66 +100,66 @@ func AddObject(o *Object) {
 				x, y := o.X()+xOffset, o.Y()+yOffset
 				areaX := (2304 + x) % RegionSize
 				areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
-				if SectorFromCoords(x, y) == nil {
+				if sectorFromCoords(x, y) == nil {
 					return
 				}
 				if def.Type == 1 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x40
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x40
 				} else if o.Direction == 0 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x2
-					if SectorFromCoords(x-1, y) != nil && (areaX > 0 || areaY >= 48) {
-						SectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask |= 0x8
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x2
+					if sectorFromCoords(x-1, y) != nil && (areaX > 0 || areaY >= 48) {
+						sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask |= 0x8
 					}
 				} else if o.Direction == 2 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x4
-					if SectorFromCoords(x, y+1) != nil {
-						SectorFromCoords(x, y+1).Tiles[areaX*RegionSize+areaY+1].CollisionMask |= 0x1
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x4
+					if sectorFromCoords(x, y+1) != nil {
+						sectorFromCoords(x, y+1).Tiles[areaX*RegionSize+areaY+1].CollisionMask |= 0x1
 					}
 				} else if o.Direction == 4 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x8
-					if SectorFromCoords(x+1, y) != nil {
-						SectorFromCoords(x+1, y).Tiles[(areaX+1)*RegionSize+areaY].CollisionMask |= 0x2
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x8
+					if sectorFromCoords(x+1, y) != nil {
+						sectorFromCoords(x+1, y).Tiles[(areaX+1)*RegionSize+areaY].CollisionMask |= 0x2
 					}
 				} else if o.Direction == 6 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x1
-					if SectorFromCoords(x, y-1) != nil {
-						SectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1].CollisionMask |= 0x4
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x1
+					if sectorFromCoords(x, y-1) != nil {
+						sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1].CollisionMask |= 0x4
 					}
 				}
 			}
 		}
 	} else {
-		def := Boundarys[o.ID]
+		def := BoundaryDefs[o.ID]
 		if def.Traversable != 1 {
 			return
 		}
 		x, y := o.X(), o.Y()
 		areaX := (2304 + x) % RegionSize
 		areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
-		if SectorFromCoords(x, y) == nil {
+		if sectorFromCoords(x, y) == nil {
 			return
 		}
 		if o.Direction == 0 {
-			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x1
-			if SectorFromCoords(x, y-1) != nil {
-				SectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1].CollisionMask |= 0x4
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x1
+			if sectorFromCoords(x, y-1) != nil {
+				sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1].CollisionMask |= 0x4
 			}
 		} else if o.Direction == 1 {
-			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x2
-			if SectorFromCoords(x-1, y) != nil && (areaX > 0 || areaY >= 48) {
-				SectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask |= 0x8
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x2
+			if sectorFromCoords(x-1, y) != nil && (areaX > 0 || areaY >= 48) {
+				sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask |= 0x8
 			}
 		} else if o.Direction == 2 {
-			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x10
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x10
 		} else if o.Direction == 3 {
-			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x20
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= 0x20
 		}
 	}
 }
 
 //RemoveObject Remove an object from the region.
 func RemoveObject(o *Object) {
-	GetRegion(o.X(), o.Y()).Objects.Remove(o)
+	getRegion(o.X(), o.Y()).Objects.Remove(o)
 	if !o.Boundary {
 		def := Objects[o.ID]
 		if def.Type != 1 && def.Type != 2 {
@@ -179,32 +179,32 @@ func RemoveObject(o *Object) {
 				areaX := (2304 + x) % RegionSize
 				areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
 				if def.Type == 1 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 0x40
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 0x40
 				} else if o.Direction == 0 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 2
-					if SectorFromCoords(x-1, y) != nil {
-						SectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask &= 0xFFFF - 8
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 2
+					if sectorFromCoords(x-1, y) != nil {
+						sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask &= 0xFFFF - 8
 					}
 				} else if o.Direction == 2 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 4
-					if SectorFromCoords(x, y+1) != nil {
-						SectorFromCoords(x, y+1).Tiles[areaX*RegionSize+areaY+1].CollisionMask &= 0xFFFF - 1
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 4
+					if sectorFromCoords(x, y+1) != nil {
+						sectorFromCoords(x, y+1).Tiles[areaX*RegionSize+areaY+1].CollisionMask &= 0xFFFF - 1
 					}
 				} else if o.Direction == 4 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 8
-					if SectorFromCoords(x+1, y) != nil {
-						SectorFromCoords(x+1, y).Tiles[(areaX+1)*RegionSize+areaY].CollisionMask &= 0xFFFF - 2
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 8
+					if sectorFromCoords(x+1, y) != nil {
+						sectorFromCoords(x+1, y).Tiles[(areaX+1)*RegionSize+areaY].CollisionMask &= 0xFFFF - 2
 					}
 				} else if o.Direction == 6 {
-					SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 1
-					if SectorFromCoords(x, y-1) != nil {
-						SectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1].CollisionMask &= 0xFFFF - 4
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 1
+					if sectorFromCoords(x, y-1) != nil {
+						sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1].CollisionMask &= 0xFFFF - 4
 					}
 				}
 			}
 		}
 	} else {
-		def := Boundarys[o.ID]
+		def := BoundaryDefs[o.ID]
 		if def.Traversable != 1 {
 			return
 		}
@@ -212,19 +212,19 @@ func RemoveObject(o *Object) {
 		areaX := (2304 + x) % RegionSize
 		areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
 		if o.Direction == 0 {
-			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 1
-			if SectorFromCoords(x, y-1) != nil {
-				SectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1].CollisionMask &= 0xFFFF - 4
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 1
+			if sectorFromCoords(x, y-1) != nil {
+				sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1].CollisionMask &= 0xFFFF - 4
 			}
 		} else if o.Direction == 1 {
-			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 2
-			if SectorFromCoords(x-1, y) != nil {
-				SectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask &= 0xFFFF - 8
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 2
+			if sectorFromCoords(x-1, y) != nil {
+				sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask &= 0xFFFF - 8
 			}
 		} else if o.Direction == 2 {
-			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 0x10
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 0x10
 		} else if o.Direction == 3 {
-			SectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 0x20
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= 0xFFFF - 0x20
 		}
 	}
 }
@@ -243,7 +243,7 @@ func GetAllObjects() (list []*Object) {
 		for y := 0; y < MaxY; y += RegionSize {
 			if r := regions[x/RegionSize][y/RegionSize]; r != nil {
 				r.Objects.lock.RLock()
-				for _, o := range r.Objects.List {
+				for _, o := range r.Objects.set {
 					if o, ok := o.(*Object); ok {
 						list = append(list, o)
 					}
@@ -258,10 +258,10 @@ func GetAllObjects() (list []*Object) {
 
 //GetObject If there is an object at these coordinates, returns it.  Otherwise, returns nil.
 func GetObject(x, y int) *Object {
-	r := GetRegion(x, y)
+	r := getRegion(x, y)
 	r.Objects.lock.RLock()
 	defer r.Objects.lock.RUnlock()
-	for _, o := range r.Objects.List {
+	for _, o := range r.Objects.set {
 		if o, ok := o.(*Object); ok {
 			if o.X() == x && o.Y() == y {
 				return o
@@ -282,39 +282,39 @@ func GetNpc(index int) *NPC {
 }
 
 //getRegionFromIndex internal function to get a region by its row amd column indexes
-func getRegionFromIndex(areaX, areaY int) *Region {
+func getRegionFromIndex(areaX, areaY int) *region {
 	if areaX < 0 {
 		areaX = 0
 	}
 	if areaX >= HorizontalPlanes {
 		fmt.Println("planeX index out of range")
-		return &Region{&List{}, &List{}, &List{}, &List{}}
+		return &region{&entityList{}, &entityList{}, &entityList{}, &entityList{}}
 	}
 	if areaY < 0 {
 		areaY = 0
 	}
 	if areaY >= VerticalPlanes {
 		fmt.Println("planeY index out of range")
-		return &Region{&List{}, &List{}, &List{}, &List{}}
+		return &region{&entityList{}, &entityList{}, &entityList{}, &entityList{}}
 	}
 	if regions[areaX][areaY] == nil {
-		regions[areaX][areaY] = &Region{&List{}, &List{}, &List{}, &List{}}
+		regions[areaX][areaY] = &region{&entityList{}, &entityList{}, &entityList{}, &entityList{}}
 	}
 	return regions[areaX][areaY]
 }
 
-//GetRegion Returns the region that corresponds with the given coordinates.  If it does not exist yet, it will allocate a new onr and store it for the lifetime of the application in the regions map.
-func GetRegion(x, y int) *Region {
+//getRegion Returns the region that corresponds with the given coordinates.  If it does not exist yet, it will allocate a new onr and store it for the lifetime of the application in the regions map.
+func getRegion(x, y int) *region {
 	return getRegionFromIndex(x/RegionSize, y/RegionSize)
 }
 
-//GetRegionFromLocation Returns the region that corresponds with the given location.  If it does not exist yet, it will allocate a new onr and store it for the lifetime of the application in the regions map.
-func GetRegionFromLocation(loc *Location) *Region {
+//getRegionFromLocation Returns the region that corresponds with the given location.  If it does not exist yet, it will allocate a new onr and store it for the lifetime of the application in the regions map.
+func getRegionFromLocation(loc *Location) *region {
 	return getRegionFromIndex(loc.X()/RegionSize, loc.Y()/RegionSize)
 }
 
-//SurroundingRegions Returns the regions surrounding the given coordinates.  It wil
-func SurroundingRegions(x, y int) (regions [4]*Region) {
+//surroundingRegions Returns the regions surrounding the given coordinates.  It wil
+func surroundingRegions(x, y int) (regions [4]*region) {
 	areaX := x / RegionSize
 	areaY := y / RegionSize
 	regions[0] = getRegionFromIndex(areaX, areaY)

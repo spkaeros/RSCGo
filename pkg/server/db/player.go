@@ -393,7 +393,7 @@ func SavePlayer(player *world.Player) {
 			return
 		}
 	}
-	insertAttribute := func(name string, value interface{}) {
+	insertAttribute := func(name string, value interface{}) bool {
 		var val string
 		switch value.(type) {
 		case int:
@@ -418,12 +418,13 @@ func SavePlayer(player *world.Player) {
 			if err := tx.Rollback(); err != nil {
 				log.Warning.Println("Save(): Transaction insert attribute rollback failed:", err)
 			}
-			return
+			return false
 		}
 
 		if count <= 0 {
 			log.Info.Println("Save(): Affected nothing for attribute insertion!")
 		}
+		return false
 	}
 	clearContactList := func(contactType string) {
 		if _, err := tx.Exec("DELETE FROM contacts WHERE playerid=? AND type=?", player.DatabaseIndex, contactType); err != nil {

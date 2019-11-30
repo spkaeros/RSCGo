@@ -207,7 +207,7 @@ func (m *Mob) FinishedPath() bool {
 	if path == nil {
 		return true
 	}
-	return path.CurrentWaypoint >= path.CountWaypoints() || !path.NextTileFrom(m.Location).IsValid()
+	return path.CurrentWaypoint >= path.countWaypoints() || !path.nextTileFrom(m.Location).IsValid()
 }
 
 //SetLocation Sets the mobs location.

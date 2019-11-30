@@ -9,186 +9,185 @@
 
 package world
 
-import "math"
+import (
+	"container/heap"
+	"math"
+)
 
-type Node struct {
-	hCost, gCost int
-	cost         int
+type pNode struct {
+	hCost, gCost, nCost float64
+	cost         float64
 	open         bool
-	parent       *Node
+	parent       *pNode
 	loc          Location
+	index int
+	closed bool
+}
+
+func (p *Pathfinder) neighbors(n *pNode) []*pNode {
+	x, y := n.loc.X(), n.loc.Y()
+	var neighbors []*pNode
+//	var s0, d0, s1, d1, s2, d2, s3, d3 bool
+	if !IsTileBlocking(x, y - 1, ClipSouth, false) {
+		if neighbor := p.nodes[x << 32 | (y-1)]; neighbor == nil {
+			p.nodes[x << 32 | (y-1)] = &pNode{loc: NewLocation(x, y-1)}
+		}
+		neighbors = append(neighbors, p.nodes[x << 32 | (y-1)])
+//		s0 = true
+	}
+	if !IsTileBlocking(x+1, y, ClipEast, false) {
+		if neighbor := p.nodes[(x+1) << 32 | y]; neighbor == nil {
+			p.nodes[(x+1) << 32 | y] = &pNode{loc: NewLocation(x+1, y)}
+		}
+		neighbors = append(neighbors, p.nodes[(x+1) << 32 | y])
+//		s1 = true
+	}
+	if !IsTileBlocking(x, y + 1, ClipNorth, false) {
+		if neighbor := p.nodes[x << 32 | (y+1)]; neighbor == nil {
+			p.nodes[x << 32 | (y+1)] = &pNode{loc: NewLocation(x, y+1)}
+		}
+		neighbors = append(neighbors, p.nodes[x << 32 | (y+1)])
+//		s2 = true
+	}
+	if !IsTileBlocking(x-1, y, ClipWest, false) {
+		if neighbor := p.nodes[(x-1) << 32 | y]; neighbor == nil {
+			p.nodes[(x-1) << 32 | y] = &pNode{loc: NewLocation(x-1, y)}
+		}
+		neighbors = append(neighbors, p.nodes[(x-1) << 32 | y])
+//		s3 = true
+	}
+
+	if !IsTileBlocking(x-1, y-1, ClipSouth|ClipWest, false) {
+		if !IsTileBlocking(x-1, y, ClipWest, false) && !IsTileBlocking(x, y-1, ClipSouth, false) {
+			if neighbor := p.nodes[(x-1)<<32|(y-1)]; neighbor == nil {
+				p.nodes[(x-1)<<32|(y-1)] = &pNode{loc: NewLocation(x-1, y-1)}
+			}
+			neighbors = append(neighbors, p.nodes[(x-1)<<32|(y-1)])
+		}
+	}
+	if !IsTileBlocking(x+1, y-1, ClipSouth|ClipEast, false) {
+		if !IsTileBlocking(x+1, y, ClipEast, false) && !IsTileBlocking(x, y-1, ClipSouth, false) {
+			if neighbor := p.nodes[(x+1)<<32|(y-1)]; neighbor == nil {
+				p.nodes[(x+1)<<32|(y-1)] = &pNode{loc: NewLocation(x+1, y-1)}
+			}
+			neighbors = append(neighbors, p.nodes[(x+1)<<32|(y-1)])
+		}
+	}
+	if !IsTileBlocking(x+1, y+1, ClipNorth|ClipEast, false) {
+		if !IsTileBlocking(x+1, y, ClipEast, false) && !IsTileBlocking(x, y+1, ClipNorth, false) {
+			if neighbor := p.nodes[(x+1)<<32|(y+1)]; neighbor == nil {
+				p.nodes[(x+1)<<32|(y+1)] = &pNode{loc: NewLocation(x+1, y+1)}
+			}
+			neighbors = append(neighbors, p.nodes[(x+1)<<32|(y+1)])
+		}
+	}
+	if !IsTileBlocking(x-1, y+1, ClipNorth|ClipWest, false) {
+		if !IsTileBlocking(x-1, y, ClipWest, false) && !IsTileBlocking(x, y+1, ClipNorth, false) {
+			if neighbor := p.nodes[(x-1)<<32|(y+1)]; neighbor == nil {
+				p.nodes[(x-1)<<32|(y+1)] = &pNode{loc: NewLocation(x-1, y+1)}
+			}
+			neighbors = append(neighbors, p.nodes[(x-1)<<32|(y+1)])
+		}
+	}
+	return neighbors
 }
 
 type Pathfinder struct {
-	nodes map[int]*Node
-	open  []*Node
+	nodes map[int]*pNode
+	open  queue
 	start Location
 	end   Location
 }
 
-//NewPathfinder Returns a new A* pathfinder instance to derive an optimal path from start to end.
-func NewPathfinder(start, end Location) *Pathfinder {
-	p := &Pathfinder{start: start, end: end, nodes: make(map[int]*Node), open: []*Node{{loc: start, open: true}}}
-	p.nodes[start.X()<<32|start.Y()] = p.open[0]
-	p.nodes[end.X()<<32|end.Y()] = &Node{loc: end, open: true}
-	return p
+type queue []*pNode
+
+func (q queue) Len() int {
+	return len(q)
 }
 
-func (p *Pathfinder) hasOpen(node *Node) bool {
-	for _, n := range p.open {
-		if node == n {
-			return true
-		}
-	}
-	return false
+func (q queue) Less(i, j int) bool {
+	return q[i].nCost < q[j].nCost
 }
 
-func (p *Pathfinder) getCheapest() *Node {
-	var node *Node
-	min := math.MaxInt32
-	for _, n := range p.open {
-		if !n.open {
-			continue
-		}
-		if n.cost < min {
-			min = n.cost
-			node = n
-		}
-	}
+func (q queue) Swap(i, j int) {
+	q[i], q[j] = q[j], q[i]
+	q[i].index = i
+	q[j].index = j
+}
+
+func (q *queue) Push(x interface{}) {
+	n := len(*q)
+	node := x.(*pNode)
+	node.index = n
+	*q = append(*q, node)
+}
+
+func (q *queue) Pop() interface{} {
+	old := *q
+	n := len(old)
+	node := old[n-1]
+	old[n-1] = nil
+	node.index = -1
+	*q = old[0:n-1]
 	return node
 }
 
-func travelCost(start, end Location) int {
-	deltaX, deltaY := start.DeltaX(end), start.DeltaY(end)
-	shortL, longL := deltaX, deltaY
-	if deltaX > deltaY {
-		shortL = deltaY
-		longL = deltaX
-	}
-	return shortL*14 + ((longL - shortL) * 10)
+//NewPathfinder Returns a new A* pathfinder instance to derive an optimal path from start to end.
+func NewPathfinder(start, end Location) *Pathfinder {
+	p := &Pathfinder{start: start, end: end, nodes: make(map[int]*pNode), open: make(queue, 1)}
+	p.open[0] = &pNode{loc: start, open:true}
+	p.nodes[start.X()<<32|start.Y()] = p.open[0]
+	p.nodes[end.X()<<32|end.Y()] = &pNode{loc: end}
+	heap.Init(&p.open)
+	return p
 }
 
-func (p *Pathfinder) removeOpen(node *Node) {
-	for i, n := range p.open {
-		if n == node {
-			p.open = append(p.open[:i], p.open[i+1:]...)
-			break
-		}
+func gCost(parent, neighbor *pNode) float64 {
+	if parent.loc.DeltaX(neighbor.loc) == 0 || parent.loc.DeltaY(neighbor.loc) == 0 {
+		return parent.gCost + 1
 	}
-	node.open = false
+	return parent.gCost + math.Sqrt2
 }
 
-func (p *Pathfinder) compare(active, other *Node) {
-	gCost := active.gCost + travelCost(active.loc, other.loc)
-	cost := travelCost(other.loc, p.end)
-	fCost := gCost + cost
-	if other.cost > fCost {
-		p.removeOpen(other)
-	} else if other.open && !p.hasOpen(other) {
+func hCost(neighbor *pNode, end Location) float64 {
+	return (math.Sqrt2 - 1.0) * float64(neighbor.loc.DeltaX(end) + neighbor.loc.DeltaY(end))
+}
+
+func (p *Pathfinder) compare(active, other *pNode) {
+	gCost := gCost(active, other)
+	if !other.open || gCost < other.gCost {
 		other.gCost = gCost
-		other.hCost = cost
-		other.cost = fCost
+		if other.hCost == 0 {
+			other.hCost = 1 * hCost(other, p.end)
+		}
+		other.nCost = other.gCost + other.hCost
 		other.parent = active
-		p.open = append(p.open, other)
+
+		if !other.open {
+			other.open = true
+			heap.Push(&p.open, other)
+		} else {
+			heap.Fix(&p.open, other.index)
+		}
 	}
 }
 
 func (p *Pathfinder) MakePath() *Pathway {
-	if IsTileBlocking(p.end.X(), p.end.Y(), 0x40, false) {
+	if IsTileBlocking(p.end.X(), p.end.Y(), ClipDiag1|ClipDiag2|ClipFullBlock, false) {
 		return NewPathwayToLocation(p.end)
 	}
-	for len(p.open) > 0 {
-		active := p.getCheapest()
+	for p.open.Len() > 0 {
+		active := heap.Pop(&p.open).(*pNode)
+		active.closed = true
 		position := active.loc
 		if position.Equals(p.end) {
 			break
 		}
-		p.removeOpen(active)
-
-		x, y := position.X(), position.Y()
-		for nextX := x - 1; nextX <= x+1; nextX++ {
-			for nextY := y - 1; nextY <= y+1; nextY++ {
-				if nextX == x && nextY == y {
-					continue
-				}
-
-				adj := NewLocation(nextX, nextY)
-				sprites := [3][3]int{{SouthWest, West, NorthWest}, {South, -1, North}, {SouthEast, East, NorthEast}}
-				xIndex, yIndex := position.X()-adj.X()+1, position.Y()-adj.Y()+1
-				nextTileMask := 4
-				curTileMask := 1
-				if xIndex < 0 || xIndex >= 3 {
-					continue
-				}
-				if yIndex < 0 || yIndex >= 3 {
-					continue
-				}
-				dir := sprites[xIndex][yIndex]
-				switch dir {
-				case North:
-					nextTileMask = WallSouth
-					curTileMask = WallNorth
-				case South:
-					nextTileMask = WallNorth
-					curTileMask = WallSouth
-				case East:
-					nextTileMask = WallWest
-					curTileMask = WallEast
-				case West:
-					nextTileMask = WallEast
-					curTileMask = WallWest
-				case NorthEast:
-					nextTileMask = WallSouth | WallWest
-					curTileMask = WallNorth | WallWest
-				case NorthWest:
-					nextTileMask = WallSouth | WallEast
-					curTileMask = WallNorth | WallEast
-				case SouthEast:
-					nextTileMask = WallNorth | WallWest
-					curTileMask = WallSouth | WallWest
-				case SouthWest:
-					nextTileMask = WallNorth | WallEast
-					curTileMask = WallSouth | WallEast
-				}
-				if !IsTileBlocking(position.X(), position.Y(), byte(curTileMask), true) && !IsTileBlocking(adj.X(), adj.Y(), byte(nextTileMask), false) {
-					switch dir {
-					case NorthEast:
-						if IsTileBlocking(position.X(), position.Y()-1, byte(nextTileMask), false) {
-							continue
-						}
-						if IsTileBlocking(position.X()-1, position.Y(), byte(nextTileMask), false) {
-							continue
-						}
-					case NorthWest:
-						if IsTileBlocking(position.X(), position.Y()-1, byte(nextTileMask), false) {
-							continue
-						}
-						if IsTileBlocking(position.X()+1, position.Y(), byte(nextTileMask), false) {
-							continue
-						}
-					case SouthEast:
-						if IsTileBlocking(position.X(), position.Y()+1, byte(nextTileMask), false) {
-							continue
-						}
-						if IsTileBlocking(position.X()-1, position.Y(), byte(nextTileMask), false) {
-							continue
-						}
-					case SouthWest:
-						if IsTileBlocking(position.X(), position.Y()+1, byte(nextTileMask), false) {
-							continue
-						}
-						if IsTileBlocking(position.X()+1, position.Y(), byte(nextTileMask), false) {
-							continue
-						}
-					}
-					node, ok := p.nodes[adj.X()<<32|adj.Y()] //&Node{loc: adj, open: true}
-					if !ok {
-						node = &Node{loc: adj, open: true}
-						p.nodes[adj.X()<<32|adj.Y()] = node
-					}
-					p.compare(active, node)
-				}
+		for _, neighbor := range p.neighbors(active) {
+			if neighbor.closed {
+				continue
 			}
+			p.compare(active, neighbor)
 		}
 	}
 
@@ -198,7 +197,7 @@ func (p *Pathfinder) MakePath() *Pathway {
 	if active.parent != nil {
 		position := active.loc
 		for !p.start.Equals(position) {
-			path.AddWaypoint(position.X(), position.Y())
+			path.addFirstWaypoint(position.X(), position.Y())
 			active = active.parent
 			position = active.loc
 		}

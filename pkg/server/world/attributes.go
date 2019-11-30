@@ -14,174 +14,204 @@ import (
 	"time"
 )
 
-//AttrList A type alias for a map of strings to empty interfaces, to hold generic mob information for easy serialization and to provide dynamic insertion/deletion of new mob properties easily
-type AttrList map[string]interface{}
-
 //AttributeList A concurrency-safe collection data type for storing misc. variables by a descriptive name.
 type AttributeList struct {
-	Set  map[string]interface{}
-	Lock sync.RWMutex
+	set  map[string]interface{}
+	lock sync.RWMutex
 }
 
-//Range Runs fn(key, value) for every entry in this attribute list.
-func (attributes *AttributeList) Range(fn func(string, interface{})) {
-	attributes.Lock.RLock()
-	defer attributes.Lock.RUnlock()
-	for k, v := range attributes.Set {
-		fn(k, v)
+//Range runs fn(key, value) for every entry in the attributes collection.  If fn returns true, returns to caller.
+func (a *AttributeList) Range(fn func(string, interface{}) bool) {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
+	for k, v := range a.set {
+		if fn(k, v) {
+			return
+		}
 	}
 }
 
-//SetVar Sets the attribute mapped at name to value in the attribute map.
-func (attributes *AttributeList) SetVar(name string, value interface{}) {
-	attributes.Lock.Lock()
-	attributes.Set[name] = value
-	attributes.Lock.Unlock()
+//Contains checks if there is an attribute in the collection set with the provided name, and returns true if so.
+// Otherwise, returns false.
+func (a *AttributeList) Contains(name string) bool {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
+	_, ok := a.set[name]
+	return ok
 }
 
-//UnsetVar Removes the attribute with the key `name` from this attribute set.
-func (attributes *AttributeList) UnsetVar(name string) {
-	attributes.Lock.Lock()
-	delete(attributes.Set, name)
-	attributes.Lock.Unlock()
+//SetVar Sets the attribute with the provided name to value.
+// NOTE: Even if there is already an attribute with this name, it will be overridden by calling this.  Maybe check
+// first if any attributes exist with this name using Contains(name)
+func (a *AttributeList) SetVar(name string, value interface{}) {
+	a.lock.Lock()
+	a.set[name] = value
+	a.lock.Unlock()
 }
 
-//VarInt If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
-func (attributes *AttributeList) VarString(name string, zero string) string {
-	attributes.Lock.RLock()
-	defer attributes.Lock.RUnlock()
-	if _, ok := attributes.Set[name].(string); !ok {
+//UnsetVar Removes the attribute with the provided name from the collection set, if any exist.
+func (a *AttributeList) UnsetVar(name string) {
+	if a.Contains(name) {
+		a.lock.Lock()
+		delete(a.set, name)
+		a.lock.Unlock()
+	}
+}
+
+//VarString checks if there is a string attribute assigned to the specified name, and returns it.
+// Otherwise, returns zero.
+func (a *AttributeList) VarString(name string, zero string) string {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
+	if _, ok := a.set[name].(string); !ok {
 		return zero
 	}
 
-	return attributes.Set[name].(string)
+	return a.set[name].(string)
 }
 
-//VarInt If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
-func (attributes *AttributeList) VarInt(name string, zero int) int {
-	attributes.Lock.RLock()
-	defer attributes.Lock.RUnlock()
-	if _, ok := attributes.Set[name].(int); !ok {
+//VarInt checks if there is an int attribute assigned to the specified name, and returns it.
+// Otherwise, returns zero.
+func (a *AttributeList) VarInt(name string, zero int) int {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
+	if _, ok := a.set[name].(int); !ok {
 		return zero
 	}
 
-	return attributes.Set[name].(int)
+	return a.set[name].(int)
 }
 
-//StoreMask Mask attribute `name` with the specified bitmask.
-func (attributes *AttributeList) StoreMask(name string, mask int) {
-	attributes.Lock.Lock()
-	defer attributes.Lock.Unlock()
-	if val, ok := attributes.Set[name].(int); ok {
-		attributes.Set[name] = val | 1<<mask
+//RemoveMask checks for an int attribute with the specified name, and if it exists, tries to apply mask to it.
+// If it doesn't exist, or is another type, it will set it to whatever the mask value is.
+// NOTE: mask parameter should be the index of the bit from the right most bit that you want to activate.
+func (a *AttributeList) StoreMask(name string, mask int) {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	if val, ok := a.set[name].(int); ok {
+		a.set[name] = val | 1<<mask
 		return
 	}
-	attributes.Set[name] = 0 | 1<<mask
+	a.set[name] = 1<<mask
 }
 
-//HasMasks Returns true if the attribute `name` has any of the provided bits set.
-func (attributes *AttributeList) HasMasks(name string, masks ...int) bool {
-	attributes.Lock.RLock()
-	defer attributes.Lock.RUnlock()
+//HasMasks checks if there is an int attribute assigned to the specified name, and if there is, checks if each mask in
+// masks is set on it, individually.
+// If there is no such attribute, or the type of the attribute is not an int, it will return false.
+// NOTE: masks parameter should be the indexes of the bits from the right most bit that you want to check.
+func (a *AttributeList) HasMasks(name string, masks ...int) bool {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
 	for _, mask := range masks {
-		if attributes.VarInt(name, 0)&(1<<mask) != 0 {
+		if a.VarInt(name, 0)&(1<<mask) != 0 {
 			return true
 		}
 	}
 	return false
 }
 
-//RemoveMask Mask attribute `name` with the specified bitmask.
-func (attributes *AttributeList) RemoveMask(name string, mask int) {
-	attributes.Lock.Lock()
-	defer attributes.Lock.Unlock()
-	if val, ok := attributes.Set[name].(int); ok {
-		attributes.Set[name] = val & ^(1 << mask)
+//RemoveMask checks for an int attribute with the specified name, and if it exists, tries to unset mask from it.
+// If it doesn't exist, or is another type, it will set it to 0.
+// NOTE: mask parameter should be the index of the bit from the right most bit that you want to deactivate.
+func (a *AttributeList) RemoveMask(name string, mask int) {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	if val, ok := a.set[name].(int); ok {
+		a.set[name] = val & ^(1 << mask)
 		return
 	}
-	attributes.Set[name] = 0 & ^(1 << mask)
+	a.set[name] = 0
 }
 
-//CheckMask Check if a bitmask attribute has a mask set.
-func (attributes *AttributeList) CheckMask(name string, mask int) bool {
-	attributes.Lock.RLock()
-	defer attributes.Lock.RUnlock()
-	return attributes.VarInt(name, 0)&mask != 0
+//CheckMask checks if there is an int attribute assigned to the specified name, and returns true if mask is set on it.
+// Otherwise, returns false.
+// NOTE: mask parameter should be the index of the bit from the right most bit that you want to check.
+func (a *AttributeList) CheckMask(name string, mask int) bool {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
+	return a.VarInt(name, 0)&mask != 0
 }
 
-//VarMob If there is a MobileEntity attribute assigned to the specified name, returns it.  Otherwise, returns nil
-func (attributes *AttributeList) VarMob(name string) MobileEntity {
-	attributes.Lock.RLock()
-	defer attributes.Lock.RUnlock()
-	if _, ok := attributes.Set[name].(MobileEntity); !ok {
+//VarMob checks if there is a MobileEntity attribute assigned to the specified name, and returns it.
+// Otherwise, returns nil.
+func (a *AttributeList) VarMob(name string) MobileEntity {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
+	if _, ok := a.set[name].(MobileEntity); !ok {
 		return nil
 	}
 
-	return attributes.Set[name].(MobileEntity)
+	return a.set[name].(MobileEntity)
 }
 
-//VarPlayer If there is a *Player attribute assigned to the specified name, returns it.  Otherwise, returns nil
-func (attributes *AttributeList) VarPlayer(name string) *Player {
-	attributes.Lock.RLock()
-	defer attributes.Lock.RUnlock()
-	if _, ok := attributes.Set[name].(*Player); !ok {
+//VarPlayer checks if there is a *Player attribute assigned to the specified name, and returns it.
+// Otherwise, returns nil.
+func (a *AttributeList) VarPlayer(name string) *Player {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
+	if _, ok := a.set[name].(*Player); !ok {
 		return nil
 	}
 
-	return attributes.Set[name].(*Player)
+	return a.set[name].(*Player)
 }
 
-//VarSkills If there is a *SkillTable attribute assigned to the specified name, returns it.  Otherwise, returns nil
-func (attributes *AttributeList) VarSkills(name string) *SkillTable {
-	attributes.Lock.RLock()
-	defer attributes.Lock.RUnlock()
-	if _, ok := attributes.Set[name].(*SkillTable); !ok {
+//VarSkills checks if there is a *SkillTable attribute assigned to the specified name, and returns it.
+// Otherwise, returns nil.
+func (a *AttributeList) VarSkills(name string) *SkillTable {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
+	if _, ok := a.set[name].(*SkillTable); !ok {
 		return nil
 	}
 
-	return attributes.Set[name].(*SkillTable)
+	return a.set[name].(*SkillTable)
 }
 
-//VarLong If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
-func (attributes *AttributeList) VarLong(name string, zero uint64) uint64 {
-	attributes.Lock.RLock()
-	defer attributes.Lock.RUnlock()
-	if _, ok := attributes.Set[name].(uint64); !ok {
+//VarLong checks if there is a uint64 attribute assigned to the specified name, and returns it.
+// Otherwise, returns zero.
+func (a *AttributeList) VarLong(name string, zero uint64) uint64 {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
+	if _, ok := a.set[name].(uint64); !ok {
 		return zero
 	}
 
-	return attributes.Set[name].(uint64)
+	return a.set[name].(uint64)
 }
 
-//VarBool If there is an attribute assigned to the specified name, returns it.  Otherwise, returns zero
-func (attributes *AttributeList) VarBool(name string, zero bool) bool {
-	attributes.Lock.RLock()
-	defer attributes.Lock.RUnlock()
-	if _, ok := attributes.Set[name].(bool); !ok {
+//VarBool checks if there is a bool attribute assigned to the specified name, and returns it.
+// Otherwise, returns zero.
+func (a *AttributeList) VarBool(name string, zero bool) bool {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
+	if _, ok := a.set[name].(bool); !ok {
 		return zero
 	}
 
-	return attributes.Set[name].(bool)
+	return a.set[name].(bool)
 }
 
-//VarTime If there is a time.Duration attribute assigned to the specified name, returns it.  Otherwise, returns zero
-func (attributes *AttributeList) VarTime(name string) time.Time {
-	attributes.Lock.RLock()
-	defer attributes.Lock.RUnlock()
-	if _, ok := attributes.Set[name].(time.Time); !ok {
+//VarTime checks if there is a time.Time attribute assigned to the specified name, and returns it.
+// Otherwise, returns time.Time{}
+func (a *AttributeList) VarTime(name string) time.Time {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
+	if _, ok := a.set[name].(time.Time); !ok {
 		return time.Time{}
 	}
 
-	return attributes.Set[name].(time.Time)
+	return a.set[name].(time.Time)
 }
 
-//VarTime If there is a time.Duration attribute assigned to the specified name, returns it.  Otherwise, returns zero
-func (attributes *AttributeList) VarPath(name string) *Pathway {
-	attributes.Lock.RLock()
-	defer attributes.Lock.RUnlock()
-	if _, ok := attributes.Set[name].(*Pathway); !ok {
+//VarPath checks if there is a *Pathway attribute assigned to the specified name, and returns it.
+// Otherwise, returns nil
+func (a *AttributeList) VarPath(name string) *Pathway {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
+	if _, ok := a.set[name].(*Pathway); !ok {
 		return nil
 	}
 
-	return attributes.Set[name].(*Pathway)
+	return a.set[name].(*Pathway)
 }
