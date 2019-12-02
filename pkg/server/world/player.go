@@ -619,7 +619,6 @@ func (p *Player) Initialize() {
 			p.OpenAppearanceChanger()
 		}
 
-
 	}
 	p.SendStats()
 	p.Attributes.SetVar("lastLogin", time.Now().Format(time.ANSIC))

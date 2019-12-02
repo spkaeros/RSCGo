@@ -15,46 +15,39 @@ import (
 )
 
 type pNode struct {
+	parent              *pNode
+	loc                 Location
 	hCost, gCost, nCost float64
-	cost         float64
-	open         bool
-	parent       *pNode
-	loc          Location
-	index int
-	closed bool
+	index               int
+	open, closed        bool
 }
 
 func (p *Pathfinder) neighbors(n *pNode) []*pNode {
 	x, y := n.loc.X(), n.loc.Y()
 	var neighbors []*pNode
-//	var s0, d0, s1, d1, s2, d2, s3, d3 bool
-	if !IsTileBlocking(x, y - 1, ClipSouth, false) {
-		if neighbor := p.nodes[x << 32 | (y-1)]; neighbor == nil {
-			p.nodes[x << 32 | (y-1)] = &pNode{loc: NewLocation(x, y-1)}
+	if !IsTileBlocking(x, y-1, ClipSouth, false) {
+		if neighbor := p.nodes[x<<32|(y-1)]; neighbor == nil {
+			p.nodes[x<<32|(y-1)] = &pNode{loc: NewLocation(x, y-1)}
 		}
-		neighbors = append(neighbors, p.nodes[x << 32 | (y-1)])
-//		s0 = true
+		neighbors = append(neighbors, p.nodes[x<<32|(y-1)])
 	}
 	if !IsTileBlocking(x+1, y, ClipEast, false) {
-		if neighbor := p.nodes[(x+1) << 32 | y]; neighbor == nil {
-			p.nodes[(x+1) << 32 | y] = &pNode{loc: NewLocation(x+1, y)}
+		if neighbor := p.nodes[(x+1)<<32|y]; neighbor == nil {
+			p.nodes[(x+1)<<32|y] = &pNode{loc: NewLocation(x+1, y)}
 		}
-		neighbors = append(neighbors, p.nodes[(x+1) << 32 | y])
-//		s1 = true
+		neighbors = append(neighbors, p.nodes[(x+1)<<32|y])
 	}
-	if !IsTileBlocking(x, y + 1, ClipNorth, false) {
-		if neighbor := p.nodes[x << 32 | (y+1)]; neighbor == nil {
-			p.nodes[x << 32 | (y+1)] = &pNode{loc: NewLocation(x, y+1)}
+	if !IsTileBlocking(x, y+1, ClipNorth, false) {
+		if neighbor := p.nodes[x<<32|(y+1)]; neighbor == nil {
+			p.nodes[x<<32|(y+1)] = &pNode{loc: NewLocation(x, y+1)}
 		}
-		neighbors = append(neighbors, p.nodes[x << 32 | (y+1)])
-//		s2 = true
+		neighbors = append(neighbors, p.nodes[x<<32|(y+1)])
 	}
 	if !IsTileBlocking(x-1, y, ClipWest, false) {
-		if neighbor := p.nodes[(x-1) << 32 | y]; neighbor == nil {
-			p.nodes[(x-1) << 32 | y] = &pNode{loc: NewLocation(x-1, y)}
+		if neighbor := p.nodes[(x-1)<<32|y]; neighbor == nil {
+			p.nodes[(x-1)<<32|y] = &pNode{loc: NewLocation(x-1, y)}
 		}
-		neighbors = append(neighbors, p.nodes[(x-1) << 32 | y])
-//		s3 = true
+		neighbors = append(neighbors, p.nodes[(x-1)<<32|y])
 	}
 
 	if !IsTileBlocking(x-1, y-1, ClipSouth|ClipWest, false) {
@@ -128,14 +121,14 @@ func (q *queue) Pop() interface{} {
 	node := old[n-1]
 	old[n-1] = nil
 	node.index = -1
-	*q = old[0:n-1]
+	*q = old[0 : n-1]
 	return node
 }
 
 //NewPathfinder Returns a new A* pathfinder instance to derive an optimal path from start to end.
 func NewPathfinder(start, end Location) *Pathfinder {
 	p := &Pathfinder{start: start, end: end, nodes: make(map[int]*pNode), open: make(queue, 1)}
-	p.open[0] = &pNode{loc: start, open:true}
+	p.open[0] = &pNode{loc: start, open: true}
 	p.nodes[start.X()<<32|start.Y()] = p.open[0]
 	p.nodes[end.X()<<32|end.Y()] = &pNode{loc: end}
 	heap.Init(&p.open)
@@ -150,7 +143,7 @@ func gCost(parent, neighbor *pNode) float64 {
 }
 
 func hCost(neighbor *pNode, end Location) float64 {
-	return (math.Sqrt2 - 1.0) * float64(neighbor.loc.DeltaX(end) + neighbor.loc.DeltaY(end))
+	return (math.Sqrt2 - 1.0) * float64(neighbor.loc.DeltaX(end)+neighbor.loc.DeltaY(end))
 }
 
 func (p *Pathfinder) compare(active, other *pNode) {

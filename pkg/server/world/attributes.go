@@ -92,7 +92,7 @@ func (a *AttributeList) StoreMask(name string, mask int) {
 		a.set[name] = val | 1<<mask
 		return
 	}
-	a.set[name] = 1<<mask
+	a.set[name] = 1 << mask
 }
 
 //HasMasks checks if there is an int attribute assigned to the specified name, and if there is, checks if each mask in
