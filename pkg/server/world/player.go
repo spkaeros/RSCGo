@@ -22,7 +22,7 @@ type AppearanceTable struct {
 	SkinColor int
 }
 
-//NewAppearanceTable Returns a reference to a new appearance table with specified parameters
+//NewAppearanceTable returns a reference to a new appearance table with specified parameters
 func NewAppearanceTable(head, body int, male bool, hair, top, bottom, skin int) AppearanceTable {
 	return AppearanceTable{head, body, 3, male, hair, top, bottom, skin}
 }
@@ -64,26 +64,26 @@ type Player struct {
 	*Mob
 }
 
-//String Returns a string populated with the more identifying features of this player.
+//String returns a string populated with the more identifying features of this player.
 func (p *Player) String() string {
 	return fmt.Sprintf("Player[%d] {'%v'@'%v'}", p.Index, p.Username, p.IP)
 }
 
-//SetDistancedAction Queues a distanced action to run every game engine tick before path traversal, if action returns true, it will be reset.
+//SetDistancedAction queues a distanced action to run every game engine tick before path traversal, if action returns true, it will be reset.
 func (p *Player) SetDistancedAction(action func() bool) {
 	p.ActionLock.Lock()
 	p.DistancedAction = action
 	p.ActionLock.Unlock()
 }
 
-//ResetDistancedAction Clears the distanced action, if any is queued.  Should be called any time the player is deliberately performing an action.
+//ResetDistancedAction clears the distanced action, if any is queued.  Should be called any time the player is deliberately performing an action.
 func (p *Player) ResetDistancedAction() {
 	p.ActionLock.Lock()
 	p.DistancedAction = nil
 	p.ActionLock.Unlock()
 }
 
-//Friends Returns true if specified username is in our friend entityList.
+//Friends returns true if specified username is in our friend entityList.
 func (p *Player) Friends(other uint64) bool {
 	for hash := range p.FriendList {
 		if hash == other {
@@ -93,7 +93,7 @@ func (p *Player) Friends(other uint64) bool {
 	return false
 }
 
-//Ignoring Returns true if specified username is in our ignore entityList.
+//Ignoring returns true if specified username is in our ignore entityList.
 func (p *Player) Ignoring(hash uint64) bool {
 	for _, v := range p.IgnoreList {
 		if v == hash {
@@ -103,27 +103,27 @@ func (p *Player) Ignoring(hash uint64) bool {
 	return false
 }
 
-//ChatBlocked Returns true if public chat is blocked for this player.
+//ChatBlocked returns true if public chat is blocked for this player.
 func (p *Player) ChatBlocked() bool {
 	return p.Attributes.VarBool("chat_block", false)
 }
 
-//FriendBlocked Returns true if private chat is blocked for this player.
+//FriendBlocked returns true if private chat is blocked for this player.
 func (p *Player) FriendBlocked() bool {
 	return p.Attributes.VarBool("friend_block", false)
 }
 
-//TradeBlocked Returns true if trade requests are blocked for this player.
+//TradeBlocked returns true if trade requests are blocked for this player.
 func (p *Player) TradeBlocked() bool {
 	return p.Attributes.VarBool("trade_block", false)
 }
 
-//DuelBlocked Returns true if duel requests are blocked for this player.
+//DuelBlocked returns true if duel requests are blocked for this player.
 func (p *Player) DuelBlocked() bool {
 	return p.Attributes.VarBool("duel_block", false)
 }
 
-//SetPrivacySettings Sets privacy settings to specified values.
+//SetPrivacySettings sets privacy settings to specified values.
 func (p *Player) SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, duelBlocked bool) {
 	p.Attributes.SetVar("chat_block", chatBlocked)
 	p.Attributes.SetVar("friend_block", friendBlocked)
@@ -131,80 +131,82 @@ func (p *Player) SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, du
 	p.Attributes.SetVar("duel_block", duelBlocked)
 }
 
-//SetClientSetting Sets the specified client setting to flag.
+//SetClientSetting sets the specified client setting to flag.
 func (p *Player) SetClientSetting(id int, flag bool) {
 	// TODO: Meaningful names mapped to IDs
 	p.Attributes.SetVar("client_setting_"+strconv.Itoa(id), flag)
 }
 
-//GetClientSetting Looks up the client setting with the specified ID, and returns it.  If it can't be found, returns false.
+//GetClientSetting looks up the client setting with the specified ID, and returns it.  If it can't be found, returns false.
 func (p *Player) GetClientSetting(id int) bool {
 	// TODO: Meaningful names mapped to IDs
 	return p.Attributes.VarBool("client_setting_"+strconv.Itoa(id), false)
 }
 
-//IsFollowing Returns true if the player is following another mob, otherwise false.
+//IsFollowing returns true if the player is following another mob, otherwise false.
 func (p *Player) IsFollowing() bool {
 	return p.FollowRadius() >= 0
 }
 
-//ServerSeed Returns the seed for the ISAAC cipher provided by the server for this player, if set, otherwise returns 0
+//ServerSeed returns the seed for the ISAAC cipher provided by the server for this player, if set, otherwise returns 0
 func (p *Player) ServerSeed() uint64 {
 	return p.TransAttrs.VarLong("server_seed", 0)
 }
 
-//SetServerSeed Sets the player's stored server seed to seed for later comparison to ensure we decrypted the login block properly and the player received the proper seed.
+//SetServerSeed sets the player's stored server seed to seed for later comparison to ensure we decrypted the login block properly and the player received the proper seed.
 func (p *Player) SetServerSeed(seed uint64) {
 	p.TransAttrs.SetVar("server_seed", seed)
 }
 
-//Reconnecting Returns true if the player is reconnecting, false otherwise.
+//Reconnecting returns true if the player is reconnecting, false otherwise.
 func (p *Player) Reconnecting() bool {
 	return p.TransAttrs.VarBool("reconnecting", false)
 }
 
-//SetReconnecting Sets the player's reconnection status to flag.
+//SetReconnecting sets the player's reconnection status to flag.
 func (p *Player) SetReconnecting(flag bool) {
 	p.TransAttrs.SetVar("reconnecting", flag)
 }
 
-//Connected Returns true if the player is connected, false otherwise.
+//Connected returns true if the player is connected, false otherwise.
 func (p *Player) Connected() bool {
 	return p.TransAttrs.VarBool("connected", false)
 }
 
-//SetConnected Sets the player's connected status to flag.
+//SetConnected sets the player's connected status to flag.
 func (p *Player) SetConnected(flag bool) {
 	p.TransAttrs.SetVar("connected", flag)
 }
 
-//FirstLogin Returns true if this player has never logged in before, otherwise false.
+//FirstLogin returns true if this player has never logged in before, otherwise false.
 func (p *Player) FirstLogin() bool {
 	return p.Attributes.VarBool("first_login", true)
 }
 
-//SetFirstLogin Sets the player's persistent logged in before status to flag.
+//SetFirstLogin sets the player's persistent logged in before status to flag.
 func (p *Player) SetFirstLogin(flag bool) {
 	p.Attributes.SetVar("first_login", flag)
 }
 
-//StartFollowing Sets the transient attribute for storing the server index of the player we want to follow to index.
+//StartFollowing sets the transient attribute for storing the radius with which we want to stay near our target
 func (p *Player) StartFollowing(radius int) {
 	p.TransAttrs.SetVar("followrad", radius)
 }
 
-//FollowRadius Returns the radius within which we should follow whatever mob we are following, or -1 if we aren't following anyone.
+//FollowRadius returns the radius within which we should follow whatever mob we are following, or -1 if we aren't following anyone.
 func (p *Player) FollowRadius() int {
 	return p.TransAttrs.VarInt("followrad", -1)
 }
 
-//ResetFollowing Resets the transient attribute for storing the server index of the player we want to follow.
+//ResetFollowing resets the transient attribute for storing the radius within which we want to stay to our target mob
+// and resets our path.
 func (p *Player) ResetFollowing() {
 	p.TransAttrs.UnsetVar("followrad")
 	p.ResetPath()
 }
 
-//NextTo Returns true if we can walk a straight line to target without colliding with any walls or objects, otherwise returns false.
+//NextTo returns true if we can walk a straight line to target without colliding with any walls or objects,
+// otherwise returns false.
 func (p *Player) NextTo(target Location) bool {
 	curLoc := NewLocation(p.X(), p.Y())
 	for !curLoc.Equals(target) {
@@ -274,7 +276,7 @@ func (p *Player) NextTo(target Location) bool {
 	return true
 }
 
-//TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
+//TraversePath if the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
 func (p *Player) TraversePath() {
 	path := p.Path()
 	if path == nil {
@@ -347,6 +349,7 @@ func (p *Player) TraversePath() {
 	p.SetLocation(next, false)
 }
 
+//UpdateRegion if this player is currently in a region, removes it from that region, and adds it to the region at x,y
 func (p *Player) UpdateRegion(x, y int) {
 	curArea := getRegion(p.X(), p.Y())
 	newArea := getRegion(x, y)
@@ -358,7 +361,7 @@ func (p *Player) UpdateRegion(x, y int) {
 	}
 }
 
-//EquipItem Equips an item to this player, and sends inventory and equipment bonuses.
+//EquipItem equips an item to this player, and sends inventory and equipment bonuses.
 func (p *Player) EquipItem(item *Item) {
 	var itemAffectedTypes = map[int][]int{32: {32, 33}, 33: {32, 33}, 64: {64, 322}, 512: {512, 640, 644},
 		8: {8, 24, 8216}, 1024: {1024}, 128: {128, 640, 644}, 644: {128, 512, 640, 644},
@@ -414,7 +417,7 @@ func (p *Player) EquipItem(item *Item) {
 	p.AppearanceLock.Unlock()
 }
 
-//DequipItem Removes an item from this players player equips, and sends inventory and equipment bonuses.
+//DequipItem removes an item from this players equips, and sends inventory and equipment bonuses.
 func (p *Player) DequipItem(item *Item) {
 	def := GetEquipmentDefinition(item.ID)
 	if def == nil {
@@ -448,7 +451,7 @@ func (p *Player) DequipItem(item *Item) {
 	p.AppearanceLock.Unlock()
 }
 
-//ResetFollowing Resets the transient attributes holding: Path, Follow radius, and Distanced action triggers...
+//ResetAll in order, calls ResetFighting, ResetTrade, ResetDistancedAction, ResetFollowing, and CloseOptionMenu.
 func (p *Player) ResetAll() {
 	p.ResetFighting()
 	p.ResetTrade()
@@ -551,11 +554,12 @@ func (p *Player) SetTradeTarget(index int) {
 	p.TransAttrs.SetVar("tradetarget", index)
 }
 
+//IsTrading returns true if this player is in a trade, otherwise returns false.
 func (p *Player) IsTrading() bool {
 	return p.HasState(MSTrading)
 }
 
-//ResetTrade Resets trade-related variables.
+//ResetTrade resets trade-related variables.
 func (p *Player) ResetTrade() {
 	if p.IsTrading() {
 		p.TransAttrs.UnsetVar("tradetarget")
@@ -566,15 +570,17 @@ func (p *Player) ResetTrade() {
 	}
 }
 
-//TradeTarget Returns the server index of the player we are trying to trade with, or -1 if we have not made a trade request.
+//TradeTarget returns the server index of the player we are trying to trade with, or -1 if we have not made a trade request.
 func (p *Player) TradeTarget() int {
 	return p.TransAttrs.VarInt("tradetarget", -1)
 }
 
+//SendPacket sends a packet to the client.
 func (p *Player) SendPacket(packet *packet.Packet) {
 	p.OutgoingPackets <- packet
 }
 
+//Destroy sends a kill signal to the underlying client to tear down all of the I/O routines and save the player.
 func (p *Player) Destroy() {
 	p.killer.Do(func() {
 		p.Attributes.SetVar("lastIP", p.IP)
@@ -582,6 +588,8 @@ func (p *Player) Destroy() {
 	})
 }
 
+//Initialize informs the client of all of the various attributes of this player, and starts the stat normalization
+// routine.
 func (p *Player) Initialize() {
 	p.SetConnected(true)
 	AddPlayer(p)
@@ -667,20 +675,21 @@ func NewPlayer(index int, ip string) *Player {
 	return p
 }
 
-//Message Sends a message packet to the player.
+//Message sends a message to the player.
 func (p *Player) Message(msg string) {
 	p.SendPacket(ServerMessage(msg))
 }
 
+//OpenAppearanceChanger If the player is not fighting or trading, opens the appearance window.
 func (p *Player) OpenAppearanceChanger() {
-	if p.Busy() {
+	if p.IsFighting() || p.IsTrading() {
 		return
 	}
 	p.AddState(MSChangingAppearance)
 	p.SendPacket(OpenChangeAppearance)
 }
 
-//Chat Sends a player NPC chat message packet to the player and all other players around it.  If multiple msgs are
+//Chat sends a player NPC chat message packet to the player and all other players around it.  If multiple msgs are
 // provided, will sleep the goroutine for 1800ms between each message.
 func (p *Player) Chat(msgs ...string) {
 	for _, msg := range msgs {
@@ -696,7 +705,7 @@ func (p *Player) Chat(msgs ...string) {
 	}
 }
 
-//OpenOptionMenu Opens an option menu with the provided options, and returns the reply index, or -1 upon timeout..
+//OpenOptionMenu opens an option menu with the provided options, and returns the reply index, or -1 upon timeout..
 func (p *Player) OpenOptionMenu(options ...string) int {
 	// Can get option menu during most states, even fighting, but not trading, or if we're already in a menu...
 	if p.IsTrading() || p.HasState(MSOptionMenu) {
@@ -728,7 +737,7 @@ func (p *Player) OpenOptionMenu(options ...string) int {
 	}
 }
 
-//CloseOptionMenu Closes any open option menus.
+//CloseOptionMenu closes any open option menus.
 func (p *Player) CloseOptionMenu() {
 	if p.HasState(MSOptionMenu) {
 		p.RemoveState(MSOptionMenu)
@@ -737,6 +746,7 @@ func (p *Player) CloseOptionMenu() {
 	}
 }
 
+//CanWalk returns true if this player is in a state that allows walking.
 func (p *Player) CanWalk() bool {
 	if p.HasState(MSOptionMenu) && p.HasState(MSChatting) {
 		// If player tries to walk but is in an option menu, they clearly have closed the menu, so we will kill the
@@ -746,33 +756,40 @@ func (p *Player) CanWalk() bool {
 	return !p.HasState(MSBatching, MSFighting, MSTrading, MSDueling, MSChangingAppearance, MSSleeping, MSChatting, MSBusy)
 }
 
+//PlaySound sends a command to the client to play a sound by its file name.
 func (p *Player) PlaySound(soundName string) {
 	p.SendPacket(Sound(soundName))
 }
 
+//SendStat sends the information for the stat at idx to the player.
 func (p *Player) SendStat(idx int) {
 	p.SendPacket(PlayerStat(p, idx))
 }
 
+//SendStats sends all stat information to this player.
 func (p *Player) SendStats() {
 	p.SendPacket(PlayerStats(p))
 }
 
+//SendInventory sends inventory information to this player.
 func (p *Player) SendInventory() {
 	p.SendPacket(InventoryItems(p))
 }
 
+//SetCurStat sets this players current stat at idx to lvl and updates the client about it.
 func (p *Player) SetCurStat(idx int, lvl int) {
 	p.Skills().SetCur(idx, lvl)
 	p.SendStat(idx)
 }
 
+//SetMaxStat sets this players maximum stat at idx to lvl and updates the client about it.
 func (p *Player) SetMaxStat(idx int, lvl int) {
 	p.Skills().SetMax(idx, lvl)
 	p.Skills().SetExp(idx, LevelToExperience(lvl))
 	p.SendStat(idx)
 }
 
+//AddItem Adds amount of the item with specified id to the players inventory, if possible, and updates the client about it.
 func (p *Player) AddItem(id, amount int) {
 	if !ItemDefs[id].Stackable {
 		for i := 0; i < amount; i++ {
@@ -787,6 +804,7 @@ func (p *Player) AddItem(id, amount int) {
 	p.SendInventory()
 }
 
+//Killed kills this player, dropping all of its items where it stands.
 func (p *Player) Killed() {
 	p.Transients().SetVar("deathTime", time.Now())
 	p.PlaySound("death")
@@ -822,24 +840,30 @@ func (p *Player) Killed() {
 	}
 }
 
+//SendPlane sends the current plane of this player.
 func (p *Player) SendPlane() {
 	p.SendPacket(PlaneInfo(p))
 }
 
+//SendEquipBonuses sends the current equipment bonuses of this player.
 func (p *Player) SendEquipBonuses() {
 	p.SendPacket(EquipmentStats(p))
 }
 
+//RemoveItem removes amount of the item at index in this players inventory, then updates the client about it.
 func (p *Player) RemoveItem(index, amount int) {
 	p.Inventory.Remove(index, amount)
 	p.SendInventory()
 }
 
+//RemoveItemByID Removes amount of the item with specified id in this players inventory, then updates the client about
+// it.
 func (p *Player) RemoveItemByID(id, amount int) {
 	p.Inventory.RemoveByID(id, amount)
 	p.SendInventory()
 }
 
+//Damage sends a player damage bubble for this player to itself and any nearby players.
 func (p *Player) Damage(amt int) {
 	for _, player := range p.NearbyPlayers() {
 		player.SendPacket(PlayerDamage(p, amt))
@@ -847,6 +871,7 @@ func (p *Player) Damage(amt int) {
 	p.SendPacket(PlayerDamage(p, amt))
 }
 
+//SetStat sets the current, maximum, and experience levels of the skill at idx to lvl, and updates the client about it.
 func (p *Player) SetStat(idx, lvl int) {
 	p.Skills().SetCur(idx, lvl)
 	p.Skills().SetMax(idx, lvl)
@@ -854,6 +879,7 @@ func (p *Player) SetStat(idx, lvl int) {
 	p.SendStat(idx)
 }
 
+//OpenBank opens a bank screen for the player and sets the appropriate state variables.
 func (p *Player) OpenBank() {
 	if p.IsFighting() || p.IsTrading() || p.HasState(MSBanking) {
 		return
@@ -862,6 +888,7 @@ func (p *Player) OpenBank() {
 	p.SendPacket(BankOpen(p))
 }
 
+//CloseBank closes the bank screen for this player and sets the appropriate state variables
 func (p *Player) CloseBank() {
 	if !p.HasState(MSBanking) {
 		return
@@ -870,6 +897,7 @@ func (p *Player) CloseBank() {
 	p.SendPacket(BankClose)
 }
 
+//SendUpdateTimer sends a system update countdown timer to the client.
 func (p *Player) SendUpdateTimer() {
 	p.SendPacket(SystemUpdate(int(time.Until(UpdateTime).Seconds())))
 }
