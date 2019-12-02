@@ -3,6 +3,7 @@ package world
 import (
 	"fmt"
 	"github.com/spkaeros/rscgo/pkg/server/log"
+	"time"
 )
 
 const (
@@ -17,6 +18,8 @@ const (
 )
 
 var EngineChannel = make(chan func(), 20)
+
+var UpdateTime time.Time
 
 //region Represents a 48x48 section of map.  The purpose of this is to keep track of entities in the entire world without having to allocate tiles individually, which would make search algorithms slower and utilizes a great deal of memory.
 type region struct {

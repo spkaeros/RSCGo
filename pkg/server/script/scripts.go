@@ -27,6 +27,7 @@ var InvTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.V
 var ObjectTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 var BoundaryTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 var NpcTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
+var LoginTriggers []func(player *world.Player)
 
 func Run(fnName string, player *world.Player, argName string, arg interface{}) bool {
 	env := WorldModule()
@@ -70,6 +71,7 @@ func Clear() {
 	BoundaryTriggers = BoundaryTriggers[:0]
 	ObjectTriggers = ObjectTriggers[:0]
 	NpcTriggers = NpcTriggers[:0]
+	LoginTriggers = LoginTriggers[:0]
 }
 
 //Load Loads all of the scripts in ./scripts and stores them in the Scripts slice.

@@ -1,0 +1,5 @@
+onLogin(func(player) {
+	if updateStarted() {
+		player.SendUpdateTimer()
+	}
+})

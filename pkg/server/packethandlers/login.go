@@ -156,12 +156,12 @@ func handleLogin(player *world.Player, reply chan byte) {
 		player.SendPacket(world.LoginResponse(int(r)))
 		if isValid(r) {
 			players.Put(player)
-			players.BroadcastLogin(player, true)
 			// TODO: Probably handle these in Anko scripts or something?
-			player.Initialize()
-			if s := time.Until(script.UpdateTime).Seconds(); s > 0 && !script.UpdateTime.IsZero() {
-				player.SendPacket(world.SystemUpdate(int(s)))
+			for _, fn := range script.LoginTriggers {
+				fn(player)
 			}
+			players.BroadcastLogin(player, true)
+			player.Initialize()
 			log.Info.Printf("Registered: %v\n", player)
 			return
 		}
@@ -220,7 +220,7 @@ func loginRequest(player *world.Player, p *packet.Packet) {
 		loginReply <- byte(4)
 		return
 	}
-	if !script.UpdateTime.IsZero() && time.Until(script.UpdateTime).Seconds() <= 0 {
+	if !world.UpdateTime.IsZero() && time.Until(world.UpdateTime).Seconds() <= 0 {
 		loginReply <- 8
 		return
 	}

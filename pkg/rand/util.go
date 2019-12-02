@@ -60,7 +60,7 @@ func Int63n(bound int) int64 {
 
 //Int63n Gets 8 random bytes of data from the PRNG and returns them as a single 64-bit long integer
 func Int63N(low, high int) int64 {
-	return IsaacRng.Int63n(int64(high-low)) + int64(low)
+	return IsaacRng.Int63n(int64((high+1)-low)) + int64(low)
 }
 
 //String Gets n random bytes of data from the PRNG and returns them as a Go string

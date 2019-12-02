@@ -26,8 +26,6 @@ import (
 //CommandHandlers A map to assign in-game commands to the functions they should execute.
 var CommandHandlers = make(map[string]func(*world.Player, []string))
 
-var UpdateTime time.Time
-
 func WorldModule() *vm.Env {
 	env, err := vm.NewEnv().AddPackage("world", map[string]interface{}{
 		"getPlayerCount":  players.Size,
@@ -64,6 +62,12 @@ func WorldModule() *vm.Env {
 			CommandHandlers[name] = func(player *world.Player, args []string) {
 				fn(player, args)
 			}
+		},
+		"onLogin": func(fn func(player *world.Player)) {
+			LoginTriggers = append(LoginTriggers, fn)
+		},
+		"updateStarted": func() bool {
+			return !world.UpdateTime.IsZero()
 		},
 		"broadcast": func(fn func(interface{})) {
 			players.Range(func(player *world.Player) {
@@ -118,7 +122,7 @@ func WorldModule() *vm.Env {
 			target.WalkTo(world.NewLocation(x, y))
 		},
 		"systemUpdate": func(t int) {
-			UpdateTime = time.Now().Add(time.Second * time.Duration(t))
+			world.UpdateTime = time.Now().Add(time.Second * time.Duration(t))
 			go func() {
 				time.Sleep(time.Second * time.Duration(t))
 				players.Range(func(player *world.Player) {
@@ -129,7 +133,7 @@ func WorldModule() *vm.Env {
 				os.Exit(200)
 			}()
 			players.Range(func(player *world.Player) {
-				player.SendPacket(world.SystemUpdate(t))
+				player.SendUpdateTimer()
 			})
 		},
 		"base37": strutil.Base37.Encode,

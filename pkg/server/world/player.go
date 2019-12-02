@@ -622,6 +622,34 @@ func (p *Player) Initialize() {
 	}
 	p.SendStats()
 	p.Attributes.SetVar("lastLogin", time.Now().Format(time.ANSIC))
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			if !p.Connected() {
+				return
+			}
+
+			for idx := 0; idx < 18; idx++ {
+				cur := p.Skills().Current(idx)
+				max := p.Skills().Maximum(idx)
+				delta := max - cur
+				if idx == StatPrayer {
+					continue
+				}
+
+				if delta > 0 {
+					p.SetCurStat(idx, cur+1)
+				} else if delta < 0 {
+					p.SetCurStat(idx, cur-1)
+				}
+				if idx != 3 && delta == 1 || delta == -1 {
+					// TODO: Look this real message up
+					p.Message("Your " + SkillName(idx) + " level has returned to normal.")
+				}
+			}
+		}
+	}()
 }
 
 //NewPlayer Returns a reference to a new player.
@@ -636,30 +664,6 @@ func NewPlayer(index int, ip string) *Player {
 	p.Equips[0] = p.Appearance.Head
 	p.Equips[1] = p.Appearance.Body
 	p.Equips[2] = p.Appearance.Legs
-	go func() {
-		ticker := time.NewTicker(time.Minute)
-		defer ticker.Stop()
-		for range ticker.C {
-			if !p.Connected() {
-				return
-			}
-
-			for idx, stat := range p.Skills().current {
-				max := p.Skills().maximum[idx]
-				delta := max - stat
-
-				if delta > 0 && idx != StatPrayer {
-					p.SetCurStat(idx, stat+1)
-				} else if delta < 0 {
-					p.SetCurStat(idx, stat-1)
-				}
-				if idx != 3 && delta == 1 || delta == -1 {
-					// TODO: Look this real message up
-					p.Message("Your " + SkillName(idx) + " level has returned to normal.")
-				}
-			}
-		}
-	}()
 	return p
 }
 
@@ -864,4 +868,8 @@ func (p *Player) CloseBank() {
 	}
 	p.RemoveState(MSBanking)
 	p.SendPacket(BankClose)
+}
+
+func (p *Player) SendUpdateTimer() {
+	p.SendPacket(SystemUpdate(int(time.Until(UpdateTime).Seconds())))
 }
