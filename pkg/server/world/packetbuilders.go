@@ -175,6 +175,7 @@ func NPCPositions(player *Player) (p *packet.Packet) {
 				p.AddBits(n.Direction(), 3)
 			} else if n.TransAttrs.HasMasks("sync", SyncChanged) {
 				p.AddBits(1, 1)
+				p.AddBits(1, 1)
 				p.AddBits(n.Direction(), 4)
 			} else {
 				p.AddBits(0, 1)
@@ -244,6 +245,7 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 				p.AddBits(0, 1)
 				p.AddBits(p1.Direction(), 3)
 			} else if p1.TransAttrs.HasMasks("sync", SyncChanged) {
+				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(p1.Direction(), 4)
 			} else {

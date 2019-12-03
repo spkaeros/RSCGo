@@ -26,60 +26,60 @@ func (p *Pathfinder) neighbors(n *pNode) []*pNode {
 	x, y := n.loc.X(), n.loc.Y()
 	var neighbors []*pNode
 	if !IsTileBlocking(x, y-1, ClipSouth, false) {
-		if neighbor := p.nodes[x<<32|(y-1)]; neighbor == nil {
-			p.nodes[x<<32|(y-1)] = &pNode{loc: NewLocation(x, y-1)}
+		if neighbor := p.nodes[x<<13|(y-1)]; neighbor == nil {
+			p.nodes[x<<13|(y-1)] = &pNode{loc: NewLocation(x, y-1)}
 		}
-		neighbors = append(neighbors, p.nodes[x<<32|(y-1)])
+		neighbors = append(neighbors, p.nodes[x<<13|(y-1)])
 	}
 	if !IsTileBlocking(x+1, y, ClipEast, false) {
-		if neighbor := p.nodes[(x+1)<<32|y]; neighbor == nil {
-			p.nodes[(x+1)<<32|y] = &pNode{loc: NewLocation(x+1, y)}
+		if neighbor := p.nodes[(x+1)<<13|y]; neighbor == nil {
+			p.nodes[(x+1)<<13|y] = &pNode{loc: NewLocation(x+1, y)}
 		}
-		neighbors = append(neighbors, p.nodes[(x+1)<<32|y])
+		neighbors = append(neighbors, p.nodes[(x+1)<<13|y])
 	}
 	if !IsTileBlocking(x, y+1, ClipNorth, false) {
-		if neighbor := p.nodes[x<<32|(y+1)]; neighbor == nil {
-			p.nodes[x<<32|(y+1)] = &pNode{loc: NewLocation(x, y+1)}
+		if neighbor := p.nodes[x<<13|(y+1)]; neighbor == nil {
+			p.nodes[x<<13|(y+1)] = &pNode{loc: NewLocation(x, y+1)}
 		}
-		neighbors = append(neighbors, p.nodes[x<<32|(y+1)])
+		neighbors = append(neighbors, p.nodes[x<<13|(y+1)])
 	}
 	if !IsTileBlocking(x-1, y, ClipWest, false) {
-		if neighbor := p.nodes[(x-1)<<32|y]; neighbor == nil {
-			p.nodes[(x-1)<<32|y] = &pNode{loc: NewLocation(x-1, y)}
+		if neighbor := p.nodes[(x-1)<<13|y]; neighbor == nil {
+			p.nodes[(x-1)<<13|y] = &pNode{loc: NewLocation(x-1, y)}
 		}
-		neighbors = append(neighbors, p.nodes[(x-1)<<32|y])
+		neighbors = append(neighbors, p.nodes[(x-1)<<13|y])
 	}
 
 	if !IsTileBlocking(x-1, y-1, ClipSouth|ClipWest, false) {
 		if !IsTileBlocking(x-1, y, ClipWest, false) && !IsTileBlocking(x, y-1, ClipSouth, false) {
-			if neighbor := p.nodes[(x-1)<<32|(y-1)]; neighbor == nil {
-				p.nodes[(x-1)<<32|(y-1)] = &pNode{loc: NewLocation(x-1, y-1)}
+			if neighbor := p.nodes[(x-1)<<13|(y-1)]; neighbor == nil {
+				p.nodes[(x-1)<<13|(y-1)] = &pNode{loc: NewLocation(x-1, y-1)}
 			}
-			neighbors = append(neighbors, p.nodes[(x-1)<<32|(y-1)])
+			neighbors = append(neighbors, p.nodes[(x-1)<<13|(y-1)])
 		}
 	}
 	if !IsTileBlocking(x+1, y-1, ClipSouth|ClipEast, false) {
 		if !IsTileBlocking(x+1, y, ClipEast, false) && !IsTileBlocking(x, y-1, ClipSouth, false) {
-			if neighbor := p.nodes[(x+1)<<32|(y-1)]; neighbor == nil {
-				p.nodes[(x+1)<<32|(y-1)] = &pNode{loc: NewLocation(x+1, y-1)}
+			if neighbor := p.nodes[(x+1)<<13|(y-1)]; neighbor == nil {
+				p.nodes[(x+1)<<13|(y-1)] = &pNode{loc: NewLocation(x+1, y-1)}
 			}
-			neighbors = append(neighbors, p.nodes[(x+1)<<32|(y-1)])
+			neighbors = append(neighbors, p.nodes[(x+1)<<13|(y-1)])
 		}
 	}
 	if !IsTileBlocking(x+1, y+1, ClipNorth|ClipEast, false) {
 		if !IsTileBlocking(x+1, y, ClipEast, false) && !IsTileBlocking(x, y+1, ClipNorth, false) {
-			if neighbor := p.nodes[(x+1)<<32|(y+1)]; neighbor == nil {
-				p.nodes[(x+1)<<32|(y+1)] = &pNode{loc: NewLocation(x+1, y+1)}
+			if neighbor := p.nodes[(x+1)<<13|(y+1)]; neighbor == nil {
+				p.nodes[(x+1)<<13|(y+1)] = &pNode{loc: NewLocation(x+1, y+1)}
 			}
-			neighbors = append(neighbors, p.nodes[(x+1)<<32|(y+1)])
+			neighbors = append(neighbors, p.nodes[(x+1)<<13|(y+1)])
 		}
 	}
 	if !IsTileBlocking(x-1, y+1, ClipNorth|ClipWest, false) {
 		if !IsTileBlocking(x-1, y, ClipWest, false) && !IsTileBlocking(x, y+1, ClipNorth, false) {
-			if neighbor := p.nodes[(x-1)<<32|(y+1)]; neighbor == nil {
-				p.nodes[(x-1)<<32|(y+1)] = &pNode{loc: NewLocation(x-1, y+1)}
+			if neighbor := p.nodes[(x-1)<<13|(y+1)]; neighbor == nil {
+				p.nodes[(x-1)<<13|(y+1)] = &pNode{loc: NewLocation(x-1, y+1)}
 			}
-			neighbors = append(neighbors, p.nodes[(x-1)<<32|(y+1)])
+			neighbors = append(neighbors, p.nodes[(x-1)<<13|(y+1)])
 		}
 	}
 	return neighbors
@@ -129,8 +129,8 @@ func (q *queue) Pop() interface{} {
 func NewPathfinder(start, end Location) *Pathfinder {
 	p := &Pathfinder{start: start, end: end, nodes: make(map[int]*pNode), open: make(queue, 1)}
 	p.open[0] = &pNode{loc: start, open: true}
-	p.nodes[start.X()<<32|start.Y()] = p.open[0]
-	p.nodes[end.X()<<32|end.Y()] = &pNode{loc: end}
+	p.nodes[start.X()<<13|start.Y()] = p.open[0]
+	p.nodes[end.X()<<13|end.Y()] = &pNode{loc: end}
 	heap.Init(&p.open)
 	return p
 }
@@ -186,7 +186,7 @@ func (p *Pathfinder) MakePath() *Pathway {
 
 	path := &Pathway{StartX: 0, StartY: 0}
 
-	active := p.nodes[p.end.X()<<32|p.end.Y()]
+	active := p.nodes[p.end.X()<<13|p.end.Y()]
 	if active.parent != nil {
 		position := active.loc
 		for !p.start.Equals(position) {

@@ -194,7 +194,7 @@ func init() {
 								}
 							}
 							if player.NextTo(newLoc) {
-								player.SetLocation(newLoc, true)
+								player.SetLocation(newLoc, false)
 								break outer
 							}
 						}
