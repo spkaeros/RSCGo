@@ -34,8 +34,8 @@ const (
 )
 
 const (
-	SyncBlank   = 0
-	SyncChanged = iota
+	SyncBlank   = iota
+	SyncChanged
 	SyncMoved
 	SyncRemoved
 	SyncSelf

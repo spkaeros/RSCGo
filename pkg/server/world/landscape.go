@@ -17,17 +17,17 @@ import (
 )
 
 //TileData Represents a single tile in the game's landscape.
+/*
+	DiagonalWalls int
+	HorizontalWalls byte
+	VerticalWalls byte
+	GroundElevation byte
+	Roofs byte
+	GroundTexture byte
+GroundOverlay byte
+*/
 type TileData struct {
-	/*
-		DiagonalWalls int
-		HorizontalWalls byte
-		VerticalWalls byte
-		GroundElevation byte
-		Roofs byte
-		GroundTexture byte
-	*/
-	GroundOverlay byte
-	CollisionMask int
+	CollisionMask int8
 }
 
 //Sector Represents a sector of 48x48(2304) tiles in the game's landscape.
@@ -107,7 +107,7 @@ const (
 	OverlayPentagram
 	//OverlayPurpleCarpet Used for the floors of buildings, ID 15
 	OverlayPurpleCarpet
-	//OverlayBlack3 Not sure what it is used for, ID 16
+	//OverlayBlack3 Not sure what it is used for, ID 16, traversable
 	OverlayBlack3
 	//OverlayStoneFloorLight Used for the entrance to temple of ikov, ID 17
 	OverlayStoneFloorLight
@@ -144,8 +144,9 @@ const (
 	ClipDiag2 = 1 << 5
 	//ClipFullBlock+- Bitmask to represent an object occupying an entire tile.
 	ClipFullBlock = 1 << 6
+	// TODO: Add more masks to handle projectiles gracefully,
 )
-
+/*
 var blockedOverlays = [...]int{OverlayWater, OverlayDarkWater, OverlayBlack, OverlayWhite, OverlayLava, OverlayBlack2, OverlayBlack3, OverlayBlack4}
 
 func isOverlayBlocked(overlay int) bool {
@@ -156,13 +157,13 @@ func isOverlayBlocked(overlay int) bool {
 	}
 	return false
 }
-
+*/
 func IsTileBlocking(x, y int, bit byte, current bool) bool {
 	return CollisionData(x, y).blocked(bit, current)
 }
 
 func (t TileData) blocked(bit byte, current bool) bool {
-	if t.CollisionMask&int(bit) != 0 {
+	if t.CollisionMask&int8(bit) != 0 {
 		return true
 	}
 	// Diag
@@ -178,7 +179,7 @@ func (t TileData) blocked(bit byte, current bool) bool {
 		return true
 	}
 	// if it's not a traversable ground type
-	return !current && isOverlayBlocked(int(t.GroundOverlay))
+	return false
 }
 
 func sectorName(x, y int) string {
@@ -200,7 +201,7 @@ func (s *Sector) tile(x, y int) TileData {
 func CollisionData(x, y int) TileData {
 	sector := sectorFromCoords(x, y)
 	if sector == nil {
-		return TileData{GroundOverlay: 0, CollisionMask: ClipFullBlock}
+		return TileData{CollisionMask: ClipFullBlock}
 	}
 	return sector.tile(x, y)
 }
@@ -232,9 +233,9 @@ func loadSector(data []byte) (s *Sector) {
 				blankCount++
 			}
 			tileIdx := x*RegionSize + y
-			s.Tiles[tileIdx].GroundOverlay = groundOverlay
+//			s.Tiles[tileIdx].GroundOverlay = groundOverlay
 			if groundOverlay > 0 && TileDefs[groundOverlay-1].ObjectType != 0 {
-				s.Tiles[tileIdx].CollisionMask |= 0x40
+				s.Tiles[tileIdx].CollisionMask |= ClipFullBlock
 			}
 			if verticalWalls > 0 && BoundaryDefs[verticalWalls-1].Unknown == 0 && BoundaryDefs[verticalWalls-1].Traversable != 0 {
 				s.Tiles[tileIdx].CollisionMask |= ClipNorth
