@@ -278,9 +278,7 @@ func (c *client) writePacket(p packet.Packet) {
 		return
 	}
 	frameLength := len(p.Payload)
-	c.DataLock.Lock()
-	header := c.DataBuffer[0:2]
-	defer c.DataLock.Unlock()
+	header := make([]byte, 2)
 	if frameLength >= 160 {
 		//		header[0] = byte(frameLength/256+160)
 		header[0] = byte(frameLength>>8 + 160)

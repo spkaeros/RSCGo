@@ -1,0 +1,20 @@
+bind.invOnBoundary(func(player, object, item) {
+	log.debugf("%d\n", object.ID)
+	if object.ID == 24 && item.WieldPos() == 4 {
+		// web
+		player.Message("You try to destroy the web")
+		sleep(tMillis*1200)
+		if rand(0, 4) != 0 {
+			player.Message("You slice through the web.")
+			removeObject(object)
+			go func() {
+				sleep(tSecond*15)
+				addObject(object)
+			}()
+		} else {
+			player.Message("You fail to cut through it.")
+		}
+		return true
+	}
+	return false
+})

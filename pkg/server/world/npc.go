@@ -138,27 +138,27 @@ func (n *NPC) TraversePath() {
 	xBlocked, yBlocked := false, false
 	newXBlocked, newYBlocked := false, false
 	if y > dst.Y() {
-		yBlocked = IsTileBlocking(x, y, 1, true)
-		newYBlocked = IsTileBlocking(x, y-1, 4, false)
+		yBlocked = IsTileBlocking(x, y, ClipNorth, true)
+		newYBlocked = IsTileBlocking(x, y-1, ClipSouth, false)
 		if !newYBlocked {
 			next.y.Dec()
 		}
 	} else if y < dst.Y() {
-		yBlocked = IsTileBlocking(x, y, 4, true)
-		newYBlocked = IsTileBlocking(x, y+1, 1, false)
+		yBlocked = IsTileBlocking(x, y, ClipSouth, true)
+		newYBlocked = IsTileBlocking(x, y+1, ClipNorth, false)
 		if !newYBlocked {
 			next.y.Inc()
 		}
 	}
 	if x > dst.X() {
-		xBlocked = IsTileBlocking(x, next.Y(), 2, true)
-		newXBlocked = IsTileBlocking(x-1, next.Y(), 8, false)
+		xBlocked = IsTileBlocking(x, next.Y(), ClipEast, true)
+		newXBlocked = IsTileBlocking(x-1, next.Y(), ClipWest, false)
 		if !newXBlocked {
 			next.x.Dec()
 		}
 	} else if x < dst.X() {
-		xBlocked = IsTileBlocking(x, next.Y(), 8, true)
-		newXBlocked = IsTileBlocking(x+1, next.Y(), 2, false)
+		xBlocked = IsTileBlocking(x, next.Y(), ClipWest, true)
+		newXBlocked = IsTileBlocking(x+1, next.Y(), ClipEast, false)
 		if !newXBlocked {
 			next.x.Inc()
 		}
@@ -174,14 +174,14 @@ func (n *NPC) TraversePath() {
 	}
 
 	if next.X() > x {
-		newXBlocked = IsTileBlocking(next.X(), next.Y(), 2, false)
+		newXBlocked = IsTileBlocking(next.X(), next.Y(), ClipEast, false)
 	} else if next.X() < x {
-		newXBlocked = IsTileBlocking(next.X(), next.Y(), 8, false)
+		newXBlocked = IsTileBlocking(next.X(), next.Y(), ClipWest, false)
 	}
 	if next.Y() > y {
-		newYBlocked = IsTileBlocking(next.X(), next.Y(), 1, false)
+		newYBlocked = IsTileBlocking(next.X(), next.Y(), ClipNorth, false)
 	} else if next.Y() < y {
-		newYBlocked = IsTileBlocking(next.X(), next.Y(), 4, false)
+		newYBlocked = IsTileBlocking(next.X(), next.Y(), ClipSouth, false)
 	}
 
 	if (newXBlocked && newYBlocked) || (newXBlocked && y == next.Y()) || (newYBlocked && x == next.X()) {

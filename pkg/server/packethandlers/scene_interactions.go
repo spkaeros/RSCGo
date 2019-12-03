@@ -87,7 +87,7 @@ func init() {
 		x := p.ReadShort()
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
-		if object == nil {
+		if object == nil || !object.Boundary {
 			log.Info.Println("Boundary not found.")
 			log.Suspicious.Printf("Player %v attempted to use a non-existant boundary at %d,%d\n", player, x, y)
 			return
@@ -109,7 +109,7 @@ func init() {
 		x := p.ReadShort()
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
-		if object == nil {
+		if object == nil || !object.Boundary {
 			log.Info.Println("Boundary not found.")
 			log.Suspicious.Printf("Player %v attempted to use a non-existant boundary at %d,%d\n", player, x, y)
 			return
@@ -147,6 +147,52 @@ func init() {
 								continue
 							}
 							newLoc := world.NewLocation(player.X()+offX, player.Y()+offY)
+							switch player.DirectionTo(newLoc.X(), newLoc.Y()) {
+							case world.North:
+								if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipSouth, false) {
+									continue
+								}
+							case world.South:
+								if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipNorth, false) {
+									continue
+								}
+							case world.East:
+								if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipWest, false) {
+									continue
+								}
+							case world.West:
+								if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipEast, false) {
+									continue
+								}
+							case world.NorthWest:
+								if world.IsTileBlocking(player.X(), player.Y()-1, world.ClipSouth, false) {
+									continue
+								}
+								if world.IsTileBlocking(player.X()+1, player.Y(), world.ClipEast, false) {
+									continue
+								}
+							case world.NorthEast:
+								if world.IsTileBlocking(player.X(), player.Y()-1, world.ClipSouth, false) {
+									continue
+								}
+								if world.IsTileBlocking(player.X()-1, player.Y(), world.ClipWest, false) {
+									continue
+								}
+							case world.SouthWest:
+								if world.IsTileBlocking(player.X(), player.Y()+1, world.ClipNorth, false) {
+									continue
+								}
+								if world.IsTileBlocking(player.X()+1, player.Y(), world.ClipEast, false) {
+									continue
+								}
+							case world.SouthEast:
+								if world.IsTileBlocking(player.X(), player.Y()+1, world.ClipNorth, false) {
+									continue
+								}
+								if world.IsTileBlocking(player.X()-1, player.Y(), world.ClipWest, false) {
+									continue
+								}
+							}
 							if player.NextTo(newLoc) {
 								player.SetLocation(newLoc, true)
 								break outer
@@ -181,7 +227,47 @@ func init() {
 				}()
 				return true
 			} else {
-				player.SetPath(world.MakePath(player.Location, npc.Location))
+				player.WalkTo(npc.Location)
+			}
+			return false
+		})
+	}
+	PacketHandlers["invonboundary"] = func(player *world.Player, p *packet.Packet) {
+		targetX := p.ReadShort()
+		targetY := p.ReadShort()
+		p.ReadByte() // dir, useful?
+		invIndex := p.ReadShort()
+
+		object := world.GetObject(targetX, targetY)
+		if object == nil || !object.Boundary {
+			log.Info.Println("Boundary not found.")
+			log.Suspicious.Printf("Player %v attempted to use a non-existant boundary at %d,%d\n", player, targetX, targetY)
+			return
+		}
+		if invIndex >= player.Inventory.Size() {
+			log.Suspicious.Printf("Player %v attempted to use a non-existant item(idx:%v, cap:%v) on a boundary at %d,%d\n", player, invIndex, player.Inventory.Size() - 1, targetX, targetY)
+			return
+		}
+		invItem := player.Inventory.Get(invIndex)
+		bounds := object.Boundaries()
+		player.SetDistancedAction(func() bool {
+			if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
+				player.ResetPath()
+				player.AddState(world.MSBusy)
+				go func() {
+					defer func() {
+						player.RemoveState(world.MSBusy)
+					}()
+					for _, fn := range script.InvOnBoundaryTriggers {
+						if fn(player, object, invItem) {
+							return
+						}
+					}
+					player.SendPacket(world.DefaultActionMessage)
+				}()
+				return true
+			} else {
+				player.WalkTo(object.Location)
 			}
 			return false
 		})

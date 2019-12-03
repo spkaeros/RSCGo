@@ -124,6 +124,7 @@ func init() {
 	script.CommandHandlers["reloadscripts"] = func(player *world.Player, args []string) {
 		script.Clear()
 		script.Load()
+		player.Message(fmt.Sprintf("Loaded %d inventory, %d object, %d boundary, and %d NPC action triggers.\n", len(script.InvTriggers), len(script.ObjectTriggers), len(script.BoundaryTriggers), len(script.NpcTriggers)))
 		log.Info.Printf("Loaded %d inventory, %d object, %d boundary, and %d NPC action triggers.\n", len(script.InvTriggers), len(script.ObjectTriggers), len(script.BoundaryTriggers), len(script.NpcTriggers))
 	}
 }

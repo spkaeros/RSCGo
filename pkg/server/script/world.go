@@ -58,14 +58,6 @@ func WorldModule() *vm.Env {
 			client.SendPacket(world.Logout)
 			client.Destroy()
 		},
-		"addCommand": func(name string, fn func(p *world.Player, args []string)) {
-			CommandHandlers[name] = func(player *world.Player, args []string) {
-				fn(player, args)
-			}
-		},
-		"onLogin": func(fn func(player *world.Player)) {
-			LoginTriggers = append(LoginTriggers, fn)
-		},
 		"updateStarted": func() bool {
 			return !world.UpdateTime.IsZero()
 		},
@@ -210,6 +202,23 @@ func WorldModule() *vm.Env {
 		"TradeTargetAccept":     world.TradeTargetAccept,
 		"TradeUpdate":           world.TradeUpdate,
 		"WelcomeMessage":        world.WelcomeMessage,
+	}, nil)
+	if err != nil {
+		log.Warning.Println("Error initializing VM parameters:", err)
+		return nil
+	}
+	env, err = env.AddPackage("bind", map[string]interface{}{
+		"onLogin": func(fn func(player *world.Player)) {
+			LoginTriggers = append(LoginTriggers, fn)
+		},
+		"invOnBoundary": func(fn func(player *world.Player, boundary *world.Object, item *world.Item) bool) {
+			InvOnBoundaryTriggers = append(InvOnBoundaryTriggers, fn)
+		},
+		"command": func(name string, fn func(p *world.Player, args []string)) {
+			CommandHandlers[name] = func(player *world.Player, args []string) {
+				fn(player, args)
+			}
+		},
 	}, nil)
 	if err != nil {
 		log.Warning.Println("Error initializing VM parameters:", err)

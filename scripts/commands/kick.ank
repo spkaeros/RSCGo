@@ -1,6 +1,6 @@
 strings = import("strings")
 
-addCommand("kick", func(player, args) {
+bind.command("kick", func(player, args) {
   	if len(args) < 1 {
   		player.Message("Invalid args.  Usage: ::kick <username>")
   		return

@@ -163,24 +163,22 @@ func NPCPositions(player *Player) (p *packet.Packet) {
 	var removing = entityList{}
 	for _, n := range player.LocalNPCs.set {
 		if n, ok := n.(*NPC); ok {
+			counter++
 			if n.LongestDelta(player.Location) > 15 || n.TransAttrs.HasMasks("sync", SyncRemoved) {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
 				removing.set = append(removing.set, n)
-				counter++
-			} else if n.TransAttrs.HasMasks("sync", SyncMoved, SyncChanged) {
+			} else if n.TransAttrs.HasMasks("sync", SyncMoved) {
 				p.AddBits(1, 1)
-				if n.TransAttrs.HasMasks("sync", SyncMoved) {
-					p.AddBits(0, 1)
-					p.AddBits(n.Direction(), 3)
-				} else {
-					p.AddBits(1, 1)
-					p.AddBits(n.Direction(), 4)
-				}
-				counter++
+				p.AddBits(0, 1)
+				p.AddBits(n.Direction(), 3)
+			} else if n.TransAttrs.HasMasks("sync", SyncChanged) {
+				p.AddBits(1, 1)
+				p.AddBits(n.Direction(), 4)
 			} else {
 				p.AddBits(0, 1)
+				counter--
 			}
 		}
 	}
@@ -232,6 +230,7 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 	var removing = entityList{}
 	for _, p1 := range player.LocalPlayers.set {
 		if p1, ok := p1.(*Player); ok {
+			counter++
 			if p1.LongestDelta(player.Location) > 15 || p1.TransAttrs.HasMasks("sync", SyncRemoved) {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
@@ -240,19 +239,16 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 				player.AppearanceLock.Lock()
 				delete(player.KnownAppearances, p1.Index)
 				player.AppearanceLock.Unlock()
-				counter++
-			} else if p1.TransAttrs.HasMasks("sync", SyncMoved, SyncChanged) {
+			} else if p1.TransAttrs.HasMasks("sync", SyncMoved) {
 				p.AddBits(1, 1)
-				if p1.TransAttrs.HasMasks("sync", SyncMoved) {
-					p.AddBits(0, 1)
-					p.AddBits(p1.Direction(), 3)
-				} else {
-					p.AddBits(1, 1)
-					p.AddBits(p1.Direction(), 4)
-				}
-				counter++
+				p.AddBits(0, 1)
+				p.AddBits(p1.Direction(), 3)
+			} else if p1.TransAttrs.HasMasks("sync", SyncChanged) {
+				p.AddBits(1, 1)
+				p.AddBits(p1.Direction(), 4)
 			} else {
 				p.AddBits(0, 1)
+				counter--
 			}
 		}
 	}
@@ -373,7 +369,7 @@ func ObjectLocations(player *Player) (p *packet.Packet) {
 		if o.Boundary {
 			continue
 		}
-		p.AddShort(uint16(o.ID))
+		p.AddShort(o.ID)
 		p.AddByte(byte(o.X() - player.X()))
 		p.AddByte(byte(o.Y() - player.Y()))
 		//		p.AddByte(byte(o.Direction))
@@ -397,12 +393,13 @@ func BoundaryLocations(player *Player) (p *packet.Packet) {
 			if !o.Boundary {
 				continue
 			}
-			if !player.WithinRange(o.Location, 21) {
-				//p.AddShort(65535)
-				p.AddByte(255)
-				p.AddByte(byte(o.X() - player.X()))
-				p.AddByte(byte(o.Y() - player.Y()))
-				//p.AddByte(byte(o.Direction))
+			if !player.WithinRange(o.Location, 21) || GetObject(o.X(), o.Y()) != o {
+				p.AddShort(16)
+				xOff := o.X() - player.X()
+				yOff := o.Y() - player.Y()
+				p.AddByte(uint8(xOff))
+				p.AddByte(uint8(yOff))
+				p.AddByte(o.Direction)
 				removing.Add(o)
 				counter++
 			}
@@ -415,10 +412,10 @@ func BoundaryLocations(player *Player) (p *packet.Packet) {
 		if !o.Boundary {
 			continue
 		}
-		p.AddShort(uint16(o.ID))
+		p.AddShort(o.ID)
 		p.AddByte(byte(o.X() - player.X()))
 		p.AddByte(byte(o.Y() - player.Y()))
-		p.AddByte(byte(o.Direction))
+		p.AddByte(o.Direction)
 		player.LocalObjects.Add(o)
 		counter++
 	}

@@ -1,4 +1,4 @@
-addCommand("say", func(player, args) {
+bind.command("say", func(player, args) {
 	if len(args) < 1 {
 		player.Message("Invalid args.  Usage: ::say <msg>")
 		return

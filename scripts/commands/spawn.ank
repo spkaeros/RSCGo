@@ -1,4 +1,4 @@
-addCommand("npc", func(player, args) {
+bind.command("npc", func(player, args) {
 	if len(args) < 1 {
 		player.Message("Invalid syntax.  Usage: ::npc <id> (<radius>)")
 		return
@@ -23,7 +23,7 @@ addCommand("npc", func(player, args) {
 	}
 })
 
-addCommand("item", func(player, args) {
+bind.command("item", func(player, args) {
 	try {
 		id = toInt(args[0])
 		if id < 0 || id > 1289 {
@@ -42,7 +42,7 @@ addCommand("item", func(player, args) {
 	}
 })
 
-addCommand("object", func(player, args) {
+bind.command("object", func(player, args) {
 	x = player.X()
 	y = player.Y()
 	if getObjectAt(x, y) != nil {
@@ -62,7 +62,7 @@ addCommand("object", func(player, args) {
 	}
 })
 
-addCommand("dobj", func(player, args) {
+bind.command("dobj", func(player, args) {
 	if len(args) == 0 {
 		args = [toString(player.X()), toString(player.Y())]
 	}
@@ -82,7 +82,7 @@ addCommand("dobj", func(player, args) {
 	removeObject(object)
 })
 
-addCommand("boundary", func(player, args) {
+bind.command("boundary", func(player, args) {
 	x = player.X()
 	y = player.Y()
 	if getObjectAt(x, y) != nil {

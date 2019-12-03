@@ -65,6 +65,17 @@ func (i *Item) Name() string {
 	return ItemDefs[i.ID].Name
 }
 
+func (i *Item) WieldPos() int {
+	if i.ID >= len(ItemDefs) || i.ID < 0 {
+		return -1
+	}
+	def := GetEquipmentDefinition(i.ID)
+	if def == nil {
+		return -1
+	}
+	return def.Position
+}
+
 func (i *Item) Stackable() bool {
 	if i.ID >= len(ItemDefs) || i.ID < 0 {
 		return false

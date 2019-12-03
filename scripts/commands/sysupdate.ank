@@ -1,4 +1,4 @@
-addCommand("sysupdate", func(player, args) {
+bind.command("sysupdate", func(player, args) {
 	if len(args) < 1 {
 		args = [toString(60)]
 	}

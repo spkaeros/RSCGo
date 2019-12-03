@@ -27,7 +27,7 @@ import (
 GroundOverlay byte
 */
 type TileData struct {
-	CollisionMask int8
+	CollisionMask int16
 }
 
 //Sector Represents a sector of 48x48(2304) tiles in the game's landscape.
@@ -55,9 +55,9 @@ func LoadCollisionData() {
 }
 
 type TileDefinition struct {
-	Color      int
-	Visible    int
-	ObjectType int
+	Color   int
+	Visible int
+	Blocked int
 }
 
 var TileDefs []TileDefinition
@@ -138,14 +138,16 @@ const (
 	ClipSouth = 1 << 2
 	//ClipWest Bitmask to represent a wall to the east.
 	ClipWest = 1 << 3
-	//ClipEast Bitmask to represent a diagonal wall.
-	ClipDiag1 = 1 << 4
-	//ClipEast Bitmask to represent a diagonal wall facing the opposite way.
-	ClipDiag2 = 1 << 5
-	//ClipFullBlock+- Bitmask to represent an object occupying an entire tile.
-	ClipFullBlock = 1 << 6
+	ClipCanProjectile = 1 << 4
+	//ClipDiag1 Bitmask to represent a diagonal wall.
+	ClipDiag1 = 1 << 5
+	//ClipDiag2 Bitmask to represent a diagonal wall facing the opposite way.
+	ClipDiag2 = 1 << 6
+	//ClipFullBlock Bitmask to represent an object blocking an entire tile.
+	ClipFullBlock = 1 << 7
 	// TODO: Add more masks to handle projectiles gracefully,
 )
+
 /*
 var blockedOverlays = [...]int{OverlayWater, OverlayDarkWater, OverlayBlack, OverlayWhite, OverlayLava, OverlayBlack2, OverlayBlack3, OverlayBlack4}
 
@@ -163,7 +165,7 @@ func IsTileBlocking(x, y int, bit byte, current bool) bool {
 }
 
 func (t TileData) blocked(bit byte, current bool) bool {
-	if t.CollisionMask&int8(bit) != 0 {
+	if t.CollisionMask&int16(bit) != 0 {
 		return true
 	}
 	// Diag
@@ -233,8 +235,8 @@ func loadSector(data []byte) (s *Sector) {
 				blankCount++
 			}
 			tileIdx := x*RegionSize + y
-//			s.Tiles[tileIdx].GroundOverlay = groundOverlay
-			if groundOverlay > 0 && TileDefs[groundOverlay-1].ObjectType != 0 {
+			//			s.Tiles[tileIdx].GroundOverlay = groundOverlay
+			if groundOverlay > 0 && TileDefs[groundOverlay-1].Blocked != 0 {
 				s.Tiles[tileIdx].CollisionMask |= ClipFullBlock
 			}
 			if verticalWalls > 0 && BoundaryDefs[verticalWalls-1].Unknown == 0 && BoundaryDefs[verticalWalls-1].Traversable != 0 {

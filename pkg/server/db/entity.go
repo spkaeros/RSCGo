@@ -55,7 +55,7 @@ func LoadTileDefinitions() {
 	}
 	for rows.Next() {
 		nextDef := world.TileDefinition{}
-		rows.Scan(&nextDef.Color, &nextDef.Visible, &nextDef.ObjectType)
+		rows.Scan(&nextDef.Color, &nextDef.Visible, &nextDef.Blocked)
 		world.TileDefs = append(world.TileDefs, nextDef)
 	}
 }
