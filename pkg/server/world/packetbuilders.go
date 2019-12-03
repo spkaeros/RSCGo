@@ -390,7 +390,7 @@ func ObjectLocations(player *Player) (p *packet.Packet) {
 		if o.Boundary {
 			continue
 		}
-		p.AddShort(o.ID)
+		p.AddShort(uint16(o.ID))
 		p.AddByte(byte(o.X() - player.X()))
 		p.AddByte(byte(o.Y() - player.Y()))
 		//		p.AddByte(byte(o.Direction))
@@ -433,7 +433,7 @@ func BoundaryLocations(player *Player) (p *packet.Packet) {
 		if !o.Boundary {
 			continue
 		}
-		p.AddShort(o.ID)
+		p.AddShort(uint16(o.ID))
 		p.AddByte(byte(o.X() - player.X()))
 		p.AddByte(byte(o.Y() - player.Y()))
 		p.AddByte(o.Direction)

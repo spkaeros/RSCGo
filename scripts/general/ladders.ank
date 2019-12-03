@@ -1,34 +1,34 @@
 strings = import("strings")
 
 func objectAction(player, object) {
-	cmd = objectDefs[object.ID].Commands[0]
-	if cmd == "climb-down" || cmd == "climb-up" || cmd == "climb down" || cmd == "climb up" || cmd == "go up" || cmd == "go down" {
+	cmd = strings.Replace(object.Command1(), "-", " ", -1)
+	if cmd == "climb down" || cmd == "climb up" || cmd == "go up" || cmd == "go down" {
 		oldPlane = player.Plane()
 		coords = modCoords(player, object, strings.HasSuffix(cmd, "up"))
 		player.SetCoords(coords[0], coords[1], true)
 		if oldPlane != player.Plane() {
 			player.SendPlane()
 		}
-		player.Message("You " + strings.Replace(cmd, "-", " ", -1) + " the " + objectDefs[object.ID].Name)
+		player.Message("You " + cmd  + " the " + object.Name())
 		return true
 	}
 	return false
 }
 
 func modCoords(player, object, up) {
-	if objectDefs[object.ID].Height <= 1 {
+	if object.Height() <= 1 {
 		return [player.X(), player.PlaneY(up)]
 	}
 	coords = [object.X(), object.PlaneY(up)]
 	switch object.Direction {
 		case 0:
-			coords[1] -= (up ? -objectDefs[object.ID].Height : 1)
+			coords[1] -= (up ? -object.Height() : 1)
 		case 2:
-			coords[0] -= (up ? -objectDefs[object.ID].Height : 1)
+			coords[0] -= (up ? -object.Height() : 1)
 		case 4:
-			coords[1] += (up ? -1 : objectDefs[object.ID].Height)
+			coords[1] += (up ? -1 : object.Height())
 		case 6:
-			coords[0] += (up ? -1 : objectDefs[object.ID].Height)
+			coords[0] += (up ? -1 : object.Height())
 	}
 	return coords
 }

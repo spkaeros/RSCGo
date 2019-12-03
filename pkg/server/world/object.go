@@ -21,7 +21,7 @@ var Objects []ObjectDefinition
 
 //Object Represents a game object in the world.
 type Object struct {
-	ID        uint16
+	ID        int
 	Direction byte
 	Boundary  bool
 	*Entity
@@ -35,7 +35,7 @@ var ObjectCounter = atomic.NewUint32(0)
 
 //NewObject Returns a reference to a new instance of a game object.
 func NewObject(id, direction, x, y int, boundary bool) *Object {
-	return &Object{ID: uint16(id), Direction: byte(direction), Boundary: boundary,
+	return &Object{ID: id, Direction: byte(direction), Boundary: boundary,
 		Entity: &Entity{
 			Location: NewLocation(x, y),
 			Index:    int(ObjectCounter.Swap(ObjectCounter.Load() + 1)),
@@ -45,10 +45,54 @@ func NewObject(id, direction, x, y int, boundary bool) *Object {
 
 //Name checks if an object definition exists for this object, and if so returns the name associated with it.
 func (o *Object) Name() string {
-	if o.ID < 0 || o.ID > 1188 {
-		return "nil"
+	if !o.Boundary {
+		if o.ID < 0 || o.ID > 1188 {
+			return "nil"
+		}
+		return Objects[o.ID].Name
 	}
-	return Objects[o.ID].Name
+	return "nil"
+}
+
+//Name checks if an object definition exists for this object, and if so returns the name associated with it.
+func (o *Object) Command1() string {
+	if !o.Boundary {
+		if o.ID < 0 || o.ID > 1188 {
+			return "nil"
+		}
+		return Objects[o.ID].Commands[0]
+	}
+	return "nil"
+}
+
+func (o *Object) Command2() string {
+	if !o.Boundary {
+		if o.ID < 0 || o.ID > 1188 {
+			return "nil"
+		}
+		return Objects[o.ID].Commands[1]
+	}
+	return "nil"
+}
+
+func (o *Object) Width() int {
+	if !o.Boundary {
+		if o.ID < 0 || o.ID > 1188 {
+			return 1
+		}
+		return Objects[o.ID].Width
+	}
+	return 1
+}
+
+func (o *Object) Height() int {
+	if !o.Boundary {
+		if o.ID < 0 || o.ID > 1188 {
+			return 1
+		}
+		return Objects[o.ID].Height
+	}
+	return 1
 }
 
 func (o *Object) Boundaries() [2]Location {
