@@ -164,7 +164,7 @@ func NPCPositions(player *Player) (p *packet.Packet) {
 	for _, n := range player.LocalNPCs.set {
 		if n, ok := n.(*NPC); ok {
 			counter++
-			if n.LongestDelta(player.Location) > 15 || n.TransAttrs.HasMasks("sync", SyncRemoved) {
+			if n.LongestDelta(player.Location) >= player.TransAttrs.VarInt("viewRadius", 16) || n.TransAttrs.HasMasks("sync", SyncRemoved) {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
@@ -188,8 +188,18 @@ func NPCPositions(player *Player) (p *packet.Packet) {
 	}
 	newCount := 0
 	for _, n := range player.NewNPCs() {
-		if len(player.LocalNPCs.set) >= 255 || newCount >= 25 {
+		if len(player.LocalNPCs.set) >= 255 {
 			break
+		}
+		if newCount >= 25 {
+			if player.TransAttrs.VarInt("viewRadius", 16) > 1 {
+				player.TransAttrs.DecVar("viewRadius", 1)
+			}
+			break
+		} else {
+			if player.TransAttrs.VarInt("viewRadius", 16) < 16 {
+				player.TransAttrs.IncVar("viewRadius", 1)
+			}
 		}
 		newCount++
 		player.LocalNPCs.Add(n)
@@ -232,7 +242,7 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 	for _, p1 := range player.LocalPlayers.set {
 		if p1, ok := p1.(*Player); ok {
 			counter++
-			if p1.LongestDelta(player.Location) > 15 || p1.TransAttrs.HasMasks("sync", SyncRemoved) {
+			if p1.LongestDelta(player.Location) >= player.TransAttrs.VarInt("viewRadius", 16) || p1.TransAttrs.HasMasks("sync", SyncRemoved) {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
@@ -259,9 +269,18 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 	}
 	newPlayerCount := 0
 	for _, p1 := range player.NewPlayers() {
-		if len(player.LocalPlayers.set) >= 255 || newPlayerCount >= 25 {
-			// No more than 255 players in view at once, no more than 25 new players at once.
+		if len(player.LocalPlayers.set) >= 255 {
 			break
+		}
+		if newPlayerCount >= 25 {
+			if player.TransAttrs.VarInt("viewRadius", 16) > 1 {
+				player.TransAttrs.DecVar("viewRadius", 1)
+			}
+			break
+		} else {
+			if player.TransAttrs.VarInt("viewRadius", 16) < 16 {
+				player.TransAttrs.IncVar("viewRadius", 1)
+			}
 		}
 		newPlayerCount++
 		p.AddBits(p1.Index, 11)
@@ -354,7 +373,7 @@ func ObjectLocations(player *Player) (p *packet.Packet) {
 			if o.Boundary {
 				continue
 			}
-			if !player.WithinRange(o.Location, 21) || GetObject(o.X(), o.Y()) != o {
+			if !player.WithinRange(o.Location, player.TransAttrs.VarInt("viewRadius", 16) + 5) || GetObject(o.X(), o.Y()) != o {
 				p.AddShort(60000)
 				p.AddByte(byte(o.X() - player.X()))
 				p.AddByte(byte(o.Y() - player.Y()))
@@ -395,7 +414,7 @@ func BoundaryLocations(player *Player) (p *packet.Packet) {
 			if !o.Boundary {
 				continue
 			}
-			if !player.WithinRange(o.Location, 21) || GetObject(o.X(), o.Y()) != o {
+			if !player.WithinRange(o.Location, player.TransAttrs.VarInt("viewRadius", 16) + 5) || GetObject(o.X(), o.Y()) != o {
 				p.AddShort(16)
 				xOff := o.X() - player.X()
 				yOff := o.Y() - player.Y()
@@ -468,7 +487,7 @@ func ItemLocations(player *Player) (p *packet.Packet) {
 	for _, i := range player.LocalItems.set {
 		if i, ok := i.(*GroundItem); ok {
 			x, y := i.X(), i.Y()
-			if !player.WithinRange(i.Location, 21) {
+			if !player.WithinRange(i.Location, player.TransAttrs.VarInt("viewRadius", 16) + 5) {
 				p.AddByte(255)
 				p.AddByte(byte(x - player.X()))
 				p.AddByte(byte(y - player.Y()))

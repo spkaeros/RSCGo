@@ -49,6 +49,32 @@ func (a *AttributeList) SetVar(name string, value interface{}) {
 	a.lock.Unlock()
 }
 
+//DecVar If there is an integer attribute with the provided name, it will decrease it by delta.
+func (a *AttributeList) DecVar(name string, delta int) {
+	a.lock.Lock()
+	if val, ok := a.set[name].(int); ok {
+		a.set[name] = val - delta
+	}
+	a.lock.Unlock()
+}
+
+//IncVar If there is an integer attribute with the provided name, it will increase it by delta.
+func (a *AttributeList) IncVar(name string, delta int) {
+	a.lock.Lock()
+	if val, ok := a.set[name].(int); ok {
+		a.set[name] = val + delta
+	}
+	a.lock.Unlock()
+}
+
+//Var Returns the attribute associated with name as a blank interface.  Needs to be cast to be useful, typically.
+func (a *AttributeList) Var(name string) (interface{}, bool) {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
+	val, ok := a.set[name]
+	return val, ok
+}
+
 //UnsetVar Removes the attribute with the provided name from the collection set, if any exist.
 func (a *AttributeList) UnsetVar(name string) {
 	if a.Contains(name) {

@@ -669,6 +669,7 @@ func NewPlayer(index int, ip string) *Player {
 		TradeOffer: &Inventory{Capacity: 12}, LocalItems: &entityList{}, IP: ip, OutgoingPackets: make(chan *packet.Packet, 20),
 		Kill: make(chan struct{}), Bank: &Inventory{Capacity: 48 * 4, stackEverything: true}}
 	p.Transients().SetVar("skills", &SkillTable{})
+	p.Transients().SetVar("viewRadius", 16)
 	p.Equips[0] = p.Appearance.Head
 	p.Equips[1] = p.Appearance.Body
 	p.Equips[2] = p.Appearance.Legs
