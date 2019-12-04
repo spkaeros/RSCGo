@@ -1,25 +1,22 @@
-func npcAction(player, npc) {
-	npcs = [93, 174]
-	for id in npcs {
-		if npc.ID == id {
-			npc.Chat(player, "Greetings traveller")
-			switch player.OpenOptionMenu("Can you heal me? I'm injured", "Isn't this place built a bit out the way?") {
-			case 0:
-				npc.Chat(player, "Ok")
-				player.Message("The monk places his hands on your head")
-				sleep(tMillis*1800)
-				player.Message("You feel a little better")
-				deltaHp = player.Skills().Maximum(HITPOINTS) - player.Skills().Current(HITPOINTS)
-				if deltaHp > 0 {
-					player.SetCurStat(HITPOINTS, deltaHp < 5 ? player.Skills().Current(HITPOINTS) + deltaHp : player.Skills().Current(HITPOINTS) + 5)
-				}
-			case 1:
-				npc.Chat(player, "We like it that way", "We get disturbed less",
-						"We still get rather a large amount of travellers", "looking for sanctuary and healing here as it is")
-				
-			}
-			return true
+func action(player, npc) {
+	npc.Chat(player, "Greetings traveller")
+	switch player.OpenOptionMenu("Can you heal me? I'm injured", "Isn't this place built a bit out the way?") {
+	case 0:
+		npc.Chat(player, "Ok")
+		player.Message("The monk places his hands on your head")
+		sleep(tMillis*1800)
+		player.Message("You feel a little better")
+		deltaHp = player.Skills().Maximum(HITPOINTS) - player.Skills().Current(HITPOINTS)
+		if deltaHp > 0 {
+			player.SetCurStat(HITPOINTS, deltaHp < 5 ? player.Skills().Current(HITPOINTS) + deltaHp : player.Skills().Current(HITPOINTS) + 5)
 		}
+	case 1:
+		npc.Chat(player, "We like it that way", "We get disturbed less",
+				"We still get rather a large amount of travellers", "looking for sanctuary and healing here as it is")
+
 	}
-	return false
+}
+npcs = [93, 174]
+for id in npcs {
+	bind.npc(id, action)
 }

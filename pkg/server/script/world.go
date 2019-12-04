@@ -214,10 +214,11 @@ func WorldModule() *vm.Env {
 		"invOnBoundary": func(fn func(player *world.Player, boundary *world.Object, item *world.Item) bool) {
 			InvOnBoundaryTriggers = append(InvOnBoundaryTriggers, fn)
 		},
+		"npc": func(id int, fn func(player *world.Player, npc *world.NPC)) {
+			NpcTriggers[id] = fn
+		},
 		"command": func(name string, fn func(p *world.Player, args []string)) {
-			CommandHandlers[name] = func(player *world.Player, args []string) {
-				fn(player, args)
-			}
+			CommandHandlers[name] = fn
 		},
 	}, nil)
 	if err != nil {

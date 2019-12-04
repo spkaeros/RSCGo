@@ -137,94 +137,86 @@ func init() {
 			if player.NextTo(npc.Location) && player.WithinRange(npc.Location, 1) && !npc.Busy() {
 				player.ResetPath()
 				npc.ResetPath()
-				player.AddState(world.MSChatting)
-				npc.AddState(world.MSChatting)
-				if player.Location.Equals(npc.Location) {
-				outer:
-					for offX := -1; offX <= 1; offX++ {
-						for offY := -1; offY <= 1; offY++ {
-							if offX == 0 && offY == 0 {
-								continue
-							}
-							newLoc := world.NewLocation(player.X()+offX, player.Y()+offY)
-							switch player.DirectionTo(newLoc.X(), newLoc.Y()) {
-							case world.North:
-								if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipSouth, false) {
-									continue
-								}
-							case world.South:
-								if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipNorth, false) {
-									continue
-								}
-							case world.East:
-								if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipWest, false) {
-									continue
-								}
-							case world.West:
-								if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipEast, false) {
-									continue
-								}
-							case world.NorthWest:
-								if world.IsTileBlocking(player.X(), player.Y()-1, world.ClipSouth, false) {
-									continue
-								}
-								if world.IsTileBlocking(player.X()+1, player.Y(), world.ClipEast, false) {
-									continue
-								}
-							case world.NorthEast:
-								if world.IsTileBlocking(player.X(), player.Y()-1, world.ClipSouth, false) {
-									continue
-								}
-								if world.IsTileBlocking(player.X()-1, player.Y(), world.ClipWest, false) {
-									continue
-								}
-							case world.SouthWest:
-								if world.IsTileBlocking(player.X(), player.Y()+1, world.ClipNorth, false) {
-									continue
-								}
-								if world.IsTileBlocking(player.X()+1, player.Y(), world.ClipEast, false) {
-									continue
-								}
-							case world.SouthEast:
-								if world.IsTileBlocking(player.X(), player.Y()+1, world.ClipNorth, false) {
-									continue
-								}
-								if world.IsTileBlocking(player.X()-1, player.Y(), world.ClipWest, false) {
-									continue
-								}
-							}
-							if player.NextTo(newLoc) {
-								player.SetLocation(newLoc, true)
-								break outer
-							}
-						}
-					}
+				fn, ok := script.NpcTriggers[npc.ID]
+				if ok {
+					player.AddState(world.MSChatting)
+					npc.AddState(world.MSChatting)
 					if player.Location.Equals(npc.Location) {
-						return false
+					outer:
+						for offX := -1; offX <= 1; offX++ {
+							for offY := -1; offY <= 1; offY++ {
+								if offX == 0 && offY == 0 {
+									continue
+								}
+								newLoc := world.NewLocation(player.X()+offX, player.Y()+offY)
+								switch player.DirectionTo(newLoc.X(), newLoc.Y()) {
+								case world.North:
+									if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipSouth, false) {
+										continue
+									}
+								case world.South:
+									if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipNorth, false) {
+										continue
+									}
+								case world.East:
+									if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipWest, false) {
+										continue
+									}
+								case world.West:
+									if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipEast, false) {
+										continue
+									}
+								case world.NorthWest:
+									if world.IsTileBlocking(player.X(), player.Y()-1, world.ClipSouth, false) {
+										continue
+									}
+									if world.IsTileBlocking(player.X()+1, player.Y(), world.ClipEast, false) {
+										continue
+									}
+								case world.NorthEast:
+									if world.IsTileBlocking(player.X(), player.Y()-1, world.ClipSouth, false) {
+										continue
+									}
+									if world.IsTileBlocking(player.X()-1, player.Y(), world.ClipWest, false) {
+										continue
+									}
+								case world.SouthWest:
+									if world.IsTileBlocking(player.X(), player.Y()+1, world.ClipNorth, false) {
+										continue
+									}
+									if world.IsTileBlocking(player.X()+1, player.Y(), world.ClipEast, false) {
+										continue
+									}
+								case world.SouthEast:
+									if world.IsTileBlocking(player.X(), player.Y()+1, world.ClipNorth, false) {
+										continue
+									}
+									if world.IsTileBlocking(player.X()-1, player.Y(), world.ClipWest, false) {
+										continue
+									}
+								}
+								if player.NextTo(newLoc) {
+									player.SetLocation(newLoc, true)
+									break outer
+								}
+							}
+						}
+						if player.Location.Equals(npc.Location) {
+							return true
+						}
 					}
-				}
-				player.SetDirection(player.DirectionTo(npc.X(), npc.Y()))
-				npc.SetDirection(npc.DirectionTo(player.X(), player.Y()))
-				go func() {
-					defer func() {
-						player.RemoveState(world.MSChatting)
-						npc.RemoveState(world.MSChatting)
+					player.SetDirection(player.DirectionTo(npc.X(), npc.Y()))
+					npc.SetDirection(npc.DirectionTo(player.X(), player.Y()))
+					go func() {
+						defer func() {
+							player.RemoveState(world.MSChatting)
+							npc.RemoveState(world.MSChatting)
+						}()
+						fn(player, npc)
 					}()
-					for _, fn := range script.NpcTriggers {
-						ran, err := fn(context.Background(), reflect.ValueOf(player), reflect.ValueOf(npc))
-						if !ran.IsValid() {
-							continue
-						}
-						if !err.IsNil() {
-							log.Info.Println(err)
-							continue
-						}
-						if ran.Bool() {
-							return
-						}
-					}
-					player.Message("The " + world.NpcDefs[npc.ID].Name + " does not appear interested in talking")
-				}()
+					return true
+				}
+				player.Message("The " + world.NpcDefs[npc.ID].Name + " does not appear interested in talking")
 				return true
 			} else {
 				player.WalkTo(npc.Location)
@@ -245,7 +237,7 @@ func init() {
 			return
 		}
 		if invIndex >= player.Inventory.Size() {
-			log.Suspicious.Printf("Player %v attempted to use a non-existant item(idx:%v, cap:%v) on a boundary at %d,%d\n", player, invIndex, player.Inventory.Size() - 1, targetX, targetY)
+			log.Suspicious.Printf("Player %v attempted to use a non-existant item(idx:%v, cap:%v) on a boundary at %d,%d\n", player, invIndex, player.Inventory.Size()-1, targetX, targetY)
 			return
 		}
 		invItem := player.Inventory.Get(invIndex)

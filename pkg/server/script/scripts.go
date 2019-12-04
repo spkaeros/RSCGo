@@ -26,9 +26,10 @@ var EngineChannel = make(chan func(), 20)
 var InvTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 var ObjectTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 var BoundaryTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
-var NpcTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
+//var NpcTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 var LoginTriggers []func(player *world.Player)
 var InvOnBoundaryTriggers []func(player *world.Player, object *world.Object, item *world.Item) bool
+var NpcTriggers = make(map[int]func(*world.Player, *world.NPC))
 
 func Run(fnName string, player *world.Player, argName string, arg interface{}) bool {
 	env := WorldModule()
@@ -71,7 +72,7 @@ func Clear() {
 	InvTriggers = InvTriggers[:0]
 	BoundaryTriggers = BoundaryTriggers[:0]
 	ObjectTriggers = ObjectTriggers[:0]
-	NpcTriggers = NpcTriggers[:0]
+	NpcTriggers = make(map[int]func(*world.Player, *world.NPC))
 	LoginTriggers = LoginTriggers[:0]
 	InvOnBoundaryTriggers = InvOnBoundaryTriggers[:0]
 }
@@ -104,11 +105,6 @@ func Load() {
 			action, ok = fn.(func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
 			if ok {
 				BoundaryTriggers = append(BoundaryTriggers, action)
-			}
-			fn, err = env.Get("npcAction")
-			action, ok = fn.(func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
-			if ok {
-				NpcTriggers = append(NpcTriggers, action)
 			}
 		}
 		return nil
