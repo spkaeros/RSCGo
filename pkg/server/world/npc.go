@@ -72,6 +72,20 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 	return n
 }
 
+func (n *NPC) Name() string {
+	if n.ID > 793 || n.ID < 0 {
+		return "nil"
+	}
+	return NpcDefs[n.ID].Name
+}
+
+func (n *NPC) Command() string {
+	if n.ID > 793 || n.ID < 0 {
+		return "nil"
+	}
+	return NpcDefs[n.ID].Command
+}
+
 //UpdateNPCPositions Loops through the global NPC entityList and, if they are by a player, updates their path to a new path every so often,
 // within their boundaries, and traverses each NPC along said path if necessary.
 func UpdateNPCPositions() {

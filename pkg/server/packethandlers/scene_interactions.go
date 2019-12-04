@@ -135,10 +135,7 @@ func init() {
 		}
 		player.SetDistancedAction(func() bool {
 			if player.NextTo(npc.Location) && player.WithinRange(npc.Location, 1) && !npc.Busy() {
-				player.ResetPath()
-				npc.ResetPath()
-				fn, ok := script.NpcTriggers[npc.ID]
-				if ok {
+				startChat := func() {
 					player.AddState(world.MSChatting)
 					npc.AddState(world.MSChatting)
 					if player.Location.Equals(npc.Location) {
@@ -202,11 +199,17 @@ func init() {
 							}
 						}
 						if player.Location.Equals(npc.Location) {
-							return true
+							return
 						}
 					}
 					player.SetDirection(player.DirectionTo(npc.X(), npc.Y()))
 					npc.SetDirection(npc.DirectionTo(player.X(), player.Y()))
+				}
+				player.ResetPath()
+				npc.ResetPath()
+				fn, ok := script.NpcTriggers[int64(npc.ID)]
+				if ok {
+					startChat()
 					go func() {
 						defer func() {
 							player.RemoveState(world.MSChatting)
@@ -216,11 +219,23 @@ func init() {
 					}()
 					return true
 				}
-				player.Message("The " + world.NpcDefs[npc.ID].Name + " does not appear interested in talking")
+				fn, ok = script.NpcTriggers[npc.Name()]
+				if ok {
+					startChat()
+					go func() {
+						defer func() {
+							player.RemoveState(world.MSChatting)
+							npc.RemoveState(world.MSChatting)
+						}()
+						fn(player, npc)
+					}()
+					return true
+				}
+				player.Message("The " + npc.Name() + " does not appear interested in talking")
 				return true
-			} else {
-				player.WalkTo(npc.Location)
 			}
+
+			player.WalkTo(npc.Location)
 			return false
 		})
 	}

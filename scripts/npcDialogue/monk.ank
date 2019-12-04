@@ -1,4 +1,4 @@
-func action(player, npc) {
+bind.npc([93, 174], func(player, npc) {
 	npc.Chat(player, "Greetings traveller")
 	switch player.OpenOptionMenu("Can you heal me? I'm injured", "Isn't this place built a bit out the way?") {
 	case 0:
@@ -15,8 +15,4 @@ func action(player, npc) {
 				"We still get rather a large amount of travellers", "looking for sanctuary and healing here as it is")
 
 	}
-}
-npcs = [93, 174]
-for id in npcs {
-	bind.npc(id, action)
-}
+})

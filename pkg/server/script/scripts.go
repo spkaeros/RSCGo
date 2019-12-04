@@ -29,7 +29,7 @@ var BoundaryTriggers []func(context.Context, reflect.Value, reflect.Value) (refl
 //var NpcTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 var LoginTriggers []func(player *world.Player)
 var InvOnBoundaryTriggers []func(player *world.Player, object *world.Object, item *world.Item) bool
-var NpcTriggers = make(map[int]func(*world.Player, *world.NPC))
+var NpcTriggers = make(map[interface{}]func(*world.Player, *world.NPC))
 
 func Run(fnName string, player *world.Player, argName string, arg interface{}) bool {
 	env := WorldModule()
@@ -72,7 +72,7 @@ func Clear() {
 	InvTriggers = InvTriggers[:0]
 	BoundaryTriggers = BoundaryTriggers[:0]
 	ObjectTriggers = ObjectTriggers[:0]
-	NpcTriggers = make(map[int]func(*world.Player, *world.NPC))
+	NpcTriggers = make(map[interface{}]func(*world.Player, *world.NPC))
 	LoginTriggers = LoginTriggers[:0]
 	InvOnBoundaryTriggers = InvOnBoundaryTriggers[:0]
 }

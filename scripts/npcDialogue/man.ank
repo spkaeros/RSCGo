@@ -1,4 +1,4 @@
-func action(player, npc) {
+bind.npc([11, 63, 72], func(player, npc) {
 	player.Chat("Hello", "How's it going?")
 	switch rand(0, 13) {
 	case 0:
@@ -48,9 +48,4 @@ func action(player, npc) {
 			npc.Chat(player, "I've heard there are many fearsome creatures under the ground")
 		}
 	}
-}
-
-npcs = [11, 63, 72]
-for id in npcs {
-	bind.npc(id, action)
-}
+})

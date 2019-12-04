@@ -1,4 +1,4 @@
-func action(player, npc) {
+bind.npc([95, 224, 268, 540, 617], func(player, npc) {
 	npc.Chat(player, "Good day" + (npc.ID == 617 ? " Bwana" : "") + ", how may I help you?")
 	switch player.OpenOptionMenu("I'd like to access my bank account please", "What is this place?") {
 	case 0:
@@ -15,8 +15,4 @@ func action(player, npc) {
 					"And telling us our signs were wrong", "As if we didn't know what town we were in or something!")
 		}
 	}
-}
-npcs = [95, 224, 268, 540, 617]
-for id in npcs {
-	bind.npc(id, action)
-}
+})
