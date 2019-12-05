@@ -396,6 +396,8 @@ func SavePlayer(player *world.Player) {
 	insertAttribute := func(name string, value interface{}) bool {
 		var val string
 		switch value.(type) {
+		case int64:
+			val = "i" + strconv.FormatInt(int64(value.(int)), 10)
 		case int:
 			val = "i" + strconv.FormatInt(int64(value.(int)), 10)
 		case uint:

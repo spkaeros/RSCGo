@@ -35,6 +35,10 @@ func init() {
 		log.Info.Println(npc.ID)
 		player.SetDistancedAction(func() bool {
 			if player.NextTo(npc.Location) && player.WithinRange(npc.Location, 1) {
+				fn, ok := script.NpcAtkTriggers[int64(npc.ID)]
+				if ok && fn(player, npc) {
+					return true
+				}
 				if time.Since(npc.TransAttrs.VarTime("lastFight")) <= time.Second*2 || npc.Busy() {
 					return true
 				}
@@ -87,6 +91,11 @@ func init() {
 									attacker.ResetFighting()
 									defenderNpc.Skills().SetCur(world.StatHits, defenderNpc.Skills().Maximum(world.StatHits))
 									defenderNpc.SetLocation(world.DeathPoint, true)
+
+									fn, ok := script.NpcDeathTriggers[int64(npc.ID)]
+									if ok {
+										go fn(player, npc)
+									}
 								}
 
 								go func() {

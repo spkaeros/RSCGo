@@ -767,6 +767,11 @@ func (p *Player) SendStat(idx int) {
 	p.SendPacket(PlayerStat(p, idx))
 }
 
+//SendStatExp sends the experience information for the stat at idx to the player.
+func (p *Player) SendStatExp(idx int) {
+	p.SendPacket(PlayerExperience(p, idx))
+}
+
 //SendStats sends all stat information to this player.
 func (p *Player) SendStats() {
 	p.SendPacket(PlayerStats(p))
@@ -781,6 +786,12 @@ func (p *Player) SendInventory() {
 func (p *Player) SetCurStat(idx int, lvl int) {
 	p.Skills().SetCur(idx, lvl)
 	p.SendStat(idx)
+}
+
+//SetCurStat sets this players current stat at idx to lvl and updates the client about it.
+func (p *Player) IncExp(idx int, amt int) {
+	p.Skills().IncExp(idx, amt)
+	p.SendStatExp(idx)
 }
 
 //SetMaxStat sets this players maximum stat at idx to lvl and updates the client about it.
@@ -901,4 +912,24 @@ func (p *Player) CloseBank() {
 //SendUpdateTimer sends a system update countdown timer to the client.
 func (p *Player) SendUpdateTimer() {
 	p.SendPacket(SystemUpdate(int(time.Until(UpdateTime).Seconds())))
+}
+
+func (p *Player) SendMessageBox(msg string, big bool) {
+	if big {
+		p.SendPacket(BigInformationBox(msg))
+	} else {
+		p.SendPacket(InformationBox(msg))
+	}
+}
+
+func(p *Player) SetCache(name string, val interface{}) {
+	p.Attributes.SetVar(name, val)
+}
+
+func (p *Player) Cache(name string) interface{} {
+	v, ok := p.Attributes.Var(name)
+	if ok {
+		return v
+	}
+	return int64(0)
 }

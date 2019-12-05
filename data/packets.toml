@@ -51,4 +51,5 @@ packets = [
 	{ name = 'depositbank', opcode = 23},
 	{ name = 'withdrawbank', opcode = 22},
 	{ name = 'invonboundary', opcode = 161},
+	{ name = 'invonobject', opcode = 115},
 ]

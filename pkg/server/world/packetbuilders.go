@@ -770,6 +770,13 @@ func BigInformationBox(msg string) (p *packet.Packet) {
 	return p
 }
 
+//BigInformationBox Builds a packet to trigger the opening of a small black text window with msg as its contents
+func InformationBox(msg string) (p *packet.Packet) {
+	p = packet.NewOutgoingPacket(89)
+	p.AddBytes([]byte(msg))
+	return p
+}
+
 //LoginResponse Builds a bare packet with the login response code.
 func LoginResponse(v int) *packet.Packet {
 	return packet.NewBarePacket([]byte{byte(v)})

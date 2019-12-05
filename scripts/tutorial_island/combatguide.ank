@@ -1,0 +1,69 @@
+bind.npc(474, func(player, npc) {
+	if toInt(player.Cache("tutorial")) < 15 {
+		player.Message("You need to speak to the previous guide first.")
+		return
+	}
+	if toInt(player.Cache("tutorial")) == 15 {
+		npc.Chat(player, "Aha a new recruit", "I'm here to teach you the basics of fighting", "First of all you need weapons")
+		player.AddItem(ids.WOODEN_SHIELD, 1) // wood shield
+		player.AddItem(ids.BRONZE_LSWORD, 1) // bronze long
+		player.Message("The instructor gives you a sword and shield")
+		sleep(tMillis*1200)
+		npc.Chat(player, "look after these well", "These items will now have appeared in your inventory",
+				"You can access them by selecting the bag icon in the menu bar",
+				"which can be found in the top right hand corner of the screen",
+				"To wield your weapon and shield left click on them within your inventory",
+				"their box will go red to show you are wearing them")
+		player.Message("When you have done this speak to the combat instructor again")
+		sleep(tMillis*1200)
+		player.SetCache("tutorial", 16)
+	} else if toInt(player.Cache("tutorial")) == 16 {
+		shield = player.Inventory.GetByID(ids.WOODEN_SHIELD)
+		sword = player.Inventory.GetByID(ids.BRONZE_LSWORD)
+		if (shield == nil || shield.Worn) && (sword == nil || sword.Worn) {
+			npc.Chat(player, "Today we're going to be killing giant rats")
+			// nearest rat squeeks 10 radius
+			npc.Chat(player, "move your mouse over a rat you will see it is level 7",
+					"You will see that it's level is written in green",
+					"If it is green this means you have a strong chance of killing it",
+					"creatures with their name in red should probably be avoided",
+					"As this indicates they are tougher than you", "left click on the rat to attack it")
+		} else {
+			npc.Chat(player, "You need to wield your equipment", "You can access it by selecting the bag icon",
+					"which can be found in the top right hand corner of the screen",
+					"To wield your weapon and shield left click on them",
+					"their boxs will go red to show you are wearing them")
+			player.Message("When you have done this speak to the combat instructor again")
+			sleep(tMillis*1200)
+		}
+	} else if toInt(player.Cache("tutorial")) >= 20 {
+		npc.Chat(player, "Well done you're a born fighter", "As you kill things", "Your combat experience will go up",
+				"this expereince will slowly cause you to get tougher",
+				"eventually you will be able to take on stronger enemies", "Such as those found in dungeons",
+				"Now contine to the building to the northeast")
+		if toInt(player.Cache("tutorial")) < 25 {
+			player.SetCache("tutorial", 25)
+		}
+	}
+})
+
+bind.npcAttack(473, func(player, npc) {
+	if toInt(player.Cache("tutorial")) < 16 {
+		player.Message("Speak to the combat instructor before killing rats")
+		return true
+	} else if toInt(player.Cache("tutorial")) > 16 {
+		player.Message("That's enough rat killing for now")
+		return true
+	}
+
+	return false
+})
+
+bind.npcKilled(473, func(player, npc) {
+	if toInt(player.Cache("tutorial")) == 16 {
+		player.SetCache("tutorial", 20)
+		player.Message("Well done you've killed the rat")
+		sleep(1200*tMillis)
+		player.Message("Now speak to the combat instructor again")
+	}
+})

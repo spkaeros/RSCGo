@@ -1,0 +1,75 @@
+bind.npc(478, func(player, npc) {
+	if toInt(player.Cache("tutorial")) < 25 {
+		player.Message("You need to speak to the previous guide first.")
+		return
+	}
+	if toInt(player.Cache("tutorial")) == 25 {
+		npc.Chat(player, "looks like you've been fighting", "If you get hurt in a fight", "You will slowly heal",
+				"Eating food will heal you much more quickly", "I'm here to show you some simple cooking")
+		if player.Inventory.CountID(ids.RAW_RAT_MEAT) < 1 {
+			player.AddItem(ids.RAW_RAT_MEAT, 1) // raw rat meat
+			npc.Chat(player, "First you need something to cook")
+			player.Message("the instructor gives you a piece of meat")
+			sleep(tMillis*1200)
+		} else {
+			npc.Chat(player, "I see you have bought your own meat", "good stuff")
+		}
+		npc.Chat(player, "ok cook it on the range", "To use an item you are holding",
+				"Open your inventory and click on the item you wish to use", "Then click on whatever you wish to use it on",
+				"In this case use it on the range")
+	} else if toInt(player.Cache("tutorial")) == 30 {
+		player.Chat("I burnt the meat")
+		npc.Chat(player, "Well I'm sure you'll get the hang of it soon", "Let's try again")
+		if player.Inventory.CountID(ids.RAW_RAT_MEAT) < 1 {
+			npc.Chat(player, "Here's another piece of meat to cook")
+			player.AddItem(ids.RAW_RAT_MEAT, 1)
+		}
+	} else if toInt(player.Cache("tutorial")) == 31 {
+		player.Chat("I've cooked the meat correctly this time")
+		npc.Chat(player, "Very well done", "Now you can tell whether you need to eat or not", "look in your stats menu",
+				"Click on bar graph icon in the menu bar", "Your stats are low right now",
+				"As you use the various skills, these stats will increase",
+				"If you look at your hits you will see 2 numbers",
+				"The number on the right is your hits when you are at full health",
+				"The number on the left is your current hits",
+				"If the number on the left is lower eat some food to be healed")
+		player.SetCache("tutorial", 34)
+	} else if toInt(player.Cache("tutorial")) >= 34 {
+		npc.Chat(player, "There are many other sorts of food you can cook",
+				"As your cooking level increases you will be able to cook even more",
+				"Some of these dishes are more complicated to prepare", "If you want to know more about cookery",
+				"You could consult the online manual", "Now proceed through the next door")
+		if toInt(player.Cache("tutorial")) < 35 {
+			player.SetCache("tutorial", 35)
+		}
+	}
+})
+
+bind.invOnObject(func(player, object, item) {
+	player.PlaySound("cooking")
+	player.Message("You cook the meat on the stove...")
+    sleep(tMillis*1200)
+	if toInt(player.Cache("tutorial")) == 30 {
+		player.Message("@que@The meat is now nicely cooked")
+		player.RemoveItem(ids.RAW_RAT_MEAT, 1)
+		player.AddItem(ids.COOKEDMEAT, 1)
+		player.IncExp(COOKING, 30)
+		sleep(tMillis*1200)
+		player.Message("Now speak to the cooking instructor again")
+		player.SetCache("tutorial", 31)
+	} else {
+        player.Message("@que@You accidentally burn the meat")
+        player.RemoveItem(ids.RAW_RAT_MEAT, 1)
+        player.AddItem(ids.BURNTMEAT, 1)
+		if toInt(player.Cache("tutorial")) == 25 {
+    		sleep(tMillis*1200)
+    		player.Message("sometimes you will burn food")
+    		sleep(tMillis*1200)
+    		player.Message("As your cooking level increases this will happen less")
+    		sleep(tMillis*1200)
+    		player.Message("Now speak to the cooking instructor again")
+    		player.SetCache("tutorial", 30)
+    	}
+	}
+	return item.ID == ids.RAW_RAT_MEAT && object.ID == 491
+})

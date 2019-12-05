@@ -38,6 +38,8 @@ func init() {
 					player.ResetPath()
 					objectAction(player, object)
 					return true
+				} else {
+					player.WalkTo(object.Location)
 				}
 				return false
 			}
@@ -45,6 +47,8 @@ func init() {
 				player.ResetPath()
 				objectAction(player, object)
 				return true
+			} else {
+				player.WalkTo(object.Location)
 			}
 			return false
 
@@ -69,6 +73,8 @@ func init() {
 					player.ResetPath()
 					objectAction(player, object)
 					return true
+				} else {
+					player.WalkTo(object.Location)
 				}
 				return false
 			}
@@ -76,6 +82,8 @@ func init() {
 				player.ResetPath()
 				objectAction(player, object)
 				return true
+			} else {
+				player.WalkTo(object.Location)
 			}
 			return false
 		})
@@ -98,6 +106,8 @@ func init() {
 				player.ResetPath()
 				boundaryAction(player, object)
 				return true
+			} else {
+				player.WalkTo(object.Location)
 			}
 			return false
 		})
@@ -120,6 +130,8 @@ func init() {
 				player.ResetPath()
 				boundaryAction(player, object)
 				return true
+			} else {
+				player.WalkTo(object.Location)
 			}
 			return false
 		})
@@ -232,6 +244,7 @@ func init() {
 					return true
 				}
 				player.Message("The " + npc.Name() + " does not appear interested in talking")
+				log.Info.Println(npc.ID)
 				return true
 			}
 
@@ -266,6 +279,67 @@ func init() {
 						player.RemoveState(world.MSBusy)
 					}()
 					for _, fn := range script.InvOnBoundaryTriggers {
+						if fn(player, object, invItem) {
+							return
+						}
+					}
+					player.SendPacket(world.DefaultActionMessage)
+				}()
+				return true
+			} else {
+				player.WalkTo(object.Location)
+			}
+			return false
+		})
+	}
+
+	PacketHandlers["invonobject"] = func(player *world.Player, p *packet.Packet) {
+		targetX := p.ReadShort()
+		targetY := p.ReadShort()
+		invIndex := p.ReadShort()
+
+		object := world.GetObject(targetX, targetY)
+		if object == nil || object.Boundary {
+			log.Info.Println("Boundary not found.")
+			log.Suspicious.Printf("Player %v attempted to use a non-existant boundary at %d,%d\n", player, targetX, targetY)
+			return
+		}
+		if invIndex >= player.Inventory.Size() {
+			log.Suspicious.Printf("Player %v attempted to use a non-existant item(idx:%v, cap:%v) on a boundary at %d,%d\n", player, invIndex, player.Inventory.Size()-1, targetX, targetY)
+			return
+		}
+		invItem := player.Inventory.Get(invIndex)
+		bounds := object.Boundaries()
+		player.SetDistancedAction(func() bool {
+			if world.Objects[object.ID].Type == 2 || world.Objects[object.ID].Type == 3 {
+				if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
+					player.ResetPath()
+					player.AddState(world.MSBusy)
+					go func() {
+						defer func() {
+							player.RemoveState(world.MSBusy)
+						}()
+						for _, fn := range script.InvOnObjectTriggers {
+							if fn(player, object, invItem) {
+								return
+							}
+						}
+						player.SendPacket(world.DefaultActionMessage)
+					}()
+					return true
+				} else {
+					player.WalkTo(object.Location)
+				}
+				return false
+			}
+			if player.NextTo(object.Location) && (player.WithinRange(bounds[0], 1) || player.WithinRange(bounds[1], 1)) {
+				player.ResetPath()
+				player.AddState(world.MSBusy)
+				go func() {
+					defer func() {
+						player.RemoveState(world.MSBusy)
+					}()
+					for _, fn := range script.InvOnObjectTriggers {
 						if fn(player, object, invItem) {
 							return
 						}

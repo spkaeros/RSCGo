@@ -161,6 +161,17 @@ func WorldModule() *vm.Env {
 		log.Warning.Println("Error initializing VM parameters:", err)
 		return nil
 	}
+	env, err = env.AddPackage("ids", map[string]interface{}{
+		"COOKEDMEAT": 132,
+		"BURNTMEAT": 134,
+		"RAW_RAT_MEAT": 503,
+		"WOODEN_SHIELD": 4,
+		"BRONZE_LSWORD": 70,
+	}, nil)
+	if err != nil {
+		log.Warning.Println("Error initializing VM parameters:", err)
+		return nil
+	}
 	env, err = env.AddPackage("packets", map[string]interface{}{
 		"BigInformationBox":     world.BigInformationBox,
 		"BoundaryLocations":     world.BoundaryLocations,
@@ -214,8 +225,10 @@ func WorldModule() *vm.Env {
 		"invOnBoundary": func(fn func(player *world.Player, boundary *world.Object, item *world.Item) bool) {
 			InvOnBoundaryTriggers = append(InvOnBoundaryTriggers, fn)
 		},
+		"invOnObject": func(fn func(player *world.Player, boundary *world.Object, item *world.Item) bool) {
+			InvOnObjectTriggers = append(InvOnObjectTriggers, fn)
+		},
 		"npc": func(ident interface{}, fn func(player *world.Player, npc *world.NPC)) {
-			log.Info.Printf("%T", ident)
 			if id, ok := ident.(int64); ok {
 				NpcTriggers[id] = fn
 			}
@@ -228,6 +241,36 @@ func WorldModule() *vm.Env {
 				NpcTriggers[name] = fn
 			}
 //			NpcTriggers[id] = fn
+		},
+		"npcAttack": func(ident interface{}, fn func(player *world.Player, npc *world.NPC) bool) {
+			log.Info.Printf("%T", ident)
+			if id, ok := ident.(int64); ok {
+				NpcAtkTriggers[id] = fn
+			}
+			if ids, ok := ident.([]interface{}); ok {
+				for _, id := range ids {
+					NpcAtkTriggers[id.(int64)] = fn
+				}
+			}
+			if name, ok := ident.(string); ok {
+				NpcAtkTriggers[name] = fn
+			}
+			//			NpcAtkTriggers[id] = fn
+		},
+		"npcKilled": func(ident interface{}, fn func(player *world.Player, npc *world.NPC)) {
+			log.Info.Printf("%T", ident)
+			if id, ok := ident.(int64); ok {
+				NpcDeathTriggers[id] = fn
+			}
+			if ids, ok := ident.([]interface{}); ok {
+				for _, id := range ids {
+					NpcDeathTriggers[id.(int64)] = fn
+				}
+			}
+			if name, ok := ident.(string); ok {
+				NpcDeathTriggers[name] = fn
+			}
+			//			NpcDeathTriggers[id] = fn
 		},
 		"command": func(name string, fn func(p *world.Player, args []string)) {
 			CommandHandlers[name] = fn
