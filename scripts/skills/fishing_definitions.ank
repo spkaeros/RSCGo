@@ -1,0 +1,257 @@
+defs = {
+		192: [
+			{
+				"net": ids.FLYFISHING_ROD,
+				"bait": ids.FEATHER,
+				"deplete": 2,
+				"respawn": 17,
+				"fish": [
+					{
+						"id": ids.RAW_TROUT,
+						"lvl": 20,
+						"exp": 200
+					},
+					{
+						"id": ids.RAW_SALMON,
+						"lvl": 30,
+						"exp": 280
+					},
+				],
+			},
+			{
+				"net": ids.FISHING_ROD,
+				"bait": ids.FISHING_BAIT,
+				"deplete": 2,
+				"respawn": 17,
+				"fish": [
+					{
+						"id": ids.RAW_PIKE,
+						"lvl": 25,
+						"exp": 240
+					},
+				],
+			},
+		],
+		271: [{
+				"net": ids.OILY_FISHING_ROD,
+				"bait": ids.FISHING_BAIT,
+				"deplete": 0,
+				"respawn": -1,
+				"fish": [
+					{
+						"id": ids.RAW_LAVA_EEL,
+						"lvl": 53,
+						"exp": 360
+					},
+				],
+			},
+		],
+		193: [
+			{
+				"net": ids.NET,
+				"bait": -1,
+				"deplete": 1,
+				"respawn": 8,
+				"fish": [
+					{
+						"id": ids.RAW_SHRIMP,
+						"lvl": 1,
+						"exp": 40
+					},
+					{
+						"id": ids.RAW_ANCHOVIES,
+						"lvl": 15,
+						"exp": 160
+					},
+				],
+			},
+			{
+				"net": ids.FISHING_ROD,
+				"bait": ids.FISHING_BAIT,
+				"deplete": 1,
+				"respawn": 8,
+				"fish": [
+					{
+						"id": ids.RAW_SARDINE,
+						"lvl": 5,
+						"exp": 80
+					},
+					{
+						"id": ids.RAW_HERRING,
+						"lvl": 10,
+						"exp": 120
+					},
+				],
+			},
+		],
+		194: [
+			{
+				"net": ids.HARPOON,
+				"bait": -1,
+				"deplete": 4,
+				"respawn": 35,
+				"fish": [
+					{
+						"id": ids.RAW_SWORDFISH,
+						"lvl": 50,
+						"exp": 400
+					},
+					{
+						"id": ids.RAW_TUNA,
+						"lvl": 35,
+						"exp": 320
+					},
+				],
+			},
+			{
+				"net": ids.LOBSTER_POT,
+				"bait": -1,
+				"deplete": 4,
+				"respawn": 35,
+				"fish": [
+					{
+						"id": ids.RAW_LOBSTER,
+						"lvl": 40,
+						"exp": 360
+					},
+				],
+			},
+		],
+		376: [
+			{
+				"net": ids.LOBSTER_POT,
+				"bait": -1,
+				"deplete": 4,
+				"respawn": 35,
+				"fish": [
+					{
+						"id": ids.RAW_LOBSTER,
+						"lvl": 40,
+						"exp": 360
+					},
+				],
+			},
+			{
+				"net": ids.HARPOON,
+				"bait": -1,
+				"deplete": 4,
+				"respawn": 35,
+				"fish": [
+					{
+						"id": ids.RAW_SWORDFISH,
+						"lvl": 50,
+						"exp": 400
+					},
+					{
+						"id": ids.RAW_TUNA,
+						"lvl": 35,
+						"exp": 320
+					},
+				],
+			},
+		],
+		557: [
+			{
+				"net": ids.LOBSTER_POT,
+				"bait": -1,
+				"deplete": 4,
+				"respawn": 35,
+				"fish": [
+					{
+						"id": ids.RAW_LOBSTER,
+						"lvl": 40,
+						"exp": 360
+					},
+				],
+			},
+			{
+				"net": ids.HARPOON,
+				"bait": -1,
+				"deplete": 4,
+				"respawn": 35,
+				"fish": [
+					{
+						"id": ids.RAW_SWORDFISH,
+						"lvl": 50,
+						"exp": 400
+					},
+					{
+						"id": ids.RAW_TUNA,
+						"lvl": 35,
+						"exp": 320
+					},
+				],
+			},
+		],
+		261: [
+			{
+				"net": ids.BIG_NET,
+				"bait": -1,
+				"deplete": 1,
+				"respawn": 70,
+				"fish": [
+					{
+						"id": ids.RAW_MACKEREL,
+						"lvl": 16,
+						"exp": 80
+					},
+					{
+						"id": ids.RAW_COD,
+						"lvl": 23,
+						"exp": 180
+					},
+					{
+						"id": ids.RAW_BASS,
+						"lvl": 46,
+						"exp": 400
+					},
+					{
+						"id": ids.BOOTS,
+						"lvl": 16,
+						"exp": 4
+					},
+					{
+						"id": ids.LEATHER_GLOVES,
+						"lvl": 16,
+						"exp": 4
+					},
+					{
+						"id": ids.SEAWEED,
+						"lvl": 16,
+						"exp": 4},
+					{
+						"id": ids.OYSTER,
+						"lvl": 16,
+						"exp": 40
+					},
+				],
+			},
+			{
+				"net": ids.HARPOON,
+				"bait": -1,
+				"deplete": 7,
+				"respawn": 70,
+				"fish": [
+					{
+						"id": ids.RAW_SHARK,
+						"lvl": 76,
+						"exp": 440
+					},
+				],
+			},
+		],
+}
+
+func getFish(fishDef, lvl, click) {
+	fish = []
+	for i = 0; i < len(fishDef[click].fish); i++ {
+		if fishDef[click].fish[i].lvl <= lvl {
+			fish[i] = fishDef[click].fish[i]
+		}
+	}
+	if len(fish) <= 0 {
+		return fishDef[click].fish[0]
+	}
+
+	return fish[rand(0, len(fish)-1)]
+}

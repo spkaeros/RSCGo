@@ -30,7 +30,6 @@ bind.npc(479, func(player, npc) {
 	} else {
 		player.Message("Go through the next door to continue with the tutorial now")
 	}
-// TODO: Fishing part
 })
 
 func objectAction(player, object, click) {

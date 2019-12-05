@@ -119,10 +119,7 @@ func WorldModule() *vm.Env {
 			if cur < req {
 				return false
 			}
-			threshold := math.Max(float64(1), float64(cur) * 40 - float64(req) * 1.5)
-			if 127 < threshold {
-				threshold = 127
-			}
+			threshold := math.Min(127, math.Max(float64(1), (float64(cur) + 40) - (float64(req) * 1.5)))
 			return roll <= threshold
 		},
 		"systemUpdate": func(t int) {

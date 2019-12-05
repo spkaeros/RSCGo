@@ -1,274 +1,36 @@
+load("scripts/skills/fishing_definitions.ank")
 strings = import("strings")
 
-defs = {
-		192: [
-			{
-				"net": ids.FLYFISHING_ROD,
-				"bait": ids.FEATHER,
-				"deplete": 2,
-				"respawn": 17,
-				"fish": [
-					{
-						"id": ids.RAW_TROUT,
-						"lvl": 20,
-						"exp": 200
-					},
-					{
-						"id": ids.RAW_SALMON,
-						"lvl": 30,
-						"exp": 280
-					},
-				],
-			},
-			{
-				"net": ids.FISHING_ROD,
-				"bait": ids.FISHING_BAIT,
-				"deplete": 2,
-				"respawn": 17,
-				"fish": [
-					{
-						"id": ids.RAW_PIKE,
-						"lvl": 25,
-						"exp": 240
-					},
-				],
-			},
-		],
-		271: [{
-				"net": ids.OILY_FISHING_ROD,
-				"bait": ids.FISHING_BAIT,
-				"deplete": 0,
-				"respawn": -1,
-				"fish": [
-					{
-						"id": ids.RAW_LAVA_EEL,
-						"lvl": 53,
-						"exp": 360
-					},
-				],
-			},
-		],
-		193: [
-			{
-				"net": ids.NET,
-				"bait": -1,
-				"deplete": 1,
-				"respawn": 8,
-				"fish": [
-					{
-						"id": ids.RAW_SHRIMP,
-						"lvl": 1,
-						"exp": 40
-					},
-					{
-						"id": ids.RAW_ANCHOVIES,
-						"lvl": 15,
-						"exp": 160
-					},
-				],
-			},
-			{
-				"net": ids.FISHING_ROD,
-				"bait": ids.FISHING_BAIT,
-				"deplete": 1,
-				"respawn": 8,
-				"fish": [
-					{
-						"id": ids.RAW_SARDINE,
-						"lvl": 5,
-						"exp": 80
-					},
-					{
-						"id": ids.RAW_HERRING,
-						"lvl": 10,
-						"exp": 120
-					},
-				],
-			},
-		],
-		194: [
-			{
-				"net": ids.HARPOON,
-				"bait": -1,
-				"deplete": 4,
-				"respawn": 35,
-				"fish": [
-					{
-						"id": ids.RAW_SWORDFISH,
-						"lvl": 50,
-						"exp": 400
-					},
-					{
-						"id": ids.RAW_TUNA,
-						"lvl": 35,
-						"exp": 320
-					},
-				],
-			},
-			{
-				"net": ids.LOBSTER_POT,
-				"bait": -1,
-				"deplete": 4,
-				"respawn": 35,
-				"fish": [
-					{
-						"id": ids.RAW_LOBSTER,
-						"lvl": 40,
-						"exp": 360
-					},
-				],
-			},
-		],
-		376: [
-			{
-				"net": ids.LOBSTER_POT,
-				"bait": -1,
-				"deplete": 4,
-				"respawn": 35,
-				"fish": [
-					{
-						"id": ids.RAW_LOBSTER,
-						"lvl": 40,
-						"exp": 360
-					},
-				],
-			},
-			{
-				"net": ids.HARPOON,
-				"bait": -1,
-				"deplete": 4,
-				"respawn": 35,
-				"fish": [
-					{
-						"id": ids.RAW_SWORDFISH,
-						"lvl": 50,
-						"exp": 400
-					},
-					{
-						"id": ids.RAW_TUNA,
-						"lvl": 35,
-						"exp": 320
-					},
-				],
-			},
-		],
-		557: [
-			{
-				"net": ids.LOBSTER_POT,
-				"bait": -1,
-				"deplete": 4,
-				"respawn": 35,
-				"fish": [
-					{
-						"id": ids.RAW_LOBSTER,
-						"lvl": 40,
-						"exp": 360
-					},
-				],
-			},
-			{
-				"net": ids.HARPOON,
-				"bait": -1,
-				"deplete": 4,
-				"respawn": 35,
-				"fish": [
-					{
-						"id": ids.RAW_SWORDFISH,
-						"lvl": 50,
-						"exp": 400
-					},
-					{
-						"id": ids.RAW_TUNA,
-						"lvl": 35,
-						"exp": 320
-					},
-				],
-			},
-		],
-		261: [
-			{
-				"net": ids.BIG_NET,
-				"bait": -1,
-				"deplete": 1,
-				"respawn": 70,
-				"fish": [
-					{
-						"id": ids.RAW_MACKEREL,
-						"lvl": 16,
-						"exp": 80
-					},
-					{
-						"id": ids.RAW_COD,
-						"lvl": 23,
-						"exp": 180
-					},
-					{
-						"id": ids.RAW_BASS,
-						"lvl": 46,
-						"exp": 400
-					},
-					{
-						"id": ids.BOOTS,
-						"lvl": 16,
-						"exp": 4
-					},
-					{
-						"id": ids.LEATHER_GLOVES,
-						"lvl": 16,
-						"exp": 4
-					},
-					{
-						"id": ids.SEAWEED,
-						"lvl": 16,
-						"exp": 4},
-					{
-						"id": ids.OYSTER,
-						"lvl": 16,
-						"exp": 40
-					},
-				],
-			},
-			{
-				"net": ids.HARPOON,
-				"bait": -1,
-				"deplete": 7,
-				"respawn": 70,
-				"fish": [
-					{
-						"id": ids.RAW_SHARK,
-						"lvl": 76,
-						"exp": 440
-					},
-				],
-			},
-		],
-}
-
 func objectAction(player, object, click) {
+	cmd = strings.ToLower(objectDefs[object.ID].Commands[click])
 	fishDef, ok = defs[toInt(object.ID)]
 	if ok {
-		def = fishDef[click].fish[rand(0,len(fishDef[click].fish)-1)]
-		log.debugf("%v\n%v\n%v\n", fishDef, def)
+		fish = getFish(fishDef, player.Skills().Current(FISHING), click)
+		log.debugf("%v\n%v\n", fishDef, fish)
 
-		// do fishing
-
-		cmd = strings.ToLower(objectDefs[object.ID].Commands[click])
+		fishName = strings.Replace(strings.ToLower(itemDefs[fish.id].Name), "raw ", "", -1)
 		if player.Inventory.CountID(fishDef[click].net) < 1 {
-			player.Message("You need a " + itemDefs[fishDef[click].net].Name + " to " + (cmd == "lure" || cmd == "bait" ? cmd : (def.bait > 0  ? "bait" : "catch")) + " " + (cmd != "cage" ? "these fish" : strings.Replace(strings.ToLower(itemDefs[def.id].Name), "raw ", "", -1) + "s"))
+			player.Message("You need a " + itemDefs[fishDef[click].net].Name + " to " + (cmd != "cage" ? cmd : "catch") + " " + (cmd != "cage" ? "these fish" : (fishName + "s")))
 			return true
 		}
-		if def.lvl > player.Skills().Current(FISHING) {
-			player.Message("You need a fishing level of " + toString(def.lvl) + " to " + (cmd == "lure" || cmd == "bait" ? cmd : (def.bait > 0  ? "bait" : "catch")) + " " + (cmd != "cage" ? "these fish" : strings.Replace(strings.ToLower(itemDefs[def.id].Name), "raw ", "", -1) + "s"))
+		if fish.lvl > player.Skills().Current(FISHING) {
+			player.Message("You need at least level " + toString(fish.lvl) + " to " + (cmd != "cage" ? cmd : "catch") + " " + (cmd != "cage" ? "these fish" : (fishName + "s")))
 			return true
 		}
 		player.PlaySound("fishing")
-		player.Message("You attempt to catch some fish")
+		if fishDef[click].net == ids.NET {
+			player.Message("You attempt to catch some fish")
+		} else if fishDef[click].net == ids.LOBSTER_POT {
+			player.Message("You attempt to catch a lobster")
+		} else {
+			player.Message("You attempt to catch a fish")
+		}
 		player.ItemBubble(fishDef[click].net)
 		sleep(tMillis*1800)
-		if gatheringSuccess(1, player.Skills().Current(FISHING)) {
-			player.Message("You catch some " + strings.Replace(strings.ToLower(itemDefs[def.id].Name), "raw ", "", -1))
-			player.AddItem(def.id, 1)
-			player.IncExp(FISHING, def.exp)
+		if gatheringSuccess(fish.lvl, player.Skills().Current(FISHING)) && getObjectAt(object.X(), object.Y()) == object {
+			player.Message("You catch some " + strings.Replace(strings.ToLower(itemDefs[fish.id].Name), "raw ", "", -1))
+			player.AddItem(fish.id, 1)
+			player.IncExp(FISHING, fish.exp)
 		} else {
 			player.Message("You fail to catch anything")
 		}
