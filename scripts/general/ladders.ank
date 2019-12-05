@@ -1,6 +1,6 @@
 strings = import("strings")
 
-func objectAction(player, object) {
+func objectAction(player, object, click) {
 	cmd = strings.Replace(object.Command1(), "-", " ", -1)
 	if cmd == "climb down" || cmd == "climb up" || cmd == "go up" || cmd == "go down" {
 		oldPlane = player.Plane()

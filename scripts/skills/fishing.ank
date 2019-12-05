@@ -1,3 +1,5 @@
+strings = import("strings")
+
 defs = {
 		192: [
 			{
@@ -242,11 +244,34 @@ defs = {
 		],
 }
 
-func objectAction(player, object) {
+func objectAction(player, object, click) {
 	fishDef, ok = defs[toInt(object.ID)]
 	if ok {
-		log.debugf("%v\n", fishDef)
+		def = fishDef[click].fish[rand(0,len(fishDef[click].fish)-1)]
+		log.debugf("%v\n%v\n%v\n", fishDef, def)
+
 		// do fishing
+
+		cmd = strings.ToLower(objectDefs[object.ID].Commands[click])
+		if player.Inventory.CountID(fishDef[click].net) < 1 {
+			player.Message("You need a " + itemDefs[fishDef[click].net].Name + " to " + (cmd == "lure" || cmd == "bait" ? cmd : (def.bait > 0  ? "bait" : "catch")) + " " + (cmd != "cage" ? "these fish" : strings.Replace(strings.ToLower(itemDefs[def.id].Name), "raw ", "", -1) + "s"))
+			return true
+		}
+		if def.lvl > player.Skills().Current(FISHING) {
+			player.Message("You need a fishing level of " + toString(def.lvl) + " to " + (cmd == "lure" || cmd == "bait" ? cmd : (def.bait > 0  ? "bait" : "catch")) + " " + (cmd != "cage" ? "these fish" : strings.Replace(strings.ToLower(itemDefs[def.id].Name), "raw ", "", -1) + "s"))
+			return true
+		}
+		player.PlaySound("fishing")
+		player.Message("You attempt to catch some fish")
+		player.ItemBubble(fishDef[click].net)
+		sleep(tMillis*1800)
+		if gatheringSuccess(1, player.Skills().Current(FISHING)) {
+			player.Message("You catch some " + strings.Replace(strings.ToLower(itemDefs[def.id].Name), "raw ", "", -1))
+			player.AddItem(def.id, 1)
+			player.IncExp(FISHING, def.exp)
+		} else {
+			player.Message("You fail to catch anything")
+		}
 		return true
 	}
 

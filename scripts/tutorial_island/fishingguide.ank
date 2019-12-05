@@ -33,8 +33,7 @@ bind.npc(479, func(player, npc) {
 // TODO: Fishing part
 })
 
-func objectAction(player, object) {
-
+func objectAction(player, object, click) {
 	if object.ID == 493 {
 		if player.Skills().Experience(FISHING) >= 200 {
 			player.Message("that's enough fishing for now")

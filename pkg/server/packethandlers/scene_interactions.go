@@ -36,14 +36,14 @@ func init() {
 			if world.Objects[object.ID].Type == 2 || world.Objects[object.ID].Type == 3 {
 				if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
 					player.ResetPath()
-					objectAction(player, object)
+					objectAction(player, object, 0)
 					return true
 				}
 				return false
 			}
 			if player.NextTo(object.Location) && (player.WithinRange(bounds[0], 1) || player.WithinRange(bounds[1], 1)) {
 				player.ResetPath()
-				objectAction(player, object)
+				objectAction(player, object, 0)
 				return true
 			}
 			return false
@@ -67,14 +67,14 @@ func init() {
 			if world.Objects[object.ID].Type == 2 || world.Objects[object.ID].Type == 3 {
 				if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
 					player.ResetPath()
-					objectAction(player, object)
+					objectAction(player, object, 1)
 					return true
 				}
 				return false
 			}
 			if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && (player.WithinRange(bounds[0], 1) || player.WithinRange(bounds[1], 1)) {
 				player.ResetPath()
-				objectAction(player, object)
+				objectAction(player, object, 1)
 				return true
 			}
 			return false
@@ -337,7 +337,7 @@ func init() {
 	}
 }
 
-func objectAction(player *world.Player, object *world.Object) {
+func objectAction(player *world.Player, object *world.Object, click int) {
 	if player.Busy() || world.GetObject(object.X(), object.Y()) != object {
 		// If somehow we became busy, the object changed before arriving, we do nothing.
 		return
@@ -349,7 +349,7 @@ func objectAction(player *world.Player, object *world.Object) {
 			player.RemoveState(world.MSBusy)
 		}()
 		for _, fn := range script.ObjectTriggers {
-			ran, err := fn(context.Background(), reflect.ValueOf(player), reflect.ValueOf(object))
+			ran, err := fn(context.Background(), reflect.ValueOf(player), reflect.ValueOf(object), reflect.ValueOf(click))
 			if !ran.IsValid() {
 				continue
 			}

@@ -1,4 +1,4 @@
-func objectAction(player, object) {
+func objectAction(player, object, click) {
 	if objectDefs[object.ID].Commands[0] == "recharge at" {
 		max = player.Skills().Maximum(PRAYER)
 		if object.ID == 200 {

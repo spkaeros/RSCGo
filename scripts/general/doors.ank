@@ -1,4 +1,4 @@
-func objectAction(player, object) {
+func objectAction(player, object, click) {
 	doors = {59: 60, 57: 58, 63: 64}
 	for open, closed in doors {
 		if object.ID == open {
