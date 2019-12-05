@@ -18,6 +18,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"github.com/spkaeros/rscgo/pkg/strutil"
+	"math"
 	"os"
 	"reflect"
 	"time"
@@ -113,6 +114,17 @@ func WorldModule() *vm.Env {
 		"walkTo": func(target *world.Player, x, y int) {
 			target.WalkTo(world.NewLocation(x, y))
 		},
+		"gatheringSuccess": func(req, cur int) bool {
+			roll := float64(rand.Int31N(1, 128))
+			if cur < req {
+				return false
+			}
+			threshold := math.Max(float64(1), float64(cur) * 40 - float64(req) * 1.5)
+			if 127 < threshold {
+				threshold = 127
+			}
+			return roll <= threshold
+		},
 		"systemUpdate": func(t int) {
 			world.UpdateTime = time.Now().Add(time.Second * time.Duration(t))
 			go func() {
@@ -165,11 +177,65 @@ func WorldModule() *vm.Env {
 		"COOKEDMEAT":    132,
 		"BURNTMEAT":     134,
 		"RAW_RAT_MEAT":  503,
+		"RAW_SHRIMP":  349,
 		"WOODEN_SHIELD": 4,
 		"BRONZE_LSWORD": 70,
 		"NET": 376,
 		"BRONZE_PICKAXE": 156,
 		"SLEEPING_BAG": 1263,
+		"NEEDLE": 39,
+		"THREAD": 43,
+		"FIRE_RUNE": 31,
+		"WATER_RUNE": 32,
+		"AIR_RUNE": 33,
+		"EARTH_RUNE": 34,
+		"MIND_RUNE": 35,
+		"BODY_RUNE": 36,
+		"LIFE_RUNE": 37,
+		"DEATH_RUNE": 38,
+		"NATURE_RUNE": 40,
+		"CHAOS_RUNE": 41,
+		"LAW_RUNE": 42,
+		"COSMIC_RUNE": 46,
+		"BLOOD_RUNE": 619,
+		"AIR_STAFF": 101,
+		"WATER_STAFF": 102,
+		"EARTH_STAFF": 103,
+		"FIRE_STAFF": 197,
+		"FIRE_BATTLESTAFF": 615,
+		"WATER_BATTLESTAFF": 616,
+		"AIR_BATTLESTAFF": 617,
+		"EARTH_BATTLESTAFF": 618,
+		"E_FIRE_BATTLESTAFF": 682,
+		"E_WATER_BATTLESTAFF": 683,
+		"E_AIR_BATTLESTAFF": 684,
+		"E_EARTH_BATTLESTAFF": 685,
+		"BONES": 20,
+		"BAT_BONES": 604,
+		"DRAGON_BONES": 614,
+		"RUNE_2H": 81,
+		"RUNE_CHAIN": 400,
+		"RUNE_PLATEBODY": 401,
+		"RUNE_PLATETOP": 407,
+		"DRAGON_SWORD": 593,
+		"DRAGON_AXE": 594,
+		"CHARGED_DSTONE_AMMY": 597,
+		"DRAGON_HELMET": 795,
+		"DRAGON_SHIELD": 1278,
+		"EASTER_EGG": 677,
+		"CHRISTMAS_CRACKER": 575,
+		"PARTYHAT_RED": 576,
+		"PARTYHAT_YELLOW": 577,
+		"PARTYHAT_BLUE": 578,
+		"PARTYHAT_GREEN": 579,
+		"PARTYHAT_PINK": 580,
+		"PARTYHAT_WHITE": 581,
+		"GREEN_MASK": 828,
+		"RED_MASK": 831,
+		"BLUE_MASK": 832,
+		"SANTA_HAT": 971,
+		"PRESENT": 980,
+		"GNOME_BALL": 981,
 	}, nil)
 	if err != nil {
 		log.Warning.Println("Error initializing VM parameters:", err)

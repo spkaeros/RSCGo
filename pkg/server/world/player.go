@@ -791,7 +791,23 @@ func (p *Player) SetCurStat(idx int, lvl int) {
 //SetCurStat sets this players current stat at idx to lvl and updates the client about it.
 func (p *Player) IncExp(idx int, amt int) {
 	p.Skills().IncExp(idx, amt)
-	p.SendStatExp(idx)
+	delta := ExperienceToLevel(p.Skills().Experience(idx)) - p.Skills().Maximum(idx)
+	if delta != 0 {
+		p.Message(fmt.Sprintf("@gre@You just advanced %d %v level!", delta, SkillName(idx)))
+		p.PlaySound("advance")
+		oldCombat := p.Skills().CombatLevel()
+		p.Skills().IncreaseCur(idx, delta)
+		p.Skills().IncreaseMax(idx, delta)
+		p.SendStat(idx)
+		if oldCombat != p.Skills().CombatLevel() {
+			p.AppearanceLock.Lock()
+			p.AppearanceTicket++
+			p.AppearanceLock.Unlock()
+			p.NeedsSelf()
+		}
+	} else {
+		p.SendStatExp(idx)
+	}
 }
 
 //SetMaxStat sets this players maximum stat at idx to lvl and updates the client about it.
@@ -806,12 +822,21 @@ func (p *Player) AddItem(id, amount int) {
 	if !ItemDefs[id].Stackable {
 		for i := 0; i < amount; i++ {
 			if p.Inventory.Size() >= p.Inventory.Capacity {
-				break
+				item := NewGroundItemFor(p.UserBase37, id, 1, p.X(), p.Y())
+				AddItem(item)
+				p.Message("Your inventory is full, the " + item.Name() + " drops to the ground!")
+			} else {
+				p.Inventory.Add(id, 1)
 			}
-			p.Inventory.Add(id, 1)
 		}
 	} else {
-		p.Inventory.Add(id, amount)
+		if p.Inventory.Size() >= p.Inventory.Capacity {
+			item := NewGroundItemFor(p.UserBase37, id, amount, p.X(), p.Y())
+			AddItem(item)
+			p.Message("Your inventory is full, the " + item.Name() + " drops to the ground!")
+		} else {
+			p.Inventory.Add(id, amount)
+		}
 	}
 	p.SendInventory()
 }
@@ -881,6 +906,14 @@ func (p *Player) Damage(amt int) {
 		player.SendPacket(PlayerDamage(p, amt))
 	}
 	p.SendPacket(PlayerDamage(p, amt))
+}
+
+//ItemBubble sends an item action bubble for this player to itself and any nearby players.
+func (p *Player) ItemBubble(id int) {
+	for _, player := range p.NearbyPlayers() {
+		player.SendPacket(PlayerItemBubble(p, id))
+	}
+	p.SendPacket(PlayerItemBubble(p, id))
 }
 
 //SetStat sets the current, maximum, and experience levels of the skill at idx to lvl, and updates the client about it.

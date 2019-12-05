@@ -86,6 +86,16 @@ func PlayerDamage(victim *Player, damage int) *packet.Packet {
 	return p
 }
 
+//PlayerItemBubble Builds a packet containing a view-area item action bubble display for this player
+func PlayerItemBubble(player *Player, id int) *packet.Packet {
+	p := packet.NewOutgoingPacket(234)
+	p.AddShort(1)
+	p.AddShort(uint16(player.Index))
+	p.AddByte(0)
+	p.AddShort(uint16(id))
+	return p
+}
+
 //NpcDamage Builds a packet containing a view-area damage display for this NPC
 func NpcDamage(victim *NPC, damage int) *packet.Packet {
 	p := packet.NewOutgoingPacket(104)

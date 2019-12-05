@@ -20,7 +20,7 @@ func boundaryAction(player, object) {
 		player.PlaySound("opendoor")
 		old = replaceObject(object, 11)
 		player.Teleport(161, player.Y() > 464 ? 464 : 465)
-		runAfter(tSecond, func() {
+		runAfter(3*tSecond, func() {
 			player.PlaySound("closedoor")
 			replaceObject(old, 109)
 		})
