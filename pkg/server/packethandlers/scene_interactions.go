@@ -348,18 +348,26 @@ func objectAction(player *world.Player, object *world.Object, click int) {
 		defer func() {
 			player.RemoveState(world.MSBusy)
 		}()
-		for _, fn := range script.ObjectTriggers {
-			ran, err := fn(context.Background(), reflect.ValueOf(player), reflect.ValueOf(object), reflect.ValueOf(click))
-			if !ran.IsValid() {
-				continue
-			}
-			if !err.IsNil() {
-				log.Info.Println(err)
-				continue
-			}
-			if ran.Bool() {
-				return
-			}
+
+		fn, ok := script.ObjectTriggers[object.ID]
+		if ok {
+			fn(player, object, click)
+			return
+		}
+		fn, ok = script.ObjectTriggers[object.Name()]
+		if ok {
+			fn(player, object, click)
+			return
+		}
+		fn, ok = script.ObjectTriggers[object.Command1()]
+		if ok {
+			fn(player, object, click)
+			return
+		}
+		fn, ok = script.ObjectTriggers[object.Command2()]
+		if ok {
+			fn(player, object, click)
+			return
 		}
 		player.SendPacket(world.DefaultActionMessage)
 		//		if !script.Run("objectAction", player, "object", object) {

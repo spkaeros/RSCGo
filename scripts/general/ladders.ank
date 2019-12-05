@@ -1,19 +1,16 @@
 strings = import("strings")
 
-func objectAction(player, object, click) {
+bind.object(["climb down", "climb-down", "go down", "go up", "climb up", "climb-up"], func(player, object, click) {
 	cmd = strings.Replace(object.Command1(), "-", " ", -1)
-	if cmd == "climb down" || cmd == "climb up" || cmd == "go up" || cmd == "go down" {
-		oldPlane = player.Plane()
-		coords = modCoords(player, object, strings.HasSuffix(cmd, "up"))
-		player.SetCoords(coords[0], coords[1], true)
-		if oldPlane != player.Plane() {
-			player.SendPlane()
-		}
-		player.Message("You " + cmd  + " the " + object.Name())
-		return true
+	oldPlane = player.Plane()
+	coords = modCoords(player, object, strings.HasSuffix(cmd, "up"))
+	player.SetCoords(coords[0], coords[1], true)
+	if oldPlane != player.Plane() {
+		player.SendPlane()
 	}
-	return false
-}
+	player.Message("You " + cmd  + " the " + object.Name())
+	return
+})
 
 func modCoords(player, object, up) {
 	if object.Height() <= 1 {

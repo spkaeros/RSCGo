@@ -49,7 +49,7 @@ func objectAction(player, object, click) {
 		player.ItemBubble(ids.NET)
 		sleep(tMillis*1800)
 		if gatheringSuccess(1, player.Skills().Current(FISHING)) {
-			player.Message("You catch some shrimps")
+			player.Message("You catch some shrimp")
 			player.AddItem(ids.RAW_SHRIMP, 1)
 			player.IncExp(FISHING, 40)
 			if toInt(player.Cache("tutorial")) == 41 {

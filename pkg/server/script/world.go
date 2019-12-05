@@ -119,7 +119,7 @@ func WorldModule() *vm.Env {
 			if cur < req {
 				return false
 			}
-			threshold := math.Min(127, math.Max(float64(1), (float64(cur) + 40) - (float64(req) * 1.5)))
+			threshold := math.Min(127, math.Max(float64(1), (float64(cur)+40)-(float64(req)*1.5)))
 			return roll <= threshold
 		},
 		"systemUpdate": func(t int) {
@@ -171,94 +171,94 @@ func WorldModule() *vm.Env {
 		return nil
 	}
 	env, err = env.AddPackage("ids", map[string]interface{}{
-		"COOKEDMEAT":    132,
-		"BURNTMEAT":     134,
-		"LEATHER_GLOVES":  16,
-		"BOOTS":  17,
-		"SEAWEED":  622,
-		"OYSTER":  793,
-		"RAW_RAT_MEAT":  503,
-		"RAW_SHRIMP":  349,
-		"RAW_ANCHOVIES":  351,
-		"RAW_TROUT":  358,
-		"RAW_SALMON":  356,
-		"RAW_PIKE":  363,
-		"RAW_SARDINE":  354,
-		"RAW_HERRING":  361,
-		"RAW_BASS":  550,
-		"RAW_MACKEREL":  552,
-		"RAW_COD":  554,
-		"RAW_LOBSTER":  372,
-		"RAW_SWORDFISH":  369,
-		"RAW_TUNA":  366,
-		"RAW_SHARK":  545,
-		"WOODEN_SHIELD": 4,
-		"BRONZE_LSWORD": 70,
-		"NET": 376,
-		"BIG_NET": 548,
-		"LOBSTER_POT": 375,
-		"FISHING_ROD": 377,
-		"FLYFISHING_ROD": 378,
-		"OILY_FISHING_ROD": 589,
-		"RAW_LAVA_EEL": 591,
-		"HARPOON": 379,
-		"FISHING_BAIT": 380,
-		"FEATHER": 381,
-		"BRONZE_PICKAXE": 156,
-		"SLEEPING_BAG": 1263,
-		"NEEDLE": 39,
-		"THREAD": 43,
-		"FIRE_RUNE": 31,
-		"WATER_RUNE": 32,
-		"AIR_RUNE": 33,
-		"EARTH_RUNE": 34,
-		"MIND_RUNE": 35,
-		"BODY_RUNE": 36,
-		"LIFE_RUNE": 37,
-		"DEATH_RUNE": 38,
-		"NATURE_RUNE": 40,
-		"CHAOS_RUNE": 41,
-		"LAW_RUNE": 42,
-		"COSMIC_RUNE": 46,
-		"BLOOD_RUNE": 619,
-		"AIR_STAFF": 101,
-		"WATER_STAFF": 102,
-		"EARTH_STAFF": 103,
-		"FIRE_STAFF": 197,
-		"FIRE_BATTLESTAFF": 615,
-		"WATER_BATTLESTAFF": 616,
-		"AIR_BATTLESTAFF": 617,
-		"EARTH_BATTLESTAFF": 618,
-		"E_FIRE_BATTLESTAFF": 682,
+		"COOKEDMEAT":          132,
+		"BURNTMEAT":           134,
+		"LEATHER_GLOVES":      16,
+		"BOOTS":               17,
+		"SEAWEED":             622,
+		"OYSTER":              793,
+		"RAW_RAT_MEAT":        503,
+		"RAW_SHRIMP":          349,
+		"RAW_ANCHOVIES":       351,
+		"RAW_TROUT":           358,
+		"RAW_SALMON":          356,
+		"RAW_PIKE":            363,
+		"RAW_SARDINE":         354,
+		"RAW_HERRING":         361,
+		"RAW_BASS":            550,
+		"RAW_MACKEREL":        552,
+		"RAW_COD":             554,
+		"RAW_LOBSTER":         372,
+		"RAW_SWORDFISH":       369,
+		"RAW_TUNA":            366,
+		"RAW_SHARK":           545,
+		"WOODEN_SHIELD":       4,
+		"BRONZE_LSWORD":       70,
+		"NET":                 376,
+		"BIG_NET":             548,
+		"LOBSTER_POT":         375,
+		"FISHING_ROD":         377,
+		"FLYFISHING_ROD":      378,
+		"OILY_FISHING_ROD":    589,
+		"RAW_LAVA_EEL":        591,
+		"HARPOON":             379,
+		"FISHING_BAIT":        380,
+		"FEATHER":             381,
+		"BRONZE_PICKAXE":      156,
+		"SLEEPING_BAG":        1263,
+		"NEEDLE":              39,
+		"THREAD":              43,
+		"FIRE_RUNE":           31,
+		"WATER_RUNE":          32,
+		"AIR_RUNE":            33,
+		"EARTH_RUNE":          34,
+		"MIND_RUNE":           35,
+		"BODY_RUNE":           36,
+		"LIFE_RUNE":           37,
+		"DEATH_RUNE":          38,
+		"NATURE_RUNE":         40,
+		"CHAOS_RUNE":          41,
+		"LAW_RUNE":            42,
+		"COSMIC_RUNE":         46,
+		"BLOOD_RUNE":          619,
+		"AIR_STAFF":           101,
+		"WATER_STAFF":         102,
+		"EARTH_STAFF":         103,
+		"FIRE_STAFF":          197,
+		"FIRE_BATTLESTAFF":    615,
+		"WATER_BATTLESTAFF":   616,
+		"AIR_BATTLESTAFF":     617,
+		"EARTH_BATTLESTAFF":   618,
+		"E_FIRE_BATTLESTAFF":  682,
 		"E_WATER_BATTLESTAFF": 683,
-		"E_AIR_BATTLESTAFF": 684,
+		"E_AIR_BATTLESTAFF":   684,
 		"E_EARTH_BATTLESTAFF": 685,
-		"BONES": 20,
-		"BAT_BONES": 604,
-		"DRAGON_BONES": 614,
-		"RUNE_2H": 81,
-		"RUNE_CHAIN": 400,
-		"RUNE_PLATEBODY": 401,
-		"RUNE_PLATETOP": 407,
-		"DRAGON_SWORD": 593,
-		"DRAGON_AXE": 594,
+		"BONES":               20,
+		"BAT_BONES":           604,
+		"DRAGON_BONES":        614,
+		"RUNE_2H":             81,
+		"RUNE_CHAIN":          400,
+		"RUNE_PLATEBODY":      401,
+		"RUNE_PLATETOP":       407,
+		"DRAGON_SWORD":        593,
+		"DRAGON_AXE":          594,
 		"CHARGED_DSTONE_AMMY": 597,
-		"DRAGON_HELMET": 795,
-		"DRAGON_SHIELD": 1278,
-		"EASTER_EGG": 677,
-		"CHRISTMAS_CRACKER": 575,
-		"PARTYHAT_RED": 576,
-		"PARTYHAT_YELLOW": 577,
-		"PARTYHAT_BLUE": 578,
-		"PARTYHAT_GREEN": 579,
-		"PARTYHAT_PINK": 580,
-		"PARTYHAT_WHITE": 581,
-		"GREEN_MASK": 828,
-		"RED_MASK": 831,
-		"BLUE_MASK": 832,
-		"SANTA_HAT": 971,
-		"PRESENT": 980,
-		"GNOME_BALL": 981,
+		"DRAGON_HELMET":       795,
+		"DRAGON_SHIELD":       1278,
+		"EASTER_EGG":          677,
+		"CHRISTMAS_CRACKER":   575,
+		"PARTYHAT_RED":        576,
+		"PARTYHAT_YELLOW":     577,
+		"PARTYHAT_BLUE":       578,
+		"PARTYHAT_GREEN":      579,
+		"PARTYHAT_PINK":       580,
+		"PARTYHAT_WHITE":      581,
+		"GREEN_MASK":          828,
+		"RED_MASK":            831,
+		"BLUE_MASK":           832,
+		"SANTA_HAT":           971,
+		"PRESENT":             980,
+		"GNOME_BALL":          981,
 	}, nil)
 	if err != nil {
 		log.Warning.Println("Error initializing VM parameters:", err)
@@ -320,6 +320,25 @@ func WorldModule() *vm.Env {
 		"invOnObject": func(fn func(player *world.Player, boundary *world.Object, item *world.Item) bool) {
 			InvOnObjectTriggers = append(InvOnObjectTriggers, fn)
 		},
+		"object": func(ident interface{}, fn func(player *world.Player, object *world.Object, click int)) {
+			log.Info.Printf("%T", ident)
+			if id, ok := ident.(int64); ok {
+				ObjectTriggers[int(id)] = fn
+			}
+			if ids, ok := ident.([]interface{}); ok {
+				for _, id := range ids {
+					s, ok := id.(string)
+					if !ok {
+						ObjectTriggers[int(id.(int64))] = fn
+					} else {
+						ObjectTriggers[s] = fn
+					}
+				}
+			}
+			if name, ok := ident.(string); ok {
+				ObjectTriggers[name] = fn
+			}
+		},
 		"npc": func(ident interface{}, fn func(player *world.Player, npc *world.NPC)) {
 			if id, ok := ident.(int64); ok {
 				NpcTriggers[id] = fn
@@ -332,10 +351,8 @@ func WorldModule() *vm.Env {
 			if name, ok := ident.(string); ok {
 				NpcTriggers[name] = fn
 			}
-			//			NpcTriggers[id] = fn
 		},
 		"npcAttack": func(ident interface{}, fn func(player *world.Player, npc *world.NPC) bool) {
-			log.Info.Printf("%T", ident)
 			if id, ok := ident.(int64); ok {
 				NpcAtkTriggers[id] = fn
 			}
@@ -347,10 +364,8 @@ func WorldModule() *vm.Env {
 			if name, ok := ident.(string); ok {
 				NpcAtkTriggers[name] = fn
 			}
-			//			NpcAtkTriggers[id] = fn
 		},
 		"npcKilled": func(ident interface{}, fn func(player *world.Player, npc *world.NPC)) {
-			log.Info.Printf("%T", ident)
 			if id, ok := ident.(int64); ok {
 				NpcDeathTriggers[id] = fn
 			}
@@ -362,7 +377,6 @@ func WorldModule() *vm.Env {
 			if name, ok := ident.(string); ok {
 				NpcDeathTriggers[name] = fn
 			}
-			//			NpcDeathTriggers[id] = fn
 		},
 		"command": func(name string, fn func(p *world.Player, args []string)) {
 			CommandHandlers[name] = fn

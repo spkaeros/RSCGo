@@ -1,18 +1,15 @@
-func objectAction(player, object, click) {
-	doors = {59: 60, 57: 58, 63: 64}
+doors = {59: 60, 57: 58, 63: 64}
+bind.object(["open","close"], func(player, object, click) {
 	for open, closed in doors {
 		if object.ID == open {
 			player.PlaySound("opendoor")
 			replaceObject(object, closed)
-			return true
 		} else if object.ID == closed {
 			player.PlaySound("closedoor")
 			replaceObject(object, open)
-			return true
 		}
 	}
-	return false
-}
+})
 
 func boundaryAction(player, object) {
 	doors = {1: 2}

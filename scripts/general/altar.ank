@@ -1,17 +1,13 @@
-func objectAction(player, object, click) {
-	if objectDefs[object.ID].Commands[0] == "recharge at" {
-		max = player.Skills().Maximum(PRAYER)
-		if object.ID == 200 {
-			max += 2
-		}
-		if player.Skills().Current(PRAYER) == max {
-			player.Message("You already have full prayer points")
-			return true
-		}
-		player.Message("You recharge your prayer points")
-		player.SetCurStat(PRAYER, max)
-		player.PlaySound("recharge")
-		return true
+bind.object([200, 19], func(player, object, click) {
+	max = player.Skills().Maximum(PRAYER)
+	if object.ID == 200 {
+		max += 2
 	}
-	return false
-}
+	if player.Skills().Current(PRAYER) == max {
+		player.Message("You already have full prayer points")
+		return
+	}
+	player.Message("You recharge your prayer points")
+	player.SetCurStat(PRAYER, max)
+	player.PlaySound("recharge")
+})
