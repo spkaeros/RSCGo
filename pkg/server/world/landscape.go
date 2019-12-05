@@ -137,7 +137,7 @@ const (
 	//ClipSouth Bitmask to represent a wall to the south.
 	ClipSouth = 1 << 2
 	//ClipWest Bitmask to represent a wall to the east.
-	ClipWest = 1 << 3
+	ClipWest          = 1 << 3
 	ClipCanProjectile = 1 << 4
 	//ClipDiag1 Bitmask to represent a diagonal wall.
 	ClipDiag1 = 1 << 5

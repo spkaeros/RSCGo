@@ -397,7 +397,7 @@ func SavePlayer(player *world.Player) {
 		var val string
 		switch value.(type) {
 		case int64:
-			val = "i" + strconv.FormatInt(int64(value.(int)), 10)
+			val = "i" + strconv.FormatInt(value.(int64), 10)
 		case int:
 			val = "i" + strconv.FormatInt(int64(value.(int)), 10)
 		case uint:

@@ -162,11 +162,14 @@ func WorldModule() *vm.Env {
 		return nil
 	}
 	env, err = env.AddPackage("ids", map[string]interface{}{
-		"COOKEDMEAT": 132,
-		"BURNTMEAT": 134,
-		"RAW_RAT_MEAT": 503,
+		"COOKEDMEAT":    132,
+		"BURNTMEAT":     134,
+		"RAW_RAT_MEAT":  503,
 		"WOODEN_SHIELD": 4,
 		"BRONZE_LSWORD": 70,
+		"NET": 376,
+		"BRONZE_PICKAXE": 156,
+		"SLEEPING_BAG": 1263,
 	}, nil)
 	if err != nil {
 		log.Warning.Println("Error initializing VM parameters:", err)
@@ -240,7 +243,7 @@ func WorldModule() *vm.Env {
 			if name, ok := ident.(string); ok {
 				NpcTriggers[name] = fn
 			}
-//			NpcTriggers[id] = fn
+			//			NpcTriggers[id] = fn
 		},
 		"npcAttack": func(ident interface{}, fn func(player *world.Player, npc *world.NPC) bool) {
 			log.Info.Printf("%T", ident)

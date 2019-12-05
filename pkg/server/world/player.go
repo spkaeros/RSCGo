@@ -922,8 +922,12 @@ func (p *Player) SendMessageBox(msg string, big bool) {
 	}
 }
 
-func(p *Player) SetCache(name string, val interface{}) {
+func (p *Player) SetCache(name string, val interface{}) {
 	p.Attributes.SetVar(name, val)
+}
+
+func (p *Player) RemoveCache(name string) {
+	p.Attributes.UnsetVar(name)
 }
 
 func (p *Player) Cache(name string) interface{} {

@@ -373,7 +373,7 @@ func ObjectLocations(player *Player) (p *packet.Packet) {
 			if o.Boundary {
 				continue
 			}
-			if !player.WithinRange(o.Location, player.TransAttrs.VarInt("viewRadius", 16) + 5) || GetObject(o.X(), o.Y()) != o {
+			if !player.WithinRange(o.Location, player.TransAttrs.VarInt("viewRadius", 16)+5) || GetObject(o.X(), o.Y()) != o {
 				p.AddShort(60000)
 				p.AddByte(byte(o.X() - player.X()))
 				p.AddByte(byte(o.Y() - player.Y()))
@@ -414,7 +414,7 @@ func BoundaryLocations(player *Player) (p *packet.Packet) {
 			if !o.Boundary {
 				continue
 			}
-			if !player.WithinRange(o.Location, player.TransAttrs.VarInt("viewRadius", 16) + 5) || GetObject(o.X(), o.Y()) != o {
+			if !player.WithinRange(o.Location, player.TransAttrs.VarInt("viewRadius", 16)+5) || GetObject(o.X(), o.Y()) != o {
 				p.AddShort(16)
 				xOff := o.X() - player.X()
 				yOff := o.Y() - player.Y()
@@ -487,7 +487,7 @@ func ItemLocations(player *Player) (p *packet.Packet) {
 	for _, i := range player.LocalItems.set {
 		if i, ok := i.(*GroundItem); ok {
 			x, y := i.X(), i.Y()
-			if !player.WithinRange(i.Location, player.TransAttrs.VarInt("viewRadius", 16) + 5) {
+			if !player.WithinRange(i.Location, player.TransAttrs.VarInt("viewRadius", 16)+5) {
 				p.AddByte(255)
 				p.AddByte(byte(x - player.X()))
 				p.AddByte(byte(y - player.Y()))

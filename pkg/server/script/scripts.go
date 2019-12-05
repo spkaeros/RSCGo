@@ -26,6 +26,7 @@ var EngineChannel = make(chan func(), 20)
 var InvTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 var ObjectTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 var BoundaryTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
+
 //var NpcTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 var LoginTriggers []func(player *world.Player)
 var InvOnBoundaryTriggers []func(player *world.Player, object *world.Object, item *world.Item) bool
@@ -94,7 +95,7 @@ func Load() {
 			env := WorldModule()
 			_, err := env.Execute(load(path))
 			if err != nil {
-				log.Info.Println("Unrecognized Anko error when attempting to execute the script pipeline:", err)
+				log.Info.Println("Unrecognized Anko error when attempting to execute '" + path + "':", err)
 				return nil
 			}
 			fn, err := env.Get("invAction")
