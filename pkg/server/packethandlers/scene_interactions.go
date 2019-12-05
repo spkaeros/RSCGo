@@ -38,8 +38,6 @@ func init() {
 					player.ResetPath()
 					objectAction(player, object)
 					return true
-				} else {
-					player.WalkTo(object.Location)
 				}
 				return false
 			}
@@ -47,8 +45,6 @@ func init() {
 				player.ResetPath()
 				objectAction(player, object)
 				return true
-			} else {
-				player.WalkTo(object.Location)
 			}
 			return false
 
@@ -73,8 +69,6 @@ func init() {
 					player.ResetPath()
 					objectAction(player, object)
 					return true
-				} else {
-					player.WalkTo(object.Location)
 				}
 				return false
 			}
@@ -82,8 +76,6 @@ func init() {
 				player.ResetPath()
 				objectAction(player, object)
 				return true
-			} else {
-				player.WalkTo(object.Location)
 			}
 			return false
 		})
@@ -106,8 +98,6 @@ func init() {
 				player.ResetPath()
 				boundaryAction(player, object)
 				return true
-			} else {
-				player.WalkTo(object.Location)
 			}
 			return false
 		})
@@ -130,8 +120,6 @@ func init() {
 				player.ResetPath()
 				boundaryAction(player, object)
 				return true
-			} else {
-				player.WalkTo(object.Location)
 			}
 			return false
 		})
@@ -286,8 +274,6 @@ func init() {
 					player.SendPacket(world.DefaultActionMessage)
 				}()
 				return true
-			} else {
-				player.WalkTo(object.Location)
 			}
 			return false
 		})
@@ -327,8 +313,6 @@ func init() {
 						player.SendPacket(world.DefaultActionMessage)
 					}()
 					return true
-				} else {
-					player.WalkTo(object.Location)
 				}
 				return false
 			}
@@ -347,8 +331,6 @@ func init() {
 					player.SendPacket(world.DefaultActionMessage)
 				}()
 				return true
-			} else {
-				player.WalkTo(object.Location)
 			}
 			return false
 		})
