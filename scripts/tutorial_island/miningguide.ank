@@ -1,0 +1,49 @@
+bind.npc(482, func(player, npc) {
+	if toInt(player.Cache("tutorial")) < 45 {
+		player.Message("You need to speak to the previous guide first.")
+		return
+	}
+	if toInt(player.Cache("tutorial")) == 45 {
+		player.Chat("Good day to you")
+		npc.Chat(player, "hello I'm a veteran miner!", "I'm here to show you how to mine",
+				"If you want to quickly find out what is in a rock you can prospect it",
+				"right click on this rock here", "And select prospect")
+		player.SetCache("tutorial", 49)
+	} else if toInt(player.Cache("tutorial")) == 49 {
+		player.Chat("Hello again")
+		npc.Chat(player, "You haven't prospected that rock yet", "Right click on it and select prospect")
+	} else if toInt(player.Cache("tutorial")) == 50 {
+		player.Chat("There's tin ore in that rock")
+		npc.Chat(player, "Yes, thats what's in there", "Ok you need to get that tin out of the rock",
+				"First of all you need a pick", "And here we have a pick")
+		player.Message("The instructor somehow produces a large pickaxe from inside his jacket")
+		sleep(tMillis*1200)
+		player.Message("The instructor gives you the pickaxe")
+		player.AddItem(ids.BRONZE_PICKAXE, 1)
+		sleep(tMillis*1200)
+		npc.Chat(player, "Now hit those rocks")
+		player.SetCache("tutorial", 51)
+	} else if toInt(player.Cache("tutorial")) == 51 {
+		if player.Inventory.CountID(ids.BRONZE_PICKAXE) < 1 {
+			player.Chat("I have lost my pickaxe")
+			player.Message("The instructor somehow produces a large pickaxe from inside his jacket")
+            sleep(tMillis*1200)
+            player.Message("The instructor gives you the pickaxe")
+            player.AddItem(ids.BRONZE_PICKAXE, 1)
+            sleep(tMillis*1200)
+		}
+		npc.Chat(player, "to mine a rock just left click on it",
+				"If you have a pickaxe in your inventory you might get some ore")
+
+	} else if toInt(player.Cache("tutorial")) >= 52 {
+		if toInt(player.Cache("tutorial")) == 52 {
+			npc.Chat(player, "very good")
+			player.SetCache("tutorial", 55)
+		}
+		npc.Chat(player, "If at a later date you find a rock with copper ore",
+				"You can take the copper ore and tin ore to a furnace", "use them on the furnace to make bronze bars",
+				"which you can then either sell", "or use on anvils with a hammer", "To make weapons",
+				"as your mining and smithing levels grow", "you will be able to mine various exciting new metals",
+				"now go through the next door to speak to the bankers")
+	}
+})

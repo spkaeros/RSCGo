@@ -1,0 +1,20 @@
+bind.npc(497, func(player, npc) {
+	if toInt(player.Cache("tutorial")) < 100 {
+		player.Message("You need to speak to the previous guide first.")
+		return
+	}
+	npc.Chat(player, "Hello my job is to take you to the main game area", "It's only a short row",
+			"I shall take you to the small town of Lumbridge", "In the kingdom of Misthalin")
+	switch player.OpenOptionMenu("Ok I'm ready to go", "I'm not done here yet") {
+	case 0:
+		npc.Chat(player, "Lets go then")
+		player.Message("You have completed the tutorial")
+		sleep(1200)
+		player.Teleport(120, 648)
+		player.RemoveCache("tutorial")
+		sleep(2000)
+		player.Message("The boat arrives in Lumbridge")
+	case 1:
+		npc.Chat(player, "Ok come back when you are ready")
+	}
+})

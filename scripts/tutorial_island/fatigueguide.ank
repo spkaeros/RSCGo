@@ -1,0 +1,35 @@
+bind.npc(774, func(player, npc) {
+	if toInt(player.Cache("tutorial")) < 80 {
+		player.Message("You need to speak to the previous guide first.")
+		return
+	}
+	if toInt(player.Cache("tutorial")) <= 85 {
+		player.Chat("Hi I'm feeling a little tired after all this learning")
+		npc.Chat(player, "Yes when you use your skills you will slowly get fatigued",
+				"If you look on your stats menu you will see a fatigue stat",
+				"When your fatigue reaches 100 percent then you will be very tired",
+				"You won't be able to concentrate enough to gain experience in your skills",
+				"To reduce your fatigue you will need to go to sleep", "Click on the bed to go sleep",
+				"Then follow the instructions to wake up", "When you have done that talk to me again")
+		player.SetCache("tutorial", 85)
+	} else if toInt(player.Cache("tutorial")) == 86 {
+		npc.Chat(player, "How are you feeling now?")
+		player.Chat("I feel much better rested now")
+		npc.Chat(player, "Tell you what, I'll give you this useful sleeping bag", "So you can rest anywhere")
+		player.AddItem(ids.SLEEPING_BAG, 1)
+		player.Message("The expert hands you a sleeping bag")
+		sleep(tMillis*1200)
+		npc.Chat(player, "This saves you the trouble of finding a bed",
+				"but you will need to sleep longer to restore your fatigue fully",
+				"You can now go through the next door")
+		player.SetCache("tutorial", 90)
+	} else {
+		npc.Chat(player, "When you use your skills you will slowly get fatigued",
+				"If you look on your stats menu you will see a fatigue stat",
+				"When your fatigue reaches 100 percent then you will be very tired",
+				"You won't be able to concentrate enough to gain experience in your skills",
+				"To reduce your fatigue you can either eat some food or go to sleep",
+				"Click on a bed  or sleeping bag to go sleep", "Then follow the instructions to wake up",
+				"You can now go through the next door")
+	}
+})

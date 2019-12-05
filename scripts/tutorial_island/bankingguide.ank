@@ -1,0 +1,25 @@
+bind.npc(485, func(player, npc) {
+	if toInt(player.Cache("tutorial")) < 55 {
+		player.Message("You need to speak to the previous guide first.")
+		return
+	}
+	npc.Chat(player, "Hello welcome to the bank of runescape", "You can deposit your items in banks",
+			"This allows you to own much more equipment", "Than can be fitted in your inventory",
+			"It will also keep your items safe", "So you won't lose them when you die",
+			"You can withdraw deposited items from any bank in the world")
+	if toInt(player.Cache("tutorial")) == 55 {
+		player.Chat("Can I access my bank account please?")
+		npc.Chat(player, "Certainly " + (player.Appearance.Male ? "Sir" : "Miss"))
+		player.OpenBank()
+		player.SetCache("tutorial", 60)
+	} else {
+		npc.Chat(player, "Now proceed through the next door")
+		switch player.OpenOptionMenu("Can I access my bank account please?", "Okay thankyou for your help") {
+		case 0:
+			npc.Chat(player, "Certainly " + (player.Appearance.Male ? "Sir" : "Miss"))
+			player.OpenBank()
+		case 1:
+			npc.Chat(player, "Not a problem")
+		}
+	}
+})

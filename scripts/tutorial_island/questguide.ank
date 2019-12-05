@@ -1,0 +1,27 @@
+bind.npc(489, func(player, npc) {
+	if toInt(player.Cache("tutorial")) < 60 {
+		player.Message("You need to speak to the previous guide first.")
+		return
+	}
+	npc.Chat(player, "Greetings traveller", "If you're interested in a bit of adventure",
+			"I can recommend going on a good quest", "There are many secrets to be unconvered",
+			"And wrongs to be set right", "If you talk to the various characters in the game",
+			"Some of them will give you quests")
+	player.Chat("What sort of quests are there to do?")
+	npc.Chat(player, "If you select the bar graph in the menu bar", "And then select the quests tabs",
+			"You will see a list of quests", "quests you have completed will show up in green",
+			"You can only do each quest once")
+	switch player.OpenOptionMenu("Thank you for the advice", "Can you recommend any quests?") {
+	case 0:
+		npc.Chat(player, "good questing traveller")
+	case 1:
+		npc.Chat(player, "Well I hear the cook in Lumbridge castle is having some problems",
+				"When you get to Lumbridge, go into the castle there", "Find the cook and have a chat with him")
+		player.Chat("Okay thanks for the advice")
+	case -1:
+		return
+	}
+	if toInt(player.Cache("tutorial")) < 65 {
+		player.SetCache("tutorial", 65)
+	}
+})
