@@ -6,12 +6,16 @@ defs = {
 				"deplete": 2,
 				"respawn": 17,
 				"fish": [
-					{"id": ids.RAW_TROUT,
-					"lvl": 20,
-					"exp": 200},
-					{"id": ids.RAW_SALMON,
-					"lvl": 30,
-					"exp": 280},
+					{
+						"id": ids.RAW_TROUT,
+						"lvl": 20,
+						"exp": 200
+					},
+					{
+						"id": ids.RAW_SALMON,
+						"lvl": 30,
+						"exp": 280
+					},
 				],
 			},
 			{
@@ -20,9 +24,11 @@ defs = {
 				"deplete": 2,
 				"respawn": 17,
 				"fish": [
-					{"id": ids.RAW_PIKE,
-					"lvl": 25,
-					"exp": 240},
+					{
+						"id": ids.RAW_PIKE,
+						"lvl": 25,
+						"exp": 240
+					},
 				],
 			},
 		],
@@ -32,9 +38,11 @@ defs = {
 				"deplete": 0,
 				"respawn": -1,
 				"fish": [
-					{"id": ids.RAW_LAVA_EEL,
-					"lvl": 53,
-					"exp": 360},
+					{
+						"id": ids.RAW_LAVA_EEL,
+						"lvl": 53,
+						"exp": 360
+					},
 				],
 			},
 		],
@@ -45,12 +53,16 @@ defs = {
 				"deplete": 1,
 				"respawn": 8,
 				"fish": [
-					{"id": ids.RAW_SHRIMP,
-					"lvl": 1,
-					"exp": 40},
-					{"id": ids.RAW_ANCHOVIES,
-					"lvl": 15,
-					"exp": 160},
+					{
+						"id": ids.RAW_SHRIMP,
+						"lvl": 1,
+						"exp": 40
+					},
+					{
+						"id": ids.RAW_ANCHOVIES,
+						"lvl": 15,
+						"exp": 160
+					},
 				],
 			},
 			{
@@ -59,12 +71,16 @@ defs = {
 				"deplete": 1,
 				"respawn": 8,
 				"fish": [
-					{"id": ids.RAW_SARDINE,
-					"lvl": 5,
-					"exp": 80},
-					{"id": ids.RAW_HERRING,
-					"lvl": 10,
-					"exp": 120},
+					{
+						"id": ids.RAW_SARDINE,
+						"lvl": 5,
+						"exp": 80
+					},
+					{
+						"id": ids.RAW_HERRING,
+						"lvl": 10,
+						"exp": 120
+					},
 				],
 			},
 		],
@@ -75,12 +91,16 @@ defs = {
 				"deplete": 4,
 				"respawn": 35,
 				"fish": [
-					{"id": ids.RAW_SWORDFISH,
-					"lvl": 50,
-					"exp": 400},
-					{"id": ids.RAW_TUNA,
-					"lvl": 35,
-					"exp": 320},
+					{
+						"id": ids.RAW_SWORDFISH,
+						"lvl": 50,
+						"exp": 400
+					},
+					{
+						"id": ids.RAW_TUNA,
+						"lvl": 35,
+						"exp": 320
+					},
 				],
 			},
 			{
@@ -89,9 +109,11 @@ defs = {
 				"deplete": 4,
 				"respawn": 35,
 				"fish": [
-					{"id": ids.RAW_LOBSTER,
-					"lvl": 40,
-					"exp": 360},
+					{
+						"id": ids.RAW_LOBSTER,
+						"lvl": 40,
+						"exp": 360
+					},
 				],
 			},
 		],
@@ -102,9 +124,11 @@ defs = {
 				"deplete": 4,
 				"respawn": 35,
 				"fish": [
-					{"id": ids.RAW_LOBSTER,
-					"lvl": 40,
-					"exp": 360},
+					{
+						"id": ids.RAW_LOBSTER,
+						"lvl": 40,
+						"exp": 360
+					},
 				],
 			},
 			{
@@ -113,12 +137,16 @@ defs = {
 				"deplete": 4,
 				"respawn": 35,
 				"fish": [
-					{"id": ids.RAW_SWORDFISH,
-					"lvl": 50,
-					"exp": 400},
-					{"id": ids.RAW_TUNA,
-					"lvl": 35,
-					"exp": 320},
+					{
+						"id": ids.RAW_SWORDFISH,
+						"lvl": 50,
+						"exp": 400
+					},
+					{
+						"id": ids.RAW_TUNA,
+						"lvl": 35,
+						"exp": 320
+					},
 				],
 			},
 		],
@@ -129,9 +157,11 @@ defs = {
 				"deplete": 4,
 				"respawn": 35,
 				"fish": [
-					{"id": ids.RAW_LOBSTER,
-					"lvl": 40,
-					"exp": 360},
+					{
+						"id": ids.RAW_LOBSTER,
+						"lvl": 40,
+						"exp": 360
+					},
 				],
 			},
 			{
@@ -140,12 +170,16 @@ defs = {
 				"deplete": 4,
 				"respawn": 35,
 				"fish": [
-					{"id": ids.RAW_SWORDFISH,
-					"lvl": 50,
-					"exp": 400},
-					{"id": ids.RAW_TUNA,
-					"lvl": 35,
-					"exp": 320},
+					{
+						"id": ids.RAW_SWORDFISH,
+						"lvl": 50,
+						"exp": 400
+					},
+					{
+						"id": ids.RAW_TUNA,
+						"lvl": 35,
+						"exp": 320
+					},
 				],
 			},
 		],
@@ -156,27 +190,40 @@ defs = {
 				"deplete": 1,
 				"respawn": 70,
 				"fish": [
-					{"id": ids.RAW_MACKEREL,
-					"lvl": 16,
-					"exp": 80},
-					{"id": ids.RAW_COD,
-					"lvl": 23,
-					"exp": 180},
-					{"id": ids.RAW_BASS,
-					"lvl": 46,
-					"exp": 400},
-					{"id": ids.BOOTS,
-					"lvl": 16,
-					"exp": 4},
-					{"id": ids.LEATHER_GLOVES,
-					"lvl": 16,
-					"exp": 4},
-					{"id": ids.SEAWEED,
-					"lvl": 16,
-					"exp": 4},
-					{"id": ids.OYSTER,
-					"lvl": 16,
-					"exp": 40},
+					{
+						"id": ids.RAW_MACKEREL,
+						"lvl": 16,
+						"exp": 80
+					},
+					{
+						"id": ids.RAW_COD,
+						"lvl": 23,
+						"exp": 180
+					},
+					{
+						"id": ids.RAW_BASS,
+						"lvl": 46,
+						"exp": 400
+					},
+					{
+						"id": ids.BOOTS,
+						"lvl": 16,
+						"exp": 4
+					},
+					{
+						"id": ids.LEATHER_GLOVES,
+						"lvl": 16,
+						"exp": 4
+					},
+					{
+						"id": ids.SEAWEED,
+						"lvl": 16,
+						"exp": 4},
+					{
+						"id": ids.OYSTER,
+						"lvl": 16,
+						"exp": 40
+					},
 				],
 			},
 			{
@@ -185,9 +232,11 @@ defs = {
 				"deplete": 7,
 				"respawn": 70,
 				"fish": [
-					{"id": ids.RAW_SHARK,
-					"lvl": 76,
-					"exp": 440},
+					{
+						"id": ids.RAW_SHARK,
+						"lvl": 76,
+						"exp": 440
+					},
 				],
 			},
 		],
