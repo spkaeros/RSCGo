@@ -47,3 +47,43 @@ bind.npc(482, func(player, npc) {
 				"now go through the next door to speak to the bankers")
 	}
 })
+
+bind.object(496, func(player, object, click) {
+	if click == 1 {
+		player.Message("This rock contains " + itemDefs[ids.TIN_ORE].Name)
+		sleep(tMillis*1800)
+		player.Message("Sometimes you won't find the ore but trying again may find it")
+		sleep(tMillis*1800)
+		player.Message("If a rock contains a high level ore")
+		sleep(tMillis*1800)
+		player.Message("You will not find it until you increase your mining level")
+		if toInt(player.Cache("tutorial")) == 49 {
+			player.SetCache("tutorial", 50)
+		}
+		return
+	}
+	if player.Skills().Experience(MINING) >= 210 {
+		player.Message("that's enough mining for now")
+		return
+	}
+	if player.Inventory.CountID(ids.BRONZE_PICKAXE) < 1 {
+		player.Message("You need a " + itemDefs[ids.BRONZE_PICKAXE].Name + " to mine this rock")
+		sleep(tMillis*1800)
+		player.Message("You do not have a pickaxe which you have the mining level to use")
+		return
+	}
+	player.PlaySound("mine")
+	player.Message("You swing your pick at the rock...")
+	player.ItemBubble(ids.BRONZE_PICKAXE)
+	sleep(tMillis*1800)
+	if gatheringSuccess(1, player.Skills().Current(MINING)) {
+		player.Message("You manage to obtain some tin ore")
+		player.AddItem(ids.TIN_ORE, 1)
+		player.IncExp(MINING, 10)
+		if toInt(player.Cache("tutorial")) == 51 {
+			player.SetCache("tutorial", 52)
+		}
+	} else {
+		player.Message("You fail to make any real impact on the rock")
+	}
+})

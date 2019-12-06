@@ -32,37 +32,33 @@ bind.npc(479, func(player, npc) {
 	}
 })
 
-func objectAction(player, object, click) {
-	if object.ID == 493 {
-		if player.Skills().Experience(FISHING) >= 200 {
-			player.Message("that's enough fishing for now")
-			sleep(tMillis*1800)
-			player.Message("go through the next door to continue the tutorial")
-			return true
-		}
-		if player.Inventory.CountID(ids.NET) < 1 {
-			player.Message("You need a " + itemDefs[ids.NET].Name + " to catch shrimps")
-			return true
-		}
-		player.PlaySound("fishing")
-		player.Message("You attempt to catch some fish")
-		player.ItemBubble(ids.NET)
+bind.object(493, func(player, object, click) {
+	if player.Skills().Experience(FISHING) >= 200 {
+		player.Message("that's enough fishing for now")
 		sleep(tMillis*1800)
-		if gatheringSuccess(1, player.Skills().Current(FISHING)) {
-			player.Message("You catch some shrimp")
-			player.AddItem(ids.RAW_SHRIMP, 1)
-			player.IncExp(FISHING, 40)
-			if toInt(player.Cache("tutorial")) == 41 {
-				player.SetCache("tutorial", 42)
-			}
-		} else {
-			player.Message("You fail to catch anything")
-			if toInt(player.Cache("tutorial")) == 41 {
-				sleep(tMillis*1800)
-				player.Message("keep trying, you'll catch something soon")
-			}
-		}
+		player.Message("go through the next door to continue the tutorial")
 		return true
 	}
-	return false
-}
+	if player.Inventory.CountID(ids.NET) < 1 {
+		player.Message("You need a " + itemDefs[ids.NET].Name + " to catch shrimps")
+		return true
+	}
+	player.PlaySound("fishing")
+	player.Message("You attempt to catch some fish")
+	player.ItemBubble(ids.NET)
+	sleep(tMillis*1800)
+	if gatheringSuccess(1, player.Skills().Current(FISHING)) {
+		player.Message("You catch some shrimp")
+		player.AddItem(ids.RAW_SHRIMP, 1)
+		player.IncExp(FISHING, 10)
+		if toInt(player.Cache("tutorial")) == 41 {
+			player.SetCache("tutorial", 42)
+		}
+	} else {
+		player.Message("You fail to catch anything")
+		if toInt(player.Cache("tutorial")) == 41 {
+			sleep(tMillis*1800)
+			player.Message("keep trying, you'll catch something soon")
+		}
+	}
+})
