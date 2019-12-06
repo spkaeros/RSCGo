@@ -1,3 +1,6 @@
+bind = import("bind")
+world = import("world")
+
 bind.npc(774, func(player, npc) {
 	if toInt(player.Cache("tutorial")) < 80 {
 		player.Message("You need to speak to the previous guide first.")
@@ -42,11 +45,11 @@ bind.boundary(89, func(player, object, click) {
 			return
 		}
 		player.PlaySound("opendoor")
-		old = replaceObject(object, 11)
+		old = world.replaceObject(object, 11)
 		player.Teleport(player.X() > 225 ? 225 : 226, 760)
 		go runAfter(3*tSecond, func() {
 			player.PlaySound("closedoor")
-			replaceObject(old, 89)
+			world.replaceObject(old, 89)
 		})
 	}
 })

@@ -1,6 +1,5 @@
+bind = import("bind")
+
 bind.command("appearance", func(player, args) {
 	player.OpenAppearanceChanger()
-})
-bind.command("slepe", func(player, args) {
-	player.OpenSleepScreen()
 })

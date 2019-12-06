@@ -11,6 +11,7 @@ package packethandlers
 
 import (
 	"fmt"
+	"github.com/mattn/anko/vm"
 	"github.com/spkaeros/rscgo/pkg/server/db"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
@@ -119,7 +120,7 @@ func init() {
 		env := script.WorldModule()
 		env.Define("println", fmt.Println)
 		env.Define("player", player)
-		env.Execute(line)
+		vm.Execute(env, nil, line)
 	}
 	script.CommandHandlers["reloadscripts"] = func(player *world.Player, args []string) {
 		script.Clear()

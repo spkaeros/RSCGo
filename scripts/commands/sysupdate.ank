@@ -1,3 +1,6 @@
+bind = import("bind")
+world = import("world")
+
 bind.command("sysupdate", func(player, args) {
 	if len(args) < 1 {
 		args = [toString(60)]
@@ -6,11 +9,11 @@ bind.command("sysupdate", func(player, args) {
 	if time < 0 {
 		return
 	}
-	systemUpdate(time)
+	world.systemUpdate(time)
 })
 
 bind.onLogin(func(player) {
-	if updateStarted() {
+	if world.updateStarted() {
 		player.SendUpdateTimer()
 	}
 })

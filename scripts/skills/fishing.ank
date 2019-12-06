@@ -1,5 +1,9 @@
-load("scripts/skills/fishing_definitions.ank")
+bind = import("bind")
 strings = import("strings")
+log = import("log")
+world = import("world")
+
+load("scripts/skills/fishing_definitions.ank")
 
 bind.object(keys(defs), func(player, object, click) {
 	cmd = strings.ToLower(objectDefs[object.ID].Commands[click])
@@ -32,7 +36,7 @@ bind.object(keys(defs), func(player, object, click) {
 	sleep(tMillis*1800)
 
 
-	if gatheringSuccess(fish.lvl, player.Skills().Current(FISHING)) && getObjectAt(object.X(), object.Y()) == object {
+	if gatheringSuccess(fish.lvl, player.Skills().Current(FISHING)) && world.getObjectAt(object.X(), object.Y()) == object {
 		if fishDef[click].bait >= 0 {
 			player.RemoveItemByID(fishDef[click].bait, 1)
 		}

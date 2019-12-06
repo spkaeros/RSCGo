@@ -1,3 +1,6 @@
+bind = import("bind")
+world = import("world")
+
 bind.npc(476, func(player, npc) {
 	npc.Chat(player, "Welcome to the world of runescape", "My job is to help newcomers find their feet here")
 	player.Chat("Ah good, let's get started")
@@ -23,11 +26,11 @@ bind.boundary(75, func(player, object, click) {
 			return
 		}
 		player.PlaySound("opendoor")
-		old = replaceObject(object, 11)
+		old = world.replaceObject(object, 11)
 		player.Teleport(player.X() > 221 ? 221 : 222, 743)
 		go runAfter(3*tSecond, func() {
 			player.PlaySound("closedoor")
-			replaceObject(old, 75)
+			world.replaceObject(old, 75)
 		})
 	}
 })

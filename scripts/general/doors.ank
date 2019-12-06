@@ -1,12 +1,18 @@
+bind = import("bind")
+log = import("log")
+world = import("world")
+
 doors = {59: 60, 57: 58, 63: 64}
 bind.object(["open", "close"], func(player, object, click) {
 	for open, closed in doors {
-		if object.ID == open {
-			player.PlaySound("opendoor")
-			replaceObject(object, closed)
-		} else if object.ID == closed {
-			player.PlaySound("closedoor")
-			replaceObject(object, open)
+		if toInt(object.ID) == toInt(open) {
+			player.PlaySound(objectDefs[object.ID].Commands[click] + "door")
+			world.replaceObject(object, closed)
+			return
+		} else if toInt(object.ID) == toInt(closed) {
+			player.PlaySound(objectDefs[object.ID].Commands[click] + "door")
+			world.replaceObject(object, open)
+			return
 		}
 	}
 	log.debugf("unhandled door obj: %v click=%d\n", object, click)
@@ -16,22 +22,22 @@ bind.boundary(["open", "close"], func(player, object, click) {
 	doors = {1: 2}
 	if object.ID == 109 {
 		player.PlaySound("opendoor")
-		old = replaceObject(object, 11)
+		old = world.replaceObject(object, 11)
 		player.Teleport(161, player.Y() > 464 ? 464 : 465)
 		go runAfter(3*tSecond, func() {
 			player.PlaySound("closedoor")
-			replaceObject(old, 109)
+			world.replaceObject(old, 109)
 		})
 		return
 	}
 	for open, closed in doors {
-		if object.ID == open {
-			player.PlaySound("opendoor")
-			replaceObject(object, closed)
+		if toInt(object.ID) == toInt(open) {
+			player.PlaySound(boundaryDefs[object.ID].Commands[click] + "door")
+			world.replaceObject(object, closed)
 			return
-		} else if object.ID == closed {
-			player.PlaySound("closedoor")
-			replaceObject(object, open)
+		} else if toInt(object.ID) == toInt(closed) {
+			player.PlaySound(boundaryDefs[object.ID].Commands[click] + "door")
+			world.replaceObject(object, open)
 			return
 		}
 	}

@@ -1,6 +1,9 @@
+bind = import("bind")
 strings = import("strings")
 fmt = import("fmt")
 time = import("time")
+log = import("log")
+world = import("world")
 
 bind.command("tele", func(player, args) {
 	if len(args) < 2 {
@@ -13,7 +16,7 @@ bind.command("tele", func(player, args) {
 		player.Message("Coords out of bounds.")
 		return
 	}
-	teleport(player, x, y, true)
+	world.teleport(player, x, y, true)
 })
 
 bind.command("goto", func(player, args) {
@@ -21,12 +24,12 @@ bind.command("goto", func(player, args) {
   		player.Message("Invalid args.  Usage: ::goto <username>")
   		return
   	}
-	target, ok = getPlayerByName(base37(strings.TrimSpace(strings.Join(args, " "))))
+	target, ok = world.getPlayerByName(base37(strings.TrimSpace(strings.Join(args, " "))))
 	if target == nil || !ok {
   		player.Message("Could not find player.")
 		return
 	}
-  	teleport(player, target.X(), target.Y(), true)
+  	world.teleport(player, target.X(), target.Y(), true)
 })
 
 bind.command("summon", func(player, args) {
@@ -34,12 +37,12 @@ bind.command("summon", func(player, args) {
   		player.Message("Invalid args.  Usage: ::summon <username>")
   		return
   	}
-	target, ok = getPlayerByName(base37(strings.TrimSpace(strings.Join(args, " "))))
+	target, ok = world.getPlayerByName(base37(strings.TrimSpace(strings.Join(args, " "))))
 	if !ok || target == nil {
   		player.Message("Could not find player.")
 		return
 	}
-  	teleport(target, player.X(), player.Y(), true)
+  	world.teleport(target, player.X(), player.Y(), true)
 })
 
 bind.command("walkto", func(player, args) {
@@ -50,7 +53,7 @@ bind.command("walkto", func(player, args) {
 	x = toInt(args[0])
 	y = toInt(args[1])
 	start = time.Now()
-	walkTo(player, x, y)
+	world.walkTo(player, x, y)
 	log.debugf("took: %v\n", time.Since(start))
 })
 
@@ -60,9 +63,9 @@ bind.command("tile", func(player, args) {
 	mapSector = fmt.Sprintf("h%dx%dy%d", player.Plane(), regionX, regionY)
 	areaX = (2304 + player.X()) % 48
 	areaY = (1776 + player.Y() - (944 * player.Plane())) % 48
-	tile = tileData(player.X(), player.Y())
+	tile = world.tileData(player.X(), player.Y())
 	player.Message(fmt.Sprintf("@que@worldX,Y:(%v,%v) Sector(%v sectorX,Y:(%v,%v)): obj:%v, bitmask:%v",
-			player.X(), player.Y(), mapSector, areaX, areaY, getObjectAt(player.X(), player.Y()), tile.CollisionMask))
+			player.X(), player.Y(), mapSector, areaX, areaY, world.getObjectAt(player.X(), player.Y()), tile.CollisionMask))
 })
 
 bind.command("goup", func(player, args) {

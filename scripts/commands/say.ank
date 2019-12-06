@@ -1,3 +1,6 @@
+bind = import("bind")
+world = import("world")
+
 bind.command("say", func(player, args) {
 	if len(args) < 1 {
 		player.Message("Invalid args.  Usage: ::say <msg>")
@@ -15,5 +18,5 @@ bind.command("say", func(player, args) {
 	for word in args {
 		msg += " " + word
 	}
-	announce(msg)
+	world.announce(msg)
 })

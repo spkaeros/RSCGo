@@ -1,3 +1,4 @@
+bind = import("bind")
 math = import("math")
 
 bind.npc([93, 174], func(player, npc) {

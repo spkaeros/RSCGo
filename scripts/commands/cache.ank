@@ -1,11 +1,13 @@
+bind = import("bind")
+
 bind.command("cache", func(player, args) {
 	if len(args) < 1 {
-		player.Message("Invalid args.  Usage: ::setcache var_name value")
+		player.Message("Invalid args.  Usage: ::cache var_name (value))")
 		return
 	}
 	if len(args) >= 2 {
 		player.SetCache(args[0], args[1])
-		player.Message("'tutorial': set to " + args[1])
+		player.Message("'" + args[0] + "': set to " + args[1])
 	} else {
 		player.Message("'" + args[0] + "': " + player.Cache(args[0]))
 	}

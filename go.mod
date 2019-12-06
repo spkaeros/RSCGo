@@ -8,8 +8,12 @@ require (
 	github.com/gobwas/pool v0.2.0 // indirect
 	github.com/gobwas/ws v1.0.2
 	github.com/jessevdk/go-flags v1.4.0
-	github.com/mattn/anko v0.1.2
-	github.com/mattn/go-sqlite3 v1.11.0
-	go.uber.org/atomic v1.5.0
-	golang.org/x/crypto v0.0.0-20191106202628-ed6320f186d4
+	github.com/mattn/anko v0.1.5
+	github.com/mattn/go-sqlite3 v2.0.1+incompatible
+	github.com/stretchr/testify v1.4.0 // indirect
+	go.uber.org/atomic v1.5.1
+	golang.org/x/crypto v0.0.0-20191205180655-e7c4368fe9dd
+	golang.org/x/lint v0.0.0-20191125180803-fdd1cda4f05f // indirect
+	golang.org/x/tools v0.0.0-20191205225056-3393d29bb9fe // indirect
+	gopkg.in/yaml.v2 v2.2.7 // indirect
 )

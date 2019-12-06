@@ -1,3 +1,6 @@
+bind = import("bind")
+ids = import("ids")
+
 bind.npc([11, 63, 72], func(player, npc) {
 	player.Chat("Hello", "How's it going?")
 	switch rand(0, 13) {

@@ -1,5 +1,9 @@
-load("scripts/skills/mining_definitions.ank")
+bind = import("bind")
 strings = import("strings")
+log = import("log")
+world = import("world")
+
+load("scripts/skills/mining_definitions.ank")
 
 bind.object(keys(defs), func(player, object, click) {
 	mineDef = defs[toInt(object.ID)]
@@ -27,17 +31,15 @@ bind.object(keys(defs), func(player, object, click) {
 	player.Message("You swing your pick at the rock...")
 	sleep(tMillis*1800)
 
-	if player.Skills().Current(MINING) >= mineDef.lvl && gatheringSuccess(mineDef.lvl, player.Skills().Current(MINING) + axeBonus(pickaxe)) && getObjectAt(object.X(), object.Y()).ID != 98 {
+	if player.Skills().Current(MINING) >= mineDef.lvl && gatheringSuccess(mineDef.lvl, player.Skills().Current(MINING) + axeBonus(pickaxe)) && world.getObjectAt(object.X(), object.Y()).ID != 98 {
 		player.Message("You manage to obtain some " + oreName)
 		player.AddItem(mineDef.ore, 1)
 		player.IncExp(MINING, mineDef.exp)
-		if rand(1, 100) <= mineDef.deplete {
-			rockID = object.ID
-			emptyRock = replaceObject(object, 98)
-			go runAfter(tSecond*mineDef.respawn, func() {
-				replaceObject(emptyRock, rockID)
-			})
-		}
+		rockID = object.ID
+		emptyRock = world.replaceObject(object, 98)
+		go runAfter(tSecond*mineDef.respawn, func() {
+			world.replaceObject(emptyRock, rockID)
+		})
 		return
 	}
 	player.Message("You only succeed in scratching the rock")

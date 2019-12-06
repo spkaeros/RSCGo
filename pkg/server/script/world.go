@@ -10,119 +10,57 @@
 package script
 
 import (
+	"math"
+	"os"
+	"reflect"
+	"time"
+
 	"github.com/mattn/anko/core"
-	"github.com/mattn/anko/packages"
-	"github.com/mattn/anko/vm"
+	"github.com/mattn/anko/env"
+	_ "github.com/mattn/anko/packages"
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"github.com/spkaeros/rscgo/pkg/strutil"
-	"math"
-	"os"
-	"reflect"
-	"time"
 )
 
 //CommandHandlers A map to assign in-game commands to the functions they should execute.
 var CommandHandlers = make(map[string]func(*world.Player, []string))
 
-func WorldModule() *vm.Env {
-	env, err := vm.NewEnv().AddPackage("world", map[string]interface{}{
-		"getPlayerCount":  players.Size,
-		"getPlayers":      players.Players,
-		"getPlayer":       players.FromIndex,
-		"getPlayerByName": players.FromUserHash,
-		"replaceObject":   world.ReplaceObject,
-		"addObject":       world.AddObject,
-		"removeObject":    world.RemoveObject,
-		"addNpc":          world.AddNpc,
-		"removeNpc":       world.RemoveNpc,
-		"addItem":         world.AddItem,
-		"removeItem":      world.RemoveItem,
-		"getObjectAt":     world.GetObject,
-		"newObject":       world.NewObject,
-		"getNpc":          world.GetNpc,
-		"newPathway":      world.NewPathwayToCoords,
-		"newNpc":          world.NewNpc,
-		"newLocation":     world.NewLocation,
-		"checkCollisions": world.IsTileBlocking,
-		"tileData":        world.CollisionData,
-		"objectDefs":      world.ObjectDefs,
-		"objects":         world.Npcs,
-		"boundaryDefs":    world.BoundaryDefs,
-		"npcDefs":         world.NpcDefs,
-		"npcs":            world.Npcs,
-		"itemDefs":        world.ItemDefs,
-		"commands":        CommandHandlers,
-		"kick": func(client *world.Player) {
+func init() {
+	env.Packages["world"] = map[string] reflect.Value {
+		"getPlayerCount":  reflect.ValueOf(players.Size),
+		"getPlayers":      reflect.ValueOf(players.Players),
+		"getPlayer":       reflect.ValueOf(players.FromIndex),
+		"getPlayerByName": reflect.ValueOf(players.FromUserHash),
+		"replaceObject":   reflect.ValueOf(world.ReplaceObject),
+		"addObject":       reflect.ValueOf(world.AddObject),
+		"removeObject":    reflect.ValueOf(world.RemoveObject),
+		"addNpc":          reflect.ValueOf(world.AddNpc),
+		"removeNpc":       reflect.ValueOf(world.RemoveNpc),
+		"addItem":         reflect.ValueOf(world.AddItem),
+		"removeItem":      reflect.ValueOf(world.RemoveItem),
+		"getObjectAt":     reflect.ValueOf(world.GetObject),
+		"getNpc":          reflect.ValueOf(world.GetNpc),
+		"checkCollisions": reflect.ValueOf(world.IsTileBlocking),
+		"tileData":        reflect.ValueOf(world.CollisionData),
+		"kickPlayer": reflect.ValueOf(func(client *world.Player) {
 			client.SendPacket(world.Logout)
 			client.Destroy()
-		},
-		"updateStarted": func() bool {
+		}),
+		"updateStarted": reflect.ValueOf(func() bool {
 			return !world.UpdateTime.IsZero()
-		},
-		"broadcast": func(fn func(interface{})) {
-			players.Range(func(player *world.Player) {
-				fn(player)
-			})
-		},
-		"announce": func(msg string) {
+		}),
+		"announce": reflect.ValueOf(func(msg string) {
 			players.Range(func(player *world.Player) {
 				player.Message("@que@" + msg)
 			})
-		},
-		"parseDirection":     world.ParseDirection,
-		"North":              world.North,
-		"South":              world.South,
-		"East":               world.East,
-		"West":               world.West,
-		"NorthWest":          world.NorthWest,
-		"NorthEast":          world.NorthEast,
-		"SouthWest":          world.SouthWest,
-		"SouthEast":          world.SouthEast,
-		"ATTACK":             world.StatAttack,
-		"DEFENSE":            world.StatDefense,
-		"STRENGTH":           world.StatStrength,
-		"HITPOINTS":          world.StatHits,
-		"RANGED":             world.StatRanged,
-		"PRAYER":             world.StatPrayer,
-		"MAGIC":              world.StatMagic,
-		"COOKING":            world.StatCooking,
-		"WOODCUTTING":        world.StatWoodcutting,
-		"FLETCHING":          world.StatFletching,
-		"FISHING":            world.StatFishing,
-		"FIREMAKING":         world.StatFiremaking,
-		"CRAFTING":           world.StatCrafting,
-		"SMITHING":           world.StatSmithing,
-		"MINING":              world.StatMining,
-		"HERBLAW":            world.StatHerblaw,
-		"AGILITY":            world.StatAgility,
-		"THIEVING":           world.StatThieving,
-		"IDLE":               world.MSIdle,
-		"BUSY":               world.MSBusy,
-		"MENUCHOOSING":       world.MSOptionMenu,
-		"CHATTING":           world.MSChatting,
-		"BANKING":            world.MSBanking,
-		"TRADING":            world.MSTrading,
-		"DUELING":            world.MSDueling,
-		"FIGHTING":           world.MSFighting,
-		"BATCHING":           world.MSBatching,
-		"SLEEPING":           world.MSSleeping,
-		"CHANGINGAPPEARANCE": world.MSChangingAppearance,
-		"rand":               rand.Int31N,
-		"walkTo": func(target *world.Player, x, y int) {
+		}),
+		"walkTo": reflect.ValueOf(func(target *world.Player, x, y int) {
 			target.WalkTo(world.NewLocation(x, y))
-		},
-		"gatheringSuccess": func(req, cur int) bool {
-			roll := float64(rand.Int31N(1, 128))
-			if cur < req {
-				return false
-			}
-			threshold := math.Min(127, math.Max(float64(1), (float64(cur)+40)-(float64(req)*1.5)))
-			return roll <= threshold
-		},
-		"systemUpdate": func(t int) {
+		}),
+		"systemUpdate": reflect.ValueOf(func(t int) {
 			world.UpdateTime = time.Now().Add(time.Second * time.Duration(t))
 			go func() {
 				time.Sleep(time.Second * time.Duration(t))
@@ -136,9 +74,8 @@ func WorldModule() *vm.Env {
 			players.Range(func(player *world.Player) {
 				player.SendUpdateTimer()
 			})
-		},
-		"base37": strutil.Base37.Encode,
-		"teleport": func(target *world.Player, x, y int, bubble bool) {
+		}),
+		"teleport": reflect.ValueOf(func(target *world.Player, x, y int, bubble bool) {
 			if bubble {
 				target.SendPacket(world.TeleBubble(0, 0))
 				for _, nearbyPlayer := range target.NearbyPlayers() {
@@ -150,14 +87,9 @@ func WorldModule() *vm.Env {
 			if target.Plane() != plane {
 				target.SendPacket(world.PlaneInfo(target))
 			}
-		},
-		"getSkillIndex": func(name string) int {
-			return world.SkillIndex(name)
-		},
-		"expToLvl":    world.ExperienceToLevel,
-		"lvlToExp":    world.LevelToExperience,
-		"withinWorld": world.WithinWorld,
-	}, map[string]interface{}{
+		}),
+	}
+	env.PackageTypes["world"] = map[string] reflect.Type {
 		"clientMap":  reflect.TypeOf(players.Players),
 		"player":     reflect.TypeOf(&world.Player{}),
 		"object":     reflect.TypeOf(&world.Object{}),
@@ -165,181 +97,127 @@ func WorldModule() *vm.Env {
 		"groundItem": reflect.TypeOf(&world.GroundItem{}),
 		"npc":        reflect.TypeOf(&world.NPC{}),
 		"location":   reflect.TypeOf(world.Location{}),
-	})
-	if err != nil {
-		log.Warning.Println("Error initializing VM parameters:", err)
-		return nil
 	}
-	env, err = env.AddPackage("ids", map[string]interface{}{
-		"COOKEDMEAT":          132,
-		"BURNTMEAT":           134,
-		"FLIER":               201,
-		"LEATHER_GLOVES":      16,
-		"BOOTS":               17,
-		"SEAWEED":             622,
-		"OYSTER":              793,
-		"CASKET":              549,
-		"RAW_RAT_MEAT":        503,
-		"RAW_SHRIMP":          349,
-		"RAW_ANCHOVIES":       351,
-		"RAW_TROUT":           358,
-		"RAW_SALMON":          356,
-		"RAW_PIKE":            363,
-		"RAW_SARDINE":         354,
-		"RAW_HERRING":         361,
-		"RAW_BASS":            550,
-		"RAW_MACKEREL":        552,
-		"RAW_COD":             554,
-		"RAW_LOBSTER":         372,
-		"RAW_SWORDFISH":       369,
-		"RAW_TUNA":            366,
-		"RAW_SHARK":           545,
-		"WOODEN_SHIELD":       4,
-		"BRONZE_LSWORD":       70,
-		"NET":                 376,
-		"BIG_NET":             548,
-		"LOBSTER_POT":         375,
-		"FISHING_ROD":         377,
-		"FLYFISHING_ROD":      378,
-		"OILY_FISHING_ROD":    589,
-		"RAW_LAVA_EEL":        591,
-		"HARPOON":             379,
-		"FISHING_BAIT":        380,
-		"FEATHER":             381,
-		"BRONZE_PICKAXE":      156,
-		"IRON_PICKAXE":       1258,
-		"STEEL_PICKAXE":      1259,
-		"MITHRIL_PICKAXE":    1260,
-		"ADAM_PICKAXE":       1261,
-		"RUNE_PICKAXE":       1262,
-		"TIN_ORE":             202,
-		"SLEEPING_BAG":        1263,
-		"NEEDLE":              39,
-		"THREAD":              43,
-		"FIRE_RUNE":           31,
-		"WATER_RUNE":          32,
-		"AIR_RUNE":            33,
-		"EARTH_RUNE":          34,
-		"MIND_RUNE":           35,
-		"BODY_RUNE":           36,
-		"LIFE_RUNE":           37,
-		"DEATH_RUNE":          38,
-		"NATURE_RUNE":         40,
-		"CHAOS_RUNE":          41,
-		"LAW_RUNE":            42,
-		"COSMIC_RUNE":         46,
-		"BLOOD_RUNE":          619,
-		"AIR_STAFF":           101,
-		"WATER_STAFF":         102,
-		"EARTH_STAFF":         103,
-		"FIRE_STAFF":          197,
-		"FIRE_BATTLESTAFF":    615,
-		"WATER_BATTLESTAFF":   616,
-		"AIR_BATTLESTAFF":     617,
-		"EARTH_BATTLESTAFF":   618,
-		"E_FIRE_BATTLESTAFF":  682,
-		"E_WATER_BATTLESTAFF": 683,
-		"E_AIR_BATTLESTAFF":   684,
-		"E_EARTH_BATTLESTAFF": 685,
-		"BONES":               20,
-		"BAT_BONES":           604,
-		"DRAGON_BONES":        614,
-		"RUNE_2H":             81,
-		"RUNE_CHAIN":          400,
-		"RUNE_PLATEBODY":      401,
-		"RUNE_PLATETOP":       407,
-		"DRAGON_SWORD":        593,
-		"DRAGON_AXE":          594,
-		"CHARGED_DSTONE_AMMY": 597,
-		"DRAGON_HELMET":       795,
-		"DRAGON_SHIELD":       1278,
-		"EASTER_EGG":          677,
-		"CHRISTMAS_CRACKER":   575,
-		"PARTYHAT_RED":        576,
-		"PARTYHAT_YELLOW":     577,
-		"PARTYHAT_BLUE":       578,
-		"PARTYHAT_GREEN":      579,
-		"PARTYHAT_PINK":       580,
-		"PARTYHAT_WHITE":      581,
-		"GREEN_MASK":          828,
-		"RED_MASK":            831,
-		"BLUE_MASK":           832,
-		"SANTA_HAT":           971,
-		"PRESENT":             980,
-		"GNOME_BALL":          981,
-		"BLURITE_ORE":         266,
-		"CLAY":                149,
-		"COPPER_ORE":          150,
-		"IRON_ORE":            151,
-		"GOLD":                152,
-		"SILVER":              383,
-		"GOLD2":               690,
-		"MITHRIL_ORE":         153,
-		"ADAM_ORE":            154,
-		"RUNITE_ORE":          409,
-		"COAL":                155,
-	}, nil)
-	if err != nil {
-		log.Warning.Println("Error initializing VM parameters:", err)
-		return nil
+	env.Packages["ids"] = map[string]reflect.Value{
+		"COOKEDMEAT":          reflect.ValueOf(132),
+		"BURNTMEAT":reflect.ValueOf(           134),
+		"FLIER":reflect.ValueOf(               201),
+		"LEATHER_GLOVES":reflect.ValueOf(      16),
+		"BOOTS":reflect.ValueOf(               17),
+		"SEAWEED":reflect.ValueOf(             622),
+		"OYSTER":reflect.ValueOf(              793),
+		"CASKET":reflect.ValueOf(              549),
+		"RAW_RAT_MEAT":reflect.ValueOf(        503),
+		"RAW_SHRIMP":reflect.ValueOf(          349),
+		"RAW_ANCHOVIES":reflect.ValueOf(       351),
+		"RAW_TROUT":reflect.ValueOf(           358),
+		"RAW_SALMON":reflect.ValueOf(          356),
+		"RAW_PIKE":reflect.ValueOf(            363),
+		"RAW_SARDINE":reflect.ValueOf(         354),
+		"RAW_HERRING":reflect.ValueOf(         361),
+		"RAW_BASS":reflect.ValueOf(            550),
+		"RAW_MACKEREL":reflect.ValueOf(        552),
+		"RAW_COD":reflect.ValueOf(             554),
+		"RAW_LOBSTER":reflect.ValueOf(         372),
+		"RAW_SWORDFISH":reflect.ValueOf(       369),
+		"RAW_TUNA":reflect.ValueOf(            366),
+		"RAW_SHARK":reflect.ValueOf(           545),
+		"WOODEN_SHIELD":reflect.ValueOf(       4),
+		"BRONZE_LSWORD":reflect.ValueOf(       70),
+		"NET":reflect.ValueOf(                 376),
+		"BIG_NET":reflect.ValueOf(             548),
+		"LOBSTER_POT":reflect.ValueOf(         375),
+		"FISHING_ROD":reflect.ValueOf(         377),
+		"FLYFISHING_ROD":reflect.ValueOf(      378),
+		"OILY_FISHING_ROD":reflect.ValueOf(    589),
+		"RAW_LAVA_EEL":reflect.ValueOf(        591),
+		"HARPOON":reflect.ValueOf(             379),
+		"FISHING_BAIT":reflect.ValueOf(        380),
+		"FEATHER":reflect.ValueOf(             381),
+		"BRONZE_PICKAXE":reflect.ValueOf(      156),
+		"IRON_PICKAXE":reflect.ValueOf(       1258),
+		"STEEL_PICKAXE":reflect.ValueOf(      1259),
+		"MITHRIL_PICKAXE":reflect.ValueOf(    1260),
+		"ADAM_PICKAXE":reflect.ValueOf(       1261),
+		"RUNE_PICKAXE":reflect.ValueOf(       1262),
+		"TIN_ORE":reflect.ValueOf(             202),
+		"SLEEPING_BAG":reflect.ValueOf(        1263),
+		"NEEDLE":reflect.ValueOf(              39),
+		"THREAD":reflect.ValueOf(              43),
+		"FIRE_RUNE":reflect.ValueOf(           31),
+		"WATER_RUNE":reflect.ValueOf(          32),
+		"AIR_RUNE":reflect.ValueOf(            33),
+		"EARTH_RUNE":reflect.ValueOf(          34),
+		"MIND_RUNE":reflect.ValueOf(           35),
+		"BODY_RUNE":reflect.ValueOf(           36),
+		"LIFE_RUNE":reflect.ValueOf(           37),
+		"DEATH_RUNE":reflect.ValueOf(          38),
+		"NATURE_RUNE":reflect.ValueOf(         40),
+		"CHAOS_RUNE":reflect.ValueOf(          41),
+		"LAW_RUNE":reflect.ValueOf(            42),
+		"COSMIC_RUNE":reflect.ValueOf(         46),
+		"BLOOD_RUNE":reflect.ValueOf(          619),
+		"AIR_STAFF":reflect.ValueOf(           101),
+		"WATER_STAFF":reflect.ValueOf(         102),
+		"EARTH_STAFF":reflect.ValueOf(         103),
+		"FIRE_STAFF":reflect.ValueOf(          197),
+		"FIRE_BATTLESTAFF":reflect.ValueOf(    615),
+		"WATER_BATTLESTAFF":reflect.ValueOf(   616),
+		"AIR_BATTLESTAFF":reflect.ValueOf(     617),
+		"EARTH_BATTLESTAFF":reflect.ValueOf(   618),
+		"E_FIRE_BATTLESTAFF":reflect.ValueOf(  682),
+		"E_WATER_BATTLESTAFF":reflect.ValueOf( 683),
+		"E_AIR_BATTLESTAFF":reflect.ValueOf(   684),
+		"E_EARTH_BATTLESTAFF":reflect.ValueOf( 685),
+		"BONES":reflect.ValueOf(               20),
+		"BAT_BONES":reflect.ValueOf(           604),
+		"DRAGON_BONES":reflect.ValueOf(        614),
+		"RUNE_2H":reflect.ValueOf(             81),
+		"RUNE_CHAIN":reflect.ValueOf(          400),
+		"RUNE_PLATEBODY":reflect.ValueOf(      401),
+		"RUNE_PLATETOP":reflect.ValueOf(       407),
+		"DRAGON_SWORD":reflect.ValueOf(        593),
+		"DRAGON_AXE":reflect.ValueOf(          594),
+		"CHARGED_DSTONE_AMMY":reflect.ValueOf( 597),
+		"DRAGON_HELMET":reflect.ValueOf(       795),
+		"DRAGON_SHIELD":reflect.ValueOf(       1278),
+		"EASTER_EGG":reflect.ValueOf(          677),
+		"CHRISTMAS_CRACKER":reflect.ValueOf(   575),
+		"PARTYHAT_RED":reflect.ValueOf(        576),
+		"PARTYHAT_YELLOW":reflect.ValueOf(     577),
+		"PARTYHAT_BLUE":reflect.ValueOf(       578),
+		"PARTYHAT_GREEN":reflect.ValueOf(      579),
+		"PARTYHAT_PINK":reflect.ValueOf(       580),
+		"PARTYHAT_WHITE":reflect.ValueOf(      581),
+		"GREEN_MASK":reflect.ValueOf(          828),
+		"RED_MASK":reflect.ValueOf(            831),
+		"BLUE_MASK":reflect.ValueOf(           832),
+		"SANTA_HAT":reflect.ValueOf(           971),
+		"PRESENT":reflect.ValueOf(             980),
+		"GNOME_BALL":reflect.ValueOf(          981),
+		"BLURITE_ORE":reflect.ValueOf(         266),
+		"CLAY":reflect.ValueOf(                149),
+		"COPPER_ORE":reflect.ValueOf(          150),
+		"IRON_ORE":reflect.ValueOf(            151),
+		"GOLD":reflect.ValueOf(                152),
+		"SILVER":reflect.ValueOf(              383),
+		"GOLD2":reflect.ValueOf(               690),
+		"MITHRIL_ORE":reflect.ValueOf(         153),
+		"ADAM_ORE":reflect.ValueOf(            154),
+		"RUNITE_ORE":reflect.ValueOf(          409),
+		"COAL":reflect.ValueOf(                155),
 	}
-	env, err = env.AddPackage("packets", map[string]interface{}{
-		"BigInformationBox":     world.BigInformationBox,
-		"BoundaryLocations":     world.BoundaryLocations,
-		"CannotLogout":          world.CannotLogout,
-		"OpenChangeAppearance":  world.OpenChangeAppearance,
-		"ClientSettings":        world.ClientSettings,
-		"Death":                 world.Death,
-		"DefaultActionMessage":  world.DefaultActionMessage,
-		"EquipmentStats":        world.EquipmentStats,
-		"Fatigue":               world.Fatigue,
-		"FightMode":             world.FightMode,
-		"FriendList":            world.FriendList,
-		"FriendUpdate":          world.FriendUpdate,
-		"IgnoreList":            world.IgnoreList,
-		"InventoryItems":        world.InventoryItems,
-		"ItemLocations":         world.ItemLocations,
-		"LoginBox":              world.LoginBox,
-		"LoginResponse":         world.LoginResponse,
-		"Logout":                world.Logout,
-		"NPCPositions":          world.NPCPositions,
-		"NpcDamage":             world.NpcDamage,
-		"ObjectLocations":       world.ObjectLocations,
-		"PlaneInfo":             world.PlaneInfo,
-		"PlayerAppearances":     world.PlayerAppearances,
-		"PlayerChat":            world.PlayerChat,
-		"PlayerDamage":          world.PlayerDamage,
-		"PlayerPositions":       world.PlayerPositions,
-		"PlayerStat":            world.PlayerStat,
-		"PlayerStats":           world.PlayerStats,
-		"PrivacySettings":       world.PrivacySettings,
-		"PrivateMessage":        world.PrivateMessage,
-		"ResponsePong":          world.ResponsePong,
-		"ServerMessage":         world.ServerMessage,
-		"TeleBubble":            world.TeleBubble,
-		"TradeAccept":           world.TradeAccept,
-		"TradeClose":            world.TradeClose,
-		"TradeConfirmationOpen": world.TradeConfirmationOpen,
-		"TradeOpen":             world.TradeOpen,
-		"TradeTargetAccept":     world.TradeTargetAccept,
-		"TradeUpdate":           world.TradeUpdate,
-		"WelcomeMessage":        world.WelcomeMessage,
-	}, nil)
-	if err != nil {
-		log.Warning.Println("Error initializing VM parameters:", err)
-		return nil
-	}
-	env, err = env.AddPackage("bind", map[string]interface{}{
-		"onLogin": func(fn func(player *world.Player)) {
+	env.Packages["bind"] = map[string] reflect.Value {
+		"onLogin": reflect.ValueOf(func(fn func(player *world.Player)) {
 			LoginTriggers = append(LoginTriggers, fn)
-		},
-		"invOnBoundary": func(fn func(player *world.Player, boundary *world.Object, item *world.Item) bool) {
+		}),
+		"invOnBoundary": reflect.ValueOf(func(fn func(player *world.Player, boundary *world.Object, item *world.Item) bool) {
 			InvOnBoundaryTriggers = append(InvOnBoundaryTriggers, fn)
-		},
-		"invOnObject": func(fn func(player *world.Player, boundary *world.Object, item *world.Item) bool) {
+		}),
+		"invOnObject": reflect.ValueOf(func(fn func(player *world.Player, boundary *world.Object, item *world.Item) bool) {
 			InvOnObjectTriggers = append(InvOnObjectTriggers, fn)
-		},
-		"object": func(ident interface{}, fn func(player *world.Player, object *world.Object, click int)) {
+		}),
+		"object": reflect.ValueOf(func(ident interface{}, fn func(player *world.Player, object *world.Object, click int)) {
 			if id, ok := ident.(int64); ok {
 				ObjectTriggers[int(id)] = fn
 			}
@@ -356,8 +234,8 @@ func WorldModule() *vm.Env {
 			if name, ok := ident.(string); ok {
 				ObjectTriggers[name] = fn
 			}
-		},
-		"item": func(ident interface{}, fn func(player *world.Player, item *world.Item)) {
+		}),
+		"item": reflect.ValueOf(func(ident interface{}, fn func(player *world.Player, item *world.Item)) {
 			if id, ok := ident.(int64); ok {
 				InvTriggers[int(id)] = fn
 			}
@@ -374,8 +252,8 @@ func WorldModule() *vm.Env {
 			if name, ok := ident.(string); ok {
 				InvTriggers[name] = fn
 			}
-		},
-		"boundary": func(ident interface{}, fn func(player *world.Player, object *world.Object, click int)) {
+		}),
+		"boundary": reflect.ValueOf(func(ident interface{}, fn func(player *world.Player, object *world.Object, click int)) {
 			if id, ok := ident.(int64); ok {
 				BoundaryTriggers[int(id)] = fn
 			}
@@ -392,8 +270,8 @@ func WorldModule() *vm.Env {
 			if name, ok := ident.(string); ok {
 				BoundaryTriggers[name] = fn
 			}
-		},
-		"npc": func(ident interface{}, fn func(player *world.Player, npc *world.NPC)) {
+		}),
+		"npc": reflect.ValueOf(func(ident interface{}, fn func(player *world.Player, npc *world.NPC)) {
 			if id, ok := ident.(int64); ok {
 				NpcTriggers[id] = fn
 			}
@@ -405,8 +283,8 @@ func WorldModule() *vm.Env {
 			if name, ok := ident.(string); ok {
 				NpcTriggers[name] = fn
 			}
-		},
-		"npcAttack": func(ident interface{}, fn func(player *world.Player, npc *world.NPC) bool) {
+		}),
+		"npcAttack": reflect.ValueOf(func(ident interface{}, fn func(player *world.Player, npc *world.NPC) bool) {
 			if id, ok := ident.(int64); ok {
 				NpcAtkTriggers[id] = fn
 			}
@@ -418,8 +296,8 @@ func WorldModule() *vm.Env {
 			if name, ok := ident.(string); ok {
 				NpcAtkTriggers[name] = fn
 			}
-		},
-		"npcKilled": func(ident interface{}, fn func(player *world.Player, npc *world.NPC)) {
+		}),
+		"npcKilled": reflect.ValueOf(func(ident interface{}, fn func(player *world.Player, npc *world.NPC)) {
 			if id, ok := ident.(int64); ok {
 				NpcDeathTriggers[id] = fn
 			}
@@ -431,77 +309,83 @@ func WorldModule() *vm.Env {
 			if name, ok := ident.(string); ok {
 				NpcDeathTriggers[name] = fn
 			}
-		},
-		"command": func(name string, fn func(p *world.Player, args []string)) {
+		}),
+		"command": reflect.ValueOf(func(name string, fn func(p *world.Player, args []string)) {
 			CommandHandlers[name] = fn
-		},
-	}, nil)
-	if err != nil {
-		log.Warning.Println("Error initializing VM parameters:", err)
-		return nil
+		}),
 	}
-	env, err = env.AddPackage("log", map[string]interface{}{
-		"debug":  log.Info.Println,
-		"debugf": log.Info.Printf,
-		"warn":   log.Warning.Println,
-		"warnf":  log.Warning.Printf,
-		"err":    log.Error.Println,
-		"errf":   log.Error.Printf,
-		"cheat":  log.Suspicious.Println,
-		"cheatf": log.Suspicious.Printf,
-		"cmd":    log.Commands.Println,
-		"cmdf":   log.Commands.Printf,
-	}, nil)
-	if err != nil {
-		log.Warning.Println("Error initializing VM parameters:", err)
-		return nil
+	env.Packages["log"] = map[string] reflect.Value {
+		"debug":  reflect.ValueOf(log.Info.Println),
+		"debugf": reflect.ValueOf(log.Info.Printf),
+		"warn":   reflect.ValueOf(log.Warning.Println),
+		"warnf":  reflect.ValueOf(log.Warning.Printf),
+		"err":    reflect.ValueOf(log.Error.Println),
+		"errf":   reflect.ValueOf(log.Error.Printf),
+		"cheat":  reflect.ValueOf(log.Suspicious.Println),
+		"cheatf": reflect.ValueOf(log.Suspicious.Printf),
+		"cmd":    reflect.ValueOf(log.Commands.Println),
+		"cmdf":   reflect.ValueOf(log.Commands.Printf),
 	}
-	err = env.DefineGlobal("sleep", time.Sleep)
-	if err != nil {
-		log.Warning.Println("Error initializing VM parameters:", err)
-		return nil
-	}
-	err = env.DefineGlobal("runAfter", time.AfterFunc)
-	if err != nil {
-		log.Warning.Println("Error initializing VM parameters:", err)
-		return nil
-	}
-	err = env.DefineGlobal("after", time.After)
-	if err != nil {
-		log.Warning.Println("Error initializing VM parameters:", err)
-		return nil
-	}
-	err = env.DefineGlobal("tMinute", time.Second*60)
-	if err != nil {
-		log.Warning.Println("Error initializing VM parameters:", err)
-		return nil
-	}
-	err = env.DefineGlobal("tHour", time.Second*60*60)
-	if err != nil {
-		log.Warning.Println("Error initializing VM parameters:", err)
-		return nil
-	}
-	err = env.DefineGlobal("tSecond", time.Second)
-	if err != nil {
-		log.Warning.Println("Error initializing VM parameters:", err)
-		return nil
-	}
-	err = env.DefineGlobal("tMillis", time.Millisecond)
-	if err != nil {
-		log.Warning.Println("Error initializing VM parameters:", err)
-		return nil
-	}
-	err = env.DefineGlobal("ChatDelay", time.Millisecond*1800)
-	if err != nil {
-		log.Warning.Println("Error initializing VM parameters:", err)
-		return nil
-	}
-	err = env.DefineGlobal("tNanos", time.Nanosecond)
-	if err != nil {
-		log.Warning.Println("Error initializing VM parameters:", err)
-		return nil
-	}
-	core.Import(env)
-	packages.DefineImport(env)
-	return env
+}
+
+func WorldModule() *env.Env {
+	e := env.NewEnv()
+	e.Define("sleep", time.Sleep)
+	e.Define("runAfter", time.AfterFunc)
+	e.Define("after", time.After)
+	e.Define("tMinute", time.Second*60)
+	e.Define("tHour", time.Second*60*60)
+	e.Define("tSecond", time.Second)
+	e.Define("tMillis", time.Millisecond)
+	e.Define("ChatDelay", time.Millisecond*1800)
+	e.Define("tNanos", time.Nanosecond)
+	e.Define("ATTACK", world.StatAttack)
+	e.Define("DEFENSE", world.StatDefense)
+	e.Define("STRENGTH", world.StatStrength)
+	e.Define("HITPOINTS", world.StatHits)
+	e.Define("RANGED", world.StatRanged)
+	e.Define("PRAYER", world.StatPrayer)
+	e.Define("MAGIC", world.StatMagic)
+	e.Define("COOKING", world.StatCooking)
+	e.Define("WOODCUTTING", world.StatWoodcutting)
+	e.Define("FLETCHING", world.StatFletching)
+	e.Define("FISHING", world.StatFishing)
+	e.Define("FIREMAKING", world.StatFiremaking)
+	e.Define("CRAFTING", world.StatCrafting)
+	e.Define("SMITHING", world.StatSmithing)
+	e.Define("MINING", world.StatMining)
+	e.Define("HERBLAW", world.StatHerblaw)
+	e.Define("AGILITY", world.StatAgility)
+	e.Define("THIEVING", world.StatThieving)
+	e.Define("itemDefs", world.ItemDefs)
+	e.Define("objectDefs", world.ObjectDefs)
+	e.Define("boundaryDefs", world.BoundaryDefs)
+	e.Define("npcDefs", world.NpcDefs)
+	e.Define("lvlToExp", world.LevelToExperience)
+	e.Define("expToLvl", world.ExperienceToLevel)
+	e.Define("withinWorld", world.WithinWorld)
+	e.Define("skillIndex", world.SkillIndex)
+	e.Define("newNpc", world.NewNpc)
+	e.Define("newObject", world.NewObject)
+	e.Define("base37", strutil.Base37.Encode)
+	e.Define("rand", rand.Int31N)
+	e.Define("North", world.North)
+	e.Define("NorthEast", world.NorthEast)
+	e.Define("NorthWest", world.NorthWest)
+	e.Define("South", world.South)
+	e.Define("SouthEast", world.SouthEast)
+	e.Define("SouthWest", world.SouthWest)
+	e.Define("East", world.East)
+	e.Define("West", world.West)
+	e.Define("parseDirection", world.ParseDirection)
+	e.Define("gatheringSuccess", func(req, cur int) bool {
+		roll := float64(rand.Int31N(1, 128))
+		if cur < req {
+			return false
+		}
+		threshold := math.Min(127, math.Max(float64(1), (float64(cur)+40)-(float64(req)*1.5)))
+		return roll <= threshold
+	})
+	e = core.Import(e)
+	return e
 }

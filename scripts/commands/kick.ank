@@ -1,15 +1,19 @@
+bind = import("bind")
 strings = import("strings")
+world = import("world")
 
 bind.command("kick", func(player, args) {
   	if len(args) < 1 {
   		player.Message("Invalid args.  Usage: ::kick <username>")
   		return
   	}
-	target, ok = getPlayerByName(base37(strings.TrimSpace(strings.Join(args, " "))))
+	target, ok = world.getPlayerByName(base37(strings.TrimSpace(strings.Join(args, " "))))
 	if target == nil || !ok {
   		player.Message("Could not find player.")
 		return
 	}
 	player.Message("Kicking: '" + target.Username + "'")
-	kick(target)
+	go runAfter(tMillis*100, func() {
+		world.kickPlayer(target)
+	})
 })

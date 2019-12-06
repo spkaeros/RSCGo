@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/mattn/anko/vm"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
@@ -57,7 +58,7 @@ func Run(fnName string, player *world.Player, argName string, arg interface{}) b
 		if !strings.Contains(s, fnName) {
 			continue
 		}
-		stopPipeline, err := env.Execute(s +
+		stopPipeline, err := vm.Execute(env, nil, s +
 			`
 ` + fnName + `()`)
 		if err != nil {
@@ -96,7 +97,7 @@ func Load() {
 		}
 		if !info.IsDir() && strings.HasSuffix(path, "ank") {
 			env := WorldModule()
-			_, err := env.Execute(load(path))
+			_, err := vm.Execute(env, nil, load(path))
 			if err != nil {
 				log.Info.Println("Anko scripting error in '"+path+"':", err.Error())
 				return nil

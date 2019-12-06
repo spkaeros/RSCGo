@@ -1,3 +1,7 @@
+bind = import("bind")
+log = import("log")
+world = import("world")
+
 bind.invOnBoundary(func(player, object, item) {
 	log.debugf("%d\n", object.ID)
 	if object.ID == 24 && item.WieldPos() == 4 {
@@ -7,10 +11,10 @@ bind.invOnBoundary(func(player, object, item) {
 		// 25% chance
 		if rand(1, 4) != 1 {
 			player.Message("You slice through the web.")
-			removeObject(object)
+			world.removeObject(object)
 			go func() {
 				sleep(tSecond*15)
-				addObject(object)
+				world.addObject(object)
 			}()
 		} else {
 			player.Message("You fail to cut through it.")

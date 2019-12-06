@@ -1,3 +1,5 @@
+bind = import("bind")
+
 bind.object([200, 19], func(player, object, click) {
 	max = player.Skills().Maximum(PRAYER)
 	if object.ID == 200 {

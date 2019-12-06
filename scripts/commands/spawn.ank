@@ -1,3 +1,7 @@
+bind = import("bind")
+log = import("log")
+world = import("world")
+
 bind.command("npc", func(player, args) {
 	if len(args) < 1 {
 		player.Message("Invalid syntax.  Usage: ::npc <id> (<radius>)")
@@ -15,7 +19,7 @@ bind.command("npc", func(player, args) {
 			rad = 0
 		}
 
-		addNpc(newNpc(id, x, y, x-rad, x+rad, y-rad, y+rad))
+		world.addNpc(newNpc(id, x, y, x-rad, x+rad, y-rad, y+rad))
 		log.cmdf("'%v' spawned a new NPC{id:%v, rad:%v} at %v,%v", player.String(), id, rad, x, y)
 	} catch {
 		player.Message("Invalid syntax.  Usage: ::npc <id> (<radius>)")
@@ -45,7 +49,7 @@ bind.command("item", func(player, args) {
 bind.command("object", func(player, args) {
 	x = player.X()
 	y = player.Y()
-	if getObjectAt(x, y) != nil {
+	if world.getObjectAt(x, y) != nil {
 		player.Message("There is already an object here.")
 		return
 	}
@@ -55,7 +59,7 @@ bind.command("object", func(player, args) {
 		if len(args) > 1 {
 			dir = parseDirection(args[1])
 		}
-		addObject(newObject(id, North, x, y, false))
+		world.addObject(newObject(id, North, x, y, false))
 		log.cmdf("'%v' spawned a new object{id:%v, dir:%v} at %v,%v", player.String(), id, dir, x, y)
 	} catch e {
 		player.Message("Invalid syntax.  Usage: ::object <id> (<dir>)")
@@ -72,20 +76,20 @@ bind.command("dobj", func(player, args) {
 	}
 	x = toInt(args[0])
 	y = toInt(args[1])
-	object = getObjectAt(x, y)
+	object = world.getObjectAt(x, y)
 	if object == nil {
 		player.Message("Can not find object.")
 		return
 	}
 
 	log.cmdf("%v deleted object %v", player, object)
-	removeObject(object)
+	world.removeObject(object)
 })
 
 bind.command("boundary", func(player, args) {
 	x = player.X()
 	y = player.Y()
-	if getObjectAt(x, y) != nil {
+	if world.getObjectAt(x, y) != nil {
 		player.Message("There is already an object here.")
 		return
 	}
@@ -95,7 +99,7 @@ bind.command("boundary", func(player, args) {
 		if len(args) > 1 {
 			dir = parseDirection(args[1])
 		}
-		addObject(newObject(id, North, x, y, true))
+		world.addObject(newObject(id, North, x, y, true))
 		log.cmdf("'%v' spawned a new boundary{id:%v, dir:%v} at %v,%v", player.String(), id, dir, x, y)
 	} catch e {
 		player.Message("Invalid syntax.  Usage: ::boundary <id> (<dir>)")
