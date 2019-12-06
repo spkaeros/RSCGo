@@ -20,13 +20,23 @@ bind.object(keys(defs), func(player, object, click) {
 		player.Message("You need at least level " + toString(fish.lvl) + " to " + (cmd != "cage" ? cmd : "catch") + " " + (cmd != "cage" ? "these fish" : (fishName + "s")))
 		return
 	}
+	if fishDef[click].bait >= 0 {
+		if player.Inventory.CountID(fishDef[click].bait) <= 0 {
+			player.Message("You don't have any " + strings.ToLower(itemDefs[fishDef[click].bait].Name) + " left")
+			return
+		}
+	}
 	player.PlaySound("fishing")
 	player.ItemBubble(fishDef[click].net)
 	player.Message("You attempt to catch " + (fishDef[click].net == ids.NET ? "some" : "a") + " " + (fishDef[click].net == ids.LOBSTER_POT ? "lobster" : "fish"))
 	sleep(tMillis*1800)
 
+
 	if gatheringSuccess(fish.lvl, player.Skills().Current(FISHING)) && getObjectAt(object.X(), object.Y()) == object {
-		player.Message("You catch some " + strings.Replace(strings.ToLower(itemDefs[fish.id].Name), "raw ", "", -1))
+		if fishDef[click].bait >= 0 {
+			player.RemoveItemByID(fishDef[click].bait, 1)
+		}
+		player.Message("You catch " + (fishDef[click].net == ids.NET ? "some" : "a") + " " + (fishDef[click].net == ids.LOBSTER_POT ? "lobster" : "fish"))
 		player.AddItem(fish.id, 1)
 		player.IncExp(FISHING, fish.exp)
 		return

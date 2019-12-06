@@ -177,6 +177,7 @@ func WorldModule() *vm.Env {
 		"BOOTS":               17,
 		"SEAWEED":             622,
 		"OYSTER":              793,
+		"CASKET":              549,
 		"RAW_RAT_MEAT":        503,
 		"RAW_SHRIMP":          349,
 		"RAW_ANCHOVIES":       351,
@@ -321,7 +322,6 @@ func WorldModule() *vm.Env {
 			InvOnObjectTriggers = append(InvOnObjectTriggers, fn)
 		},
 		"object": func(ident interface{}, fn func(player *world.Player, object *world.Object, click int)) {
-			log.Info.Printf("%T", ident)
 			if id, ok := ident.(int64); ok {
 				ObjectTriggers[int(id)] = fn
 			}
