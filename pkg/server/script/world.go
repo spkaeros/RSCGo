@@ -48,7 +48,7 @@ func WorldModule() *vm.Env {
 		"newLocation":     world.NewLocation,
 		"checkCollisions": world.IsTileBlocking,
 		"tileData":        world.CollisionData,
-		"objectDefs":      world.Objects,
+		"objectDefs":      world.ObjectDefs,
 		"objects":         world.Npcs,
 		"boundaryDefs":    world.BoundaryDefs,
 		"npcDefs":         world.NpcDefs,

@@ -16,8 +16,8 @@ type ObjectDefinition struct {
 	Length        int
 }
 
-//Objects This holds the defining characteristics for all of the game's scene objects, ordered by ID.
-var Objects []ObjectDefinition
+//ObjectDefs This holds the defining characteristics for all of the game's scene objects, ordered by ID.
+var ObjectDefs []ObjectDefinition
 
 //Object Represents a game object in the world.
 type Object struct {
@@ -49,9 +49,12 @@ func (o *Object) Name() string {
 		if o.ID < 0 || o.ID > 1188 {
 			return "nil"
 		}
-		return Objects[o.ID].Name
+		return ObjectDefs[o.ID].Name
 	}
-	return "nil"
+	if o.ID < 0 || o.ID >= len(BoundaryDefs) {
+		return "nil"
+	}
+	return BoundaryDefs[o.ID].Name
 }
 
 //Name checks if an object definition exists for this object, and if so returns the name associated with it.
@@ -60,9 +63,12 @@ func (o *Object) Command1() string {
 		if o.ID < 0 || o.ID > 1188 {
 			return "nil"
 		}
-		return Objects[o.ID].Commands[0]
+		return ObjectDefs[o.ID].Commands[0]
 	}
-	return "nil"
+	if o.ID < 0 || o.ID >= len(BoundaryDefs) {
+		return "nil"
+	}
+	return BoundaryDefs[o.ID].Commands[0]
 }
 
 func (o *Object) Command2() string {
@@ -70,9 +76,12 @@ func (o *Object) Command2() string {
 		if o.ID < 0 || o.ID > 1188 {
 			return "nil"
 		}
-		return Objects[o.ID].Commands[1]
+		return ObjectDefs[o.ID].Commands[1]
 	}
-	return "nil"
+	if o.ID < 0 || o.ID >= len(BoundaryDefs) {
+		return "nil"
+	}
+	return BoundaryDefs[o.ID].Commands[1]
 }
 
 func (o *Object) Width() int {
@@ -80,7 +89,7 @@ func (o *Object) Width() int {
 		if o.ID < 0 || o.ID > 1188 {
 			return 1
 		}
-		return Objects[o.ID].Width
+		return ObjectDefs[o.ID].Width
 	}
 	return 1
 }
@@ -90,7 +99,7 @@ func (o *Object) Height() int {
 		if o.ID < 0 || o.ID > 1188 {
 			return 1
 		}
-		return Objects[o.ID].Height
+		return ObjectDefs[o.ID].Height
 	}
 	return 1
 }
@@ -102,14 +111,14 @@ func (o *Object) Boundaries() [2]Location {
 	maxX := minX
 	maxY := minY
 	if !o.Boundary {
-		width := Objects[o.ID].Width
-		height := Objects[o.ID].Height
+		width := ObjectDefs[o.ID].Width
+		height := ObjectDefs[o.ID].Height
 		if dir != 0 && dir != 4 {
-			width = Objects[o.ID].Height
-			height = Objects[o.ID].Width
+			width = ObjectDefs[o.ID].Height
+			height = ObjectDefs[o.ID].Width
 		}
 
-		if Objects[o.ID].Type == 2 || Objects[o.ID].Type == 3 {
+		if ObjectDefs[o.ID].Type == 2 || ObjectDefs[o.ID].Type == 3 {
 			if dir == 0 {
 				width++
 				minX--

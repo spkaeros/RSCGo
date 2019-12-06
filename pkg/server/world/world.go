@@ -86,7 +86,7 @@ func RemoveItem(i *GroundItem) {
 func AddObject(o *Object) {
 	getRegion(o.X(), o.Y()).Objects.Add(o)
 	if !o.Boundary {
-		def := Objects[o.ID]
+		def := ObjectDefs[o.ID]
 		if def.Type != 1 && def.Type != 2 {
 			return
 		}
@@ -164,7 +164,7 @@ func AddObject(o *Object) {
 func RemoveObject(o *Object) {
 	getRegion(o.X(), o.Y()).Objects.Remove(o)
 	if !o.Boundary {
-		def := Objects[o.ID]
+		def := ObjectDefs[o.ID]
 		if def.Type != 1 && def.Type != 2 {
 			return
 		}

@@ -23,7 +23,7 @@ func LoadObjectDefinitions() {
 		for i, c := range nextDef.Commands {
 			nextDef.Commands[i] = strings.ToLower(c)
 		}
-		world.Objects = append(world.Objects, nextDef)
+		world.ObjectDefs = append(world.ObjectDefs, nextDef)
 	}
 }
 

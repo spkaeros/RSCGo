@@ -33,7 +33,7 @@ func init() {
 		}
 		bounds := object.Boundaries()
 		player.SetDistancedAction(func() bool {
-			if world.Objects[object.ID].Type == 2 || world.Objects[object.ID].Type == 3 {
+			if world.ObjectDefs[object.ID].Type == 2 || world.ObjectDefs[object.ID].Type == 3 {
 				if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
 					player.ResetPath()
 					objectAction(player, object, 0)
@@ -64,7 +64,7 @@ func init() {
 		}
 		bounds := object.Boundaries()
 		player.SetDistancedAction(func() bool {
-			if world.Objects[object.ID].Type == 2 || world.Objects[object.ID].Type == 3 {
+			if world.ObjectDefs[object.ID].Type == 2 || world.ObjectDefs[object.ID].Type == 3 {
 				if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
 					player.ResetPath()
 					objectAction(player, object, 1)
@@ -297,7 +297,7 @@ func init() {
 		invItem := player.Inventory.Get(invIndex)
 		bounds := object.Boundaries()
 		player.SetDistancedAction(func() bool {
-			if world.Objects[object.ID].Type == 2 || world.Objects[object.ID].Type == 3 {
+			if world.ObjectDefs[object.ID].Type == 2 || world.ObjectDefs[object.ID].Type == 3 {
 				if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
 					player.ResetPath()
 					player.AddState(world.MSBusy)
