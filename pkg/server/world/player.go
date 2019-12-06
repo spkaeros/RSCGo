@@ -788,6 +788,12 @@ func (p *Player) SetCurStat(idx int, lvl int) {
 	p.SendStat(idx)
 }
 
+//IncCurStat sets this players current stat at idx to Current(idx)+lvl and updates the client about it.
+func (p *Player) IncCurStat(idx int, lvl int) {
+	p.Skills().IncreaseCur(idx, lvl)
+	p.SendStat(idx)
+}
+
 //SetCurStat sets this players current stat at idx to lvl and updates the client about it.
 func (p *Player) IncExp(idx int, amt int) {
 	p.Skills().IncExp(idx, amt)

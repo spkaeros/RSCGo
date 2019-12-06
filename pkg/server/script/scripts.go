@@ -10,26 +10,26 @@
 package script
 
 import (
-	"context"
-	"github.com/spkaeros/rscgo/pkg/server/log"
-	"github.com/spkaeros/rscgo/pkg/server/world"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
+
+	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 var Scripts []string
 
 var EngineChannel = make(chan func(), 20)
-var InvTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
+//var InvTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 //var BoundaryTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 
 //var NpcTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 var LoginTriggers []func(player *world.Player)
 var InvOnBoundaryTriggers []func(player *world.Player, object *world.Object, item *world.Item) bool
 var InvOnObjectTriggers []func(player *world.Player, object *world.Object, item *world.Item) bool
+var InvTriggers = make(map[interface{}]func(player *world.Player, item *world.Item))
 var ObjectTriggers = make(map[interface{}]func(*world.Player, *world.Object, int))
 var BoundaryTriggers = make(map[interface{}]func(*world.Player, *world.Object, int))
 var NpcTriggers = make(map[interface{}]func(*world.Player, *world.NPC))
@@ -74,7 +74,8 @@ func Run(fnName string, player *world.Player, argName string, arg interface{}) b
 }
 
 func Clear() {
-	InvTriggers = InvTriggers[:0]
+	//InvTriggers = InvTriggers[:0]
+	InvTriggers = make(map[interface{}]func(*world.Player, *world.Item))
 	//BoundaryTriggers = BoundaryTriggers[:0]
 	ObjectTriggers = make(map[interface{}]func(*world.Player, *world.Object, int))
 	BoundaryTriggers = make(map[interface{}]func(*world.Player, *world.Object, int))
@@ -97,13 +98,8 @@ func Load() {
 			env := WorldModule()
 			_, err := env.Execute(load(path))
 			if err != nil {
-				log.Info.Println("Unrecognized Anko error when attempting to execute '"+path+"':", err)
+				log.Info.Println("Anko scripting error in '"+path+"':", err.Error())
 				return nil
-			}
-			fn, err := env.Get("invAction")
-			action, ok := fn.(func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
-			if ok {
-				InvTriggers = append(InvTriggers, action)
 			}
 		}
 		return nil

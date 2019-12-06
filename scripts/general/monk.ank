@@ -1,3 +1,5 @@
+math = import("math")
+
 bind.npc([93, 174], func(player, npc) {
 	npc.Chat(player, "Greetings traveller")
 	switch player.OpenOptionMenu("Can you heal me? I'm injured", "Isn't this place built a bit out the way?") {
@@ -6,9 +8,10 @@ bind.npc([93, 174], func(player, npc) {
 		player.Message("The monk places his hands on your head")
 		sleep(tMillis*1800)
 		player.Message("You feel a little better")
-		deltaHp = player.Skills().Maximum(HITPOINTS) - player.Skills().Current(HITPOINTS)
+		deltaHp = player.Skills().DeltaMax(HITPOINTS)
 		if deltaHp > 0 {
-			player.SetCurStat(HITPOINTS, deltaHp < 5 ? player.Skills().Current(HITPOINTS) + deltaHp : player.Skills().Current(HITPOINTS) + 5)
+			// at most, we can have max hits, no more.
+			player.IncCurStat(HITPOINTS, math.Min(5, deltaHp))
 		}
 	case 1:
 		npc.Chat(player, "We like it that way", "We get disturbed less",

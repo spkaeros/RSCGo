@@ -10,12 +10,12 @@
 package packethandlers
 
 import (
-	"context"
+	"strings"
+
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
-	"reflect"
 )
 
 func init() {
@@ -122,23 +122,22 @@ func init() {
 				defer func() {
 					player.RemoveState(world.MSBusy)
 				}()
-				for _, fn := range script.InvTriggers {
-					ran, err := fn(context.Background(), reflect.ValueOf(player), reflect.ValueOf(item))
-					if !ran.IsValid() {
-						continue
-					}
-					if !err.IsNil() {
-						log.Info.Println(err)
-						continue
-					}
-					if ran.Bool() {
-						return
-					}
+				fn, ok := script.InvTriggers[item.ID]
+				if ok {
+					fn(player, item)
+					return
+				}
+				fn, ok = script.InvTriggers[strings.ToLower(item.Name())]
+				if ok {
+					fn(player, item)
+					return
+				}
+				fn, ok = script.InvTriggers[strings.ToLower(item.Command())]
+				if ok {
+					fn(player, item)
+					return
 				}
 				player.SendPacket(world.DefaultActionMessage)
-				//				if !script.Run("invAction", player, "item", item) {
-				//					player.SendPacket(world.DefaultActionMessage)
-				//				}
 			}()
 		}
 	}

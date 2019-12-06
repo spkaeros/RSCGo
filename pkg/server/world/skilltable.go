@@ -50,6 +50,11 @@ func (s *SkillTable) Current(idx int) int {
 	return s.current[idx]
 }
 
+//DeltaMax returns the delta between maximum and current for the skill at idx.
+func (s *SkillTable) DeltaMax(idx int) int {
+	return s.Maximum(idx) - s.Current(idx)
+}
+
 //DecreaseCur decreases the current level of the skill at idx by delta
 func (s *SkillTable) DecreaseCur(idx, delta int) {
 	s.lock.Lock()

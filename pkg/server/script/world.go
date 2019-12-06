@@ -341,6 +341,24 @@ func WorldModule() *vm.Env {
 				ObjectTriggers[name] = fn
 			}
 		},
+		"item": func(ident interface{}, fn func(player *world.Player, item *world.Item)) {
+			if id, ok := ident.(int64); ok {
+				InvTriggers[int(id)] = fn
+			}
+			if ids, ok := ident.([]interface{}); ok {
+				for _, id := range ids {
+					s, ok := id.(string)
+					if !ok {
+						InvTriggers[int(id.(int64))] = fn
+					} else {
+						InvTriggers[s] = fn
+					}
+				}
+			}
+			if name, ok := ident.(string); ok {
+				InvTriggers[name] = fn
+			}
+		},
 		"boundary": func(ident interface{}, fn func(player *world.Player, object *world.Object, click int)) {
 			if id, ok := ident.(int64); ok {
 				BoundaryTriggers[int(id)] = fn

@@ -65,6 +65,13 @@ func (i *Item) Name() string {
 	return ItemDefs[i.ID].Name
 }
 
+func (i *Item) Command() string {
+	if i.ID >= len(ItemDefs) || i.ID < 0 {
+		return "nil"
+	}
+	return ItemDefs[i.ID].Command
+}
+
 func (i *Item) WieldPos() int {
 	if i.ID >= len(ItemDefs) || i.ID < 0 {
 		return -1
