@@ -108,6 +108,22 @@ func NpcDamage(victim *NPC, damage int) *packet.Packet {
 	return p
 }
 
+func SleepWord(player *Player) *packet.Packet {
+	p := packet.NewOutgoingPacket(117)
+	// TODO: Figure this out
+	return p
+}
+
+func SleepFatigue(player *Player) *packet.Packet {
+	p := packet.NewOutgoingPacket(244)
+	p.AddShort(uint16(player.TransAttrs.VarInt("sleepFatigue", 0)))
+	return p
+}
+
+var SleepClose = packet.NewOutgoingPacket(84)
+
+var SleepWrong = packet.NewOutgoingPacket(194)
+
 func NpcMessage(sender *NPC, message string, target *Player) (p *packet.Packet) {
 	p = packet.NewOutgoingPacket(104)
 	p.AddShort(1)

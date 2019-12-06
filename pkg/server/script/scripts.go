@@ -24,13 +24,14 @@ var Scripts []string
 
 var EngineChannel = make(chan func(), 20)
 var InvTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
-var BoundaryTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
+//var BoundaryTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 
 //var NpcTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 var LoginTriggers []func(player *world.Player)
 var InvOnBoundaryTriggers []func(player *world.Player, object *world.Object, item *world.Item) bool
 var InvOnObjectTriggers []func(player *world.Player, object *world.Object, item *world.Item) bool
 var ObjectTriggers = make(map[interface{}]func(*world.Player, *world.Object, int))
+var BoundaryTriggers = make(map[interface{}]func(*world.Player, *world.Object, int))
 var NpcTriggers = make(map[interface{}]func(*world.Player, *world.NPC))
 var NpcAtkTriggers = make(map[interface{}]func(*world.Player, *world.NPC) bool)
 var NpcDeathTriggers = make(map[interface{}]func(*world.Player, *world.NPC))
@@ -74,8 +75,9 @@ func Run(fnName string, player *world.Player, argName string, arg interface{}) b
 
 func Clear() {
 	InvTriggers = InvTriggers[:0]
-	BoundaryTriggers = BoundaryTriggers[:0]
+	//BoundaryTriggers = BoundaryTriggers[:0]
 	ObjectTriggers = make(map[interface{}]func(*world.Player, *world.Object, int))
+	BoundaryTriggers = make(map[interface{}]func(*world.Player, *world.Object, int))
 	NpcTriggers = make(map[interface{}]func(*world.Player, *world.NPC))
 	NpcDeathTriggers = make(map[interface{}]func(*world.Player, *world.NPC))
 	NpcAtkTriggers = make(map[interface{}]func(*world.Player, *world.NPC) bool)
@@ -102,11 +104,6 @@ func Load() {
 			action, ok := fn.(func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
 			if ok {
 				InvTriggers = append(InvTriggers, action)
-			}
-			fn, err = env.Get("boundaryAction")
-			action, ok = fn.(func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value))
-			if ok {
-				BoundaryTriggers = append(BoundaryTriggers, action)
 			}
 		}
 		return nil

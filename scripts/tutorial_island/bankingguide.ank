@@ -23,3 +23,20 @@ bind.npc(485, func(player, npc) {
 		}
 	}
 })
+
+bind.boundary(83, func(player, object, click) {
+	if object.X() == 204 && object.Y() == 752 {
+		// tut island mining to bankers
+		if toInt(player.Cache("tutorial")) < 60 {
+			player.Message("You should speak to the bank assistant before going through this door")
+			return
+		}
+		player.PlaySound("opendoor")
+		old = replaceObject(object, 11)
+		player.Teleport(player.X() > 203 ? 203 : 204, 752)
+		go runAfter(3*tSecond, func() {
+			player.PlaySound("closedoor")
+			replaceObject(old, 83)
+		})
+	}
+})

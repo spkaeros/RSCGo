@@ -10,12 +10,12 @@
 package packethandlers
 
 import (
-	"context"
+	"strings"
+
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
-	"reflect"
 )
 
 func init() {
@@ -96,7 +96,7 @@ func init() {
 		player.SetDistancedAction(func() bool {
 			if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
 				player.ResetPath()
-				boundaryAction(player, object)
+				boundaryAction(player, object, 1)
 				return true
 			}
 			return false
@@ -118,7 +118,7 @@ func init() {
 		player.SetDistancedAction(func() bool {
 			if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
 				player.ResetPath()
-				boundaryAction(player, object)
+				boundaryAction(player, object, 0)
 				return true
 			}
 			return false
@@ -376,7 +376,7 @@ func objectAction(player *world.Player, object *world.Object, click int) {
 	}()
 }
 
-func boundaryAction(player *world.Player, object *world.Object) {
+func boundaryAction(player *world.Player, object *world.Object, click int) {
 	if player.Busy() || world.GetObject(object.X(), object.Y()) != object {
 		// If somehow we became busy, the object changed before arriving, we do nothing.
 		return
@@ -386,18 +386,26 @@ func boundaryAction(player *world.Player, object *world.Object) {
 		defer func() {
 			player.RemoveState(world.MSBusy)
 		}()
-		for _, fn := range script.BoundaryTriggers {
-			ran, err := fn(context.Background(), reflect.ValueOf(player), reflect.ValueOf(object))
-			if !ran.IsValid() {
-				continue
-			}
-			if !err.IsNil() {
-				log.Info.Println(err)
-				continue
-			}
-			if ran.Bool() {
-				return
-			}
+
+		fn, ok := script.BoundaryTriggers[object.ID]
+		if ok {
+			fn(player, object, click)
+			return
+		}
+		fn, ok = script.BoundaryTriggers[strings.ToLower(object.Name())]
+		if ok {
+			fn(player, object, click)
+			return
+		}
+		fn, ok = script.BoundaryTriggers[strings.ToLower(object.Command1())]
+		if ok {
+			fn(player, object, click)
+			return
+		}
+		fn, ok = script.BoundaryTriggers[strings.ToLower(object.Command2())]
+		if ok {
+			fn(player, object, click)
+			return
 		}
 		player.SendPacket(world.DefaultActionMessage)
 		//		if !script.Run("boundaryAction", player, "object", object) {

@@ -970,3 +970,8 @@ func (p *Player) Cache(name string) interface{} {
 	}
 	return int64(0)
 }
+
+func (p *Player) OpenSleepScreen() {
+	p.AddState(MSSleeping)
+	p.SendPacket(SleepWord(p))
+}

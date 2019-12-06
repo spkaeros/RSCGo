@@ -25,3 +25,19 @@ bind.npc(489, func(player, npc) {
 		player.SetCache("tutorial", 65)
 	}
 })
+
+bind.boundary(84, func(player, object, click) {
+	if object.X() == 209 && object.Y() == 754 {
+		if toInt(player.Cache("tutorial")) < 65 {
+			player.Message("You should speak to the quest advisor before going through this door")
+			return
+		}
+		player.PlaySound("opendoor")
+		old = replaceObject(object, 11)
+		player.Teleport(209, player.Y() > 753 ? 753 : 754)
+		go runAfter(3*tSecond, func() {
+			player.PlaySound("closedoor")
+			replaceObject(old, 84)
+		})
+	}
+})

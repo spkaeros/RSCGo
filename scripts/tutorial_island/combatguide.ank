@@ -38,9 +38,9 @@ bind.npc(474, func(player, npc) {
 		}
 	} else if toInt(player.Cache("tutorial")) >= 20 {
 		npc.Chat(player, "Well done you're a born fighter", "As you kill things", "Your combat experience will go up",
-				"this expereince will slowly cause you to get tougher",
+				"this experience will slowly cause you to get tougher",
 				"eventually you will be able to take on stronger enemies", "Such as those found in dungeons",
-				"Now contine to the building to the northeast")
+				"Now continue to the building to the northeast")
 		if toInt(player.Cache("tutorial")) < 25 {
 			player.SetCache("tutorial", 25)
 		}
@@ -65,5 +65,22 @@ bind.npcKilled(473, func(player, npc) {
 		player.Message("Well done you've killed the rat")
 		sleep(1200*tMillis)
 		player.Message("Now speak to the combat instructor again")
+	}
+})
+
+bind.boundary(77, func(player, object, click) {
+	if object.X() == 220 && object.Y() == 727 {
+		// tut island mining to bankers
+		if toInt(player.Cache("tutorial")) < 25 {
+			player.Message("You should speak to the combat instructor before going through this door")
+			return
+		}
+		player.PlaySound("opendoor")
+		old = replaceObject(object, 11)
+		player.Teleport(player.X() > 219 ? 219 : 220, 727)
+		go runAfter(3*tSecond, func() {
+			player.PlaySound("closedoor")
+			replaceObject(old, 77)
+		})
 	}
 })

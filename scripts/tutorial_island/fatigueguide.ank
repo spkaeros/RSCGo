@@ -33,3 +33,20 @@ bind.npc(774, func(player, npc) {
 				"You can now go through the next door")
 	}
 })
+
+bind.boundary(89, func(player, object, click) {
+	if object.X() == 226 && object.Y() == 760 {
+		// TODO: Magic guide
+		if toInt(player.Cache("tutorial")) < 90 {
+			player.Message("You should speak to the fatigue expert before going through this door")
+			return
+		}
+		player.PlaySound("opendoor")
+		old = replaceObject(object, 11)
+		player.Teleport(player.X() > 225 ? 225 : 226, 760)
+		go runAfter(3*tSecond, func() {
+			player.PlaySound("closedoor")
+			replaceObject(old, 89)
+		})
+	}
+})

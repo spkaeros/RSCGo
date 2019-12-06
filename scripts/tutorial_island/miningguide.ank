@@ -87,3 +87,21 @@ bind.object(496, func(player, object, click) {
 		player.Message("You fail to make any real impact on the rock")
 	}
 })
+
+bind.boundary(82, func(player, object, click) {
+	if object.X() == 198 && object.Y() == 746 {
+		// tut island mining to bankers
+		if toInt(player.Cache("tutorial")) < 55 {
+			player.Message("You should speak to the mining instructor before going through this door")
+			return
+		}
+		player.PlaySound("opendoor")
+		old = replaceObject(object, 11)
+		player.Teleport(198, player.Y() > 745 ? 745 : 746)
+		go runAfter(3*tSecond, func() {
+			player.PlaySound("closedoor")
+			replaceObject(old, 82)
+		})
+	}
+})
+

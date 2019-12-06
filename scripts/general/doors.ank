@@ -1,5 +1,5 @@
 doors = {59: 60, 57: 58, 63: 64}
-bind.object(["open","close"], func(player, object, click) {
+bind.object(["open", "close"], func(player, object, click) {
 	for open, closed in doors {
 		if object.ID == open {
 			player.PlaySound("opendoor")
@@ -9,9 +9,10 @@ bind.object(["open","close"], func(player, object, click) {
 			replaceObject(object, open)
 		}
 	}
+	log.debugf("unhandled door obj: %v click=%d\n", object, click)
 })
 
-func boundaryAction(player, object) {
+bind.boundary(["open", "close"], func(player, object, click) {
 	doors = {1: 2}
 	if object.ID == 109 {
 		player.PlaySound("opendoor")
@@ -21,18 +22,18 @@ func boundaryAction(player, object) {
 			player.PlaySound("closedoor")
 			replaceObject(old, 109)
 		})
-		return true
+		return
 	}
 	for open, closed in doors {
 		if object.ID == open {
 			player.PlaySound("opendoor")
 			replaceObject(object, closed)
-			return true
+			return
 		} else if object.ID == closed {
 			player.PlaySound("closedoor")
 			replaceObject(object, open)
-			return true
+			return
 		}
 	}
-	return false
-}
+	log.debugf("unhandled door: %v click=%d\n", object, click)
+})

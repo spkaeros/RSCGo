@@ -61,8 +61,8 @@ bind.command("tile", func(player, args) {
 	areaX = (2304 + player.X()) % 48
 	areaY = (1776 + player.Y() - (944 * player.Plane())) % 48
 	tile = tileData(player.X(), player.Y())
-	player.Message(fmt.Sprintf("@que@worldX,Y:(%v,%v) Sector(%v sectorX,Y:(%v,%v)): overlay:removed, bitmask:%v",
-			player.X(), player.Y(), mapSector, areaX, areaY, tile.CollisionMask))
+	player.Message(fmt.Sprintf("@que@worldX,Y:(%v,%v) Sector(%v sectorX,Y:(%v,%v)): obj:%v, bitmask:%v",
+			player.X(), player.Y(), mapSector, areaX, areaY, getObjectAt(player.X(), player.Y()), tile.CollisionMask))
 })
 
 bind.command("goup", func(player, args) {

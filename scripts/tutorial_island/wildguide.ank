@@ -47,4 +47,35 @@ bind.npc(493, func(player, npc) {
 	}
 })
 
-// TODO: Magic guide
+bind.boundary(85, func(player, object, click) {
+	if object.X() == 217 && object.Y() == 760 {
+		// tut island mining to bankers
+		if toInt(player.Cache("tutorial")) < 70 {
+			player.Message("You should speak to the wilderness guide before going through this door")
+			return
+		}
+		player.PlaySound("opendoor")
+		old = replaceObject(object, 11)
+		player.Teleport(player.X() > 216 ? 216 : 217, 760)
+		go runAfter(3*tSecond, func() {
+			player.PlaySound("closedoor")
+			replaceObject(old, 85)
+		})
+	}
+})
+
+bind.boundary(88, func(player, object, click) {
+	if object.X() == 222 && object.Y() == 760 {
+		if toInt(player.Cache("tutorial")) < 80 {
+			player.Message("You should speak to the magic instructor before going through this door")
+			return
+		}
+		player.PlaySound("opendoor")
+		old = replaceObject(object, 11)
+		player.Teleport(player.X() > 221 ? 221 : 222, 760)
+		go runAfter(3*tSecond, func() {
+			player.PlaySound("closedoor")
+			replaceObject(old, 88)
+		})
+	}
+})

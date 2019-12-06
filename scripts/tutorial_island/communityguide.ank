@@ -54,3 +54,20 @@ bind.npc(496, func(player, npc) {
 		return
 	}
 })
+
+bind.boundary(90, func(player, object, click) {
+	if object.X() == 230 && object.Y() == 759 {
+		// TODO: Magic guide
+		if toInt(player.Cache("tutorial")) < 100 {
+			player.Message("You should speak to the community instructor before going through this door")
+			return
+		}
+		player.PlaySound("opendoor")
+		old = replaceObject(object, 11)
+		player.Teleport(230, player.Y() > 758 ? 758 : 759)
+		go runAfter(3*tSecond, func() {
+			player.PlaySound("closedoor")
+			replaceObject(old, 90)
+		})
+	}
+})
