@@ -1,5 +1,6 @@
 bind = import("bind")
 world = import("world")
+ids = import("ids")
 
 bind.npc(482, func(player, npc) {
 	if toInt(player.Cache("tutorial")) < 45 {

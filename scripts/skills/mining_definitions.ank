@@ -157,7 +157,7 @@ defs = {
 	},
 }
 
-pickaxes = {ids.BRONZE_PICKAXE: 1, ids.IRON_PICKAXE: 1, ids.STEEL_PICKAXE: 6, ids.MITHRIL_PICKAXE: 21, ids.ADAM_PICKAXE: 31, ids.RUNE_PICKAXE: 41}
+pickaxes = {ids.RUNE_PICKAXE: 41, ids.ADAM_PICKAXE: 31, ids.MITHRIL_PICKAXE: 21, ids.STEEL_PICKAXE: 6, ids.IRON_PICKAXE: 1, ids.BRONZE_PICKAXE: 1}
 
 func getPickaxe(player) {
 	for pickaxe, level in pickaxes {
