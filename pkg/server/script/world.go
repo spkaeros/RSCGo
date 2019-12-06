@@ -173,6 +173,7 @@ func WorldModule() *vm.Env {
 	env, err = env.AddPackage("ids", map[string]interface{}{
 		"COOKEDMEAT":          132,
 		"BURNTMEAT":           134,
+		"FLIER":               201,
 		"LEATHER_GLOVES":      16,
 		"BOOTS":               17,
 		"SEAWEED":             622,

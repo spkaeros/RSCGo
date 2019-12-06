@@ -11,7 +11,7 @@ bind.npc([11, 63, 72], func(player, npc) {
 		npc.Chat(player, "Very well, thank you")
 	case 4:
 		npc.Chat(player, "Have this flier")
-		// TODO: add Flier item, get ID from openrsc
+		player.AddItem(ids.FLIER, 1)
 	case 5:
 		npc.Chat(player, "I'm a little worried",
 							 "I've heard there's lots of people going about,",

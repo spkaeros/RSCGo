@@ -8,3 +8,9 @@ bind.command("sysupdate", func(player, args) {
 	}
 	systemUpdate(time)
 })
+
+bind.onLogin(func(player) {
+	if updateStarted() {
+		player.SendUpdateTimer()
+	}
+})
