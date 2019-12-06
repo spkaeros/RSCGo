@@ -74,7 +74,7 @@ bind.object(496, func(player, object, click) {
 	}
 	player.PlaySound("mine")
 	player.Message("You swing your pick at the rock...")
-	player.ItemBubble(ids.BRONZE_PICKAXE)
+	player.ItemBubble(ids.IRON_PICKAXE)
 	sleep(tMillis*1800)
 	if gatheringSuccess(1, player.Skills().Current(MINING)) {
 		player.Message("You manage to obtain some tin ore")

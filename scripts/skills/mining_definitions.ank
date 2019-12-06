@@ -1,0 +1,185 @@
+defs = {
+	176: {
+		"ore":     ids.BLURITE_ORE,
+		"exp":     70,
+		"lvl":     10,
+		"deplete": 9,
+		"respawn": 510,
+	},
+	100: {
+		"ore":     ids.COPPER_ORE,
+		"exp":     70,
+		"lvl":     1,
+		"deplete": 9,
+		"respawn": 4,
+	},
+	101: {
+		"ore":     ids.COPPER_ORE,
+		"exp":     70,
+		"lvl":     1,
+		"deplete": 9,
+		"respawn": 4,
+	},
+	102: {
+		"ore":     ids.IRON_ORE,
+		"exp":     140,
+		"lvl":     15,
+		"deplete": 14,
+		"respawn": 7,
+	},
+	103: {
+		"ore":     ids.IRON_ORE,
+		"exp":     140,
+		"lvl":     15,
+		"deplete": 14,
+		"respawn": 7,
+	},
+	104: {
+		"ore":     ids.TIN_ORE,
+		"exp":     70,
+		"lvl":     1,
+		"deplete": 9,
+		"respawn": 4,
+	},
+	105: {
+		"ore":     ids.TIN_ORE,
+		"exp":     70,
+		"lvl":     1,
+		"deplete": 9,
+		"respawn": 4,
+	},
+	106: {
+		"ore":     ids.MITHRIL_ORE,
+		"exp":     320,
+		"lvl":     55,
+		"deplete": 29,
+		"respawn": 110,
+	},
+	107: {
+		"ore":     ids.MITHRIL_ORE,
+		"exp":     320,
+		"lvl":     55,
+		"deplete": 29,
+		"respawn": 110,
+	},
+	108: {
+		"ore":     ids.ADAM_ORE,
+		"exp":     380,
+		"lvl":     70,
+		"deplete": 49,
+		"respawn": 220,
+	},
+	109: {
+		"ore":     ids.ADAM_ORE,
+		"exp":     380,
+		"lvl":     70,
+		"deplete": 49,
+		"respawn": 220,
+	},
+	110: {
+		"ore":     ids.COAL,
+		"exp":     200,
+		"lvl":     30,
+		"deplete": 19,
+		"respawn": 25,
+	},
+	111: {
+		"ore":     ids.COAL,
+		"exp":     200,
+		"lvl":     30,
+		"deplete": 19,
+		"respawn": 25,
+	},
+	112: {
+		"ore":     ids.GOLD,
+		"exp":     260,
+		"lvl":     40,
+		"deplete": 24,
+		"respawn": 70,
+	},
+	113: {
+		"ore":     ids.GOLD,
+		"exp":     260,
+		"lvl":     40,
+		"deplete": 24,
+		"respawn": 70,
+	},
+	315: {
+		"ore":     ids.GOLD2,
+		"exp":     260,
+		"lvl":     40,
+		"deplete": 24,
+		"respawn": 70,
+	},
+	114: {
+		"ore":     ids.CLAY,
+		"exp":     20,
+		"lvl":     1,
+		"deplete": 9,
+		"respawn": 2,
+	},
+	115: {
+		"ore":     ids.CLAY,
+		"exp":     20,
+		"lvl":     1,
+		"deplete": 9,
+		"respawn": 2,
+	},
+	195: {
+		"ore":     ids.SILVER,
+		"exp":     160,
+		"lvl":     20,
+		"deplete": 17,
+		"respawn": 70,
+	},
+	196: {
+		"ore":     ids.SILVER,
+		"exp":     160,
+		"lvl":     20,
+		"deplete": 17,
+		"respawn": 70,
+	},
+	210: {
+		"ore":     ids.RUNITE_ORE,
+		"exp":     500,
+		"lvl":     85,
+		"deplete": 79,
+		"respawn": 900,
+	},
+	211: {
+		"ore":     ids.RUNITE_ORE,
+		"exp":     500,
+		"lvl":     85,
+		"deplete": 79,
+		"respawn": 900,
+	},
+}
+
+pickaxes = {ids.BRONZE_PICKAXE: 1, ids.IRON_PICKAXE: 1, ids.STEEL_PICKAXE: 6, ids.MITHRIL_PICKAXE: 21, ids.ADAM_PICKAXE: 31, ids.RUNE_PICKAXE: 41}
+
+func getPickaxe(player) {
+	for pickaxe, level in pickaxes {
+		if player.Skills().Current(MINING) >= level && player.Inventory.CountID(pickaxe) > 0 {
+			return pickaxe
+		}
+	}
+
+	return -1
+}
+
+func axeBonus(id) {
+	switch id {
+	case ids.BRONZE_PICKAXE:
+		return 0
+	case ids.IRON_PICKAXE:
+		return 1
+	case ids.STEEL_PICKAXE:
+		return 2
+	case ids.MITHRIL_PICKAXE:
+		return 4
+	case ids.ADAM_PICKAXE:
+		return 8
+	case ids.RUNE_PICKAXE:
+		return 16
+	}
+}

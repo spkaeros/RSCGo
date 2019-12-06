@@ -1,0 +1,44 @@
+load("scripts/skills/mining_definitions.ank")
+strings = import("strings")
+
+bind.object(keys(defs), func(player, object, click) {
+	mineDef = defs[toInt(object.ID)]
+	oreName = itemDefs[mineDef.ore].Name
+	pickaxe = getPickaxe(player)
+	log.debugf("%v\n%v\n", mineDef, object)
+
+	if click == 1 {
+		player.PlaySound("prospect")
+		player.Message("You examine the rock for ores...")
+		sleep(tMillis*1200)
+		player.Message("This rock contains " + oreName)
+		return
+	}
+
+	if pickaxe < 0 {
+		player.Message("You need a pickaxe to mine this rock.")
+		sleep(tMillis*1800)
+		player.Message("You do not have a pickaxe which you have the mining level to use")
+		return
+	}
+	// TODO: >=96 Fatigue returns early
+	player.PlaySound("mine")
+	player.ItemBubble(ids.IRON_PICKAXE)
+	player.Message("You swing your pick at the rock...")
+	sleep(tMillis*1800)
+
+	if player.Skills().Current(MINING) >= mineDef.lvl && gatheringSuccess(mineDef.lvl, player.Skills().Current(MINING) + axeBonus(pickaxe)) && getObjectAt(object.X(), object.Y()).ID != 98 {
+		player.Message("You manage to obtain some " + oreName)
+		player.AddItem(mineDef.ore, 1)
+		player.IncExp(MINING, mineDef.exp)
+		if rand(1, 100) <= mineDef.deplete {
+			rockID = object.ID
+			emptyRock = replaceObject(object, 98)
+			go runAfter(tSecond*mineDef.respawn, func() {
+				replaceObject(emptyRock, rockID)
+			})
+		}
+		return
+	}
+	player.Message("You only succeed in scratching the rock")
+})
