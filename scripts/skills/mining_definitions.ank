@@ -157,10 +157,13 @@ defs = {
 	},
 }
 
-pickaxes = {ids.RUNE_PICKAXE: 41, ids.ADAM_PICKAXE: 31, ids.MITHRIL_PICKAXE: 21, ids.STEEL_PICKAXE: 6, ids.IRON_PICKAXE: 1, ids.BRONZE_PICKAXE: 1}
+pickaxeReqs = [41, 31, 21, 6, 1, 1]
+pickaxes = [ids.RUNE_PICKAXE, ids.ADAM_PICKAXE, ids.MITHRIL_PICKAXE, ids.STEEL_PICKAXE, ids.IRON_PICKAXE, ids.BRONZE_PICKAXE]
 
 func getPickaxe(player) {
-	for pickaxe, level in pickaxes {
+	for i = 0; i < len(pickaxes); i++ {
+		pickaxe = pickaxes[i]
+		level = pickaxeReqs[i]
 		if player.Skills().Current(MINING) >= level && player.Inventory.CountID(pickaxe) > 0 {
 			return pickaxe
 		}
