@@ -226,13 +226,13 @@ defs = {
 
 func getFish(fishDef, lvl, click) {
 	fish = []
-	for i = 0; i < len(fishDef[click].fish); i++ {
-		if fishDef[click].fish[i].lvl <= lvl {
-			fish += fishDef[click].fish[i]
+	for i = 0; i < len(fishDef.fish); i++ {
+		if fishDef.fish[i].lvl <= lvl {
+			fish += fishDef.fish[i]
 		}
 	}
 	if len(fish) <= 0 {
-		return fishDef[click].fish[0]
+		return fishDef.fish[0]
 	}
 
 	return fish[rand(0, len(fish)-1)]

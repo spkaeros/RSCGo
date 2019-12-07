@@ -1,15 +1,14 @@
 bind = import("bind")
 strings = import("strings")
-log = import("log")
 world = import("world")
 
-load("scripts/skills/mining_definitions.ank")
+// Contains definitions for what objects contain what ore, etc
+load("scripts/definitions/mining_definitions.ank")
 
 bind.object(keys(defs), func(player, object, click) {
 	mineDef = defs[toInt(object.ID)]
 	oreName = itemDefs[mineDef.ore].Name
 	pickaxe = getPickaxe(player)
-	log.debugf("%v\n%v\n", mineDef, object)
 
 	if click == 1 {
 		player.PlaySound("prospect")
@@ -17,6 +16,7 @@ bind.object(keys(defs), func(player, object, click) {
 		sleep(tMillis*1200)
 		player.Message("This rock contains " + oreName)
 		return
+
 	}
 
 	if pickaxe < 0 {
