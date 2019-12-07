@@ -133,6 +133,12 @@ defs = {
 		"lvl":     85,
 		"respawn": 900,
 	},
+	98: { // Used as respawn rock
+		"ore":     -1,
+		"exp":     -1,
+		"lvl":     -1,
+		"respawn": -1,
+	},
 }
 
 pickaxeDefs = {

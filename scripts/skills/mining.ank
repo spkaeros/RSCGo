@@ -7,17 +7,25 @@ load("scripts/definitions/mining_definitions.ank")
 
 bind.object(objectPredicate(keys(defs)...), func(player, object, click) {
 	mineDef = defs[toInt(object.ID)]
-	oreName = itemDefs[mineDef.ore].Name
-	pickaxeDef = getPickaxeDef(player)
+	oreName = ""
+	if mineDef.ore >= 0 {
+		oreName = itemDefs[mineDef.ore].Name
+	}
 
 	if click == 1 {
 		player.PlaySound("prospect")
 		player.Message("You examine the rock for ores...")
 		sleep(tMillis*1200)
+
+		if mineDef.ore < 0 {
+			player.Message("You fail to find anything interesting")
+			return
+		}
+
 		player.Message("This rock contains " + oreName)
 		return
-
 	}
+	pickaxeDef = getPickaxeDef(player)
 
 	if pickaxeDef.lvl < 0 || pickaxeDef.bonus < 0 {
 		player.Message("You need a pickaxe to mine this rock.")
@@ -25,8 +33,8 @@ bind.object(objectPredicate(keys(defs)...), func(player, object, click) {
 		player.Message("You do not have a pickaxe which you have the mining level to use")
 		return
 	}
-	// 72000 is 96%
 	if player.Fatigue() >= 72000 {
+		// 72000 is 96 percent
 		player.Message("You are too tired to mine this rock")
 		return
 	}
@@ -35,7 +43,14 @@ bind.object(objectPredicate(keys(defs)...), func(player, object, click) {
 	player.Message("You swing your pick at the rock...")
 	sleep(tMillis*1800)
 
-	if player.Skills().Current(MINING) >= mineDef.lvl && gatheringSuccess(mineDef.lvl, player.Skills().Current(MINING) + pickaxeDef.bonus) && world.getObjectAt(object.X(), object.Y()).ID != 98 {
+	if world.getObjectAt(object.X(), object.Y()) != object || mineDef.ore < 0 {
+		// my thought is that if the pointers don't match, then someone else's mine action depleted the ore
+		// and we are too late.  And if the def has the ore ID as -1 it's not a usable rock.
+		player.Message("There is currently no ore available in this rock")
+		return
+	}
+
+	if player.Skills().Current(MINING) >= mineDef.lvl && gatheringSuccess(mineDef.lvl, player.Skills().Current(MINING) + pickaxeDef.bonus) {
 		player.Message("You manage to obtain some " + oreName)
 		player.AddItem(mineDef.ore, 1)
 		player.IncExp(MINING, mineDef.exp)
