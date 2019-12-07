@@ -589,6 +589,62 @@ func (p *Player) Destroy() {
 	})
 }
 
+func (p *Player) AtObject(object *Object) bool {
+	x, y := p.X(), p.Y()
+	bounds := object.Boundaries()
+	if ObjectDefs[object.ID].Type == 2 || ObjectDefs[object.ID].Type == 3 {
+		return x >= bounds[0].X() && x <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y()
+	}
+
+	return p.CanReach(bounds) || (p.FinishedPath() && p.CanReachDiag(bounds))
+}
+
+func (p *Player) CanReach(bounds [2]Location) bool {
+	x, y := p.X(), p.Y()
+	if x >= bounds[0].X() && x <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y() {
+		return true
+	}
+	if bounds[0].X() <= x-1 && bounds[1].X() >= x-1 && bounds[0].Y() <= y && bounds[1].Y() >= y &&
+		(CollisionData(x-1, y).CollisionMask & ClipWest) == 0 {
+		return true
+	}
+	if bounds[0].X() <= x+1 && bounds[1].X() >= x+1 && bounds[0].Y() <= y && bounds[1].Y() >= y &&
+		(CollisionData(x+1, y).CollisionMask & ClipEast) == 0 {
+		return true
+	}
+	if bounds[0].X() <= x && bounds[1].X() >= x && bounds[0].Y() <= y-1 && bounds[1].Y() >= y-1 &&
+		(CollisionData(x, y-1).CollisionMask & ClipSouth) == 0 {
+		return true
+	}
+	if bounds[0].X() <= x && bounds[1].X() >= x && bounds[0].Y() <= y+1 && bounds[1].Y() >= y+1 &&
+		(CollisionData(x, y+1).CollisionMask & ClipNorth) == 0 {
+		return true
+	}
+	return false
+}
+
+func (p *Player) CanReachDiag(bounds [2]Location) bool {
+	x, y := p.X(), p.Y()
+	if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y-1 >= bounds[0].Y() && y-1 <= bounds[1].Y() &&
+		(CollisionData(x-1, y-1).CollisionMask & ClipSouth|ClipWest) == 0 {
+		return true
+	}
+	if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y+1 >= bounds[0].Y() && y+1 <= bounds[1].Y() &&
+		(CollisionData(x-1, y+1).CollisionMask & ClipNorth|ClipWest) == 0 {
+		return true
+	}
+	if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y-1 >= bounds[0].Y() && y-1 <= bounds[1].Y() &&
+		(CollisionData(x+1, y-1).CollisionMask & ClipSouth|ClipEast) == 0 {
+		return true
+	}
+	if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y+1 >= bounds[0].Y() && y+1 <= bounds[1].Y() &&
+		(CollisionData(x+1, y+1).CollisionMask & ClipNorth|ClipEast) == 0 {
+		return true
+	}
+
+	return false
+}
+
 func (p *Player) SendFatigue() {
 	p.SendPacket(Fatigue(p))
 }

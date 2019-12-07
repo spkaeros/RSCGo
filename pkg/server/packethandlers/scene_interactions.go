@@ -29,17 +29,8 @@ func init() {
 			log.Suspicious.Printf("Player %v attempted to use a non-existant object at %d,%d\n", player, x, y)
 			return
 		}
-		bounds := object.Boundaries()
 		player.SetDistancedAction(func() bool {
-			if world.ObjectDefs[object.ID].Type == 2 || world.ObjectDefs[object.ID].Type == 3 {
-				if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
-					player.ResetPath()
-					objectAction(player, object, 0)
-					return true
-				}
-				return false
-			}
-			if player.NextTo(object.Location) && (player.WithinRange(bounds[0], 1) || player.WithinRange(bounds[1], 1)) {
+			if player.NextTo(object.Location) && player.AtObject(object) {
 				player.ResetPath()
 				objectAction(player, object, 0)
 				return true
@@ -60,17 +51,8 @@ func init() {
 			log.Suspicious.Printf("Player %v attempted to use a non-existant object at %d,%d\n", player, x, y)
 			return
 		}
-		bounds := object.Boundaries()
 		player.SetDistancedAction(func() bool {
-			if world.ObjectDefs[object.ID].Type == 2 || world.ObjectDefs[object.ID].Type == 3 {
-				if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
-					player.ResetPath()
-					objectAction(player, object, 1)
-					return true
-				}
-				return false
-			}
-			if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && (player.WithinRange(bounds[0], 1) || player.WithinRange(bounds[1], 1)) {
+			if player.NextTo(object.Location) && player.AtObject(object) {
 				player.ResetPath()
 				objectAction(player, object, 1)
 				return true
