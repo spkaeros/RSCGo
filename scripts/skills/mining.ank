@@ -8,7 +8,7 @@ load("scripts/definitions/mining_definitions.ank")
 bind.object(objectPredicate(keys(defs)...), func(player, object, click) {
 	mineDef = defs[toInt(object.ID)]
 	oreName = itemDefs[mineDef.ore].Name
-	pickaxe = getPickaxe(player)
+	pickaxeDef = getPickaxeDef(player)
 
 	if click == 1 {
 		player.PlaySound("prospect")
@@ -19,19 +19,20 @@ bind.object(objectPredicate(keys(defs)...), func(player, object, click) {
 
 	}
 
-	if pickaxe < 0 {
+	if pickaxeDef.lvl < 0 || pickaxeDef.bonus < 0 {
 		player.Message("You need a pickaxe to mine this rock.")
 		sleep(tMillis*1800)
 		player.Message("You do not have a pickaxe which you have the mining level to use")
 		return
 	}
 	// TODO: >=96 Fatigue returns early
+	if player.Fatigue() >= 9
 	player.PlaySound("mine")
 	player.ItemBubble(ids.IRON_PICKAXE)
 	player.Message("You swing your pick at the rock...")
 	sleep(tMillis*1800)
 
-	if player.Skills().Current(MINING) >= mineDef.lvl && gatheringSuccess(mineDef.lvl, player.Skills().Current(MINING) + axeBonus(pickaxe)) && world.getObjectAt(object.X(), object.Y()).ID != 98 {
+	if player.Skills().Current(MINING) >= mineDef.lvl && gatheringSuccess(mineDef.lvl, player.Skills().Current(MINING) + pickaxeDef.bonus) && world.getObjectAt(object.X(), object.Y()).ID != 98 {
 		player.Message("You manage to obtain some " + oreName)
 		player.AddItem(mineDef.ore, 1)
 		player.IncExp(MINING, mineDef.exp)

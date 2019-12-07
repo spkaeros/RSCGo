@@ -5,194 +5,176 @@ defs = {
 		"ore":     ids.BLURITE_ORE,
 		"exp":     18,
 		"lvl":     10,
-		"deplete": 9,
 		"respawn": 510,
 	},
 	100: {
 		"ore":     ids.COPPER_ORE,
 		"exp":     18,
 		"lvl":     1,
-		"deplete": 9,
 		"respawn": 4,
 	},
 	101: {
 		"ore":     ids.COPPER_ORE,
 		"exp":     18,
 		"lvl":     1,
-		"deplete": 9,
 		"respawn": 4,
 	},
 	102: {
 		"ore":     ids.IRON_ORE,
 		"exp":     35,
 		"lvl":     15,
-		"deplete": 14,
 		"respawn": 7,
 	},
 	103: {
 		"ore":     ids.IRON_ORE,
 		"exp":     35,
 		"lvl":     15,
-		"deplete": 14,
 		"respawn": 7,
 	},
 	104: {
 		"ore":     ids.TIN_ORE,
 		"exp":     18,
 		"lvl":     1,
-		"deplete": 9,
 		"respawn": 4,
 	},
 	105: {
 		"ore":     ids.TIN_ORE,
 		"exp":     18,
 		"lvl":     1,
-		"deplete": 9,
 		"respawn": 4,
 	},
 	106: {
 		"ore":     ids.MITHRIL_ORE,
 		"exp":     80,
 		"lvl":     55,
-		"deplete": 29,
 		"respawn": 110,
 	},
 	107: {
 		"ore":     ids.MITHRIL_ORE,
 		"exp":     80,
 		"lvl":     55,
-		"deplete": 29,
 		"respawn": 110,
 	},
 	108: {
 		"ore":     ids.ADAM_ORE,
 		"exp":     95,
 		"lvl":     70,
-		"deplete": 49,
 		"respawn": 220,
 	},
 	109: {
 		"ore":     ids.ADAM_ORE,
 		"exp":     95,
 		"lvl":     70,
-		"deplete": 49,
 		"respawn": 220,
 	},
 	110: {
 		"ore":     ids.COAL,
 		"exp":     50,
 		"lvl":     30,
-		"deplete": 19,
 		"respawn": 25,
 	},
 	111: {
 		"ore":     ids.COAL,
 		"exp":     50,
 		"lvl":     30,
-		"deplete": 19,
 		"respawn": 25,
 	},
 	112: {
 		"ore":     ids.GOLD,
 		"exp":     65,
 		"lvl":     40,
-		"deplete": 24,
 		"respawn": 70,
 	},
 	113: {
 		"ore":     ids.GOLD,
 		"exp":     65,
 		"lvl":     40,
-		"deplete": 24,
 		"respawn": 70,
 	},
 	315: {
 		"ore":     ids.GOLD2,
 		"exp":     65,
 		"lvl":     40,
-		"deplete": 24,
 		"respawn": 70,
 	},
 	114: {
 		"ore":     ids.CLAY,
 		"exp":     1,
 		"lvl":     1,
-		"deplete": 9,
 		"respawn": 2,
 	},
 	115: {
 		"ore":     ids.CLAY,
 		"exp":     1,
 		"lvl":     1,
-		"deplete": 9,
 		"respawn": 2,
 	},
 	195: {
 		"ore":     ids.SILVER,
 		"exp":     40,
 		"lvl":     20,
-		"deplete": 17,
 		"respawn": 70,
 	},
 	196: {
 		"ore":     ids.SILVER,
 		"exp":     40,
 		"lvl":     20,
-		"deplete": 17,
 		"respawn": 70,
 	},
 	210: {
 		"ore":     ids.RUNITE_ORE,
 		"exp":     125,
 		"lvl":     85,
-		"deplete": 79,
 		"respawn": 900,
 	},
 	211: {
 		"ore":     ids.RUNITE_ORE,
 		"exp":     125,
 		"lvl":     85,
-		"deplete": 79,
 		"respawn": 900,
 	},
 }
 
+pickaxeDefs = {
+	ids.RUNE_PICKAXE: {
+		"lvl": 41,
+		"bonus": 16,
+	},
+	ids.ADAM_PICKAXE: {
+		"lvl": 31,
+		"bonus": 8,
+	},
+	ids.MITHRIL_PICKAXE: {
+		"lvl": 21,
+		"bonus": 4,
+	},
+	ids.STEEL_PICKAXE: {
+		"lvl": 6,
+		"bonus": 2,
+	},
+	ids.IRON_PICKAXE: {
+		"lvl": 1,
+		"bonus": 1,
+	},
+	ids.IRON_PICKAXE: {
+		"lvl": 1,
+		"bonus": 0,
+	},
+}
 
-pickaxeDefs = [
-	[ids.RUNE_PICKAXE, 41],
-	[ids.ADAM_PICKAXE, 31],
-	[ids.MITHRIL_PICKAXE, 21],
-	[ids.STEEL_PICKAXE, 6],
-	[ids.IRON_PICKAXE, 1],
-	[ids.BRONZE_PICKAXE, 1],
-]
+func getPickaxeDef(player) {
+	retDef = {
+		"lvl": -1,
+		"bonus": -1,
+	}
 
-func getPickaxe(player) {
-	for pickDef in pickaxeDefs {
-		pickaxe = pickDef[0]
-		level = pickDef[1]
-		if player.Skills().Current(MINING) >= level && player.Inventory.CountID(pickaxe) > 0 {
-			return pickaxe
+	for id, def in pickaxeDefs {
+		if def.lvl > retDef.lvl {
+			if player.Skills().Current(MINING) >= def.lvl && player.Inventory.CountID(id) > 0 {
+				retDef = def
+			}
 		}
 	}
 
-	return -1
-}
-
-// TODO: Refactor pickaxe defs to something more unified, with bonuses too
-func axeBonus(id) {
-	switch id {
-	case ids.BRONZE_PICKAXE:
-		return 0
-	case ids.IRON_PICKAXE:
-		return 1
-	case ids.STEEL_PICKAXE:
-		return 2
-	case ids.MITHRIL_PICKAXE:
-		return 4
-	case ids.ADAM_PICKAXE:
-		return 8
-	case ids.RUNE_PICKAXE:
-		return 16
-	}
+	return retDef
 }
