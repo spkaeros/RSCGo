@@ -24,7 +24,7 @@ func init() {
 			log.Suspicious.Printf("%v turned on a prayer that doesn't exist: %d\n", player, idx)
 			return
 		}
-		if req[idx] > player.Skills().Current(world.StatPrayer) {
+		if req[idx] > player.Skills().Maximum(world.StatPrayer) {
 			log.Suspicious.Printf("%v turned on a prayer that he is too low level for: %d\n", player, idx)
 			return
 		}
@@ -36,7 +36,7 @@ func init() {
 			log.Suspicious.Printf("%v turned off a prayer that doesn't exist: %d\n", player, idx)
 			return
 		}
-		if req[idx] > player.Skills().Current(world.StatPrayer) {
+		if req[idx] > player.Skills().Maximum(world.StatPrayer) {
 			log.Suspicious.Printf("%v turned off a prayer that he is too low level for: %d\n", player, idx)
 			return
 		}
