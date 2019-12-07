@@ -96,7 +96,7 @@ func Load() {
 			log.Info.Println(err)
 			return err
 		}
-		if !info.IsDir() && strings.HasSuffix(path, "ank") {
+		if !info.IsDir() && !strings.Contains(path, "definitions") && strings.HasSuffix(path, "ank") {
 			env := WorldModule()
 			_, err := vm.Execute(env, nil, load(path))
 			if err != nil {
