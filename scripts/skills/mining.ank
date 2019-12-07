@@ -3,7 +3,7 @@ strings = import("strings")
 world = import("world")
 
 // Contains definitions for what objects contain what ore, etc
-load("scripts/definitions/mining_definitions.ank")
+load("scripts/definitions/mining.ank")
 
 bind.object(objectPredicate(keys(defs)...), func(player, object, click) {
 	mineDef = defs[toInt(object.ID)]
