@@ -187,7 +187,7 @@ func (p *Pathfinder) MakePath() *Pathway {
 	path := &Pathway{StartX: 0, StartY: 0}
 
 	active := p.nodes[p.end.X()<<13|p.end.Y()]
-	if active.parent != nil {
+	if active != nil && active.parent != nil {
 		position := active.loc
 		for !p.start.Equals(position) {
 			path.addFirstWaypoint(position.X(), position.Y())

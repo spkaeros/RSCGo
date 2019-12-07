@@ -1,10 +1,10 @@
 bind = import("bind")
 strings = import("strings")
 
-bind.object(["climb down", "climb-down", "go down", "go up", "climb up", "climb-up"], func(player, object, click) {
+bind.object(objectPredicate("climb down", "climb-down", "go down", "go up", "climb up", "climb-up"), func(player, object, click) {
 	cmd = strings.Replace(object.Command1(), "-", " ", -1)
 	oldPlane = player.Plane()
-	coords = modCoords(player, object, strings.HasSuffix(cmd, "up"))
+	coords = endpoint(player, object, strings.HasSuffix(cmd, "up"))
 	player.SetCoords(coords[0], coords[1], true)
 	if oldPlane != player.Plane() {
 		player.SendPlane()
@@ -13,7 +13,7 @@ bind.object(["climb down", "climb-down", "go down", "go up", "climb up", "climb-
 	return
 })
 
-func modCoords(player, object, up) {
+func endpoint(player, object, up) {
 	if object.Height() <= 1 {
 		return [player.X(), player.PlaneY(up)]
 	}

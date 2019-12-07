@@ -2,7 +2,7 @@ bind = import("bind")
 world = import("world")
 ids = import("ids")
 
-bind.npc(478, func(player, npc) {
+bind.npc(npcPredicate(478), func(player, npc) {
 	if toInt(player.Cache("tutorial")) < 25 {
 		player.Message("You need to speak to the previous guide first.")
 		return
@@ -78,21 +78,4 @@ bind.invOnObject(func(player, object, item) {
 		}
 	}
 	return false
-})
-
-bind.boundary(78, func(player, object, click) {
-	if object.X() == 212 && object.Y() == 729 {
-		// tut island mining to bankers
-		if toInt(player.Cache("tutorial")) < 35 {
-			player.Message("You should speak to the cooking instructor before going through this door")
-			return
-		}
-		player.PlaySound("opendoor")
-		old = world.replaceObject(object, 11)
-		player.Teleport(player.X() > 211 ? 211 : 212, 729)
-		go runAfter(3*tSecond, func() {
-			player.PlaySound("closedoor")
-			world.replaceObject(old, 78)
-		})
-	}
 })

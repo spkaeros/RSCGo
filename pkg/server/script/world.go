@@ -217,98 +217,23 @@ func init() {
 		"invOnObject": reflect.ValueOf(func(fn func(player *world.Player, boundary *world.Object, item *world.Item) bool) {
 			InvOnObjectTriggers = append(InvOnObjectTriggers, fn)
 		}),
-		"object": reflect.ValueOf(func(ident interface{}, fn func(player *world.Player, object *world.Object, click int)) {
-			if id, ok := ident.(int64); ok {
-				ObjectTriggers[int(id)] = fn
-			}
-			if ids, ok := ident.([]interface{}); ok {
-				for _, id := range ids {
-					s, ok := id.(string)
-					if !ok {
-						ObjectTriggers[int(id.(int64))] = fn
-					} else {
-						ObjectTriggers[s] = fn
-					}
-				}
-			}
-			if name, ok := ident.(string); ok {
-				ObjectTriggers[name] = fn
-			}
+		"object": reflect.ValueOf(func(pred func(*world.Object, int) bool, fn func(player *world.Player, object *world.Object, click int)) {
+			ObjectTriggers = append(ObjectTriggers, ObjectTrigger{pred, fn})
 		}),
-		"item": reflect.ValueOf(func(ident interface{}, fn func(player *world.Player, item *world.Item)) {
-			if id, ok := ident.(int64); ok {
-				InvTriggers[int(id)] = fn
-			}
-			if ids, ok := ident.([]interface{}); ok {
-				for _, id := range ids {
-					s, ok := id.(string)
-					if !ok {
-						InvTriggers[int(id.(int64))] = fn
-					} else {
-						InvTriggers[s] = fn
-					}
-				}
-			}
-			if name, ok := ident.(string); ok {
-				InvTriggers[name] = fn
-			}
+		"item": reflect.ValueOf(func(check func(item *world.Item) bool, fn func(player *world.Player, item *world.Item)) {
+			ItemTriggers = append(ItemTriggers, ItemTrigger{check, fn})
 		}),
-		"boundary": reflect.ValueOf(func(ident interface{}, fn func(player *world.Player, object *world.Object, click int)) {
-			if id, ok := ident.(int64); ok {
-				BoundaryTriggers[int(id)] = fn
-			}
-			if ids, ok := ident.([]interface{}); ok {
-				for _, id := range ids {
-					s, ok := id.(string)
-					if !ok {
-						BoundaryTriggers[int(id.(int64))] = fn
-					} else {
-						BoundaryTriggers[s] = fn
-					}
-				}
-			}
-			if name, ok := ident.(string); ok {
-				BoundaryTriggers[name] = fn
-			}
+		"boundary": reflect.ValueOf(func(pred func(*world.Object, int) bool, fn func(player *world.Player, object *world.Object, click int)) {
+			BoundaryTriggers = append(BoundaryTriggers, ObjectTrigger{pred, fn})
 		}),
-		"npc": reflect.ValueOf(func(ident interface{}, fn func(player *world.Player, npc *world.NPC)) {
-			if id, ok := ident.(int64); ok {
-				NpcTriggers[id] = fn
-			}
-			if ids, ok := ident.([]interface{}); ok {
-				for _, id := range ids {
-					NpcTriggers[id.(int64)] = fn
-				}
-			}
-			if name, ok := ident.(string); ok {
-				NpcTriggers[name] = fn
-			}
+		"npc": reflect.ValueOf(func(predicate func(npc *world.NPC) bool, fn func(player *world.Player, npc *world.NPC)) {
+			NpcTriggers = append(NpcTriggers, NpcTrigger{predicate, fn})
 		}),
-		"npcAttack": reflect.ValueOf(func(ident interface{}, fn func(player *world.Player, npc *world.NPC) bool) {
-			if id, ok := ident.(int64); ok {
-				NpcAtkTriggers[id] = fn
-			}
-			if ids, ok := ident.([]interface{}); ok {
-				for _, id := range ids {
-					NpcAtkTriggers[id.(int64)] = fn
-				}
-			}
-			if name, ok := ident.(string); ok {
-				NpcAtkTriggers[name] = fn
-			}
+		"npcAttack": reflect.ValueOf(func(pred NpcActionPredicate) {
+			NpcAtkTriggers = append(NpcAtkTriggers, pred)
 		}),
-		"npcKilled": reflect.ValueOf(func(ident interface{}, fn func(player *world.Player, npc *world.NPC)) {
-			if id, ok := ident.(int64); ok {
-				NpcDeathTriggers[id] = fn
-			}
-			if ids, ok := ident.([]interface{}); ok {
-				for _, id := range ids {
-					NpcDeathTriggers[id.(int64)] = fn
-				}
-			}
-			if name, ok := ident.(string); ok {
-				NpcDeathTriggers[name] = fn
-			}
+		"npcKilled": reflect.ValueOf(func(pred NpcActionPredicate, fn func(player *world.Player, npc *world.NPC)) {
+			NpcDeathTriggers = append(NpcDeathTriggers, NpcPredBlockingTrigger{pred, fn})
 		}),
 		"command": reflect.ValueOf(func(name string, fn func(p *world.Player, args []string)) {
 			CommandHandlers[name] = fn
@@ -378,6 +303,14 @@ func WorldModule() *env.Env {
 	e.Define("East", world.East)
 	e.Define("West", world.West)
 	e.Define("parseDirection", world.ParseDirection)
+	e.Define("contains", func(s []int64, elem int64) bool {
+		for _, v := range s {
+			if v == elem {
+				return true
+			}
+		}
+		return false
+	})
 	e.Define("gatheringSuccess", func(req, cur int) bool {
 		roll := float64(rand.Int31N(1, 128))
 		if cur < req {
@@ -385,6 +318,54 @@ func WorldModule() *env.Env {
 		}
 		threshold := math.Min(127, math.Max(float64(1), (float64(cur)+40)-(float64(req)*1.5)))
 		return roll <= threshold
+	})
+	e.Define("npcPredicate", func(ids ...interface{}) func(*world.NPC) bool {
+		return func(npc *world.NPC) bool {
+			for _, id := range ids {
+				if cmd, ok := id.(string); ok {
+					if npc.Name() == cmd {
+						return true
+					}
+				} else if id, ok := id.(int64); ok {
+					if npc.ID == int(id) {
+						return true
+					}
+				}
+			}
+			return false
+		}
+	})
+	e.Define("itemPredicate", func(ids ...interface{}) func(*world.Item) bool {
+		return func(item *world.Item) bool {
+			for _, id := range ids {
+				if cmd, ok := id.(string); ok {
+					if item.Command() == cmd {
+						return true
+					}
+				} else if id, ok := id.(int64); ok {
+					if item.ID == int(id) {
+						return true
+					}
+				}
+			}
+			return false
+		}
+	})
+	e.Define("objectPredicate", func(ids ...interface{}) func(*world.Object, int) bool {
+		return func(object *world.Object, click int) bool {
+			for _, id := range ids {
+				if cmd, ok := id.(string); ok {
+					if world.ObjectDefs[object.ID].Commands[click] == cmd {
+						return true
+					}
+				} else if id, ok := id.(int64); ok {
+					if object.ID == int(id) {
+						return true
+					}
+				}
+			}
+			return false
+		}
 	})
 	e = core.Import(e)
 	return e

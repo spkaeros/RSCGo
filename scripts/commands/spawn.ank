@@ -19,7 +19,13 @@ bind.command("npc", func(player, args) {
 			rad = 0
 		}
 
-		world.addNpc(newNpc(id, x, y, x-rad, x+rad, y-rad, y+rad))
+		if len(args) > 2 {
+			for i = 0; i < toInt(args[2]); i++ {
+				world.addNpc(newNpc(id, x, y, x-rad, x+rad, y-rad, y+rad))
+			}
+		} else {
+			world.addNpc(newNpc(id, x, y, x-rad, x+rad, y-rad, y+rad))
+		}
 		log.cmdf("'%v' spawned a new NPC{id:%v, rad:%v} at %v,%v", player.String(), id, rad, x, y)
 	} catch {
 		player.Message("Invalid syntax.  Usage: ::npc <id> (<radius>)")

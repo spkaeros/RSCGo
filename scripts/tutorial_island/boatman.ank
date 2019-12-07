@@ -1,6 +1,6 @@
 bind = import("bind")
 
-bind.npc(497, func(player, npc) {
+bind.npc(npcPredicate(497), func(player, npc) {
 	if toInt(player.Cache("tutorial")) < 100 {
 		player.Message("You need to speak to the previous guide first.")
 		return

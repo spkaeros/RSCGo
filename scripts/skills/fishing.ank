@@ -5,9 +5,9 @@ world = import("world")
 // Contains definitions for what objects contain what fish, etc
 load("scripts/definitions/fishing_definitions.ank")
 
-bind.object(keys(defs), func(player, object, click) {
+bind.object(objectPredicate(keys(defs)...), func(player, object, click) {
 	cmd = strings.ToLower(objectDefs[object.ID].Commands[click])
-	fishDef, ok = defs[toInt(object.ID)]
+	fishDef = defs[toInt(object.ID)]
 	fish = getFish(fishDef[click], player.Skills().Current(FISHING), click)
 
 	fishName = strings.Replace(strings.ToLower(itemDefs[fish.id].Name), "raw ", "", -1)

@@ -2,12 +2,12 @@ package server
 
 import (
 	"fmt"
-	"github.com/gobwas/ws"
-	"github.com/spkaeros/rscgo/pkg/server/players"
-	"github.com/spkaeros/rscgo/pkg/server/script"
 	"net"
 	"os"
 	"time"
+
+	"github.com/gobwas/ws"
+	"github.com/spkaeros/rscgo/pkg/server/players"
 
 	"github.com/spkaeros/rscgo/pkg/server/config"
 	"github.com/spkaeros/rscgo/pkg/server/log"
@@ -77,23 +77,26 @@ func StartConnectionService() {
 
 //Tick One game engine 'tick'.  This is to handle movement, to synchronize client, to update movement-related state variables... Runs once per 600ms.
 func Tick() {
-	select {
-	case fn := <-script.EngineChannel:
-		fn()
-	case fn := <-world.EngineChannel:
-		fn()
-	default:
-		break
-	}
-	players.Range(func(p *world.Player) {
-		if fn := p.DistancedAction; fn != nil {
-			if fn() {
-				p.ResetDistancedAction()
+	go func() {
+		players.Range(func(p *world.Player) {
+			if fn := p.DistancedAction; fn != nil {
+				if fn() {
+					p.ResetDistancedAction()
+				}
 			}
-		}
+		})
+	}()
+	players.Range(func(p *world.Player) {
 		p.TraversePath()
 	})
 	world.UpdateNPCPositions()
+	// Giant lock for changing `sync` transient attribute on players
+	// Occasionally, when other goroutines changed our sync status, the engines goroutine would be mid-update
+	// This would cause strange positioning to occur since I do not send packets every tick but only when needed
+	// There is no race, it's just that we end up resetting a sync state that never got sent because of it.
+	// This fixes it by preventing any state changes during engine ticks.  This code runs for such a short time
+	// that this should be fine performance-wise.
+	world.GiantLock.Lock()
 	players.Range(func(p *world.Player) {
 		// Everything is updated relative to our player's position, so player position packet comes first
 		if positions := world.PlayerPositions(p); positions != nil {
@@ -105,11 +108,6 @@ func Tick() {
 		if npcUpdates := world.NPCPositions(p); npcUpdates != nil {
 			p.SendPacket(npcUpdates)
 		}
-		/*
-			if npcAppearances := world.NpcAppearances(p.player); npcAppearances != nil {
-				p.SendPacket(npcAppearances)
-			}
-		*/
 		if itemUpdates := world.ItemLocations(p); itemUpdates != nil {
 			p.SendPacket(itemUpdates)
 		}
@@ -131,6 +129,7 @@ func Tick() {
 		p.ResetRemoved()
 	})
 	world.ResetNpcUpdateFlags()
+	world.GiantLock.Unlock()
 }
 
 //StartGameEngine Launches a goroutine to handle updating the state of the server every 600ms in a synchronized fashion.  This is known as a single game engine 'pulse'.

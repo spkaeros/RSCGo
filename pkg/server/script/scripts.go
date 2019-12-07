@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/mattn/anko/parser"
 	"github.com/mattn/anko/vm"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/world"
@@ -22,21 +23,60 @@ import (
 
 var Scripts []string
 
-var EngineChannel = make(chan func(), 20)
+//ItemTrigger holds callbacks to functions defined in the Anko scripts loaded at runtime, to be run when certain
+// events occur
+type ItemTrigger struct {
+	// Check returns true if this handler should run.
+	Check func(*world.Item) bool
+	// Action is the function that will run if Check returned true.
+	Action func(*world.Player, *world.Item)
+}
 
-//var InvTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
-//var BoundaryTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
+type ObjectTrigger struct {
+	// Check returns true if this handler should run.
+	Check func(*world.Object, int) bool
+	// Action is the function that will run if Check returned true.
+	Action func(*world.Player, *world.Object, int)
+}
 
-//var NpcTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
+//NpcTrigger holds callbacks to functions defined in the Anko scripts loaded at runtime, to be run when certain
+// events occur
+type NpcTrigger struct {
+	// Check returns true if this handler should run.
+	Check func(*world.NPC) bool
+	// Action is the function that will run if Check returned true.
+	Action func(*world.Player, *world.NPC)
+}
+
+//NpcActionPredicate callback to a function defined in the Anko scripts loaded at runtime, to be run when certain
+// events occur.  If it returns true, it will block the event that triggered it from occurring
+type NpcPredBlockingTrigger struct {
+	// Check returns true if this handler should run.
+	Check NpcActionPredicate
+	// Action is the function that will run if Check returned true.
+	Action func(*world.Player, *world.NPC)
+}
+
+type NpcActionPredicate = func(*world.Player, *world.NPC) bool
+type NpcAction = func(*world.Player, *world.NPC)
+
 var LoginTriggers []func(player *world.Player)
 var InvOnBoundaryTriggers []func(player *world.Player, object *world.Object, item *world.Item) bool
 var InvOnObjectTriggers []func(player *world.Player, object *world.Object, item *world.Item) bool
-var InvTriggers = make(map[interface{}]func(player *world.Player, item *world.Item))
-var ObjectTriggers = make(map[interface{}]func(*world.Player, *world.Object, int))
-var BoundaryTriggers = make(map[interface{}]func(*world.Player, *world.Object, int))
-var NpcTriggers = make(map[interface{}]func(*world.Player, *world.NPC))
-var NpcAtkTriggers = make(map[interface{}]func(*world.Player, *world.NPC) bool)
-var NpcDeathTriggers = make(map[interface{}]func(*world.Player, *world.NPC))
+
+//ItemTriggers List of script callbacks to run for inventory item actions
+var ItemTriggers []ItemTrigger
+var ObjectTriggers []ObjectTrigger
+var BoundaryTriggers []ObjectTrigger
+
+//NpcTriggers List of script callbacks to run for NPC talking actions
+var NpcTriggers []NpcTrigger
+
+//NpcAtkTriggers List of script callbacks to run when you attack an NPC
+var NpcAtkTriggers []NpcActionPredicate
+
+//NpcDeathTriggers List of script callbacks to run when you kill an NPC
+var NpcDeathTriggers []NpcPredBlockingTrigger
 
 func Run(fnName string, player *world.Player, argName string, arg interface{}) bool {
 	env := WorldModule()
@@ -76,14 +116,13 @@ func Run(fnName string, player *world.Player, argName string, arg interface{}) b
 }
 
 func Clear() {
-	//InvTriggers = InvTriggers[:0]
-	InvTriggers = make(map[interface{}]func(*world.Player, *world.Item))
-	//BoundaryTriggers = BoundaryTriggers[:0]
-	ObjectTriggers = make(map[interface{}]func(*world.Player, *world.Object, int))
-	BoundaryTriggers = make(map[interface{}]func(*world.Player, *world.Object, int))
-	NpcTriggers = make(map[interface{}]func(*world.Player, *world.NPC))
-	NpcDeathTriggers = make(map[interface{}]func(*world.Player, *world.NPC))
-	NpcAtkTriggers = make(map[interface{}]func(*world.Player, *world.NPC) bool)
+	//ItemTriggers = make(map[interface{}]func(*world.Player, *world.Item))
+	ItemTriggers = ItemTriggers[:0]
+	ObjectTriggers = ObjectTriggers[:0]
+	NpcTriggers = NpcTriggers[:0]
+	NpcAtkTriggers = NpcAtkTriggers[:0]
+	NpcDeathTriggers = NpcDeathTriggers[:0]
+	BoundaryTriggers = BoundaryTriggers[:0]
 	LoginTriggers = LoginTriggers[:0]
 	InvOnBoundaryTriggers = InvOnBoundaryTriggers[:0]
 	InvOnObjectTriggers = InvOnObjectTriggers[:0]
@@ -96,11 +135,15 @@ func Load() {
 			log.Info.Println(err)
 			return err
 		}
-		if !info.IsDir() && !strings.Contains(path, "definitions") && strings.HasSuffix(path, "ank") {
+		if !info.IsDir() && !strings.Contains(path, "definitions") && !strings.Contains(path, "lib") && strings.HasSuffix(path, "ank") {
 			env := WorldModule()
-			_, err := vm.Execute(env, nil, load(path))
+			parser.EnableDebug(1)
+			parser.EnableErrorVerbose()
+			_, err := vm.Execute(env, &vm.Options{Debug: true}, load(path))
+
 			if err != nil {
-				log.Info.Println("Anko scripting error in '"+path+"':", err.Error())
+				log.Info.Println("Anko scripting error in '"+path+"':", err)
+//				log.Info.Println(env.String())
 				return nil
 			}
 		}

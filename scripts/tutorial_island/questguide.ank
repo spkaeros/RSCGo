@@ -2,7 +2,7 @@ bind = import("bind")
 world = import("world")
 ids = import("ids")
 
-bind.npc(489, func(player, npc) {
+bind.npc(npcPredicate(489), func(player, npc) {
 	if toInt(player.Cache("tutorial")) < 60 {
 		player.Message("You need to speak to the previous guide first.")
 		return
@@ -27,21 +27,5 @@ bind.npc(489, func(player, npc) {
 	}
 	if toInt(player.Cache("tutorial")) < 65 {
 		player.SetCache("tutorial", 65)
-	}
-})
-
-bind.boundary(84, func(player, object, click) {
-	if object.X() == 209 && object.Y() == 754 {
-		if toInt(player.Cache("tutorial")) < 65 {
-			player.Message("You should speak to the quest advisor before going through this door")
-			return
-		}
-		player.PlaySound("opendoor")
-		old = world.replaceObject(object, 11)
-		player.Teleport(209, player.Y() > 753 ? 753 : 754)
-		go runAfter(3*tSecond, func() {
-			player.PlaySound("closedoor")
-			world.replaceObject(old, 84)
-		})
 	}
 })

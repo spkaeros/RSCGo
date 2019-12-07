@@ -2,7 +2,7 @@ bind = import("bind")
 world = import("world")
 ids = import("ids")
 
-bind.npc(482, func(player, npc) {
+bind.npc(npcPredicate(482), func(player, npc) {
 	if toInt(player.Cache("tutorial")) < 45 {
 		player.Message("You need to speak to the previous guide first.")
 		return
@@ -52,7 +52,7 @@ bind.npc(482, func(player, npc) {
 	}
 })
 
-bind.object(496, func(player, object, click) {
+bind.object(objectPredicate(496), func(player, object, click) {
 	if click == 1 {
 		player.Message("This rock contains " + itemDefs[ids.TIN_ORE].Name)
 		sleep(tMillis*1800)
@@ -91,21 +91,3 @@ bind.object(496, func(player, object, click) {
 		player.Message("You fail to make any real impact on the rock")
 	}
 })
-
-bind.boundary(82, func(player, object, click) {
-	if object.X() == 198 && object.Y() == 746 {
-		// tut island mining to bankers
-		if toInt(player.Cache("tutorial")) < 55 {
-			player.Message("You should speak to the mining instructor before going through this door")
-			return
-		}
-		player.PlaySound("opendoor")
-		old = world.replaceObject(object, 11)
-		player.Teleport(198, player.Y() > 745 ? 745 : 746)
-		go runAfter(3*tSecond, func() {
-			player.PlaySound("closedoor")
-			world.replaceObject(old, 82)
-		})
-	}
-})
-

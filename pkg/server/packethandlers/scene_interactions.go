@@ -10,8 +10,6 @@
 package packethandlers
 
 import (
-	"strings"
-
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/script"
@@ -207,32 +205,20 @@ func init() {
 				}
 				player.ResetPath()
 				npc.ResetPath()
-				fn, ok := script.NpcTriggers[int64(npc.ID)]
-				if ok {
-					startChat()
-					go func() {
-						defer func() {
-							player.RemoveState(world.MSChatting)
-							npc.RemoveState(world.MSChatting)
+				for _, triggerDef := range script.NpcTriggers {
+					if triggerDef.Check(npc) {
+						startChat()
+						go func() {
+							defer func() {
+								player.RemoveState(world.MSChatting)
+								npc.RemoveState(world.MSChatting)
+							}()
+							triggerDef.Action(player, npc)
 						}()
-						fn(player, npc)
-					}()
-					return true
-				}
-				fn, ok = script.NpcTriggers[npc.Name()]
-				if ok {
-					startChat()
-					go func() {
-						defer func() {
-							player.RemoveState(world.MSChatting)
-							npc.RemoveState(world.MSChatting)
-						}()
-						fn(player, npc)
-					}()
-					return true
+						return true
+					}
 				}
 				player.Message("The " + npc.Name() + " does not appear interested in talking")
-				log.Info.Println(npc.ID)
 				return true
 			}
 
@@ -349,30 +335,13 @@ func objectAction(player *world.Player, object *world.Object, click int) {
 			player.RemoveState(world.MSBusy)
 		}()
 
-		fn, ok := script.ObjectTriggers[object.ID]
-		if ok {
-			fn(player, object, click)
-			return
-		}
-		fn, ok = script.ObjectTriggers[object.Name()]
-		if ok {
-			fn(player, object, click)
-			return
-		}
-		fn, ok = script.ObjectTriggers[object.Command1()]
-		if ok {
-			fn(player, object, click)
-			return
-		}
-		fn, ok = script.ObjectTriggers[object.Command2()]
-		if ok {
-			fn(player, object, click)
-			return
+		for _, trigger := range script.ObjectTriggers {
+			if trigger.Check(object, click) {
+				trigger.Action(player, object, click)
+				return
+			}
 		}
 		player.SendPacket(world.DefaultActionMessage)
-		//		if !script.Run("objectAction", player, "object", object) {
-		//			player.SendPacket(world.DefaultActionMessage)
-		//		}
 	}()
 }
 
@@ -387,29 +356,12 @@ func boundaryAction(player *world.Player, object *world.Object, click int) {
 			player.RemoveState(world.MSBusy)
 		}()
 
-		fn, ok := script.BoundaryTriggers[object.ID]
-		if ok {
-			fn(player, object, click)
-			return
-		}
-		fn, ok = script.BoundaryTriggers[strings.ToLower(object.Name())]
-		if ok {
-			fn(player, object, click)
-			return
-		}
-		fn, ok = script.BoundaryTriggers[strings.ToLower(object.Command1())]
-		if ok {
-			fn(player, object, click)
-			return
-		}
-		fn, ok = script.BoundaryTriggers[strings.ToLower(object.Command2())]
-		if ok {
-			fn(player, object, click)
-			return
+		for _, trigger := range script.BoundaryTriggers {
+			if trigger.Check(object, click) {
+				trigger.Action(player, object, click)
+				return
+			}
 		}
 		player.SendPacket(world.DefaultActionMessage)
-		//		if !script.Run("boundaryAction", player, "object", object) {
-		//			player.SendPacket(world.DefaultActionMessage)
-		//		}
 	}()
 }

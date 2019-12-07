@@ -1,6 +1,6 @@
 bind = import("bind")
 
-bind.npc([95, 224, 268, 540, 617], func(player, npc) {
+bind.npc(npcPredicate(95, 224, 268, 540, 617), func(player, npc) {
 	npc.Chat(player, "Good day" + (npc.ID == 617 ? " Bwana" : "") + ", how may I help you?")
 	switch player.OpenOptionMenu("I'd like to access my bank account please", "What is this place?") {
 	case 0:

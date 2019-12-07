@@ -148,21 +148,31 @@ func (m *Mob) SetDirection(direction int) {
 
 //Change Sets the synchronization flag for whether this mob changed directions to true.
 func (m *Mob) Change() {
+	GiantLock.Lock()
 	m.TransAttrs.StoreMask("sync", SyncChanged)
+	GiantLock.Unlock()
+
 }
 
 //Remove Sets the synchronization flag for whether this mob needs to be removed to true.
 func (m *Mob) Remove() {
+	GiantLock.Lock()
 	m.TransAttrs.StoreMask("sync", SyncRemoved)
+	GiantLock.Unlock()
+
 }
 
 //UpdateSelf Sets the synchronization flag for whether this mob has moved to true.
 func (m *Mob) Move() {
+	GiantLock.Lock()
 	m.TransAttrs.StoreMask("sync", SyncMoved)
+	GiantLock.Unlock()
 }
 
 func (m *Mob) NeedsSelf() {
+	GiantLock.Lock()
 	m.TransAttrs.RemoveMask("sync", SyncSelf)
+	GiantLock.Unlock()
 }
 
 func (m *Mob) ResetMoved() {

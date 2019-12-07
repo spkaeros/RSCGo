@@ -1,7 +1,7 @@
 bind = import("bind")
 world = import("world")
 
-bind.npc(499, func(player, npc) {
+bind.npc(npcPredicate(499), func(player, npc) {
 	if toInt(player.Cache("tutorial")) < 10 {
 		player.Message("You need to speak to the previous guide first.")
 		return
@@ -16,21 +16,5 @@ bind.npc(499, func(player, npc) {
 	player.Chat("Thankyou for your help.")
 	if toInt(player.Cache("tutorial")) < 15 {
 		player.SetCache("tutorial", 15)
-	}
-})
-
-bind.boundary(76, func(player, object, click) {
-	if object.X() == 224 && object.Y() == 737 {
-		if toInt(player.Cache("tutorial")) < 15 {
-			player.Message("You should speak to the controls guide before going through this door")
-			return
-		}
-		player.PlaySound("opendoor")
-		old = world.replaceObject(object, 11)
-		player.Teleport(224, player.Y() > 736 ? 736 : 737)
-		go runAfter(3*tSecond, func() {
-			player.PlaySound("closedoor")
-			world.replaceObject(old, 76)
-		})
 	}
 })

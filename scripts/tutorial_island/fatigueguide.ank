@@ -2,7 +2,7 @@ bind = import("bind")
 world = import("world")
 ids = import("ids")
 
-bind.npc(774, func(player, npc) {
+bind.npc(npcPredicate(774), func(player, npc) {
 	if toInt(player.Cache("tutorial")) < 80 {
 		player.Message("You need to speak to the previous guide first.")
 		return
@@ -38,19 +38,14 @@ bind.npc(774, func(player, npc) {
 	}
 })
 
-bind.boundary(89, func(player, object, click) {
-	if object.X() == 226 && object.Y() == 760 {
-		// TODO: Magic guide
-		if toInt(player.Cache("tutorial")) < 90 {
-			player.Message("You should speak to the fatigue expert before going through this door")
-			return
-		}
-		player.PlaySound("opendoor")
-		old = world.replaceObject(object, 11)
-		player.Teleport(player.X() > 225 ? 225 : 226, 760)
-		go runAfter(3*tSecond, func() {
-			player.PlaySound("closedoor")
-			world.replaceObject(old, 89)
-		})
+bind.object(objectPredicate("rest"), func(player, object, click) {
+	// TODO: CAPTCHA system
+	player.Message("You attempt to sleep in the bed...")
+	sleep(1800*tMillis)
+	player.Message("You wake up - feeling refreshed")
+	player.SetFatigue(0)
+	player.SendFatigue()
+	if toInt(player.Cache("tutorial")) < 86 {
+		player.SetCache("tutorial", 86)
 	}
 })

@@ -1,7 +1,7 @@
 bind = import("bind")
 world = import("world")
 
-bind.npc(496, func(player, npc) {
+bind.npc(npcPredicate(496), func(player, npc) {
 	if toInt(player.Cache("tutorial")) < 90 {
 		player.Message("You need to speak to the previous guide first.")
 		return
@@ -55,22 +55,5 @@ bind.npc(496, func(player, npc) {
 		rules()
 	case -1:
 		return
-	}
-})
-
-bind.boundary(90, func(player, object, click) {
-	if object.X() == 230 && object.Y() == 759 {
-		// TODO: Magic guide
-		if toInt(player.Cache("tutorial")) < 100 {
-			player.Message("You should speak to the community instructor before going through this door")
-			return
-		}
-		player.PlaySound("opendoor")
-		old = world.replaceObject(object, 11)
-		player.Teleport(230, player.Y() > 758 ? 758 : 759)
-		go runAfter(3*tSecond, func() {
-			player.PlaySound("closedoor")
-			world.replaceObject(old, 90)
-		})
 	}
 })

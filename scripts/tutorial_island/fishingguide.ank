@@ -2,7 +2,7 @@ bind = import("bind")
 world = import("world")
 ids = import("ids")
 
-bind.npc(479, func(player, npc) {
+bind.npc(npcPredicate(479), func(player, npc) {
 	if toInt(player.Cache("tutorial")) < 40 {
 		player.Message("You need to speak to the previous guide first.")
 		return
@@ -36,7 +36,7 @@ bind.npc(479, func(player, npc) {
 	}
 })
 
-bind.object(493, func(player, object, click) {
+bind.object(objectPredicate(493), func(player, object, click) {
 	if player.Skills().Experience(FISHING) >= 200 {
 		player.Message("that's enough fishing for now")
 		sleep(tMillis*1800)
@@ -64,22 +64,5 @@ bind.object(493, func(player, object, click) {
 			sleep(tMillis*1800)
 			player.Message("keep trying, you'll catch something soon")
 		}
-	}
-})
-
-bind.boundary(81, func(player, object, click) {
-	if object.X() == 201 && object.Y() == 734 {
-		// tut island mining to bankers
-		if toInt(player.Cache("tutorial")) < 45 {
-			player.Message("You should speak to the fishing instructor before going through this door")
-			return
-		}
-		player.PlaySound("opendoor")
-		old = world.replaceObject(object, 11)
-		player.Teleport(201, player.Y() > 733 ? 733 : 734)
-		go runAfter(3*tSecond, func() {
-			player.PlaySound("closedoor")
-			world.replaceObject(old, 81)
-		})
 	}
 })

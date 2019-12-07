@@ -125,8 +125,8 @@ func init() {
 	script.CommandHandlers["reloadscripts"] = func(player *world.Player, args []string) {
 		script.Clear()
 		script.Load()
-		player.Message(fmt.Sprintf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill]", len(script.InvTriggers), len(script.ObjectTriggers), len(script.BoundaryTriggers), len(script.NpcTriggers), len(script.InvOnBoundaryTriggers), len(script.InvOnObjectTriggers), len(script.NpcAtkTriggers), len(script.NpcDeathTriggers)))
-		log.Info.Printf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill] loaded\n", len(script.InvTriggers), len(script.ObjectTriggers), len(script.BoundaryTriggers), len(script.NpcTriggers), len(script.InvOnBoundaryTriggers), len(script.InvOnObjectTriggers), len(script.NpcAtkTriggers), len(script.NpcDeathTriggers))
+		player.Message(fmt.Sprintf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill]", len(script.ItemTriggers), len(script.ObjectTriggers), len(script.BoundaryTriggers), len(script.NpcTriggers), len(script.InvOnBoundaryTriggers), len(script.InvOnObjectTriggers), len(script.NpcAtkTriggers), len(script.NpcDeathTriggers)))
+		log.Info.Printf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill] loaded\n", len(script.ItemTriggers), len(script.ObjectTriggers), len(script.BoundaryTriggers), len(script.NpcTriggers), len(script.InvOnBoundaryTriggers), len(script.InvOnObjectTriggers), len(script.NpcAtkTriggers), len(script.NpcDeathTriggers))
 	}
 }
 

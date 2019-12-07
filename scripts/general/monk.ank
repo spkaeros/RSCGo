@@ -1,7 +1,7 @@
 bind = import("bind")
 math = import("math")
 
-bind.npc([93, 174], func(player, npc) {
+bind.npc(npcPredicate(93, 174), func(player, npc) {
 	npc.Chat(player, "Greetings traveller")
 	switch player.OpenOptionMenu("Can you heal me? I'm injured", "Isn't this place built a bit out the way?") {
 	case 0:
@@ -17,6 +17,5 @@ bind.npc([93, 174], func(player, npc) {
 	case 1:
 		npc.Chat(player, "We like it that way", "We get disturbed less",
 				"We still get rather a large amount of travellers", "looking for sanctuary and healing here as it is")
-
 	}
 })

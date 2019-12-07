@@ -45,13 +45,11 @@ type NPC struct {
 	ID          int
 	Boundaries  [2]Location
 	StartPoint  Location
-	ChatMessage string
-	ChatTarget  int
 }
 
 //NewNpc Creates a new NPC and returns a reference to it
 func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
-	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: NewLocation(startX, startY)}, TransAttrs: &AttributeList{set: make(map[string]interface{})}}, ChatTarget: -1, ChatMessage: ""}
+	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: NewLocation(startX, startY)}, TransAttrs: &AttributeList{set: make(map[string]interface{})}}}
 	n.Transients().SetVar("skills", &SkillTable{})
 	n.Boundaries[0] = NewLocation(minX, minY)
 	n.Boundaries[1] = NewLocation(maxX, maxY)
@@ -206,12 +204,19 @@ func (n *NPC) TraversePath() {
 	n.SetLocation(next, false)
 }
 
+//ChatIndirect sends a chat message to target and all of target's view area players, without any delay.
+func (n *NPC) ChatIndirect(target *Player, msg string) {
+	for _, player := range target.NearbyPlayers() {
+		player.SendPacket(NpcMessage(n, msg, target))
+	}
+	target.SendPacket(NpcMessage(n, msg, target))
+}
+
+//Chat sends chat messages to target and all of target's view area players, with a 1800ms(3 tick) delay between each
+// message.
 func (n *NPC) Chat(target *Player, msgs ...string) {
 	for _, msg := range msgs {
-		for _, player := range target.NearbyPlayers() {
-			player.SendPacket(NpcMessage(n, msg, target))
-		}
-		target.SendPacket(NpcMessage(n, msg, target))
+		n.ChatIndirect(target, msg)
 
 		//		if i < len(msgs)-1 {
 		time.Sleep(time.Millisecond * 1800)

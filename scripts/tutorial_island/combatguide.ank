@@ -2,7 +2,7 @@ bind = import("bind")
 world = import("world")
 ids = import("ids")
 
-bind.npc(474, func(player, npc) {
+bind.npc(npcPredicate(474), func(player, npc) {
 	if toInt(player.Cache("tutorial")) < 15 {
 		player.Message("You need to speak to the previous guide first.")
 		return
@@ -26,7 +26,10 @@ bind.npc(474, func(player, npc) {
 		sword = player.Inventory.GetByID(ids.BRONZE_LSWORD)
 		if (shield == nil || shield.Worn) && (sword == nil || sword.Worn) {
 			npc.Chat(player, "Today we're going to be killing giant rats")
-			// nearest rat squeeks 10 radius
+			rat = player.NpcWithin(473, 10)
+			if rat != nil {
+				rat.ChatIndirect(player, "squeek")
+			}
 			npc.Chat(player, "move your mouse over a rat you will see it is level 7",
 					"You will see that it's level is written in green",
 					"If it is green this means you have a strong chance of killing it",
@@ -51,40 +54,28 @@ bind.npc(474, func(player, npc) {
 	}
 })
 
-bind.npcAttack(473, func(player, npc) {
+bind.npcAttack(func(player, npc) {
+	if npc.ID != 473 {
+		return false
+	}
+
 	if toInt(player.Cache("tutorial")) < 16 {
 		player.Message("Speak to the combat instructor before killing rats")
-		return true
 	} else if toInt(player.Cache("tutorial")) > 16 {
 		player.Message("That's enough rat killing for now")
-		return true
 	}
 
-	return false
+	return toInt(player.Cache("tutorial")) != 16
 })
 
-bind.npcKilled(473, func(player, npc) {
-	if toInt(player.Cache("tutorial")) == 16 {
-		player.SetCache("tutorial", 20)
-		player.Message("Well done you've killed the rat")
-		sleep(1200*tMillis)
-		player.Message("Now speak to the combat instructor again")
-	}
-})
-
-bind.boundary(77, func(player, object, click) {
-	if object.X() == 220 && object.Y() == 727 {
-		// tut island mining to bankers
-		if toInt(player.Cache("tutorial")) < 25 {
-			player.Message("You should speak to the combat instructor before going through this door")
-			return
-		}
-		player.PlaySound("opendoor")
-		old = world.replaceObject(object, 11)
-		player.Teleport(player.X() > 219 ? 219 : 220, 727)
-		go runAfter(3*tSecond, func() {
-			player.PlaySound("closedoor")
-			world.world.replaceObject(old, 77)
-		})
-	}
+bind.npcKilled(func(player, npc) {
+	// predicate, decide if we run the action
+	return npc.ID == 473 && toInt(player.Cache("tutorial")) == 16
+},
+func(player, npc) {
+	// the action, what to do if the predicate is true
+	player.SetCache("tutorial", 20)
+	player.Message("Well done you've killed the rat")
+	sleep(1200*tMillis)
+	player.Message("Now speak to the combat instructor again")
 })

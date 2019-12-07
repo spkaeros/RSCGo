@@ -1,0 +1,86 @@
+bind = import("bind")
+world = import("world")
+
+doors = [83, 77, 90, 85, 88, 84, 82, 75, 81, 80, 89, 78, 76]
+
+bind.boundary(objectPredicate(doors...), func(player, object, click) {
+	if object.X() == 204 && object.Y() == 752 && toInt(player.Cache("tutorial")) < 60 {
+		player.Message("You should speak to the bank assistant before going through this door")
+		return
+	} else if object.X() == 220 && object.Y() == 727 && toInt(player.Cache("tutorial")) < 25 {
+		player.Message("You should speak to the combat instructor before going through this door")
+		return
+	} else if object.X() == 230 && object.Y() == 759 && toInt(player.Cache("tutorial")) < 100 {
+		player.Message("You should speak to the community instructor before going through this door")
+		return
+	} else if object.X() == 224 && object.Y() == 737 && toInt(player.Cache("tutorial")) < 15 {
+		player.Message("You should speak to the controls guide before going through this door")
+		return
+	} else if object.X() == 226 && object.Y() == 760 && toInt(player.Cache("tutorial")) < 90 {
+		player.Message("You should speak to the fatigue expert before going through this door")
+		return
+	} else if object.X() == 206 && object.Y() == 730 && toInt(player.Cache("tutorial")) < 40 {
+		player.Message("You should speak to the finance advisor before going through this door")
+		return
+	} else if object.X() == 201 && object.Y() == 734 && toInt(player.Cache("tutorial")) < 45 {
+		player.Message("You should speak to the fishing instructor before going through this door")
+		return
+	} else if object.X() == 222 && object.Y() == 743 && toInt(player.Cache("tutorial")) < 10 {
+		player.Message("You should speak to a guide before going through this door")
+		return
+	} else if object.X() == 198 && object.Y() == 746 && toInt(player.Cache("tutorial")) < 55 {
+		player.Message("You should speak to the mining instructor before going through this door")
+		return
+	} else if object.X() == 209 && object.Y() == 754 && toInt(player.Cache("tutorial")) < 65 {
+		player.Message("You should speak to the quest advisor before going through this door")
+		return
+	} else if object.X() == 217 && object.Y() == 760 && toInt(player.Cache("tutorial")) < 70 {
+		player.Message("You should speak to the wilderness guide before going through this door")
+		return
+	} else if object.X() == 222 && object.Y() == 760 && toInt(player.Cache("tutorial")) < 80 {
+		player.Message("You should speak to the magic instructor before going through this door")
+		return
+	} else if object.X() == 212 && object.Y() == 729 && toInt(player.Cache("tutorial")) < 35 {
+        player.Message("You should speak to the cooking instructor before going through this door")
+        return
+    }
+	player.PlaySound("opendoor")
+	oldID = object.ID
+	destX = object.X()
+	destY = object.Y()
+	if object.Direction == 0 {
+		if player.X() == destX && player.Y() == destY {
+			destY -= 1
+		}
+	} else if object.Direction == 1 {
+		if player.X() == destX && player.Y() == destY {
+			destX -= 1
+		}
+	} else if object.Direction == 2 {
+		if (object.X() == player.X()) && (object.Y() == player.Y() + 1) {
+			destY += 1
+		} else if (object.X() == player.X() - 1) && (object.Y() == player.Y()) {
+			destX -= 1
+		} else if (object.X() == player.X()) && (object.Y() == player.Y() - 1) {
+			destY -= 1
+		} else if (object.X() == player.X() + 1) && (object.Y() == player.Y()) {
+			destX += 1
+		}
+	} else if object.Direction == 3 {
+		if (object.X() == player.X()) && (object.Y() == player.Y() - 1) {
+			destY -= 1
+		} else if (object.X() == player.X() + 1) && (object.Y() == player.Y()) {
+			destX += 1
+		} else if (object.X() == player.X()) && (object.Y() == player.Y() + 1) {
+			destY += 1
+		} else if (object.X() == player.X() - 1) && (object.Y() == player.Y()) {
+			destX -= 1
+		}
+	}
+	openDoor = world.replaceObject(object, 11)
+	player.Teleport(destX, destY)
+	go runAfter(3*tSecond, func() {
+		player.PlaySound("closedoor")
+		world.replaceObject(openDoor, oldID)
+	})
+})

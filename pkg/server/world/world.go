@@ -3,6 +3,7 @@ package world
 import (
 	"fmt"
 	"github.com/spkaeros/rscgo/pkg/server/log"
+	"sync"
 	"time"
 )
 
@@ -17,8 +18,11 @@ const (
 	LowerBound = RegionSize / 2
 )
 
-var EngineChannel = make(chan func(), 20)
+//GiantLock This is a lock around the engine's Tick() call, to prevent certain synchronicity issues from occurring.
+var GiantLock sync.RWMutex
 
+//UpdateTime a point in time in the future to log all active players out and shut down the server for updates.
+// Before the command is issued to set this time, it is initialized to time.Time{} zero value.
 var UpdateTime time.Time
 
 //region Represents a 48x48 section of map.  The purpose of this is to keep track of entities in the entire world without having to allocate tiles individually, which would make search algorithms slower and utilizes a great deal of memory.

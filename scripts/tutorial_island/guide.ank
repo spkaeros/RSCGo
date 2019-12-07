@@ -1,7 +1,7 @@
 bind = import("bind")
 world = import("world")
 
-bind.npc(476, func(player, npc) {
+bind.npc(npcPredicate(476), func(player, npc) {
 	npc.Chat(player, "Welcome to the world of runescape", "My job is to help newcomers find their feet here")
 	player.Chat("Ah good, let's get started")
 	npc.Chat(player, "when speaking to characters such as myself",
@@ -16,21 +16,5 @@ bind.npc(476, func(player, npc) {
 				"They will teach you about the various aspects of the game")
 		player.SendMessageBox("Use the quest history tab at the bottom of the screen to reread things said to you by ingame characters", false)
 		player.SetCache("tutorial", 10)
-	}
-})
-
-bind.boundary(75, func(player, object, click) {
-	if object.X() == 222 && object.Y() == 743 {
-		if toInt(player.Cache("tutorial")) < 10 {
-			player.Message("You should speak to a guide before going through this door")
-			return
-		}
-		player.PlaySound("opendoor")
-		old = world.replaceObject(object, 11)
-		player.Teleport(player.X() > 221 ? 221 : 222, 743)
-		go runAfter(3*tSecond, func() {
-			player.PlaySound("closedoor")
-			world.replaceObject(old, 75)
-		})
 	}
 })

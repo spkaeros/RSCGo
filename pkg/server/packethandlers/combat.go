@@ -35,33 +35,32 @@ func init() {
 		log.Info.Println(npc.ID)
 		player.SetDistancedAction(func() bool {
 			if player.NextTo(npc.Location) && player.WithinRange(npc.Location, 1) {
-				fn, ok := script.NpcAtkTriggers[int64(npc.ID)]
-				if ok && fn(player, npc) {
-					return true
-				}
-				if time.Since(npc.TransAttrs.VarTime("lastFight")) <= time.Second*2 || npc.Busy() {
-					return true
-				}
-				player.ResetPath()
-				npc.ResetPath()
-				player.SetLocation(npc.Location, true)
-				player.Remove()
-				player.AddState(world.MSFighting)
-				npc.AddState(world.MSFighting)
-				player.SetDirection(world.LeftFighting)
-				npc.SetDirection(world.RightFighting)
-				player.SetFightTarget(npc)
-				npc.SetFightTarget(player)
 				go func() {
+					for _, trigger := range script.NpcAtkTriggers {
+						if trigger(player, npc) {
+							return
+						}
+					}
+					if time.Since(npc.TransAttrs.VarTime("lastFight")) <= time.Second*2 || npc.Busy() {
+						return
+					}
+					player.ResetPath()
+					npc.ResetPath()
+					player.SetLocation(npc.Location, true)
+					player.Remove()
+					player.AddState(world.MSFighting)
+					npc.AddState(world.MSFighting)
+					player.SetDirection(world.LeftFighting)
+					npc.SetDirection(world.RightFighting)
+					player.SetFightTarget(npc)
+					npc.SetFightTarget(player)
 					ticker := time.NewTicker(time.Millisecond * 1200)
 					defer ticker.Stop()
 					curRound := 0
 					for range ticker.C {
 						if !player.HasState(world.MSFighting) || !player.Connected() {
 							if npc.HasState(world.MSFighting) {
-								script.EngineChannel <- func() {
-									npc.ResetFighting()
-								}
+								npc.ResetFighting()
 							}
 							return
 						}
@@ -81,58 +80,30 @@ func init() {
 						defender.Skills().DecreaseCur(world.StatHits, nextHit)
 						if defender.Skills().Current(world.StatHits) <= 0 {
 							if defenderNpc, ok := defender.(*world.NPC); ok {
-								script.EngineChannel <- func() {
-									if attackerPlayer, ok := attacker.(*world.Player); ok {
-										attackerPlayer.PlaySound("victory")
-										world.AddItem(world.NewGroundItemFor(attackerPlayer.UserBase37, 20, 1, defender.X(), defender.Y()))
-									} else {
-										world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
-									}
-									attacker.ResetFighting()
-									defenderNpc.Skills().SetCur(world.StatHits, defenderNpc.Skills().Maximum(world.StatHits))
-									defenderNpc.SetLocation(world.DeathPoint, true)
-
-									fn, ok := script.NpcDeathTriggers[int64(npc.ID)]
-									if ok {
-										go fn(player, npc)
+								for _, trigger := range script.NpcDeathTriggers {
+									if trigger.Check(player, npc) {
+										// TODO: maybe blocking for special corner cases?
+										go trigger.Action(player, npc)
 									}
 								}
+
+								if attackerPlayer, ok := attacker.(*world.Player); ok {
+									attackerPlayer.PlaySound("victory")
+									world.AddItem(world.NewGroundItemFor(attackerPlayer.UserBase37, 20, 1, defender.X(), defender.Y()))
+								} else {
+									world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
+								}
+
+								attacker.ResetFighting()
+								defenderNpc.Skills().SetCur(world.StatHits, defenderNpc.Skills().Maximum(world.StatHits))
+								defenderNpc.SetLocation(world.DeathPoint, true)
 
 								go func() {
 									time.Sleep(time.Second * 10)
-									script.EngineChannel <- func() {
-										defenderNpc.SetLocation(defenderNpc.StartPoint, true)
-									}
+									defenderNpc.SetLocation(defenderNpc.StartPoint, true)
 								}()
 							} else if defenderPlayer, ok := defender.(*world.Player); ok {
-								script.EngineChannel <- func() {
-									/*									attacker.ResetFighting()
-																		world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
-																		for i := 0; i < 18; i++ {
-																			defenderPlayer.Skills().SetCur(i, defenderPlayer.Skills().Maximum(i))
-																		}
-																		defenderPlayer.SendPacket(world.PlayerStats(defenderPlayer))
-																		defenderPlayer.SendPacket(world.Death)
-																		defenderPlayer.PlaySound("death")
-																		defenderPlayer.Transients().SetVar("deathTime", time.Now())
-																		// TODO: Keep 3 most valuable items
-																		defenderPlayer.Inventory().Range(func(item *world.Item) bool {
-																			if item.Worn {
-																				defenderPlayer.DequipItem(item)
-																			}
-																			world.AddItem(world.NewGroundItem(item.ID, item.Amount, defender.X(), defender.Y()))
-																			return true
-																		})
-																		defenderPlayer.Inventory().Clear()
-																		defenderPlayer.SendPacket(world.InventoryItems(defenderPlayer))
-																		defenderPlayer.SendPacket(world.EquipmentStats(defenderPlayer))
-																		plane := defenderPlayer.Plane()
-																		defenderPlayer.SetLocation(world.SpawnPoint, true)
-																		if defenderPlayer.Plane() != plane {
-																			defenderPlayer.SendPacket(world.PlaneInfo(defenderPlayer))
-																		}*/
-									defenderPlayer.Killed()
-								}
+								defenderPlayer.Killed()
 							}
 							return
 						}
@@ -194,14 +165,10 @@ func init() {
 					for range ticker.C {
 						if !affectedPlayer.HasState(world.MSFighting) || !player.HasState(world.MSFighting) || !player.Connected() || !affectedPlayer.Connected() {
 							if affectedPlayer.HasState(world.MSFighting) {
-								script.EngineChannel <- func() {
-									affectedPlayer.ResetFighting()
-								}
+								affectedPlayer.ResetFighting()
 							}
 							if player.HasState(world.MSFighting) {
-								script.EngineChannel <- func() {
-									player.ResetFighting()
-								}
+								player.ResetFighting()
 							}
 							return
 						}
@@ -219,31 +186,7 @@ func init() {
 						}
 						defender.Skills().DecreaseCur(world.StatHits, nextHit)
 						if defender.Skills().Current(world.StatHits) <= 0 {
-							script.EngineChannel <- func() {
-								/*
-									attacker.ResetFighting()
-									world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
-									attacker.PlaySound("victory")
-									defender.PlaySound("death")
-									// TODO: Keep 3 most valuable items
-									defender.Inventory().Range(func(item *world.Item) bool {
-										world.AddItem(world.NewGroundItemFor(attacker.UserBase37, item.ID, item.Amount, defender.X(), defender.Y()))
-										return true
-									})
-									defender.Inventory().Clear()
-									attacker.SendPacket(world.ServerMessage("You have defeated " + defender.Username + "!"))
-									defender.Skills().SetCur(world.StatHits, defender.Skills().Maximum(world.StatHits))
-									defender.SendPacket(world.PlayerStats(defender))
-									defender.Transients().SetVar("deathTime", time.Now())
-									defender.SendPacket(world.Death)
-									defender.SetLocation(world.SpawnPoint, true)
-									if defender.Plane() != world.SpawnPoint.Plane() {
-										defender.SendPacket(world.PlaneInfo(defender))
-									}
-								*/
-
-								defender.Killed()
-							}
+							defender.Killed()
 							return
 						}
 						defender.Damage(nextHit)

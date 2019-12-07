@@ -5,6 +5,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"go.uber.org/atomic"
+	"math"
 	"strconv"
 	"sync"
 	"time"
@@ -588,6 +589,10 @@ func (p *Player) Destroy() {
 	})
 }
 
+func (p *Player) SendFatigue() {
+	p.SendPacket(Fatigue(p))
+}
+
 //Initialize informs the client of all of the various attributes of this player, and starts the stat normalization
 // routine.
 func (p *Player) Initialize() {
@@ -598,7 +603,7 @@ func (p *Player) Initialize() {
 	p.SendPlane()
 	p.SendEquipBonuses()
 	p.SendInventory()
-	p.SendPacket(Fatigue(p))
+	p.SendFatigue()
 	// TODO: Not canonical RSC, but definitely good QoL update...
 	//  p.SendPacket(FightMode(p))
 	p.SendPacket(ClientSettings(p))
@@ -881,6 +886,23 @@ func (p *Player) Killed() {
 	if p.Plane() != plane {
 		p.SendPlane()
 	}
+}
+
+func (p *Player) NpcWithin(id int, rad int) *NPC {
+	p.LocalNPCs.lock.RLock()
+	defer p.LocalNPCs.lock.RUnlock()
+	var npc *NPC
+	dist := math.MaxInt32
+	for _, n := range p.LocalNPCs.set {
+		if n := n.(*NPC); n.ID == id && n.WithinRange(p.Location, rad) {
+			if d := n.LongestDelta(p.Location); d < dist {
+				dist = d
+				npc = n
+			}
+		}
+	}
+
+	return npc
 }
 
 //SendPlane sends the current plane of this player.
