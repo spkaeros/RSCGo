@@ -228,7 +228,7 @@ func getFish(fishDef, lvl, click) {
 	fish = []
 	for i = 0; i < len(fishDef[click].fish); i++ {
 		if fishDef[click].fish[i].lvl <= lvl {
-			fish[i] = fishDef[click].fish[i]
+			fish += fishDef[click].fish[i]
 		}
 	}
 	if len(fish) <= 0 {

@@ -23,6 +23,7 @@ import (
 var Scripts []string
 
 var EngineChannel = make(chan func(), 20)
+
 //var InvTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 //var BoundaryTriggers []func(context.Context, reflect.Value, reflect.Value) (reflect.Value, reflect.Value)
 
@@ -58,9 +59,9 @@ func Run(fnName string, player *world.Player, argName string, arg interface{}) b
 		if !strings.Contains(s, fnName) {
 			continue
 		}
-		stopPipeline, err := vm.Execute(env, nil, s +
+		stopPipeline, err := vm.Execute(env, nil, s+
 			`
-` + fnName + `()`)
+`+fnName+`()`)
 		if err != nil {
 			log.Info.Println("Unrecognized Anko error when attempting to execute the script pipeline:", err)
 			continue
