@@ -25,8 +25,11 @@ bind.object(objectPredicate(keys(defs)...), func(player, object, click) {
 		player.Message("You do not have a pickaxe which you have the mining level to use")
 		return
 	}
-	// TODO: >=96 Fatigue returns early
-	if player.Fatigue() >= 9
+	// 72000 is 96%
+	if player.Fatigue() >= 72000 {
+		player.Message("You are too tired to mine this rock")
+		return
+	}
 	player.PlaySound("mine")
 	player.ItemBubble(ids.IRON_PICKAXE)
 	player.Message("You swing your pick at the rock...")
