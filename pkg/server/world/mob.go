@@ -40,14 +40,14 @@ const (
 	SyncRemoved    = 1 << 2
 	SyncAppearance = 1 << 3
 
-	SyncNeedsPosition = SyncRemoved|SyncMoved|SyncSprite
+	SyncNeedsPosition = SyncRemoved | SyncMoved | SyncSprite
 )
 
 //Mob Represents a mobile entity within the game world.
 type Mob struct {
 	*Entity
 	TransAttrs *AttributeList
-	SyncMask int
+	SyncMask   int
 	sync.RWMutex
 }
 
@@ -404,7 +404,7 @@ func (m *Mob) Skills() *SkillTable {
 }
 
 func PrayerModifiers(m MobileEntity) [3]float32 {
-	modifiers := [3]float32{ 1.0, 1.0, 1.0 }
+	modifiers := [3]float32{1.0, 1.0, 1.0}
 
 	if m, ok := m.(*Player); ok {
 		if m.PrayerActivated(0) {

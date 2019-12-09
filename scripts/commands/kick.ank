@@ -12,7 +12,7 @@ bind.command("kick", func(player, args) {
   		player.Message("Could not find player.")
 		return
 	}
-	player.Message("Kicking: '" + target.Username + "'")
+	player.Message("Kicking: '" + target.Username() + "'")
 	go runAfter(tMillis*100, func() {
 		world.kickPlayer(target)
 	})

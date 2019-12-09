@@ -26,6 +26,7 @@ type client struct {
 	DataBuffer      []byte
 	DataLock        sync.RWMutex
 	destroyer       sync.Once
+	websocket       bool
 }
 
 //startReader Starts the client Socket reader goroutine.  Takes a waitgroup as an argument to facilitate synchronous destruction.
@@ -50,7 +51,7 @@ func (c *client) startReader() {
 				return
 			}
 			c.IncomingPackets <- p
-		case <-c.player.Kill:
+		case <-c.player.KillC:
 			return
 		}
 	}
@@ -68,7 +69,7 @@ func (c *client) startWriter() {
 			c.writePacket(*p)
 		case <-time.After(time.Second * 10):
 			c.writePacket(*world.ResponsePong)
-		case <-c.player.Kill:
+		case <-c.player.KillC:
 			return
 		}
 	}
@@ -91,6 +92,7 @@ func (c *client) destroy(wg *sync.WaitGroup) {
 			c.player.SetRegionRemoved()
 			players.BroadcastLogin(c.player, false)
 			players.Remove(c.player)
+			c.player.SetConnected(false)
 			log.Info.Printf("Unregistered: %v\n", c.player.String())
 		}
 	})
@@ -117,7 +119,7 @@ func (c *client) startNetworking() {
 					return
 				}
 				c.handlePacket(p)
-			case <-c.player.Kill:
+			case <-c.player.KillC:
 				return
 			}
 		}
@@ -140,7 +142,7 @@ func (c *client) handlePacket(p *packet.Packet) {
 func newClient(socket net.Conn, ws bool) *client {
 	c := &client{Socket: socket, IncomingPackets: make(chan *packet.Packet, 20), DataBuffer: make([]byte, 5000)}
 	c.player = world.NewPlayer(players.NextIndex(), strings.Split(socket.RemoteAddr().String(), ":")[0])
-	c.player.Websocket = ws
+	c.websocket = ws
 	c.startNetworking()
 	return c
 }
@@ -149,7 +151,7 @@ func newClient(socket net.Conn, ws bool) *client {
 func (c *client) Write(src []byte) int {
 	var err error
 	var dataLen int
-	if c.player.Websocket {
+	if c.websocket {
 		err = wsutil.WriteServerBinary(c.Socket, src)
 		dataLen = len(src)
 	} else {
@@ -192,7 +194,7 @@ func (c *client) Read(dst []byte) (int, error) {
 
 	var dataLen int
 	var data []byte
-	if !c.player.Websocket {
+	if !c.websocket {
 		dataLen, err = c.Socket.Read(dst[cacheLen:])
 	} else {
 		data, err = wsutil.ReadClientBinary(c.Socket)
@@ -206,7 +208,7 @@ func (c *client) Read(dst []byte) (int, error) {
 		}
 		return -1, err
 	}
-	if c.player.Websocket {
+	if c.websocket {
 		copy(dst[cacheLen:], data)
 	}
 
@@ -215,7 +217,7 @@ func (c *client) Read(dst []byte) (int, error) {
 		c.CacheBuffer = dst[:dataLen+cacheLen]
 	} else if dataLen > reqDataLen {
 		// We read too much data.  Stash what is not required.
-		if c.player.Websocket {
+		if c.websocket {
 			// Cache the recv'd data starting right after the last needed byte, next Read will unstash as if it were new data
 			c.CacheBuffer = data[reqDataLen:]
 		} else {

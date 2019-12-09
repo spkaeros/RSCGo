@@ -26,35 +26,15 @@ func init() {
 			log.Suspicious.Println("Attempted to deposit less than 1:", player.String())
 			return
 		}
-		//		botCheck := p.ReadInt()
 		count := player.Inventory.CountID(id)
 		if count < amount {
 			log.Suspicious.Println("Attempted to deposit more than owned:", player.String())
 			return
 		}
 
-		if world.ItemDefs[id].Stackable {
-			if item := player.Bank.GetByID(id); item != nil && player.Inventory.RemoveByID(id, amount) > -1 {
-				item.Amount += amount
-			} else if player.Bank.Size() < player.Bank.Capacity-1 && player.Inventory.RemoveByID(id, amount) > -1 {
-				player.Bank.Add(id, amount)
-			}
-		} else {
-			if item := player.Inventory.GetByID(id); item.Worn {
-				player.DequipItem(item)
-			}
-			for j := 0; j < amount; j++ {
-				if item := player.Bank.GetByID(id); item != nil && player.Inventory.RemoveByID(id, 1) > -1 {
-					item.Amount += 1
-				} else if player.Bank.Size() < player.Bank.Capacity-1 && player.Inventory.RemoveByID(id, 1) > -1 {
-					player.Bank.Add(id, 1)
-				}
-			}
-		}
-
-		if deposited := player.Bank.GetByID(id); deposited != nil && deposited.Index > -1 {
-			player.SendInventory()
-			player.SendPacket(world.BankUpdateItem(deposited))
+		if player.Inventory.RemoveByID(id, amount) > -1 {
+			player.Bank().Add(id, amount)
+			player.SendPacket(world.BankUpdateItem(player.Bank().GetIndex(id), id, player.Bank().GetByID(id).Amount))
 		}
 	}
 	PacketHandlers["withdrawbank"] = func(player *world.Player, p *packet.Packet) {
@@ -64,28 +44,18 @@ func init() {
 		id := p.ReadShort()
 		amount := p.ReadShort()
 		//		botCheck := p.ReadInt()
-		item := player.Bank.GetByID(id)
+		idx := player.Bank().GetIndex(id)
+		item := player.Bank().Get(idx)
+		cnt := item.Amount - amount
 		if item == nil || item.Amount < amount {
 			log.Suspicious.Println("Attempted withdraw of items they do not have:", player.String(), id, amount)
 			return
 		}
-		if item.Stackable() {
-			if invItem := player.Inventory.GetByID(item.ID); invItem != nil && player.Bank.RemoveByID(id, amount) > -1 {
-				player.Inventory.Add(item.ID, item.Amount)
-			} else if player.Inventory.Size() < player.Inventory.Capacity-1 && player.Bank.RemoveByID(id, amount) > -1 {
-				player.Inventory.Add(item.ID, item.Amount)
-			}
-		} else {
-			for j := 0; j < amount; j++ {
-				if player.Bank.RemoveByID(item.ID, 1) > -1 {
-					if player.Inventory.Add(item.ID, 1) < 0 {
-						break
-					}
-				}
-			}
+		if player.Bank().RemoveByID(id, amount) > -1 {
+			player.Inventory.Add(id, amount)
+			player.SendInventory()
+			player.SendPacket(world.BankUpdateItem(idx, id, cnt))
 		}
-		player.SendInventory()
-		player.SendPacket(world.BankUpdateItem(item))
 	}
 	PacketHandlers["closebank"] = func(player *world.Player, p *packet.Packet) {
 		if !player.HasState(world.MSBanking) {

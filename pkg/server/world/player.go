@@ -2,10 +2,8 @@ package world
 
 import (
 	"fmt"
-	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/strutil"
-	"go.uber.org/atomic"
 	"math"
 	"strconv"
 	"sync"
@@ -29,38 +27,61 @@ func NewAppearanceTable(head, body int, male bool, hair, top, bottom, skin int) 
 	return AppearanceTable{head, body, 3, male, hair, top, bottom, skin}
 }
 
+func DefaultAppearance() AppearanceTable {
+	return NewAppearanceTable(1, 2, true, 2, 8, 14, 0)
+}
+
 //player Represents a single player.
 type Player struct {
-	Username         string
-	UserBase37       uint64
-	Password         string
-	FriendList       map[uint64]bool
-	IgnoreList       []uint64
 	LocalPlayers     *entityList
 	LocalNPCs        *entityList
 	LocalObjects     *entityList
 	LocalItems       *entityList
-	DatabaseIndex    int
-	Rank             int
+	FriendList       map[uint64]bool
+	IgnoreList       []uint64
 	Appearance       AppearanceTable
 	KnownAppearances map[int]int
 	AppearanceReq    []*Player
 	AppearanceLock   sync.RWMutex
 	Attributes       *AttributeList
 	Inventory        *Inventory
-	Bank             *Inventory
 	TradeOffer       *Inventory
 	DistancedAction  func() bool
 	ActionLock       sync.RWMutex
 	OutgoingPackets  chan *packet.Packet
-	OptionMenuC      chan int8
-	IP               string
-	UID              uint8
-	Websocket        bool
+	ReplyMenuC       chan int8
 	Equips           [12]int
 	killer           sync.Once
-	Kill             chan struct{}
+	KillC            chan struct{}
 	*Mob
+}
+
+func (p *Player) UsernameHash() uint64 {
+	return p.TransAttrs.VarLong("username", strutil.Base37.Encode("nil"))
+}
+
+func (p *Player) Bank() *Inventory {
+	i, ok := p.TransAttrs.Var("bank")
+	if ok {
+		return i.(*Inventory)
+	}
+	return nil
+}
+
+func (p *Player) Username() string {
+	return strutil.Base37.Decode(p.TransAttrs.VarLong("username", strutil.Base37.Encode("NIL")))
+}
+
+func (p *Player) CurrentIP() string {
+	return p.TransAttrs.VarString("currentIP", "0.0.0.0")
+}
+
+func (p *Player) Rank() int {
+	return p.TransAttrs.VarInt("rank", 0)
+}
+
+func (p *Player) DatabaseID() int {
+	return p.TransAttrs.VarInt("dbID", -1)
 }
 
 func (p *Player) AppearanceTicket() int {
@@ -69,7 +90,7 @@ func (p *Player) AppearanceTicket() int {
 
 //String returns a string populated with the more identifying features of this player.
 func (p *Player) String() string {
-	return fmt.Sprintf("Player[%d] {'%v'@'%v'}", p.Index, p.Username, p.IP)
+	return fmt.Sprintf("Player[%d] {'%v'@'%v'}", p.Index, p.Username(), p.CurrentIP())
 }
 
 //SetDistancedAction queues a distanced action to run every game engine tick before path traversal, if action returns true, it will be reset.
@@ -391,7 +412,7 @@ func (p *Player) EquipItem(item *Item) {
 
 func (p *Player) UpdateAppearance() {
 	p.SetAppearanceChanged()
-	p.TransAttrs.SetVar("appearanceTicket", p.AppearanceTicket() + 1)
+	p.TransAttrs.SetVar("appearanceTicket", p.AppearanceTicket()+1)
 }
 
 //DequipItem removes an item from this players equips, and sends inventory and equipment bonuses.
@@ -553,7 +574,7 @@ func (p *Player) TradeTarget() int {
 
 //SendPacket sends a packet to the client.
 func (p *Player) SendPacket(packet *packet.Packet) {
-	if p == nil {
+	if p == nil || !p.Connected() {
 		return
 	}
 	p.OutgoingPackets <- packet
@@ -562,8 +583,9 @@ func (p *Player) SendPacket(packet *packet.Packet) {
 //Destroy sends a kill signal to the underlying client to tear down all of the I/O routines and save the player.
 func (p *Player) Destroy() {
 	p.killer.Do(func() {
-		p.Attributes.SetVar("lastIP", p.IP)
-		close(p.Kill)
+		p.Attributes.SetVar("lastIP", p.CurrentIP())
+		p.Inventory.Owner = nil
+		close(p.KillC)
 	})
 }
 
@@ -584,19 +606,19 @@ func (p *Player) CanReach(bounds [2]Location) bool {
 		return true
 	}
 	if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y() &&
-		(CollisionData(x-1, y).CollisionMask & ClipWest) == 0 {
+		(CollisionData(x-1, y).CollisionMask&ClipWest) == 0 {
 		return true
 	}
 	if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y() &&
-		(CollisionData(x+1, y).CollisionMask & ClipEast) == 0 {
+		(CollisionData(x+1, y).CollisionMask&ClipEast) == 0 {
 		return true
 	}
 	if x >= bounds[0].X() && x <= bounds[1].X() && bounds[0].Y() <= y-1 && bounds[1].Y() >= y-1 &&
-		(CollisionData(x, y-1).CollisionMask & ClipSouth) == 0 {
+		(CollisionData(x, y-1).CollisionMask&ClipSouth) == 0 {
 		return true
 	}
 	if x >= bounds[0].X() && x <= bounds[1].X() && bounds[0].Y() <= y+1 && bounds[1].Y() >= y+1 &&
-		(CollisionData(x, y-1).CollisionMask & ClipNorth) == 0 {
+		(CollisionData(x, y-1).CollisionMask&ClipNorth) == 0 {
 		return true
 	}
 	return false
@@ -605,19 +627,19 @@ func (p *Player) CanReach(bounds [2]Location) bool {
 func (p *Player) CanReachDiag(bounds [2]Location) bool {
 	x, y := p.X(), p.Y()
 	if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y-1 >= bounds[0].Y() && y-1 <= bounds[1].Y() &&
-		(CollisionData(x-1, y-1).CollisionMask & ClipSouth|ClipWest) == 0 {
+		(CollisionData(x-1, y-1).CollisionMask&ClipSouth|ClipWest) == 0 {
 		return true
 	}
 	if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y+1 >= bounds[0].Y() && y+1 <= bounds[1].Y() &&
-		(CollisionData(x-1, y+1).CollisionMask & ClipNorth|ClipWest) == 0 {
+		(CollisionData(x-1, y+1).CollisionMask&ClipNorth|ClipWest) == 0 {
 		return true
 	}
 	if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y-1 >= bounds[0].Y() && y-1 <= bounds[1].Y() &&
-		(CollisionData(x+1, y-1).CollisionMask & ClipSouth|ClipEast) == 0 {
+		(CollisionData(x+1, y-1).CollisionMask&ClipSouth|ClipEast) == 0 {
 		return true
 	}
 	if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y+1 >= bounds[0].Y() && y+1 <= bounds[1].Y() &&
-		(CollisionData(x+1, y+1).CollisionMask & ClipNorth|ClipEast) == 0 {
+		(CollisionData(x+1, y+1).CollisionMask&ClipNorth|ClipEast) == 0 {
 		return true
 	}
 
@@ -633,7 +655,6 @@ func (p *Player) SendFatigue() {
 func (p *Player) Initialize() {
 	p.SetAppearanceChanged()
 	p.SetSpriteUpdated()
-	p.SetConnected(true)
 	AddPlayer(p)
 	p.SendPacket(FriendList(p))
 	p.SendPacket(IgnoreList(p))
@@ -645,76 +666,47 @@ func (p *Player) Initialize() {
 	//  p.SendPacket(FightMode(p))
 	p.SendPacket(ClientSettings(p))
 	p.SendPacket(PrivacySettings(p))
+	if p.FirstLogin() {
+		p.SetFirstLogin(false)
+		for i := 0; i < 18; i++ {
+			if i != 3 {
+				p.Skills().SetCur(i, 1)
+				p.Skills().SetMax(i, 1)
+				p.Skills().SetExp(i, 0)
+			}
+		}
+		p.Skills().SetCur(StatHits, 10)
+		p.Skills().SetMax(StatHits, 10)
+		p.Skills().SetExp(StatHits, LevelToExperience(10))
+		p.OpenAppearanceChanger()
+	}
 	if !p.Reconnecting() {
 		p.SendPacket(WelcomeMessage)
-		if !p.FirstLogin() {
-			if tString := p.Attributes.VarString("lastLogin", ""); tString != "" {
-				if t, err := time.Parse(time.ANSIC, tString); err == nil {
-					p.SendPacket(LoginBox(int(time.Since(t).Hours()/24), p.Attributes.VarString("lastIP", "0.0.0.0")))
-				} else {
-					log.Info.Println(err)
-				}
+		if timestamp := p.Attributes.VarString("lastLogin", ""); timestamp != "" {
+			if t, err := time.Parse(time.ANSIC, timestamp); err == nil {
+				p.SendPacket(LoginBox(int(time.Since(t).Hours()/24), p.Attributes.VarString("lastIP", "0.0.0.0")))
 			}
-		} else {
-			p.SetFirstLogin(false)
-			for i := 0; i < 18; i++ {
-				exp := 0
-				if i == 3 {
-					exp = 1154
-				}
-				p.Skills().SetCur(i, ExperienceToLevel(exp))
-				p.Skills().SetMax(i, ExperienceToLevel(exp))
-				p.Skills().SetExp(i, exp)
-			}
-			p.OpenAppearanceChanger()
 		}
-
 	}
 	p.SendStats()
 	p.Attributes.SetVar("lastLogin", time.Now().Format(time.ANSIC))
-	go func() {
-		ticker := time.NewTicker(time.Minute)
-		defer ticker.Stop()
-		for range ticker.C {
-			if !p.Connected() {
-				return
-			}
-
-			for idx := 0; idx < 18; idx++ {
-				cur := p.Skills().Current(idx)
-				max := p.Skills().Maximum(idx)
-				delta := max - cur
-				if idx == StatPrayer {
-					continue
-				}
-
-				if delta > 0 {
-					p.SetCurStat(idx, cur+1)
-				} else if delta < 0 {
-					p.SetCurStat(idx, cur-1)
-				}
-				if idx != 3 && delta == 1 || delta == -1 {
-					// TODO: Look this real message up
-					p.Message("Your " + SkillName(idx) + " level has returned to normal.")
-				}
-			}
-		}
-	}()
 }
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer(index int, ip string) *Player {
-	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Location{atomic.NewUint32(0), atomic.NewUint32(0)}},
-		TransAttrs: &AttributeList{set: make(map[string]interface{})}}, Attributes: &AttributeList{set: make(map[string]interface{})},
-		LocalPlayers: &entityList{}, LocalNPCs: &entityList{}, LocalObjects: &entityList{}, Appearance: NewAppearanceTable(1, 2, true, 2, 8, 14, 0),
-		FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int), Inventory: &Inventory{Capacity: 30},
-		TradeOffer: &Inventory{Capacity: 12}, LocalItems: &entityList{}, IP: ip, OutgoingPackets: make(chan *packet.Packet, 20),
-		Kill: make(chan struct{}), Bank: &Inventory{Capacity: 48 * 4, stackEverything: true}}
+	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Lumbridge.Clone()}, TransAttrs: NewAttributeList()},
+		Attributes: NewAttributeList(), LocalPlayers: &entityList{}, LocalNPCs: &entityList{}, LocalObjects: &entityList{},
+		Appearance: DefaultAppearance(), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int),
+		Inventory: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, LocalItems: &entityList{},
+		OutgoingPackets: make(chan *packet.Packet, 20), KillC: make(chan struct{})}
 	p.Transients().SetVar("skills", &SkillTable{})
+	p.Transients().SetVar("bank", &Inventory{Capacity: 48 * 4, stackEverything: true})
 	p.Transients().SetVar("viewRadius", 16)
+	p.Transients().SetVar("currentIP", ip)
 	p.Equips[0] = p.Appearance.Head
 	p.Equips[1] = p.Appearance.Body
 	p.Equips[2] = p.Appearance.Legs
+	p.Inventory.Owner = p
 	return p
 }
 
@@ -754,18 +746,18 @@ func (p *Player) OpenOptionMenu(options ...string) int {
 	if p.IsTrading() || p.HasState(MSOptionMenu) {
 		return -1
 	}
-	p.OptionMenuC = make(chan int8)
+	p.ReplyMenuC = make(chan int8)
 	p.AddState(MSOptionMenu)
 	defer func() {
 		if p.HasState(MSOptionMenu) {
 			p.RemoveState(MSOptionMenu)
-			close(p.OptionMenuC)
+			close(p.ReplyMenuC)
 		}
 	}()
 	p.SendPacket(OptionMenuOpen(options...))
 
 	select {
-	case reply := <-p.OptionMenuC:
+	case reply := <-p.ReplyMenuC:
 		if reply < 0 || int(reply) > len(options)-1 || !p.HasState(MSOptionMenu) {
 			return -1
 		}
@@ -784,7 +776,7 @@ func (p *Player) OpenOptionMenu(options ...string) int {
 func (p *Player) CloseOptionMenu() {
 	if p.HasState(MSOptionMenu) {
 		p.RemoveState(MSOptionMenu)
-		close(p.OptionMenuC)
+		close(p.ReplyMenuC)
 		p.SendPacket(OptionMenuClose)
 	}
 }
@@ -867,7 +859,7 @@ func (p *Player) AddItem(id, amount int) {
 	if !ItemDefs[id].Stackable {
 		for i := 0; i < amount; i++ {
 			if p.Inventory.Size() >= p.Inventory.Capacity {
-				item := NewGroundItemFor(p.UserBase37, id, 1, p.X(), p.Y())
+				item := NewGroundItemFor(p.UsernameHash(), id, 1, p.X(), p.Y())
 				AddItem(item)
 				p.Message("Your inventory is full, the " + item.Name() + " drops to the ground!")
 			} else {
@@ -876,7 +868,7 @@ func (p *Player) AddItem(id, amount int) {
 		}
 	} else {
 		if p.Inventory.Size() >= p.Inventory.Capacity {
-			item := NewGroundItemFor(p.UserBase37, id, amount, p.X(), p.Y())
+			item := NewGroundItemFor(p.UsernameHash(), id, amount, p.X(), p.Y())
 			AddItem(item)
 			p.Message("Your inventory is full, the " + item.Name() + " drops to the ground!")
 		} else {
@@ -887,7 +879,7 @@ func (p *Player) AddItem(id, amount int) {
 }
 
 func (p *Player) PrayerActivated(idx int) bool {
-	return p.TransAttrs.VarBool("prayer" + strconv.Itoa(idx), false)
+	return p.TransAttrs.VarBool("prayer"+strconv.Itoa(idx), false)
 }
 
 func (p *Player) PrayerOn(idx int) {
@@ -906,11 +898,11 @@ func (p *Player) PrayerOn(idx int) {
 		p.PrayerOff(5)
 		p.PrayerOff(11)
 	}
-	p.TransAttrs.SetVar("prayer" + strconv.Itoa(idx), true)
+	p.TransAttrs.SetVar("prayer"+strconv.Itoa(idx), true)
 }
 
 func (p *Player) PrayerOff(idx int) {
-	p.TransAttrs.SetVar("prayer" + strconv.Itoa(idx), false)
+	p.TransAttrs.SetVar("prayer"+strconv.Itoa(idx), false)
 }
 
 func (p *Player) SendPrayers() {
@@ -935,21 +927,19 @@ func (p *Player) Killed(killer MobileEntity) {
 	deathItems := p.Inventory.DeathDrops(keepCount)
 	killerName := uint64(strutil.MaxBase37 + 5000) // Indicator that the item is not owned
 	if killer, ok := killer.(*Player); killer != nil && ok {
-		killerName = killer.UserBase37
+		killerName = killer.UsernameHash()
 	}
 	deathItems.Range(func(item *Item) bool {
 		AddItem(NewGroundItemFor(killerName, item.ID, item.Amount, p.X(), p.Y()))
-		p.DequipItem(item)
-		p.Inventory.Remove(item.Index, item.Amount)
 		return true
 	})
+	p.Inventory.RemoveAll(deathItems)
 	for i := 0; i < 13; i++ {
 		p.PrayerOff(i)
 	}
 	AddItem(NewGroundItemFor(killerName, 20, 1, p.X(), p.Y()))
 
 	p.SendPrayers()
-	p.SendInventory()
 	p.SendEquipBonuses()
 	p.ResetFighting()
 	plane := p.Plane()
@@ -984,19 +974,6 @@ func (p *Player) SendPlane() {
 //SendEquipBonuses sends the current equipment bonuses of this player.
 func (p *Player) SendEquipBonuses() {
 	p.SendPacket(EquipmentStats(p))
-}
-
-//RemoveItem removes amount of the item at index in this players inventory, then updates the client about it.
-func (p *Player) RemoveItem(index, amount int) {
-	p.Inventory.Remove(index, amount)
-	p.SendInventory()
-}
-
-//RemoveItemByID Removes amount of the item with specified id in this players inventory, then updates the client about
-// it.
-func (p *Player) RemoveItemByID(id, amount int) {
-	p.Inventory.RemoveByID(id, amount)
-	p.SendInventory()
 }
 
 //Damage sends a player damage bubble for this player to itself and any nearby players.

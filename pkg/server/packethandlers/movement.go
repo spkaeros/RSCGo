@@ -82,7 +82,7 @@ func init() {
 		}
 		player.ResetAll()
 		player.StartFollowing(2)
-		player.Message("@que@Following " + affectedClient.Username)
+		player.Message("@que@Following " + affectedClient.Username())
 		player.SetDistancedAction(func() bool {
 			if !player.IsFollowing() {
 				// Following vars have been reset.

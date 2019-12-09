@@ -50,6 +50,10 @@ type Location struct {
 	y *atomic.Uint32
 }
 
+func (l Location) Clone() Location {
+	return NewLocation(l.X(), l.Y())
+}
+
 func (l Location) X() int {
 	return int(l.x.Load())
 }

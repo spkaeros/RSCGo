@@ -6,8 +6,8 @@ amounts = {18: 1, 132: 3, 138: 4, 179: 5, 210: 2, 228: 1, 249: 2, 257: 5, 258: 3
 bind.item(itemPredicate(keys(amounts)...), func(player, item) {
 	player.PlaySound("eat")
 	player.Message("You eat the " + item.Name() + "...")
-	player.RemoveItem(item.Index, 1)
 	amount = math.Min(player.Skills().DeltaMax(HITPOINTS), amounts[toInt(item.ID)])
+	player.Inventory.RemoveByID(item.ID, 1)
 	if amount != 0 {
 		player.IncCurStat(HITPOINTS, amount)
 		sleep(tMillis * 600)

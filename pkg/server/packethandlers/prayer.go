@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	req := []int{ 1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40 }
+	req := []int{1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40}
 	PacketHandlers["prayeron"] = func(player *world.Player, p *packet.Packet) {
 		idx := p.ReadByte()
 		if idx < 0 || idx > 13 {

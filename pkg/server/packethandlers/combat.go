@@ -94,7 +94,7 @@ func init() {
 
 								if attackerPlayer, ok := attacker.(*world.Player); ok {
 									attackerPlayer.PlaySound("victory")
-									world.AddItem(world.NewGroundItemFor(attackerPlayer.UserBase37, 20, 1, defender.X(), defender.Y()))
+									world.AddItem(world.NewGroundItemFor(attackerPlayer.UsernameHash(), 20, 1, defender.X(), defender.Y()))
 								} else {
 									world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
 								}

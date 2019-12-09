@@ -191,16 +191,16 @@ func NPCPositions(player *Player) (p *packet.Packet) {
 		if n, ok := n.(*NPC); ok {
 			counter++
 			n.RLock()
-			if !player.WithinRange(player.Location, player.TransAttrs.VarInt("viewRadius", 16)) || n.SyncMask & SyncRemoved == SyncRemoved || n.Location.Equals(DeathPoint) {
+			if !player.WithinRange(player.Location, player.TransAttrs.VarInt("viewRadius", 16)) || n.SyncMask&SyncRemoved == SyncRemoved || n.Location.Equals(DeathPoint) {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
 				removing.set = append(removing.set, n)
-			} else if n.SyncMask & SyncMoved == SyncMoved {
+			} else if n.SyncMask&SyncMoved == SyncMoved {
 				p.AddBits(1, 1)
 				p.AddBits(0, 1)
 				p.AddBits(n.Direction(), 3)
-			} else if n.SyncMask & SyncSprite == SyncSprite {
+			} else if n.SyncMask&SyncSprite == SyncSprite {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(n.Direction(), 4)
@@ -272,7 +272,7 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 	p.AddBits(len(player.LocalPlayers.set), 8)
 	counter := 0
 	player.RLock()
-	if player.SyncMask &SyncNeedsPosition != 0 {
+	if player.SyncMask&SyncNeedsPosition != 0 {
 		counter++
 	}
 	player.RUnlock()
@@ -281,7 +281,7 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 		if p1, ok := p1.(*Player); ok {
 			p1.RLock()
 			counter++
-			if p1.LongestDelta(player.Location) >= player.TransAttrs.VarInt("viewRadius", 16) || p1.SyncMask & SyncRemoved == SyncRemoved {
+			if p1.LongestDelta(player.Location) >= player.TransAttrs.VarInt("viewRadius", 16) || p1.SyncMask&SyncRemoved == SyncRemoved {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
@@ -289,11 +289,11 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 				player.AppearanceLock.Lock()
 				delete(player.KnownAppearances, p1.Index)
 				player.AppearanceLock.Unlock()
-			} else if p1.SyncMask & SyncMoved == SyncMoved {
+			} else if p1.SyncMask&SyncMoved == SyncMoved {
 				p.AddBits(1, 1)
 				p.AddBits(0, 1)
 				p.AddBits(p1.Direction(), 3)
-			} else if p1.SyncMask & SyncSprite == SyncSprite {
+			} else if p1.SyncMask&SyncSprite == SyncSprite {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(p1.Direction(), 4)
@@ -356,7 +356,7 @@ func PlayerAppearances(ourPlayer *Player) (p *packet.Packet) {
 	p = packet.NewOutgoingPacket(234)
 	var appearanceList []*Player
 	ourPlayer.RLock()
-	if ourPlayer.SyncMask & SyncAppearance == SyncAppearance {
+	if ourPlayer.SyncMask&SyncAppearance == SyncAppearance {
 		appearanceList = append(appearanceList, ourPlayer)
 	}
 	ourPlayer.RUnlock()
@@ -385,7 +385,7 @@ func PlayerAppearances(ourPlayer *Player) (p *packet.Packet) {
 		p.AddShort(uint16(player.Index))
 		p.AddByte(5) // player appearances
 		p.AddShort(uint16(player.AppearanceTicket()))
-		p.AddLong(player.UserBase37)
+		p.AddLong(player.UsernameHash())
 		p.AddByte(12) // length of sprites.  Anything less than 12 will get padded with 0s
 		//		p.AddByte(uint8(player.Appearance.Head))
 		//		p.AddByte(uint8(player.Appearance.Body))
@@ -644,20 +644,20 @@ var BankClose = packet.NewOutgoingPacket(203)
 
 func BankOpen(player *Player) *packet.Packet {
 	p := packet.NewOutgoingPacket(42)
-	p.AddByte(uint8(player.Bank.Size()))
-	p.AddByte(uint8(player.Bank.Capacity))
-	for _, item := range player.Bank.List {
+	p.AddByte(uint8(player.Bank().Size()))
+	p.AddByte(uint8(player.Bank().Capacity))
+	for _, item := range player.Bank().List {
 		p.AddShort(uint16(item.ID))
 		p.AddInt2(uint32(item.Amount))
 	}
 	return p
 }
 
-func BankUpdateItem(item *Item) *packet.Packet {
+func BankUpdateItem(index, id, amount int) *packet.Packet {
 	p := packet.NewOutgoingPacket(249)
-	p.AddByte(uint8(item.Index))
-	p.AddShort(uint16(item.ID))
-	p.AddInt2(uint32(item.Amount))
+	p.AddByte(uint8(index))
+	p.AddShort(uint16(id))
+	p.AddInt2(uint32(amount))
 	return p
 }
 
@@ -701,7 +701,7 @@ func TradeAccept(accepted bool) *packet.Packet {
 func TradeConfirmationOpen(player, other *Player) *packet.Packet {
 	p := packet.NewOutgoingPacket(20)
 
-	p.AddLong(other.UserBase37)
+	p.AddLong(other.UsernameHash())
 	p.AddByte(uint8(other.TradeOffer.Size()))
 	other.TradeOffer.Range(func(item *Item) bool {
 		p.AddShort(uint16(item.ID))

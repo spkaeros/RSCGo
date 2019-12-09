@@ -62,11 +62,11 @@ func init() {
 	PacketHandlers["changepass"] = func(player *world.Player, p *packet.Packet) {
 		oldPassword := strings.TrimSpace(p.ReadString(20))
 		newPassword := strings.TrimSpace(p.ReadString(20))
-		if !db.ValidCredentials(player.UserBase37, crypto.Hash(oldPassword)) {
+		if !db.ValidCredentials(player.UsernameHash(), crypto.Hash(oldPassword)) {
 			player.Message("The old password you provided does not appear to be valid.  Try again.")
 			return
 		}
-		db.UpdatePassword(player.UserBase37, crypto.Hash(newPassword))
+		db.UpdatePassword(player.UsernameHash(), crypto.Hash(newPassword))
 		player.Message("Successfully updated your password to the new password you have provided.")
 		return
 	}
@@ -105,7 +105,7 @@ func newPlayer(player *world.Player, p *packet.Packet) {
 	reply := make(chan byte)
 	go handleRegister(player, reply)
 	if version := p.ReadShort(); version != config.Version() {
-		log.Info.Printf("New player denied: [ Reason:'Wrong client version'; ip='%s'; version=%d ]\n", player.IP, version)
+		log.Info.Printf("New player denied: [ Reason:'Wrong client version'; ip='%s'; version=%d ]\n", player.CurrentIP(), version)
 		reply <- 5
 		return
 	}
@@ -113,28 +113,29 @@ func newPlayer(player *world.Player, p *packet.Packet) {
 	password := strings.TrimSpace(p.ReadString(20))
 	if userLen, passLen := len(username), len(password); userLen < 2 || userLen > 12 || passLen < 5 || passLen > 20 {
 		log.Suspicious.Printf("New player request contained invalid lengths: username:'%v'; password:'%v'\n", username, password)
-		log.Info.Printf("New player denied: [ Reason:'username or password invalid length'; username='%s'; ip='%s'; passLen=%d ]\n", username, player.IP, passLen)
+		log.Info.Printf("New player denied: [ Reason:'username or password invalid length'; username='%s'; ip='%s'; passLen=%d ]\n", username, player.CurrentIP(), passLen)
 		reply <- 0
 		return
 	}
 	if db.UsernameExists(username) {
-		log.Info.Printf("New player denied: [ Reason:'Username is taken'; username='%s'; ip='%s' ]\n", username, player.IP)
+		log.Info.Printf("New player denied: [ Reason:'Username is taken'; username='%s'; ip='%s' ]\n", username, player.CurrentIP())
 		reply <- 3
 		return
 	}
 
 	if db.CreatePlayer(username, password) {
-		log.Info.Printf("New player accepted: [ username='%s'; ip='%s' ]", username, player.IP)
+		log.Info.Printf("New player accepted: [ username='%s'; ip='%s' ]", username, player.CurrentIP())
 		reply <- 2
 		return
 	}
-	log.Info.Printf("New player denied: [ Reason:'Most probably database related.  Debug required'; username='%s'; ip='%s' ]\n", username, player.IP)
+	log.Info.Printf("New player denied: [ Reason:'Most probably database related.  Debug required'; username='%s'; ip='%s' ]\n", username, player.CurrentIP())
 	reply <- 0
 	return
 }
 
 func sessionRequest(player *world.Player, p *packet.Packet) {
-	player.UID = p.ReadByte()
+	player.SetConnected(true)
+	p.ReadByte() // UID, useful?
 	player.SetServerSeed(rand.Uint64())
 	player.SendPacket(packet.NewBarePacket(nil).AddLong(player.ServerSeed()))
 }
@@ -209,7 +210,7 @@ func loginRequest(player *world.Player, p *packet.Packet) {
 	p.ReadInt()
 
 	usernameHash := strutil.Base37.Encode(strings.TrimSpace(p.ReadString(20)))
-	player.Username = strutil.Base37.Decode(usernameHash)
+	player.TransAttrs.SetVar("username", usernameHash)
 	password := strings.TrimSpace(p.ReadString(20))
 	if !db.UsernameExists(strutil.Base37.Decode(usernameHash)) {
 		loginReply <- 3

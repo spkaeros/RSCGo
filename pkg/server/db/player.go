@@ -90,10 +90,12 @@ func LoadPlayerProfile(usernameHash uint64, password string, loginReply chan byt
 		loginReply <- byte(3)
 		return errors.NewDatabaseError("Could not find player")
 	}
-	var x, y int
-	rows.Scan(&player.DatabaseIndex, &x, &y, &player.Rank, &player.Appearance.HeadColor, &player.Appearance.BodyColor, &player.Appearance.LegsColor, &player.Appearance.SkinColor, &player.Appearance.Head, &player.Appearance.Body)
+	var x, y, rank, dbID int
+	rows.Scan(&dbID, &x, &y, &rank, &player.Appearance.HeadColor, &player.Appearance.BodyColor, &player.Appearance.LegsColor, &player.Appearance.SkinColor, &player.Appearance.Head, &player.Appearance.Body)
 	//	player.Location = world.NewLocation(x, y)
 	//	player.Teleport(220, 445)
+	player.TransAttrs.SetVar("dbID", dbID)
+	player.TransAttrs.SetVar("rank", rank)
 	player.Equips[0] = player.Appearance.Head
 	player.Equips[1] = player.Appearance.Body
 	player.SetX(x)
@@ -104,7 +106,7 @@ func LoadPlayerProfile(usernameHash uint64, password string, loginReply chan byt
 func LoadPlayerStats(player *world.Player) error {
 	database := Open(config.PlayerDB())
 	defer database.Close()
-	rows, err := database.Query("SELECT cur, exp FROM stats WHERE playerid=? ORDER BY num", player.DatabaseIndex)
+	rows, err := database.Query("SELECT cur, exp FROM stats WHERE playerid=? ORDER BY num", player.DatabaseID())
 	if err != nil {
 		log.Info.Println("ValidatePlayer(uint64,string): Could not prepare query statement for player:", err)
 		return errors.NewDatabaseError(err.Error())
@@ -186,7 +188,7 @@ func LoadPlayerAttributes(player *world.Player) error {
 	database := Open(config.PlayerDB())
 	defer database.Close()
 
-	rows, err := database.Query("SELECT name, value FROM player_attr WHERE player_id=?", player.DatabaseIndex)
+	rows, err := database.Query("SELECT name, value FROM player_attr WHERE player_id=?", player.DatabaseID())
 	if err != nil {
 		log.Info.Println("LoadPlayer(uint64,string): Could not execute query statement for player attributes:", err)
 		return errors.NewDatabaseError("Statement could not execute.")
@@ -233,7 +235,7 @@ func LoadPlayerContacts(listType string, player *world.Player) error {
 	database := Open(config.PlayerDB())
 	defer database.Close()
 
-	rows, err := database.Query("SELECT playerhash FROM contacts WHERE playerid=? AND `type`=?", player.DatabaseIndex, listType)
+	rows, err := database.Query("SELECT playerhash FROM contacts WHERE playerid=? AND `type`=?", player.DatabaseID(), listType)
 	if err != nil {
 		log.Info.Println("LoadPlayer(uint64,string): Could not execute query statement for player friends:", err)
 		return errors.NewDatabaseError("Statement could not execute.")
@@ -255,7 +257,7 @@ func LoadPlayerContacts(listType string, player *world.Player) error {
 func LoadPlayerInventory(player *world.Player) error {
 	database := Open(config.PlayerDB())
 	defer database.Close()
-	rows, err := database.Query("SELECT itemid, amount, wielded FROM inventory WHERE playerid=?", player.DatabaseIndex)
+	rows, err := database.Query("SELECT itemid, amount, wielded FROM inventory WHERE playerid=?", player.DatabaseID())
 	if err != nil {
 		log.Info.Println("LoadPlayer(uint64,string): Could not execute query statement for player inventory:", err)
 		return errors.NewDatabaseError("Statement could not execute.")
@@ -284,7 +286,7 @@ func LoadPlayerInventory(player *world.Player) error {
 func LoadPlayerBank(player *world.Player) error {
 	database := Open(config.PlayerDB())
 	defer database.Close()
-	rows, err := database.Query("SELECT itemid, amount FROM bank WHERE playerid=?", player.DatabaseIndex)
+	rows, err := database.Query("SELECT itemid, amount FROM bank WHERE playerid=?", player.DatabaseID())
 	if err != nil {
 		log.Info.Println("LoadPlayer(uint64,string): Could not execute query statement for player inventory:", err)
 		return errors.NewDatabaseError("Statement could not execute.")
@@ -293,7 +295,7 @@ func LoadPlayerBank(player *world.Player) error {
 	for rows.Next() {
 		var id, amt int
 		rows.Scan(&id, &amt)
-		player.Bank.Add(id, amt)
+		player.Bank().Add(id, amt)
 	}
 	return nil
 }
@@ -323,24 +325,18 @@ func LoadPlayer(player *world.Player, usernameHash uint64, password string, logi
 		return
 	}
 
-	player.UserBase37 = usernameHash
-	player.Username = strutil.Base37.Decode(usernameHash)
-	if player.Rank == 2 {
-		// Administrator
-		loginReply <- 25
-		return
-	}
-	if player.Rank == 1 {
-		// Moderator
-		loginReply <- 24
-		return
-	}
 	if player.Reconnecting() {
 		loginReply <- 1
 		return
 	}
-	loginReply <- 0
-	return
+	switch player.Rank() {
+	case 2:
+		loginReply <- 25
+	case 1:
+		loginReply <- 24
+	default:
+		loginReply <- 0
+	}
 }
 
 //SavePlayer Saves a player to the SQLite3 database.
@@ -353,7 +349,7 @@ func SavePlayer(player *world.Player) {
 		return
 	}
 	updateLocation := func() {
-		rs, err := tx.Exec("UPDATE player SET x=?, y=? WHERE id=?", player.X(), player.Y(), player.DatabaseIndex)
+		rs, err := tx.Exec("UPDATE player SET x=?, y=? WHERE id=?", player.X(), player.Y(), player.DatabaseID())
 		if err != nil {
 			log.Warning.Println("Save(): UPDATE failed for player location:", err)
 			if err := tx.Rollback(); err != nil {
@@ -370,7 +366,7 @@ func SavePlayer(player *world.Player) {
 	updateAppearance := func() {
 		// TODO: Should this just be attributes too??  Is that abusing the attributes table?
 		appearance := player.Appearance
-		rs, _ := tx.Exec("UPDATE appearance SET haircolour=?, topcolour=?, trousercolour=?, skincolour=?, head=?, body=? WHERE playerid=?", appearance.HeadColor, appearance.BodyColor, appearance.LegsColor, appearance.SkinColor, appearance.Head, appearance.Body, player.DatabaseIndex)
+		rs, _ := tx.Exec("UPDATE appearance SET haircolour=?, topcolour=?, trousercolour=?, skincolour=?, head=?, body=? WHERE playerid=?", appearance.HeadColor, appearance.BodyColor, appearance.LegsColor, appearance.SkinColor, appearance.Head, appearance.Body, player.DatabaseID())
 		count, err := rs.RowsAffected()
 		if err != nil {
 			log.Warning.Println("Save(): UPDATE failed for player appearance:", err)
@@ -385,7 +381,7 @@ func SavePlayer(player *world.Player) {
 		}
 	}
 	clearAttributes := func() {
-		if _, err := tx.Exec("DELETE FROM player_attr WHERE player_id=?", player.DatabaseIndex); err != nil {
+		if _, err := tx.Exec("DELETE FROM player_attr WHERE player_id=?", player.DatabaseID()); err != nil {
 			log.Warning.Println("Save(): DELETE failed for player attribute:", err)
 			if err := tx.Rollback(); err != nil {
 				log.Warning.Println("Save(): Transaction delete attributes rollback failed:", err)
@@ -413,7 +409,7 @@ func SavePlayer(player *world.Player) {
 				val = "s" + v
 			}
 		}
-		rs, _ := tx.Exec("INSERT INTO player_attr(player_id, name, value) VALUES(?, ?, ?)", player.DatabaseIndex, name, val)
+		rs, _ := tx.Exec("INSERT INTO player_attr(player_id, name, value) VALUES(?, ?, ?)", player.DatabaseID(), name, val)
 		count, err := rs.RowsAffected()
 		if err != nil {
 			log.Warning.Println("Save(): INSERT failed for player attribute:", err)
@@ -429,7 +425,7 @@ func SavePlayer(player *world.Player) {
 		return false
 	}
 	clearContactList := func(contactType string) {
-		if _, err := tx.Exec("DELETE FROM contacts WHERE playerid=? AND type=?", player.DatabaseIndex, contactType); err != nil {
+		if _, err := tx.Exec("DELETE FROM contacts WHERE playerid=? AND type=?", player.DatabaseID(), contactType); err != nil {
 			log.Warning.Println("Save(): DELETE failed for player friends:", err)
 			if err := tx.Rollback(); err != nil {
 				log.Warning.Println("Save(): Transaction delete friends rollback failed:", err)
@@ -438,7 +434,7 @@ func SavePlayer(player *world.Player) {
 		}
 	}
 	insertContact := func(contactType string, hash uint64) {
-		rs, _ := tx.Exec("INSERT INTO contacts(playerid, playerhash, type) VALUES(?, ?, ?)", player.DatabaseIndex, hash, contactType)
+		rs, _ := tx.Exec("INSERT INTO contacts(playerid, playerhash, type) VALUES(?, ?, ?)", player.DatabaseID(), hash, contactType)
 		count, err := rs.RowsAffected()
 		if err != nil {
 			log.Warning.Println("Save(): INSERT failed for player friends:", err)
@@ -453,7 +449,7 @@ func SavePlayer(player *world.Player) {
 		}
 	}
 	clearItems := func() {
-		if _, err := tx.Exec("DELETE FROM inventory WHERE playerid=?", player.DatabaseIndex); err != nil {
+		if _, err := tx.Exec("DELETE FROM inventory WHERE playerid=?", player.DatabaseID()); err != nil {
 			log.Warning.Println("Save(): DELETE failed for player inventory:", err)
 			if err := tx.Rollback(); err != nil {
 				log.Warning.Println("Save(): Transaction delete inventory rollback failed:", err)
@@ -462,7 +458,7 @@ func SavePlayer(player *world.Player) {
 		}
 	}
 	clearBank := func() {
-		if _, err := tx.Exec("DELETE FROM bank WHERE playerid=?", player.DatabaseIndex); err != nil {
+		if _, err := tx.Exec("DELETE FROM bank WHERE playerid=?", player.DatabaseID()); err != nil {
 			log.Warning.Println("Save(): DELETE failed for player bank:", err)
 			if err := tx.Rollback(); err != nil {
 				log.Warning.Println("Save(): Transaction delete bank rollback failed:", err)
@@ -471,7 +467,7 @@ func SavePlayer(player *world.Player) {
 		}
 	}
 	insertItem := func(id, amt int, worn bool) {
-		rs, _ := tx.Exec("INSERT INTO inventory(playerid, itemid, amount, wielded) VALUES(?, ?, ?, ?)", player.DatabaseIndex, id, amt, worn)
+		rs, _ := tx.Exec("INSERT INTO inventory(playerid, itemid, amount, wielded) VALUES(?, ?, ?, ?)", player.DatabaseID(), id, amt, worn)
 		count, err := rs.RowsAffected()
 		if err != nil {
 			log.Warning.Println("Save(): INSERT failed for player items:", err)
@@ -486,7 +482,7 @@ func SavePlayer(player *world.Player) {
 		}
 	}
 	insertBank := func(id, amt int) {
-		rs, _ := tx.Exec("INSERT INTO bank(playerid, itemid, amount) VALUES(?, ?, ?)", player.DatabaseIndex, id, amt)
+		rs, _ := tx.Exec("INSERT INTO bank(playerid, itemid, amount) VALUES(?, ?, ?)", player.DatabaseID(), id, amt)
 		count, err := rs.RowsAffected()
 		if err != nil {
 			log.Warning.Println("Save(): INSERT failed for player bank items:", err)
@@ -501,7 +497,7 @@ func SavePlayer(player *world.Player) {
 		}
 	}
 	clearStats := func() {
-		if _, err := tx.Exec("DELETE FROM stats WHERE playerid=?", player.DatabaseIndex); err != nil {
+		if _, err := tx.Exec("DELETE FROM stats WHERE playerid=?", player.DatabaseID()); err != nil {
 			log.Warning.Println("Save(): DELETE failed for player stats:", err)
 			if err := tx.Rollback(); err != nil {
 				log.Warning.Println("Save(): Transaction delete stats rollback failed:", err)
@@ -510,7 +506,7 @@ func SavePlayer(player *world.Player) {
 		}
 	}
 	insertStat := func(idx, cur, exp int) {
-		rs, _ := tx.Exec("INSERT INTO stats(playerid, num, cur, exp) VALUES(?, ?, ?, ?)", player.DatabaseIndex, idx, cur, exp)
+		rs, _ := tx.Exec("INSERT INTO stats(playerid, num, cur, exp) VALUES(?, ?, ?, ?)", player.DatabaseID(), idx, cur, exp)
 		count, err := rs.RowsAffected()
 		if err != nil {
 			log.Warning.Println("Save(): INSERT failed for player stats:", err)
@@ -547,7 +543,7 @@ func SavePlayer(player *world.Player) {
 		insertItem(item.ID, item.Amount, item.Worn)
 		return true
 	})
-	player.Bank.Range(func(item *world.Item) bool {
+	player.Bank().Range(func(item *world.Item) bool {
 		insertBank(item.ID, item.Amount)
 		return true
 	})

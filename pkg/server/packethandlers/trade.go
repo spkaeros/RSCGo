@@ -21,14 +21,16 @@ func init() {
 		index := p.ReadShort()
 		c1, ok := players.FromIndex(index)
 		if !ok {
-			log.Suspicious.Printf("player['%v'@'%v'] attempted to trade a player that does not exist.\n", player.Username, player.IP)
+			log.Suspicious.Printf("%v attempted to trade a player that does not exist.\n", player.String())
 			return
 		}
 		if !player.WithinRange(c1.Location, 16) || player.Busy() {
-			// TODO: Reasonably, 16 is really too far.  Visibly I think 5 or 6 tiles surrounding players is visible
 			return
 		}
-		if c1.TradeBlocked() && !c1.Friends(player.UserBase37) {
+		if !player.WithinRange(c1.Location, 5) {
+			player.Message("You are too far away to do that")
+		}
+		if c1.TradeBlocked() && !c1.Friends(player.UsernameHash()) {
 			player.Message("This player has trade requests blocked.")
 			return
 		}
@@ -46,25 +48,25 @@ func init() {
 			c1.SendPacket(world.TradeOpen(c1))
 		} else {
 			player.Message("Sending trade request.")
-			c1.Message(player.Username + " wishes to trade with you.")
+			c1.Message(player.Username() + " wishes to trade with you.")
 		}
 	}
 	PacketHandlers["tradeupdate"] = func(player *world.Player, p *packet.Packet) {
 		if !player.IsTrading() {
-			log.Suspicious.Printf("player['%v'@'%v'] attempted to decline a non-existant trade!\n", player.Username, player.IP)
+			log.Suspicious.Printf("%v attempted to decline a non-existant trade!\n", player.String())
 			player.ResetTrade()
 			player.SendPacket(world.TradeClose)
 			return
 		}
 		c1, ok := players.FromIndex(player.TradeTarget())
 		if !ok {
-			log.Suspicious.Printf("player['%v'@'%v'] attempted to update a trade with a non-existent target!\n", player.Username, player.IP)
+			log.Suspicious.Printf("%v attempted to update a trade with a non-existent target!\n", player.String())
 			player.ResetTrade()
 			player.SendPacket(world.TradeClose)
 			return
 		}
 		if !c1.IsTrading() || c1.TradeTarget() != player.Index || player.TradeTarget() != c1.Index {
-			log.Suspicious.Printf("Players{ 1:['%v'@'%v'];2:['%v'@'%v'] } involved in trade with apparently bad trade variables!\n", player.Username, player.IP, c1.Username, c1.IP)
+			log.Suspicious.Printf("Players{ %v;2:%v } involved in trade with apparently bad trade variables!\n", player.String(), c1.String())
 			player.ResetTrade()
 			c1.ResetTrade()
 			player.SendPacket(world.TradeClose)
@@ -72,7 +74,7 @@ func init() {
 			return
 		}
 		if (c1.TransAttrs.VarBool("trade1accept", false) || c1.TransAttrs.VarBool("trade2accept", false)) && (player.TransAttrs.VarBool("trade1accept", false) || player.TransAttrs.VarBool("trade2accept", false)) {
-			log.Suspicious.Printf("Players{ 1:['%v'@'%v'];2:['%v'@'%v'] } involved in trade, player 1 attempted to alter offer after both players accepted!\n", player.Username, player.IP, c1.Username, c1.IP)
+			log.Suspicious.Printf("Players{ %v;2:%v } involved in trade, player 1 attempted to alter offer after both players accepted!\n", player.String(), c1.String())
 			player.ResetTrade()
 			c1.ResetTrade()
 			player.SendPacket(world.TradeClose)
@@ -87,11 +89,11 @@ func init() {
 		}()
 		itemCount := int(p.ReadByte())
 		if itemCount < 0 || itemCount > 12 {
-			log.Suspicious.Printf("player['%v'@'%v'] attempted to offer an invalid amount[%v] of trade items!\n", player.Username, player.IP, itemCount)
+			log.Suspicious.Printf("%v attempted to offer an invalid amount[%v] of trade items!\n", player.String(), itemCount)
 			return
 		}
 		if len(p.Payload) < 1+(itemCount*6) {
-			log.Suspicious.Printf("player['%v'@'%v'] attempted to send a trade offer update packet without enough data for the offer.\n", player.Username, player.IP)
+			log.Suspicious.Printf("%v attempted to send a trade offer update packet without enough data for the offer.\n", player.String())
 			return
 		}
 		for i := 0; i < itemCount; i++ {
@@ -100,42 +102,42 @@ func init() {
 	}
 	PacketHandlers["tradedecline"] = func(player *world.Player, p *packet.Packet) {
 		if !player.IsTrading() {
-			log.Suspicious.Printf("player['%v'@'%v'] attempted to decline a trade it was not in!\n", player.Username, player.IP)
+			log.Suspicious.Printf("%v attempted to decline a trade it was not in!\n", player.String())
 			player.ResetTrade()
 			player.SendPacket(world.TradeClose)
 			return
 		}
 		c1, ok := players.FromIndex(player.TradeTarget())
 		if !ok {
-			log.Suspicious.Printf("player['%v'@'%v'] attempted to decline a trade with a non-existent target!\n", player.Username, player.IP)
+			log.Suspicious.Printf("%v attempted to decline a trade with a non-existent target!\n", player.String())
 			player.ResetTrade()
 			player.SendPacket(world.TradeClose)
 			return
 		}
 		if !c1.IsTrading() || c1.TradeTarget() != player.Index || player.TradeTarget() != c1.Index {
-			log.Suspicious.Printf("Players{ 1:['%v'@'%v'];2:['%v'@'%v'] } involved in trade with apparently bad trade variables!\n", player.Username, player.IP, c1.Username, c1.IP)
+			log.Suspicious.Printf("Players{ %v;2:%v } involved in trade with apparently bad trade variables!\n", player.String(), c1.String())
 		}
 		player.ResetTrade()
 		c1.ResetTrade()
-		c1.Message(player.Username + " has declined the trade.")
+		c1.Message(player.Username() + " has declined the trade.")
 		c1.SendPacket(world.TradeClose)
 	}
 	PacketHandlers["tradeaccept"] = func(player *world.Player, p *packet.Packet) {
 		if !player.IsTrading() {
-			log.Suspicious.Printf("player['%v'@'%v'] attempted to accept a trade it was not in!\n", player.Username, player.IP)
+			log.Suspicious.Printf("%v attempted to accept a trade it was not in!\n", player.String())
 			player.ResetTrade()
 			player.SendPacket(world.TradeClose)
 			return
 		}
 		c1, ok := players.FromIndex(player.TradeTarget())
 		if !ok {
-			log.Suspicious.Printf("player['%v'@'%v'] attempted to accept a trade with a non-existent target!\n", player.Username, player.IP)
+			log.Suspicious.Printf("%v attempted to accept a trade with a non-existent target!\n", player.String())
 			player.ResetTrade()
 			player.SendPacket(world.TradeClose)
 			return
 		}
 		if !c1.IsTrading() || c1.TradeTarget() != player.Index || player.TradeTarget() != c1.Index {
-			log.Suspicious.Printf("Players{ 1:['%v'@'%v'];2:['%v'@'%v'] } involved in trade with apparently bad trade variables!\n", player.Username, player.IP, c1.Username, c1.IP)
+			log.Suspicious.Printf("Players{ %v;2:%v } involved in trade with apparently bad trade variables!\n", player.String(), c1.String())
 			player.ResetTrade()
 			c1.ResetTrade()
 			player.SendPacket(world.TradeClose)
@@ -152,20 +154,20 @@ func init() {
 	}
 	PacketHandlers["tradeconfirmaccept"] = func(player *world.Player, p *packet.Packet) {
 		if !player.IsTrading() || !player.TransAttrs.VarBool("trade1accept", false) {
-			log.Suspicious.Printf("player['%v'@'%v'] attempted to accept a trade confirmation it was not in!\n", player.Username, player.IP)
+			log.Suspicious.Printf("%v attempted to accept a trade confirmation it was not in!\n", player.String())
 			player.ResetTrade()
 			player.SendPacket(world.TradeClose)
 			return
 		}
 		c1, ok := players.FromIndex(player.TradeTarget())
 		if !ok {
-			log.Suspicious.Printf("player['%v'@'%v'] attempted to accept a trade confirmation with a non-existent target!\n", player.Username, player.IP)
+			log.Suspicious.Printf("%v attempted to accept a trade confirmation with a non-existent target!\n", player.String())
 			player.ResetTrade()
 			player.SendPacket(world.TradeClose)
 			return
 		}
 		if !c1.IsTrading() || c1.TradeTarget() != player.Index || player.TradeTarget() != c1.Index || !c1.TransAttrs.VarBool("trade1accept", false) {
-			log.Suspicious.Printf("Players{ 1:['%v'@'%v'];2:['%v'@'%v'] } involved in trade with apparently bad trade variables!\n", player.Username, player.IP, c1.Username, c1.IP)
+			log.Suspicious.Printf("Players{ 1:%v; 2:%v } involved in trade with apparently bad trade variables!\n", player.String(), c1.String())
 			player.ResetTrade()
 			c1.ResetTrade()
 			player.SendPacket(world.TradeClose)
@@ -205,11 +207,11 @@ func init() {
 				c1.ResetTrade()
 			}()
 			if player.Inventory.RemoveAll(player.TradeOffer) != player.TradeOffer.Size() {
-				log.Suspicious.Printf("Players{ 1:['%v'@'%v'];2:['%v'@'%v'] } involved in a trade, player 1 did not have all items to give.", player.Username, player.IP, c1.Username, c1.IP)
+				log.Suspicious.Printf("Players{ %v;2:%v } involved in a trade, player 1 did not have all items to give.", player.String(), c1.String())
 				return
 			}
 			if c1.Inventory.RemoveAll(c1.TradeOffer) != c1.TradeOffer.Size() {
-				log.Suspicious.Printf("Players{ 1:['%v'@'%v'];2:['%v'@'%v'] } involved in a trade, player 2 did not have all items to give.", player.Username, player.IP, c1.Username, c1.IP)
+				log.Suspicious.Printf("Players{ %v;2:%v } involved in a trade, player 2 did not have all items to give.", player.String(), c1.String())
 				return
 			}
 			for i := 0; i < c1.TradeOffer.Size(); i++ {

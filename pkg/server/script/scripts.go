@@ -143,7 +143,7 @@ func Load() {
 
 			if err != nil {
 				log.Info.Println("Anko scripting error in '"+path+"':", err)
-//				log.Info.Println(env.String())
+				//				log.Info.Println(env.String())
 				return nil
 			}
 		}

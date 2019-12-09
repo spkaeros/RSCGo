@@ -30,10 +30,10 @@ func init() {
 		handler, ok := script.CommandHandlers[args[0]]
 		if !ok {
 			player.Message("@que@Invalid command.")
-			log.Commands.Printf("%v sent invalid command: /%v\n", player.Username, string(p.Payload))
+			log.Commands.Printf("%v sent invalid command: /%v\n", player.Username(), string(p.Payload))
 			return
 		}
-		log.Commands.Printf("%v: /%v\n", player.Username, string(p.Payload))
+		log.Commands.Printf("%v: /%v\n", player.Username(), string(p.Payload))
 		handler(player, args[1:])
 	}
 	script.CommandHandlers["memdump"] = func(player *world.Player, args []string) {
@@ -55,7 +55,7 @@ func init() {
 			player.Message("Error encountered closing profile output file.")
 			return
 		}
-		log.Commands.Println(player.Username + " dumped memory profile of the server to rscgo.mprof")
+		log.Commands.Println(player.Username() + " dumped memory profile of the server to rscgo.mprof")
 		player.Message("Dumped memory profile.")
 	}
 	script.CommandHandlers["pprof"] = func(player *world.Player, args []string) {
@@ -77,11 +77,11 @@ func init() {
 				player.Message("Error encountered starting CPU profile.")
 				return
 			}
-			log.Commands.Println(player.Username + " began profiling CPU time.")
+			log.Commands.Println(player.Username() + " began profiling CPU time.")
 			player.Message("CPU profiling started.")
 		case "stop":
 			pprof.StopCPUProfile()
-			log.Commands.Println(player.Username + " has finished profiling CPU time, output should be in rscgo.pprof")
+			log.Commands.Println(player.Username() + " has finished profiling CPU time, output should be in rscgo.pprof")
 			player.Message("CPU profiling finished.")
 		default:
 			player.Message("Invalid args.  Usage: /pprof <start|stop>")
@@ -91,10 +91,10 @@ func init() {
 		go func() {
 			if count := db.SaveObjectLocations(); count > 0 {
 				player.Message("Saved " + strconv.Itoa(count) + " game objects to world.db")
-				log.Commands.Println(player.Username + " saved " + strconv.Itoa(count) + " game objects to world.db")
+				log.Commands.Println(player.Username() + " saved " + strconv.Itoa(count) + " game objects to world.db")
 			} else {
 				player.Message("Appears to have been an issue saving game objects to world.db.  Check server logs.")
-				log.Commands.Println(player.Username + " failed to save game objects; count=" + strconv.Itoa(count))
+				log.Commands.Println(player.Username() + " failed to save game objects; count=" + strconv.Itoa(count))
 			}
 		}()
 	}

@@ -19,7 +19,7 @@ import (
 func init() {
 	PacketHandlers["chatmsg"] = func(player *world.Player, p *packet.Packet) {
 		for _, p1 := range player.NearbyPlayers() {
-			if !p1.ChatBlocked() || p1.Friends(player.UserBase37) {
+			if !p1.ChatBlocked() || p1.Friends(player.UsernameHash()) {
 				p1.SendPacket(world.PlayerChat(player.Index, string(p.Payload)))
 			}
 		}
@@ -38,10 +38,10 @@ func init() {
 			return
 		}
 		if c1, ok := players.FromUserHash(hash); ok {
-			if c1.Friends(player.UserBase37) && player.FriendBlocked() {
-				c1.SendPacket(world.FriendUpdate(player.UserBase37, true))
+			if c1.Friends(player.UsernameHash()) && player.FriendBlocked() {
+				c1.SendPacket(world.FriendUpdate(player.UsernameHash(), true))
 			}
-			if !c1.FriendBlocked() || c1.Friends(player.UserBase37) {
+			if !c1.FriendBlocked() || c1.Friends(player.UsernameHash()) {
 				player.FriendList[hash] = true
 				return
 			}
@@ -50,8 +50,8 @@ func init() {
 	}
 	PacketHandlers["privmsg"] = func(player *world.Player, p *packet.Packet) {
 		if c1, ok := players.FromUserHash(p.ReadLong()); ok {
-			if !c1.FriendBlocked() || c1.Friends(player.UserBase37) {
-				c1.SendPacket(world.PrivateMessage(player.UserBase37, strutil.ChatFilter.Format(strutil.ChatFilter.Unpack(p.Payload[8:]))))
+			if !c1.FriendBlocked() || c1.Friends(player.UsernameHash()) {
+				c1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(strutil.ChatFilter.Unpack(p.Payload[8:]))))
 			}
 		}
 	}
@@ -64,8 +64,8 @@ func init() {
 			player.Message("@que@You are not friends with that person!")
 			return
 		}
-		if c1, ok := players.FromUserHash(hash); ok && c1.Friends(player.UserBase37) && player.FriendBlocked() {
-			c1.SendPacket(world.FriendUpdate(player.UserBase37, false))
+		if c1, ok := players.FromUserHash(hash); ok && c1.Friends(player.UsernameHash()) && player.FriendBlocked() {
+			c1.SendPacket(world.FriendUpdate(player.UsernameHash(), false))
 		}
 		delete(player.FriendList, hash)
 	}
@@ -110,6 +110,6 @@ func init() {
 		if choice < 0 {
 			return
 		}
-		player.OptionMenuC <- int8(choice)
+		player.ReplyMenuC <- int8(choice)
 	}
 }

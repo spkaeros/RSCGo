@@ -7,14 +7,14 @@ bind.command("say", func(player, args) {
 		return
 	}
 	msg = "@whi@[@cya@GLOBAL@whi@] "
-	if player.Rank == 2 {
+	if player.Rank() == 2 {
 		msg += "@red@~"
-	} else if player.Rank == 1 {
+	} else if player.Rank() == 1 {
 		msg += "@blu@@"
 	} else {
 		msg += "@yel@"
 	}
-	msg += player.Username + "@yel@:"
+	msg += player.Username() + "@yel@:"
 	for word in args {
 		msg += " " + word
 	}

@@ -20,6 +20,10 @@ type AttributeList struct {
 	lock sync.RWMutex
 }
 
+func NewAttributeList() *AttributeList {
+	return &AttributeList{set: make(map[string]interface{})}
+}
+
 //Range runs fn(key, value) for every entry in the attributes collection.  If fn returns true, returns to caller.
 func (a *AttributeList) Range(fn func(string, interface{}) bool) {
 	a.lock.RLock()

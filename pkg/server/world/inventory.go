@@ -55,7 +55,6 @@ func GetEquipmentDefinition(id int) *EquipmentDefinition {
 type Item struct {
 	ID     int
 	Amount int
-	Index  int
 	Worn   bool
 }
 
@@ -152,7 +151,7 @@ func (i *GroundItem) VisibleTo(p *Player) bool {
 	if i.removed {
 		return false
 	}
-	if i.owner > strutil.MaxBase37 || p.UserBase37 == i.owner || p.Rank == 2 {
+	if i.owner > strutil.MaxBase37 || p.UsernameHash() == i.owner || p.Rank() == 2 {
 		return true
 	}
 	return time.Since(i.spawnTime) > time.Minute
@@ -161,6 +160,7 @@ func (i *GroundItem) VisibleTo(p *Player) bool {
 //Inventory Represents an inventory of items in the game.
 type Inventory struct {
 	List            []*Item
+	Owner           *Player
 	Capacity        int
 	stackEverything bool
 	Lock            sync.RWMutex
@@ -177,7 +177,7 @@ func (s itemSorter) Swap(i, j int) {
 }
 
 func (s itemSorter) Less(i, j int) bool {
-	if !s[j].Stackable() && !s[i].Stackable(){
+	if !s[j].Stackable() && !s[i].Stackable() {
 		return s[i].Price() > s[j].Price()
 	}
 	return !s[i].Stackable() && s[j].Stackable()
@@ -192,6 +192,10 @@ func (i *Inventory) Clone() *Inventory {
 	return &Inventory{List: newList, Capacity: i.Capacity, stackEverything: i.stackEverything}
 }
 
+//DeathDrops returns a list of items to drop upon dying.  It decides what to keep using a few simple rules:
+// If the item is stackable, it gets dropped no matter what, even if it is the only item and keep is 3.
+// If the item isn't stackable, the inventory is first sorted by descending BasePrice, and the first `keep` items are
+// sliced off of the top of this sorted list which leaves us with the 30-keep least valuable items.
 func (i *Inventory) DeathDrops(keep int) *Inventory {
 	// clone so we don't modify the players inventory during the sorting process
 	deathItems := i.Clone()
@@ -204,20 +208,29 @@ func (i *Inventory) DeathDrops(keep int) *Inventory {
 			keep--
 		}
 	}
-	return &Inventory{List: deathItems.List[keep:], Capacity:30}
+	return &Inventory{List: deathItems.List[keep:], Capacity: 30}
 }
 
 func (i *Inventory) Range(fn func(*Item) bool) int {
 	i.Lock.RLock()
 	defer i.Lock.RUnlock()
-	index := 0
-	for _, item := range i.List {
+	for idx, item := range i.List {
 		if !fn(item) {
-			break
+			return idx
 		}
-		index++
 	}
-	return index
+	return -1
+}
+
+func (i *Inventory) Equipped(id int) bool {
+	i.Lock.RLock()
+	defer i.Lock.RUnlock()
+	for _, item := range i.List {
+		if item.ID == id && item.Worn {
+			return true
+		}
+	}
+	return false
 }
 
 //Size Returns the number of items currently in this inventory.
@@ -232,13 +245,13 @@ func (i *Inventory) Add(id int, qty int) int {
 	curSize := i.Size()
 	if item := i.GetByID(id); (i.stackEverything || ItemDefs[id].Stackable) && item != nil {
 		item.Amount += qty
-		return item.Index
+		return i.GetIndex(id)
 	}
 	if curSize >= i.Capacity {
 		return -1
 	}
 
-	newItem := &Item{id, qty, curSize, false}
+	newItem := &Item{id, qty, false}
 	i.Lock.Lock()
 	i.List = append(i.List, newItem)
 	i.Lock.Unlock()
@@ -246,31 +259,27 @@ func (i *Inventory) Add(id int, qty int) int {
 }
 
 //Remove Removes item at index from this inventory.
-func (i *Inventory) Remove(index int, amt int) bool {
-	size := i.Size()
-	if index >= size {
-		log.Suspicious.Printf("Attempted removing item out of inventory bounds.  index:%d,size:%d,capacity:%d\n", index, size, i.Capacity)
+func (i *Inventory) Remove(index int) bool {
+	item := i.Get(index)
+	if item == nil {
+		log.Suspicious.Printf("Attempted removing non-existant. item:%v\n", index)
 		return false
+	}
+	if i.Owner != nil && i.Owner.Connected() {
+		i.Owner.DequipItem(item)
 	}
 	i.Lock.Lock()
 	defer i.Lock.Unlock()
-	item := i.List[index]
-	if item == nil || item.Amount < amt {
-		log.Suspicious.Printf("Attempted removing too much of an item.  item:%v, removeAmt:%v\n", item, amt)
+	size := len(i.List)
+	if index >= size {
+		log.Suspicious.Printf("Attempted removing item out of inventory bounds.  index:%d,size:%d,capacity:%d\n", index, size, i.Capacity)
 		return false
-	}
-	item.Amount -= amt
-	if (i.stackEverything || ItemDefs[item.ID].Stackable) && item.Amount > 0 {
-		return true
 	}
 	if index >= size-1 {
 		i.List = i.List[:index]
 		return true
 	}
 	i.List = append(i.List[:index], i.List[index+1:]...)
-	for idx := range i.List {
-		i.List[idx].Index = idx
-	}
 	return true
 }
 
@@ -279,20 +288,22 @@ func (i *Inventory) RemoveByID(id, amt int) int {
 	if i.CountID(id) < amt {
 		return -1
 	}
+	index := i.GetIndex(id)
 	if i.stackEverything || ItemDefs[id].Stackable {
-		item := i.GetByID(id)
-		if i.Remove(item.Index, amt) {
-			return item.Index
+		if i.Get(index).Amount == amt {
+			i.Remove(index)
+		} else {
+			i.Get(index).Amount -= amt
 		}
 	} else {
 		for j := 0; j < amt; j++ {
-			item := i.GetByID(id)
-			if i.Remove(item.Index, 1) {
-				return item.Index
-			}
+			i.Remove(i.GetIndex(id))
 		}
 	}
-	return -1
+	if i.Owner != nil && i.Owner.Connected() {
+		i.Owner.SendInventory()
+	}
+	return index
 }
 
 //Get Returns a reference to the item at index if it exists, otherwise returns nil.
@@ -307,13 +318,17 @@ func (i *Inventory) Get(index int) *Item {
 
 //Get Returns a reference to the item at index if it exists, otherwise returns nil.
 func (i *Inventory) GetByID(ID int) *Item {
-	idx := i.Range(func(item *Item) bool {
+	return i.Get(i.GetIndex(ID))
+}
+
+//Get returns the index of the first item with the provided ID.
+func (i *Inventory) GetIndex(ID int) int {
+	return i.Range(func(item *Item) bool {
 		if item.ID == ID {
 			return false
 		}
 		return true
 	})
-	return i.Get(idx)
 }
 
 //CountID Returns the total amount of all the items with this ID in this inventory.
@@ -351,5 +366,5 @@ func (i *Inventory) Clear() {
 }
 
 func (i *Item) String() string {
-	return fmt.Sprintf("[%v, (%v, %v)]", i.ID, i.Amount, i.Index)
+	return fmt.Sprintf("[%v, (%v, %v)]", i.ID, i.Amount)
 }

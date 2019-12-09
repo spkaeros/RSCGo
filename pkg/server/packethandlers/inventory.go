@@ -97,8 +97,8 @@ func init() {
 		if item != nil {
 			player.SetDistancedAction(func() bool {
 				if player.FinishedPath() {
-					groundItem := world.NewGroundItemFor(player.UserBase37, item.ID, item.Amount, player.X(), player.Y())
-					if player.Inventory.Remove(index, item.Amount) {
+					groundItem := world.NewGroundItemFor(player.UsernameHash(), item.ID, item.Amount, player.X(), player.Y())
+					if player.Inventory.Remove(index) {
 						world.AddItem(groundItem)
 						player.SendPacket(world.InventoryItems(player))
 						player.PlaySound("dropobject")
