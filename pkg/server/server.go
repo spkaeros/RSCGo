@@ -1,9 +1,11 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/gobwas/ws"
@@ -73,9 +75,55 @@ func StartConnectionService() {
 	Bind(config.WSPort()) // websockets
 }
 
+func runTickables(p *world.Player) {
+	var toRemove []int
+	for i, fn := range p.Tickables {
+		if realFn, ok := fn.(func(context.Context) (reflect.Value, reflect.Value)); ok {
+			_, err := realFn(context.Background())
+			if !err.IsNil() {
+				toRemove = append(toRemove, i)
+				log.Warning.Println("Error in tickable:", err)
+				continue
+			}
+		}
+		if realFn, ok := fn.(func(context.Context, reflect.Value) (reflect.Value, reflect.Value)); ok {
+			_, err := realFn(context.Background(), reflect.ValueOf(p))
+			if !err.IsNil() {
+				toRemove = append(toRemove, i)
+				log.Warning.Println("Error in tickable:", err)
+				continue
+			}
+		}
+		if realFn, ok := fn.(func()); ok {
+			realFn()
+		}
+		if realFn, ok := fn.(func() bool); ok {
+			if realFn() {
+				toRemove = append(toRemove, i)
+			}
+		}
+		if realFn, ok := fn.(func(*world.Player)); ok {
+			realFn(p)
+		}
+		if realFn, ok := fn.(func(*world.Player) bool); ok {
+			if realFn(p) {
+				toRemove = append(toRemove, i)
+			}
+		}
+	}
+	for _, idx := range toRemove {
+		if idx == len(toRemove)-1 {
+			p.Tickables = p.Tickables[:idx]
+			continue
+		}
+		p.Tickables = append(p.Tickables[:idx], p.Tickables[idx+1:])
+	}
+}
+
 //Tick One game engine 'tick'.  This is to handle movement, to synchronize client, to update movement-related state variables... Runs once per 600ms.
 func Tick() {
 	world.Players.Range(func(p *world.Player) {
+		runTickables(p)
 		if fn := p.DistancedAction; fn != nil {
 			if fn() {
 				p.ResetDistancedAction()
@@ -106,10 +154,10 @@ func Tick() {
 		}
 	})
 	world.Players.Range(func(p *world.Player) {
-		p.ResetAppearanceChanged()
-		p.ResetSpriteUpdated()
-		p.ResetRegionMoved()
-		p.ResetRegionRemoved()
+		for _, fn := range p.ResetTickables {
+			fn()
+		}
+		p.ResetTickables = p.ResetTickables[:0]
 	})
 	world.ResetNpcUpdateFlags()
 }

@@ -198,13 +198,16 @@ func (i *Inventory) Clone() *Inventory {
 // sliced off of the top of this sorted list which leaves us with the 30-keep least valuable items.
 func (i *Inventory) DeathDrops(keep int) *Inventory {
 	// clone so we don't modify the players inventory during the sorting process
+	if keep <= 0 {
+		return i.Clone()
+	}
 	deathItems := i.Clone()
 	sort.Sort(itemSorter(deathItems.List))
 	if len(deathItems.List) < keep {
 		keep = len(deathItems.List)
 	}
 	for idx := keep; idx > 0; idx-- {
-		if deathItems.List[idx-1].Stackable() {
+		if deathItems.List[idx-1].Stackable()  {
 			keep--
 		}
 	}

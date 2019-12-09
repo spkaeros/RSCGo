@@ -124,12 +124,56 @@ func (n *NPC) UpdateRegion(x, y int) {
 func ResetNpcUpdateFlags() {
 	npcsLock.RLock()
 	for _, n := range Npcs {
-		n.ResetSpriteUpdated()
-		n.ResetRegionMoved()
-		n.ResetRegionRemoved()
-		n.ResetAppearanceChanged()
+		for _, fn := range n.ResetTickables {
+			fn()
+		}
+		n.ResetTickables = n.ResetTickables[:0]
 	}
 	npcsLock.RUnlock()
+}
+
+//NpcActionPredicate callback to a function defined in the Anko scripts loaded at runtime, to be run when certain
+// events occur.  If it returns true, it will block the event that triggered it from occurring
+type NpcBlockingTrigger struct {
+	// Check returns true if this handler should run.
+	Check func(*Player, *NPC) bool
+	// Action is the function that will run if Check returned true.
+	Action func(*Player, *NPC)
+}
+
+//NpcDeathTriggers List of script callbacks to run when you kill an NPC
+var NpcDeathTriggers []NpcBlockingTrigger
+
+func (n *NPC) Damage(dmg int) {
+	for _, r := range surroundingRegions(n.X(), n.Y()) {
+		r.Players.lock.RLock()
+		for _, p1 := range r.Players.set {
+			if p1, ok := p1.(*Player); ok {
+				p1.SendPacket(NpcDamage(n, dmg))
+			}
+		}
+		r.Players.lock.RUnlock()
+	}
+}
+
+func (n *NPC) Killed(killer MobileEntity) {
+	if killer, ok := killer.(*Player); ok {
+		for _, t := range NpcDeathTriggers {
+			if t.Check(killer, n) {
+				go t.Action(killer, n)
+			}
+		}
+	}
+	AddItem(NewGroundItem(20, 1, n.X(), n.Y()))
+	n.Skills().SetCur(StatHits, n.Skills().Maximum(StatHits))
+	n.SetLocation(DeathPoint, true)
+	killer.ResetFighting()
+	n.ResetFighting()
+	go func() {
+		time.Sleep(time.Second * 10)
+		n.SetLocation(n.StartPoint, true)
+	}()
+	return
 }
 
 //TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.

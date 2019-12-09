@@ -702,6 +702,7 @@ func NewPlayer(index int, ip string) *Player {
 	p.Transients().SetVar("bank", &Inventory{Capacity: 48 * 4, stackEverything: true})
 	p.Transients().SetVar("viewRadius", 16)
 	p.Transients().SetVar("currentIP", ip)
+
 	p.Equips[0] = p.Appearance.Head
 	p.Equips[1] = p.Appearance.Body
 	p.Equips[2] = p.Appearance.Legs
@@ -925,6 +926,72 @@ func (p *Player) SetSkulled(val bool) {
 	p.UpdateAppearance()
 }
 
+func (p *Player) StartCombat(target MobileEntity) {
+	p.ResetPath()
+	target.ResetPath()
+	if p1, ok  := target.(*Player); ok {
+		p1.PlaySound("underattack")
+		p.SetSkulled(true)
+	}
+	p.Teleport(target.X(), target.Y())
+	p.AddState(MSFighting)
+	target.AddState(MSFighting)
+	p.SetDirection(RightFighting)
+	target.SetDirection(LeftFighting)
+	p.Transients().SetVar("fightTarget", target)
+	target.Transients().SetVar("fightTarget", p)
+	curRound := 0
+	curTick := 0
+	p.Tickables = append(p.Tickables, func() bool {
+		curTick++
+		if p1, ok := target.(*Player); ok {
+			if !p1.Connected() {
+				if p.HasState(MSFighting) {
+					p.ResetFighting()
+				}
+				if p1.HasState(MSFighting) {
+					p1.ResetFighting()
+				}
+				return true
+			}
+		}
+		if !target.HasState(MSFighting) || !p.HasState(MSFighting) || !p.Connected() {
+			if target.HasState(MSFighting) {
+				target.ResetFighting()
+			}
+			if p.HasState(MSFighting) {
+				p.ResetFighting()
+			}
+			return true
+		}
+		if curTick%2 == 0 {
+			return false
+		}
+		var attacker, defender MobileEntity
+		if curRound%2 == 0 {
+			attacker = p
+			defender = target
+		} else {
+			attacker = target
+			defender = p
+		}
+		nextHit := attacker.MeleeDamage(defender)
+		if nextHit > defender.Skills().Current(StatHits) {
+			nextHit = defender.Skills().Current(StatHits)
+		}
+		defender.Skills().DecreaseCur(StatHits, nextHit)
+		if defender.Skills().Current(StatHits) <= 0 {
+			defender.Killed(attacker)
+			return true
+		}
+
+		defender.Damage(nextHit)
+		attacker.Transients().IncVar("fightRound", 1)
+		curRound++
+		return false
+	})
+}
+
 //Killed kills this player, dropping all of its items where it stands.
 func (p *Player) Killed(killer MobileEntity) {
 	p.Transients().SetVar("deathTime", time.Now())
@@ -941,7 +1008,7 @@ func (p *Player) Killed(killer MobileEntity) {
 		keepCount++
 	}
 	if !p.Skulled() {
-		keepCount -= 3
+		keepCount += 3
 	}
 	deathItems := p.Inventory.DeathDrops(keepCount)
 	killerName := uint64(strutil.MaxBase37 + 5000) // Indicator that the item is not owned
@@ -958,6 +1025,7 @@ func (p *Player) Killed(killer MobileEntity) {
 	}
 	AddItem(NewGroundItemFor(killerName, 20, 1, p.X(), p.Y()))
 
+	p.SetSkulled(false)
 	p.SendPrayers()
 	p.SendEquipBonuses()
 	p.ResetFighting()

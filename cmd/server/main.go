@@ -103,7 +103,7 @@ func main() {
 		log.Info.Printf("Loaded %d boundary definitions.\n", len(world.BoundaryDefs))
 		log.Info.Printf("Loaded %d NPCs.\n", world.NpcCounter.Load())
 		log.Info.Printf("Loaded %d objects and boundaries.\n", world.ObjectCounter.Load())
-		log.Info.Printf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill] loaded\n", len(script.ItemTriggers), len(script.ObjectTriggers), len(script.BoundaryTriggers), len(script.NpcTriggers), len(script.InvOnBoundaryTriggers), len(script.InvOnObjectTriggers), len(script.NpcAtkTriggers), len(script.NpcDeathTriggers))
+		log.Info.Printf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill] loaded\n", len(script.ItemTriggers), len(script.ObjectTriggers), len(script.BoundaryTriggers), len(script.NpcTriggers), len(script.InvOnBoundaryTriggers), len(script.InvOnObjectTriggers), len(script.NpcAtkTriggers), len(world.NpcDeathTriggers))
 		log.Info.Printf("Finished initializing entities in: %dms\n", time.Since(start).Milliseconds())
 	}
 	server.StartGameEngine()

@@ -52,15 +52,6 @@ type NpcTrigger struct {
 	Action func(*world.Player, *world.NPC)
 }
 
-//NpcActionPredicate callback to a function defined in the Anko scripts loaded at runtime, to be run when certain
-// events occur.  If it returns true, it will block the event that triggered it from occurring
-type NpcBlockingTrigger struct {
-	// Check returns true if this handler should run.
-	Check NpcActionPredicate
-	// Action is the function that will run if Check returned true.
-	Action func(*world.Player, *world.NPC)
-}
-
 //NpcActionPredicate A type alias for an NPC related action predicate.
 type NpcActionPredicate = func(*world.Player, *world.NPC) bool
 
@@ -87,10 +78,7 @@ var BoundaryTriggers []ObjectTrigger
 var NpcTriggers []NpcTrigger
 
 //NpcAtkTriggers List of script callbacks to run when you attack an NPC
-var NpcAtkTriggers []NpcActionPredicate
-
-//NpcDeathTriggers List of script callbacks to run when you kill an NPC
-var NpcDeathTriggers []NpcBlockingTrigger
+var NpcAtkTriggers []world.NpcBlockingTrigger
 
 //Clear clears all of the lists of triggers.
 func Clear() {
@@ -98,7 +86,7 @@ func Clear() {
 	ObjectTriggers = ObjectTriggers[:0]
 	NpcTriggers = NpcTriggers[:0]
 	NpcAtkTriggers = NpcAtkTriggers[:0]
-	NpcDeathTriggers = NpcDeathTriggers[:0]
+	world.NpcDeathTriggers = world.NpcDeathTriggers[:0]
 	BoundaryTriggers = BoundaryTriggers[:0]
 	LoginTriggers = LoginTriggers[:0]
 	InvOnBoundaryTriggers = InvOnBoundaryTriggers[:0]

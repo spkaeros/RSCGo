@@ -227,15 +227,12 @@ func init() {
 		"npc": reflect.ValueOf(func(predicate func(npc *world.NPC) bool, fn func(player *world.Player, npc *world.NPC)) {
 			NpcTriggers = append(NpcTriggers, NpcTrigger{predicate, fn})
 		}),
-		"npcAttack": reflect.ValueOf(func(pred NpcActionPredicate) {
-			NpcAtkTriggers = append(NpcAtkTriggers, pred)
+		"npcAttack": reflect.ValueOf(func(pred NpcActionPredicate, fn func(player *world.Player, npc *world.NPC)) {
+			NpcAtkTriggers = append(NpcAtkTriggers, world.NpcBlockingTrigger{pred, fn})
 		}),
 		"npcKilled": reflect.ValueOf(func(pred NpcActionPredicate, fn func(player *world.Player, npc *world.NPC)) {
-			NpcDeathTriggers = append(NpcDeathTriggers, NpcBlockingTrigger{pred, fn})
+			world.NpcDeathTriggers = append(world.NpcDeathTriggers, world.NpcBlockingTrigger{pred, fn})
 		}),
-		//"npcAttacked2": reflect.ValueOf(func(pred NpcActionPredicate, fn func(player *world.Player, npc *world.NPC)) {
-		//	NpcAtkTriggers = append(NpcAtkTriggers, NpcBlockingTrigger{pred, fn})
-		//}),
 		"command": reflect.ValueOf(func(name string, fn func(p *world.Player, args []string)) {
 			CommandHandlers[name] = fn
 		}),
@@ -323,6 +320,22 @@ func WorldModule() *env.Env {
 	})
 	e.Define("npcPredicate", func(ids ...interface{}) func(*world.NPC) bool {
 		return func(npc *world.NPC) bool {
+			for _, id := range ids {
+				if cmd, ok := id.(string); ok {
+					if npc.Name() == cmd {
+						return true
+					}
+				} else if id, ok := id.(int64); ok {
+					if npc.ID == int(id) {
+						return true
+					}
+				}
+			}
+			return false
+		}
+	})
+	e.Define("npcBlockingPredicate", func(ids ...interface{}) func(*world.Player, *world.NPC) bool {
+		return func(player *world.Player, npc *world.NPC) bool {
 			for _, id := range ids {
 				if cmd, ok := id.(string); ok {
 					if npc.Name() == cmd {

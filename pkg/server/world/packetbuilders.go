@@ -196,14 +196,23 @@ func NPCPositions(player *Player) (p *packet.Packet) {
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
 				removing.set = append(removing.set, n)
+				n.ResetTickables = append(n.ResetTickables, func() {
+					n.ResetRegionRemoved()
+				})
 			} else if n.SyncMask&SyncMoved == SyncMoved {
 				p.AddBits(1, 1)
 				p.AddBits(0, 1)
 				p.AddBits(n.Direction(), 3)
+				n.ResetTickables = append(n.ResetTickables, func() {
+					n.ResetRegionMoved()
+				})
 			} else if n.SyncMask&SyncSprite == SyncSprite {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(n.Direction(), 4)
+				n.ResetTickables = append(n.ResetTickables, func() {
+					n.ResetSpriteUpdated()
+				})
 			} else {
 				p.AddBits(0, 1)
 				counter--
@@ -274,6 +283,11 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 	player.RLock()
 	if player.SyncMask&SyncNeedsPosition != 0 {
 		counter++
+		player.ResetTickables = append(player.ResetTickables, func() {
+			player.ResetRegionRemoved()
+			player.ResetRegionMoved()
+			player.ResetSpriteUpdated()
+		})
 	}
 	player.RUnlock()
 	var removing = entityList{}
@@ -289,14 +303,23 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 				player.AppearanceLock.Lock()
 				delete(player.KnownAppearances, p1.Index)
 				player.AppearanceLock.Unlock()
+				p1.ResetTickables = append(p1.ResetTickables, func() {
+					p1.ResetRegionRemoved()
+				})
 			} else if p1.SyncMask&SyncMoved == SyncMoved {
 				p.AddBits(1, 1)
 				p.AddBits(0, 1)
 				p.AddBits(p1.Direction(), 3)
+				p1.ResetTickables = append(p1.ResetTickables, func() {
+					p1.ResetRegionMoved()
+				})
 			} else if p1.SyncMask&SyncSprite == SyncSprite {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(p1.Direction(), 4)
+				p1.ResetTickables = append(p1.ResetTickables, func() {
+					p1.ResetSpriteUpdated()
+				})
 			} else {
 				p.AddBits(0, 1)
 				counter--
@@ -357,6 +380,9 @@ func PlayerAppearances(ourPlayer *Player) (p *packet.Packet) {
 	var appearanceList []*Player
 	ourPlayer.RLock()
 	if ourPlayer.SyncMask&SyncAppearance == SyncAppearance {
+		ourPlayer.ResetTickables = append(ourPlayer.ResetTickables, func() {
+			ourPlayer.ResetAppearanceChanged()
+		})
 		appearanceList = append(appearanceList, ourPlayer)
 	}
 	ourPlayer.RUnlock()

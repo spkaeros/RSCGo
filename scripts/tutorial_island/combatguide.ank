@@ -54,11 +54,7 @@ bind.npc(npcPredicate(474), func(player, npc) {
 	}
 })
 
-bind.npcAttack(func(player, npc) {
-	if npc.ID != 473 {
-		return false
-	}
-
+bind.npcAttack(npcBlockingPredicate(473), func(player, npc) {
 	if toInt(player.Cache("tutorial")) < 16 {
 		player.Message("Speak to the combat instructor before killing rats")
 	} else if toInt(player.Cache("tutorial")) > 16 {

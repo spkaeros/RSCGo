@@ -48,6 +48,7 @@ type Mob struct {
 	*Entity
 	TransAttrs *AttributeList
 	SyncMask   int
+	ResetTickables []func()
 	sync.RWMutex
 }
 
@@ -93,6 +94,8 @@ type MobileEntity interface {
 	ResetRegionRemoved()
 	ResetSpriteUpdated()
 	ResetAppearanceChanged()
+	Killed(MobileEntity)
+	Damage(int)
 }
 
 func (m *Mob) Transients() *AttributeList {
