@@ -27,9 +27,7 @@ func init() {
 			log.Suspicious.Printf("%v turned on a prayer that he is too low level for: %d\n", player, idx)
 			return
 		}
-		if !player.PrayerActivated(int(idx)) {
-			player.PrayerOn(int(idx))
-		}
+		player.PrayerOn(int(idx))
 		player.SendPrayers()
 	}
 	PacketHandlers["prayeroff"] = func(player *world.Player, p *packet.Packet) {

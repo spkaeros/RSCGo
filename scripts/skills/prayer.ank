@@ -2,10 +2,17 @@ bind = import("bind")
 time = import("time")
 
 drainRates = [15, 15, 15, 30, 30, 30, 5, 10, 10, 60, 60, 60, 60, 60]
-
 partialPoints = 0.0
-
 active = {}
+
+func outOfPoints(player) {
+	for i = 0; i < 14; i++ {
+		player.PrayerOff(i)
+	}
+	player.SendPrayers()
+	player.Message("You have run out of prayer points. Return to a church to recharge")
+	active = {}
+}
 
 bind.onLogin(func(player) {
 	go func() {
@@ -27,8 +34,7 @@ bind.onLogin(func(player) {
 					delete(active, index)
 				}
 				if prayerActivated && player.Skills().Current(PRAYER) < 1 {
-					player.Message("You have run out of prayer points. Return to a church to recharge")
-					active = {}
+					outOfPoints(player)
 				}
 			}
 
@@ -39,8 +45,7 @@ bind.onLogin(func(player) {
 					if player.Skills().Current(PRAYER) > 0 {
 						player.IncCurStat(PRAYER, -1)
 					} else {
-						player.Message("You have run out of prayer points. Return to a church to recharge")
-						active = {}
+						outOfPoints(player)
 					}
 				}
 			}
@@ -48,8 +53,7 @@ bind.onLogin(func(player) {
 				if player.Skills().Current(PRAYER) > 0 {
 					player.IncCurStat(PRAYER, -1)
 				} else {
-					player.Message("You have run out of prayer points. Return to a church to recharge")
-					active = {}
+					outOfPoints(player)
 				}
 				partialPoints = 0.0
 			}

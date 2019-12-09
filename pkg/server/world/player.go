@@ -891,6 +891,21 @@ func (p *Player) PrayerActivated(idx int) bool {
 }
 
 func (p *Player) PrayerOn(idx int) {
+	if idx == 0 || idx == 3 || idx == 9 {
+		p.PrayerOff(0)
+		p.PrayerOff(3)
+		p.PrayerOff(9)
+	}
+	if idx == 1 || idx == 4 || idx == 10 {
+		p.PrayerOff(1)
+		p.PrayerOff(4)
+		p.PrayerOff(10)
+	}
+	if idx == 2 || idx == 5 || idx == 11 {
+		p.PrayerOff(2)
+		p.PrayerOff(5)
+		p.PrayerOff(11)
+	}
 	p.TransAttrs.SetVar("prayer" + strconv.Itoa(idx), true)
 }
 
@@ -931,9 +946,9 @@ func (p *Player) Killed(killer MobileEntity) {
 	for i := 0; i < 13; i++ {
 		p.PrayerOff(i)
 	}
-	p.SendPrayers()
-	// todo: send prayers off
 	AddItem(NewGroundItemFor(killerName, 20, 1, p.X(), p.Y()))
+
+	p.SendPrayers()
 	p.SendInventory()
 	p.SendEquipBonuses()
 	p.ResetFighting()

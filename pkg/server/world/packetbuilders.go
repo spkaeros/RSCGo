@@ -254,7 +254,7 @@ func NPCPositions(player *Player) (p *packet.Packet) {
 
 func PrayerStatus(player *Player) *packet.Packet {
 	p := packet.NewOutgoingPacket(206)
-	for i := 0; i < 13; i++ {
+	for i := 0; i < 14; i++ {
 		p.AddBool(player.PrayerActivated(i))
 	}
 	return p

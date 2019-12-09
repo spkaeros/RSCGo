@@ -56,7 +56,7 @@ type MobileEntity interface {
 	Y() int
 	Skills() *SkillTable
 	MeleeDamage(target MobileEntity) int
-	Defense(float32) float32
+	Defense(float32, float32) float32
 	Transients() *AttributeList
 	IsFighting() bool
 	FightTarget() MobileEntity
@@ -403,6 +403,41 @@ func (m *Mob) Skills() *SkillTable {
 	return m.TransAttrs.VarSkills("skills")
 }
 
+func PrayerModifiers(m MobileEntity) [3]float32 {
+	modifiers := [3]float32{ 1.0, 1.0, 1.0 }
+
+	if m, ok := m.(*Player); ok {
+		if m.PrayerActivated(0) {
+			modifiers[1] += .05
+		}
+		if m.PrayerActivated(1) {
+			modifiers[2] += .05
+		}
+		if m.PrayerActivated(2) {
+			modifiers[0] += .05
+		}
+		if m.PrayerActivated(3) {
+			modifiers[1] += .1
+		}
+		if m.PrayerActivated(4) {
+			modifiers[2] += .1
+		}
+		if m.PrayerActivated(5) {
+			modifiers[0] += .1
+		}
+		if m.PrayerActivated(9) {
+			modifiers[1] += .15
+		}
+		if m.PrayerActivated(10) {
+			modifiers[2] += .15
+		}
+		if m.PrayerActivated(11) {
+			modifiers[0] += .15
+		}
+	}
+	return modifiers
+}
+
 func (m *Mob) StyleBonus(stat int) int {
 	mode := m.FightMode()
 	if mode == 0 {
@@ -414,24 +449,21 @@ func (m *Mob) StyleBonus(stat int) int {
 }
 
 //MaxHit Calculates and returns the current max hit for this mob.
-func (m *Mob) MaxHit() int {
-	prayer := float32(1.0)
+func (m *Mob) MaxHit(prayer float32) int {
 	newStr := (float32(m.Skills().Current(StatStrength)) * prayer) + float32(m.StyleBonus(StatStrength))
 	return int((newStr*((float32(m.PowerPoints())*0.00175)+0.1) + 1.05) * 0.95)
 }
 
-func (m *Mob) Accuracy(npcMul float32) float32 {
+func (m *Mob) Accuracy(npcMul float32, prayer float32) float32 {
 	styleBonus := float32(m.StyleBonus(StatAttack))
-	prayer := float32(1.0)
 	attackLvl := (float32(m.Skills().Current(StatAttack)) * prayer) + styleBonus + 8
 	multiplier := float32(m.AimPoints() + 64)
 	multiplier *= npcMul
 	return attackLvl * multiplier
 }
 
-func (m *Mob) Defense(npcMul float32) float32 {
+func (m *Mob) Defense(npcMul float32, prayer float32) float32 {
 	styleBonus := float32(m.StyleBonus(StatDefense))
-	prayer := float32(1.0)
 	defenseLvl := (float32(m.Skills().Current(StatDefense)) * prayer) + styleBonus + 8
 	multiplier := float32(m.ArmourPoints() + 64)
 	multiplier *= npcMul
@@ -439,13 +471,13 @@ func (m *Mob) Defense(npcMul float32) float32 {
 }
 
 func (n *NPC) MeleeDamage(target MobileEntity) int {
-	att := n.Accuracy(0.9)
+	att := n.Accuracy(0.9, PrayerModifiers(n)[0])
 	mul := float32(1.0)
 	if _, ok := target.(*NPC); ok {
 		mul = 0.9
 	}
-	def := target.Defense(mul)
-	max := n.MaxHit()
+	def := target.Defense(mul, PrayerModifiers(target)[1])
+	max := n.MaxHit(PrayerModifiers(n)[2])
 	if att*10 < def {
 		return 0
 	}
@@ -465,13 +497,13 @@ func (n *NPC) MeleeDamage(target MobileEntity) int {
 }
 
 func (p *Player) MeleeDamage(target MobileEntity) int {
-	att := p.Accuracy(1.0)
+	att := p.Accuracy(1.0, PrayerModifiers(p)[0])
 	mul := float32(1.0)
 	if _, ok := target.(*NPC); ok {
 		mul = 0.9
 	}
-	def := target.Defense(mul)
-	max := p.MaxHit()
+	def := target.Defense(mul, PrayerModifiers(target)[1])
+	max := p.MaxHit(PrayerModifiers(p)[2])
 	if att*10 < def {
 		return 0
 	}

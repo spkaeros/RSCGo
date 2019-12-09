@@ -177,6 +177,15 @@ func (s itemSorter) Swap(i, j int) {
 }
 
 func (s itemSorter) Less(i, j int) bool {
+	if s[i].Stackable() && !s[j].Stackable() {
+		return false
+	}
+	if !s[i].Stackable() && s[j].Stackable() {
+		return true
+	}
+	if s[i].Stackable() && s[j].Stackable() {
+		return true
+	}
 	return s[i].Price() > s[j].Price()
 }
 
@@ -193,6 +202,16 @@ func (i *Inventory) DeathDrops(keep int) *Inventory {
 	// clone so we don't modify the players inventory during the sorting process
 	deathItems := i.Clone()
 	sort.Sort(itemSorter(deathItems.List))
+	if len(deathItems.List) < keep {
+		keep = len(deathItems.List)
+	}
+	log.Info.Println(keep)
+	for idx := keep; idx > 0; idx-- {
+		if deathItems.List[idx-1].Stackable() {
+			keep--
+		}
+	}
+	log.Info.Println(keep)
 	return &Inventory{List: deathItems.List[keep:], Capacity:30}
 }
 
