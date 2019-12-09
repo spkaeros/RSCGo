@@ -45,7 +45,7 @@ func AddPlayer(p *Player) {
 	getRegion(p.X(), p.Y()).Players.Add(p)
 }
 
-//RemovePlayer Remove a player from the region.
+//RemovePlayer SetRegionRemoved a player from the region.
 func RemovePlayer(p *Player) {
 	getRegion(p.X(), p.Y()).Players.Remove(p)
 }
@@ -55,7 +55,7 @@ func AddNpc(n *NPC) {
 	getRegion(n.X(), n.Y()).NPCs.Add(n)
 }
 
-//RemoveNpc Remove a NPC from the region.
+//RemoveNpc SetRegionRemoved a NPC from the region.
 func RemoveNpc(n *NPC) {
 	getRegion(n.X(), n.Y()).NPCs.Remove(n)
 }
@@ -81,7 +81,7 @@ func GetItem(x, y, id int) *GroundItem {
 	return nil
 }
 
-//RemoveItem Remove a ground item to the region.
+//RemoveItem SetRegionRemoved a ground item to the region.
 func RemoveItem(i *GroundItem) {
 	getRegion(i.X(), i.Y()).Items.Remove(i)
 }
@@ -164,7 +164,7 @@ func AddObject(o *Object) {
 	}
 }
 
-//RemoveObject Remove an object from the region.
+//RemoveObject SetRegionRemoved an object from the region.
 func RemoveObject(o *Object) {
 	getRegion(o.X(), o.Y()).Objects.Remove(o)
 	if !o.Boundary {

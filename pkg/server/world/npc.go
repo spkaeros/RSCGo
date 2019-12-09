@@ -124,9 +124,10 @@ func (n *NPC) UpdateRegion(x, y int) {
 func ResetNpcUpdateFlags() {
 	npcsLock.RLock()
 	for _, n := range Npcs {
-		n.ResetChanged()
-		n.ResetMoved()
-		n.ResetRemoved()
+		n.ResetSpriteUpdated()
+		n.ResetRegionMoved()
+		n.ResetRegionRemoved()
+		n.ResetAppearanceChanged()
 	}
 	npcsLock.RUnlock()
 }

@@ -79,8 +79,7 @@ func init() {
 			player.Appearance.SkinColor = skinColor
 			player.Appearance.BodyColor = topColor
 			player.Appearance.LegsColor = legColor
-			player.NeedsSelf()
-			player.AppearanceTicket++
+			player.UpdateAppearance()
 		}
 		player.AppearanceLock.Unlock()
 		player.RemoveState(world.MSChangingAppearance)

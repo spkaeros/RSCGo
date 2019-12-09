@@ -111,12 +111,14 @@ func (o *Object) Boundaries() [2]Location {
 	maxX := minX
 	maxY := minY
 	if !o.Boundary {
-		width := ObjectDefs[o.ID].Width
-		height := ObjectDefs[o.ID].Height
+		width := o.Width()
+		height := o.Height()
 		if dir != 0 && dir != 4 {
-			width = ObjectDefs[o.ID].Height
-			height = ObjectDefs[o.ID].Width
+			width = o.Height()
+			height = o.Width()
 		}
+		maxX = width + o.X() - 1
+		maxY = height + o.Y() - 1
 
 		if ObjectDefs[o.ID].Type == 2 || ObjectDefs[o.ID].Type == 3 {
 			if dir == 0 {
@@ -125,6 +127,7 @@ func (o *Object) Boundaries() [2]Location {
 			}
 			if dir == 2 {
 				height++
+				//minX--
 			}
 			if dir == 6 {
 				minY--
@@ -133,9 +136,9 @@ func (o *Object) Boundaries() [2]Location {
 			if dir == 4 {
 				width++
 			}
+			maxX = width + o.X() - 1
+			maxY = height + o.Y() - 1
 		}
-		maxX = width + o.X() - 1
-		maxY = height + o.Y() - 1
 	} else {
 		if dir == 0 {
 			minY--

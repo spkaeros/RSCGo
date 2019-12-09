@@ -1,5 +1,9 @@
 bind = import("bind")
 
 bind.command("death", func(player, args) {
-	player.Killed()
+	player.Killed(nil)
+})
+
+bind.command("ditems", func(player, args) {
+	println(player.Inventory.DeathDrops(3).List)
 })

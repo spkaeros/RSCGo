@@ -47,7 +47,7 @@ func init() {
 					player.ResetPath()
 					npc.ResetPath()
 					player.SetLocation(npc.Location, true)
-					player.Remove()
+					player.SetRegionRemoved()
 					player.AddState(world.MSFighting)
 					npc.AddState(world.MSFighting)
 					player.SetDirection(world.LeftFighting)
@@ -103,7 +103,7 @@ func init() {
 									defenderNpc.SetLocation(defenderNpc.StartPoint, true)
 								}()
 							} else if defenderPlayer, ok := defender.(*world.Player); ok {
-								defenderPlayer.Killed()
+								defenderPlayer.Killed(nil)
 							}
 							return
 						}
@@ -186,7 +186,7 @@ func init() {
 						}
 						defender.Skills().DecreaseCur(world.StatHits, nextHit)
 						if defender.Skills().Current(world.StatHits) <= 0 {
-							defender.Killed()
+							defender.Killed(attacker)
 							return
 						}
 						defender.Damage(nextHit)

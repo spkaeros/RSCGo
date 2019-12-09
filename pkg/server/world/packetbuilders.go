@@ -190,16 +190,17 @@ func NPCPositions(player *Player) (p *packet.Packet) {
 	for _, n := range player.LocalNPCs.set {
 		if n, ok := n.(*NPC); ok {
 			counter++
-			if n.LongestDelta(player.Location) >= player.TransAttrs.VarInt("viewRadius", 16) || n.TransAttrs.HasMasks("sync", SyncRemoved) {
+			n.RLock()
+			if !player.WithinRange(player.Location, player.TransAttrs.VarInt("viewRadius", 16)) || n.SyncMask & SyncRemoved != 0 {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
 				removing.set = append(removing.set, n)
-			} else if n.TransAttrs.HasMasks("sync", SyncMoved) {
+			} else if n.SyncMask & SyncMoved != 0 {
 				p.AddBits(1, 1)
 				p.AddBits(0, 1)
 				p.AddBits(n.Direction(), 3)
-			} else if n.TransAttrs.HasMasks("sync", SyncChanged) {
+			} else if n.SyncMask & SyncSprite != 0 {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(n.Direction(), 4)
@@ -207,6 +208,7 @@ func NPCPositions(player *Player) (p *packet.Packet) {
 				p.AddBits(0, 1)
 				counter--
 			}
+			n.RUnlock()
 		}
 	}
 	for _, n := range removing.set {
@@ -261,14 +263,17 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 	p.AddBits(player.Direction(), 4)
 	p.AddBits(len(player.LocalPlayers.set), 8)
 	counter := 0
-	if player.TransAttrs.HasMasks("sync", SyncRemoved, SyncMoved, SyncChanged) || !player.Transients().HasMasks("sync", SyncSelf) {
+	player.RLock()
+	if player.SyncMask &SyncNeedsPosition != 0 {
 		counter++
 	}
+	player.RUnlock()
 	var removing = entityList{}
 	for _, p1 := range player.LocalPlayers.set {
 		if p1, ok := p1.(*Player); ok {
+			p1.RLock()
 			counter++
-			if p1.LongestDelta(player.Location) >= player.TransAttrs.VarInt("viewRadius", 16) || p1.TransAttrs.HasMasks("sync", SyncRemoved) {
+			if p1.LongestDelta(player.Location) >= player.TransAttrs.VarInt("viewRadius", 16) || p1.SyncMask & SyncRemoved == SyncRemoved {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
@@ -276,11 +281,11 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 				player.AppearanceLock.Lock()
 				delete(player.KnownAppearances, p1.Index)
 				player.AppearanceLock.Unlock()
-			} else if p1.TransAttrs.HasMasks("sync", SyncMoved) {
+			} else if p1.SyncMask & SyncMoved == SyncMoved {
 				p.AddBits(1, 1)
 				p.AddBits(0, 1)
 				p.AddBits(p1.Direction(), 3)
-			} else if p1.TransAttrs.HasMasks("sync", SyncChanged) {
+			} else if p1.SyncMask & SyncSprite == SyncSprite {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(p1.Direction(), 4)
@@ -288,6 +293,7 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 				p.AddBits(0, 1)
 				counter--
 			}
+			p1.RUnlock()
 		}
 	}
 	for _, p1 := range removing.set {
@@ -322,7 +328,7 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 		p.AddBits(offsetY, 5)
 		p.AddBits(p1.Direction(), 4)
 		player.AppearanceLock.RLock()
-		if ticket, ok := player.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket {
+		if ticket, ok := player.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket() {
 			p.AddBits(0, 1)
 		} else {
 			p.AddBits(1, 1)
@@ -341,9 +347,12 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 func PlayerAppearances(ourPlayer *Player) (p *packet.Packet) {
 	p = packet.NewOutgoingPacket(234)
 	var appearanceList []*Player
-	if !ourPlayer.TransAttrs.HasMasks("sync", SyncSelf) {
+	ourPlayer.RLock()
+	if ourPlayer.SyncMask & SyncAppearance == SyncAppearance {
 		appearanceList = append(appearanceList, ourPlayer)
 	}
+	ourPlayer.RUnlock()
+
 	ourPlayer.AppearanceLock.Lock()
 	appearanceList = append(appearanceList, ourPlayer.AppearanceReq...)
 	ourPlayer.AppearanceReq = ourPlayer.AppearanceReq[:0]
@@ -351,7 +360,7 @@ func PlayerAppearances(ourPlayer *Player) (p *packet.Packet) {
 	for _, p1 := range ourPlayer.LocalPlayers.set {
 		if p1, ok := p1.(*Player); ok {
 			ourPlayer.AppearanceLock.RLock()
-			if ticket, ok := ourPlayer.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket {
+			if ticket, ok := ourPlayer.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket() {
 				appearanceList = append(appearanceList, p1)
 			}
 			ourPlayer.AppearanceLock.RUnlock()
@@ -363,11 +372,11 @@ func PlayerAppearances(ourPlayer *Player) (p *packet.Packet) {
 	p.AddShort(uint16(len(appearanceList))) // Update size
 	for _, player := range appearanceList {
 		ourPlayer.AppearanceLock.Lock()
-		ourPlayer.KnownAppearances[player.Index] = player.AppearanceTicket
+		ourPlayer.KnownAppearances[player.Index] = player.AppearanceTicket()
 		ourPlayer.AppearanceLock.Unlock()
 		p.AddShort(uint16(player.Index))
 		p.AddByte(5) // player appearances
-		p.AddShort(uint16(player.AppearanceTicket))
+		p.AddShort(uint16(player.AppearanceTicket()))
 		p.AddLong(player.UserBase37)
 		p.AddByte(12) // length of sprites.  Anything less than 12 will get padded with 0s
 		//		p.AddByte(uint8(player.Appearance.Head))

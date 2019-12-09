@@ -5,6 +5,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 	"go.uber.org/atomic"
+	"sort"
 	"sync"
 	"time"
 )
@@ -63,6 +64,13 @@ func (i *Item) Name() string {
 		return "nil"
 	}
 	return ItemDefs[i.ID].Name
+}
+
+func (i *Item) Price() int {
+	if i.ID >= len(ItemDefs) || i.ID < 0 {
+		return -1
+	}
+	return ItemDefs[i.ID].BasePrice
 }
 
 func (i *Item) Command() string {
@@ -133,7 +141,7 @@ func NewGroundItemFor(owner uint64, id, amount, x, y int) *GroundItem {
 	return gi
 }
 
-//Remove Removes the ground item from the world.
+//Remove removes the ground item from the world.
 func (i *GroundItem) Remove() {
 	i.removed = true
 	RemoveItem(i)
@@ -156,6 +164,36 @@ type Inventory struct {
 	Capacity        int
 	stackEverything bool
 	Lock            sync.RWMutex
+}
+
+type itemSorter []*Item
+
+func (s itemSorter) Len() int {
+	return len(s)
+}
+
+func (s itemSorter) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s itemSorter) Less(i, j int) bool {
+	return s[i].Price() > s[j].Price()
+}
+
+func (i *Inventory) Clone() *Inventory {
+	var newList []*Item
+	i.Range(func(item *Item) bool {
+		newList = append(newList, item)
+		return true
+	})
+	return &Inventory{List: newList, Capacity: i.Capacity, stackEverything: i.stackEverything}
+}
+
+func (i *Inventory) DeathDrops(keep int) *Inventory {
+	// clone so we don't modify the players inventory during the sorting process
+	deathItems := i.Clone()
+	sort.Sort(itemSorter(deathItems.List))
+	return &Inventory{List: deathItems.List[keep:], Capacity:30}
 }
 
 func (i *Inventory) Range(fn func(*Item) bool) int {

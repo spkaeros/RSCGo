@@ -153,15 +153,14 @@ func handleLogin(player *world.Player, reply chan byte) {
 	defer close(reply)
 	select {
 	case r := <-reply:
-		player.SendPacket(world.LoginResponse(int(r)))
+		player.OutgoingPackets <- world.LoginResponse(int(r))
 		if isValid(r) {
 			players.Put(player)
-			// TODO: Probably handle these in Anko scripts or something?
+			players.BroadcastLogin(player, true)
+			player.Initialize()
 			for _, fn := range script.LoginTriggers {
 				fn(player)
 			}
-			players.BroadcastLogin(player, true)
-			player.Initialize()
 			log.Info.Printf("Registered: %v\n", player)
 			return
 		}
@@ -194,7 +193,7 @@ func loginRequest(player *world.Player, p *packet.Packet) {
 		return
 	}
 
-	// TODO: Remove all this bs from protocol...
+	// TODO: SetRegionRemoved all this bs from protocol...
 	p.ReadBool() // limit30
 	p.ReadByte() // 0xA.  Some sort of separator I think?
 

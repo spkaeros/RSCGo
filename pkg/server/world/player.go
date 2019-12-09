@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
+	"github.com/spkaeros/rscgo/pkg/strutil"
 	"go.uber.org/atomic"
 	"math"
 	"strconv"
@@ -39,12 +40,9 @@ type Player struct {
 	LocalNPCs        *entityList
 	LocalObjects     *entityList
 	LocalItems       *entityList
-	Updating         bool
-	Appearances      []int
 	DatabaseIndex    int
 	Rank             int
 	Appearance       AppearanceTable
-	AppearanceTicket int
 	KnownAppearances map[int]int
 	AppearanceReq    []*Player
 	AppearanceLock   sync.RWMutex
@@ -63,6 +61,10 @@ type Player struct {
 	killer           sync.Once
 	Kill             chan struct{}
 	*Mob
+}
+
+func (p *Player) AppearanceTicket() int {
+	return p.TransAttrs.VarInt("appearanceTicket", 0)
 }
 
 //String returns a string populated with the more identifying features of this player.
@@ -209,72 +211,42 @@ func (p *Player) ResetFollowing() {
 //NextTo returns true if we can walk a straight line to target without colliding with any walls or objects,
 // otherwise returns false.
 func (p *Player) NextTo(target Location) bool {
-	curLoc := NewLocation(p.X(), p.Y())
-	for !curLoc.Equals(target) {
-		nextTile := curLoc.NextTileToward(target)
-		dir := curLoc.DirectionTo(nextTile.X(), nextTile.Y())
-		switch dir {
-		case North:
-			if IsTileBlocking(nextTile.X(), nextTile.Y(), ClipSouth, true) {
-				return false
-			}
-		case South:
-			if IsTileBlocking(nextTile.X(), nextTile.Y(), ClipNorth, true) {
-				return false
-			}
-		case East:
-			if IsTileBlocking(nextTile.X(), nextTile.Y(), ClipWest, true) {
-				return false
-			}
-		case West:
-			if IsTileBlocking(nextTile.X(), nextTile.Y(), ClipEast, true) {
-				return false
-			}
-		case NorthWest:
-			if IsTileBlocking(nextTile.X()+1, nextTile.Y(), ClipSouth, true) {
-				return false
-			}
-			if IsTileBlocking(nextTile.X(), nextTile.Y()+1, ClipEast, true) {
-				return false
-			}
-			if IsTileBlocking(nextTile.X(), nextTile.Y(), ClipSouth|ClipEast, true) {
-				return false
-			}
-		case NorthEast:
-			if IsTileBlocking(nextTile.X()-1, nextTile.Y(), ClipSouth, true) {
-				return false
-			}
-			if IsTileBlocking(nextTile.X(), nextTile.Y()+1, ClipWest, true) {
-				return false
-			}
-			if IsTileBlocking(nextTile.X(), nextTile.Y(), ClipSouth|ClipWest, true) {
-				return false
-			}
-		case SouthWest:
-			if IsTileBlocking(nextTile.X()+1, nextTile.Y(), ClipNorth, true) {
-				return false
-			}
-			if IsTileBlocking(nextTile.X(), nextTile.Y()-1, ClipEast, true) {
-				return false
-			}
-			if IsTileBlocking(nextTile.X(), nextTile.Y(), ClipNorth|ClipEast, true) {
-				return false
-			}
-		case SouthEast:
-			if IsTileBlocking(nextTile.X()-1, nextTile.Y(), ClipNorth, true) {
-				return false
-			}
-			if IsTileBlocking(nextTile.X(), nextTile.Y()-1, ClipWest, true) {
-				return false
-			}
-			if IsTileBlocking(nextTile.X(), nextTile.Y(), ClipNorth|ClipWest, true) {
-				return false
-			}
+	if p.X() > target.X() {
+		if IsTileBlocking(p.X(), p.Y(), ClipEast, true) {
+			return false
 		}
-		curLoc = nextTile
+		if IsTileBlocking(target.X(), target.Y(), ClipWest, false) {
+			return false
+		}
+	} else if p.X() < target.X() {
+		if IsTileBlocking(p.X(), p.Y(), ClipWest, true) {
+			return false
+		}
+		if IsTileBlocking(target.X(), target.Y(), ClipEast, false) {
+			return false
+		}
+	}
+	if p.Y() > target.Y() {
+		if IsTileBlocking(p.X(), p.Y(), ClipNorth, true) {
+			return false
+		}
+		if IsTileBlocking(target.X(), target.Y(), ClipSouth, false) {
+			return false
+		}
+	} else if p.Y() < target.Y() {
+		if IsTileBlocking(p.X(), p.Y(), ClipSouth, true) {
+			return false
+		}
+		if IsTileBlocking(target.X(), target.Y(), ClipNorth, false) {
+			return false
+		}
 	}
 
 	return true
+}
+
+func (p *Player) NextToCoords(x, y int) bool {
+	return p.NextTo(NewLocation(x, y))
 }
 
 //TraversePath if the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
@@ -373,7 +345,6 @@ func (p *Player) EquipItem(item *Item) {
 	if def == nil {
 		return
 	}
-	p.NeedsSelf()
 	p.Inventory.Range(func(otherItem *Item) bool {
 		if otherDef := GetEquipmentDefinition(otherItem.ID); otherDef != nil {
 			if otherItem == item || !otherItem.Worn {
@@ -414,8 +385,13 @@ func (p *Player) EquipItem(item *Item) {
 	p.SetRangedPoints(p.RangedPoints() + def.Ranged)
 	p.AppearanceLock.Lock()
 	p.Equips[def.Position] = def.Sprite
-	p.AppearanceTicket++
 	p.AppearanceLock.Unlock()
+	p.UpdateAppearance()
+}
+
+func (p *Player) UpdateAppearance() {
+	p.SetAppearanceChanged()
+	p.TransAttrs.SetVar("appearanceTicket", p.AppearanceTicket() + 1)
 }
 
 //DequipItem removes an item from this players equips, and sends inventory and equipment bonuses.
@@ -427,7 +403,6 @@ func (p *Player) DequipItem(item *Item) {
 	if !item.Worn {
 		return
 	}
-	p.NeedsSelf()
 	item.Worn = false
 	p.SetAimPoints(p.AimPoints() - def.Aim)
 	p.SetPowerPoints(p.PowerPoints() - def.Power)
@@ -448,8 +423,8 @@ func (p *Player) DequipItem(item *Item) {
 	}
 	p.AppearanceLock.Lock()
 	p.Equips[def.Position] = value
-	p.AppearanceTicket++
 	p.AppearanceLock.Unlock()
+	p.UpdateAppearance()
 }
 
 //ResetAll in order, calls ResetFighting, ResetTrade, ResetDistancedAction, ResetFollowing, and CloseOptionMenu.
@@ -578,6 +553,9 @@ func (p *Player) TradeTarget() int {
 
 //SendPacket sends a packet to the client.
 func (p *Player) SendPacket(packet *packet.Packet) {
+	if p == nil {
+		return
+	}
 	p.OutgoingPackets <- packet
 }
 
@@ -593,7 +571,7 @@ func (p *Player) AtObject(object *Object) bool {
 	x, y := p.X(), p.Y()
 	bounds := object.Boundaries()
 	if ObjectDefs[object.ID].Type == 2 || ObjectDefs[object.ID].Type == 3 {
-		return x >= bounds[0].X() && x <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y()
+		return (p.NextTo(bounds[0]) || p.NextTo(bounds[1])) && (x >= bounds[0].X() && x <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y())
 	}
 
 	return p.CanReach(bounds) || (p.FinishedPath() && p.CanReachDiag(bounds))
@@ -601,23 +579,24 @@ func (p *Player) AtObject(object *Object) bool {
 
 func (p *Player) CanReach(bounds [2]Location) bool {
 	x, y := p.X(), p.Y()
+
 	if x >= bounds[0].X() && x <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y() {
 		return true
 	}
-	if bounds[0].X() <= x-1 && bounds[1].X() >= x-1 && bounds[0].Y() <= y && bounds[1].Y() >= y &&
+	if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y() &&
 		(CollisionData(x-1, y).CollisionMask & ClipWest) == 0 {
 		return true
 	}
-	if bounds[0].X() <= x+1 && bounds[1].X() >= x+1 && bounds[0].Y() <= y && bounds[1].Y() >= y &&
+	if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y() &&
 		(CollisionData(x+1, y).CollisionMask & ClipEast) == 0 {
 		return true
 	}
-	if bounds[0].X() <= x && bounds[1].X() >= x && bounds[0].Y() <= y-1 && bounds[1].Y() >= y-1 &&
+	if x >= bounds[0].X() && x <= bounds[1].X() && bounds[0].Y() <= y-1 && bounds[1].Y() >= y-1 &&
 		(CollisionData(x, y-1).CollisionMask & ClipSouth) == 0 {
 		return true
 	}
-	if bounds[0].X() <= x && bounds[1].X() >= x && bounds[0].Y() <= y+1 && bounds[1].Y() >= y+1 &&
-		(CollisionData(x, y+1).CollisionMask & ClipNorth) == 0 {
+	if x >= bounds[0].X() && x <= bounds[1].X() && bounds[0].Y() <= y+1 && bounds[1].Y() >= y+1 &&
+		(CollisionData(x, y-1).CollisionMask & ClipNorth) == 0 {
 		return true
 	}
 	return false
@@ -652,6 +631,8 @@ func (p *Player) SendFatigue() {
 //Initialize informs the client of all of the various attributes of this player, and starts the stat normalization
 // routine.
 func (p *Player) Initialize() {
+	p.SetAppearanceChanged()
+	p.SetSpriteUpdated()
 	p.SetConnected(true)
 	AddPlayer(p)
 	p.SendPacket(FriendList(p))
@@ -867,10 +848,7 @@ func (p *Player) IncExp(idx int, amt int) {
 		p.Skills().IncreaseMax(idx, delta)
 		p.SendStat(idx)
 		if oldCombat != p.Skills().CombatLevel() {
-			p.AppearanceLock.Lock()
-			p.AppearanceTicket++
-			p.AppearanceLock.Unlock()
-			p.NeedsSelf()
+			p.UpdateAppearance()
 		}
 	} else {
 		p.SendStatExp(idx)
@@ -908,8 +886,20 @@ func (p *Player) AddItem(id, amount int) {
 	p.SendInventory()
 }
 
+func (p *Player) PrayerActivated(idx int) bool {
+	return p.TransAttrs.VarBool("prayer" + strconv.Itoa(idx), false)
+}
+
+func (p *Player) PrayerOn(idx int) bool {
+	p.TransAttrs.SetVar("prayer" + strconv.Itoa(idx), true)
+}
+
+func (p *Player) PrayerOff(idx int) {
+	p.TransAttrs.SetVar("prayer" + strconv.Itoa(idx), false)
+}
+
 //Killed kills this player, dropping all of its items where it stands.
-func (p *Player) Killed() {
+func (p *Player) Killed(killer MobileEntity) {
 	p.Transients().SetVar("deathTime", time.Now())
 	p.PlaySound("death")
 	p.SendPacket(Death)
@@ -917,23 +907,28 @@ func (p *Player) Killed() {
 		p.Skills().SetCur(i, p.Skills().Maximum(i))
 	}
 	p.SendStats()
-	// TODO: Keep 3 most valuable items
 
-	if killer, ok := p.FightTarget().(*Player); killer != nil && ok {
-		AddItem(NewGroundItemFor(killer.UserBase37, 20, 1, p.X(), p.Y()))
-		p.Inventory.Range(func(item *Item) bool {
-			p.DequipItem(item)
-			AddItem(NewGroundItemFor(killer.UserBase37, item.ID, item.Amount, p.X(), p.Y()))
-			return true
-		})
-	} else {
-		p.Inventory.Range(func(item *Item) bool {
-			p.DequipItem(item)
-			AddItem(NewGroundItem(item.ID, item.Amount, p.X(), p.Y()))
-			return true
-		})
+	keepCount := 3 // todo: if skulled keepCount is zero
+	if p.PrayerActivated(8) {
+		// protect item prayer
+		keepCount++
 	}
-	p.Inventory.Clear()
+	deathItems := p.Inventory.DeathDrops(keepCount)
+	killerName := uint64(strutil.MaxBase37 + 5000) // Indicator that the item is not owned
+	if killer, ok := killer.(*Player); killer != nil && ok {
+		killerName = killer.UserBase37
+	}
+	deathItems.Range(func(item *Item) bool {
+		AddItem(NewGroundItemFor(killerName, item.ID, item.Amount, p.X(), p.Y()))
+		p.DequipItem(item)
+		p.Inventory.Remove(item.Index, item.Amount)
+		return true
+	})
+	for i := 0; i < 13; i++ {
+		p.PrayerOff(i)
+	}
+	// todo: send prayers off
+	AddItem(NewGroundItemFor(killerName, 20, 1, p.X(), p.Y()))
 	p.SendInventory()
 	p.SendEquipBonuses()
 	p.ResetFighting()

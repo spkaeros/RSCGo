@@ -57,6 +57,17 @@ bind.command("walkto", func(player, args) {
 	log.debugf("took: %v\n", time.Since(start))
 })
 
+bind.command("next", func(player, args) {
+	if len(args) < 2 {
+		player.Message("Invalid args.  Usage: ::walkto <x> <y>")
+		return
+	}
+	x = toInt(args[0])
+	y = toInt(args[1])
+	player.Message("NextTo(" + x + "," + y + "): " + player.NextToCoords(x, y))
+	log.debug("NextTo(" + x + "," + y + "): " + player.NextToCoords(x, y))
+})
+
 bind.command("tile", func(player, args) {
 	regionX = toInt((2304 + player.X()) / 48)
 	regionY = toInt((1776 + player.Y() - (944 * player.Plane())) / 48)

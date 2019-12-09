@@ -88,7 +88,7 @@ func (c *client) destroy(wg *sync.WaitGroup) {
 		if player, ok := players.FromIndex(c.player.Index); ok && player == c.player {
 			go db.SavePlayer(c.player)
 			world.RemovePlayer(c.player)
-			c.player.Remove()
+			c.player.SetRegionRemoved()
 			players.BroadcastLogin(c.player, false)
 			players.Remove(c.player)
 			log.Info.Printf("Unregistered: %v\n", c.player.String())

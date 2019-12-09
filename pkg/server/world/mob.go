@@ -3,6 +3,7 @@ package world
 import (
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/server/log"
+	"sync"
 	"time"
 )
 
@@ -34,17 +35,20 @@ const (
 )
 
 const (
-	SyncBlank = iota
-	SyncChanged
-	SyncMoved
-	SyncRemoved
-	SyncSelf
+	SyncSprite     = 1
+	SyncMoved      = 1 << 1
+	SyncRemoved    = 1 << 2
+	SyncAppearance = 1 << 3
+
+	SyncNeedsPosition = SyncRemoved|SyncMoved|SyncSprite
 )
 
 //Mob Represents a mobile entity within the game world.
 type Mob struct {
 	*Entity
 	TransAttrs *AttributeList
+	SyncMask int
+	sync.RWMutex
 }
 
 type MobileEntity interface {
@@ -65,29 +69,30 @@ type MobileEntity interface {
 	RemoveState(int)
 	State() int
 	Busy() bool
-	Move()
-	Remove()
 	SetX(int)
 	SetY(int)
 	SetCoords(int, int, bool)
 	Teleport(int, int)
 	Direction() int
 	SetDirection(int)
-	Change()
-	ResetMoved()
-	ResetRemoved()
-	ResetChanged()
 	Path() *Pathway
 	ResetPath()
 	SetPath(*Pathway)
 	TraversePath()
-	ResetNeedsSelf()
 	FinishedPath() bool
 	SetLocation(Location, bool)
 	UpdateLastFight()
 	LastFight() time.Time
 	UpdateLastRetreat()
 	LastRetreat() time.Time
+	SetRegionMoved()
+	SetRegionRemoved()
+	SetSpriteUpdated()
+	SetAppearanceChanged()
+	ResetRegionMoved()
+	ResetRegionRemoved()
+	ResetSpriteUpdated()
+	ResetAppearanceChanged()
 }
 
 func (m *Mob) Transients() *AttributeList {
@@ -142,53 +147,59 @@ func (m *Mob) Direction() int {
 
 //SetDirection Sets the mobs direction.
 func (m *Mob) SetDirection(direction int) {
-	m.Change()
 	m.TransAttrs.SetVar("direction", direction)
+	m.SetSpriteUpdated()
 }
 
-//Change Sets the synchronization flag for whether this mob changed directions to true.
-func (m *Mob) Change() {
-	GiantLock.Lock()
-	m.TransAttrs.StoreMask("sync", SyncChanged)
-	GiantLock.Unlock()
-
+//SetSpriteUpdated Sets the synchronization flag for whether this mob changed directions to true.
+func (m *Mob) SetSpriteUpdated() {
+	m.Lock()
+	defer m.Unlock()
+	m.SyncMask |= SyncSprite
 }
 
-//Remove Sets the synchronization flag for whether this mob needs to be removed to true.
-func (m *Mob) Remove() {
-	GiantLock.Lock()
-	m.TransAttrs.StoreMask("sync", SyncRemoved)
-	GiantLock.Unlock()
-
+//SetRegionRemoved Sets the synchronization flag for whether this mob needs to be removed to true.
+func (m *Mob) SetRegionRemoved() {
+	m.Lock()
+	defer m.Unlock()
+	m.SyncMask |= SyncRemoved
 }
 
 //UpdateSelf Sets the synchronization flag for whether this mob has moved to true.
-func (m *Mob) Move() {
-	GiantLock.Lock()
-	m.TransAttrs.StoreMask("sync", SyncMoved)
-	GiantLock.Unlock()
+func (m *Mob) SetRegionMoved() {
+	m.Lock()
+	defer m.Unlock()
+	m.SyncMask |= SyncMoved
 }
 
-func (m *Mob) NeedsSelf() {
-	GiantLock.Lock()
-	m.TransAttrs.RemoveMask("sync", SyncSelf)
-	GiantLock.Unlock()
+func (m *Mob) SetAppearanceChanged() {
+	m.Lock()
+	defer m.Unlock()
+	m.SyncMask |= SyncAppearance
 }
 
-func (m *Mob) ResetMoved() {
-	m.TransAttrs.RemoveMask("sync", SyncMoved)
+func (m *Mob) ResetRegionMoved() {
+	m.Lock()
+	defer m.Unlock()
+	m.SyncMask &= ^SyncMoved
 }
 
-func (m *Mob) ResetRemoved() {
-	m.TransAttrs.RemoveMask("sync", SyncRemoved)
+func (m *Mob) ResetRegionRemoved() {
+	m.Lock()
+	defer m.Unlock()
+	m.SyncMask &= ^SyncRemoved
 }
 
-func (m *Mob) ResetNeedsSelf() {
-	m.TransAttrs.StoreMask("sync", SyncSelf)
+func (m *Mob) ResetAppearanceChanged() {
+	m.Lock()
+	defer m.Unlock()
+	m.SyncMask &= ^SyncAppearance
 }
 
-func (m *Mob) ResetChanged() {
-	m.TransAttrs.RemoveMask("sync", SyncChanged)
+func (m *Mob) ResetSpriteUpdated() {
+	m.Lock()
+	defer m.Unlock()
+	m.SyncMask &= ^SyncSprite
 }
 
 //SetPath Sets the mob's current pathway to path.  If path is nil, effectively resets the mobs path.
@@ -239,9 +250,9 @@ func (n *NPC) SetLocation(l Location, teleport bool) {
 func (m *Mob) SetCoords(x, y int, teleport bool) {
 	if !teleport {
 		m.SetDirection(m.DirectionTo(x, y))
-		m.Move()
+		m.SetRegionMoved()
 	} else {
-		m.Remove()
+		m.SetRegionRemoved()
 	}
 	m.SetX(x)
 	m.SetY(y)

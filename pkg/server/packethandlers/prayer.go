@@ -28,7 +28,7 @@ func init() {
 			log.Suspicious.Printf("%v turned on a prayer that he is too low level for: %d\n", player, idx)
 			return
 		}
-		player.TransAttrs.SetVar("prayer" + strconv.Itoa(int(idx)), true)
+		player.PrayerOn(int(idx))
 	}
 	PacketHandlers["prayeroff"] = func(player *world.Player, p *packet.Packet) {
 		idx := p.ReadByte()
@@ -40,6 +40,6 @@ func init() {
 			log.Suspicious.Printf("%v turned off a prayer that he is too low level for: %d\n", player, idx)
 			return
 		}
-		player.TransAttrs.SetVar("prayer" + strconv.Itoa(int(idx)), false)
+		player.PrayerOff(int(idx))
 	}
 }

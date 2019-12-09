@@ -19,12 +19,13 @@ bind.command("stat", func(player, args) {
 		return
 	}
 
+	combat = player.Skills().CombatLevel()
+
 	player.SetStat(idx, lvl)
 
-	player.AppearanceLock.Lock()
-	player.AppearanceTicket++
-	player.AppearanceLock.Unlock()
-	player.NeedsSelf()
+	if player.Skills().CombatLevel() != combat {
+		player.SetAppearanceChanged()
+	}
 })
 
 bind.command("stats", func(player, args) {
@@ -37,13 +38,14 @@ bind.command("stats", func(player, args) {
 	str = toInt(args[2])
 	hpXp = toInt((lvlToExp(atk) + lvlToExp(def) + lvlToExp(str)) / 3) + 1154
 
+	combat = player.Skills().CombatLevel()
+
 	player.SetStat(ATTACK, atk)
 	player.SetStat(DEFENSE, def)
 	player.SetStat(STRENGTH, str)
 	player.SetStat(HITPOINTS, expToLvl(hpXp))
 
-	player.AppearanceLock.Lock()
-	player.AppearanceTicket++
-	player.AppearanceLock.Unlock()
-	player.NeedsSelf()
+	if player.Skills().CombatLevel() != combat {
+		player.UpdateAppearance()
+	}
 })
