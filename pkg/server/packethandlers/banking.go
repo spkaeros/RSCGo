@@ -40,6 +40,9 @@ func init() {
 				player.Bank.Add(id, amount)
 			}
 		} else {
+			if item := player.Inventory.GetByID(id); item.Worn {
+				player.DequipItem(item)
+			}
 			for j := 0; j < amount; j++ {
 				if item := player.Bank.GetByID(id); item != nil && player.Inventory.RemoveByID(id, 1) > -1 {
 					item.Amount += 1

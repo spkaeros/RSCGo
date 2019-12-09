@@ -11,6 +11,7 @@ package world
 
 import (
 	"math"
+	"strings"
 	"sync"
 )
 
@@ -155,6 +156,7 @@ func SkillName(id int) string {
 			return name
 		}
 	}
+
 	return "nil"
 }
 
@@ -162,6 +164,11 @@ func SkillName(id int) string {
 func SkillIndex(s string) int {
 	if skill, ok := SkillNames[s]; ok {
 		return skill
+	}
+	for name, idx := range SkillNames {
+		if strings.Contains(name, s) {
+			return idx
+		}
 	}
 	return -1
 }

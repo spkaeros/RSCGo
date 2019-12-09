@@ -177,16 +177,10 @@ func (s itemSorter) Swap(i, j int) {
 }
 
 func (s itemSorter) Less(i, j int) bool {
-	if s[i].Stackable() && !s[j].Stackable() {
-		return false
+	if !s[j].Stackable() && !s[i].Stackable(){
+		return s[i].Price() > s[j].Price()
 	}
-	if !s[i].Stackable() && s[j].Stackable() {
-		return true
-	}
-	if s[i].Stackable() && s[j].Stackable() {
-		return true
-	}
-	return s[i].Price() > s[j].Price()
+	return !s[i].Stackable() && s[j].Stackable()
 }
 
 func (i *Inventory) Clone() *Inventory {
