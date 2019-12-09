@@ -43,6 +43,8 @@ func init() {
 				if time.Since(npc.TransAttrs.VarTime("lastFight")) <= time.Second*2 || npc.Busy() {
 					return true
 				}
+				player.ResetPath()
+				npc.ResetPath()
 				player.StartCombat(npc)
 				return true
 			} else {
@@ -70,6 +72,8 @@ func init() {
 				if time.Since(affectedPlayer.TransAttrs.VarTime("lastRetreat")) <= time.Second*3 || affectedPlayer.IsFighting() {
 					return true
 				}
+				player.ResetPath()
+				affectedPlayer.ResetPath()
 				player.StartCombat(affectedPlayer)
 				return true
 			}

@@ -927,8 +927,6 @@ func (p *Player) SetSkulled(val bool) {
 }
 
 func (p *Player) StartCombat(target MobileEntity) {
-	p.ResetPath()
-	target.ResetPath()
 	if p1, ok  := target.(*Player); ok {
 		p1.PlaySound("underattack")
 		p.SetSkulled(true)
@@ -1002,6 +1000,7 @@ func (p *Player) Killed(killer MobileEntity) {
 		p.Skills().SetCur(i, p.Skills().Maximum(i))
 	}
 	p.SendStats()
+	p.SetDirection(North)
 
 	keepCount := 0
 	if p.PrayerActivated(8) {

@@ -67,6 +67,8 @@ func (a *AttributeList) IncVar(name string, delta int) {
 	a.lock.Lock()
 	if val, ok := a.set[name].(int); ok {
 		a.set[name] = val + delta
+	} else {
+		a.set[name] = delta
 	}
 	a.lock.Unlock()
 }

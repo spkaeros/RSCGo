@@ -96,7 +96,6 @@ func Clear() {
 //Load Loads all of the scripts in ./scripts.  This will ignore any folders named definitions or lib.
 func Load() {
 	var err error
-	vmEnv := WorldModule()
 	if scriptWatcher == nil {
 		scriptWatcher, err = fsnotify.NewWatcher()
 		if err != nil {
@@ -116,7 +115,7 @@ func Load() {
 						lastEvent = time.Now()
 						lastPath = event.Name
 						log.Info.Println("Reloading " + event.Name)
-						_, err := vm.Execute(vmEnv, &vm.Options{Debug: true}, load(event.Name))
+						_, err := vm.Execute(WorldModule(), &vm.Options{Debug: true}, load(event.Name))
 
 						if err != nil {
 							log.Info.Println("Anko scripting error in '"+event.Name+"':", err)
@@ -136,7 +135,7 @@ func Load() {
 
 	err = filepath.Walk("./scripts", func(path string, info os.FileInfo, err error) error {
 		if !info.Mode().IsDir() && !strings.Contains(path, "definitions") && !strings.Contains(path, "lib") && strings.HasSuffix(path, "ank") {
-			_, err := vm.Execute(vmEnv, &vm.Options{Debug: true}, load(path))
+			_, err := vm.Execute(WorldModule(), &vm.Options{Debug: true}, load(path))
 
 			if err != nil {
 				log.Info.Println("Anko error ['"+path+"']:", err)

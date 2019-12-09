@@ -136,18 +136,23 @@ func init() {
 	PacketHandlers["talktonpc"] = func(player *world.Player, p *packet.Packet) {
 		idx := p.ReadShort()
 		npc := world.GetNpc(idx)
-		if npc == nil || player.Busy() {
+		if npc == nil{
 			return
 		}
 		player.SetDistancedAction(func() bool {
+			if player.Busy() {
+				player.ResetPath()
+				return true
+			}
 			if npc.Busy() {
 				player.Message(npc.Name() + " is busy at the moment")
+				player.ResetPath()
 				return true
 			}
 			if player.WithinRange(npc.Location, 1) && player.NextTo(npc.Location) {
+				player.ResetPath()
 				for _, triggerDef := range script.NpcTriggers {
 					if triggerDef.Check(npc) {
-						player.ResetPath()
 						npc.ResetPath()
 						if player.Location.Equals(npc.Location) {
 						outer:
@@ -204,7 +209,7 @@ func init() {
 										}
 									}
 									if player.NextTo(newLoc) {
-										player.SetLocation(newLoc, true)
+										player.SetLocation(newLoc, false)
 										break outer
 									}
 								}

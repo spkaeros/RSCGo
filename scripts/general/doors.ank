@@ -4,6 +4,7 @@ world = import("world")
 
 locked = [109]
 doors = {2: 1}
+
 gates = {59: 60, 58: 57, 63: 64}
 
 gatePredicate = func(object, click) {
