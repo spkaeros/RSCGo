@@ -54,7 +54,7 @@ bind.invOnObject(func(player, object, item) {
 		player.PlaySound("cooking")
 		player.Message("You cook the meat on the stove...")
 		sleep(tMillis*1200)
-		player.RemoveItemByID(ids.RAW_RAT_MEAT, 1)
+		player.Inventory.RemoveItemByID(ids.RAW_RAT_MEAT, 1)
 		if toInt(player.Cache("tutorial")) == 30 {
 			player.Message("@que@The meat is now nicely cooked")
 			player.AddItem(ids.COOKEDMEAT, 1)

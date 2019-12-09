@@ -33,7 +33,7 @@ bind.object(objectPredicate(keys(defs)...), func(player, object, click) {
 
 	if gatheringSuccess(fish.lvl, player.Skills().Current(FISHING)) && world.getObjectAt(object.X(), object.Y()) == object {
 		if fishDef[click].bait >= 0 {
-			player.RemoveItemByID(fishDef[click].bait, 1)
+			player.Inventory.RemoveByID(fishDef[click].bait, 1)
 		}
 		player.Message("You catch " + (fishDef[click].net == ids.NET ? "some" : "a") + " " + (fishDef[click].net == ids.LOBSTER_POT ? "lobster" : "fish"))
 		player.AddItem(fish.id, 1)
