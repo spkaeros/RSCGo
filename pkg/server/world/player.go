@@ -748,17 +748,16 @@ func (p *Player) OpenOptionMenu(options ...string) int {
 	}
 	p.ReplyMenuC = make(chan int8)
 	p.AddState(MSOptionMenu)
-	defer func() {
-		if p.HasState(MSOptionMenu) {
-			p.RemoveState(MSOptionMenu)
-			close(p.ReplyMenuC)
-		}
-	}()
 	p.SendPacket(OptionMenuOpen(options...))
 
 	select {
 	case reply := <-p.ReplyMenuC:
-		if reply < 0 || int(reply) > len(options)-1 || !p.HasState(MSOptionMenu) {
+		if !p.HasState(MSOptionMenu) {
+			return -1
+		}
+		p.RemoveState(MSOptionMenu)
+		close(p.ReplyMenuC)
+		if reply < 0 || int(reply) > len(options)-1 {
 			return -1
 		}
 
@@ -766,8 +765,12 @@ func (p *Player) OpenOptionMenu(options ...string) int {
 			p.Chat(options[reply])
 		}
 		return int(reply)
-	case <-time.After(time.Second * 10):
-		p.SendPacket(OptionMenuClose)
+	case <-time.After(time.Second * 20):
+		if p.HasState(MSOptionMenu) {
+			p.RemoveState(MSOptionMenu)
+			close(p.ReplyMenuC)
+			p.SendPacket(OptionMenuClose)
+		}
 		return -1
 	}
 }
@@ -934,7 +937,7 @@ func (p *Player) Killed(killer MobileEntity) {
 		return true
 	})
 	p.Inventory.RemoveAll(deathItems)
-	for i := 0; i < 13; i++ {
+	for i := 0; i < 14; i++ {
 		p.PrayerOff(i)
 	}
 	AddItem(NewGroundItemFor(killerName, 20, 1, p.X(), p.Y()))
