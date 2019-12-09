@@ -400,7 +400,7 @@ func PlayerAppearances(ourPlayer *Player) (p *packet.Packet) {
 		p.AddByte(uint8(player.Appearance.LegsColor))
 		p.AddByte(uint8(player.Appearance.SkinColor))
 		p.AddByte(uint8(player.Skills().CombatLevel()))
-		p.AddByte(0) // TODO: skulled
+		p.AddBool(player.Skulled())
 	}
 	return
 }

@@ -2,6 +2,7 @@ package world
 
 import (
 	"fmt"
+	"github.com/spkaeros/rscgo/pkg/server/config"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"sync"
 	"time"
@@ -24,6 +25,102 @@ var GiantLock sync.RWMutex
 //UpdateTime a point in time in the future to log all active players out and shut down the server for updates.
 // Before the command is issued to set this time, it is initialized to time.Time{} zero value.
 var UpdateTime time.Time
+
+type PlayerMap struct {
+	usernames map[uint64]*Player
+	indices   map[int]*Player
+	lock      sync.RWMutex
+}
+
+//Players Collection containing all of the active client, by index and username hash, guarded by a mutex
+var Players = &PlayerMap{usernames: make(map[uint64]*Player), indices: make(map[int]*Player)}
+
+//FromUserHash Returns the client with the base37 username `hash` if it exists and true, otherwise returns nil and false.
+func (m *PlayerMap) FromUserHash(hash uint64) (*Player, bool) {
+	m.lock.RLock()
+	result, ok := m.usernames[hash]
+	m.lock.RUnlock()
+	return result, ok
+}
+
+//ContainsHash Returns true if there is a client mapped to this username hash is in this collection, otherwise returns false.
+func (m *PlayerMap) ContainsHash(hash uint64) bool {
+	_, ret := m.FromUserHash(hash)
+	return ret
+}
+
+//FromIndex Returns the client with the index `index` if it exists and true, otherwise returns nil and false.
+func (m *PlayerMap) FromIndex(index int) (*Player, bool) {
+	m.lock.RLock()
+	result, ok := m.indices[index]
+	m.lock.RUnlock()
+	return result, ok
+}
+
+//Add Puts a client into the map.
+func (m *PlayerMap) Put(player *Player) {
+	nextIndex := m.NextIndex()
+	m.lock.Lock()
+	player.Index = nextIndex
+	m.usernames[player.UsernameHash()] = player
+	m.indices[nextIndex] = player
+	m.lock.Unlock()
+}
+
+//Remove Removes a client from the map.
+func (m *PlayerMap) Remove(player *Player) {
+	m.lock.Lock()
+	delete(m.usernames, player.UsernameHash())
+	delete(m.indices, player.Index)
+	m.lock.Unlock()
+}
+
+//Range Calls action for every active client in the collection.
+func (m *PlayerMap) Range(action func(*Player)) {
+	m.lock.RLock()
+	for _, c := range m.indices {
+		if c != nil && c.Connected() {
+			action(c)
+		}
+	}
+	m.lock.RUnlock()
+}
+
+//Size Returns the size of the active client collection.
+func (m *PlayerMap) Size() int {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+	return len(m.usernames)
+}
+
+//NextIndex Returns the lowest available index for the client to be mapped to.
+func (m *PlayerMap) NextIndex() int {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+	for i := 0; i < config.MaxPlayers(); i++ {
+		if _, ok := m.indices[i]; !ok {
+			return i
+		}
+	}
+	return -1
+}
+
+//BroadcastLogin Broadcasts the login status of player to the whole server.
+func (m *PlayerMap) BroadcastLogin(player *Player, online bool) {
+	m.Range(func(rangedPlayer *Player) {
+		if player.Friends(rangedPlayer.UsernameHash()) {
+			if !rangedPlayer.FriendBlocked() || rangedPlayer.Friends(rangedPlayer.UsernameHash()) {
+				player.FriendList[rangedPlayer.UsernameHash()] = online
+			}
+		}
+		if rangedPlayer.Friends(player.UsernameHash()) {
+			if !player.FriendBlocked() || player.Friends(rangedPlayer.UsernameHash()) {
+				rangedPlayer.FriendList[player.UsernameHash()] = online
+				rangedPlayer.SendPacket(FriendUpdate(player.UsernameHash(), online))
+			}
+		}
+	})
+}
 
 //region Represents a 48x48 section of map.  The purpose of this is to keep track of entities in the entire world without having to allocate tiles individually, which would make search algorithms slower and utilizes a great deal of memory.
 type region struct {
@@ -244,7 +341,7 @@ func ReplaceObject(old *Object, newID int) *Object {
 	return object
 }
 
-//GetAllObjects Returns a slice containing all objects in the game world.
+//GetAllObjects Returns a slice containing all objects in the game 
 func GetAllObjects() (list []*Object) {
 	for x := 0; x < MaxX; x += RegionSize {
 		for y := 0; y < MaxY; y += RegionSize {

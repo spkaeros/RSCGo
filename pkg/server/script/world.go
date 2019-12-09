@@ -20,7 +20,6 @@ import (
 	_ "github.com/mattn/anko/packages"
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/server/log"
-	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
@@ -30,10 +29,9 @@ var CommandHandlers = make(map[string]func(*world.Player, []string))
 
 func init() {
 	env.Packages["world"] = map[string]reflect.Value{
-		"getPlayerCount":  reflect.ValueOf(players.Size),
-		"getPlayers":      reflect.ValueOf(players.Players),
-		"getPlayer":       reflect.ValueOf(players.FromIndex),
-		"getPlayerByName": reflect.ValueOf(players.FromUserHash),
+		"getPlayer":       reflect.ValueOf(world.Players.FromIndex),
+		"getPlayerByName": reflect.ValueOf(world.Players.FromUserHash),
+		"players":      reflect.ValueOf(world.Players),
 		"replaceObject":   reflect.ValueOf(world.ReplaceObject),
 		"addObject":       reflect.ValueOf(world.AddObject),
 		"removeObject":    reflect.ValueOf(world.RemoveObject),
@@ -53,7 +51,7 @@ func init() {
 			return !world.UpdateTime.IsZero()
 		}),
 		"announce": reflect.ValueOf(func(msg string) {
-			players.Range(func(player *world.Player) {
+			world.Players.Range(func(player *world.Player) {
 				player.Message("@que@" + msg)
 			})
 		}),
@@ -64,14 +62,14 @@ func init() {
 			world.UpdateTime = time.Now().Add(time.Second * time.Duration(t))
 			go func() {
 				time.Sleep(time.Second * time.Duration(t))
-				players.Range(func(player *world.Player) {
+				world.Players.Range(func(player *world.Player) {
 					player.SendPacket(world.Logout)
 					player.Destroy()
 				})
 				time.Sleep(300 * time.Millisecond)
 				os.Exit(200)
 			}()
-			players.Range(func(player *world.Player) {
+			world.Players.Range(func(player *world.Player) {
 				player.SendUpdateTimer()
 			})
 		}),
@@ -90,7 +88,7 @@ func init() {
 		}),
 	}
 	env.PackageTypes["world"] = map[string]reflect.Type{
-		"clientMap":  reflect.TypeOf(players.Players),
+		"players":  reflect.TypeOf(world.Players),
 		"player":     reflect.TypeOf(&world.Player{}),
 		"object":     reflect.TypeOf(&world.Object{}),
 		"item":       reflect.TypeOf(&world.Item{}),
@@ -293,6 +291,7 @@ func WorldModule() *env.Env {
 	e.Define("expToLvl", world.ExperienceToLevel)
 	e.Define("withinWorld", world.WithinWorld)
 	e.Define("skillIndex", world.SkillIndex)
+	e.Define("skillName", world.SkillName)
 	e.Define("newNpc", world.NewNpc)
 	e.Define("newObject", world.NewObject)
 	e.Define("base37", strutil.Base37.Encode)

@@ -13,7 +13,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/server/crypto"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
-	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"strings"
@@ -156,8 +155,8 @@ func handleLogin(player *world.Player, reply chan byte) {
 	case r := <-reply:
 		player.OutgoingPackets <- world.LoginResponse(int(r))
 		if isValid(r) {
-			players.Put(player)
-			players.BroadcastLogin(player, true)
+			world.Players.Put(player)
+			world.Players.BroadcastLogin(player, true)
 			player.Initialize()
 			for _, fn := range script.LoginTriggers {
 				fn(player)
@@ -216,7 +215,7 @@ func loginRequest(player *world.Player, p *packet.Packet) {
 		loginReply <- 3
 		return
 	}
-	if _, ok := players.FromUserHash(usernameHash); ok {
+	if _, ok := world.Players.FromUserHash(usernameHash); ok {
 		loginReply <- byte(4)
 		return
 	}

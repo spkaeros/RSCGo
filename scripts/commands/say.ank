@@ -20,3 +20,15 @@ bind.command("say", func(player, args) {
 	}
 	world.announce(msg)
 })
+
+bind.command("onlinelist", func(player, args) {
+	names = ""
+	world.players.Range(func(other) {
+		names += other.Username() + ", "
+	})
+	player.SendMessageBox("Players currently online (" + world.players.Size() + "):% %" + names[:len(names)-2], true)
+})
+
+bind.command("online", func(player, args) {
+	player.Message("Players online right now: " + world.players.Size())
+})

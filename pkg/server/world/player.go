@@ -53,6 +53,7 @@ type Player struct {
 	Equips           [12]int
 	killer           sync.Once
 	KillC            chan struct{}
+	Tickables        []interface{}
 	*Mob
 }
 
@@ -682,14 +683,12 @@ func (p *Player) Initialize() {
 	}
 	if !p.Reconnecting() {
 		p.SendPacket(WelcomeMessage)
-		if timestamp := p.Attributes.VarString("lastLogin", ""); timestamp != "" {
-			if t, err := time.Parse(time.ANSIC, timestamp); err == nil {
-				p.SendPacket(LoginBox(int(time.Since(t).Hours()/24), p.Attributes.VarString("lastIP", "0.0.0.0")))
-			}
+		if timestamp := p.Attributes.VarTime("lastLogin"); !timestamp.IsZero() {
+			p.SendPacket(LoginBox(int(time.Since(timestamp).Hours()/24), p.Attributes.VarString("lastIP", "0.0.0.0")))
 		}
 	}
 	p.SendStats()
-	p.Attributes.SetVar("lastLogin", time.Now().Format(time.ANSIC))
+	p.Attributes.SetVar("lastLogin", time.Now())
 }
 
 //NewPlayer Returns a reference to a new player.
@@ -912,6 +911,20 @@ func (p *Player) SendPrayers() {
 	p.SendPacket(PrayerStatus(p))
 }
 
+func (p *Player) Skulled() bool {
+	return p.Attributes.VarBool("skulled", false)
+}
+
+func (p *Player) SetSkulled(val bool) {
+	if val {
+		p.Attributes.SetVar("skullTimer", time.Now().Add(20*time.Minute))
+	} else {
+		p.Attributes.UnsetVar("skullTimer")
+	}
+	p.Attributes.SetVar("skulled", val)
+	p.UpdateAppearance()
+}
+
 //Killed kills this player, dropping all of its items where it stands.
 func (p *Player) Killed(killer MobileEntity) {
 	p.Transients().SetVar("deathTime", time.Now())
@@ -922,10 +935,13 @@ func (p *Player) Killed(killer MobileEntity) {
 	}
 	p.SendStats()
 
-	keepCount := 3 // todo: if skulled keepCount is zero
+	keepCount := 0
 	if p.PrayerActivated(8) {
 		// protect item prayer
 		keepCount++
+	}
+	if !p.Skulled() {
+		keepCount -= 3
 	}
 	deathItems := p.Inventory.DeathDrops(keepCount)
 	killerName := uint64(strutil.MaxBase37 + 5000) // Indicator that the item is not owned

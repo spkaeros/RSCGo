@@ -12,14 +12,13 @@ package packethandlers
 import (
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
-	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 func init() {
 	PacketHandlers["tradereq"] = func(player *world.Player, p *packet.Packet) {
 		index := p.ReadShort()
-		c1, ok := players.FromIndex(index)
+		c1, ok := world.Players.FromIndex(index)
 		if !ok {
 			log.Suspicious.Printf("%v attempted to trade a player that does not exist.\n", player.String())
 			return
@@ -58,7 +57,7 @@ func init() {
 			player.SendPacket(world.TradeClose)
 			return
 		}
-		c1, ok := players.FromIndex(player.TradeTarget())
+		c1, ok := world.Players.FromIndex(player.TradeTarget())
 		if !ok {
 			log.Suspicious.Printf("%v attempted to update a trade with a non-existent target!\n", player.String())
 			player.ResetTrade()
@@ -107,7 +106,7 @@ func init() {
 			player.SendPacket(world.TradeClose)
 			return
 		}
-		c1, ok := players.FromIndex(player.TradeTarget())
+		c1, ok := world.Players.FromIndex(player.TradeTarget())
 		if !ok {
 			log.Suspicious.Printf("%v attempted to decline a trade with a non-existent target!\n", player.String())
 			player.ResetTrade()
@@ -129,7 +128,7 @@ func init() {
 			player.SendPacket(world.TradeClose)
 			return
 		}
-		c1, ok := players.FromIndex(player.TradeTarget())
+		c1, ok := world.Players.FromIndex(player.TradeTarget())
 		if !ok {
 			log.Suspicious.Printf("%v attempted to accept a trade with a non-existent target!\n", player.String())
 			player.ResetTrade()
@@ -159,7 +158,7 @@ func init() {
 			player.SendPacket(world.TradeClose)
 			return
 		}
-		c1, ok := players.FromIndex(player.TradeTarget())
+		c1, ok := world.Players.FromIndex(player.TradeTarget())
 		if !ok {
 			log.Suspicious.Printf("%v attempted to accept a trade confirmation with a non-existent target!\n", player.String())
 			player.ResetTrade()

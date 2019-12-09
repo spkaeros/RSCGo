@@ -2,7 +2,6 @@ package packethandlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/packet"
-	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
@@ -20,14 +19,14 @@ func init() {
 		duelBlocked := p.ReadBool()
 		if player.FriendBlocked() && !friendBlocked {
 			// turning off private chat block
-			players.Range(func(c1 *world.Player) {
+			world.Players.Range(func(c1 *world.Player) {
 				if c1.Friends(player.UsernameHash()) && !player.Friends(c1.UsernameHash()) {
 					c1.SendPacket(world.FriendUpdate(player.UsernameHash(), true))
 				}
 			})
 		} else if !player.FriendBlocked() && friendBlocked {
 			// turning on private chat block
-			players.Range(func(c1 *world.Player) {
+			world.Players.Range(func(c1 *world.Player) {
 				if c1.Friends(player.UsernameHash()) && !player.Friends(c1.UsernameHash()) {
 					c1.SendPacket(world.FriendUpdate(player.UsernameHash(), false))
 				}

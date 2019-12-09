@@ -11,7 +11,6 @@ package packethandlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/packet"
-	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
@@ -37,7 +36,7 @@ func init() {
 			player.Message("@que@Please remove '" + strutil.Base37.Decode(hash) + "' from your ignore list before friending them.")
 			return
 		}
-		if c1, ok := players.FromUserHash(hash); ok {
+		if c1, ok := world.Players.FromUserHash(hash); ok {
 			if c1.Friends(player.UsernameHash()) && player.FriendBlocked() {
 				c1.SendPacket(world.FriendUpdate(player.UsernameHash(), true))
 			}
@@ -49,7 +48,7 @@ func init() {
 		player.FriendList[hash] = false
 	}
 	PacketHandlers["privmsg"] = func(player *world.Player, p *packet.Packet) {
-		if c1, ok := players.FromUserHash(p.ReadLong()); ok {
+		if c1, ok := world.Players.FromUserHash(p.ReadLong()); ok {
 			if !c1.FriendBlocked() || c1.Friends(player.UsernameHash()) {
 				c1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(strutil.ChatFilter.Unpack(p.Payload[8:]))))
 			}
@@ -64,7 +63,7 @@ func init() {
 			player.Message("@que@You are not friends with that person!")
 			return
 		}
-		if c1, ok := players.FromUserHash(hash); ok && c1.Friends(player.UsernameHash()) && player.FriendBlocked() {
+		if c1, ok := world.Players.FromUserHash(hash); ok && c1.Friends(player.UsernameHash()) && player.FriendBlocked() {
 			c1.SendPacket(world.FriendUpdate(player.UsernameHash(), false))
 		}
 		delete(player.FriendList, hash)

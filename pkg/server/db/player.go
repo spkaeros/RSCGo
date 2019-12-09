@@ -3,6 +3,8 @@ package db
 import (
 	"github.com/spkaeros/rscgo/pkg/server/crypto"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/spkaeros/rscgo/pkg/server/config"
 	"github.com/spkaeros/rscgo/pkg/server/errors"
@@ -225,6 +227,18 @@ func LoadPlayerAttributes(player *world.Player) error {
 		case 's':
 			player.Attributes.SetVar(name, value[1:])
 			break
+		case 'd':
+			t, err := time.ParseDuration(value[1:])
+			if err != nil {
+				continue
+			}
+			player.Attributes.SetVar(name, time.Now().Add(t))
+		case 't':
+			t, err := time.ParseInLocation(time.RFC822, value[1:], time.Local)
+			if err != nil {
+				continue
+			}
+			player.Attributes.SetVar(name, t)
 		}
 	}
 	return nil
@@ -407,6 +421,17 @@ func SavePlayer(player *world.Player) {
 		case string:
 			if v, ok := value.(string); ok {
 				val = "s" + v
+			}
+		case time.Time:
+			if strings.HasSuffix(name, "Timer") {
+				// Save timers as duration
+				if v, ok := value.(time.Time); ok {
+					val = "d" + time.Until(v).String()
+				}
+			} else {
+				if v, ok := value.(time.Time); ok {
+					val = "t" + v.Format(time.RFC822)
+				}
 			}
 		}
 		rs, _ := tx.Exec("INSERT INTO player_attr(player_id, name, value) VALUES(?, ?, ?)", player.DatabaseID(), name, val)

@@ -1,0 +1,18 @@
+bind = import("bind")
+time = import("time")
+
+bind.command("skull", func(player, args) {
+	player.SetSkulled(true)
+})
+
+bind.command("skulled", func(player, args) {
+	player.Message("skulled: " + player.Cache("skulled") + "; time remaining:" + player.Attributes.VarTime("skullTimer").Sub(time.Now()))
+})
+
+bind.onLogin(func(player) {
+	player.Tickables += func() {
+		if player.Attributes.VarTime("skullTimer").Sub(time.Now()) <= 0 && player.Skulled() {
+			player.SetSkulled(false)
+		}
+	}
+})

@@ -11,7 +11,6 @@ package packethandlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/packet"
-	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
@@ -75,7 +74,7 @@ func init() {
 			return
 		}
 		playerID := p.ReadShort()
-		affectedClient, ok := players.FromIndex(playerID)
+		affectedClient, ok := world.Players.FromIndex(playerID)
 		if !ok {
 			player.Message("@que@Could not find the player you're looking for.")
 			return
@@ -111,7 +110,7 @@ func init() {
 			appearanceTicket := p.ReadShort()
 			player.AppearanceLock.Lock()
 			if ticket, ok := player.KnownAppearances[serverIndex]; !ok || ticket != appearanceTicket {
-				if c1, ok := players.FromIndex(serverIndex); ok {
+				if c1, ok := world.Players.FromIndex(serverIndex); ok {
 					player.AppearanceReq = append(player.AppearanceReq, c1)
 				}
 			}

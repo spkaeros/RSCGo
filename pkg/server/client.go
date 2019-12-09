@@ -8,7 +8,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packethandlers"
-	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"io"
 	"net"
@@ -75,7 +74,7 @@ func (c *client) startWriter() {
 	}
 }
 
-//destroy Safely tears down a client, saves it to the database, and removes it from server-wide players.
+//destroy Safely tears down a client, saves it to the database, and removes it from server-wide player list.
 func (c *client) destroy(wg *sync.WaitGroup) {
 	// Wait for network goroutines to finish.
 	c.destroyer.Do(func() {
@@ -86,13 +85,13 @@ func (c *client) destroy(wg *sync.WaitGroup) {
 		if err := c.Socket.Close(); err != nil {
 			log.Error.Println("Couldn't close Socket:", err)
 		}
-		if player, ok := players.FromIndex(c.player.Index); ok && player == c.player {
+		if player, ok := world.Players.FromIndex(c.player.Index); ok && player == c.player {
 			c.player.SetConnected(false)
 			go db.SavePlayer(c.player)
 			world.RemovePlayer(c.player)
 			c.player.SetRegionRemoved()
-			players.BroadcastLogin(c.player, false)
-			players.Remove(c.player)
+			world.Players.BroadcastLogin(c.player, false)
+			world.Players.Remove(c.player)
 			log.Info.Printf("Unregistered: %v\n", c.player.String())
 		}
 	})
@@ -141,7 +140,7 @@ func (c *client) handlePacket(p *packet.Packet) {
 //newClient Creates a new instance of a client, launches goroutines to handle I/O for it, and returns a reference to it.
 func newClient(socket net.Conn, ws bool) *client {
 	c := &client{Socket: socket, IncomingPackets: make(chan *packet.Packet, 20), DataBuffer: make([]byte, 5000)}
-	c.player = world.NewPlayer(players.NextIndex(), strings.Split(socket.RemoteAddr().String(), ":")[0])
+	c.player = world.NewPlayer(world.Players.NextIndex(), strings.Split(socket.RemoteAddr().String(), ":")[0])
 	c.websocket = ws
 	c.startNetworking()
 	return c

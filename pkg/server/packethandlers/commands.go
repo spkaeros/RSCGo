@@ -115,14 +115,35 @@ func init() {
 
 		world.AddNpc(world.NewNpc(id, x, y, x-5, x+5, y-5, y+5))
 	}
-	script.CommandHandlers["anko"] = func(player *world.Player, args []string) {
+	script.CommandHandlers["run"] = func(player *world.Player, args []string) {
 		line := strings.Join(args, " ")
 		env := script.WorldModule()
-		env.Define("println", fmt.Println)
 		env.Define("player", player)
-		vm.Execute(env, nil, line)
+		ret, err := vm.Execute(env, nil, line)
+		if err != nil {
+			player.Message("Error: " + err.Error())
+			log.Info.Println("Anko Error: " + err.Error())
+		} else {
+			switch ret.(type) {
+			case string:
+				player.Message(ret.(string))
+			case int64:
+				player.Message("int(" + strconv.Itoa(int(ret.(int64))) + ")")
+			case int:
+				player.Message("int(" + strconv.Itoa(ret.(int)) + ")")
+			case bool:
+				if ret.(bool) {
+					player.Message("TRUE")
+				} else {
+					player.Message("FALSE")
+				}
+			default:
+				player.Message(fmt.Sprintf("%v", ret))
+			}
+			log.Info.Println(ret)
+		}
 	}
-	script.CommandHandlers["reloadscripts"] = func(player *world.Player, args []string) {
+	script.CommandHandlers["reload"] = func(player *world.Player, args []string) {
 		script.Clear()
 		script.Load()
 		player.Message(fmt.Sprintf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill]", len(script.ItemTriggers), len(script.ObjectTriggers), len(script.BoundaryTriggers), len(script.NpcTriggers), len(script.InvOnBoundaryTriggers), len(script.InvOnObjectTriggers), len(script.NpcAtkTriggers), len(script.NpcDeathTriggers)))

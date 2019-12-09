@@ -12,7 +12,6 @@ package packethandlers
 import (
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
-	"github.com/spkaeros/rscgo/pkg/server/players"
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"time"
@@ -132,7 +131,7 @@ func init() {
 		})
 	}
 	PacketHandlers["attackplayer"] = func(player *world.Player, p *packet.Packet) {
-		affectedClient, ok := players.FromIndex(p.ReadShort())
+		affectedClient, ok := world.Players.FromIndex(p.ReadShort())
 		if affectedClient == nil || !ok {
 			log.Suspicious.Printf("player[%v] tried to attack nil player\n", player)
 			return

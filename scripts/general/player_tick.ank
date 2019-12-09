@@ -1,0 +1,18 @@
+bind = import("bind")
+world = import("world")
+
+bind.onLogin(func(player) {
+	go func() {
+		ticker = time.NewTicker(640*time.Millisecond)
+		for ts in ticker.C {
+			// println(ts)
+			if !player.Connected() {
+				ticker.Stop()
+				return
+			}
+			for fn in player.Tickables {
+				fn()
+			}
+		}
+	}()
+})

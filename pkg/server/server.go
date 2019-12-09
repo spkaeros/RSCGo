@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/gobwas/ws"
-	"github.com/spkaeros/rscgo/pkg/server/players"
-
 	"github.com/spkaeros/rscgo/pkg/server/config"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/world"
@@ -56,7 +54,7 @@ func Bind(port int) {
 					continue
 				}
 			}
-			if players.Size() >= config.MaxPlayers() {
+			if world.Players.Size() >= config.MaxPlayers() {
 				if n, err := socket.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 14}); err != nil || n != 9 {
 					if config.Verbosity > 0 {
 						log.Error.Println("Could not send world is full response to rejected client:", err)
@@ -77,7 +75,7 @@ func StartConnectionService() {
 
 //Tick One game engine 'tick'.  This is to handle movement, to synchronize client, to update movement-related state variables... Runs once per 600ms.
 func Tick() {
-	players.Range(func(p *world.Player) {
+	world.Players.Range(func(p *world.Player) {
 		if fn := p.DistancedAction; fn != nil {
 			if fn() {
 				p.ResetDistancedAction()
@@ -86,7 +84,7 @@ func Tick() {
 		p.TraversePath()
 	})
 	world.UpdateNPCPositions()
-	players.Range(func(p *world.Player) {
+	world.Players.Range(func(p *world.Player) {
 		// Everything is updated relative to our player's position, so player position packet comes first
 		if positions := world.PlayerPositions(p); positions != nil {
 			p.SendPacket(positions)
@@ -107,7 +105,7 @@ func Tick() {
 			p.SendPacket(boundaryUpdates)
 		}
 	})
-	players.Range(func(p *world.Player) {
+	world.Players.Range(func(p *world.Player) {
 		p.ResetAppearanceChanged()
 		p.ResetSpriteUpdated()
 		p.ResetRegionMoved()

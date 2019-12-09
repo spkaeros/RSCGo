@@ -3,34 +3,33 @@ math = import("math")
 time = import("time")
 
 bind.onLogin(func(player) {
-	go func() {
-		ticker = time.NewTicker(time.Second * 60 * 60)
-		for i in ticker.C {
-			if !player.Connected() {
-				ticker.Stop()
-				return
-			}
+	lastNormalized = time.Now()
+	player.Tickables += func() {
+		if time.Since(lastNormalized) >= time.Minute {
 			for i = 0; i < 18; i++ {
 				max = player.Skills().Maximum(i)
 				cur = player.Skills().Current(i)
-				if i == PRAYER {
+				if i == PRAYER || max == cur {
 					// Prayer is handled elsewhere.
 					continue
 				}
+
 				if cur < max {
-					player.SetCurStat(cur+1)
-				} else if cur < max {
-					player.SetCurStat(cur-1)
+					player.SetCurStat(i, cur+1)
+				} else if cur > max {
+					player.SetCurStat(i, cur-1)
 				}
+
 				if player.Skills().Current(i) == max {
 					if i == HITPOINTS && max > cur {
 						// we don't notify for hitpoints going from depleted to normal
 						// but we do for boosted to normal, and every other skill.
 						continue
 					}
-					p.Message("Your " + skillName(i) + " level has returned to normal")
+					player.Message("Your " + skillName(i) + " level has returned to normal")
 				}
 			}
+			lastNormalized = time.Now()
 		}
-	}()
+	}
 })
