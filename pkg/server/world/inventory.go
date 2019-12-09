@@ -205,13 +205,11 @@ func (i *Inventory) DeathDrops(keep int) *Inventory {
 	if len(deathItems.List) < keep {
 		keep = len(deathItems.List)
 	}
-	log.Info.Println(keep)
 	for idx := keep; idx > 0; idx-- {
 		if deathItems.List[idx-1].Stackable() {
 			keep--
 		}
 	}
-	log.Info.Println(keep)
 	return &Inventory{List: deathItems.List[keep:], Capacity:30}
 }
 

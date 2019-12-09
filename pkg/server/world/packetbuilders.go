@@ -191,16 +191,16 @@ func NPCPositions(player *Player) (p *packet.Packet) {
 		if n, ok := n.(*NPC); ok {
 			counter++
 			n.RLock()
-			if !player.WithinRange(player.Location, player.TransAttrs.VarInt("viewRadius", 16)) || n.SyncMask & SyncRemoved != 0 {
+			if !player.WithinRange(player.Location, player.TransAttrs.VarInt("viewRadius", 16)) || n.SyncMask & SyncRemoved == SyncRemoved || n.Location.Equals(DeathPoint) {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(3, 2)
 				removing.set = append(removing.set, n)
-			} else if n.SyncMask & SyncMoved != 0 {
+			} else if n.SyncMask & SyncMoved == SyncMoved {
 				p.AddBits(1, 1)
 				p.AddBits(0, 1)
 				p.AddBits(n.Direction(), 3)
-			} else if n.SyncMask & SyncSprite != 0 {
+			} else if n.SyncMask & SyncSprite == SyncSprite {
 				p.AddBits(1, 1)
 				p.AddBits(1, 1)
 				p.AddBits(n.Direction(), 4)

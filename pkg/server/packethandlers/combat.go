@@ -73,6 +73,11 @@ func init() {
 							attacker = npc
 							defender = player
 						}
+						attacker.Transients().SetVar("fightRound", attacker.Transients().VarInt("fightRound", 0)+1)
+						curRound++
+						if player.PrayerActivated(12) && attacker == npc {
+							continue
+						}
 						nextHit = attacker.MeleeDamage(defender)
 						if curHits := defender.Skills().Current(world.StatHits); nextHit > curHits {
 							nextHit = curHits
@@ -94,9 +99,9 @@ func init() {
 									world.AddItem(world.NewGroundItem(20, 1, defender.X(), defender.Y()))
 								}
 
-								attacker.ResetFighting()
 								defenderNpc.Skills().SetCur(world.StatHits, defenderNpc.Skills().Maximum(world.StatHits))
 								defenderNpc.SetLocation(world.DeathPoint, true)
+								attacker.ResetFighting()
 
 								go func() {
 									time.Sleep(time.Second * 10)
@@ -117,9 +122,6 @@ func init() {
 						} else if defenderPlayer, ok := defender.(*world.Player); ok {
 							defenderPlayer.Damage(nextHit)
 						}
-
-						attacker.Transients().SetVar("fightRound", attacker.Transients().VarInt("fightRound", 0)+1)
-						curRound++
 					}
 				}()
 				return true
