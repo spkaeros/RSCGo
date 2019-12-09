@@ -252,6 +252,14 @@ func NPCPositions(player *Player) (p *packet.Packet) {
 	return
 }
 
+func PrayerStatus(player *Player) *packet.Packet {
+	p := packet.NewOutgoingPacket(206)
+	for i := 0; i < 13; i++ {
+		p.AddBool(player.PrayerActivated(i))
+	}
+	return p
+}
+
 //PlayerPositions Builds a packet containing view area player position and sprite information, including ones own information, and returns it.
 // If no players need to be updated, returns nil.
 func PlayerPositions(player *Player) (p *packet.Packet) {

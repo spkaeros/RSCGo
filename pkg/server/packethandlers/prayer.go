@@ -13,7 +13,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/world"
-	"strconv"
 )
 
 func init() {
@@ -28,7 +27,10 @@ func init() {
 			log.Suspicious.Printf("%v turned on a prayer that he is too low level for: %d\n", player, idx)
 			return
 		}
-		player.PrayerOn(int(idx))
+		if !player.PrayerActivated(int(idx)) {
+			player.PrayerOn(int(idx))
+		}
+		player.SendPrayers()
 	}
 	PacketHandlers["prayeroff"] = func(player *world.Player, p *packet.Packet) {
 		idx := p.ReadByte()
@@ -40,6 +42,9 @@ func init() {
 			log.Suspicious.Printf("%v turned off a prayer that he is too low level for: %d\n", player, idx)
 			return
 		}
-		player.PrayerOff(int(idx))
+		if player.PrayerActivated(int(idx)) {
+			player.PrayerOff(int(idx))
+		}
+		player.SendPrayers()
 	}
 }

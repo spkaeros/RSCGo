@@ -890,12 +890,16 @@ func (p *Player) PrayerActivated(idx int) bool {
 	return p.TransAttrs.VarBool("prayer" + strconv.Itoa(idx), false)
 }
 
-func (p *Player) PrayerOn(idx int) bool {
+func (p *Player) PrayerOn(idx int) {
 	p.TransAttrs.SetVar("prayer" + strconv.Itoa(idx), true)
 }
 
 func (p *Player) PrayerOff(idx int) {
 	p.TransAttrs.SetVar("prayer" + strconv.Itoa(idx), false)
+}
+
+func (p *Player) SendPrayers() {
+	p.SendPacket(PrayerStatus(p))
 }
 
 //Killed kills this player, dropping all of its items where it stands.
@@ -927,6 +931,7 @@ func (p *Player) Killed(killer MobileEntity) {
 	for i := 0; i < 13; i++ {
 		p.PrayerOff(i)
 	}
+	p.SendPrayers()
 	// todo: send prayers off
 	AddItem(NewGroundItemFor(killerName, 20, 1, p.X(), p.Y()))
 	p.SendInventory()
