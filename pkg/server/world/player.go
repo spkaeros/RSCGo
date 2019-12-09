@@ -933,6 +933,7 @@ func (p *Player) StartCombat(target MobileEntity) {
 		p1.PlaySound("underattack")
 		p.SetSkulled(true)
 	}
+	target.SetRegionRemoved()
 	p.Teleport(target.X(), target.Y())
 	p.AddState(MSFighting)
 	target.AddState(MSFighting)
@@ -944,7 +945,7 @@ func (p *Player) StartCombat(target MobileEntity) {
 	curTick := 0
 	p.Tickables = append(p.Tickables, func() bool {
 		curTick++
-		if p1, ok := target.(*Player); ok {
+ 		if p1, ok := target.(*Player); ok {
 			if !p1.Connected() {
 				if p.HasState(MSFighting) {
 					p.ResetFighting()
