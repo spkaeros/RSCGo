@@ -10,21 +10,23 @@
 package script
 
 import (
+	"github.com/fsnotify/fsnotify"
+	"github.com/mattn/anko/vm"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/mattn/anko/parser"
-	"github.com/mattn/anko/vm"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
-var Scripts []string
+var scriptWatcher *fsnotify.Watcher
 
-//ItemTrigger holds callbacks to functions defined in the Anko scripts loaded at runtime, to be run when certain
-// events occur
+//ItemTrigger A type that defines a callback to run when certain item actions are performed, and a predicate to decide
+// whether or not the callback should run
 type ItemTrigger struct {
 	// Check returns true if this handler should run.
 	Check func(*world.Item) bool
@@ -32,6 +34,8 @@ type ItemTrigger struct {
 	Action func(*world.Player, *world.Item)
 }
 
+//ObjectTrigger A type that defines a callback to run when certain object actions are performed, and a predicate to decide
+// whether or not the callback should run
 type ObjectTrigger struct {
 	// Check returns true if this handler should run.
 	Check func(*world.Object, int) bool
@@ -39,8 +43,8 @@ type ObjectTrigger struct {
 	Action func(*world.Player, *world.Object, int)
 }
 
-//NpcTrigger holds callbacks to functions defined in the Anko scripts loaded at runtime, to be run when certain
-// events occur
+//NpcTrigger A type that defines a callback to run when certain NPC actions are performed, and a predicate to decide
+// whether or not the callback should run
 type NpcTrigger struct {
 	// Check returns true if this handler should run.
 	Check func(*world.NPC) bool
@@ -50,23 +54,33 @@ type NpcTrigger struct {
 
 //NpcActionPredicate callback to a function defined in the Anko scripts loaded at runtime, to be run when certain
 // events occur.  If it returns true, it will block the event that triggered it from occurring
-type NpcPredBlockingTrigger struct {
+type NpcBlockingTrigger struct {
 	// Check returns true if this handler should run.
 	Check NpcActionPredicate
 	// Action is the function that will run if Check returned true.
 	Action func(*world.Player, *world.NPC)
 }
 
+//NpcActionPredicate A type alias for an NPC related action predicate.
 type NpcActionPredicate = func(*world.Player, *world.NPC) bool
+
+//NpcAction A type alias for an NPC related action.
 type NpcAction = func(*world.Player, *world.NPC)
 
+//LoginTriggers a list of actions to run when a player logs in.
 var LoginTriggers []func(player *world.Player)
+
+//InvOnBoundaryTriggers a list of actions to run when a player uses an inventory item on a boundary object
 var InvOnBoundaryTriggers []func(player *world.Player, object *world.Object, item *world.Item) bool
+
+//InvOnObjectTriggers a list of actions to run when a player uses an inventory item on a object
 var InvOnObjectTriggers []func(player *world.Player, object *world.Object, item *world.Item) bool
 
 //ItemTriggers List of script callbacks to run for inventory item actions
 var ItemTriggers []ItemTrigger
+//ObjectTriggers List of script callbacks to run for object actions
 var ObjectTriggers []ObjectTrigger
+//BoundaryTriggers List of script callbacks to run for boundary actions
 var BoundaryTriggers []ObjectTrigger
 
 //NpcTriggers List of script callbacks to run for NPC talking actions
@@ -76,47 +90,10 @@ var NpcTriggers []NpcTrigger
 var NpcAtkTriggers []NpcActionPredicate
 
 //NpcDeathTriggers List of script callbacks to run when you kill an NPC
-var NpcDeathTriggers []NpcPredBlockingTrigger
+var NpcDeathTriggers []NpcBlockingTrigger
 
-func Run(fnName string, player *world.Player, argName string, arg interface{}) bool {
-	env := WorldModule()
-	err := env.Define("client", player)
-	if err != nil {
-		log.Info.Println("Error initializing scripting environment:", err)
-		return false
-	}
-	err = env.Define("player", player)
-	if err != nil {
-		log.Info.Println("Error initializing scripting environment:", err)
-		return false
-	}
-	err = env.Define(argName, arg)
-	if err != nil {
-		log.Info.Println("Error initializing scripting environment:", err)
-		return false
-	}
-	for _, s := range Scripts {
-		if !strings.Contains(s, fnName) {
-			continue
-		}
-		stopPipeline, err := vm.Execute(env, nil, s+
-			`
-`+fnName+`()`)
-		if err != nil {
-			log.Info.Println("Unrecognized Anko error when attempting to execute the script pipeline:", err)
-			continue
-		}
-		if stopPipeline, ok := stopPipeline.(bool); ok && stopPipeline {
-			return true
-		} else if !ok {
-			log.Info.Println("Unexpected return result from an executed Anko script:", err)
-		}
-	}
-	return false
-}
-
+//Clear clears all of the lists of triggers.
 func Clear() {
-	//ItemTriggers = make(map[interface{}]func(*world.Player, *world.Item))
 	ItemTriggers = ItemTriggers[:0]
 	ObjectTriggers = ObjectTriggers[:0]
 	NpcTriggers = NpcTriggers[:0]
@@ -128,25 +105,59 @@ func Clear() {
 	InvOnObjectTriggers = InvOnObjectTriggers[:0]
 }
 
-//Load Loads all of the scripts in ./scripts and stores them in the Scripts slice.
+//Load Loads all of the scripts in ./scripts.  This will ignore any folders named definitions or lib.
 func Load() {
-	err := filepath.Walk("./scripts", func(path string, info os.FileInfo, err error) error {
+	var err error
+	vmEnv := WorldModule()
+	if scriptWatcher == nil {
+		scriptWatcher, err = fsnotify.NewWatcher()
 		if err != nil {
 			log.Info.Println(err)
-			return err
+			return
 		}
-		if !info.IsDir() && !strings.Contains(path, "definitions") && !strings.Contains(path, "lib") && strings.HasSuffix(path, "ank") {
-			env := WorldModule()
-			parser.EnableDebug(1)
-			parser.EnableErrorVerbose()
-			_, err := vm.Execute(env, &vm.Options{Debug: true}, load(path))
+		go func() {
+			lastEvent := time.Now()
+			lastPath := ""
+			for {
+				select {
+				case event := <-scriptWatcher.Events:
+					if time.Since(lastEvent) < time.Second && lastPath == event.Name {
+						continue
+					}
+					if event.Op&fsnotify.Write == fsnotify.Write {
+						lastEvent = time.Now()
+						lastPath = event.Name
+						log.Info.Println("Reloading " + event.Name)
+						_, err := vm.Execute(vmEnv, &vm.Options{Debug: true}, load(event.Name))
+
+						if err != nil {
+							log.Info.Println("Anko scripting error in '"+event.Name+"':", err)
+							continue
+						}
+					}
+				case err := <-scriptWatcher.Errors:
+					if err != nil {
+						log.Info.Println(err)
+					}
+				}
+			}
+		}()
+	}
+	parser.EnableDebug(1)
+	parser.EnableErrorVerbose()
+
+	err = filepath.Walk("./scripts", func(path string, info os.FileInfo, err error) error {
+		if !info.Mode().IsDir() && !strings.Contains(path, "definitions") && !strings.Contains(path, "lib") && strings.HasSuffix(path, "ank") {
+			_, err := vm.Execute(vmEnv, &vm.Options{Debug: true}, load(path))
 
 			if err != nil {
-				log.Info.Println("Anko scripting error in '"+path+"':", err)
+				log.Info.Println("Anko error ['"+path+"']:", err)
 				//				log.Info.Println(env.String())
 				return nil
 			}
+			return scriptWatcher.Add(path)
 		}
+
 		return nil
 	})
 	if err != nil {

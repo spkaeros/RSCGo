@@ -32,7 +32,21 @@ func init() {
 		player.SetDistancedAction(func() bool {
 			if player.AtObject(object) {
 				player.ResetPath()
-				objectAction(player, object, 0)
+				player.AddState(world.MSBusy)
+
+				go func() {
+					defer func() {
+						player.RemoveState(world.MSBusy)
+					}()
+
+					for _, trigger := range script.ObjectTriggers {
+						if trigger.Check(object, 0) {
+							trigger.Action(player, object, 0)
+							return
+						}
+					}
+					player.SendPacket(world.DefaultActionMessage)
+				}()
 				return true
 			}
 			return false
@@ -54,7 +68,22 @@ func init() {
 		player.SetDistancedAction(func() bool {
 			if player.AtObject(object) {
 				player.ResetPath()
-				objectAction(player, object, 1)
+				player.AddState(world.MSBusy)
+
+				go func() {
+					defer func() {
+						player.RemoveState(world.MSBusy)
+					}()
+
+					for _, trigger := range script.ObjectTriggers {
+						if trigger.Check(object, 1) {
+							trigger.Action(player, object, 1)
+							return
+						}
+					}
+					player.SendPacket(world.DefaultActionMessage)
+				}()
+
 				return true
 			}
 			return false
@@ -282,7 +311,7 @@ func init() {
 				}
 				return false
 			}
-			if player.NextTo(object.Location) && (player.WithinRange(bounds[0], 1) || player.WithinRange(bounds[1], 1)) {
+			if player.AtObject(object) {
 				player.ResetPath()
 				player.AddState(world.MSBusy)
 				go func() {
@@ -303,27 +332,6 @@ func init() {
 	}
 }
 
-func objectAction(player *world.Player, object *world.Object, click int) {
-	if player.Busy() || world.GetObject(object.X(), object.Y()) != object {
-		// If somehow we became busy, the object changed before arriving, we do nothing.
-		return
-	}
-	player.AddState(world.MSBusy)
-
-	go func() {
-		defer func() {
-			player.RemoveState(world.MSBusy)
-		}()
-
-		for _, trigger := range script.ObjectTriggers {
-			if trigger.Check(object, click) {
-				trigger.Action(player, object, click)
-				return
-			}
-		}
-		player.SendPacket(world.DefaultActionMessage)
-	}()
-}
 
 func boundaryAction(player *world.Player, object *world.Object, click int) {
 	if player.Busy() || world.GetObject(object.X(), object.Y()) != object {

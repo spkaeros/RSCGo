@@ -87,12 +87,12 @@ func (c *client) destroy(wg *sync.WaitGroup) {
 			log.Error.Println("Couldn't close Socket:", err)
 		}
 		if player, ok := players.FromIndex(c.player.Index); ok && player == c.player {
+			c.player.SetConnected(false)
 			go db.SavePlayer(c.player)
 			world.RemovePlayer(c.player)
 			c.player.SetRegionRemoved()
 			players.BroadcastLogin(c.player, false)
 			players.Remove(c.player)
-			c.player.SetConnected(false)
 			log.Info.Printf("Unregistered: %v\n", c.player.String())
 		}
 	})

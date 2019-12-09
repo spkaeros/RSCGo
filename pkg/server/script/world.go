@@ -233,8 +233,11 @@ func init() {
 			NpcAtkTriggers = append(NpcAtkTriggers, pred)
 		}),
 		"npcKilled": reflect.ValueOf(func(pred NpcActionPredicate, fn func(player *world.Player, npc *world.NPC)) {
-			NpcDeathTriggers = append(NpcDeathTriggers, NpcPredBlockingTrigger{pred, fn})
+			NpcDeathTriggers = append(NpcDeathTriggers, NpcBlockingTrigger{pred, fn})
 		}),
+		//"npcAttacked2": reflect.ValueOf(func(pred NpcActionPredicate, fn func(player *world.Player, npc *world.NPC)) {
+		//	NpcAtkTriggers = append(NpcAtkTriggers, NpcBlockingTrigger{pred, fn})
+		//}),
 		"command": reflect.ValueOf(func(name string, fn func(p *world.Player, args []string)) {
 			CommandHandlers[name] = fn
 		}),
