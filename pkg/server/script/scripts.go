@@ -118,7 +118,7 @@ func Load() {
 						_, err := vm.Execute(WorldModule(), &vm.Options{Debug: true}, load(event.Name))
 
 						if err != nil {
-							log.Info.Println("Anko scripting error in '"+event.Name+"':", err)
+							log.Info.Println("Anko error ['"+event.Name+"']:", err)
 							continue
 						}
 					}
@@ -156,12 +156,12 @@ func Load() {
 func load(filePath string) string {
 	file, err := os.Open(filePath)
 	if err != nil {
-		log.Warning.Println("Error opening script file for object action:", err)
+		log.Warning.Println("Error opening script file:", err)
 		return ""
 	}
 	data, err := ioutil.ReadAll(file)
 	if err != nil {
-		log.Warning.Println("Error reading script file for object action:", err)
+		log.Warning.Println("Error reading script file:", err)
 		return ""
 	}
 

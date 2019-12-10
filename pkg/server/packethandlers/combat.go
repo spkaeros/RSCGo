@@ -21,7 +21,7 @@ func init() {
 	PacketHandlers["attacknpc"] = func(player *world.Player, p *packet.Packet) {
 		npc := world.GetNpc(p.ReadShort())
 		if npc == nil {
-			log.Suspicious.Printf("player[%v] tried to attack nil NPC\n", player)
+			log.Suspicious.Printf("%v tried to attack nil NPC\n", player)
 			return
 		}
 		if player.Busy() {
@@ -31,7 +31,6 @@ func init() {
 			log.Info.Println("Player attacked not attackable NPC!", world.NpcDefs[npc.ID])
 			return
 		}
-		log.Info.Println(npc.ID)
 		player.SetDistancedAction(func() bool {
 			if player.NextTo(npc.Location) && player.WithinRange(npc.Location, 1) {
 				for _, trigger := range script.NpcAtkTriggers {

@@ -24,8 +24,7 @@ func init() {
 		x := p.ReadShort()
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
-		if object == nil {
-			log.Info.Println("Object not found.")
+		if object == nil || object.Boundary {
 			log.Suspicious.Printf("Player %v attempted to use a non-existant object at %d,%d\n", player, x, y)
 			return
 		}
@@ -60,8 +59,7 @@ func init() {
 		x := p.ReadShort()
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
-		if object == nil {
-			log.Info.Println("Object not found.")
+		if object == nil || object.Boundary {
 			log.Suspicious.Printf("Player %v attempted to use a non-existant object at %d,%d\n", player, x, y)
 			return
 		}
@@ -97,7 +95,6 @@ func init() {
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
 		if object == nil || !object.Boundary {
-			log.Info.Println("Boundary not found.")
 			log.Suspicious.Printf("Player %v attempted to use a non-existant boundary at %d,%d\n", player, x, y)
 			return
 		}
@@ -105,7 +102,24 @@ func init() {
 		player.SetDistancedAction(func() bool {
 			if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
 				player.ResetPath()
-				boundaryAction(player, object, 1)
+				if player.Busy() || world.GetObject(object.X(), object.Y()) != object {
+					// If somehow we became busy, the object changed before arriving, we do nothing.
+					return true
+				}
+				player.AddState(world.MSBusy)
+				go func() {
+					defer func() {
+						player.RemoveState(world.MSBusy)
+					}()
+
+					for _, trigger := range script.BoundaryTriggers {
+						if trigger.Check(object, 1) {
+							trigger.Action(player, object, 1)
+							return
+						}
+					}
+					player.SendPacket(world.DefaultActionMessage)
+				}()
 				return true
 			}
 			return false
@@ -119,15 +133,31 @@ func init() {
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
 		if object == nil || !object.Boundary {
-			log.Info.Println("Boundary not found.")
-			log.Suspicious.Printf("Player %v attempted to use a non-existant boundary at %d,%d\n", player, x, y)
+			log.Suspicious.Printf("%v attempted to use a non-existant boundary at %d,%d\n", player, x, y)
 			return
 		}
 		bounds := object.Boundaries()
 		player.SetDistancedAction(func() bool {
 			if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
 				player.ResetPath()
-				boundaryAction(player, object, 0)
+				if player.Busy() || world.GetObject(object.X(), object.Y()) != object {
+					// If somehow we became busy, the object changed before arriving, we do nothing.
+					return true
+				}
+				player.AddState(world.MSBusy)
+				go func() {
+					defer func() {
+						player.RemoveState(world.MSBusy)
+					}()
+
+					for _, trigger := range script.BoundaryTriggers {
+						if trigger.Check(object, 1) {
+							trigger.Action(player, object, 1)
+							return
+						}
+					}
+					player.SendPacket(world.DefaultActionMessage)
+				}()
 				return true
 			}
 			return false
@@ -136,7 +166,7 @@ func init() {
 	PacketHandlers["talktonpc"] = func(player *world.Player, p *packet.Packet) {
 		idx := p.ReadShort()
 		npc := world.GetNpc(idx)
-		if npc == nil{
+		if npc == nil {
 			return
 		}
 		player.SetDistancedAction(func() bool {
@@ -248,17 +278,20 @@ func init() {
 
 		object := world.GetObject(targetX, targetY)
 		if object == nil || !object.Boundary {
-			log.Info.Println("Boundary not found.")
-			log.Suspicious.Printf("Player %v attempted to use a non-existant boundary at %d,%d\n", player, targetX, targetY)
+			log.Suspicious.Printf("%v attempted to use a non-existant boundary at %d,%d\n", player, targetX, targetY)
 			return
 		}
 		if invIndex >= player.Inventory.Size() {
-			log.Suspicious.Printf("Player %v attempted to use a non-existant item(idx:%v, cap:%v) on a boundary at %d,%d\n", player, invIndex, player.Inventory.Size()-1, targetX, targetY)
+			log.Suspicious.Printf("%v attempted to use a non-existant item(idx:%v, cap:%v) on a boundary at %d,%d\n", player, invIndex, player.Inventory.Size()-1, targetX, targetY)
 			return
 		}
 		invItem := player.Inventory.Get(invIndex)
 		bounds := object.Boundaries()
 		player.SetDistancedAction(func() bool {
+			if player.Busy() || world.GetObject(object.X(), object.Y()) != object {
+				// If somehow we became busy, the object changed before arriving, we do nothing.
+				return true
+			}
 			if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
 				player.ResetPath()
 				player.AddState(world.MSBusy)
@@ -275,6 +308,7 @@ func init() {
 				}()
 				return true
 			}
+			player.WalkTo(object.Location)
 			return false
 		})
 	}
@@ -286,17 +320,21 @@ func init() {
 
 		object := world.GetObject(targetX, targetY)
 		if object == nil || object.Boundary {
-			log.Info.Println("Boundary not found.")
-			log.Suspicious.Printf("Player %v attempted to use a non-existant boundary at %d,%d\n", player, targetX, targetY)
+			log.Suspicious.Printf("%v attempted to use a non-existant boundary at %d,%d\n", player, targetX, targetY)
 			return
 		}
 		if invIndex >= player.Inventory.Size() {
-			log.Suspicious.Printf("Player %v attempted to use a non-existant item(idx:%v, cap:%v) on a boundary at %d,%d\n", player, invIndex, player.Inventory.Size()-1, targetX, targetY)
+			log.Suspicious.Printf("%v attempted to use a non-existant item(idx:%v, cap:%v) on a boundary at %d,%d\n", player, invIndex, player.Inventory.Size()-1, targetX, targetY)
 			return
 		}
 		invItem := player.Inventory.Get(invIndex)
 		bounds := object.Boundaries()
+		player.WalkTo(object.Location)
 		player.SetDistancedAction(func() bool {
+			if player.Busy() || world.GetObject(object.X(), object.Y()) != object {
+				// If somehow we became busy, the object changed before arriving, we do nothing.
+				return true
+			}
 			if world.ObjectDefs[object.ID].Type == 2 || world.ObjectDefs[object.ID].Type == 3 {
 				if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
 					player.ResetPath()
@@ -314,6 +352,7 @@ func init() {
 					}()
 					return true
 				}
+				player.WalkTo(object.Location)
 				return false
 			}
 			if player.AtObject(object) {
@@ -332,29 +371,8 @@ func init() {
 				}()
 				return true
 			}
+			player.WalkTo(object.Location)
 			return false
 		})
 	}
-}
-
-
-func boundaryAction(player *world.Player, object *world.Object, click int) {
-	if player.Busy() || world.GetObject(object.X(), object.Y()) != object {
-		// If somehow we became busy, the object changed before arriving, we do nothing.
-		return
-	}
-	player.AddState(world.MSBusy)
-	go func() {
-		defer func() {
-			player.RemoveState(world.MSBusy)
-		}()
-
-		for _, trigger := range script.BoundaryTriggers {
-			if trigger.Check(object, click) {
-				trigger.Action(player, object, click)
-				return
-			}
-		}
-		player.SendPacket(world.DefaultActionMessage)
-	}()
 }

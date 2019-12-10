@@ -198,6 +198,8 @@ func NPCPositions(player *Player) (p *packet.Packet) {
 				removing.set = append(removing.set, n)
 				n.ResetTickables = append(n.ResetTickables, func() {
 					n.ResetRegionRemoved()
+					n.ResetRegionMoved()
+					n.ResetSpriteUpdated()
 				})
 			} else if n.SyncMask&SyncMoved == SyncMoved {
 				p.AddBits(1, 1)
@@ -205,6 +207,7 @@ func NPCPositions(player *Player) (p *packet.Packet) {
 				p.AddBits(n.Direction(), 3)
 				n.ResetTickables = append(n.ResetTickables, func() {
 					n.ResetRegionMoved()
+					n.ResetSpriteUpdated()
 				})
 			} else if n.SyncMask&SyncSprite == SyncSprite {
 				p.AddBits(1, 1)
@@ -305,6 +308,8 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 				player.AppearanceLock.Unlock()
 				p1.ResetTickables = append(p1.ResetTickables, func() {
 					p1.ResetRegionRemoved()
+					player.ResetRegionMoved()
+					player.ResetSpriteUpdated()
 				})
 			} else if p1.SyncMask&SyncMoved == SyncMoved {
 				p.AddBits(1, 1)
@@ -312,6 +317,7 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 				p.AddBits(p1.Direction(), 3)
 				p1.ResetTickables = append(p1.ResetTickables, func() {
 					p1.ResetRegionMoved()
+					player.ResetSpriteUpdated()
 				})
 			} else if p1.SyncMask&SyncSprite == SyncSprite {
 				p.AddBits(1, 1)

@@ -111,7 +111,7 @@ var itemIndexer = atomic.NewUint32(0)
 
 //NewGroundItem Creates a new ground item in the game world and returns a reference to it.
 func NewGroundItem(id, amount, x, y int) *GroundItem {
-	return &GroundItem{owner: strutil.MaxBase37 + 5000, spawnTime: time.Now(), removed: false,
+	gi := &GroundItem{owner: strutil.MaxBase37 + 5000, spawnTime: time.Now(), removed: false,
 		Item: Item{
 			ID:     id,
 			Amount: amount,
@@ -120,6 +120,11 @@ func NewGroundItem(id, amount, x, y int) *GroundItem {
 			Index:    int(itemIndexer.Swap(itemIndexer.Load() + 1)),
 		},
 	}
+	go func() {
+		time.Sleep(time.Minute * 3)
+		gi.Remove()
+	}()
+	return gi
 }
 
 //NewGroundItemFor Creates a new ground item with an owner in the game world and returns a reference to it.
