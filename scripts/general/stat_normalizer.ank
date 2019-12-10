@@ -3,15 +3,16 @@ math = import("math")
 time = import("time")
 
 bind.onLogin(func(player) {
-	lastNormalized = time.Now()
+	curTick = 0
 	player.Tickables += func() {
+		curTick++
 		if time.Since(player.Transients().VarTime("deathTime")) <= time.Second*5 {
 			// Hack to fix bug in client death screen
 			player.ResetTickables += func() {
 				player.SetSpriteUpdated()
 			}
 		}
-		if time.Since(lastNormalized) >= time.Minute {
+		if curTick % 100 == 0 {
 			for i = 0; i < 18; i++ {
 				max = player.Skills().Maximum(i)
 				cur = player.Skills().Current(i)
