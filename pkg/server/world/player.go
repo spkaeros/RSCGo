@@ -913,16 +913,15 @@ func (p *Player) SendPrayers() {
 }
 
 func (p *Player) Skulled() bool {
-	return p.Attributes.VarBool("skulled", false)
+	return p.Attributes.VarInt("skullTime", 0) > 0
 }
 
 func (p *Player) SetSkulled(val bool) {
 	if val {
-		p.Attributes.SetVar("skullTimer", time.Now().Add(20*time.Minute))
+		p.Attributes.SetVar("skullTime", TicksTwentyMin)
 	} else {
-		p.Attributes.UnsetVar("skullTimer")
+		p.Attributes.UnsetVar("skullTime")
 	}
-	p.Attributes.SetVar("skulled", val)
 	p.UpdateAppearance()
 }
 
@@ -1013,6 +1012,7 @@ func (p *Player) Killed(killer MobileEntity) {
 	deathItems := p.Inventory.DeathDrops(keepCount)
 	killerName := uint64(strutil.MaxBase37 + 5000) // Indicator that the item is not owned
 	if killer, ok := killer.(*Player); killer != nil && ok {
+		killer.Message("You have defeated " + p.Username() + "!")
 		killerName = killer.UsernameHash()
 	}
 	deathItems.Range(func(item *Item) bool {

@@ -1,18 +1,27 @@
 bind = import("bind")
 time = import("time")
+math = import("math")
 
 bind.command("skull", func(player, args) {
 	player.SetSkulled(true)
 })
 
 bind.command("skulled", func(player, args) {
-	player.Message("skulled: " + player.Cache("skulled") + "; time remaining:" + player.Attributes.VarTime("skullTimer").Sub(time.Now()))
+	totalSeconds = toInt(player.Cache("skullTime")) * 0.64
+	minutes = toInt(math.Floor(totalSeconds / 60))
+	seconds = totalSeconds % 60
+	player.Message("skulled: " + player.Skulled() + (player.Skulled() ? "; time left:" + minutes + "m" + seconds + "s" : ""))
 })
 
 bind.onLogin(func(player) {
 	player.Tickables += func() {
-		if player.Attributes.VarTime("skullTimer").Sub(time.Now()) <= 0 && player.Skulled() {
-			player.SetSkulled(false)
+		if player.Skulled() {
+			player.Attributes.DecVar("skullTime", 1)
+
+			// If this was the last tick for the timer, send appearance updates out and unset the timer
+			if !player.Skulled() {
+				player.SetSkulled(false)
+			}
 		}
 	}
 })

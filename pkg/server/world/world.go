@@ -9,6 +9,12 @@ import (
 )
 
 const (
+	TicksDay = 135000
+	TicksHour = 5625
+	TicksTwentyMin = 1875
+)
+
+const (
 	//RegionSize Represents the size of the region
 	RegionSize = 48
 	//HorizontalPlanes Represents how many columns of regions there are

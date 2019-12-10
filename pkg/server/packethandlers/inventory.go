@@ -59,18 +59,18 @@ func init() {
 		id := p.ReadShort()
 		p.ReadShort() // Useless, this variable is for what affect we are applying to the ground item, e.g casting, using item with
 		if x < 0 || x >= world.MaxX || y < 0 || y >= world.MaxY {
-			log.Suspicious.Printf("Player[%v] attempted to pick up an item at an invalid location: [%d,%d]\n", player, x, y)
+			log.Suspicious.Printf("%v attempted to pick up an item at an invalid location: [%d,%d]\n", player, x, y)
 			return
 		}
 		if id < 0 || id > 1289 {
-			log.Suspicious.Printf("Player[%v] attempted to pick up an item with an invalid ID: %d\n", player, id)
+			log.Suspicious.Printf("%v attempted to pick up an item with an invalid ID: %d\n", player, id)
 			return
 		}
 
 		player.SetDistancedAction(func() bool {
 			item := world.GetItem(x, y, id)
 			if item == nil || !item.VisibleTo(player) {
-				log.Suspicious.Printf("Player[%v] attempted to pick up an item that doesn't exist: %d,%d,%d\n", player, id, x, y)
+				log.Suspicious.Printf("%v attempted to pick up an item that doesn't exist: %d,%d,%d\n", player, id, x, y)
 				return true
 			}
 			if !player.WithinRange(item.Location, 0) {
