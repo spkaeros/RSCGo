@@ -2,12 +2,13 @@ package world
 
 import (
 	"fmt"
-	"github.com/spkaeros/rscgo/pkg/server/packet"
-	"github.com/spkaeros/rscgo/pkg/strutil"
 	"math"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/spkaeros/rscgo/pkg/server/packet"
+	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 //AppearanceTable Represents a players appearance.
@@ -358,42 +359,35 @@ func (p *Player) UpdateRegion(x, y int) {
 
 //EquipItem equips an item to this player, and sends inventory and equipment bonuses.
 func (p *Player) EquipItem(item *Item) {
-	var itemAffectedTypes = map[int][]int{32: {32, 33}, 33: {32, 33}, 64: {64, 322}, 512: {512, 640, 644},
-		8: {8, 24, 8216}, 1024: {1024}, 128: {128, 640, 644}, 644: {128, 512, 640, 644},
-		640: {128, 512, 640, 644}, 2048: {2048}, 16: {16, 24, 8216}, 256: {256, 322},
-		322: {64, 256, 322}, 24: {8, 16, 24, 8216}, 8216: {8, 16, 24, 8216},
-	}
 	def := GetEquipmentDefinition(item.ID)
 	if def == nil {
 		return
 	}
 	p.Inventory.Range(func(otherItem *Item) bool {
+		if otherItem == item || !otherItem.Worn {
+			return true
+		}
 		if otherDef := GetEquipmentDefinition(otherItem.ID); otherDef != nil {
-			if otherItem == item || !otherItem.Worn {
-				return true
-			}
-			for _, i := range itemAffectedTypes[def.Type] {
-				if i == otherDef.Type {
-					p.SetAimPoints(p.AimPoints() - otherDef.Aim)
-					p.SetPowerPoints(p.PowerPoints() - otherDef.Power)
-					p.SetArmourPoints(p.ArmourPoints() - otherDef.Armour)
-					p.SetMagicPoints(p.MagicPoints() - otherDef.Magic)
-					p.SetPrayerPoints(p.PrayerPoints() - otherDef.Prayer)
-					p.SetRangedPoints(p.RangedPoints() - otherDef.Ranged)
-					otherItem.Worn = false
-					var value int
-					switch otherDef.Position {
-					case 0:
-						value = p.Appearance.Head
-					case 1:
-						value = p.Appearance.Body
-					case 2:
-						value = p.Appearance.Legs
-					default:
-						value = 0
-					}
-					p.Equips[otherDef.Position] = value
+			if def.Type&otherDef.Type != 0 {
+				p.SetAimPoints(p.AimPoints() - otherDef.Aim)
+				p.SetPowerPoints(p.PowerPoints() - otherDef.Power)
+				p.SetArmourPoints(p.ArmourPoints() - otherDef.Armour)
+				p.SetMagicPoints(p.MagicPoints() - otherDef.Magic)
+				p.SetPrayerPoints(p.PrayerPoints() - otherDef.Prayer)
+				p.SetRangedPoints(p.RangedPoints() - otherDef.Ranged)
+				otherItem.Worn = false
+				var value int
+				switch otherDef.Position {
+				case 0:
+					value = p.Appearance.Head
+				case 1:
+					value = p.Appearance.Body
+				case 2:
+					value = p.Appearance.Legs
+				default:
+					value = 0
 				}
+				p.Equips[otherDef.Position] = value
 			}
 		}
 		return true
