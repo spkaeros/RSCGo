@@ -3,6 +3,24 @@ math = import("math")
 time = import("time")
 
 bind.onLogin(func(player) {
+	normalize = func(idx, notify) {
+		max = player.Skills().Maximum(idx)
+		cur = player.Skills().Current(idx)
+	
+		if cur == max {
+			return
+		}
+		
+		if cur < max {
+			player.SetCurStat(idx, cur+1)
+		} else if cur > max {
+			player.SetCurStat(idx, cur-1)
+		}
+		
+		if notify && player.Skills().Current(idx) == max {
+			player.Message("Your " + skillName(idx) + " level has returned to normal")
+		}
+	}
 	curTick = 0
 	player.Tickables += func() {
 		curTick++
@@ -12,31 +30,19 @@ bind.onLogin(func(player) {
 				player.SetSpriteUpdated()
 			}
 		}
-		if curTick % 100 == 0 {
+		skillTime = player.PrayerActivated(6) ? 50 : 100
+		hitsTime = player.PrayerActivated(7) ? 50 : 100
+		if curTick % skillTime == 0 {
 			for i = 0; i < 18; i++ {
-				max = player.Skills().Maximum(i)
-				cur = player.Skills().Current(i)
-				if i == PRAYER || max == cur {
-					// Prayer is handled elsewhere.
+				if i == HITPOINTS || i == PRAYER {
+					// Handled elsewhere
 					continue
 				}
-
-				if cur < max {
-					player.SetCurStat(i, cur+1)
-				} else if cur > max {
-					player.SetCurStat(i, cur-1)
-				}
-
-				if player.Skills().Current(i) == max {
-					if i == HITPOINTS && max > cur {
-						// we don't notify for hitpoints going from depleted to normal
-						// but we do for boosted to normal, and every other skill.
-						continue
-					}
-					player.Message("Your " + skillName(i) + " level has returned to normal")
-				}
+				normalize(i, true)
 			}
-			lastNormalized = time.Now()
+		}
+		if curTick % hitsTime == 0 {
+			normalize(HITPOINTS, false)
 		}
 	}
 })
