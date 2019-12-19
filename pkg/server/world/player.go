@@ -363,33 +363,34 @@ func (p *Player) EquipItem(item *Item) {
 	if def == nil {
 		return
 	}
+	if def.Female && p.Appearance.Male {
+		// TODO: Look up canonical message
+		p.Message("You must be a female to wear that")
+		return
+	}
 	p.Inventory.Range(func(otherItem *Item) bool {
-		if otherItem == item || !otherItem.Worn {
+		otherDef := GetEquipmentDefinition(otherItem.ID)
+		if otherItem == item || !otherItem.Worn || otherDef == nil || def.Type&otherDef.Type == 0 {
 			return true
 		}
-		if otherDef := GetEquipmentDefinition(otherItem.ID); otherDef != nil {
-			if def.Type&otherDef.Type != 0 {
-				p.SetAimPoints(p.AimPoints() - otherDef.Aim)
-				p.SetPowerPoints(p.PowerPoints() - otherDef.Power)
-				p.SetArmourPoints(p.ArmourPoints() - otherDef.Armour)
-				p.SetMagicPoints(p.MagicPoints() - otherDef.Magic)
-				p.SetPrayerPoints(p.PrayerPoints() - otherDef.Prayer)
-				p.SetRangedPoints(p.RangedPoints() - otherDef.Ranged)
-				otherItem.Worn = false
-				var value int
-				switch otherDef.Position {
-				case 0:
-					value = p.Appearance.Head
-				case 1:
-					value = p.Appearance.Body
-				case 2:
-					value = p.Appearance.Legs
-				default:
-					value = 0
-				}
-				p.Equips[otherDef.Position] = value
-			}
+		p.SetAimPoints(p.AimPoints() - otherDef.Aim)
+		p.SetPowerPoints(p.PowerPoints() - otherDef.Power)
+		p.SetArmourPoints(p.ArmourPoints() - otherDef.Armour)
+		p.SetMagicPoints(p.MagicPoints() - otherDef.Magic)
+		p.SetPrayerPoints(p.PrayerPoints() - otherDef.Prayer)
+		p.SetRangedPoints(p.RangedPoints() - otherDef.Ranged)
+		otherItem.Worn = false
+		p.AppearanceLock.Lock()
+		if otherDef.Type & 1 == 1 {
+			p.Equips[otherDef.Position] = p.Appearance.Head
+		} else if otherDef.Type & 2 == 2 {
+			p.Equips[otherDef.Position] = p.Appearance.Body
+		} else if otherDef.Type & 4 == 4 {
+			p.Equips[otherDef.Position] = p.Appearance.Legs
+		} else {
+			p.Equips[otherDef.Position] = 0
 		}
+		p.AppearanceLock.Unlock()
 		return true
 	})
 	item.Worn = true
@@ -426,19 +427,16 @@ func (p *Player) DequipItem(item *Item) {
 	p.SetMagicPoints(p.MagicPoints() - def.Magic)
 	p.SetPrayerPoints(p.PrayerPoints() - def.Prayer)
 	p.SetRangedPoints(p.RangedPoints() - def.Ranged)
-	var value int
-	switch def.Position {
-	case 0:
-		value = p.Appearance.Head
-	case 1:
-		value = p.Appearance.Body
-	case 2:
-		value = p.Appearance.Legs
-	default:
-		value = 0
-	}
 	p.AppearanceLock.Lock()
-	p.Equips[def.Position] = value
+	if def.Type & 1 == 1 {
+		p.Equips[def.Position] = p.Appearance.Head
+	} else if def.Type & 2 == 2 {
+		p.Equips[def.Position] = p.Appearance.Body
+	} else if def.Type & 4 == 4 {
+		p.Equips[def.Position] = p.Appearance.Legs
+	} else {
+		p.Equips[def.Position] = 0
+	}
 	p.AppearanceLock.Unlock()
 	p.UpdateAppearance()
 }
