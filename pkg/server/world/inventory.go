@@ -171,6 +171,28 @@ type Inventory struct {
 	Lock            sync.RWMutex
 }
 
+//Shop represents an NPC owned shop in the game
+type Shop struct {
+	General bool
+	SellMultiplier int
+	BuyMultiplier int
+	InitialStock Inventory
+	*Inventory
+}
+
+//NewShop returns a reference to a newly created shop with the specified parameters.
+func NewShop(general bool, sellMul, buyMul int, items map[int]int) *Shop {
+	capacity := len(items)
+	if general {
+		capacity = 40
+	}
+	initStock := &Inventory{Capacity: capacity, stackEverything: true}
+	for id, amount := range items {
+		initStock.Add(id, amount)
+	}
+	return &Shop{general, sellMul, buyMul, *initStock.Clone(), initStock}
+}
+
 type itemSorter []*Item
 
 func (s itemSorter) Len() int {

@@ -108,6 +108,23 @@ func NpcDamage(victim *NPC, damage int) *packet.Packet {
 	return p
 }
 
+var ShopClose = packet.NewOutgoingPacket(137)
+
+func ShopOpen(player *Player, shop *Shop) *packet.Packet {
+	p := packet.NewOutgoingPacket(101)
+	p.AddByte(uint8(shop.Size()))
+	p.AddBool(shop.General)
+	p.AddByte(uint8(shop.SellMultiplier))
+	p.AddByte(uint8(shop.BuyMultiplier))
+	shop.Range(func(item *Item) bool {
+		p.AddShort(uint16(item.ID))
+		p.AddShort(uint16(item.Amount))
+		p.AddByte(uint8(shop.InitialStock.CountID(item.ID)))
+		return true
+	})
+	return p
+}
+
 func SleepWord(player *Player) *packet.Packet {
 	p := packet.NewOutgoingPacket(117)
 	// TODO: Figure this out
