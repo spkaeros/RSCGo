@@ -10,6 +10,7 @@
 package packethandlers
 
 import (
+	"math"
 	"strconv"
 
 	"github.com/spkaeros/rscgo/pkg/server/log"
@@ -28,25 +29,23 @@ func init() {
 
 			id := p.ReadShort()
 			price := p.ReadInt()
-			curAmt := shop.Inventory[id]
-			if curAmt < 1 {
+			item := shop.GetItem(id)
+			if item.Amount < 1 {
 				log.Suspicious.Println(player, "tried buying item["+strconv.Itoa(id)+"] for ["+strconv.Itoa(price)+"gp] but the shop is apparently out of that item.")
 				return
 			}
-			realPrice := shop.SalesPrice(id)
+			realPrice := item.PriceScale(int(math.Max(10, float64(shop.BaseSalePercent+shop.StockDeltaPercentage(item)))))
 			if price != realPrice {
 				log.Suspicious.Println(player, "tried buying item["+strconv.Itoa(id)+"] for ["+strconv.Itoa(price)+"gp] but actual price is currently ["+strconv.Itoa(realPrice)+"gp]")
 				return
 			}
 			if player.Inventory.RemoveByID(10, price) > -1 {
 				log.Info.Println(id, price)
-				if player.Inventory.Add(id, 1) > -1 {
-					player.SendInventory()
-				}
-				shop.Inventory[id] = curAmt - 1
+				player.AddItem(id, 1)
+				item.Amount--
 				world.Players.Range(func(player *world.Player) {
-					if player.CurrentShop() == shop {
-						player.SendPacket(world.ShopOpen(shop))
+					if shop == player.CurrentShop() {
+						player.SendPacket(world.ShopOpen(*shop))
 					}
 				})
 			}
@@ -62,18 +61,19 @@ func init() {
 
 			id := p.ReadShort()
 			price := p.ReadInt()
-			realPrice := shop.PurchasesPrice(id)
+			item := shop.GetItem(id)
+			realPrice := item.PriceScale(int(math.Max(10, float64(shop.BasePurchasePercent+shop.StockDeltaPercentage(item)))))
 			if price != realPrice {
 				log.Suspicious.Println(player, "tried buying item["+strconv.Itoa(id)+"] for ["+strconv.Itoa(price)+"gp] but actual price is currently ["+strconv.Itoa(realPrice)+"gp]")
 				return
 			}
 			if player.Inventory.RemoveByID(id, 1) > -1 {
-				player.Inventory.Add(10, price)
-				shop.Inventory[id] = shop.Inventory[id] + 1
+				player.AddItem(10, price)
+				item.Amount++
 				log.Info.Println(id, price)
 				world.Players.Range(func(player *world.Player) {
-					if player.CurrentShop() == shop {
-						player.SendPacket(world.ShopOpen(shop))
+					if shop == player.CurrentShop() {
+						player.SendPacket(world.ShopOpen(*shop))
 					}
 				})
 			}

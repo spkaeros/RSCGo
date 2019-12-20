@@ -2,6 +2,12 @@ package server
 
 import (
 	"fmt"
+	"io"
+	"net"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/gobwas/ws/wsutil"
 	"github.com/spkaeros/rscgo/pkg/server/db"
 	"github.com/spkaeros/rscgo/pkg/server/errors"
@@ -9,11 +15,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/packethandlers"
 	"github.com/spkaeros/rscgo/pkg/server/world"
-	"io"
-	"net"
-	"strings"
-	"sync"
-	"time"
 )
 
 //client Represents a single connecting client.

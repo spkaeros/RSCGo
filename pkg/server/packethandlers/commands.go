@@ -11,6 +11,11 @@ package packethandlers
 
 import (
 	"fmt"
+	"os"
+	"runtime/pprof"
+	"strconv"
+	"strings"
+
 	"github.com/mattn/anko/vm"
 	"github.com/spkaeros/rscgo/pkg/server/db"
 	"github.com/spkaeros/rscgo/pkg/server/log"
@@ -18,10 +23,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"github.com/spkaeros/rscgo/pkg/strutil"
-	"os"
-	"runtime/pprof"
-	"strconv"
-	"strings"
 )
 
 func init() {

@@ -4,10 +4,11 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"github.com/spkaeros/rscgo/pkg/server/config"
-	"github.com/spkaeros/rscgo/pkg/server/log"
 	"io/ioutil"
 	"os"
+
+	"github.com/spkaeros/rscgo/pkg/server/config"
+	"github.com/spkaeros/rscgo/pkg/server/log"
 )
 
 //RsaKey The RSA key for use in decoding the login packet

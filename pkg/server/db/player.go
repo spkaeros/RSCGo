@@ -1,10 +1,11 @@
 package db
 
 import (
-	"github.com/spkaeros/rscgo/pkg/server/crypto"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/spkaeros/rscgo/pkg/server/crypto"
 
 	"github.com/spkaeros/rscgo/pkg/server/config"
 	"github.com/spkaeros/rscgo/pkg/server/errors"

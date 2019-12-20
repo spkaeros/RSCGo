@@ -11,8 +11,9 @@ package packet
 
 import (
 	"fmt"
-	"github.com/spkaeros/rscgo/pkg/server/log"
 	"strconv"
+
+	"github.com/spkaeros/rscgo/pkg/server/log"
 )
 
 //Packet The definition of a game packet.  Generally, these are commands, indexed by their Opcode(0-255), with

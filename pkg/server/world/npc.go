@@ -10,10 +10,11 @@
 package world
 
 import (
-	"github.com/spkaeros/rscgo/pkg/rand"
-	"go.uber.org/atomic"
 	"sync"
 	"time"
+
+	"github.com/spkaeros/rscgo/pkg/rand"
+	"go.uber.org/atomic"
 )
 
 //NpcDefinition This represents a single definition for a single NPC in the game.

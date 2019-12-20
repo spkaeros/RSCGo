@@ -10,11 +10,12 @@
 package packethandlers
 
 import (
+	"time"
+
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
-	"time"
 )
 
 func init() {

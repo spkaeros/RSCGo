@@ -112,16 +112,16 @@ func NpcDamage(victim *NPC, damage int) *packet.Packet {
 var ShopClose = packet.NewOutgoingPacket(137)
 
 //ShopOpen Builds a packet to open a shop interface with the data about this shop.
-func ShopOpen(shop *Shop) *packet.Packet {
+func ShopOpen(shop Shop) *packet.Packet {
 	p := packet.NewOutgoingPacket(101)
 	p.AddByte(uint8(len(shop.Inventory)))
 	p.AddBool(shop.BuysUnstocked)
-	p.AddByte(uint8(shop.PurchasesPricePercent))
-	p.AddByte(uint8(shop.SalesPricePercent))
-	for id, amt := range shop.Inventory {
-		p.AddShort(uint16(id))
-		p.AddShort(uint16(amt))
-		p.AddSByte(int8(shop.PriceCountMod(id)))
+	p.AddByte(uint8(shop.BasePurchasePercent))
+	p.AddByte(uint8(shop.BaseSalePercent))
+	for _, item := range shop.Inventory {
+		p.AddShort(uint16(item.ID))
+		p.AddShort(uint16(item.Amount))
+		p.AddByte(uint8(shop.StockDeltaPercentage(item)))
 	}
 	return p
 }

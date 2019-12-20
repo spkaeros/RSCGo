@@ -1086,7 +1086,7 @@ func (p *Player) CurrentShop() *Shop {
 			return s
 		}
 	}
-	return nil
+	return &Shop{}
 }
 
 //OpenBank opens a shop screen for the player and sets the appropriate state variables.
@@ -1096,7 +1096,7 @@ func (p *Player) OpenShop(shop *Shop) {
 	}
 	p.AddState(MSShopping)
 	p.Transients().SetVar("shop", shop)
-	p.SendPacket(ShopOpen(shop))
+	p.SendPacket(ShopOpen(*shop))
 }
 
 //CloseBank closes the bank screen for this player and sets the appropriate state variables

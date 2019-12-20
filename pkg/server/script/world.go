@@ -88,9 +88,8 @@ func init() {
 		}),
 		"newShop":        reflect.ValueOf(world.NewShop),
 		"newGeneralShop": reflect.ValueOf(world.NewGeneralShop),
-		"addShop":        reflect.ValueOf(world.AddShop),
-		"getShop":        reflect.ValueOf(world.GetShop),
-		"removeShop":     reflect.ValueOf(world.RemoveShop),
+		"getShop":  	  reflect.ValueOf(world.Shops.Get),
+		"hasShop":  	  reflect.ValueOf(world.Shops.Contains),
 	}
 	env.PackageTypes["world"] = map[string]reflect.Type{
 		"players":    reflect.TypeOf(world.Players),

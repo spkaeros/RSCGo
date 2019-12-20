@@ -1,10 +1,11 @@
 package world
 
 import (
-	"github.com/spkaeros/rscgo/pkg/rand"
-	"github.com/spkaeros/rscgo/pkg/server/log"
 	"sync"
 	"time"
+
+	"github.com/spkaeros/rscgo/pkg/rand"
+	"github.com/spkaeros/rscgo/pkg/server/log"
 )
 
 //MSIdle The default MobState, means doing nothing.

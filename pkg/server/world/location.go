@@ -2,6 +2,7 @@ package world
 
 import (
 	"fmt"
+
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"go.uber.org/atomic"
 )

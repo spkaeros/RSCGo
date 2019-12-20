@@ -2,10 +2,11 @@ package world
 
 import (
 	"fmt"
-	"github.com/spkaeros/rscgo/pkg/server/config"
-	"github.com/spkaeros/rscgo/pkg/server/log"
 	"sync"
 	"time"
+
+	"github.com/spkaeros/rscgo/pkg/server/config"
+	"github.com/spkaeros/rscgo/pkg/server/log"
 )
 
 const (

@@ -2,9 +2,10 @@ package crypto
 
 import (
 	"encoding/hex"
+	"runtime"
+
 	"github.com/spkaeros/rscgo/pkg/server/config"
 	"golang.org/x/crypto/argon2"
-	"runtime"
 )
 
 //Hash Takes a plaintext password as input, returns a hexidecimal string representation of the Argon2id hash as output.

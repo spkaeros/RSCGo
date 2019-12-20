@@ -1,6 +1,11 @@
 package main
 
 import (
+	"os"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/BurntSushi/toml"
 	"github.com/jessevdk/go-flags"
 	"github.com/spkaeros/rscgo/pkg/server"
@@ -10,10 +15,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/packethandlers"
 	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
-	"os"
-	"strings"
-	"sync"
-	"time"
 )
 
 //Flags This is used to interface with the go-flags package from some guy on github.

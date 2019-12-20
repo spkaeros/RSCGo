@@ -2,6 +2,7 @@ package world
 
 import (
 	"fmt"
+
 	"go.uber.org/atomic"
 )
 

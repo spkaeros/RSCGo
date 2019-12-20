@@ -10,13 +10,14 @@
 package script
 
 import (
-	"github.com/fsnotify/fsnotify"
-	"github.com/mattn/anko/vm"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
+	"github.com/mattn/anko/vm"
 
 	"github.com/mattn/anko/parser"
 	"github.com/spkaeros/rscgo/pkg/server/log"

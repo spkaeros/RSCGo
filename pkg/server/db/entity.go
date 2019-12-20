@@ -1,10 +1,11 @@
 package db
 
 import (
+	"strings"
+
 	"github.com/spkaeros/rscgo/pkg/server/config"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/world"
-	"strings"
 )
 
 //LoadObjectDefinitions Loads game object data into memory for quick access.

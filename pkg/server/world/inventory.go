@@ -2,12 +2,14 @@ package world
 
 import (
 	"fmt"
-	"github.com/spkaeros/rscgo/pkg/server/log"
-	"github.com/spkaeros/rscgo/pkg/strutil"
-	"go.uber.org/atomic"
+	"math"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/strutil"
+	"go.uber.org/atomic"
 )
 
 //ItemDefinition This represents a single definition for a single item in the game.
@@ -58,6 +60,7 @@ type Item struct {
 	Worn   bool
 }
 
+//Name returns the receivers name
 func (i *Item) Name() string {
 	if i.ID >= len(ItemDefs) || i.ID < 0 {
 		return "nil"
@@ -65,11 +68,41 @@ func (i *Item) Name() string {
 	return ItemDefs[i.ID].Name
 }
 
+//Price returns the receivers base price
 func (i *Item) Price() int {
 	if i.ID >= len(ItemDefs) || i.ID < 0 {
 		return -1
 	}
 	return ItemDefs[i.ID].BasePrice
+}
+
+//DeltaAmount returns the difference between the amount of o and the amount of the receiver
+func (i *Item) DeltaAmount(o *Item) int {
+	return o.Amount - i.Amount
+}
+
+//PriceScale returns the receivers base price, scaled by percent%.
+//
+// In other words, for sleeping bag with basePrice=30
+//	player.Inventory.GetByID(1263).PriceScale(100)
+// would be 30 and is the same as calling Price().
+// Any percent that is higher than 100 will scale the price up.  E.g:
+//	player.Inventory.GetByID(1263).PriceScale(130)
+// would be 39; since 130%(??) of the base price is the value we want, to reach that from the base price(100%(30)), we
+// can add 30%(9) to the base price(100%(30)), which gives us 130%(39), the value we want.
+//
+// This is the same way RSC general stores priced items they sold.  Additionally, though,
+
+// Any percent that is lower than 100 will scale the price down.  E.g:
+//	player.Inventory.GetByID(1263).PriceScale(40)
+// would be 12. Since 40%(??) of the base price is our target, to reach that from 100%(30), we subtract 60%(18) from it.
+// This is the same percentage used for RSC general stores initial sale prices.
+//, we'd. is how we mimic canonical RSClassic general store pricing.
+//
+// Upper bound for percent intended to basically not exist; in practice it's limited by the data type of the argument.
+// Lower bound for percent is 10, anything lower will be treated as if it were 10%.
+func (i *Item) PriceScale(percent int) int {
+	return int(math.Max(10, float64(percent))) * i.Price() / 100
 }
 
 func (i *Item) Command() string {

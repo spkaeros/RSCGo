@@ -12,10 +12,11 @@ package jag
 import (
 	"bytes"
 	"compress/bzip2"
-	"github.com/spkaeros/rscgo/pkg/server/log"
 	"io"
 	"io/ioutil"
 	"strings"
+
+	"github.com/spkaeros/rscgo/pkg/server/log"
 )
 
 // TODO: Parse metadata into meaningful data structures for easier reading and to provide a better API
