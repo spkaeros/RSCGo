@@ -178,6 +178,12 @@ func (p *Packet) AddByte(b uint8) *Packet {
 	return p
 }
 
+//AddSByte Adds an 8-bit signed integer to the packet payload.
+func (p *Packet) AddSByte(b int8) *Packet {
+	p.Payload = append(p.Payload, uint8(b))
+	return p
+}
+
 //AddBytes Adds byte array to packet payload
 func (p *Packet) AddBytes(b []byte) *Packet {
 	p.Payload = append(p.Payload, b...)

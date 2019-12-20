@@ -32,6 +32,8 @@ const (
 	MSBusy
 	//MSChangingAppearance Indicates that the mob in this state is in the player aooearance changing screen
 	MSChangingAppearance
+	//MSShopping Indicates that the mob in this state is using a shop interface
+	MSShopping
 )
 
 const (
@@ -46,8 +48,8 @@ const (
 //Mob Represents a mobile entity within the game world.
 type Mob struct {
 	*Entity
-	TransAttrs *AttributeList
-	SyncMask   int
+	TransAttrs     *AttributeList
+	SyncMask       int
 	ResetTickables []func()
 	sync.RWMutex
 }

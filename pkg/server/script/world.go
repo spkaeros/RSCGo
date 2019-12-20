@@ -31,7 +31,7 @@ func init() {
 	env.Packages["world"] = map[string]reflect.Value{
 		"getPlayer":       reflect.ValueOf(world.Players.FromIndex),
 		"getPlayerByName": reflect.ValueOf(world.Players.FromUserHash),
-		"players":      reflect.ValueOf(world.Players),
+		"players":         reflect.ValueOf(world.Players),
 		"replaceObject":   reflect.ValueOf(world.ReplaceObject),
 		"addObject":       reflect.ValueOf(world.AddObject),
 		"removeObject":    reflect.ValueOf(world.RemoveObject),
@@ -86,9 +86,14 @@ func init() {
 				target.SendPacket(world.PlaneInfo(target))
 			}
 		}),
+		"newShop":        reflect.ValueOf(world.NewShop),
+		"newGeneralShop": reflect.ValueOf(world.NewGeneralShop),
+		"addShop":        reflect.ValueOf(world.AddShop),
+		"getShop":        reflect.ValueOf(world.GetShop),
+		"removeShop":     reflect.ValueOf(world.RemoveShop),
 	}
 	env.PackageTypes["world"] = map[string]reflect.Type{
-		"players":  reflect.TypeOf(world.Players),
+		"players":    reflect.TypeOf(world.Players),
 		"player":     reflect.TypeOf(&world.Player{}),
 		"object":     reflect.TypeOf(&world.Object{}),
 		"item":       reflect.TypeOf(&world.Item{}),

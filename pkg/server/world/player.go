@@ -381,11 +381,11 @@ func (p *Player) EquipItem(item *Item) {
 		p.SetRangedPoints(p.RangedPoints() - otherDef.Ranged)
 		otherItem.Worn = false
 		p.AppearanceLock.Lock()
-		if otherDef.Type & 1 == 1 {
+		if otherDef.Type&1 == 1 {
 			p.Equips[otherDef.Position] = p.Appearance.Head
-		} else if otherDef.Type & 2 == 2 {
+		} else if otherDef.Type&2 == 2 {
 			p.Equips[otherDef.Position] = p.Appearance.Body
-		} else if otherDef.Type & 4 == 4 {
+		} else if otherDef.Type&4 == 4 {
 			p.Equips[otherDef.Position] = p.Appearance.Legs
 		} else {
 			p.Equips[otherDef.Position] = 0
@@ -428,11 +428,11 @@ func (p *Player) DequipItem(item *Item) {
 	p.SetPrayerPoints(p.PrayerPoints() - def.Prayer)
 	p.SetRangedPoints(p.RangedPoints() - def.Ranged)
 	p.AppearanceLock.Lock()
-	if def.Type & 1 == 1 {
+	if def.Type&1 == 1 {
 		p.Equips[def.Position] = p.Appearance.Head
-	} else if def.Type & 2 == 2 {
+	} else if def.Type&2 == 2 {
 		p.Equips[def.Position] = p.Appearance.Body
-	} else if def.Type & 4 == 4 {
+	} else if def.Type&4 == 4 {
 		p.Equips[def.Position] = p.Appearance.Legs
 	} else {
 		p.Equips[def.Position] = 0
@@ -918,7 +918,7 @@ func (p *Player) SetSkulled(val bool) {
 }
 
 func (p *Player) StartCombat(target MobileEntity) {
-	if p1, ok  := target.(*Player); ok {
+	if p1, ok := target.(*Player); ok {
 		p1.PlaySound("underattack")
 		p.SetSkulled(true)
 	}
@@ -934,7 +934,7 @@ func (p *Player) StartCombat(target MobileEntity) {
 	curTick := 0
 	p.Tickables = append(p.Tickables, func() bool {
 		curTick++
- 		if p1, ok := target.(*Player); ok {
+		if p1, ok := target.(*Player); ok {
 			if !p1.Connected() {
 				if p.HasState(MSFighting) {
 					p.ResetFighting()
@@ -1077,6 +1077,36 @@ func (p *Player) SetStat(idx, lvl int) {
 	p.Skills().SetMax(idx, lvl)
 	p.Skills().SetExp(idx, LevelToExperience(lvl))
 	p.SendStat(idx)
+}
+
+func (p *Player) CurrentShop() *Shop {
+	s, ok := p.TransAttrs.Var("shop")
+	if ok {
+		if s, ok := s.(*Shop); ok && s != nil {
+			return s
+		}
+	}
+	return nil
+}
+
+//OpenBank opens a shop screen for the player and sets the appropriate state variables.
+func (p *Player) OpenShop(shop *Shop) {
+	if p.IsFighting() || p.IsTrading() || p.HasState(MSShopping) {
+		return
+	}
+	p.AddState(MSShopping)
+	p.Transients().SetVar("shop", shop)
+	p.SendPacket(ShopOpen(shop))
+}
+
+//CloseBank closes the bank screen for this player and sets the appropriate state variables
+func (p *Player) CloseShop() {
+	if !p.HasState(MSShopping) {
+		return
+	}
+	p.RemoveState(MSShopping)
+	p.Transients().UnsetVar("shop")
+	p.SendPacket(ShopClose)
 }
 
 //OpenBank opens a bank screen for the player and sets the appropriate state variables.

@@ -69,8 +69,10 @@ var InvOnObjectTriggers []func(player *world.Player, object *world.Object, item 
 
 //ItemTriggers List of script callbacks to run for inventory item actions
 var ItemTriggers []ItemTrigger
+
 //ObjectTriggers List of script callbacks to run for object actions
 var ObjectTriggers []ObjectTrigger
+
 //BoundaryTriggers List of script callbacks to run for boundary actions
 var BoundaryTriggers []ObjectTrigger
 

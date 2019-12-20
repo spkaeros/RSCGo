@@ -108,20 +108,21 @@ func NpcDamage(victim *NPC, damage int) *packet.Packet {
 	return p
 }
 
+//ShopClose A packet to tell the client to close any open shop interface.
 var ShopClose = packet.NewOutgoingPacket(137)
 
-func ShopOpen(player *Player, shop *Shop) *packet.Packet {
+//ShopOpen Builds a packet to open a shop interface with the data about this shop.
+func ShopOpen(shop *Shop) *packet.Packet {
 	p := packet.NewOutgoingPacket(101)
-	p.AddByte(uint8(shop.Size()))
-	p.AddBool(shop.General)
-	p.AddByte(uint8(shop.SellMultiplier))
-	p.AddByte(uint8(shop.BuyMultiplier))
-	shop.Range(func(item *Item) bool {
-		p.AddShort(uint16(item.ID))
-		p.AddShort(uint16(item.Amount))
-		p.AddByte(uint8(shop.InitialStock.CountID(item.ID)))
-		return true
-	})
+	p.AddByte(uint8(len(shop.Inventory)))
+	p.AddBool(shop.BuysUnstocked)
+	p.AddByte(uint8(shop.PurchasesPricePercent))
+	p.AddByte(uint8(shop.SalesPricePercent))
+	for id, amt := range shop.Inventory {
+		p.AddShort(uint16(id))
+		p.AddShort(uint16(amt))
+		p.AddSByte(int8(shop.PriceCountMod(id)))
+	}
 	return p
 }
 

@@ -16,14 +16,15 @@ import (
 )
 
 func init() {
-	req := []int{1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40}
+	//requiredLevels contains prayer level requirements for each prayer in order from prayer 0 to prayer 13
+	requiredLevels := []int{1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40}
 	PacketHandlers["prayeron"] = func(player *world.Player, p *packet.Packet) {
 		idx := p.ReadByte()
 		if idx < 0 || idx > 13 {
 			log.Suspicious.Printf("%v turned on a prayer that doesn't exist: %d\n", player, idx)
 			return
 		}
-		if req[idx] > player.Skills().Maximum(world.StatPrayer) {
+		if requiredLevels[idx] > player.Skills().Maximum(world.StatPrayer) {
 			log.Suspicious.Printf("%v turned on a prayer that he is too low level for: %d\n", player, idx)
 			return
 		}
@@ -36,7 +37,7 @@ func init() {
 			log.Suspicious.Printf("%v turned off a prayer that doesn't exist: %d\n", player, idx)
 			return
 		}
-		if req[idx] > player.Skills().Maximum(world.StatPrayer) {
+		if requiredLevels[idx] > player.Skills().Maximum(world.StatPrayer) {
 			log.Suspicious.Printf("%v turned off a prayer that he is too low level for: %d\n", player, idx)
 			return
 		}

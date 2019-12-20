@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	TicksDay = 135000
-	TicksHour = 5625
+	TicksDay       = 135000
+	TicksHour      = 5625
 	TicksTwentyMin = 1875
 )
 
@@ -347,7 +347,7 @@ func ReplaceObject(old *Object, newID int) *Object {
 	return object
 }
 
-//GetAllObjects Returns a slice containing all objects in the game 
+//GetAllObjects Returns a slice containing all objects in the game
 func GetAllObjects() (list []*Object) {
 	for x := 0; x < MaxX; x += RegionSize {
 		for y := 0; y < MaxY; y += RegionSize {

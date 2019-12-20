@@ -1,0 +1,19 @@
+bind = import("bind")
+world = import("world")
+ids = import("ids")
+
+// edgeville
+bind.npc(npcPredicate(185, 186), func(player, npc) {
+	shop = world.getShop("edgeGeneral")
+	if shop == nil {
+		shop = world.newGeneralShop("edgeGeneral")
+		shop.Inventory[370] = 1000
+		shop.Stock[370] = 1000
+	}
+	npc.Chat(player, "Can I help you at all?")
+	switch player.OpenOptionMenu("Yes please, what are you selling?", "No thanks") {
+	case 0:
+		npc.Chat(player, "Take a look")
+		player.OpenShop(shop)
+	}
+})
