@@ -26,9 +26,6 @@ const (
 	LowerBound = RegionSize / 2
 )
 
-//GiantLock This is a lock around the engine's Tick() call, to prevent certain synchronicity issues from occurring.
-var GiantLock sync.RWMutex
-
 //UpdateTime a point in time in the future to log all active players out and shut down the server for updates.
 // Before the command is issued to set this time, it is initialized to time.Time{} zero value.
 var UpdateTime time.Time
@@ -138,6 +135,8 @@ type region struct {
 }
 
 var regions [HorizontalPlanes][VerticalPlanes]*region
+
+var Tickables []func()
 
 //IsValid Returns true if the tile at x,y is within world boundaries, false otherwise.
 func WithinWorld(x, y int) bool {

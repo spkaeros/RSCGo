@@ -58,6 +58,7 @@ type Item struct {
 	ID     int
 	Amount int
 	Worn   bool
+	Index  int
 }
 
 //Name returns the receivers name
@@ -81,27 +82,27 @@ func (i *Item) DeltaAmount(o *Item) int {
 	return o.Amount - i.Amount
 }
 
-//PriceScale returns the receivers base price, scaled by percent%.
+//PriceScaled returns the receivers base price, scaled by percent%.
 //
 // In other words, for sleeping bag with basePrice=30
-//	player.Inventory.GetByID(1263).PriceScale(100)
+//	player.Inventory.GetByID(1263).PriceScaled(100)
 // would be 30 and is the same as calling Price().
 // Any percent that is higher than 100 will scale the price up.  E.g:
-//	player.Inventory.GetByID(1263).PriceScale(130)
+//	player.Inventory.GetByID(1263).PriceScaled(130)
 // would be 39; since 130%(??) of the base price is the value we want, to reach that from the base price(100%(30)), we
 // can add 30%(9) to the base price(100%(30)), which gives us 130%(39), the value we want.
 //
 // This is the same way RSC general stores priced items they sold.  Additionally, though,
 
 // Any percent that is lower than 100 will scale the price down.  E.g:
-//	player.Inventory.GetByID(1263).PriceScale(40)
+//	player.Inventory.GetByID(1263).PriceScaled(40)
 // would be 12. Since 40%(??) of the base price is our target, to reach that from 100%(30), we subtract 60%(18) from it.
 // This is the same percentage used for RSC general stores initial sale prices.
 //, we'd. is how we mimic canonical RSClassic general store pricing.
 //
 // Upper bound for percent intended to basically not exist; in practice it's limited by the data type of the argument.
 // Lower bound for percent is 10, anything lower will be treated as if it were 10%.
-func (i *Item) PriceScale(percent int) int {
+func (i *Item) PriceScaled(percent int) int {
 	return int(math.Max(10, float64(percent))) * i.Price() / 100
 }
 
@@ -292,7 +293,7 @@ func (i *Inventory) Add(id int, qty int) int {
 		return -1
 	}
 
-	newItem := &Item{id, qty, false}
+	newItem := &Item{ID: id, Amount: qty}
 	i.Lock.Lock()
 	i.List = append(i.List, newItem)
 	i.Lock.Unlock()

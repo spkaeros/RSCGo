@@ -11,7 +11,6 @@ package world
 
 import (
 	"sync"
-	"time"
 )
 
 const (
@@ -23,13 +22,6 @@ const (
 )
 
 type (
-	// Collection to hold all of the items that a shop is carrying.  Items may have 0 amount and continue to live here.
-	// However, They will only be sent to the client with 0 amount if the shop has it in its default stock.
-	//
-	// The main reason for populating this collection with shop items that have 0 amount is to easily call Item related
-	// methods when we need price information.
-	ShopItems []*Item
-
 	Shop struct {
 		// Shop represents a shop in the game world, typically managed by an NPC, but not necessarily (for RSC preservation,
 		// it is necessary I believe...no shops other than ones accessed by NPCs there)
@@ -48,11 +40,17 @@ type (
 		BaseSalePercent int
 		// Contains all of the initial shop items that are always restocked and available, and their initial amounts.
 		// Never change the contents of this unless you want to add permanently restocking items to a shop or something like that.
-		Stock ShopItems
+		Stock *ShopItems
 		// Contains all of the active shop items and may differ greatly from Stock, but it can never remove things that are
 		// in Stock entirely from itself(they will remain with Amount=0), and occasionally it normalizes itself, referencing
 		// Stock for the normal amounts to replenish toward, and the default IDs of what items to replenish.
-		Inventory ShopItems
+		Inventory *ShopItems
+	}
+	ShopItems struct {
+		// This is a concurrency-friendly collection set to simplify containing shop-scoped item lists without introducing any
+		// data race conditions.
+		set shopItemSet
+		sync.RWMutex
 	}
 	ShopContainer struct {
 		// This is a concurrency-friendly collection set to simplify containing world-scoped shops without introducing any
@@ -72,9 +70,19 @@ type (
 	}
 )
 
-func (s *ShopContainer) Add(name string, shop Shop) {
+type shopItemSet []*Item
+
+func (s shopItemSet) Clone() shopItemSet {
+	clone := make([]*Item, len(s))
+	for i, v := range s {
+		clone[i] = &Item{ID: v.ID, Amount: v.Amount}
+	}
+	return clone
+}
+
+func (s *ShopContainer) Add(name string, shop *Shop) {
 	s.Lock()
-	s.set[name] = &shop
+	s.set[name] = shop
 	s.Unlock()
 }
 
@@ -118,16 +126,7 @@ var (
 	Shops = &ShopContainer{
 		set: make(map[string]*Shop),
 	}
-	//generalStock defines all default items that any general shop carries in their stock, and amounts.
-	generalStock = ShopItems{
-		{ID: 140, Amount: 2},   // 2 jugs
-		{ID: 144, Amount: 2},   // 2 shears
-		{ID: 21, Amount: 2},    // 2 buckets
-		{ID: 166, Amount: 2},   // 2 tinderboxes
-		{ID: 167, Amount: 2},   // 2 chisels
-		{ID: 168, Amount: 5},   // 5 hammers
-		{ID: 1263, Amount: 10}, // 10 sleeping bags
-	}
+	// Represents a default general shop's stock.
 	// The distinction of what makes it a general shop is that it buys any tradeable items the player tries to sell it,
 	// where a normal shop only deals in its initial stock.
 	// For every inventory count change, whether it be up or down from stock count, the shop changes its prices by a
@@ -147,67 +146,54 @@ var (
 	// Base purchase percent:
 	// 	40% of basePrice
 	//
-	// Defaults for general stores from RSClassic are:
-	//	Shop{
-	//		BuysUnstocked: true, // obvious general stores are known for this
-	//		BasePurchasePercent: 40, // this is used when the shop owner buys an item from you.
-	//		BaseSalePercent: 130, // this is used when the shop owner sells an item to you.
-	//		Stock: generalStock.Clone(),
-	//		Inventory: generalStock.Clone(),
-	//	}
-	generalShop = Shop{
-		true, // General Shops are known for buying all items, whether or not they normally stock it
-		40, // the shop pays 40% of base price to purchase any item, less for each one it buys
-		130, // the shop asks 130% of base price to purchase any item, more for each one it sells
-		generalStock.Clone(), // We want to avoid ending up with identical references and so we clone
-		generalStock.Clone(), // see above
+	generalStock = &ShopItems{
+		set: shopItemSet {
+			{ID: 140, Amount: 2}, // 2 jugs
+			{ID: 144, Amount: 2},   // 2 shears
+			{ID: 21, Amount: 2},    // 2 buckets
+			{ID: 166, Amount: 2},   // 2 tinderboxes
+			{ID: 167, Amount: 2},   // 2 chisels
+			{ID: 168, Amount: 5},   // 5 hammers
+			{ID: 1263, Amount: 10}, // 10 sleeping bags
+		},
 	}
 )
-
-//Clone will make a new ShopItems collection populated with clones of the values in the existing collection set.
-// Very useful to easily define an initial inventory and stock when defining a shop.
-func (s ShopItems) Clone() ShopItems {
-	clone := ShopItems(nil)
-	for _, v := range s {
-		clone = append(clone, &Item{ID: v.ID, Amount: v.Amount})
-	}
-	return clone
-}
 
 //NewShop creates a new Shop instance using the arguments provided, and returns it.
 //
 // Returns: a new Shop instance, made with the given arguments
-func NewShop(name string, percentPurchasesPrice, percentSalesPrice int, stock ShopItems) Shop {
-	return Shop{BasePurchasePercent: percentPurchasesPrice, BaseSalePercent: percentSalesPrice, Stock: stock, Inventory: append(ShopItems(nil), stock...)}
+func NewShop(percentPurchasesPrice, percentSalesPrice int, stock shopItemSet) Shop {
+	s := &ShopItems{set: stock}
+	return Shop{BasePurchasePercent: percentPurchasesPrice, BaseSalePercent: percentSalesPrice, Stock: s, Inventory: s.Clone()}
 }
 
 // Creates a new general shop, and adds it automatically to the world-local ShopContainer instance before returning it
 //
 // Returns: Shops.get(name), after building and adding a new general shop to it, using a generic general shop definition.
 func NewGeneralShop(name string) *Shop {
-	Shops.set[name] = (&generalShop).Clone()
-	go func() {
-		for {
-			time.Sleep(12400*time.Millisecond)
-			shop := Shops.Get(name)
-			if shop == nil {
-				return
-			}
+	shop := &Shop {true, 40, 130, generalStock, generalStock.Clone()}
+	Shops.Add(name, shop)
+	shopTicker := 0
+	Tickables = append(Tickables, func() {
+		shopTicker++
+		if shopTicker % 20 == 0 {
+			removing := make(shopItemSet, 0, 40)
 			changed := false
-			for idx, item := range shop.Inventory {
-				stocked := shop.GetStockItem(item.ID)
-				if stocked == nil || stocked.Amount == 0 {
+			shop.Inventory.Range(func(item *Item) {
+				stocked := shop.Stock.Get(item.ID)
+				if stocked == nil {
+					// should not happen
+					return
+				}
+
+				if stocked.Amount == 0 {
+					// we don't normally stock these; player sold it to us, and it can be removed.
 					if item.Amount > 0 {
 						item.Amount--
 						changed = true
 					}
 					if item.Amount == 0 {
-						changed = true
-						if idx < len(shop.Inventory) {
-							shop.Inventory = append(shop.Inventory[:idx], shop.Inventory[idx+1:]...)
-						} else {
-							shop.Inventory = shop.Inventory[:idx]
-						}
+						removing = append(removing, item)
 					}
 				} else if stocked.ID == item.ID {
 					if stocked.Amount < item.Amount {
@@ -218,58 +204,93 @@ func NewGeneralShop(name string) *Shop {
 						item.Amount++
 					}
 				}
+			})
+			for _, item := range removing {
+				shop.Inventory.Remove(item)
 			}
 			if changed {
 				Players.Range(func(player *Player) {
 					if player.HasState(MSShopping) && player.CurrentShop() == shop {
-						player.SendPacket(ShopOpen(*shop))
+						player.SendPacket(ShopOpen(shop))
 					}
 				})
 			}
 		}
-	}()
-	return Shops.set[name]
+	})
+	return shop
+}
+
+func (s *ShopItems) Add(item *Item) {
+	s.Lock()
+	defer s.Unlock()
+	s.set = append(s.set, item)
+}
+
+func (s *ShopItems) Size() int {
+	s.RLock()
+	defer s.RUnlock()
+	return len(s.set)
+}
+
+func (s *ShopItems) Range(fn func(*Item)) {
+	s.RLock()
+	defer s.RUnlock()
+	for _, i := range s.set {
+		fn(i)
+	}
+}
+
+func (s *ShopItems) Remove(item *Item) {
+	s.Lock()
+	defer s.Unlock()
+	for i, v := range s.set {
+		if v == item {
+			if i >= len(s.set)-1 {
+				s.set = s.set[:i]
+				break
+			}
+			s.set = append(s.set[:i], s.set[i+1:]...)
+			break
+		}
+	}
 }
 
 //Get returns the shop item entry with the given ID, or if it can't find it, adds a new one then returns it.
 func (s *ShopItems) Get(id int) *Item {
-	for _, item := range *s {
+	s.RLock()
+	for _, item := range s.set {
 		if item.ID == id {
+			s.RUnlock()
 			return item
 		}
 	}
-	*s = append(*s, &Item{ID: id})
-	return (*s)[len(*s)-1]
+	s.RUnlock()
+
+	s.Add(&Item{ID: id})
+	return s.set[len(s.set)-1]
+}
+
+//Clone will make a new ShopItems collection populated with clones of the values in the existing collection set.
+// Very useful to easily define an initial inventory and stock when defining a shop.
+func (s *ShopItems) Clone() *ShopItems {
+	clone := &ShopItems{}
+	clone.Lock()
+	s.Range(func(item *Item) {
+		clone.set = append(clone.set, &Item{ID: item.ID, Amount:item.Amount})
+		return
+	})
+	clone.Unlock()
+	return clone
 }
 
 //Clone makes a clone of the receiver shop and returns it.
 func (s *Shop) Clone() *Shop {
-	return &Shop{s.BuysUnstocked, s.BasePurchasePercent, s.BaseSalePercent, s.Stock.Clone(), s.Inventory.Clone()}
-}
-
-//GetStockItem returns the shop default stock item with the specified ID.
-// If there is no stock item with this ID, instantiates an otherwise zero-value item with the ID changed to id, and
-// returns a reference to it.
-func (s *Shop) GetStockItem(id int) *Item {
-	for _, item := range s.Stock {
-		if item.ID == id {
-			return item
-		}
-	}
-
-	return &Item{ID: id}
-}
-
-//GetItem returns the shop active inventory item with the specified ID.
-// If there is no shop inventory item with this ID, instantiates an otherwise zero-value item with the ID changed to id,
-// and returns a reference to it.
-func (s *Shop) GetItem(id int) *Item {
-	return s.Inventory.Get(id)
+	return &Shop{BuysUnstocked: s.BuysUnstocked, BasePurchasePercent: s.BasePurchasePercent, BaseSalePercent: s.BaseSalePercent, Stock: s.Stock.Clone(), Inventory: s.Inventory.Clone()}
 }
 
 //StockDeltaPercentage calculates the percentage to scale the item's price up or down from its respective base percentage.
 // The formula simply subtracts the shop's base stocked amount of item from item's amount, and multiplies the difference
 // by itemDeltaCost.
 func (s *Shop) StockDeltaPercentage(item *Item) int {
-	return item.DeltaAmount(s.GetStockItem(item.ID)) * itemDeltaCost
+	return item.DeltaAmount(s.Stock.Get(item.ID)) * itemDeltaCost
 }

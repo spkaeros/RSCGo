@@ -10,7 +10,6 @@
 package packethandlers
 
 import (
-	"math"
 	"strconv"
 
 	"github.com/spkaeros/rscgo/pkg/server/log"
@@ -29,12 +28,12 @@ func init() {
 
 			id := p.ReadShort()
 			price := p.ReadInt()
-			item := shop.GetItem(id)
+			item := shop.Inventory.Get(id)
 			if item.Amount < 1 {
 				log.Suspicious.Println(player, "tried buying item["+strconv.Itoa(id)+"] for ["+strconv.Itoa(price)+"gp] but the shop is apparently out of that item.")
 				return
 			}
-			realPrice := item.PriceScale(int(math.Max(10, float64(shop.BaseSalePercent+shop.StockDeltaPercentage(item)))))
+			realPrice := item.PriceScaled(shop.BaseSalePercent + shop.StockDeltaPercentage(item))
 			if price != realPrice {
 				log.Suspicious.Println(player, "tried buying item["+strconv.Itoa(id)+"] for ["+strconv.Itoa(price)+"gp] but actual price is currently ["+strconv.Itoa(realPrice)+"gp]")
 				return
@@ -45,7 +44,7 @@ func init() {
 				item.Amount--
 				world.Players.Range(func(player *world.Player) {
 					if shop == player.CurrentShop() {
-						player.SendPacket(world.ShopOpen(*shop))
+						player.SendPacket(world.ShopOpen(shop))
 					}
 				})
 			}
@@ -61,8 +60,8 @@ func init() {
 
 			id := p.ReadShort()
 			price := p.ReadInt()
-			item := shop.GetItem(id)
-			realPrice := item.PriceScale(int(math.Max(10, float64(shop.BasePurchasePercent+shop.StockDeltaPercentage(item)))))
+			item := shop.Inventory.Get(id)
+			realPrice := item.PriceScaled(shop.BasePurchasePercent + shop.StockDeltaPercentage(item))
 			if price != realPrice {
 				log.Suspicious.Println(player, "tried buying item["+strconv.Itoa(id)+"] for ["+strconv.Itoa(price)+"gp] but actual price is currently ["+strconv.Itoa(realPrice)+"gp]")
 				return
@@ -73,7 +72,7 @@ func init() {
 				log.Info.Println(id, price)
 				world.Players.Range(func(player *world.Player) {
 					if shop == player.CurrentShop() {
-						player.SendPacket(world.ShopOpen(*shop))
+						player.SendPacket(world.ShopOpen(shop))
 					}
 				})
 			}
