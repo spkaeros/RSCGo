@@ -1086,7 +1086,7 @@ func (p *Player) CurrentShop() *Shop {
 			return s
 		}
 	}
-	return &Shop{}
+	return nil
 }
 
 //OpenBank opens a shop screen for the player and sets the appropriate state variables.

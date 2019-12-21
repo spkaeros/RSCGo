@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
+	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/server/log"
-	"github.com/spkaeros/rscgo/pkg/strutil"
 	"go.uber.org/atomic"
 )
 
@@ -69,12 +70,14 @@ func (i *Item) Name() string {
 	return ItemDefs[i.ID].Name
 }
 
+type Price int
+
 //Price returns the receivers base price
-func (i *Item) Price() int {
+func (i *Item) Price() Price {
 	if i.ID >= len(ItemDefs) || i.ID < 0 {
 		return -1
 	}
-	return ItemDefs[i.ID].BasePrice
+	return Price(ItemDefs[i.ID].BasePrice)
 }
 
 //DeltaAmount returns the difference between the amount of o and the amount of the receiver
@@ -83,6 +86,11 @@ func (i *Item) DeltaAmount(o *Item) int {
 }
 
 //PriceScaled returns the receivers base price, scaled by percent%.
+func (i *Item) ScalePrice(percent int) int {
+	return int(i.Price().Scale(percent))
+}
+
+// Calculates and returns the value for the requested percentage of the receiver price.
 //
 // In other words, for sleeping bag with basePrice=30
 //	player.Inventory.GetByID(1263).PriceScaled(100)
@@ -102,8 +110,8 @@ func (i *Item) DeltaAmount(o *Item) int {
 //
 // Upper bound for percent intended to basically not exist; in practice it's limited by the data type of the argument.
 // Lower bound for percent is 10, anything lower will be treated as if it were 10%.
-func (i *Item) PriceScaled(percent int) int {
-	return int(math.Max(10, float64(percent))) * i.Price() / 100
+func (p Price) Scale(percent int) Price {
+	return Price(int(math.Max(10, float64(percent))) * int(p) / 100)
 }
 
 func (i *Item) Command() string {
@@ -133,67 +141,174 @@ func (i *Item) Stackable() bool {
 
 //GroundItem Represents a single ground item within the game.
 type GroundItem struct {
-	owner     uint64
-	removed   bool
-	spawnTime time.Time
-	lock      sync.RWMutex
-	Item
+	ID, Amount int
+	*AttributeList
 	*Entity
 }
 
+// Ensures unique indexes for ground items.
+//  TODO: Proper indexing
 var itemIndexer = atomic.NewUint32(0)
+
+// Returns: if this ground item has a player that it belongs to, returns that players username base37 hash.  Otherwise,
+// returns 0.
+func (i *GroundItem) Owner() uint64 {
+	return i.VarLong("belongsTo", 0)
+}
+
+// This is a special state attribute to indicate who the receiver item is visible to.
+// Value 0 means the item has expired and is no longer visible to anybody.
+//
+// Value 1 means the item is visible to only the owner of it and game administrators(rank=2), e.g if you kill someone or something,
+// this will be the value for the first minute or two after it is created, and then will change to value 2.
+// NOTE: If this is the current value, but the belongsTo attribute is not set e.g nobody owns this item, it will update
+// itself to value 2 prior to when it normally would.
+//
+// Value 2 means the item is visible to all players.  This is the value when e.g the server starts and makes the worlds
+// default item spawns, or an NPC kills a player and they drop their items and/or bones...This is the state that most
+// transient ground items will likely spend the most time in before unsetting the visibility attribute(same as value=0)
+// and thus disappearing.
+func (i *GroundItem) Visibility() int {
+	return i.VarInt("visibility", 0)
+}
+
+// Returns: the time this item was spawned into the game world.
+func (i *GroundItem) SpawnedTime() time.Time {
+	return i.VarTime("spawnTime")
+}
 
 //NewGroundItem Creates a new ground item in the game world and returns a reference to it.
 func NewGroundItem(id, amount, x, y int) *GroundItem {
-	gi := &GroundItem{owner: strutil.MaxBase37 + 5000, spawnTime: time.Now(), removed: false,
-		Item: Item{
-			ID:     id,
-			Amount: amount,
-		}, Entity: &Entity{
+	item := &GroundItem{ID: id, Amount: amount,
+		AttributeList: NewAttributeList(),
+		Entity: &Entity{
 			Location: NewLocation(x, y),
-			Index:    int(itemIndexer.Swap(itemIndexer.Load() + 1)),
+			Index: int(itemIndexer.Swap(itemIndexer.Load() + 1)),
 		},
 	}
-	go func() {
-		time.Sleep(time.Minute * 3)
-		gi.Remove()
-	}()
-	return gi
+	item.SetVar("visibility", 1)
+	Tickables.Add("gItem-" + strconv.Itoa(item.Index), func() bool {
+		item.IncVar("ticker", 1)
+		curTick := item.VarInt("ticker", 0)
+		// Visiblity is scoped to item owner but I guess it doesn't have an owner.
+		// Oh well, we'll just let everyone see it early.
+		if item.Visibility() == 1 && item.Owner() == 0 {
+			item.SetVar("visibility", 2)
+		}
+		// ~71 sec.
+		if curTick  % 110 == 0 {
+			// This keeps track of how many times we've ticked for ~71 sec since we started.
+			stage := curTick / 110
+			// item only seen by owner and administrators
+
+			log.Info.Printf("RUNNIN A GROUNDITEM TASK;  STAGE", stage)
+			if item.Visibility() == 1 {
+				if stage == 1 {
+					// 25% chance to stay visibility=1 until 2nd pass at ~142s...
+					if rand.Int31N(1, 4) == 4 {
+						return false
+					}
+
+					item.SetVar("visibility", 2)
+					return false
+				}
+			} else if item.Visibility() == 2 {
+				if stage >= 3 {
+					item.Remove()
+					item.SetVar("visibility", 2)
+				}
+			}
+			// Time for everyone to see it!
+		}
+		return item.Visibility() == 0
+	})
+
+	item.SetVar("spawnedTime", time.Now())
+	return item
 }
 
 //NewGroundItemFor Creates a new ground item with an owner in the game world and returns a reference to it.
 func NewGroundItemFor(owner uint64, id, amount, x, y int) *GroundItem {
-	gi := &GroundItem{owner: owner, spawnTime: time.Now(), removed: false,
-		Item: Item{
-			ID:     id,
-			Amount: amount,
-		}, Entity: &Entity{
-			Location: NewLocation(x, y),
-			Index:    int(itemIndexer.Swap(itemIndexer.Load() + 1)),
-		},
+	item := NewGroundItem(id, amount, x, y)
+	item.SetVar("belongsTo", owner)
+	return item
+}
+
+//Name returns the receivers name
+func (i *GroundItem) Name() string {
+	if i.ID >= len(ItemDefs) || i.ID < 0 {
+		return "nil"
 	}
-	go func() {
-		time.Sleep(time.Minute * 3)
-		gi.Remove()
-	}()
-	return gi
+	return ItemDefs[i.ID].Name
+}
+
+//Price returns the receivers base price
+func (i *GroundItem) Price() Price {
+	if i.ID >= len(ItemDefs) || i.ID < 0 {
+		return -1
+	}
+	return Price(ItemDefs[i.ID].BasePrice)
+}
+
+//DeltaAmount returns the difference between the amount of o and the amount of the receiver
+func (i *GroundItem) DeltaAmount(o *Item) int {
+	return o.Amount - i.Amount
+}
+
+//PriceScaled returns the receivers base price, scaled by percent%.
+func (i *GroundItem) ScalePrice(percent int) int {
+	return int(i.Price().Scale(percent))
+}
+
+func (i *GroundItem) Command() string {
+	if i.ID >= len(ItemDefs) || i.ID < 0 {
+		return "nil"
+	}
+	return ItemDefs[i.ID].Command
+}
+
+func (i *GroundItem) WieldPos() int {
+	if i.ID >= len(ItemDefs) || i.ID < 0 {
+		return -1
+	}
+	def := GetEquipmentDefinition(i.ID)
+	if def == nil {
+		return -1
+	}
+	return def.Position
+}
+
+func (i *GroundItem) Stackable() bool {
+	if i.ID >= len(ItemDefs) || i.ID < 0 {
+		return false
+	}
+	return ItemDefs[i.ID].Stackable
 }
 
 //Remove removes the ground item from the world.
 func (i *GroundItem) Remove() {
-	i.removed = true
+	i.UnsetVar("visibility")
 	RemoveItem(i)
 }
 
 //VisibleTo Returns true if the ground item is visible to this player, otherwise returns false.
 func (i *GroundItem) VisibleTo(p *Player) bool {
-	if i.removed {
+	if i.Visibility() == 0 {
+		// removing from world
 		return false
 	}
-	if i.owner > strutil.MaxBase37 || p.UsernameHash() == i.owner || p.Rank() == 2 {
+
+	if p.Rank() == 2 {
+		// admins see everything >.<
 		return true
 	}
-	return time.Since(i.spawnTime) > time.Minute
+
+	if i.Visibility() == 1 {
+		// Owner of item is only one we currently want seeing this
+		return i.Owner() == p.UsernameHash()
+	}
+
+	return i.Visibility() == 2
 }
 
 //Inventory Represents an inventory of items in the game.

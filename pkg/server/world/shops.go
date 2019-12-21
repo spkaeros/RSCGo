@@ -19,6 +19,12 @@ const (
 	// For every item the shop buys, the asking price decreases by itemDeltaCost% of the items base price.
 	// However, for every item the shop sells, the asking price increases by itemDeltaCost% of the items base price.
 	itemDeltaCost = 3
+	// Defines the base selling price for buying items from players in the general store.
+	ShopPurchasingPriceBasePercent = 40
+	// Defines the base asking price for selling items to players in the general store.
+	ShopSellingPriceBasePercent = 130
+	// Defines how often to normalize most general stores inventorys.  Might be an exception to this rule later.
+	ShopGeneralStoresRespawnTime = 50
 )
 
 type (
@@ -45,6 +51,7 @@ type (
 		// in Stock entirely from itself(they will remain with Amount=0), and occasionally it normalizes itself, referencing
 		// Stock for the normal amounts to replenish toward, and the default IDs of what items to replenish.
 		Inventory *ShopItems
+		Name string
 	}
 	ShopItems struct {
 		// This is a concurrency-friendly collection set to simplify containing shop-scoped item lists without introducing any
@@ -162,52 +169,48 @@ var (
 //NewShop creates a new Shop instance using the arguments provided, and returns it.
 //
 // Returns: a new Shop instance, made with the given arguments
-func NewShop(percentPurchasesPrice, percentSalesPrice int, stock shopItemSet) Shop {
+func NewShop(percentPurchasesPrice, percentSalesPrice int, stock shopItemSet, name string) *Shop {
 	s := &ShopItems{set: stock}
-	return Shop{BasePurchasePercent: percentPurchasesPrice, BaseSalePercent: percentSalesPrice, Stock: s, Inventory: s.Clone()}
+	return &Shop{BasePurchasePercent: percentPurchasesPrice, BaseSalePercent: percentSalesPrice, Stock: s, Inventory: s.Clone(), Name: name}
 }
 
 // Creates a new general shop, and adds it automatically to the world-local ShopContainer instance before returning it
 //
 // Returns: Shops.get(name), after building and adding a new general shop to it, using a generic general shop definition.
 func NewGeneralShop(name string) *Shop {
-	shop := &Shop {true, 40, 130, generalStock, generalStock.Clone()}
+	shop := &Shop {true, 40, 130, generalStock.Clone(), generalStock.Clone(), name}
 	Shops.Add(name, shop)
 	shopTicker := 0
-	Tickables = append(Tickables, func() {
+	Tickables.Add("shop-" + name, func() bool {
 		shopTicker++
 		if shopTicker % 20 == 0 {
-			removing := make(shopItemSet, 0, 40)
 			changed := false
-			shop.Inventory.Range(func(item *Item) {
-				stocked := shop.Stock.Get(item.ID)
-				if stocked == nil {
-					// should not happen
-					return
-				}
+			shop.Inventory.Range(func(item *Item) bool {
+				stockedAmount := shop.Stock.Count(item.ID)
 
-				if stocked.Amount == 0 {
-					// we don't normally stock these; player sold it to us, and it can be removed.
+				if stockedAmount <= 0 {
+					changed = true
+
 					if item.Amount > 0 {
 						item.Amount--
-						changed = true
 					}
-					if item.Amount == 0 {
-						removing = append(removing, item)
-					}
-				} else if stocked.ID == item.ID {
-					if stocked.Amount < item.Amount {
+					return item.Amount == 0
+				} else {
+					// We always have these items around and work on changing the amount back to normal when it changes
+					if stockedAmount < item.Amount {
+						// We're low on this item, increase toward normal.
 						changed = true
 						item.Amount--
-					} else if stocked.Amount > item.Amount {
+					} else if stockedAmount > item.Amount {
+						// We are overstocked with this item, decrease toward normal.
 						changed = true
 						item.Amount++
 					}
 				}
+				return false
 			})
-			for _, item := range removing {
-				shop.Inventory.Remove(item)
-			}
+			// Check the flag indicating if the shop inventory has changed in any way, and if so, send all the players
+			// currently using this shop an update of it.
 			if changed {
 				Players.Range(func(player *Player) {
 					if player.HasState(MSShopping) && player.CurrentShop() == shop {
@@ -216,14 +219,19 @@ func NewGeneralShop(name string) *Shop {
 				})
 			}
 		}
+		return false
 	})
 	return shop
 }
 
 func (s *ShopItems) Add(item *Item) {
-	s.Lock()
-	defer s.Unlock()
-	s.set = append(s.set, item)
+	if !s.Contains(item.ID) {
+		s.Lock()
+		defer s.Unlock()
+		s.set = append(s.set, item)
+	} else {
+		s.Get(item.ID).Amount += 1
+	}
 }
 
 func (s *ShopItems) Size() int {
@@ -232,42 +240,62 @@ func (s *ShopItems) Size() int {
 	return len(s.set)
 }
 
-func (s *ShopItems) Range(fn func(*Item)) {
-	s.RLock()
-	defer s.RUnlock()
-	for _, i := range s.set {
-		fn(i)
-	}
-}
-
-func (s *ShopItems) Remove(item *Item) {
+func (s *ShopItems) Range(fn func(*Item) bool) {
 	s.Lock()
 	defer s.Unlock()
-	for i, v := range s.set {
-		if v == item {
-			if i >= len(s.set)-1 {
-				s.set = s.set[:i]
-				break
-			}
-			s.set = append(s.set[:i], s.set[i+1:]...)
-			break
+	p := 0
+	for _, i := range s.set {
+		if !fn(i) {
+			s.set[p] = i
+			p++
 		}
+
 	}
+	s.set = s.set[:p]
 }
 
-//Get returns the shop item entry with the given ID, or if it can't find it, adds a new one then returns it.
+func (s *ShopItems) Remove(removingItem *Item) {
+	s.Range(func(item *Item) bool {
+		if item.ID == removingItem.ID {
+			item.Amount--
+			return item.Amount == 0
+		}
+		return false
+	})
+}
+
+// Returns: the shop item in this collection  with the given ID, or if it can't find one, creates a new one with
+// Amount=0, adds it to the collection for later usage, and returns it
 func (s *ShopItems) Get(id int) *Item {
 	s.RLock()
+	defer s.RUnlock()
 	for _, item := range s.set {
 		if item.ID == id {
-			s.RUnlock()
 			return item
 		}
 	}
-	s.RUnlock()
+	return &Item{ID:id}
+}
 
-	s.Add(&Item{ID: id})
-	return s.set[len(s.set)-1]
+// Ensures safe access when requesting whether this collection contains a specific item by ID.
+//
+// Returns: true if this shop items collection has any items with the provided ID, otherwise returns false.
+func (s *ShopItems) Contains(id int) bool {
+	return s.Count(id) > 0
+}
+
+// Ensures safe access when requesting the current count of a specific item by ID in this shops inventory.
+//
+// Returns: the inventorys amount of the specified item id, or 0 is no items matched this ID.
+func (s *ShopItems) Count(id int) int {
+	s.RLock()
+	defer s.RUnlock()
+	for _, v := range s.set {
+		if v.ID == id {
+			return v.Amount
+		}
+	}
+	return 0
 }
 
 //Clone will make a new ShopItems collection populated with clones of the values in the existing collection set.
@@ -275,9 +303,9 @@ func (s *ShopItems) Get(id int) *Item {
 func (s *ShopItems) Clone() *ShopItems {
 	clone := &ShopItems{}
 	clone.Lock()
-	s.Range(func(item *Item) {
+	s.Range(func(item *Item) bool {
 		clone.set = append(clone.set, &Item{ID: item.ID, Amount:item.Amount})
-		return
+		return false
 	})
 	clone.Unlock()
 	return clone
@@ -293,4 +321,8 @@ func (s *Shop) Clone() *Shop {
 // by itemDeltaCost.
 func (s *Shop) StockDeltaPercentage(item *Item) int {
 	return item.DeltaAmount(s.Stock.Get(item.ID)) * itemDeltaCost
+}
+
+func (s *Shop) StockDeltaPercentID(id int) int {
+	return (s.Stock.Count(id) - s.Inventory.Count(id)) * itemDeltaCost
 }

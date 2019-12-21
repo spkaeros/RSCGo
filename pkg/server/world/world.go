@@ -136,7 +136,60 @@ type region struct {
 
 var regions [HorizontalPlanes][VerticalPlanes]*region
 
-var Tickables []func()
+// A convencience type for tickable task closures, as typing func signatures out as return signatures gets tiresome.
+type Task func() bool
+type taskSet map[string]Task
+
+type TaskCollection struct {
+	taskSet
+	sync.RWMutex
+}
+
+func (t *TaskCollection) Range(fn func(string, Task)) {
+	t.RLock()
+	for name, task := range t.taskSet {
+		fn(name, task)
+	}
+	t.RUnlock()
+}
+
+func (t *TaskCollection) ExecuteSequentially() {
+	var removed []string
+	t.Lock()
+	for name, task := range t.taskSet {
+		start := time.Now()
+		if task() {
+			removed = append(removed, name)
+		}
+		log.Info.Printf("tickTask--%s; finished executing in %v", name, time.Since(start))
+	}
+	for _, taskName := range removed {
+		delete(Tickables.taskSet, taskName)
+	}
+	t.Unlock()
+}
+
+func (t *TaskCollection) Add(name string, fn Task) {
+	t.Lock()
+	t.taskSet[name] = fn
+	t.Unlock()
+}
+
+func (t *TaskCollection) Get(name string) Task {
+	t.RLock()
+	defer t.RUnlock()
+	return t.taskSet[name]
+}
+
+func (t *TaskCollection) Remove(name string) {
+	t.Lock()
+	delete(t.taskSet, name)
+	t.Unlock()
+}
+
+var Tickables = &TaskCollection{
+	taskSet: make(taskSet),
+}
 
 //IsValid Returns true if the tile at x,y is within world boundaries, false otherwise.
 func WithinWorld(x, y int) bool {

@@ -122,9 +122,8 @@ func runTickables(p *world.Player) {
 
 //Tick One game engine 'tick'.  This is to handle movement, to synchronize client, to update movement-related state variables... Runs once per 600ms.
 func Tick() {
-	for _, fn := range world.Tickables {
-		fn()
-	}
+	world.Tickables.ExecuteSequentially()
+
 	world.Players.Range(func(p *world.Player) {
 		runTickables(p)
 		if fn := p.DistancedAction; fn != nil {
