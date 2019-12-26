@@ -226,13 +226,14 @@ func (m *Mob) Path() *Pathway {
 //ResetPath Sets the mobs path to nil, to stop the traversal of the path instantly
 func (m *Mob) ResetPath() {
 	m.TransAttrs.UnsetVar("path")
+	m.TransAttrs.UnsetVar("pathLength")
 }
 
 //FinishedPath Returns true if the mobs path is nil, the paths current waypoint exceeds the number of waypoints available, or the next tile in the path is not a valid location, implying that we have reached our destination.
 func (m *Mob) FinishedPath() bool {
 	path := m.Path()
 	if path == nil {
-		return true
+		return m.TransAttrs.VarInt("pathLength", 0) <= 0
 	}
 	return path.CurrentWaypoint >= path.countWaypoints() || !path.nextTileFrom(m.Location).IsValid()
 }

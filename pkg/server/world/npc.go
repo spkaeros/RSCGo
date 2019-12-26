@@ -99,7 +99,8 @@ func UpdateNPCPositions() {
 				if len(r.Players.set) > 0 {
 					r.Players.lock.RUnlock()
 					n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
-					go n.WalkTo(NewRandomLocation(n.Boundaries))
+//					go n.WalkTo(NewRandomLocation(n.Boundaries))
+					n.TransAttrs.SetVar("pathLength", rand.Int31N(5, 15))
 					break
 				}
 				r.Players.lock.RUnlock()
@@ -179,7 +180,7 @@ func (n *NPC) Killed(killer MobileEntity) {
 
 //TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
 func (n *NPC) TraversePath() {
-	path := n.Path()
+/*	path := n.Path()
 	if path == nil {
 		return
 	}
@@ -189,8 +190,63 @@ func (n *NPC) TraversePath() {
 	if n.FinishedPath() {
 		n.ResetPath()
 		return
+	}*/
+	//dst := path.nextTile()
+	if n.TransAttrs.VarInt("pathLength", 0) <= 0 {
+		return
 	}
-	dst := path.nextTile()
+
+	dst := NewLocation(n.X(), n.Y())
+	if rand.Int31N(0, 3) == 0 {
+		n.TransAttrs.SetVar("pathDir", rand.Int31N(0, 7))
+	}
+	switch n.TransAttrs.VarInt("pathDir", North) {
+	case North:
+		dst.y.Dec()
+	case South:
+		dst.y.Inc()
+	case East:
+		dst.x.Dec()
+	case West:
+		dst.x.Inc()
+	case NorthEast:
+		dst.y.Dec()
+		dst.x.Dec()
+	case SouthEast:
+		dst.y.Inc()
+		dst.x.Dec()
+	case NorthWest:
+		dst.y.Dec()
+		dst.x.Inc()
+	case SouthWest:
+		dst.y.Inc()
+		dst.x.Inc()
+	}
+
+	if dst.X() > n.Boundaries[1].X() || dst.Y() > n.Boundaries[1].Y() || dst.X() < n.Boundaries[0].X() || dst.Y() < n.Boundaries[0].Y() {
+		dst = NewLocation(n.X(), n.Y())
+		switch n.TransAttrs.VarInt("pathDir", North) {
+		case North:
+			n.TransAttrs.SetVar("pathDir", South)
+		case South:
+			n.TransAttrs.SetVar("pathDir", North)
+		case East:
+			n.TransAttrs.SetVar("pathDir", West)
+		case West:
+			n.TransAttrs.SetVar("pathDir", East)
+		case NorthEast:
+			n.TransAttrs.SetVar("pathDir", SouthWest)
+		case SouthEast:
+			n.TransAttrs.SetVar("pathDir", NorthWest)
+		case NorthWest:
+			n.TransAttrs.SetVar("pathDir", SouthEast)
+		case SouthWest:
+			n.TransAttrs.SetVar("pathDir", NorthEast)
+		}
+		n.TraversePath()
+		return
+	}
+
 	x, y := n.X(), n.Y()
 	next := NewLocation(x, y)
 	xBlocked, yBlocked := false, false
@@ -223,11 +279,49 @@ func (n *NPC) TraversePath() {
 	}
 
 	if (xBlocked && yBlocked) || (xBlocked && y == dst.Y()) || (yBlocked && x == dst.X()) {
-		n.ResetPath()
+		dst = NewLocation(n.X(), n.Y())
+		switch n.TransAttrs.VarInt("pathDir", North) {
+		case North:
+			n.TransAttrs.SetVar("pathDir", South)
+		case South:
+			n.TransAttrs.SetVar("pathDir", North)
+		case East:
+			n.TransAttrs.SetVar("pathDir", West)
+		case West:
+			n.TransAttrs.SetVar("pathDir", East)
+		case NorthEast:
+			n.TransAttrs.SetVar("pathDir", SouthWest)
+		case SouthEast:
+			n.TransAttrs.SetVar("pathDir", NorthWest)
+		case NorthWest:
+			n.TransAttrs.SetVar("pathDir", SouthEast)
+		case SouthWest:
+			n.TransAttrs.SetVar("pathDir", NorthEast)
+		}
+		n.TraversePath()
 		return
 	}
 	if (newXBlocked && newYBlocked) || (newXBlocked && x != next.X() && y == next.Y()) || (newYBlocked && y != next.Y() && x == next.X()) {
-		n.ResetPath()
+		dst = NewLocation(n.X(), n.Y())
+		switch n.TransAttrs.VarInt("pathDir", North) {
+		case North:
+			n.TransAttrs.SetVar("pathDir", South)
+		case South:
+			n.TransAttrs.SetVar("pathDir", North)
+		case East:
+			n.TransAttrs.SetVar("pathDir", West)
+		case West:
+			n.TransAttrs.SetVar("pathDir", East)
+		case NorthEast:
+			n.TransAttrs.SetVar("pathDir", SouthWest)
+		case SouthEast:
+			n.TransAttrs.SetVar("pathDir", NorthWest)
+		case NorthWest:
+			n.TransAttrs.SetVar("pathDir", SouthEast)
+		case SouthWest:
+			n.TransAttrs.SetVar("pathDir", NorthEast)
+		}
+		n.TraversePath()
 		return
 	}
 
@@ -236,6 +330,7 @@ func (n *NPC) TraversePath() {
 	} else if next.X() < x {
 		newXBlocked = IsTileBlocking(next.X(), next.Y(), ClipWest, false)
 	}
+
 	if next.Y() > y {
 		newYBlocked = IsTileBlocking(next.X(), next.Y(), ClipNorth, false)
 	} else if next.Y() < y {
@@ -243,9 +338,30 @@ func (n *NPC) TraversePath() {
 	}
 
 	if (newXBlocked && newYBlocked) || (newXBlocked && y == next.Y()) || (newYBlocked && x == next.X()) {
-		n.ResetPath()
+		dst = NewLocation(n.X(), n.Y())
+		switch n.TransAttrs.VarInt("pathDir", North) {
+		case North:
+			n.TransAttrs.SetVar("pathDir", South)
+		case South:
+			n.TransAttrs.SetVar("pathDir", North)
+		case East:
+			n.TransAttrs.SetVar("pathDir", West)
+		case West:
+			n.TransAttrs.SetVar("pathDir", East)
+		case NorthEast:
+			n.TransAttrs.SetVar("pathDir", SouthWest)
+		case SouthEast:
+			n.TransAttrs.SetVar("pathDir", NorthWest)
+		case NorthWest:
+			n.TransAttrs.SetVar("pathDir", SouthEast)
+		case SouthWest:
+			n.TransAttrs.SetVar("pathDir", NorthEast)
+		}
+		n.TraversePath()
 		return
 	}
+
+	n.TransAttrs.DecVar("pathLength", 1)
 
 	n.SetLocation(next, false)
 }
