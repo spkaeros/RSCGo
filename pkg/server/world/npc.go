@@ -198,53 +198,86 @@ func (n *NPC) TraversePath() {
 
 	for tries := 0; tries < 10; tries++ {
 		dst := NewLocation(n.X(), n.Y())
-		if rand.Int31N(0, 3) == 0 {
-			n.TransAttrs.SetVar("pathDir", rand.Int31N(0, 7))
+		if rand.Uint8n(4) == 3 {
+			n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
 		}
 		switch n.TransAttrs.VarInt("pathDir", North) {
 		case North:
+			if IsTileBlocking(dst.X(), dst.Y()-1, ClipSouth, false) ||
+				dst.X() > n.Boundaries[1].X() || dst.Y()-1 > n.Boundaries[1].Y() ||
+				dst.X() < n.Boundaries[0].X() || dst.Y()-1 < n.Boundaries[0].Y() {
+				n.TransAttrs.SetVar("pathDir", South)
+				continue
+			}
 			dst.y.Dec()
 		case South:
+			if IsTileBlocking(dst.X(), dst.Y()+1, ClipNorth, false) ||
+				dst.X() > n.Boundaries[1].X() || dst.Y()+1 > n.Boundaries[1].Y() ||
+				dst.X() < n.Boundaries[0].X() || dst.Y()+1 < n.Boundaries[0].Y() {
+				n.TransAttrs.SetVar("pathDir", North)
+				continue
+			}
 			dst.y.Inc()
 		case East:
+			if IsTileBlocking(dst.X()-1, dst.Y(), ClipWest, false) ||
+				dst.X()-1 > n.Boundaries[1].X() || dst.Y() > n.Boundaries[1].Y() ||
+				dst.X()-1 < n.Boundaries[0].X() || dst.Y() < n.Boundaries[0].Y() {
+				n.TransAttrs.SetVar("pathDir", West)
+				continue
+			}
 			dst.x.Dec()
 		case West:
+			if IsTileBlocking(dst.X()+1, dst.Y(), ClipEast, false) ||
+				dst.X()+1 > n.Boundaries[1].X() || dst.Y() > n.Boundaries[1].Y() ||
+				dst.X()+1 < n.Boundaries[0].X() || dst.Y() < n.Boundaries[0].Y() {
+				n.TransAttrs.SetVar("pathDir", East)
+				continue
+			}
 			dst.x.Inc()
 		case NorthEast:
+			if IsTileBlocking(dst.X()-1, dst.Y()-1, ClipSouth|ClipWest, false) ||
+				IsTileBlocking(dst.X(), dst.Y()-1, ClipSouth, false) ||
+				IsTileBlocking(dst.X()-1, dst.Y(), ClipWest, false) ||
+				dst.X()-1 > n.Boundaries[1].X() || dst.Y()-1 > n.Boundaries[1].Y() ||
+				dst.X()-1 < n.Boundaries[0].X() || dst.Y()-1 < n.Boundaries[0].Y() {
+				n.TransAttrs.SetVar("pathDir", SouthWest)
+				continue
+			}
 			dst.y.Dec()
 			dst.x.Dec()
 		case SouthEast:
+			if IsTileBlocking(dst.X()-1, dst.Y()+1, ClipNorth|ClipWest, false) ||
+				IsTileBlocking(dst.X(), dst.Y()+1, ClipNorth, false) ||
+				IsTileBlocking(dst.X()-1, dst.Y(), ClipWest, false) ||
+				dst.X()-1 > n.Boundaries[1].X() || dst.Y()+1 > n.Boundaries[1].Y() ||
+				dst.X()-1 < n.Boundaries[0].X() || dst.Y()+1 < n.Boundaries[0].Y() {
+				n.TransAttrs.SetVar("pathDir", NorthWest)
+				continue
+			}
 			dst.y.Inc()
 			dst.x.Dec()
 		case NorthWest:
+			if IsTileBlocking(dst.X()+1, dst.Y()-1, ClipSouth|ClipEast, false) ||
+				IsTileBlocking(dst.X(), dst.Y()-1, ClipSouth, false) ||
+				IsTileBlocking(dst.X()+1, dst.Y(), ClipEast, false) ||
+				dst.X()+1 > n.Boundaries[1].X() || dst.Y()-1 > n.Boundaries[1].Y() ||
+				dst.X()+1 < n.Boundaries[0].X() || dst.Y()-1 < n.Boundaries[0].Y() {
+				n.TransAttrs.SetVar("pathDir", SouthEast)
+				continue
+			}
 			dst.y.Dec()
 			dst.x.Inc()
 		case SouthWest:
+			if IsTileBlocking(dst.X()+1, dst.Y()+1, ClipNorth|ClipEast, false) ||
+				IsTileBlocking(dst.X(), dst.Y()+1, ClipNorth, false) ||
+				IsTileBlocking(dst.X()+1, dst.Y(), ClipEast, false) ||
+				dst.X()+1 > n.Boundaries[1].X() || dst.Y()+1 > n.Boundaries[1].Y() ||
+				dst.X()+1 < n.Boundaries[0].X() || dst.Y()+1 < n.Boundaries[0].Y() {
+				n.TransAttrs.SetVar("pathDir", NorthEast)
+				continue
+			}
 			dst.y.Inc()
 			dst.x.Inc()
-		}
-
-		if dst.X() > n.Boundaries[1].X() || dst.Y() > n.Boundaries[1].Y() || dst.X() < n.Boundaries[0].X() || dst.Y() < n.Boundaries[0].Y() {
-			dst = NewLocation(n.X(), n.Y())
-			switch n.TransAttrs.VarInt("pathDir", North) {
-			case North:
-				n.TransAttrs.SetVar("pathDir", South)
-			case South:
-				n.TransAttrs.SetVar("pathDir", North)
-			case East:
-				n.TransAttrs.SetVar("pathDir", West)
-			case West:
-				n.TransAttrs.SetVar("pathDir", East)
-			case NorthEast:
-				n.TransAttrs.SetVar("pathDir", SouthWest)
-			case SouthEast:
-				n.TransAttrs.SetVar("pathDir", NorthWest)
-			case NorthWest:
-				n.TransAttrs.SetVar("pathDir", SouthEast)
-			case SouthWest:
-				n.TransAttrs.SetVar("pathDir", NorthEast)
-			}
-			continue
 		}
 
 		x, y := n.X(), n.Y()
@@ -279,48 +312,10 @@ func (n *NPC) TraversePath() {
 		}
 
 		if (xBlocked && yBlocked) || (xBlocked && y == dst.Y()) || (yBlocked && x == dst.X()) {
-			dst = NewLocation(n.X(), n.Y())
-			switch n.TransAttrs.VarInt("pathDir", North) {
-			case North:
-				n.TransAttrs.SetVar("pathDir", South)
-			case South:
-				n.TransAttrs.SetVar("pathDir", North)
-			case East:
-				n.TransAttrs.SetVar("pathDir", West)
-			case West:
-				n.TransAttrs.SetVar("pathDir", East)
-			case NorthEast:
-				n.TransAttrs.SetVar("pathDir", SouthWest)
-			case SouthEast:
-				n.TransAttrs.SetVar("pathDir", NorthWest)
-			case NorthWest:
-				n.TransAttrs.SetVar("pathDir", SouthEast)
-			case SouthWest:
-				n.TransAttrs.SetVar("pathDir", NorthEast)
-			}
-			continue
+			return
 		}
 		if (newXBlocked && newYBlocked) || (newXBlocked && x != next.X() && y == next.Y()) || (newYBlocked && y != next.Y() && x == next.X()) {
-			dst = NewLocation(n.X(), n.Y())
-			switch n.TransAttrs.VarInt("pathDir", North) {
-			case North:
-				n.TransAttrs.SetVar("pathDir", South)
-			case South:
-				n.TransAttrs.SetVar("pathDir", North)
-			case East:
-				n.TransAttrs.SetVar("pathDir", West)
-			case West:
-				n.TransAttrs.SetVar("pathDir", East)
-			case NorthEast:
-				n.TransAttrs.SetVar("pathDir", SouthWest)
-			case SouthEast:
-				n.TransAttrs.SetVar("pathDir", NorthWest)
-			case NorthWest:
-				n.TransAttrs.SetVar("pathDir", SouthEast)
-			case SouthWest:
-				n.TransAttrs.SetVar("pathDir", NorthEast)
-			}
-			continue
+			return
 		}
 
 		if next.X() > x {
@@ -336,26 +331,7 @@ func (n *NPC) TraversePath() {
 		}
 
 		if (newXBlocked && newYBlocked) || (newXBlocked && y == next.Y()) || (newYBlocked && x == next.X()) {
-			dst = NewLocation(n.X(), n.Y())
-			switch n.TransAttrs.VarInt("pathDir", North) {
-			case North:
-				n.TransAttrs.SetVar("pathDir", South)
-			case South:
-				n.TransAttrs.SetVar("pathDir", North)
-			case East:
-				n.TransAttrs.SetVar("pathDir", West)
-			case West:
-				n.TransAttrs.SetVar("pathDir", East)
-			case NorthEast:
-				n.TransAttrs.SetVar("pathDir", SouthWest)
-			case SouthEast:
-				n.TransAttrs.SetVar("pathDir", NorthWest)
-			case NorthWest:
-				n.TransAttrs.SetVar("pathDir", SouthEast)
-			case SouthWest:
-				n.TransAttrs.SetVar("pathDir", NorthEast)
-			}
-			continue
+			return
 		}
 
 		n.TransAttrs.DecVar("pathLength", 1)

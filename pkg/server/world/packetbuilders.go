@@ -276,6 +276,11 @@ func NPCPositions(player *Player) (p *packet.Packet) {
 		p.AddBits(offsetY, 5)
 		p.AddBits(n.Direction(), 4)
 		p.AddBits(n.ID, 10)
+		n.ResetTickables = append(n.ResetTickables, func() {
+			n.ResetRegionRemoved()
+			n.ResetRegionMoved()
+			n.ResetSpriteUpdated()
+		})
 		counter++
 	}
 	if counter <= 0 {
@@ -328,8 +333,8 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 				player.AppearanceLock.Unlock()
 				p1.ResetTickables = append(p1.ResetTickables, func() {
 					p1.ResetRegionRemoved()
-					player.ResetRegionMoved()
-					player.ResetSpriteUpdated()
+					p1.ResetRegionMoved()
+					p1.ResetSpriteUpdated()
 				})
 			} else if p1.SyncMask&SyncMoved == SyncMoved {
 				p.AddBits(1, 1)
@@ -337,7 +342,7 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 				p.AddBits(p1.Direction(), 3)
 				p1.ResetTickables = append(p1.ResetTickables, func() {
 					p1.ResetRegionMoved()
-					player.ResetSpriteUpdated()
+					p1.ResetSpriteUpdated()
 				})
 			} else if p1.SyncMask&SyncSprite == SyncSprite {
 				p.AddBits(1, 1)
@@ -392,6 +397,11 @@ func PlayerPositions(player *Player) (p *packet.Packet) {
 		}
 		player.AppearanceLock.RUnlock()
 		player.LocalPlayers.Add(p1)
+		p1.ResetTickables = append(p1.ResetTickables, func() {
+			p1.ResetRegionRemoved()
+			p1.ResetRegionMoved()
+			p1.ResetSpriteUpdated()
+		})
 		counter++
 	}
 	if counter <= 0 {
