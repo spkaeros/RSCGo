@@ -157,11 +157,11 @@ func (t *TaskCollection) ExecuteSequentially() {
 	var removed []string
 	t.Lock()
 	for name, task := range t.taskSet {
-		start := time.Now()
+		//start := time.Now()
 		if task() {
 			removed = append(removed, name)
 		}
-		log.Info.Printf("tickTask--%s; finished executing in %v", name, time.Since(start))
+		//log.Info.Printf("tickTask--%s; finished executing in %v", name, time.Since(start))
 	}
 	for _, taskName := range removed {
 		delete(Tickables.taskSet, taskName)

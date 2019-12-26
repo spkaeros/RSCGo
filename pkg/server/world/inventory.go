@@ -183,11 +183,11 @@ func NewGroundItem(id, amount, x, y int) *GroundItem {
 		AttributeList: NewAttributeList(),
 		Entity: &Entity{
 			Location: NewLocation(x, y),
-			Index: int(itemIndexer.Swap(itemIndexer.Load() + 1)),
+			Index:    int(itemIndexer.Swap(itemIndexer.Load() + 1)),
 		},
 	}
 	item.SetVar("visibility", 1)
-	Tickables.Add("gItem-" + strconv.Itoa(item.Index), func() bool {
+	Tickables.Add("gItem-"+strconv.Itoa(item.Index), func() bool {
 		item.IncVar("ticker", 1)
 		curTick := item.VarInt("ticker", 0)
 		// Visiblity is scoped to item owner but I guess it doesn't have an owner.
@@ -195,13 +195,12 @@ func NewGroundItem(id, amount, x, y int) *GroundItem {
 		if item.Visibility() == 1 && item.Owner() == 0 {
 			item.SetVar("visibility", 2)
 		}
+		// This keeps track of how many times we've ticked for ~71 sec since we started.
+		stage := curTick / 110
 		// ~71 sec.
-		if curTick  % 110 == 0 {
-			// This keeps track of how many times we've ticked for ~71 sec since we started.
-			stage := curTick / 110
+		if curTick%110 == 0 {
 			// item only seen by owner and administrators
 
-			log.Info.Printf("RUNNIN A GROUNDITEM TASK;  STAGE", stage)
 			if item.Visibility() == 1 {
 				if stage == 1 {
 					// 25% chance to stay visibility=1 until 2nd pass at ~142s...
@@ -212,15 +211,13 @@ func NewGroundItem(id, amount, x, y int) *GroundItem {
 					item.SetVar("visibility", 2)
 					return false
 				}
-			} else if item.Visibility() == 2 {
-				if stage >= 3 {
-					item.Remove()
-					item.SetVar("visibility", 2)
-				}
 			}
 			// Time for everyone to see it!
 		}
-		return item.Visibility() == 0
+		if stage >= 3 {
+			item.Remove()
+		}
+		return item.Visibility() == 0 || stage >= 3
 	})
 
 	item.SetVar("spawnedTime", time.Now())

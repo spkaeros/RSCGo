@@ -45,6 +45,10 @@ func init() {
 		amount := p.ReadShort()
 		//		botCheck := p.ReadInt()
 		idx := player.Bank().GetIndex(id)
+		if idx == -1 {
+			log.Suspicious.Println("Attempted withdraw of item they do not have:", player.String(), id, amount)
+			return
+		}
 		item := player.Bank().Get(idx)
 		cnt := item.Amount - amount
 		if item == nil || item.Amount < amount {

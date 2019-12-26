@@ -51,7 +51,7 @@ type (
 		// in Stock entirely from itself(they will remain with Amount=0), and occasionally it normalizes itself, referencing
 		// Stock for the normal amounts to replenish toward, and the default IDs of what items to replenish.
 		Inventory *ShopItems
-		Name string
+		Name      string
 	}
 	ShopItems struct {
 		// This is a concurrency-friendly collection set to simplify containing shop-scoped item lists without introducing any
@@ -154,8 +154,8 @@ var (
 	// 	40% of basePrice
 	//
 	generalStock = &ShopItems{
-		set: shopItemSet {
-			{ID: 140, Amount: 2}, // 2 jugs
+		set: shopItemSet{
+			{ID: 140, Amount: 2},   // 2 jugs
 			{ID: 144, Amount: 2},   // 2 shears
 			{ID: 21, Amount: 2},    // 2 buckets
 			{ID: 166, Amount: 2},   // 2 tinderboxes
@@ -178,12 +178,12 @@ func NewShop(percentPurchasesPrice, percentSalesPrice int, stock shopItemSet, na
 //
 // Returns: Shops.get(name), after building and adding a new general shop to it, using a generic general shop definition.
 func NewGeneralShop(name string) *Shop {
-	shop := &Shop {true, 40, 130, generalStock.Clone(), generalStock.Clone(), name}
+	shop := &Shop{true, 40, 130, generalStock.Clone(), generalStock.Clone(), name}
 	Shops.Add(name, shop)
 	shopTicker := 0
-	Tickables.Add("shop-" + name, func() bool {
+	Tickables.Add("shop-"+name, func() bool {
 		shopTicker++
-		if shopTicker % 20 == 0 {
+		if shopTicker%20 == 0 {
 			changed := false
 			shop.Inventory.Range(func(item *Item) bool {
 				stockedAmount := shop.Stock.Count(item.ID)
@@ -274,7 +274,7 @@ func (s *ShopItems) Get(id int) *Item {
 			return item
 		}
 	}
-	return &Item{ID:id}
+	return &Item{ID: id}
 }
 
 // Ensures safe access when requesting whether this collection contains a specific item by ID.
@@ -304,7 +304,7 @@ func (s *ShopItems) Clone() *ShopItems {
 	clone := &ShopItems{}
 	clone.Lock()
 	s.Range(func(item *Item) bool {
-		clone.set = append(clone.set, &Item{ID: item.ID, Amount:item.Amount})
+		clone.set = append(clone.set, &Item{ID: item.ID, Amount: item.Amount})
 		return false
 	})
 	clone.Unlock()

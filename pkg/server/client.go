@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"net"
@@ -8,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/spkaeros/rscgo/pkg/server/db"
 	"github.com/spkaeros/rscgo/pkg/server/errors"
@@ -23,9 +25,11 @@ type client struct {
 	IncomingPackets chan *packet.Packet
 	CacheBuffer     []byte
 	Socket          net.Conn
-	DataBuffer      []byte
-	DataLock        sync.RWMutex
 	destroyer       sync.Once
+	readWriter      *bufio.ReadWriter
+	wsReader        io.Reader
+	wsHeader        ws.Header
+	wsLength        int64
 	websocket       bool
 }
 
@@ -139,10 +143,14 @@ func (c *client) handlePacket(p *packet.Packet) {
 }
 
 //newClient Creates a new instance of a client, launches goroutines to handle I/O for it, and returns a reference to it.
-func newClient(socket net.Conn, ws bool) *client {
-	c := &client{Socket: socket, IncomingPackets: make(chan *packet.Packet, 20), DataBuffer: make([]byte, 5000)}
+func newClient(socket net.Conn, ws2 bool) *client {
+	c := &client{Socket: socket, IncomingPackets: make(chan *packet.Packet, 20)}
 	c.player = world.NewPlayer(world.Players.NextIndex(), strings.Split(socket.RemoteAddr().String(), ":")[0])
-	c.websocket = ws
+	c.readWriter = bufio.NewReadWriter(bufio.NewReader(socket), bufio.NewWriter(socket))
+	if ws2 {
+		c.wsHeader, c.wsReader, _ = wsutil.NextReader(socket, ws.StateServerSide)
+	}
+	c.websocket = ws2
 	c.startNetworking()
 	return c
 }
@@ -173,34 +181,41 @@ func (c *client) Read(dst []byte) (int, error) {
 		return -1, errors.ConnDeadline
 	}
 
-	expectedLen := len(dst)
-	// Unstash any overflow data from previous read calls.
-	cacheLen := len(c.CacheBuffer)
-	if cacheLen > 0 {
-		copy(dst, c.CacheBuffer)
-		if cacheLen > expectedLen {
-			c.CacheBuffer = c.CacheBuffer[expectedLen:]
-			return expectedLen, nil
-		} else {
-			c.CacheBuffer = []byte{}
-			if cacheLen == expectedLen {
-				return expectedLen, nil
+	if c.websocket {
+		if c.wsHeader.Length <= c.wsLength {
+			c.wsHeader, c.wsReader, err = wsutil.NextReader(c.readWriter.Reader, ws.StateServerSide)
+			if err != nil {
+				log.Warning.Println("Problem creating reader for next websocket frame:", err)
+				c.player.Destroy()
+				return -1, err
 			}
+			c.wsLength = 0
 		}
+		n, err := c.wsReader.Read(dst)
+		if err != nil {
+			if err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
+				return -1, errors.ConnClosed
+			} else if e, ok := err.(net.Error); ok && e.Timeout() {
+				return -1, errors.ConnTimedOut
+			} else if err == io.EOF {
+				if !c.wsHeader.Fin {
+					log.Info.Println(err)
+					return -1, err
+				}
+				// EOF on fin means end of frame
+				c.wsLength += int64(n)
+				return n, nil
+			}
+			log.Info.Println(err)
+			return -1, err
+		}
+		c.wsLength += int64(n)
+		return n, nil
 	}
 
-	// Mark length of data left to read from socket after unstashing anything from the buffer
-	reqDataLen := expectedLen - cacheLen
-
-	var dataLen int
-	var data []byte
-	if !c.websocket {
-		dataLen, err = c.Socket.Read(dst[cacheLen:])
-	} else {
-		data, err = wsutil.ReadClientBinary(c.Socket)
-		dataLen = len(data)
-	}
+	n, err := c.readWriter.Read(dst)
 	if err != nil {
+		log.Info.Println(err)
 		if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
 			return -1, errors.ConnClosed
 		} else if e, ok := err.(net.Error); ok && e.Timeout() {
@@ -208,39 +223,75 @@ func (c *client) Read(dst []byte) (int, error) {
 		}
 		return -1, err
 	}
-	if c.websocket {
-		copy(dst[cacheLen:], data)
-	}
-
-	if dataLen < reqDataLen {
-		// We didn't have enough data.  In practice, this produces an error I believe, but just in case!
-		c.CacheBuffer = dst[:dataLen+cacheLen]
-	} else if dataLen > reqDataLen {
-		// We read too much data.  Stash what is not required.
-		if c.websocket {
-			// Cache the recv'd data starting right after the last needed byte, next Read will unstash as if it were new data
-			c.CacheBuffer = data[reqDataLen:]
-		} else {
-			// I don't think this can happen with TCP sockets.  We have finer control over what we read with them.
-			// Just in case, I'll handle it in a semantically correct way, but I doubt it will ever run.
-			c.CacheBuffer = dst[cacheLen+dataLen:]
-		}
-	}
-	return dataLen + cacheLen, nil
+	return n, nil
 }
 
 //readPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode of the next packet frame the client is sending us.
-func (c *client) readPacket() (*packet.Packet, error) {
+func (c *client) readPacket() (p *packet.Packet, err error) {
+	//if c.websocket {
+	//	// set the read deadline for the socket to 10 seconds from now.
+	//	err := c.Socket.SetReadDeadline(time.Now().Add(time.Second * 10))
+	//	if err != nil {
+	//		return nil, errors.ConnDeadline
+	//	}
+	//	data, err := wsutil.ReadClientBinary(c.readWriter)
+	//	if err != nil {
+	//		log.Warning.Println(err)
+	//		if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
+	//			return nil, errors.ConnClosed
+	//		} else if e, ok := err.(net.Error); ok && e.Timeout() {
+	//			return nil, errors.ConnTimedOut
+	//		}
+	//		return nil, err
+	//	}
+	//	//if len(data) < 3 {
+	//	//	c.CacheBuffer = append(c.CacheBuffer, data...)
+	//	//	return nil, errors.NewNetworkError("SHORT_DATA")
+	//	//}
+	//	//if len(c.CacheBuffer) > 0 {
+	//	//	data = append(c.CacheBuffer, data...)
+	//	//	c.CacheBuffer = c.CacheBuffer[:0]
+	//	//}
+	//	length := int(data[0] & 0xFF)
+	//	if length >= 160 {
+	//		length = (length-160)<<8+int(data[1] & 0xFF)
+	//	} else {
+	//		length--
+	//	}
+	//
+	//	if length+2 >= 5000 || length+2 < 2 {
+	//		log.Suspicious.Printf("Invalid packet length from [%v]: %d\n", c, length)
+	//		log.Warning.Printf("Packet from [%v] length out of bounds; got %d, expected between 0 and 5000\n", c, length)
+	//		return nil, errors.NewNetworkError("Packet length out of bounds; must be between 0 and 5000.")
+	//	}
+	//
+	//	opcode := data[2]
+	//	var payload []byte
+	//	if length != 0 {
+	//		payload = data[3:]
+	//	}
+	//	if length < 160 {
+	//		payload = append(payload, data[1])
+	//	}
+	//	//if len(data) > length+3 {
+	//	//	// too much data left; we should try to parse some more from it..
+	//	//	c.readWriter.Reset(wsutil.)
+	//	//}
+	//	log.Info.Println(c.CacheBuffer, opcode, payload)
+	//	return packet.NewPacket(opcode, payload), nil
+	//}
+
 	header := make([]byte, 2)
-	if l, err := c.Read(header); err != nil {
+	l, err := c.Read(header)
+	if err != nil {
 		return nil, err
-	} else if l < 2 {
+	}
+	if l < 2 {
 		return nil, errors.NewNetworkError("SHORT_DATA")
 	}
 	length := int(header[0])
 	bigLength := length >= 160
 	if bigLength {
-		// length = (length-160)*256 + int(header[1])
 		length = (length-160)<<8 + int(header[1])
 	} else {
 		// We have the final byte of frame data already, stored at header[1]
@@ -282,7 +333,6 @@ func (c *client) writePacket(p packet.Packet) {
 	frameLength := len(p.Payload)
 	header := make([]byte, 2)
 	if frameLength >= 160 {
-		//		header[0] = byte(frameLength/256+160)
 		header[0] = byte(frameLength>>8 + 160)
 		header[1] = byte(frameLength)
 	} else {

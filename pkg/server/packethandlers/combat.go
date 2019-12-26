@@ -20,6 +20,7 @@ import (
 
 func init() {
 	PacketHandlers["attacknpc"] = func(player *world.Player, p *packet.Packet) {
+		log.Info.Println(p)
 		npc := world.GetNpc(p.ReadShort())
 		if npc == nil {
 			log.Suspicious.Printf("%v tried to attack nil NPC\n", player)

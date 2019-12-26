@@ -32,6 +32,8 @@ func Bind(port int) {
 				// Chrome is picky, won't work without explicit protocol acceptance
 				return true
 			},
+			ReadBufferSize:  5000,
+			WriteBufferSize: 5000,
 		}
 
 		defer func() {
