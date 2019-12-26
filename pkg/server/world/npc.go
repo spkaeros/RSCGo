@@ -196,174 +196,173 @@ func (n *NPC) TraversePath() {
 		return
 	}
 
-	dst := NewLocation(n.X(), n.Y())
-	if rand.Int31N(0, 3) == 0 {
-		n.TransAttrs.SetVar("pathDir", rand.Int31N(0, 7))
-	}
-	switch n.TransAttrs.VarInt("pathDir", North) {
-	case North:
-		dst.y.Dec()
-	case South:
-		dst.y.Inc()
-	case East:
-		dst.x.Dec()
-	case West:
-		dst.x.Inc()
-	case NorthEast:
-		dst.y.Dec()
-		dst.x.Dec()
-	case SouthEast:
-		dst.y.Inc()
-		dst.x.Dec()
-	case NorthWest:
-		dst.y.Dec()
-		dst.x.Inc()
-	case SouthWest:
-		dst.y.Inc()
-		dst.x.Inc()
-	}
-
-	if dst.X() > n.Boundaries[1].X() || dst.Y() > n.Boundaries[1].Y() || dst.X() < n.Boundaries[0].X() || dst.Y() < n.Boundaries[0].Y() {
-		dst = NewLocation(n.X(), n.Y())
+	for tries := 0; tries < 10; tries++ {
+		dst := NewLocation(n.X(), n.Y())
+		if rand.Int31N(0, 3) == 0 {
+			n.TransAttrs.SetVar("pathDir", rand.Int31N(0, 7))
+		}
 		switch n.TransAttrs.VarInt("pathDir", North) {
 		case North:
-			n.TransAttrs.SetVar("pathDir", South)
+			dst.y.Dec()
 		case South:
-			n.TransAttrs.SetVar("pathDir", North)
+			dst.y.Inc()
 		case East:
-			n.TransAttrs.SetVar("pathDir", West)
+			dst.x.Dec()
 		case West:
-			n.TransAttrs.SetVar("pathDir", East)
+			dst.x.Inc()
 		case NorthEast:
-			n.TransAttrs.SetVar("pathDir", SouthWest)
+			dst.y.Dec()
+			dst.x.Dec()
 		case SouthEast:
-			n.TransAttrs.SetVar("pathDir", NorthWest)
+			dst.y.Inc()
+			dst.x.Dec()
 		case NorthWest:
-			n.TransAttrs.SetVar("pathDir", SouthEast)
+			dst.y.Dec()
+			dst.x.Inc()
 		case SouthWest:
-			n.TransAttrs.SetVar("pathDir", NorthEast)
+			dst.y.Inc()
+			dst.x.Inc()
 		}
-		n.TraversePath()
-		return
-	}
 
-	x, y := n.X(), n.Y()
-	next := NewLocation(x, y)
-	xBlocked, yBlocked := false, false
-	newXBlocked, newYBlocked := false, false
-	if y > dst.Y() {
-		yBlocked = IsTileBlocking(x, y, ClipNorth, true)
-		newYBlocked = IsTileBlocking(x, y-1, ClipSouth, false)
-		if !newYBlocked {
-			next.y.Dec()
+		if dst.X() > n.Boundaries[1].X() || dst.Y() > n.Boundaries[1].Y() || dst.X() < n.Boundaries[0].X() || dst.Y() < n.Boundaries[0].Y() {
+			dst = NewLocation(n.X(), n.Y())
+			switch n.TransAttrs.VarInt("pathDir", North) {
+			case North:
+				n.TransAttrs.SetVar("pathDir", South)
+			case South:
+				n.TransAttrs.SetVar("pathDir", North)
+			case East:
+				n.TransAttrs.SetVar("pathDir", West)
+			case West:
+				n.TransAttrs.SetVar("pathDir", East)
+			case NorthEast:
+				n.TransAttrs.SetVar("pathDir", SouthWest)
+			case SouthEast:
+				n.TransAttrs.SetVar("pathDir", NorthWest)
+			case NorthWest:
+				n.TransAttrs.SetVar("pathDir", SouthEast)
+			case SouthWest:
+				n.TransAttrs.SetVar("pathDir", NorthEast)
+			}
+			continue
 		}
-	} else if y < dst.Y() {
-		yBlocked = IsTileBlocking(x, y, ClipSouth, true)
-		newYBlocked = IsTileBlocking(x, y+1, ClipNorth, false)
-		if !newYBlocked {
-			next.y.Inc()
-		}
-	}
-	if x > dst.X() {
-		xBlocked = IsTileBlocking(x, next.Y(), ClipEast, true)
-		newXBlocked = IsTileBlocking(x-1, next.Y(), ClipWest, false)
-		if !newXBlocked {
-			next.x.Dec()
-		}
-	} else if x < dst.X() {
-		xBlocked = IsTileBlocking(x, next.Y(), ClipWest, true)
-		newXBlocked = IsTileBlocking(x+1, next.Y(), ClipEast, false)
-		if !newXBlocked {
-			next.x.Inc()
-		}
-	}
 
-	if (xBlocked && yBlocked) || (xBlocked && y == dst.Y()) || (yBlocked && x == dst.X()) {
-		dst = NewLocation(n.X(), n.Y())
-		switch n.TransAttrs.VarInt("pathDir", North) {
-		case North:
-			n.TransAttrs.SetVar("pathDir", South)
-		case South:
-			n.TransAttrs.SetVar("pathDir", North)
-		case East:
-			n.TransAttrs.SetVar("pathDir", West)
-		case West:
-			n.TransAttrs.SetVar("pathDir", East)
-		case NorthEast:
-			n.TransAttrs.SetVar("pathDir", SouthWest)
-		case SouthEast:
-			n.TransAttrs.SetVar("pathDir", NorthWest)
-		case NorthWest:
-			n.TransAttrs.SetVar("pathDir", SouthEast)
-		case SouthWest:
-			n.TransAttrs.SetVar("pathDir", NorthEast)
+		x, y := n.X(), n.Y()
+		next := NewLocation(x, y)
+		xBlocked, yBlocked := false, false
+		newXBlocked, newYBlocked := false, false
+		if y > dst.Y() {
+			yBlocked = IsTileBlocking(x, y, ClipNorth, true)
+			newYBlocked = IsTileBlocking(x, y-1, ClipSouth, false)
+			if !newYBlocked {
+				next.y.Dec()
+			}
+		} else if y < dst.Y() {
+			yBlocked = IsTileBlocking(x, y, ClipSouth, true)
+			newYBlocked = IsTileBlocking(x, y+1, ClipNorth, false)
+			if !newYBlocked {
+				next.y.Inc()
+			}
 		}
-		n.TraversePath()
-		return
-	}
-	if (newXBlocked && newYBlocked) || (newXBlocked && x != next.X() && y == next.Y()) || (newYBlocked && y != next.Y() && x == next.X()) {
-		dst = NewLocation(n.X(), n.Y())
-		switch n.TransAttrs.VarInt("pathDir", North) {
-		case North:
-			n.TransAttrs.SetVar("pathDir", South)
-		case South:
-			n.TransAttrs.SetVar("pathDir", North)
-		case East:
-			n.TransAttrs.SetVar("pathDir", West)
-		case West:
-			n.TransAttrs.SetVar("pathDir", East)
-		case NorthEast:
-			n.TransAttrs.SetVar("pathDir", SouthWest)
-		case SouthEast:
-			n.TransAttrs.SetVar("pathDir", NorthWest)
-		case NorthWest:
-			n.TransAttrs.SetVar("pathDir", SouthEast)
-		case SouthWest:
-			n.TransAttrs.SetVar("pathDir", NorthEast)
+		if x > dst.X() {
+			xBlocked = IsTileBlocking(x, next.Y(), ClipEast, true)
+			newXBlocked = IsTileBlocking(x-1, next.Y(), ClipWest, false)
+			if !newXBlocked {
+				next.x.Dec()
+			}
+		} else if x < dst.X() {
+			xBlocked = IsTileBlocking(x, next.Y(), ClipWest, true)
+			newXBlocked = IsTileBlocking(x+1, next.Y(), ClipEast, false)
+			if !newXBlocked {
+				next.x.Inc()
+			}
 		}
-		n.TraversePath()
-		return
-	}
 
-	if next.X() > x {
-		newXBlocked = IsTileBlocking(next.X(), next.Y(), ClipEast, false)
-	} else if next.X() < x {
-		newXBlocked = IsTileBlocking(next.X(), next.Y(), ClipWest, false)
-	}
-
-	if next.Y() > y {
-		newYBlocked = IsTileBlocking(next.X(), next.Y(), ClipNorth, false)
-	} else if next.Y() < y {
-		newYBlocked = IsTileBlocking(next.X(), next.Y(), ClipSouth, false)
-	}
-
-	if (newXBlocked && newYBlocked) || (newXBlocked && y == next.Y()) || (newYBlocked && x == next.X()) {
-		dst = NewLocation(n.X(), n.Y())
-		switch n.TransAttrs.VarInt("pathDir", North) {
-		case North:
-			n.TransAttrs.SetVar("pathDir", South)
-		case South:
-			n.TransAttrs.SetVar("pathDir", North)
-		case East:
-			n.TransAttrs.SetVar("pathDir", West)
-		case West:
-			n.TransAttrs.SetVar("pathDir", East)
-		case NorthEast:
-			n.TransAttrs.SetVar("pathDir", SouthWest)
-		case SouthEast:
-			n.TransAttrs.SetVar("pathDir", NorthWest)
-		case NorthWest:
-			n.TransAttrs.SetVar("pathDir", SouthEast)
-		case SouthWest:
-			n.TransAttrs.SetVar("pathDir", NorthEast)
+		if (xBlocked && yBlocked) || (xBlocked && y == dst.Y()) || (yBlocked && x == dst.X()) {
+			dst = NewLocation(n.X(), n.Y())
+			switch n.TransAttrs.VarInt("pathDir", North) {
+			case North:
+				n.TransAttrs.SetVar("pathDir", South)
+			case South:
+				n.TransAttrs.SetVar("pathDir", North)
+			case East:
+				n.TransAttrs.SetVar("pathDir", West)
+			case West:
+				n.TransAttrs.SetVar("pathDir", East)
+			case NorthEast:
+				n.TransAttrs.SetVar("pathDir", SouthWest)
+			case SouthEast:
+				n.TransAttrs.SetVar("pathDir", NorthWest)
+			case NorthWest:
+				n.TransAttrs.SetVar("pathDir", SouthEast)
+			case SouthWest:
+				n.TransAttrs.SetVar("pathDir", NorthEast)
+			}
+			continue
 		}
-		n.TraversePath()
-		return
+		if (newXBlocked && newYBlocked) || (newXBlocked && x != next.X() && y == next.Y()) || (newYBlocked && y != next.Y() && x == next.X()) {
+			dst = NewLocation(n.X(), n.Y())
+			switch n.TransAttrs.VarInt("pathDir", North) {
+			case North:
+				n.TransAttrs.SetVar("pathDir", South)
+			case South:
+				n.TransAttrs.SetVar("pathDir", North)
+			case East:
+				n.TransAttrs.SetVar("pathDir", West)
+			case West:
+				n.TransAttrs.SetVar("pathDir", East)
+			case NorthEast:
+				n.TransAttrs.SetVar("pathDir", SouthWest)
+			case SouthEast:
+				n.TransAttrs.SetVar("pathDir", NorthWest)
+			case NorthWest:
+				n.TransAttrs.SetVar("pathDir", SouthEast)
+			case SouthWest:
+				n.TransAttrs.SetVar("pathDir", NorthEast)
+			}
+			continue
+		}
+
+		if next.X() > x {
+			newXBlocked = IsTileBlocking(next.X(), next.Y(), ClipEast, false)
+		} else if next.X() < x {
+			newXBlocked = IsTileBlocking(next.X(), next.Y(), ClipWest, false)
+		}
+
+		if next.Y() > y {
+			newYBlocked = IsTileBlocking(next.X(), next.Y(), ClipNorth, false)
+		} else if next.Y() < y {
+			newYBlocked = IsTileBlocking(next.X(), next.Y(), ClipSouth, false)
+		}
+
+		if (newXBlocked && newYBlocked) || (newXBlocked && y == next.Y()) || (newYBlocked && x == next.X()) {
+			dst = NewLocation(n.X(), n.Y())
+			switch n.TransAttrs.VarInt("pathDir", North) {
+			case North:
+				n.TransAttrs.SetVar("pathDir", South)
+			case South:
+				n.TransAttrs.SetVar("pathDir", North)
+			case East:
+				n.TransAttrs.SetVar("pathDir", West)
+			case West:
+				n.TransAttrs.SetVar("pathDir", East)
+			case NorthEast:
+				n.TransAttrs.SetVar("pathDir", SouthWest)
+			case SouthEast:
+				n.TransAttrs.SetVar("pathDir", NorthWest)
+			case NorthWest:
+				n.TransAttrs.SetVar("pathDir", SouthEast)
+			case SouthWest:
+				n.TransAttrs.SetVar("pathDir", NorthEast)
+			}
+			continue
+		}
+
+		n.TransAttrs.DecVar("pathLength", 1)
+
+		n.SetLocation(next, false)
+		break
 	}
-
-	n.TransAttrs.DecVar("pathLength", 1)
-
-	n.SetLocation(next, false)
 }
 
 //ChatIndirect sends a chat message to target and all of target's view area players, without any delay.
