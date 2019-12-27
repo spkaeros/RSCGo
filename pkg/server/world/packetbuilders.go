@@ -246,6 +246,7 @@ func NPCPositions(player *Player) (p *packet.Packet) {
 	for _, n := range removing.set {
 		player.LocalNPCs.Remove(n)
 	}
+
 	newCount := 0
 	for _, n := range player.NewNPCs() {
 		if len(player.LocalNPCs.set) >= 255 {
