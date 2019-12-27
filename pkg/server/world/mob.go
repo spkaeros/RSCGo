@@ -1,12 +1,10 @@
 package world
 
 import (
-	"math"
 	"math/rand"
 	"sync"
 	"time"
 
-	rscRand "github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 )
 
@@ -62,7 +60,9 @@ type MobileEntity interface {
 	Y() int
 	Skills() *SkillTable
 	MeleeDamage(target MobileEntity) int
-	Defense() float64
+	DefensiveCapability() float64
+	AccuracyCapability() float64
+	MaxHit() int
 	Transients() *AttributeList
 	IsFighting() bool
 	FightTarget() MobileEntity
@@ -101,6 +101,8 @@ type MobileEntity interface {
 	ResetAppearanceChanged()
 	Killed(MobileEntity)
 	Damage(int)
+	StyleBonus(int) int
+	PrayerModifiers() [3]float64
 }
 
 func (m *Mob) Transients() *AttributeList {
@@ -456,24 +458,26 @@ func (m *Mob) StyleBonus(stat int) int {
 	return 0
 }
 
-//MaxHit Calculates and returns the current max hit for this mob.
+//MaxHit Calculates and returns the current max hit for this mob, based on many variables.
 func (m *Mob) MaxHit() int {
 	return int(((float64(m.Skills().Current(StatStrength))*m.PrayerModifiers()[StatStrength])+float64(m.StyleBonus(StatStrength)))*((float64(m.PowerPoints())*0.00175)+0.1) + 1.05)
 }
 
-func (m *Mob) Accuracy() float64 {
+//AccuracyCapability Calculates and returns the accuracy capability of this mob, based on many variables, as a single variable.
+func (m *Mob) AccuracyCapability() float64 {
 	return (float64(m.Skills().Current(StatAttack)) * m.PrayerModifiers()[StatAttack]) + float64(m.StyleBonus(StatAttack)+m.AimPoints())
 }
 
-func (m *Mob) Defense() float64 {
+//DefensiveCapability Calculates and returns the defensive capability of this mob, based on many variables, as a single variable.
+func (m *Mob) DefensiveCapability() float64 {
 	return (float64(m.Skills().Current(StatDefense)) * m.PrayerModifiers()[StatDefense]) + float64(m.StyleBonus(StatDefense)+m.ArmourPoints())
 }
 
+//MeleeDamage Calculates and returns a melee damage from the receiver mob onto the target mob.
 func (m *Mob) MeleeDamage(target MobileEntity) int {
-	// 192/256 is base hit chance of 75%
-	if int(rscRand.Uint8()) < int(math.Min(192.0, 255.0*(m.Accuracy()/(target.Defense()*6)))) {
+	if BoundedChance((m.AccuracyCapability()/(target.DefensiveCapability()*6))*100, 7.5, 75.0) {
 		maxDamage := m.MaxHit()
-		ret := (maxDamage / 2) + int(rand.NormFloat64()*float64(maxDamage)/3)
+		var ret int
 		for ret > maxDamage || ret < 1 {
 			ret = (maxDamage / 2) + int(rand.NormFloat64()*float64(maxDamage)/3)
 		}

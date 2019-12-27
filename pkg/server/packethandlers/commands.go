@@ -120,7 +120,9 @@ func init() {
 		line := strings.Join(args, " ")
 		env := script.WorldModule()
 		env.Define("player", player)
-		ret, err := vm.Execute(env, nil, line)
+		ret, err := vm.Execute(env, nil,
+			`world = import("world");
+		` + line)
 		if err != nil {
 			player.Message("Error: " + err.Error())
 			log.Info.Println("Anko Error: " + err.Error())

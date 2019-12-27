@@ -53,8 +53,6 @@ func init() {
 						player.SendPacket(world.ShopOpen(shop))
 					}
 				})
-			} else {
-
 			}
 		}
 	}

@@ -2,9 +2,11 @@ package world
 
 import (
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
+	rscRand "github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/server/config"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 )
@@ -503,4 +505,36 @@ func surroundingRegions(x, y int) (regions [4]*region) {
 	}
 
 	return
+}
+
+//BoundedChance should return true (percent)% of the time, and false (100-percent)% of the time.
+// It uses ISAAC64+ to provide randomness. If percent is not inside the specified boundaries, it will be
+// ignored and the appropriate boundary will replace it.
+//
+// percent defines the percentage of chance for this check to pass, as long as it's between minPercent and maxPercent.
+//
+// minPercent defines the minimum percentage of chance for this check to pass.  if percent is lower than this, it will
+// be ignored and this will be used.
+//
+// maxPercent defines the maximum percentage of chance for this check to pass.  if percent is higher than this, it will
+// be ignored and this will be used.
+func BoundedChance(percent float64, minPercent, maxPercent float64) bool {
+	if minPercent < 0.0 {
+		minPercent = 0.0
+	}
+	if maxPercent > 100.0 {
+		maxPercent = 100.0
+	}
+	if minPercent > maxPercent {
+		maxPercent, minPercent = minPercent, maxPercent
+	}
+	return float64(rscRand.Uint8()) < math.Max(minPercent, math.Min(maxPercent, percent)) / 100.0 * 256.0
+}
+
+//Chance should return true (percent)% of the time, and false (100-percent)% of the time.
+// It uses ISAAC64+ to provide randomness.
+//
+// percent defines the percentage of chance for this check to pass.
+func Chance(percent float64) bool {
+	return BoundedChance(percent, 0.0, 100.0)
 }

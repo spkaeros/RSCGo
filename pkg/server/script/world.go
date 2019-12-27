@@ -38,6 +38,8 @@ func init() {
 		"addNpc":          reflect.ValueOf(world.AddNpc),
 		"removeNpc":       reflect.ValueOf(world.RemoveNpc),
 		"addItem":         reflect.ValueOf(world.AddItem),
+		"roll":            reflect.ValueOf(world.Chance),
+		"boundedRoll":     reflect.ValueOf(world.BoundedChance),
 		"removeItem":      reflect.ValueOf(world.RemoveItem),
 		"getObjectAt":     reflect.ValueOf(world.GetObject),
 		"getNpc":          reflect.ValueOf(world.GetNpc),
