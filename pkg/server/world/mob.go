@@ -2,9 +2,9 @@ package world
 
 import (
 	"math"
+	"math/rand"
 	"sync"
 	"time"
-	"math/rand"
 
 	rscRand "github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/server/log"
@@ -413,7 +413,7 @@ func (m *Mob) Skills() *SkillTable {
 }
 
 func (m *Mob) PrayerModifiers() [3]float64 {
-	var modifiers = [...]float64 { 1.0, 1.0, 1.0 }
+	var modifiers = [...]float64{1.0, 1.0, 1.0}
 
 	if m.TransAttrs.VarBool("prayer0", false) {
 		modifiers[1] += .05
@@ -458,23 +458,24 @@ func (m *Mob) StyleBonus(stat int) int {
 
 //MaxHit Calculates and returns the current max hit for this mob.
 func (m *Mob) MaxHit() int {
-	return int(((float64(m.Skills().Current(StatStrength))*m.PrayerModifiers()[StatStrength])+float64(m.StyleBonus(StatStrength)))* ((float64(m.PowerPoints()) * 0.00175) + 0.1) + 1.05)
+	return int(((float64(m.Skills().Current(StatStrength))*m.PrayerModifiers()[StatStrength])+float64(m.StyleBonus(StatStrength)))*((float64(m.PowerPoints())*0.00175)+0.1) + 1.05)
 }
 
 func (m *Mob) Accuracy() float64 {
-	return (float64(m.Skills().Current(StatAttack)) * m.PrayerModifiers()[StatAttack]) + float64(m.StyleBonus(StatAttack) + m.AimPoints())
+	return (float64(m.Skills().Current(StatAttack)) * m.PrayerModifiers()[StatAttack]) + float64(m.StyleBonus(StatAttack)+m.AimPoints())
 }
 
 func (m *Mob) Defense() float64 {
-	return (float64(m.Skills().Current(StatDefense)) * m.PrayerModifiers()[StatDefense]) + float64(m.StyleBonus(StatDefense) + m.ArmourPoints())
+	return (float64(m.Skills().Current(StatDefense)) * m.PrayerModifiers()[StatDefense]) + float64(m.StyleBonus(StatDefense)+m.ArmourPoints())
 }
 
 func (m *Mob) MeleeDamage(target MobileEntity) int {
-	if int(rscRand.Uint8()) <= int(math.Min(212.0, 255.0 * (m.Accuracy()/(target.Defense()*6)))) {
+	// 192/256 is base hit chance of 75%
+	if int(rscRand.Uint8()) < int(math.Min(192.0, 255.0*(m.Accuracy()/(target.Defense()*6)))) {
 		maxDamage := m.MaxHit()
-		ret := (maxDamage /2) + int(rand.NormFloat64()*float64(maxDamage)/3)
+		ret := (maxDamage / 2) + int(rand.NormFloat64()*float64(maxDamage)/3)
 		for ret > maxDamage || ret < 1 {
-			ret = (maxDamage /2) + int(rand.NormFloat64()*float64(maxDamage)/3)
+			ret = (maxDamage / 2) + int(rand.NormFloat64()*float64(maxDamage)/3)
 		}
 		return ret
 	}

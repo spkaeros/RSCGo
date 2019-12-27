@@ -99,7 +99,7 @@ func UpdateNPCPositions() {
 				if len(r.Players.set) > 0 {
 					r.Players.lock.RUnlock()
 					n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
-//					go n.WalkTo(NewRandomLocation(n.Boundaries))
+					//					go n.WalkTo(NewRandomLocation(n.Boundaries))
 					n.TransAttrs.SetVar("pathLength", rand.Int31N(5, 15))
 					break
 				}
@@ -180,17 +180,17 @@ func (n *NPC) Killed(killer MobileEntity) {
 
 //TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
 func (n *NPC) TraversePath() {
-/*	path := n.Path()
-	if path == nil {
-		return
-	}
-	if n.AtLocation(path.nextTile()) {
-		path.CurrentWaypoint++
-	}
-	if n.FinishedPath() {
-		n.ResetPath()
-		return
-	}*/
+	/*	path := n.Path()
+		if path == nil {
+			return
+		}
+		if n.AtLocation(path.nextTile()) {
+			path.CurrentWaypoint++
+		}
+		if n.FinishedPath() {
+			n.ResetPath()
+			return
+		}*/
 	//dst := path.nextTile()
 	if n.TransAttrs.VarInt("pathLength", 0) <= 0 {
 		return

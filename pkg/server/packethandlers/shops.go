@@ -29,7 +29,7 @@ func init() {
 				return
 			}
 
-			if !shop.Inventory.Contains(id) {
+			if shop.Inventory.Count(id) < 1 {
 				log.Suspicious.Println(player, "tried buying item["+strconv.Itoa(id)+"] for ["+strconv.Itoa(price)+"gp] but the ("+shop.Name+") shop is out of that item.")
 				// TODO: og rsc msg here
 				player.Message("There is no more of those in stock right now")

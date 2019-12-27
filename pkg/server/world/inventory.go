@@ -111,7 +111,7 @@ func (i *Item) ScalePrice(percent int) int {
 // Upper bound for percent intended to basically not exist; in practice it's limited by the data type of the argument.
 // Lower bound for percent is 10, anything lower will be treated as if it were 10%.
 func (p Price) Scale(percent int) Price {
-	return Price(int(math.Max(10, float64(percent))) * int(p) / 100)
+	return Price(int(math.Max(10, float64(percent))) * int(p)) / 100
 }
 
 func (i *Item) Command() string {

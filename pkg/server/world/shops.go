@@ -230,7 +230,15 @@ func (s *ShopItems) Add(item *Item) {
 		defer s.Unlock()
 		s.set = append(s.set, item)
 	} else {
-		s.Get(item.ID).Amount += 1
+		s.RLock()
+		defer s.RUnlock()
+		for _, shopItem := range s.set {
+			if shopItem.ID == item.ID {
+				for i := 0; i < item.Amount; i++ {
+					shopItem.Amount += 1
+				}
+			}
+		}
 	}
 }
 
@@ -281,7 +289,14 @@ func (s *ShopItems) Get(id int) *Item {
 //
 // Returns: true if this shop items collection has any items with the provided ID, otherwise returns false.
 func (s *ShopItems) Contains(id int) bool {
-	return s.Count(id) > 0
+	s.RLock()
+	defer s.RUnlock()
+	for _, item := range s.set {
+		if item.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 // Ensures safe access when requesting the current count of a specific item by ID in this shops inventory.
