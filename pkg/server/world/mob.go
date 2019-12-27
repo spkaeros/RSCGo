@@ -1,10 +1,12 @@
 package world
 
 import (
+	"math"
 	"sync"
 	"time"
+	"math/rand"
 
-	"github.com/spkaeros/rscgo/pkg/rand"
+	rscRand "github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 )
 
@@ -60,7 +62,7 @@ type MobileEntity interface {
 	Y() int
 	Skills() *SkillTable
 	MeleeDamage(target MobileEntity) int
-	Defense(float32, float32) float32
+	Defense() float64
 	Transients() *AttributeList
 	IsFighting() bool
 	FightTarget() MobileEntity
@@ -410,38 +412,37 @@ func (m *Mob) Skills() *SkillTable {
 	return m.TransAttrs.VarSkills("skills")
 }
 
-func PrayerModifiers(m MobileEntity) [3]float32 {
-	modifiers := [3]float32{1.0, 1.0, 1.0}
+func (m *Mob) PrayerModifiers() [3]float64 {
+	var modifiers = [...]float64 { 1.0, 1.0, 1.0 }
 
-	if m, ok := m.(*Player); ok {
-		if m.PrayerActivated(0) {
-			modifiers[1] += .05
-		}
-		if m.PrayerActivated(1) {
-			modifiers[2] += .05
-		}
-		if m.PrayerActivated(2) {
-			modifiers[0] += .05
-		}
-		if m.PrayerActivated(3) {
-			modifiers[1] += .1
-		}
-		if m.PrayerActivated(4) {
-			modifiers[2] += .1
-		}
-		if m.PrayerActivated(5) {
-			modifiers[0] += .1
-		}
-		if m.PrayerActivated(9) {
-			modifiers[1] += .15
-		}
-		if m.PrayerActivated(10) {
-			modifiers[2] += .15
-		}
-		if m.PrayerActivated(11) {
-			modifiers[0] += .15
-		}
+	if m.TransAttrs.VarBool("prayer0", false) {
+		modifiers[1] += .05
 	}
+	if m.TransAttrs.VarBool("prayer1", false) {
+		modifiers[2] += .05
+	}
+	if m.TransAttrs.VarBool("prayer2", false) {
+		modifiers[0] += .05
+	}
+	if m.TransAttrs.VarBool("prayer3", false) {
+		modifiers[1] += .1
+	}
+	if m.TransAttrs.VarBool("prayer4", false) {
+		modifiers[2] += .1
+	}
+	if m.TransAttrs.VarBool("prayer5", false) {
+		modifiers[0] += .1
+	}
+	if m.TransAttrs.VarBool("prayer9", false) {
+		modifiers[1] += .15
+	}
+	if m.TransAttrs.VarBool("prayer10", false) {
+		modifiers[2] += .15
+	}
+	if m.TransAttrs.VarBool("prayer11", false) {
+		modifiers[0] += .15
+	}
+
 	return modifiers
 }
 
@@ -456,75 +457,26 @@ func (m *Mob) StyleBonus(stat int) int {
 }
 
 //MaxHit Calculates and returns the current max hit for this mob.
-func (m *Mob) MaxHit(prayer float32) int {
-	newStr := (float32(m.Skills().Current(StatStrength)) * prayer) + float32(m.StyleBonus(StatStrength))
-	return int((newStr*((float32(m.PowerPoints())*0.00175)+0.1) + 1.05) * 0.95)
+func (m *Mob) MaxHit() int {
+	return int(((float64(m.Skills().Current(StatStrength))*m.PrayerModifiers()[StatStrength])+float64(m.StyleBonus(StatStrength)))* ((float64(m.PowerPoints()) * 0.00175) + 0.1) + 1.05)
 }
 
-func (m *Mob) Accuracy(npcMul float32, prayer float32) float32 {
-	styleBonus := float32(m.StyleBonus(StatAttack))
-	attackLvl := (float32(m.Skills().Current(StatAttack)) * prayer) + styleBonus + 8
-	multiplier := float32(m.AimPoints() + 64)
-	multiplier *= npcMul
-	return attackLvl * multiplier
+func (m *Mob) Accuracy() float64 {
+	return (float64(m.Skills().Current(StatAttack)) * m.PrayerModifiers()[StatAttack]) + float64(m.StyleBonus(StatAttack) + m.AimPoints())
 }
 
-func (m *Mob) Defense(npcMul float32, prayer float32) float32 {
-	styleBonus := float32(m.StyleBonus(StatDefense))
-	defenseLvl := (float32(m.Skills().Current(StatDefense)) * prayer) + styleBonus + 8
-	multiplier := float32(m.ArmourPoints() + 64)
-	multiplier *= npcMul
-	return defenseLvl * multiplier
+func (m *Mob) Defense() float64 {
+	return (float64(m.Skills().Current(StatDefense)) * m.PrayerModifiers()[StatDefense]) + float64(m.StyleBonus(StatDefense) + m.ArmourPoints())
 }
 
-func (n *NPC) MeleeDamage(target MobileEntity) int {
-	att := n.Accuracy(0.9, PrayerModifiers(n)[0])
-	mul := float32(1.0)
-	if _, ok := target.(*NPC); ok {
-		mul = 0.9
-	}
-	def := target.Defense(mul, PrayerModifiers(target)[1])
-	max := n.MaxHit(PrayerModifiers(n)[2])
-	if att*10 < def {
-		return 0
-	}
-
-	finalAtt := int((att / (2.0 * (def + 1.0))) * 10000.0)
-
-	if att > def {
-		finalAtt = int((1.0 - ((def + 2.0) / (2.0 * (att + 1.0)))) * 10000.0)
-	}
-
-	roll := rand.Int31N(0, 10000)
-	//	log.Info.Println(finalAtt, roll, att, def, max)
-	if finalAtt > roll {
-		return rand.Int31N(0, max)
-	}
-	return 0
-}
-
-func (p *Player) MeleeDamage(target MobileEntity) int {
-	att := p.Accuracy(1.0, PrayerModifiers(p)[0])
-	mul := float32(1.0)
-	if _, ok := target.(*NPC); ok {
-		mul = 0.9
-	}
-	def := target.Defense(mul, PrayerModifiers(target)[1])
-	max := p.MaxHit(PrayerModifiers(p)[2])
-	if att*10 < def {
-		return 0
-	}
-
-	finalAtt := int((att / (2.0 * (def + 1.0))) * 10000.0)
-
-	if att > def {
-		finalAtt = int((1.0 - ((def + 2.0) / (2.0 * (att + 1.0)))) * 10000.0)
-	}
-
-	roll := rand.Int31N(0, 10000)
-	//	log.Info.Println(finalAtt, roll, att, def, max)
-	if finalAtt > roll {
-		return rand.Int31N(0, max)
+func (m *Mob) MeleeDamage(target MobileEntity) int {
+	if int(rscRand.Uint8()) <= int(math.Min(212.0, 255.0 * (m.Accuracy()/(target.Defense()*6)))) {
+		maxDamage := m.MaxHit()
+		ret := (maxDamage /2) + int(rand.NormFloat64()*float64(maxDamage)/3)
+		for ret > maxDamage || ret < 1 {
+			ret = (maxDamage /2) + int(rand.NormFloat64()*float64(maxDamage)/3)
+		}
+		return ret
 	}
 	return 0
 }
