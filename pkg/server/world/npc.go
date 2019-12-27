@@ -198,7 +198,7 @@ func (n *NPC) TraversePath() {
 
 	for tries := 0; tries < 10; tries++ {
 		dst := NewLocation(n.X(), n.Y())
-		if rand.Uint8n(4) == 3 {
+		if Chance(25) {
 			n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
 		}
 		switch n.TransAttrs.VarInt("pathDir", North) {
@@ -206,7 +206,7 @@ func (n *NPC) TraversePath() {
 			if IsTileBlocking(dst.X(), dst.Y()-1, ClipSouth, false) ||
 				dst.X() > n.Boundaries[1].X() || dst.Y()-1 > n.Boundaries[1].Y() ||
 				dst.X() < n.Boundaries[0].X() || dst.Y()-1 < n.Boundaries[0].Y() {
-				n.TransAttrs.SetVar("pathDir", South)
+				n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
 				continue
 			}
 			dst.y.Dec()
@@ -214,7 +214,7 @@ func (n *NPC) TraversePath() {
 			if IsTileBlocking(dst.X(), dst.Y()+1, ClipNorth, false) ||
 				dst.X() > n.Boundaries[1].X() || dst.Y()+1 > n.Boundaries[1].Y() ||
 				dst.X() < n.Boundaries[0].X() || dst.Y()+1 < n.Boundaries[0].Y() {
-				n.TransAttrs.SetVar("pathDir", North)
+				n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
 				continue
 			}
 			dst.y.Inc()
@@ -222,7 +222,7 @@ func (n *NPC) TraversePath() {
 			if IsTileBlocking(dst.X()-1, dst.Y(), ClipWest, false) ||
 				dst.X()-1 > n.Boundaries[1].X() || dst.Y() > n.Boundaries[1].Y() ||
 				dst.X()-1 < n.Boundaries[0].X() || dst.Y() < n.Boundaries[0].Y() {
-				n.TransAttrs.SetVar("pathDir", West)
+				n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
 				continue
 			}
 			dst.x.Dec()
@@ -230,7 +230,7 @@ func (n *NPC) TraversePath() {
 			if IsTileBlocking(dst.X()+1, dst.Y(), ClipEast, false) ||
 				dst.X()+1 > n.Boundaries[1].X() || dst.Y() > n.Boundaries[1].Y() ||
 				dst.X()+1 < n.Boundaries[0].X() || dst.Y() < n.Boundaries[0].Y() {
-				n.TransAttrs.SetVar("pathDir", East)
+				n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
 				continue
 			}
 			dst.x.Inc()
@@ -240,7 +240,7 @@ func (n *NPC) TraversePath() {
 				IsTileBlocking(dst.X()-1, dst.Y(), ClipWest, false) ||
 				dst.X()-1 > n.Boundaries[1].X() || dst.Y()-1 > n.Boundaries[1].Y() ||
 				dst.X()-1 < n.Boundaries[0].X() || dst.Y()-1 < n.Boundaries[0].Y() {
-				n.TransAttrs.SetVar("pathDir", SouthWest)
+				n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
 				continue
 			}
 			dst.y.Dec()
@@ -251,7 +251,7 @@ func (n *NPC) TraversePath() {
 				IsTileBlocking(dst.X()-1, dst.Y(), ClipWest, false) ||
 				dst.X()-1 > n.Boundaries[1].X() || dst.Y()+1 > n.Boundaries[1].Y() ||
 				dst.X()-1 < n.Boundaries[0].X() || dst.Y()+1 < n.Boundaries[0].Y() {
-				n.TransAttrs.SetVar("pathDir", NorthWest)
+				n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
 				continue
 			}
 			dst.y.Inc()
@@ -262,7 +262,7 @@ func (n *NPC) TraversePath() {
 				IsTileBlocking(dst.X()+1, dst.Y(), ClipEast, false) ||
 				dst.X()+1 > n.Boundaries[1].X() || dst.Y()-1 > n.Boundaries[1].Y() ||
 				dst.X()+1 < n.Boundaries[0].X() || dst.Y()-1 < n.Boundaries[0].Y() {
-				n.TransAttrs.SetVar("pathDir", SouthEast)
+				n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
 				continue
 			}
 			dst.y.Dec()
@@ -273,7 +273,7 @@ func (n *NPC) TraversePath() {
 				IsTileBlocking(dst.X()+1, dst.Y(), ClipEast, false) ||
 				dst.X()+1 > n.Boundaries[1].X() || dst.Y()+1 > n.Boundaries[1].Y() ||
 				dst.X()+1 < n.Boundaries[0].X() || dst.Y()+1 < n.Boundaries[0].Y() {
-				n.TransAttrs.SetVar("pathDir", NorthEast)
+				n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
 				continue
 			}
 			dst.y.Inc()
