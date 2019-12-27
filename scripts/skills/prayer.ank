@@ -1,55 +1,87 @@
 bind = import("bind")
 time = import("time")
 
-drainRates = [15, 15, 15, 30, 30, 30, 5, 10, 10, 60, 60, 60, 60, 60]
+drainRates = [
+	15,
+	15,
+	15,
+	30,
+	30,
+	30,
+	5,
+	10,
+	10,
+	60,
+	60,
+	60,
+	60,
+	60
+]
 
 bind.onLogin(func(player) {
-	partialPoints = 0.0
-	active = {}
-	outOfPoints = func(player) {
-		for i = 0; i < 14; i++ {
-			player.PrayerOff(i)
+	percentDepleted = 0.0
+	drainedTimes = {}
+	
+	drainTime = func(idx) {
+		return 180000 / drainRates[idx] * (1 + player.PrayerPoints() / 30.0)
+	}
+
+	ranOut = func() {
+		for idx in range(14) {
+			player.PrayerOff(idx)
 		}
+		
 		player.SendPrayers()
 		player.Message("You have run out of prayer points. Return to a church to recharge")
-		active = {}
+		drainedTimes = {}
+		percentDepleted = 0.0
+	}
+
+	drain = func() {
+		player.IncCurStat(PRAYER, -1)
+		
+		if player.Skills().Current(PRAYER) <= 0 {
+			ranOut()
+			return true
+		}
+
+		return false
 	}
 
 	player.Tickables += func() {
-		for index = 0; index < 14; index++ {
-			prayerActivated = player.Transients().VarBool("prayer" + index, false)
-			last, ok = active[index]
-			if prayerActivated && !ok {
-				active[index] = time.Now()
-			} else if !prayerActivated && ok {
-				lastDrain = time.Since(last).Milliseconds()
-				delay = 180000 / (drainRates[index] * (1 + player.PrayerPoints() / 30.0))
-				partialPoints += (lastDrain / delay)
-				delete(active, index)
-			}
-			if prayerActivated && player.Skills().Current(PRAYER) < 1 {
-				outOfPoints(player)
-			}
-		}
+		for index in range(14) {
+			lastDrain, ok = drainedTimes[index]
 
-		for key, value in active {
-			delay = 180000.0 / (drainRates[key] * (1 + player.PrayerPoints() / 30.0))
-			if time.Since(value).Milliseconds() >= delay {
-				active[key] = time.Now()
-				if player.Skills().Current(PRAYER) > 0 {
-					player.IncCurStat(PRAYER, -1)
-				} else {
-					outOfPoints(player)
+			if ok {
+				// prayer at index was on last tick
+				if !player.PrayerActivated(index) {
+					// but now it's off
+					percentDepleted += time.Since(lastDrain).Milliseconds() / drainTime(index)
+					delete(drainedTimes, index)
+					if percentDepleted >= 1.0 {
+						percentDepleted -= 1.0
+						if drain() {
+							return
+						}
+					}
+					continue
+				}
+				if time.Since(lastDrain).Milliseconds() >= drainTime(index) {
+					if drain() {
+						return
+					}
+					drainedTimes[index] = time.Now()
+				}
+			} else {
+				// prayer at index was off last tick
+				if player.PrayerActivated(index) {
+					// but now it's on
+					drainedTimes[index] = time.Now().Add( -time.Millisecond * (percentDepleted*drainTime(index)) )
+					println(percentDepleted, (percentDepleted*drainTime(index)) + "/" + drainTime(index), time.Since(drainedTimes[index]))
+					percentDepleted = 0.0
 				}
 			}
-		}
-		if partialPoints >= 1.0 {
-			if player.Skills().Current(PRAYER) > 0 {
-				player.IncCurStat(PRAYER, -1)
-			} else {
-				outOfPoints(player)
-			}
-			partialPoints = 0.0
+
 		}
 	}
 })
