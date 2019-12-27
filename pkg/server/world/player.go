@@ -965,6 +965,11 @@ func (p *Player) StartCombat(target MobileEntity) {
 			attacker = target
 			defender = p
 		}
+		if _, ok := attacker.(*NPC); ok && p.PrayerActivated(12) {
+			attacker.Transients().IncVar("fightRound", 1)
+			curRound++
+			return false
+		}
 		nextHit := attacker.MeleeDamage(defender)
 		if nextHit > defender.Skills().Current(StatHits) {
 			nextHit = defender.Skills().Current(StatHits)
