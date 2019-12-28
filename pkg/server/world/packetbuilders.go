@@ -468,6 +468,21 @@ func PlayerAppearances(ourPlayer *Player) (p *packet.Packet) {
 	return
 }
 
+//ClearDistantChunks iterates through a players transient `distantChunks` attribute and sends them to the client to signal
+// a removal of all stationary entities within an 8x8 chunk of tiles surrounding the cached location.
+func ClearDistantChunks(player *Player) (p *packet.Packet) {
+	p = packet.NewOutgoingPacket(211)
+	chunks, ok := player.TransAttrs.Var("distantChunks")
+	if ok {
+		for _, chunk := range chunks.([]Location) {
+			p.AddShort(uint16(chunk.X() - player.X()))
+			p.AddShort(uint16(chunk.Y() - player.Y()))
+		}
+	}
+	player.TransAttrs.UnsetVar("distantChunks")
+	return
+}
+
 //ObjectLocations Builds a packet with the view-area object positions in it, relative to the player.
 // If no new objects are available and no existing local objects are removed from area, returns nil.
 func ObjectLocations(player *Player) (p *packet.Packet) {
@@ -480,6 +495,15 @@ func ObjectLocations(player *Player) (p *packet.Packet) {
 				continue
 			}
 			if !player.WithinRange(o.Location, player.TransAttrs.VarInt("viewRadius", 16)+5) || GetObject(o.X(), o.Y()) != o {
+				if !player.WithinRange(o.Location, 128) {
+					if chunks, ok := player.TransAttrs.Var("distantChunks"); ok {
+						player.TransAttrs.SetVar("distantChunks", append(chunks.([]Location), o.Location.Clone()))
+					} else {
+						player.TransAttrs.SetVar("distantChunks", []Location{o.Location.Clone()})
+					}
+					removing.Add(o)
+					continue
+				}
 				p.AddShort(60000)
 				p.AddByte(byte(o.X() - player.X()))
 				p.AddByte(byte(o.Y() - player.Y()))
@@ -521,6 +545,15 @@ func BoundaryLocations(player *Player) (p *packet.Packet) {
 				continue
 			}
 			if !player.WithinRange(o.Location, player.TransAttrs.VarInt("viewRadius", 16)+5) || GetObject(o.X(), o.Y()) != o {
+				if !player.WithinRange(o.Location, 128) {
+					if chunks, ok := player.TransAttrs.Var("distantChunks"); ok {
+						player.TransAttrs.SetVar("distantChunks", append(chunks.([]Location), o.Location.Clone()))
+					} else {
+						player.TransAttrs.SetVar("distantChunks", []Location{o.Location.Clone()})
+					}
+					removing.Add(o)
+					continue
+				}
 				p.AddShort(16)
 				xOff := o.X() - player.X()
 				yOff := o.Y() - player.Y()
@@ -562,6 +595,15 @@ func ItemLocations(player *Player) (p *packet.Packet) {
 		if i, ok := i.(*GroundItem); ok {
 			x, y := i.X(), i.Y()
 			if !player.WithinRange(i.Location, player.TransAttrs.VarInt("viewRadius", 16)+5) {
+				if !player.WithinRange(i.Location, 128) {
+					if chunks, ok := player.TransAttrs.Var("distantChunks"); ok {
+						player.TransAttrs.SetVar("distantChunks", append(chunks.([]Location), i.Location.Clone()))
+					} else {
+						player.TransAttrs.SetVar("distantChunks", []Location{i.Location.Clone()})
+					}
+					removing.Add(i)
+					continue
+				}
 				p.AddByte(255)
 				p.AddByte(byte(x - player.X()))
 				p.AddByte(byte(y - player.Y()))
@@ -724,26 +766,6 @@ func BankUpdateItem(index, id, amount int) *packet.Packet {
 	return p
 }
 
-//TradeClose Closes a trade window
-var TradeClose = packet.NewOutgoingPacket(128)
-
-//TradeUpdate Builds a packet to update a trade offer
-func TradeUpdate(player *Player) (p *packet.Packet) {
-	p = packet.NewOutgoingPacket(97)
-	p.AddByte(uint8(player.TradeOffer.Size()))
-	player.TradeOffer.Range(func(item *Item) bool {
-		p.AddShort(uint16(item.ID))
-		p.AddInt(uint32(item.Amount))
-		return true
-	})
-	return
-}
-
-//TradeOpen Builds a packet to open a trade window
-func TradeOpen(targetIndex int) *packet.Packet {
-	return packet.NewOutgoingPacket(92).AddShort(uint16(targetIndex))
-}
-
 //DuelOpen Builds a packet to open a duel negotiation window
 func DuelOpen(targetIndex int) *packet.Packet {
 	return packet.NewOutgoingPacket(176).AddShort(uint16(targetIndex))
@@ -805,20 +827,34 @@ func DuelConfirmationOpen(player, other *Player) *packet.Packet {
 
 var DuelClose = packet.NewOutgoingPacket(225)
 
+//TradeClose Closes a trade window
+var TradeClose = packet.NewOutgoingPacket(128)
+
+//TradeOpen Builds a packet to open a trade window
+func TradeOpen(targetIndex int) *packet.Packet {
+	return packet.NewOutgoingPacket(92).AddShort(uint16(targetIndex))
+}
+
+//TradeUpdate Builds a packet to update a trade offer
+func TradeUpdate(player *Player) (p *packet.Packet) {
+	p = packet.NewOutgoingPacket(97)
+	p.AddByte(uint8(player.TradeOffer.Size()))
+	player.TradeOffer.Range(func(item *Item) bool {
+		p.AddShort(uint16(item.ID))
+		p.AddInt(uint32(item.Amount))
+		return true
+	})
+	return
+}
+
 //TradeTargetAccept Builds a packet to change trade targets accepted status
 func TradeTargetAccept(accepted bool) *packet.Packet {
-	if accepted {
-		return packet.NewOutgoingPacket(162).AddByte(1)
-	}
-	return packet.NewOutgoingPacket(162).AddByte(0)
+	return packet.NewOutgoingPacket(162).AddBool(accepted)
 }
 
 //TradeAccept Builds a packet to change trade targets accepted status
 func TradeAccept(accepted bool) *packet.Packet {
-	if accepted {
-		return packet.NewOutgoingPacket(15).AddByte(1)
-	}
-	return packet.NewOutgoingPacket(15).AddByte(0)
+	return packet.NewOutgoingPacket(15).AddBool(accepted)
 }
 
 //TradeConfirmationOpen Builds a packet to open the trade confirmation page

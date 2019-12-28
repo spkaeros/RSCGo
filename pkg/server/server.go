@@ -147,14 +147,17 @@ func Tick() {
 		if npcUpdates := world.NPCPositions(p); npcUpdates != nil {
 			p.SendPacket(npcUpdates)
 		}
-		if itemUpdates := world.ItemLocations(p); itemUpdates != nil {
-			p.SendPacket(itemUpdates)
-		}
 		if objectUpdates := world.ObjectLocations(p); objectUpdates != nil {
 			p.SendPacket(objectUpdates)
 		}
 		if boundaryUpdates := world.BoundaryLocations(p); boundaryUpdates != nil {
 			p.SendPacket(boundaryUpdates)
+		}
+		if itemUpdates := world.ItemLocations(p); itemUpdates != nil {
+			p.SendPacket(itemUpdates)
+		}
+		if clearDistantChunks := world.ClearDistantChunks(p); clearDistantChunks != nil {
+			p.SendPacket(clearDistantChunks)
 		}
 	})
 	world.Players.Range(func(p *world.Player) {
