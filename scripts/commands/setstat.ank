@@ -12,6 +12,9 @@ bind.command("stat", func(player, args) {
 	} else {
 		idx = skillIndex(args[0])
 	}
+	if idx < 0 || idx > 18 {
+		return
+	}
 	lvl = toInt(args[1])
 
 	if idx < 0 || lvl < 1 || lvl > 99 {
