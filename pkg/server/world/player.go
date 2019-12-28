@@ -1036,10 +1036,7 @@ func (p *Player) StartCombat(target MobileEntity) {
 			curRound++
 			return false
 		}
-		nextHit := attacker.MeleeDamage(defender)
-		if nextHit > defender.Skills().Current(StatHits) {
-			nextHit = defender.Skills().Current(StatHits)
-		}
+		nextHit := int(math.Min(float64(defender.Skills().Current(StatHits)), float64(attacker.MeleeDamage(defender))))
 		defender.Skills().DecreaseCur(StatHits, nextHit)
 		if defender.Skills().Current(StatHits) <= 0 {
 			defender.Killed(attacker)

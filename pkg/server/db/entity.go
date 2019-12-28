@@ -117,7 +117,6 @@ func LoadNpcDefinitions() {
 
 //LoadObjectLocations Loads the game objects into memory from the SQLite3 database.
 func LoadObjectLocations() {
-	objectCounter := 0
 	database := Open(config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT `id`, `direction`, `boundary`, `x`, `y` FROM `game_object_locations`")
@@ -132,14 +131,12 @@ func LoadObjectLocations() {
 		if world.GetObject(x, y) != nil {
 			continue
 		}
-		objectCounter++
 		world.AddObject(world.NewObject(id, direction, x, y, boundary != 0))
 	}
 }
 
-//LoadNpcLocations Loads the game objects into memory from the SQLite3 database.
+//LoadNpcLocations Loads the games NPCs into memory from the SQLite3 database.
 func LoadNpcLocations() {
-	npcCounter := 0
 	database := Open(config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT `id`, `startX`, `minX`, `maxX`, `startY`, `minY`, `maxY` FROM `npc_locations`")
@@ -151,8 +148,24 @@ func LoadNpcLocations() {
 	var id, startX, minX, maxX, startY, minY, maxY int
 	for rows.Next() {
 		rows.Scan(&id, &startX, &minX, &maxX, &startY, &minY, &maxY)
-		npcCounter++
 		world.AddNpc(world.NewNpc(id, startX, startY, minX, maxX, minY, maxY))
+	}
+}
+
+//LoadItemLocations Loads the games ground items into memory from the SQLite3 database.
+func LoadItemLocations() {
+	database := Open(config.WorldDB())
+	defer database.Close()
+	rows, err := database.Query("SELECT `id`, `amount`, `x`, `y`, `respawn` FROM `item_locations`")
+	if err != nil {
+		log.Error.Println("Couldn't load SQLite3 database:", err)
+		return
+	}
+	defer rows.Close()
+	var id, amount, x, y, respawnTime int
+	for rows.Next() {
+		rows.Scan(&id, &amount, &x, &y, &respawnTime)
+		world.AddItem(world.NewPersistentGroundItem(id, amount, x, y, respawnTime))
 	}
 }
 

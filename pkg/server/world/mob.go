@@ -479,7 +479,7 @@ func (m *Mob) MeleeDamage(target MobileEntity) int {
 		maxDamage := m.MaxHit()
 		var ret int
 		for ret > maxDamage || ret < 1 {
-			ret = (maxDamage / 2) + int(rand.NormFloat64()*float64(maxDamage)/3)
+			ret = (maxDamage / 2) + int(rand.NormFloat64()*(float64(maxDamage)/3))
 		}
 		return ret
 	}

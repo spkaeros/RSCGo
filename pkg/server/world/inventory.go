@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"go.uber.org/atomic"
 )
@@ -101,7 +100,7 @@ func (i *Item) ScalePrice(percent int) int {
 // can add 30%(9) to the base price(100%(30)), which gives us 130%(39), the value we want.
 //
 // This is the same way RSC general stores priced items they sold.  Additionally, though,
-
+//
 // Any percent that is lower than 100 will scale the price down.  E.g:
 //	player.Inventory.GetByID(1263).PriceScaled(40)
 // would be 12. Since 40%(??) of the base price is our target, to reach that from 100%(30), we subtract 60%(18) from it.
@@ -148,7 +147,7 @@ type GroundItem struct {
 
 // Ensures unique indexes for ground items.
 //  TODO: Proper indexing
-var itemIndexer = atomic.NewUint32(0)
+var ItemIndexer = atomic.NewUint32(0)
 
 // Returns: if this ground item has a player that it belongs to, returns that players username base37 hash.  Otherwise,
 // returns 0.
@@ -177,13 +176,27 @@ func (i *GroundItem) SpawnedTime() time.Time {
 	return i.VarTime("spawnTime")
 }
 
+func NewPersistentGroundItem(id, amount, x, y, respawn int) *GroundItem {
+	item := &GroundItem{ID: id, Amount: amount,
+		AttributeList: NewAttributeList(),
+		Entity: &Entity{
+			Location: NewLocation(x, y),
+			Index:    int(ItemIndexer.Swap(ItemIndexer.Load() + 1)),
+		},
+	}
+	item.SetVar("visibility", 2)
+	item.SetVar("respawnTime", respawn)
+	item.SetVar("persistent", true)
+	return item
+}
+
 //NewGroundItem Creates a new ground item in the game world and returns a reference to it.
 func NewGroundItem(id, amount, x, y int) *GroundItem {
 	item := &GroundItem{ID: id, Amount: amount,
 		AttributeList: NewAttributeList(),
 		Entity: &Entity{
 			Location: NewLocation(x, y),
-			Index:    int(itemIndexer.Swap(itemIndexer.Load() + 1)),
+			Index:    int(ItemIndexer.Swap(ItemIndexer.Load() + 1)),
 		},
 	}
 	item.SetVar("visibility", 1)
@@ -204,7 +217,7 @@ func NewGroundItem(id, amount, x, y int) *GroundItem {
 			if item.Visibility() == 1 {
 				if stage == 1 {
 					// 25% chance to stay visibility=1 until 2nd pass at ~142s...
-					if rand.Int31N(1, 4) == 4 {
+					if Chance(25) {
 						return false
 					}
 
@@ -286,6 +299,13 @@ func (i *GroundItem) Stackable() bool {
 func (i *GroundItem) Remove() {
 	i.UnsetVar("visibility")
 	RemoveItem(i)
+	if i.VarBool("persistent", false) {
+		go func() {
+			time.Sleep(time.Second * time.Duration(i.VarInt("respawnTime", 10)))
+			i.SetVar("visibility", 2)
+			AddItem(i)
+		}()
+	}
 }
 
 //VisibleTo Returns true if the ground item is visible to this player, otherwise returns false.

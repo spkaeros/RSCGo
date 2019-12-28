@@ -23,7 +23,7 @@ func init() {
 			log.Suspicious.Printf("Player[%v] tried to wield an item with invalid index: %d\n", player, index)
 			return
 		}
-		if player.IsDueling() && !player.TransAttrs.VarBool("duelCanEquip", true) {
+		if player.IsDueling() && !player.TransAttrs.VarBool("duelCanEquip", true) && player.IsFighting() {
 			player.Message("You can not use equipment in this duel")
 			return
 		}
