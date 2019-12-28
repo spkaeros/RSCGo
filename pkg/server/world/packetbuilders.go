@@ -473,11 +473,16 @@ func PlayerAppearances(ourPlayer *Player) (p *packet.Packet) {
 func ClearDistantChunks(player *Player) (p *packet.Packet) {
 	p = packet.NewOutgoingPacket(211)
 	chunks, ok := player.TransAttrs.Var("distantChunks")
+	cleaned := 0
 	if ok {
 		for _, chunk := range chunks.([]Location) {
 			p.AddShort(uint16(chunk.X() - player.X()))
 			p.AddShort(uint16(chunk.Y() - player.Y()))
+			cleaned++
 		}
+	}
+	if cleaned == 0 {
+		return nil
 	}
 	player.TransAttrs.UnsetVar("distantChunks")
 	return
@@ -507,7 +512,6 @@ func ObjectLocations(player *Player) (p *packet.Packet) {
 				p.AddShort(60000)
 				p.AddByte(byte(o.X() - player.X()))
 				p.AddByte(byte(o.Y() - player.Y()))
-				//				p.AddByte(byte(o.Direction))
 				removing.Add(o)
 				counter++
 			}
@@ -523,7 +527,6 @@ func ObjectLocations(player *Player) (p *packet.Packet) {
 		p.AddShort(uint16(o.ID))
 		p.AddByte(byte(o.X() - player.X()))
 		p.AddByte(byte(o.Y() - player.Y()))
-		//		p.AddByte(byte(o.Direction))
 		player.LocalObjects.Add(o)
 		counter++
 	}
