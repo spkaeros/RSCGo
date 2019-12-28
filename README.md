@@ -18,7 +18,7 @@ implementation had.
 
 Currently, RSCGo supports logging in, supports multiple players, chat works, walking works, objects are where they should be, etc.
 
-The only major missing features, to my knowledge, are: dueling, shops, magic, and prayer
+The only major missing features, to my knowledge, are: magic, and prayer
 
 Here is a progress update picture:
 ![](./screenies/11-25-19.png?raw=true)
