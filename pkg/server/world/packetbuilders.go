@@ -740,9 +740,70 @@ func TradeUpdate(player *Player) (p *packet.Packet) {
 }
 
 //TradeOpen Builds a packet to open a trade window
-func TradeOpen(player *Player) *packet.Packet {
-	return packet.NewOutgoingPacket(92).AddShort(uint16(player.TradeTarget()))
+func TradeOpen(targetIndex int) *packet.Packet {
+	return packet.NewOutgoingPacket(92).AddShort(uint16(targetIndex))
 }
+
+//DuelOpen Builds a packet to open a duel negotiation window
+func DuelOpen(targetIndex int) *packet.Packet {
+	return packet.NewOutgoingPacket(176).AddShort(uint16(targetIndex))
+}
+
+//DuelUpdate Builds a packet to update a duel offer
+func DuelUpdate(player *Player) (p *packet.Packet) {
+	p = packet.NewOutgoingPacket(6)
+	p.AddByte(uint8(player.DuelOffer.Size()))
+	player.DuelOffer.Range(func(item *Item) bool {
+		p.AddShort(uint16(item.ID))
+		p.AddInt(uint32(item.Amount))
+		return true
+	})
+	return
+}
+
+//DuelTargetAccept Builds a packet to change duel targets accepted status
+func DuelTargetAccept(accepted bool) *packet.Packet {
+	return packet.NewOutgoingPacket(253).AddBool(accepted)
+}
+
+//DuelOptions Builds a packet to update duel fight options
+func DuelOptions(player *Player) *packet.Packet {
+	p := packet.NewOutgoingPacket(30)
+	p.AddBool(!player.TransAttrs.VarBool("duelCanRetreat", true))
+	p.AddBool(!player.TransAttrs.VarBool("duelCanMagic", true))
+	p.AddBool(!player.TransAttrs.VarBool("duelCanPrayer", true))
+	p.AddBool(!player.TransAttrs.VarBool("duelCanEquip", true))
+	return p
+}
+
+//DuelConfirmationOpen Builds a packet to open the duel confirmation page
+func DuelConfirmationOpen(player, other *Player) *packet.Packet {
+	p := packet.NewOutgoingPacket(172)
+
+	p.AddLong(other.UsernameHash())
+	p.AddByte(uint8(other.DuelOffer.Size()))
+	other.DuelOffer.Range(func(item *Item) bool {
+		p.AddShort(uint16(item.ID))
+		p.AddInt(uint32(item.Amount))
+		return true
+	})
+
+	p.AddByte(uint8(player.DuelOffer.Size()))
+	player.DuelOffer.Range(func(item *Item) bool {
+		p.AddShort(uint16(item.ID))
+		p.AddInt(uint32(item.Amount))
+		return true
+	})
+
+	p.AddBool(!player.TransAttrs.VarBool("duelCanRetreat", true))
+	p.AddBool(!player.TransAttrs.VarBool("duelCanMagic", true))
+	p.AddBool(!player.TransAttrs.VarBool("duelCanPrayer", true))
+	p.AddBool(!player.TransAttrs.VarBool("duelCanEquip", true))
+
+	return p
+}
+
+var DuelClose = packet.NewOutgoingPacket(225)
 
 //TradeTargetAccept Builds a packet to change trade targets accepted status
 func TradeTargetAccept(accepted bool) *packet.Packet {

@@ -22,6 +22,10 @@ func init() {
 				player.ResetFighting()
 				return
 			}
+			if player.IsDueling() && !player.TransAttrs.VarBool("duelCanRetreat", true) {
+				player.Message("You cannot retreat during this duel!")
+				return
+			}
 			curRound := target.FightRound()
 			if curRound < 3 {
 				player.Message("You can't retreat during the first 3 rounds of combat")

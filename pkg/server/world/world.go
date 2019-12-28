@@ -538,3 +538,39 @@ func BoundedChance(percent float64, minPercent, maxPercent float64) bool {
 func Chance(percent float64) bool {
 	return BoundedChance(percent, 0.0, 100.0)
 }
+
+//CombatPrefix Returns the chat prefix to colorize combat levels in right click menus and such.
+// The color fades red as the target compares better than you, or fades green as the target compares worse than you.
+// White indicates an equal target.
+func CombatPrefix(delta int) string {
+	// They're stronger
+	if delta < -9 {
+		return "@red@"
+	}
+	if delta < -6 {
+		return "@or3@"
+	}
+	if delta < -3 {
+		return "@or2@"
+	}
+	if delta < 0 {
+		return "@or1@"
+	}
+
+	// They're weaker
+	if delta > 9 {
+		return "@gre@"
+	}
+	if delta > 6 {
+		return "@gr3@"
+	}
+	if delta > 3 {
+		return "@gr2@"
+	}
+	if delta > 0 {
+		return "@gr1@"
+	}
+
+	// They're the same
+	return "@whi@"
+}

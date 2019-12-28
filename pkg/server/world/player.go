@@ -47,6 +47,7 @@ type Player struct {
 	Attributes       *AttributeList
 	Inventory        *Inventory
 	TradeOffer       *Inventory
+	DuelOffer        *Inventory
 	DistancedAction  func() bool
 	ActionLock       sync.RWMutex
 	OutgoingPackets  chan *packet.Packet
@@ -448,6 +449,9 @@ func (p *Player) ResetAll() {
 	p.ResetDistancedAction()
 	p.ResetFollowing()
 	p.CloseOptionMenu()
+	p.ResetDuel()
+	p.CloseBank()
+	p.CloseShop()
 }
 
 //Fatigue Returns the players current fatigue.
@@ -563,6 +567,61 @@ func (p *Player) ResetTrade() {
 //TradeTarget returns the server index of the player we are trying to trade with, or -1 if we have not made a trade request.
 func (p *Player) TradeTarget() int {
 	return p.TransAttrs.VarInt("tradetarget", -1)
+}
+
+//CombatDelta returns the difference between our combat level and the other mobs combat level
+func (p *Player) CombatDelta(other MobileEntity) int {
+	return p.Skills().CombatLevel() - other.Skills().CombatLevel()
+}
+
+//ResetDuel resets duel-related variables.
+func (p *Player) ResetDuel() {
+	if p.IsDueling() {
+		p.ResetDuelTarget()
+		p.ResetDuelAccepted()
+		p.DuelOffer.Clear()
+		p.TransAttrs.UnsetVar("duelCanRetreat")
+		p.TransAttrs.UnsetVar("duelCanMagic")
+		p.TransAttrs.UnsetVar("duelCanPrayer")
+		p.TransAttrs.UnsetVar("duelCanEquip")
+		p.RemoveState(MSDueling)
+	}
+}
+
+//IsDueling returns true if this player is negotiating a duel, otherwise returns false.
+func (p *Player) IsDueling() bool {
+	return p.HasState(MSDueling)
+}
+
+//SetDuelTarget Sets p1 as the receivers dueling target.
+func (p *Player) SetDuelTarget(p1 *Player) {
+	p.TransAttrs.SetVar("duelTarget", p1)
+}
+
+//ResetDuelTarget Removes receivers duel target, if any.
+func (p *Player) ResetDuelTarget() {
+	p.TransAttrs.UnsetVar("duelTarget")
+}
+
+//ResetDuelAccepted Resets receivers duel negotiation settings to indicate that neither screens are accepted.
+func (p *Player) ResetDuelAccepted() {
+	p.TransAttrs.UnsetVar("duel1accept")
+	p.TransAttrs.UnsetVar("duel2accept")
+}
+
+//SetDuel1Accepted Sets receivers duel negotiation settings to indicate that the first screen is accepted.
+func (p *Player) SetDuel1Accepted() {
+	p.TransAttrs.SetVar("duel1accept", true)
+}
+
+//SetDuel2Accepted Sets receivers duel negotiation settings to indicate that the second screen is accepted.
+func (p *Player) SetDuel2Accepted() {
+	p.TransAttrs.SetVar("duel2accept", true)
+}
+
+//DuelTarget Returns the player that the receiver is targeting to duel with, or if none, returns nil
+func (p *Player) DuelTarget() *Player {
+	return p.TransAttrs.VarPlayer("duelTarget")
 }
 
 //SendPacket sends a packet to the client.
@@ -688,8 +747,8 @@ func NewPlayer(index int, ip string) *Player {
 	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Lumbridge.Clone()}, TransAttrs: NewAttributeList()},
 		Attributes: NewAttributeList(), LocalPlayers: &entityList{}, LocalNPCs: &entityList{}, LocalObjects: &entityList{},
 		Appearance: DefaultAppearance(), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int),
-		Inventory: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, LocalItems: &entityList{},
-		OutgoingPackets: make(chan *packet.Packet, 20), KillC: make(chan struct{})}
+		Inventory: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, DuelOffer: &Inventory{Capacity: 8},
+		LocalItems: &entityList{}, OutgoingPackets: make(chan *packet.Packet, 20), KillC: make(chan struct{})}
 	p.Transients().SetVar("skills", &SkillTable{})
 	p.Transients().SetVar("bank", &Inventory{Capacity: 48 * 4, stackEverything: true})
 	p.Transients().SetVar("viewRadius", 16)
@@ -878,6 +937,11 @@ func (p *Player) PrayerActivated(idx int) bool {
 }
 
 func (p *Player) PrayerOn(idx int) {
+	if p.IsDueling() && !p.TransAttrs.VarBool("duelCanPrayer", true) {
+		p.Message("You cannot use prayer in this duel!")
+		p.SendPrayers()
+		return
+	}
 	if idx == 0 || idx == 3 || idx == 9 {
 		p.PrayerOff(0)
 		p.PrayerOff(3)
@@ -920,7 +984,9 @@ func (p *Player) SetSkulled(val bool) {
 func (p *Player) StartCombat(target MobileEntity) {
 	if p1, ok := target.(*Player); ok {
 		p1.PlaySound("underattack")
-		p.SetSkulled(true)
+		if !p.IsDueling() {
+			p.SetSkulled(true)
+		}
 	}
 	target.SetRegionRemoved()
 	p.Teleport(target.X(), target.Y())
@@ -998,15 +1064,21 @@ func (p *Player) Killed(killer MobileEntity) {
 	p.SendStats()
 	p.SetDirection(North)
 
-	keepCount := 0
-	if p.PrayerActivated(8) {
-		// protect item prayer
-		keepCount++
+	var deathItems *Inventory
+
+	if !p.IsDueling() {
+		keepCount := 0
+		if p.PrayerActivated(8) {
+			// protect item prayer
+			keepCount++
+		}
+		if !p.Skulled() {
+			keepCount += 3
+		}
+		deathItems = p.Inventory.DeathDrops(keepCount)
+	} else {
+		deathItems = p.DuelOffer
 	}
-	if !p.Skulled() {
-		keepCount += 3
-	}
-	deathItems := p.Inventory.DeathDrops(keepCount)
 	killerName := uint64(strutil.MaxBase37 + 5000) // Indicator that the item is not owned
 	if killer, ok := killer.(*Player); killer != nil && ok {
 		killer.Message("You have defeated " + p.Username() + "!")
@@ -1022,6 +1094,12 @@ func (p *Player) Killed(killer MobileEntity) {
 	}
 	AddItem(NewGroundItemFor(killerName, 20, 1, p.X(), p.Y()))
 
+	if p.IsDueling() {
+		if p.DuelTarget() != nil {
+			p.DuelTarget().ResetDuel()
+		}
+	}
+	p.ResetDuel()
 	p.SetSkulled(false)
 	p.SendPrayers()
 	p.SendEquipBonuses()

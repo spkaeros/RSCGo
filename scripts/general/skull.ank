@@ -3,6 +3,10 @@ time = import("time")
 math = import("math")
 
 bind.command("skull", func(player, args) {
+	if len(args) > 0 {
+		player.SetSkulled(toInt(args[0]) == 1)
+		return
+	}
 	player.SetSkulled(true)
 })
 

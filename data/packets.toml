@@ -11,7 +11,6 @@ packets = [
 	{ name = 'command', opcode = 38},
 	{ name = 'followreq', opcode = 165},
 	{ name = 'tradereq', opcode = 142},
-	{ name = 'duelreq', opcode = 103},
 	{ name = 'objectaction', opcode = 136},
 	{ name = 'objectaction2', opcode = 79},
 	{ name = 'boundaryaction', opcode = 14},
@@ -55,4 +54,10 @@ packets = [
 	{ name = 'shopclose', opcode = 166},
 	{ name = 'shopbuy', opcode = 236},
 	{ name = 'shopsell', opcode = 221},
+	{ name = 'duelreq', opcode = 103},
+	{ name = 'dueldecline', opcode = 197},
+	{ name = 'duelaccept', opcode = 176},
+	{ name = 'duelconfirmaccept', opcode = 77},
+	{ name = 'duelupdate', opcode = 33},
+	{ name = 'dueloptions', opcode = 8},
 ]
