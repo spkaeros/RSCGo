@@ -173,13 +173,13 @@ func SkillIndex(s string) int {
 	return -1
 }
 
-var experienceLevels [104]int
+var experienceLevels [104]int64
 
 func init() {
-	i := 0
+	i := int64(0)
 	for lvl := 0; lvl < 104; lvl++ {
 		k := float64(lvl + 1)
-		i1 := int(k + 300*math.Pow(2, k/7))
+		i1 := int64(k + 300*math.Pow(2, k/7))
 		i += i1
 		experienceLevels[lvl] = (i & 0xfffffffc) / 4
 	}
@@ -191,13 +191,13 @@ func LevelToExperience(lvl int) int {
 	if index < 0 || index > 104 {
 		return 0
 	}
-	return experienceLevels[index]
+	return int(experienceLevels[index])
 }
 
 //ExperienceToLevel Finds the maximum level for the provided experience amount.
 func ExperienceToLevel(exp int) int {
 	for lvl := 0; lvl < 104; lvl++ {
-		if exp < experienceLevels[lvl] {
+		if exp < int(experienceLevels[lvl]) {
 			return lvl + 1
 		}
 	}
