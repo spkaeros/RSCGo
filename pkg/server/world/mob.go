@@ -1,6 +1,7 @@
 package world
 
 import (
+	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -60,9 +61,9 @@ type MobileEntity interface {
 	Y() int
 	Skills() *SkillTable
 	MeleeDamage(target MobileEntity) int
-	DefensiveCapability() float64
-	AccuracyCapability() float64
-	MaxHit() int
+	DefensePoints() float64
+	AttackPoints() float64
+	MaxMeleeDamage() float64
 	Transients() *AttributeList
 	IsFighting() bool
 	FightTarget() MobileEntity
@@ -452,36 +453,37 @@ func (m *Mob) StyleBonus(stat int) int {
 	mode := m.FightMode()
 	if mode == 0 {
 		return 1
-	} else if (mode == 2 && stat == 0) || (mode == 1 && stat == 2) || (mode == 3 && stat == 1) {
+	}
+	if (mode == 1 && stat == StatStrength) || (mode == 2 && stat == StatAttack) || (mode == 3 && stat == StatDefense) {
 		return 3
 	}
 	return 0
 }
 
-//MaxHit Calculates and returns the current max hit for this mob, based on many variables.
-func (m *Mob) MaxHit() int {
-	return int(((float64(m.Skills().Current(StatStrength))*m.PrayerModifiers()[StatStrength])+float64(m.StyleBonus(StatStrength)))*((float64(m.PowerPoints())*0.00175)+0.1) + 1.05)
+//MaxMeleeDamage Calculates and returns the current max hit for this mob, based on many variables.
+func (m *Mob) MaxMeleeDamage() float64 {
+	return math.Ceil(((float64(m.Skills().Current(StatStrength))*m.PrayerModifiers()[StatStrength])+float64(m.StyleBonus(StatStrength)))* ((float64(m.PowerPoints())*0.00175)+0.1) + 1.05)
 }
 
-//AccuracyCapability Calculates and returns the accuracy capability of this mob, based on many variables, as a single variable.
-func (m *Mob) AccuracyCapability() float64 {
+//AttackPoints Calculates and returns the accuracy capability of this mob, based on many variables, as a single variable.
+func (m *Mob) AttackPoints() float64 {
 	return (float64(m.Skills().Current(StatAttack)) * m.PrayerModifiers()[StatAttack]) + float64(m.StyleBonus(StatAttack)+m.AimPoints())
 }
 
-//DefensiveCapability Calculates and returns the defensive capability of this mob, based on many variables, as a single variable.
-func (m *Mob) DefensiveCapability() float64 {
+//DefensePoints Calculates and returns the defensive capability of this mob, based on many variables, as a single variable.
+func (m *Mob) DefensePoints() float64 {
 	return (float64(m.Skills().Current(StatDefense)) * m.PrayerModifiers()[StatDefense]) + float64(m.StyleBonus(StatDefense)+m.ArmourPoints())
 }
 
 //MeleeDamage Calculates and returns a melee damage from the receiver mob onto the target mob.
 func (m *Mob) MeleeDamage(target MobileEntity) int {
-	if BoundedChance((m.AccuracyCapability()/(target.DefensiveCapability()*6))*100, 7.5, 75.0) {
-		maxDamage := m.MaxHit()
-		var ret int
-		for ret > maxDamage || ret < 1 {
-			ret = (maxDamage / 2) + int(rand.NormFloat64()*(float64(maxDamage)/3))
+	if BoundedChance((m.AttackPoints()/(target.DefensePoints()*6))*100, 7.5, 75.0) {
+		maxDamage := m.MaxMeleeDamage()
+		var damage float64
+		for damage > maxDamage || damage < 1 {
+			damage = (maxDamage / 2) + rand.NormFloat64()*(maxDamage/3)
 		}
-		return ret
+		return int(damage)
 	}
 	return 0
 }
