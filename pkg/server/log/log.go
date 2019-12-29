@@ -19,14 +19,23 @@ var (
 )
 
 func init() {
-	if f, err := os.OpenFile("logs"+string(os.PathSeparator)+"cmd.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666); err != nil {
+	dir := "." + string(os.PathSeparator) + "log"
+	if err := os.Mkdir(dir, 755); err != nil && !os.IsExist(err) {
+		Error.Println("Error obtaining a directory to hold log files.  Using current working directory.", err)
+		dir = dir[:1]
+	}
+
+
+	if outFile, err := os.OpenFile(dir+string(os.PathSeparator)+"cmd.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666); err != nil {
 		Error.Println("Could not open commands log file for writing:", err)
 	} else {
-		Commands.SetOutput(f)
+		Commands.SetOutput(outFile)
 	}
-	if f, err := os.OpenFile("logs"+string(os.PathSeparator)+"cheaters.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666); err != nil {
+
+
+	if outFile, err := os.OpenFile(dir+string(os.PathSeparator)+"cheaters.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666); err != nil {
 		Error.Println("Could not open cheaters log file for writing:", err)
 	} else {
-		Suspicious.SetOutput(f)
+		Suspicious.SetOutput(outFile)
 	}
 }
