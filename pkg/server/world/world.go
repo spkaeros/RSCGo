@@ -539,6 +539,11 @@ func Chance(percent float64) bool {
 	return BoundedChance(percent, 0.0, 100.0)
 }
 
+//MeleeExperience returns how much combat experience to award for killing an opponent with melee.
+func MeleeExperience(victim MobileEntity) float64 {
+	return float64((victim.Skills().CombatLevel() * 2.0) + 10.0) * 1.5
+}
+
 //CombatPrefix Returns the chat prefix to colorize combat levels in right click menus and such.
 // The color fades red as the target compares better than you, or fades green as the target compares worse than you.
 // White indicates an equal target.

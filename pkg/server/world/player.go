@@ -884,6 +884,7 @@ func (p *Player) IncCurStat(idx int, lvl int) {
 
 //SetCurStat sets this players current stat at idx to lvl and updates the client about it.
 func (p *Player) IncExp(idx int, amt int) {
+	// TODO: Fatigue
 	p.Skills().IncExp(idx, amt)
 	delta := ExperienceToLevel(p.Skills().Experience(idx)) - p.Skills().Maximum(idx)
 	if delta != 0 {
@@ -1090,6 +1091,23 @@ func (p *Player) Killed(killer MobileEntity) {
 		p.PrayerOff(i)
 	}
 	AddItem(NewGroundItemFor(killerName, 20, 1, p.X(), p.Y()))
+
+	if killer, ok := killer.(*Player); ok {
+		experience := int(math.Ceil(MeleeExperience(p) / 4.0))
+		switch killer.FightMode() {
+		case 0:
+			for i := 0; i < 3; i++ {
+				killer.IncExp(i, experience)
+			}
+		case 1:
+			killer.IncExp(StatStrength, experience*3)
+		case 2:
+			killer.IncExp(StatAttack, experience*3)
+		case 3:
+			killer.IncExp(StatDefense, experience*3)
+		}
+		killer.IncExp(StatHits, experience)
+	}
 
 	if p.IsDueling() {
 		if p.DuelTarget() != nil {
