@@ -169,20 +169,7 @@ func (n *NPC) Killed(killer MobileEntity) {
 	}
 	AddItem(NewGroundItem(20, 1, n.X(), n.Y()))
 	if killer, ok := killer.(*Player); ok {
-		experience := int(math.Ceil(MeleeExperience(n) / 4.0))
-		switch killer.FightMode() {
-		case 0:
-			for i := 0; i < 3; i++ {
-				killer.IncExp(i, experience)
-			}
-		case 1:
-			killer.IncExp(StatStrength, experience*3)
-		case 2:
-			killer.IncExp(StatAttack, experience*3)
-		case 3:
-			killer.IncExp(StatDefense, experience*3)
-		}
-		killer.IncExp(StatHits, experience)
+		killer.DistributeMeleeExp(int(math.Ceil(MeleeExperience(n) / 4.0)))
 	}
 	n.Skills().SetCur(StatHits, n.Skills().Maximum(StatHits))
 	n.SetLocation(DeathPoint, true)

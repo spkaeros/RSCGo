@@ -358,6 +358,27 @@ func (p *Player) UpdateRegion(x, y int) {
 	}
 }
 
+//DistributeMeleeExp This is a helper method to distribute experience amongst the players melee stats according to
+// its current fight stance.
+//
+// If the player is in controlled stance, each melee skill gets (experience).
+// Otherwise, whatever fight stance the player was in will get (experience)*3, and hits will get (experience).
+func (p *Player) DistributeMeleeExp(experience int) {
+	switch p.FightMode() {
+	case 0:
+		for i := 0; i < 3; i++ {
+			p.IncExp(i, experience)
+		}
+	case 1:
+		p.IncExp(StatStrength, experience*3)
+	case 2:
+		p.IncExp(StatAttack, experience*3)
+	case 3:
+		p.IncExp(StatDefense, experience*3)
+	}
+	p.IncExp(StatHits, experience)
+}
+
 //EquipItem equips an item to this player, and sends inventory and equipment bonuses.
 func (p *Player) EquipItem(item *Item) {
 	def := GetEquipmentDefinition(item.ID)
@@ -1079,6 +1100,7 @@ func (p *Player) Killed(killer MobileEntity) {
 	}
 	killerName := uint64(strutil.MaxBase37 + 5000) // Indicator that the item is not owned
 	if killer, ok := killer.(*Player); killer != nil && ok {
+		killer.DistributeMeleeExp(int(math.Ceil(MeleeExperience(p) / 4.0)))
 		killer.Message("You have defeated " + p.Username() + "!")
 		killerName = killer.UsernameHash()
 	}
@@ -1091,23 +1113,6 @@ func (p *Player) Killed(killer MobileEntity) {
 		p.PrayerOff(i)
 	}
 	AddItem(NewGroundItemFor(killerName, 20, 1, p.X(), p.Y()))
-
-	if killer, ok := killer.(*Player); ok {
-		experience := int(math.Ceil(MeleeExperience(p) / 4.0))
-		switch killer.FightMode() {
-		case 0:
-			for i := 0; i < 3; i++ {
-				killer.IncExp(i, experience)
-			}
-		case 1:
-			killer.IncExp(StatStrength, experience*3)
-		case 2:
-			killer.IncExp(StatAttack, experience*3)
-		case 3:
-			killer.IncExp(StatDefense, experience*3)
-		}
-		killer.IncExp(StatHits, experience)
-	}
 
 	if p.IsDueling() {
 		if p.DuelTarget() != nil {
