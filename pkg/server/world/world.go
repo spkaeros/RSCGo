@@ -3,7 +3,6 @@ package world
 import (
 	"fmt"
 	"math"
-	"strconv"
 	"sync"
 	"time"
 
@@ -561,7 +560,7 @@ func WeightedChoice(choices map[int]float64) int {
 	hit := float64(rscRand.Int31N(1, int(totalProbV)))
 	for choice, prob := range choices {
 		total += prob*totalProbV/100
-		log.Info.Println(strconv.FormatUint(uint64(choice), 10) + ": prob{" + strconv.FormatFloat(prob/100*(totalProbV), 'f', -1, 64) + " (" + strconv.FormatFloat(prob, 'f', 2,  64) + "%)}, cumulativeProb:", strconv.FormatFloat(total, 'f', 2,  64) + "/" + strconv.FormatUint(uint64(totalProbV), 10) + ",  HIT =", strconv.FormatUint(uint64(hit), 10), "(" + strconv.FormatFloat(hit/(totalProbV) * 100, 'f', 2, 64) + "%)")
+		//log.Info.Println(strconv.FormatUint(uint64(choice), 10) + ": prob{" + strconv.FormatFloat(prob/100*(totalProbV), 'f', -1, 64) + " (" + strconv.FormatFloat(prob, 'f', 2,  64) + "%)}, cumulativeProb:", strconv.FormatFloat(total, 'f', 2,  64) + "/" + strconv.FormatUint(uint64(totalProbV), 10) + ",  HIT =", strconv.FormatUint(uint64(hit), 10), "(" + strconv.FormatFloat(hit/(totalProbV) * 100, 'f', 2, 64) + "%)")
 		if hit < total {
 			return choice
 		}
