@@ -528,7 +528,7 @@ func BoundedChance(percent float64, minPercent, maxPercent float64) bool {
 	if minPercent > maxPercent {
 		maxPercent, minPercent = minPercent, maxPercent
 	}
-	return float64(rscRand.Uint8()) < math.Max(minPercent, math.Min(maxPercent, percent)) / 100.0 * 256.0
+	return float64(rscRand.Uint8()) < math.Max(minPercent, math.Min(maxPercent, percent))/100.0*256.0
 }
 
 //Chance should return true (percent)% of the time, and false (100-percent)% of the time.
@@ -539,9 +539,32 @@ func Chance(percent float64) bool {
 	return BoundedChance(percent, 0.0, 100.0)
 }
 
+//WeightedChance Awesome API call takes map[retVal]probability as input and returns a statistically weighted randomized retVal as output.
+//
+// The input's mapped value assigned to each key is its return probability, out of the total sum of all return probabilities.
+// You can determine the percentage chance of any given input entry being returned by: probability/sumOfAllProbabilities*100
+// E.g, if the sum of all probabilities is 100, and you have a total probability of 100, where the first retVal maps to 25.0, the chance it will be returned is 25%
+//
+// You can make the total anything. Useful for anything that needs to return certain values deterministically more often than others, but randomly.
+func WeightedChoice(choices map[int]float64) int {
+	choice := float64(rscRand.Uint8()) / 256.0
+	total := 0.0
+	for _, probability := range choices {
+		total += probability
+	}
+	accumulator := 0.0
+	for ret, prob := range choices {
+		accumulator += prob
+		if choice*total < accumulator {
+			return ret
+		}
+	}
+	return -1
+}
+
 //MeleeExperience returns how much combat experience to award for killing an opponent with melee.
 func MeleeExperience(victim MobileEntity) float64 {
-	return float64((victim.Skills().CombatLevel() * 2.0) + 10.0) * 1.5
+	return float64((victim.Skills().CombatLevel()*2.0)+10.0) * 1.5
 }
 
 //CombatPrefix Returns the chat prefix to colorize combat levels in right click menus and such.

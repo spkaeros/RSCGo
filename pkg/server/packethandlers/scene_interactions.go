@@ -239,7 +239,7 @@ func init() {
 										}
 									}
 									if player.NextTo(newLoc) {
-										player.SetLocation(newLoc, false)
+										player.SetLocation(newLoc, true)
 										break outer
 									}
 								}
@@ -309,6 +309,53 @@ func init() {
 				return true
 			}
 			player.WalkTo(object.Location)
+			return false
+		})
+	}
+
+	PacketHandlers["invonplayer"] = func(player *world.Player, p *packet.Packet) {
+		targetIndex := p.ReadShort()
+		invIndex := p.ReadShort()
+
+		if targetIndex == player.Index {
+			log.Suspicious.Printf("%s attempted to use an inventory item on themself\n", player.String())
+			return
+		}
+
+		target, ok := world.Players.FromIndex(targetIndex)
+		if !ok || target == nil || !target.Connected() {
+			log.Suspicious.Printf("%s attempted to use an inventory item on a player that doesn't exist\n", player.String())
+			return
+		}
+		if invIndex >= player.Inventory.Size() {
+			log.Suspicious.Printf("%s attempted to use a non-existant item(idx:%v, cap:%v)  on a player(%s)\n", player.String(), invIndex, player.Inventory.Size()-1, target.String())
+			return
+		}
+		invItem := player.Inventory.Get(invIndex)
+		player.SetDistancedAction(func() bool {
+			if player.Busy() || !player.Connected() || target == nil || target.Busy() || !target.Connected() {
+				return true
+			}
+			if player.WithinRange(target.Location, 1) && player.NextTo(target.Location) {
+				player.ResetPath()
+				player.AddState(world.MSBusy)
+				target.AddState(world.MSBusy)
+				go func() {
+					defer func() {
+						player.RemoveState(world.MSBusy)
+						target.RemoveState(world.MSBusy)
+					}()
+					for _, trigger := range script.InvOnPlayerTriggers {
+						if trigger.Check(invItem) {
+							trigger.Action(player, target, invItem)
+							return
+						}
+					}
+					player.SendPacket(world.DefaultActionMessage)
+				}()
+				return true
+			}
+			player.WalkTo(target.Location)
 			return false
 		})
 	}

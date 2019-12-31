@@ -51,6 +51,7 @@ packets = [
 	{ name = 'withdrawbank', opcode = 22},
 	{ name = 'invonboundary', opcode = 161},
 	{ name = 'invonobject', opcode = 115},
+	{ name = 'invonplayer', opcode = 113},
 	{ name = 'shopclose', opcode = 166},
 	{ name = 'shopbuy', opcode = 236},
 	{ name = 'shopsell', opcode = 221},

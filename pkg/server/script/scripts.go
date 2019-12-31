@@ -35,6 +35,15 @@ type ItemTrigger struct {
 	Action func(*world.Player, *world.Item)
 }
 
+//ItemOnPlayerTrigger A type that defines a callback to run when certain item are used on players, and a predicate to decide
+// whether or not the callback should run
+type ItemOnPlayerTrigger struct {
+	// Check returns true if this handler should run.
+	Check func(*world.Item) bool
+	// Action is the function that will run if Check returned true.
+	Action func(*world.Player, *world.Player, *world.Item)
+}
+
 //ObjectTrigger A type that defines a callback to run when certain object actions are performed, and a predicate to decide
 // whether or not the callback should run
 type ObjectTrigger struct {
@@ -70,6 +79,9 @@ var InvOnObjectTriggers []func(player *world.Player, object *world.Object, item 
 
 //ItemTriggers List of script callbacks to run for inventory item actions
 var ItemTriggers []ItemTrigger
+
+//InvOnPlayerTriggers a list of actions to run when a player uses an inventory item on another player object
+var InvOnPlayerTriggers []ItemOnPlayerTrigger
 
 //ObjectTriggers List of script callbacks to run for object actions
 var ObjectTriggers []ObjectTrigger

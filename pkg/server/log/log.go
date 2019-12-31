@@ -20,7 +20,7 @@ var (
 
 func init() {
 	dir := "." + string(os.PathSeparator) + "logs"
-	if err := os.Mkdir(dir, 755); err != nil && !os.IsExist(err) {
+	if err := os.Mkdir(dir, 0755); err != nil && !os.IsExist(err) {
 		Error.Println("Error obtaining a directory to hold log files.  Using current working directory.", err)
 		dir = dir[:1]
 	}

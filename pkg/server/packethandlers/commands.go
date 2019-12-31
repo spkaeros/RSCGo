@@ -122,7 +122,7 @@ func init() {
 		env.Define("player", player)
 		ret, err := vm.Execute(env, nil,
 			`world = import("world");
-		` + line)
+		`+line)
 		if err != nil {
 			player.Message("Error: " + err.Error())
 			log.Info.Println("Anko Error: " + err.Error())
