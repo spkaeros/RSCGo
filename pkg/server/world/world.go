@@ -3,6 +3,7 @@ package world
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"sync"
 	"time"
 
@@ -547,19 +548,30 @@ func Chance(percent float64) bool {
 //
 // You can make the total anything. Useful for anything that needs to return certain values deterministically more often than others, but randomly.
 func WeightedChoice(choices map[int]float64) int {
-	choice := float64(rscRand.Uint8()) / 256.0
 	total := 0.0
-	for _, probability := range choices {
-		total += probability
+	totalProb := 0.0
+	for ret, probability := range choices {
+		if probability > 100 {
+			log.Warning.Println("Probability of a single entry provided for the statistically randomized WeightedChoice func exceeds 100%:{", ret, "=",  probability, "}")
+		}
+		totalProb += probability
 	}
-	accumulator := 0.0
-	for ret, prob := range choices {
-		accumulator += prob
-		if choice*total < accumulator {
-			return ret
+
+	totalProbV := totalProb/100*math.MaxUint16
+	hit := float64(rscRand.Int31N(1, int(totalProbV)))
+	for choice, prob := range choices {
+		total += prob*totalProbV/100
+		log.Info.Println(strconv.FormatUint(uint64(choice), 10) + ": prob{" + strconv.FormatFloat(prob/100*(totalProbV), 'f', -1, 64) + " (" + strconv.FormatFloat(prob, 'f', 2,  64) + "%)}, cumulativeProb:", strconv.FormatFloat(total, 'f', 2,  64) + "/" + strconv.FormatUint(uint64(totalProbV), 10) + ",  HIT =", strconv.FormatUint(uint64(hit), 10), "(" + strconv.FormatFloat(hit/(totalProbV) * 100, 'f', 2, 64) + "%)")
+		if hit < total {
+			return choice
 		}
 	}
+	log.Info.Println(-1, -1, -1, -1)
 	return -1
+}
+
+func init() {
+	WeightedChoice(map[int]float64{1: 10, 2: 20, 3: 30, 4: 40, })
 }
 
 //MeleeExperience returns how much combat experience to award for killing an opponent with melee.
