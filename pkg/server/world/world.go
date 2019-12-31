@@ -569,10 +569,6 @@ func WeightedChoice(choices map[int]float64) int {
 	return -1
 }
 
-func init() {
-	WeightedChoice(map[int]float64{1: 10, 2: 20, 3: 30, 4: 40, })
-}
-
 //MeleeExperience returns how much combat experience to award for killing an opponent with melee.
 func MeleeExperience(victim MobileEntity) float64 {
 	return float64((victim.Skills().CombatLevel()*2.0)+10.0) * 1.5
