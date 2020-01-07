@@ -15,28 +15,26 @@ bind.onLogin(func(player) {
 		}
 		skillsTimer = player.PrayerActivated(PRAYER_RAPID_RESTORE) ? 50 : 100
 		hitpointTimer = player.PrayerActivated(PRAYER_RAPID_HEAL) ? 50 : 100
-		normalize = func(idx) {
-			delta = player.Skills().DeltaMax(idx)
-			if math.Abs(delta) != 0 {
-				player.IncCurStat(idx, delta / math.Abs(delta))
-			}
-		}
 
 		if curTick % skillsTimer == 0 {
 			for i in range(THIEVING) {
-				if i == HITPOINTS || i == PRAYER || player.Skills().DeltaMax(i) == 0 {
+				delta = player.Skills().DeltaMax(i)
+				if i == HITPOINTS || i == PRAYER || delta == 0 {
 					// Handled elsewhere
 					continue
 				}
-				normalize(i)
-				if player.Skills().DeltaMax(i) == 0 {
+				if math.Abs(delta) == 1 {
 					player.Message("Your " + skillName(i) + " level has returned to normal")
 				}
+				player.IncCurStat(i, delta / math.Abs(delta))
 			}
 		}
 
 		if curTick % hitpointTimer == 0 {
-			normalize(HITPOINTS)
+			delta = player.Skills().DeltaMax(HITPOINTS)
+			if delta != 0 {
+				player.IncCurStat(HITPOINTS, delta / math.Abs(delta))
+			}
 		}
 	}
 })
