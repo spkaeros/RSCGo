@@ -44,9 +44,14 @@ func init() {
 			}
 			if player.Inventory.RemoveByID(10, price) > -1 {
 				player.AddItem(id, 1)
-				item.Amount--
-				if item.Amount == 0 && shop.Stock.Count(id) == 0 {
-					shop.Inventory.Remove(item)
+				if shop.Stock.Count(id) == 0 {
+					if item.Amount == 1 {
+						shop.Inventory.Remove(item)
+					} else {
+						item.Amount--
+					}
+				} else {
+					item.Amount--
 				}
 				world.Players.Range(func(player *world.Player) {
 					if shop == player.CurrentShop() {

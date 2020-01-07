@@ -494,10 +494,10 @@ func (p *Player) NearbyPlayers() (players []*Player) {
 	return
 }
 
-//NearbyPlayers Returns nearby players.
+//NearbyNpcs Returns nearby NPCs.
 func (p *Player) NearbyNpcs() (npcs []*NPC) {
 	for _, r := range surroundingRegions(p.X(), p.Y()) {
-		npcs = append(npcs, r.Players.NearbyNpcs(p)...)
+		npcs = append(npcs, r.NPCs.NearbyNpcs(p)...)
 	}
 
 	return
