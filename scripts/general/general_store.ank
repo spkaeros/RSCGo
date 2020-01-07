@@ -6,7 +6,6 @@ ids = import("ids")
 if !world.hasShop("edgevilleGeneral") {
 	world.newGeneralShop("edgevilleGeneral")
 }
-
 bind.npc(npcPredicate(185, 186), func(player, npc) {
 	shop = world.getShop("edgevilleGeneral")
 	npc.Chat(player, "Can I help you at all?")
@@ -21,7 +20,6 @@ bind.npc(npcPredicate(185, 186), func(player, npc) {
 if !world.hasShop("lumbridgeGeneral") {
 	world.newGeneralShop("lumbridgeGeneral")
 }
-
 bind.npc(npcPredicate(55, 83), func(player, npc) {
 	shop = world.getShop("lumbridgeGeneral")
 	npc.Chat(player, "Can I help you at all?")
