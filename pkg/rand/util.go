@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	rand2 "math/rand"
 
 	"github.com/spkaeros/rscgo/pkg/isaac"
 )
@@ -16,6 +17,7 @@ func init() {
 		fmt.Println("ERROR: Could not read ints fully into init slice.", err)
 	}
 	IsaacRng = isaac.New(rsl)
+	rand2.Seed(int64(rsl[IsaacRng.Uint8()]))
 }
 
 //Uint8 Gets a single random byte of data from the PRNG

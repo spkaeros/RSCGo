@@ -1,87 +1,60 @@
 bind = import("bind")
 time = import("time")
 
-drainRates = [
-	15,
-	15,
-	15,
-	30,
-	30,
-	30,
-	5,
-	10,
-	10,
-	60,
-	60,
-	60,
-	60,
-	60
-]
+load("scripts/definitions/prayer.ank")
+
 
 bind.onLogin(func(player) {
-	percentDepleted = 0.0
-	drainedTimes = {}
-	
-	drainTime = func(idx) {
-		return 180000 / drainRates[idx] * (1 + player.PrayerPoints() / 30.0)
-	}
-
-	ranOut = func() {
-		for idx in range(14) {
-			player.PrayerOff(idx)
+	prayers = []
+	for i in range(14) {
+		prayers[i] = {
+			"drained": defs[i].drained,
+			"drainDuration": defs[i].drainDuration,
+			"startTime": defs[i].startTime,
 		}
-		
-		player.SendPrayers()
-		player.Message("You have run out of prayer points. Return to a church to recharge")
-		drainedTimes = {}
-		percentDepleted = 0.0
-	}
-
-	drain = func() {
-		player.IncCurStat(PRAYER, -1)
-		
-		if player.Skills().Current(PRAYER) <= 0 {
-			ranOut()
-			return true
-		}
-
-		return false
 	}
 
 	player.Tickables += func() {
 		for index in range(14) {
-			lastDrain, ok = drainedTimes[index]
-
-			if ok {
-				// prayer at index was on last tick
-				if !player.PrayerActivated(index) {
-					// but now it's off
-					percentDepleted += time.Since(lastDrain).Milliseconds() / drainTime(index)
-					delete(drainedTimes, index)
-					if percentDepleted >= 1.0 {
-						percentDepleted -= 1.0
-						if drain() {
-							return
+			if !prayers[index].startTime.IsZero() {
+				// prayer active
+				if time.Since(prayers[index].startTime).Milliseconds() >= prayers[index].drainDuration(player.PrayerPoints()) {
+					// drain a level
+					prayers[index].startTime = prayers[index].startTime.Add(time.Millisecond * prayers[index].drainDuration(player.PrayerPoints()))
+					player.IncCurStat(PRAYER, -1)
+					if player.Skills().Current(PRAYER) <= 0 {
+						player.Message("You have run out of prayer points. Return to a church to recharge")
+						prayers = copyPrayerDefinitions()
+						for idx in range(14) {
+							player.PrayerOff(idx)
+							prayers[idx] = {
+								"drained": defs[idx].drained,
+								"drainDuration": defs[idx].drainDuration,
+								"startTime": defs[idx].startTime,
+							}
 						}
+						player.SendPrayers()
+						break
 					}
-					continue
 				}
-				if time.Since(lastDrain).Milliseconds() >= drainTime(index) {
-					if drain() {
-						return
-					}
-					drainedTimes[index] = time.Now()
+
+				if !player.PrayerActivated(index) {
+					// player turning prayer off
+					prayers[index].drained = time.Since(prayers[index].startTime).Milliseconds()
+					prayers[index].startTime = defs[index].startTime
 				}
+//				} else {
+//					println((time.Since(prayers[index].startTime).Milliseconds() / prayers[index].drainDuration(player.PrayerPoints()) * 100) + "% drained (" + time.Since(prayers[index].startTime).Milliseconds() + "/" + prayers[index].drainDuration(player.PrayerPoints()) + "ms) for prayer [" + index + "]")
+//				}
 			} else {
-				// prayer at index was off last tick
+				// prayer inactive
 				if player.PrayerActivated(index) {
-					// but now it's on
-					drainedTimes[index] = time.Now().Add( -time.Millisecond * (percentDepleted*drainTime(index)) )
-					println(percentDepleted, (percentDepleted*drainTime(index)) + "/" + drainTime(index), time.Since(drainedTimes[index]))
-					percentDepleted = 0.0
+					// player turning prayer on
+					prayers[index].startTime = time.Now().Add(-time.Millisecond * prayers[index].drained)
+					prayers[index].drained = defs[index].drained
+//					println((time.Since(prayers[index].startTime).Milliseconds() / prayers[index].drainDuration(player.PrayerPoints()) * 100) + "% drained (" + time.Since(prayers[index].startTime).Milliseconds() + "/" + prayers[index].drainDuration(player.PrayerPoints()) + "ms) for prayer [" + index + "]")
 				}
 			}
-
 		}
 	}
 })

@@ -1,0 +1,100 @@
+defs = [
+	{
+		"drainDuration": func(prayerPoints) {
+			return 180000 / 15 * (1 + prayerPoints / 30.0)
+		},
+	    "drained": 0,
+	    "startTime": ZeroTime,
+	},
+	{
+		"drainDuration": func(prayerPoints) {
+			return 180000 / 15 * (1 + prayerPoints / 30.0)
+		},
+	    "drained": 0,
+	    "startTime": ZeroTime,
+	},
+	{
+		"drainDuration": func(prayerPoints) {
+			return 180000 / 15 * (1 + prayerPoints / 30.0)
+		},
+	    "drained": 0,
+	    "startTime": ZeroTime,
+	},
+	{
+		"drainDuration": func(prayerPoints) {
+			return 180000 / 30 * (1 + prayerPoints / 30.0)
+		},
+	    "drained": 0,
+	    "startTime": ZeroTime,
+	},
+	{
+		"drainDuration": func(prayerPoints) {
+			return 180000 / 30 * (1 + prayerPoints / 30.0)
+		},
+	    "drained": 0,
+	    "startTime": ZeroTime,
+	},
+	{
+		"drainDuration": func(prayerPoints) {
+			return 180000 / 30 * (1 + prayerPoints / 30.0)
+		},
+	    "drained": 0,
+	    "startTime": ZeroTime,
+	},
+	{
+		"drainDuration": func(prayerPoints) {
+			return 180000 / 5 * (1 + prayerPoints / 30.0)
+		},
+	    "drained": 0,
+	    "startTime": ZeroTime,
+	},
+	{
+		"drainDuration": func(prayerPoints) {
+			return 180000 / 10 * (1 + prayerPoints / 30.0)
+		},
+	    "drained": 0,
+	    "startTime": ZeroTime,
+	},
+	{
+		"drainDuration": func(prayerPoints) {
+			return 180000 / 10 * (1 + prayerPoints / 30.0)
+		},
+	    "drained": 0,
+	    "startTime": ZeroTime,
+	},
+	{
+		"drainDuration": func(prayerPoints) {
+			return 180000 / 60 * (1 + prayerPoints / 30.0)
+		},
+	    "drained": 0,
+	    "startTime": ZeroTime,
+	},
+	{
+		"drainDuration": func(prayerPoints) {
+			return 180000 / 60 * (1 + prayerPoints / 30.0)
+		},
+	    "drained": 0,
+	    "startTime": ZeroTime,
+	},
+	{
+		"drainDuration": func(prayerPoints) {
+			return 180000 / 60 * (1 + prayerPoints / 30.0)
+		},
+	    "drained": 0,
+	    "startTime": ZeroTime,
+	},
+	{
+		"drainDuration": func(prayerPoints) {
+			return 180000 / 60 * (1 + prayerPoints / 30.0)
+		},
+	    "drained": 0,
+	    "startTime": ZeroTime,
+	},
+	{
+		"drainDuration": func(prayerPoints) {
+			return 180000 / 60 * (1 + prayerPoints / 30.0)
+		},
+	    "drained": 0,
+	    "startTime": ZeroTime,
+	},
+]

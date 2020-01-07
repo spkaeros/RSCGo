@@ -9,10 +9,9 @@ bind.npc(npcPredicate(93, 174), func(player, npc) {
 		player.Message("The monk places his hands on your head")
 		sleep(tMillis*1800)
 		player.Message("You feel a little better")
-		deltaHp = player.Skills().DeltaMax(HITPOINTS)
-		if deltaHp > 0 {
-			// at most, we can have max hits, no more.
-			player.IncCurStat(HITPOINTS, math.Min(5, deltaHp))
+		// if max level is greater than current level, there's healing to be done
+		if player.Skills().Maximum(HITPOINTS) > player.Skills().Current(HITPOINTS) {
+			player.IncCurStat(HITPOINTS, math.Min(5, player.Skills().DeltaMax(HITPOINTS)))
 		}
 	case 1:
 		npc.Chat(player, "We like it that way", "We get disturbed less",
