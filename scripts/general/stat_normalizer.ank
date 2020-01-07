@@ -3,23 +3,6 @@ math = import("math")
 time = import("time")
 
 bind.onLogin(func(player) {
-	normalize = func(idx, notify) {
-		max = player.Skills().Maximum(idx)
-		delta = player.Skills().Current(idx) - max
-	
-		if math.Abs(delta) != 0 {
-			switch delta > 0 {
-			case true:
-				player.IncCurStat(idx, -1)
-			case false:
-				player.IncCurStat(idx, 1)
-			}
-
-			if notify && math.Abs(delta) == 1 {
-				player.Message("Your " + skillName(idx) + " level has returned to normal")
-			}
-		}
-	}
 	curTick = 0
 	player.Tickables += func() {
 		curTick++
@@ -30,19 +13,30 @@ bind.onLogin(func(player) {
 				player.SetSpriteUpdated()
 			}
 		}
-		skillTime = player.PrayerActivated(PRAYER_RAPID_RESTORE) ? 50 : 100
-		hitsTime = player.PrayerActivated(PRAYER_RAPID_HEAL) ? 50 : 100
-		if curTick % skillTime == 0 {
-			for i = 0; i < 18; i++ {
-				if i == HITPOINTS || i == PRAYER {
+		skillsTimer = player.PrayerActivated(PRAYER_RAPID_RESTORE) ? 50 : 100
+		hitpointTimer = player.PrayerActivated(PRAYER_RAPID_HEAL) ? 50 : 100
+		normalize = func(idx) {
+			delta = player.Skills().DeltaMax(idx)
+			if math.Abs(delta) != 0 {
+				player.IncCurStat(idx, delta / math.Abs(delta))
+			}
+		}
+
+		if curTick % skillsTimer == 0 {
+			for i in range(THIEVING) {
+				if i == HITPOINTS || i == PRAYER || player.Skills().DeltaMax(i) == 0 {
 					// Handled elsewhere
 					continue
 				}
-				normalize(i, true)
+				normalize(i)
+				if player.Skills().DeltaMax(i) == 0 {
+					player.Message("Your " + skillName(i) + " level has returned to normal")
+				}
 			}
 		}
-		if curTick % hitsTime == 0 {
-			normalize(HITPOINTS, false)
+
+		if curTick % hitpointTimer == 0 {
+			normalize(HITPOINTS)
 		}
 	}
 })
