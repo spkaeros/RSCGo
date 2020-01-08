@@ -858,12 +858,12 @@ func (p *Player) CloseOptionMenu() {
 
 //CanWalk returns true if this player is in a state that allows walking.
 func (p *Player) CanWalk() bool {
-	if p.HasState(MSOptionMenu) && p.HasState(MSChatting) {
+	if p.HasState(MSOptionMenu) && (p.HasState(MSChatting) || p.HasState(MSItemAction)) {
 		// If player tries to walk but is in an option menu, they clearly have closed the menu, so we will kill the
 		// routine waiting for a reply when ResetAll is called before the new path is set.
 		return true
 	}
-	return !p.HasState(MSBatching, MSFighting, MSTrading, MSDueling, MSChangingAppearance, MSSleeping, MSChatting, MSBusy)
+	return !p.HasState(MSBatching, MSFighting, MSTrading, MSDueling, MSChangingAppearance, MSSleeping, MSChatting, MSBusy, MSItemAction, MSShopping)
 }
 
 //PlaySound sends a command to the client to play a sound by its file name.

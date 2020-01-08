@@ -87,6 +87,7 @@ func init() {
 			}
 		}),
 		"newShop":        reflect.ValueOf(world.NewShop),
+		"newLocation":        reflect.ValueOf(world.NewLocation),
 		"newGeneralShop": reflect.ValueOf(world.NewGeneralShop),
 		"getShop":        reflect.ValueOf(world.Shops.Get),
 		"hasShop":        reflect.ValueOf(world.Shops.Contains),
@@ -188,7 +189,9 @@ func init() {
 		"SPINACH_ROLL":             reflect.ValueOf(179),
 		"DRAGON_SWORD":             reflect.ValueOf(593),
 		"DRAGON_AXE":               reflect.ValueOf(594),
-		"CHARGED_DSTONE_AMMY":      reflect.ValueOf(597),
+		"DSTONE_AMULET_C":      reflect.ValueOf(597),
+		"DSTONE_AMULET":      reflect.ValueOf(522),
+		"DSTONE_AMULET_U":      reflect.ValueOf(522),
 		"DRAGON_HELMET":            reflect.ValueOf(795),
 		"DRAGON_SHIELD":            reflect.ValueOf(1278),
 		"EASTER_EGG":               reflect.ValueOf(677),

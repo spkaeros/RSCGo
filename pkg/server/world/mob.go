@@ -36,6 +36,8 @@ const (
 	MSChangingAppearance
 	//MSShopping Indicates that the mob in this state is using a shop interface
 	MSShopping
+	//MSItemAction Indicates that the mob in this state is doing an inventory action
+	MSItemAction
 )
 
 const (

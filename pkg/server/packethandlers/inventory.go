@@ -120,10 +120,10 @@ func init() {
 		index := p.ReadShort()
 		item := player.Inventory.Get(index)
 		if item != nil {
-			player.AddState(world.MSBusy)
+			player.AddState(world.MSItemAction)
 			go func() {
 				defer func() {
-					player.RemoveState(world.MSBusy)
+					player.RemoveState(world.MSItemAction)
 				}()
 				for _, triggerDef := range script.ItemTriggers {
 					if triggerDef.Check(item) {
