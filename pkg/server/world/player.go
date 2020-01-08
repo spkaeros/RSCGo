@@ -806,7 +806,7 @@ func (p *Player) Chat(msgs ...string) {
 		p.SendPacket(PlayerMessage(p, msg))
 
 		//		if i < len(msgs)-1 {
-		time.Sleep(time.Millisecond * 1800)
+		time.Sleep(time.Millisecond * 1920)
 		// TODO: is 3 ticks right?
 		//		}
 	}

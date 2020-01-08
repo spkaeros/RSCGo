@@ -28,20 +28,21 @@ var CommandHandlers = make(map[string]func(*world.Player, []string))
 
 func init() {
 	env.Packages["world"] = map[string]reflect.Value{
-		"getPlayer":       reflect.ValueOf(world.Players.FromIndex),
-		"getPlayerByName": reflect.ValueOf(world.Players.FromUserHash),
-		"players":         reflect.ValueOf(world.Players),
-		"replaceObject":   reflect.ValueOf(world.ReplaceObject),
-		"addObject":       reflect.ValueOf(world.AddObject),
-		"removeObject":    reflect.ValueOf(world.RemoveObject),
-		"addNpc":          reflect.ValueOf(world.AddNpc),
-		"removeNpc":       reflect.ValueOf(world.RemoveNpc),
-		"addItem":         reflect.ValueOf(world.AddItem),
-		"removeItem":      reflect.ValueOf(world.RemoveItem),
-		"getObjectAt":     reflect.ValueOf(world.GetObject),
-		"getNpc":          reflect.ValueOf(world.GetNpc),
-		"checkCollisions": reflect.ValueOf(world.IsTileBlocking),
-		"tileData":        reflect.ValueOf(world.CollisionData),
+		"getPlayer":              reflect.ValueOf(world.Players.FromIndex),
+		"getPlayerByName":        reflect.ValueOf(world.Players.FromUserHash),
+		"players":                reflect.ValueOf(world.Players),
+		"getEquipmentDefinition": reflect.ValueOf(world.GetEquipmentDefinition),
+		"replaceObject":          reflect.ValueOf(world.ReplaceObject),
+		"addObject":              reflect.ValueOf(world.AddObject),
+		"removeObject":           reflect.ValueOf(world.RemoveObject),
+		"addNpc":                 reflect.ValueOf(world.AddNpc),
+		"removeNpc":              reflect.ValueOf(world.RemoveNpc),
+		"addItem":                reflect.ValueOf(world.AddItem),
+		"removeItem":             reflect.ValueOf(world.RemoveItem),
+		"getObjectAt":            reflect.ValueOf(world.GetObject),
+		"getNpc":                 reflect.ValueOf(world.GetNpc),
+		"checkCollisions":        reflect.ValueOf(world.IsTileBlocking),
+		"tileData":               reflect.ValueOf(world.CollisionData),
 		"kickPlayer": reflect.ValueOf(func(client *world.Player) {
 			client.SendPacket(world.Logout)
 			client.Destroy()

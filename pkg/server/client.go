@@ -289,13 +289,13 @@ func (c *client) readPacket() (p *packet.Packet, err error) {
 	if l < 2 {
 		return nil, errors.NewNetworkError("SHORT_DATA")
 	}
-	length := int(header[0])
+	length := int(header[0]) - 1
 	bigLength := length >= 160
 	if bigLength {
 		length = (length-160)<<8 + int(header[1])
 	} else {
 		// We have the final byte of frame data already, stored at header[1]
-		length--
+		//length--
 	}
 
 	if length+2 >= 5000 || length+2 < 2 {

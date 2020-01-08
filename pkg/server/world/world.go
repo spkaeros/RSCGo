@@ -551,21 +551,21 @@ func WeightedChoice(choices map[int]float64) int {
 	totalProb := 0.0
 	for ret, probability := range choices {
 		if probability > 100 {
-			log.Warning.Println("Probability of a single entry provided for the statistically randomized WeightedChoice func exceeds 100%:{", ret, "=",  probability, "}")
+			log.Warning.Println("Probability of a single entry provided for the statistically randomized WeightedChoice func exceeds 100%:{", ret, "=", probability, "}")
 		}
 		totalProb += probability
 	}
 
-	totalProbV := totalProb/100*math.MaxUint16
+	totalProbV := totalProb / 100 * math.MaxUint16
 	hit := float64(rscRand.Int31N(1, int(totalProbV)))
 	for choice, prob := range choices {
-		total += prob*totalProbV/100
+		total += prob * totalProbV / 100
 		//log.Info.Println(strconv.FormatUint(uint64(choice), 10) + ": prob{" + strconv.FormatFloat(prob/100*(totalProbV), 'f', -1, 64) + " (" + strconv.FormatFloat(prob, 'f', 2,  64) + "%)}, cumulativeProb:", strconv.FormatFloat(total, 'f', 2,  64) + "/" + strconv.FormatUint(uint64(totalProbV), 10) + ",  HIT =", strconv.FormatUint(uint64(hit), 10), "(" + strconv.FormatFloat(hit/(totalProbV) * 100, 'f', 2, 64) + "%)")
 		if hit < total {
 			return choice
 		}
 	}
-	log.Info.Println(-1, -1, -1, -1)
+	//log.Info.Println(-1, -1, -1, -1)
 	return -1
 }
 

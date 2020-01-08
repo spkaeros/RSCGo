@@ -16,15 +16,15 @@ import (
 const (
 	// The percentage to increase or decrease the price of an item by as players use it.
 	//
-	// For every item the shop buys, the asking price decreases by itemDeltaCost% of the items base price.
-	// However, for every item the shop sells, the asking price increases by itemDeltaCost% of the items base price.
-	itemDeltaCost = 3
+	// For every item the shop buys, the asking price decreases by ShopNormalDeltaRate% of the items base price.
+	// However, for every item the shop sells, the asking price increases by ShopNormalDeltaRate% of the items base price.
+	ShopNormalDeltaRate = 3
 	// Defines the base selling price for buying items from players in the general store.
-	ShopPurchasingPriceBasePercent = 40
+	ShopBuyPriceBasePercent = 40
 	// Defines the base asking price for selling items to players in the general store.
-	ShopSellingPriceBasePercent = 130
+	ShopSellPriceBasePercent = 130
 	// Defines how often to normalize most general stores inventorys.  Might be an exception to this rule later.
-	ShopGeneralStoresRespawnTime = 50
+	ShopGeneralRespawnTime = 50
 )
 
 type (
@@ -33,7 +33,7 @@ type (
 		// it is necessary I believe...no shops other than ones accessed by NPCs there)
 		//
 		// Each time a shop buys or sells a shop item, that specific item type's price is scaled to the following percent:
-		//	basePercent+(item.DeltaAmount(shop.GetStockItem(item.ID))*itemDeltaCost)
+		//	basePercent+(item.DeltaAmount(shop.GetStockItem(item.ID))*ShopNormalDeltaRate)
 		// where basePercent can be distinct for selling or buying items, or they can be identical it doesn't matter. Only
 		// limitation as far as this goes, really, seems to be that you may not scale to percentages lower than 10%, it is
 		// the absolute lowest percentage of base item value that we can scale shop items to
@@ -51,6 +51,7 @@ type (
 		// in Stock entirely from itself(they will remain with Amount=0), and occasionally it normalizes itself, referencing
 		// Stock for the normal amounts to replenish toward, and the default IDs of what items to replenish.
 		Inventory *ShopItems
+		// Descriptive name for this shop.
 		Name      string
 	}
 	ShopItems struct {
@@ -333,11 +334,11 @@ func (s *Shop) Clone() *Shop {
 
 //StockDeltaPercentage calculates the percentage to scale the item's price up or down from its respective base percentage.
 // The formula simply subtracts the shop's base stocked amount of item from item's amount, and multiplies the difference
-// by itemDeltaCost.
+// by ShopNormalDeltaRate.
 func (s *Shop) StockDeltaPercentage(item *Item) int {
-	return item.DeltaAmount(s.Stock.Get(item.ID)) * itemDeltaCost
+	return item.DeltaAmount(s.Stock.Get(item.ID)) * ShopNormalDeltaRate
 }
 
 func (s *Shop) StockDeltaPercentID(id int) int {
-	return (s.Stock.Count(id) - s.Inventory.Count(id)) * itemDeltaCost
+	return (s.Stock.Count(id) - s.Inventory.Count(id)) * ShopNormalDeltaRate
 }
