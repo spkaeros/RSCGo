@@ -528,7 +528,7 @@ func BoundedChance(percent float64, minPercent, maxPercent float64) bool {
 	if minPercent > maxPercent {
 		maxPercent, minPercent = minPercent, maxPercent
 	}
-	return float64(rscRand.Uint8()) < math.Max(minPercent, math.Min(maxPercent, percent))/100.0*256.0
+	return float64(rscRand.Uint8()) <= math.Max(minPercent, math.Min(maxPercent, percent))/100.0*256.0
 }
 
 //Chance should return true (percent)% of the time, and false (100-percent)% of the time.
