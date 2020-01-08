@@ -550,22 +550,40 @@ func WeightedChoice(choices map[int]float64) int {
 	total := 0.0
 	totalProb := 0.0
 	for ret, probability := range choices {
-		if probability > 100 {
-			log.Warning.Println("Probability of a single entry provided for the statistically randomized WeightedChoice func exceeds 100%:{", ret, "=", probability, "}")
+		if probability > 100 && config.Verbose() {
+			log.Warning.Println("Probability of a single WeightedChance entry is over 100%:{entryVal:", ret, "; probability:", probability, "}; it is likely you are not using this function properly.")
 		}
 		totalProb += probability
 	}
 
-	totalProbV := totalProb / 100 * math.MaxUint16
-	hit := float64(rscRand.Int31N(1, int(totalProbV)))
+	// We determine the real upper limit of the cumulative probability.
+	// if the sum of all probabilities adds up to 100.0% or less, then the upper limit will be 65535
+	// if it's less, any unaccounted for percentage will return -1.
+	// if it's more, it'll scale 65535 up by however much percentage it needs to handle all inputs provided, and subsequently
+	// all individual probabilities must be scaled down by the same figure to account for the difference.
+	// e.g passing 3 values in with 50.0 probability on each of them will result in each entry returning at a
+	// rate of 33.333~% instead of 50% each, because 50/150=33.333~
+	cumulativeProbability := math.Max(1.0, totalProb/100)
+	upperBound := cumulativeProbability * math.MaxUint16
+	hit := float64(rscRand.Int31N(1, int(upperBound)))
+	if config.Verbosity >= 3 {
+		log.Info.Printf("WeightedChoice: Upper bound for total probability:%d (total was: %.2f%% of 65535; the RNG lower bound) {\n", int(upperBound), cumulativeProbability*100)
+		log.Info.Printf("\tRolled: %d/%d;\n", int(hit), int(upperBound))
+		defer log.Info.Println("};")
+	}
 	for choice, prob := range choices {
-		total += prob * totalProbV / 100
-		//log.Info.Println(strconv.FormatUint(uint64(choice), 10) + ": prob{" + strconv.FormatFloat(prob/100*(totalProbV), 'f', -1, 64) + " (" + strconv.FormatFloat(prob, 'f', 2,  64) + "%)}, cumulativeProb:", strconv.FormatFloat(total, 'f', 2,  64) + "/" + strconv.FormatUint(uint64(totalProbV), 10) + ",  HIT =", strconv.FormatUint(uint64(hit), 10), "(" + strconv.FormatFloat(hit/(totalProbV) * 100, 'f', 2, 64) + "%)")
+		newProb := prob/100*math.MaxUint16/upperBound
+		if config.Verbosity >= 3 {
+			log.Info.Printf("\tentry{val:%d; hit range between %d - %d (%.2f%% chance)}", choice, int(total), int(total+(newProb*upperBound)), newProb*100)
+		}
+		total += newProb * upperBound
 		if hit < total {
 			return choice
 		}
 	}
-	//log.Info.Println(-1, -1, -1, -1)
+	if config.Verbosity >= 3 {
+		log.Info.Println("Rolled value did not return anything!")
+	}
 	return -1
 }
 
