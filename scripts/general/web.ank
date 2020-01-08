@@ -4,12 +4,13 @@ world = import("world")
 
 bind.invOnBoundary(func(player, object, item) {
 	log.debugf("%d\n", object.ID)
-	if object.ID == 24 && item.WieldPos() == 4 {
-		// web
+	// web == 24
+	// equipment type 16 == anything occupying chars right hand, with or without occupying other slots
+	if object.ID == 24 && world.getEquipmentDefinition(item.ID).Type&16!=0 {
 		player.Message("You try to destroy the web")
-		sleep(tMillis*1800)
-		// 25% chance
-		if rand(1, 4) != 1 {
+		sleep(tMillis*1920)
+		// 25% chance to cut through web
+		if roll(25) {
 			player.Message("You slice through the web.")
 			world.removeObject(object)
 			go func() {
