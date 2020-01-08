@@ -12,16 +12,16 @@ phats = {
 }
 
 prizes = {
-	ids.LAW_RUNE: 5,
-	ids.BLACK_DAGGER: 6,
-	ids.GOLD_RING: 10,
-	ids.SILK: 11,
-	ids.HOLY_SYMBOL_OF_SARADOMIN: 10,
-	ids.IRON_ORE_CERTIFICATE: 12,
-	ids.CHOCOLATE_SLICE: 15,
-	ids.SPINACH_ROLL: 17,
-	ids.SILVER: 18,
-	ids.CHOCOLATE_BAR: 24,
+	ids.CHOCOLATE_BAR: 18.75,
+	ids.SILVER: 14.0625,
+	ids.SPINACH_ROLL: 13.28125,
+	ids.CHOCOLATE_SLICE: 11.71875,
+	ids.IRON_ORE_CERTIFICATE: 9.375,
+	ids.SILK: 8.59375,
+	ids.HOLY_SYMBOL_OF_SARADOMIN: 7.8125,
+	ids.GOLD_RING: 7.8125,
+	ids.BLACK_DAGGER: 4.6875,
+	ids.LAW_RUNE: 3.90625,
 }
 
 bind.invOnPlayer(itemPredicate(575), func(player, target, item) {
