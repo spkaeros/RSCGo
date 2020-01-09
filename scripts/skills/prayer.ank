@@ -42,10 +42,9 @@ bind.onLogin(func(player) {
 					// player turning prayer off
 					prayers[index].drained = time.Since(prayers[index].startTime).Milliseconds()
 					prayers[index].startTime = defs[index].startTime
-				}
 //				} else {
 //					println((time.Since(prayers[index].startTime).Milliseconds() / prayers[index].drainDuration(player.PrayerPoints()) * 100) + "% drained (" + time.Since(prayers[index].startTime).Milliseconds() + "/" + prayers[index].drainDuration(player.PrayerPoints()) + "ms) for prayer [" + index + "]")
-//				}
+				}
 			} else {
 				// prayer inactive
 				if player.PrayerActivated(index) {
