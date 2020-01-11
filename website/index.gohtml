@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+    <title>{{.Title}} by {{.Owner}}</title>
+    <link rel="stylesheet" type="text/css" href="/style.css">
+  </head>
+  <body>
+    <div class="rsc-container">
+      <div class="rsc-border-top rsc-border-bar"></div>
+      <div class="rsc-wrap">
+        <img class="rsc-logo" src="/res/{{ .ToLower .Title }}.png" alt="{{ .ToLower .Title }} logo">
+        <p class="rsc-player-count">There are currently {{.OnlineCount}} people playing!</p>
+        <section class="rsc-button-wheel">
+          <a class="rsc-button rsc-play-button" href="/play.html">Play Game</a>
+          <a class="rsc-button rsc-stone-button" href="/manual.html">Manual</a>
+          <a class="rsc-button rsc-stone-button" href="/support.html">Customer Support</a>
+          <a class="rsc-button rsc-stone-button" href="/community.html">Community</a>
+          <a class="rsc-button rsc-stone-button" href="/support.html">Message Centre</a>
+          <a class="rsc-button rsc-stone-button" href="/news.html">News &amp; Updates</a>
+          <a class="rsc-button rsc-stone-button" href="/library.html">Library of Varrock</a>
+          <a class="rsc-button rsc-stone-button" href="/hiscores.html">Hiscores</a>
+        </section>
+      </div>
+      <footer class="rsc-footer">
+        This webpage and its contents is copyright {{ .Copyright }} {{ .Owner }}
+        <br>
+        To use our service you must agree to our 
+        <a class="rsc-link" href="/terms.html">Terms+Conditions</a> + 
+        <a class="rsc-link" href="/privacy.html">Privacy policy</a>
+      </footer>
+      <div class="rsc-border-bottom rsc-border-bar"></div>
+    </div>
+  </body>
+</html>
