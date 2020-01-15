@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"os"
@@ -19,13 +20,12 @@ var (
 )
 
 func Bind(port int) {
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		log.Error.Printf("Can't bind to specified port: %d\n", port)
-		log.Error.Println(err)
-		os.Exit(1)
-	}
-
+		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+		if err != nil {
+			log.Error.Printf("Can't bind to specified port: %d\n", port)
+			log.Error.Println(err)
+			os.Exit(1)
+		}
 	go func() {
 		var wsUpgrader = ws.Upgrader{
 			Protocol: func(protocol []byte) bool {
@@ -53,6 +53,12 @@ func Bind(port int) {
 				continue
 			}
 			if port == config.WSPort() {
+				certChain, err := tls.LoadX509KeyPair("./data/ssl/fullchain.pem", "./data/ssl/privkey.pem")
+				if err != nil {
+					log.Warning.Println("Problem reading cert chain for WSS protocol:", err)
+					return
+				}
+				socket = tls.Server(socket, &tls.Config{Certificates:[]tls.Certificate{certChain}, InsecureSkipVerify:true})
 				if _, err := wsUpgrader.Upgrade(socket); err != nil {
 					log.Info.Println("Error upgrading websocket connection:", err)
 					continue
