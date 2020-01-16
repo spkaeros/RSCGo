@@ -10,10 +10,13 @@
     <div class="rsc-container">
       <div class="rsc-border-top rsc-border-bar"></div>
       <div class="rsc-wrap">
-        <img class="rsc-logo" src="/res/{{ .ToLower .Title }}.png" alt="{{ .ToLower .Title }} logo">
+        <h1>
+	  <img class="rsc-logo" src="/res/{{ .ToLower .Title }}.png" alt="{{.Title}} logo">
+	</h1>
         <p class="rsc-player-count">There are currently {{.OnlineCount}} people playing!</p>
         <section class="rsc-button-wheel">
-          <a class="rsc-button rsc-play-button" href="/play.html">Play Game</a>
+          
+          <h2><a class="rsc-button rsc-play-button" href="/play.html">Play Game</a></h2>
           <a class="rsc-button rsc-stone-button" href="/manual.html">Manual</a>
           <a class="rsc-button rsc-stone-button" href="/support.html">Customer Support</a>
           <a class="rsc-button rsc-stone-button" href="/community.html">Community</a>

@@ -1098,21 +1098,29 @@ func (p *Player) Killed(killer MobileEntity) {
 	} else {
 		deathItems = p.DuelOffer
 	}
-	killerName := uint64(strutil.MaxBase37 + 5000) // Indicator that the item is not owned
+	var itemOwner *Player
 	if killer, ok := killer.(*Player); killer != nil && ok {
 		killer.DistributeMeleeExp(int(math.Ceil(MeleeExperience(p) / 4.0)))
 		killer.Message("You have defeated " + p.Username() + "!")
-		killerName = killer.UsernameHash()
+		itemOwner = killer
 	}
 	deathItems.Range(func(item *Item) bool {
-		AddItem(NewGroundItemFor(killerName, item.ID, item.Amount, p.X(), p.Y()))
+		if itemOwner == nil {
+			AddItem(NewGroundItem(item.ID, item.Amount, p.X(), p.Y()))
+		} else {
+			AddItem(NewGroundItemFor(itemOwner.UsernameHash(), item.ID, item.Amount, p.X(), p.Y()))
+		}
 		return true
 	})
 	p.Inventory.RemoveAll(deathItems)
 	for i := 0; i < 14; i++ {
 		p.PrayerOff(i)
 	}
-	AddItem(NewGroundItemFor(killerName, 20, 1, p.X(), p.Y()))
+	if itemOwner == nil {
+		AddItem(NewGroundItem(20, 1, p.X(), p.Y()))
+	} else {
+		AddItem(NewGroundItemFor(itemOwner.UsernameHash(), 20, 1, p.X(), p.Y()))
+	}
 
 	if p.IsDueling() {
 		if p.DuelTarget() != nil {
