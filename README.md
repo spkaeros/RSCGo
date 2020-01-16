@@ -41,3 +41,13 @@ You can also make the binary significantly smaller by stripping debug symbols, e
 This software is distributed under the terms of the ISC license, which basically permits you to do as you please with this software, as long as, with any distribution, you provide my copyright/permission notice from the license, and give me proper credit.
 
 Enjoy!
+
+
+## Public RSCGo servers
+    https://rscturmoil.com/
+
+I have begun hosting a publicly available RSCGo instance, using the 204 HTML5 webclient written by misterhat, to provide an RSC experience just as it used to be, to the masses without needing to do any downloading, or entering personal information to start playing at the site above, rscturmoil.com
+
+As it stands, I am uncertain what direction this public server is headed(PK oriented, replica oriented, etc); I am almost certain that there will end up being a variant put up that is a replica-like experience, along with a much improved sister site that implements helpful QoL updates and etc that Jagex had not, as the team sees fit...
+
+If you like my software, you should come join us for a chat in discord: https://discord.gg/baz32Y
