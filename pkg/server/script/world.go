@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/mattn/anko/core"
 	"github.com/mattn/anko/env"
 	_ "github.com/mattn/anko/packages"
@@ -373,6 +374,18 @@ func WorldModule() *env.Env {
 			return false
 		}
 	})
+
+
+	e.Define("fuzzyFindItem", func(input string) []map[string]interface{} {
+		var itemList []map[string]interface{}
+		for id, item := range world.ItemDefs {
+			if fuzzy.MatchFold(input, item.Name) {
+				itemList = append(itemList, map[string]interface{} {"name": item.Name, "id": id})
+			}
+		}
+		return itemList
+	})
+
 	e.Define("itemPredicate", func(ids ...interface{}) func(*world.Item) bool {
 		return func(item *world.Item) bool {
 			for _, id := range ids {

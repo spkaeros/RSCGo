@@ -1,6 +1,7 @@
 bind = import("bind")
 log = import("log")
 world = import("world")
+regexp = import("regexp")
 
 bind.command("npc", func(player, args) {
 	if len(args) < 1 {
@@ -34,22 +35,47 @@ bind.command("npc", func(player, args) {
 })
 
 bind.command("item", func(player, args) {
-	try {
-		id = toInt(args[0])
-		if id < 0 || id > 1289 {
+	go func() {
+	id = -1
+	amount = 1
+	if len(args) > 1 {
+		amount = toInt(args[1])
+	}
+        if regexp.MustCompile("^[0-9]+$").MatchString(args[0]) {
+                id = toInt(args[0])
+        } else {
+		ids = fuzzyFindItem(args[0])
+		if len(ids) < 1 {
+			player.Message("Could not fuzzysearch a match for " + args[0])
 			return
 		}
-		amount = 1
-		if len(args) > 1 {
-			amount = toInt(args[1])
+		if len(ids) > 5 {
+			player.Message("Search name too ambiguous: Too many results matched(" + len(ids) + ")")
+			return
 		}
-		if amount < 1 {
-			amount = 1
+
+		if len(ids) > 1 {
+			names = []
+			for match in ids {
+				names += match.name
+			}
+			player.Message("Choose which item you wish to spawn")
+			reply = player.OpenOptionMenu(names...)
+			if reply == -1 {
+				player.Message("::item menu timeout")
+				return
+			}
+
+
+			id = toInt(ids[toInt(reply)].id)
+		} else {
+			id = toInt(ids[0].id)
 		}
+        }
+	if id > -1 {
 		player.AddItem(id, amount)
-	} catch e {
-		player.Message("Invalid syntax.  Usage: ::item <id> (<amount>)")
 	}
+	}()
 })
 
 bind.command("object", func(player, args) {
