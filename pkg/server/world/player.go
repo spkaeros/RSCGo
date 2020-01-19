@@ -656,6 +656,7 @@ func (p *Player) SendPacket(packet *packet.Packet) {
 //Destroy sends a kill signal to the underlying client to tear down all of the I/O routines and save the player.
 func (p *Player) Destroy() {
 	p.killer.Do(func() {
+		p.ResetAll()
 		p.Attributes.SetVar("lastIP", p.CurrentIP())
 		p.Inventory.Owner = nil
 		close(p.KillC)
