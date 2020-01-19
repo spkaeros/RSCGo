@@ -596,7 +596,7 @@ func ItemLocations(player *Player) (p *packet.Packet) {
 	for _, i := range player.LocalItems.set {
 		if i, ok := i.(*GroundItem); ok {
 			x, y := i.X(), i.Y()
-			if !player.WithinRange(i.Location, player.TransAttrs.VarInt("viewRadius", 16)+5) {
+			if !player.WithinRange(i.Location, player.TransAttrs.VarInt("viewRadius", 16)) {
 				if !player.WithinRange(i.Location, 128) {
 					if chunks, ok := player.TransAttrs.Var("distantChunks"); ok {
 						player.TransAttrs.SetVar("distantChunks", append(chunks.([]Location), i.Location.Clone()))

@@ -70,7 +70,7 @@ func (l *entityList) NearbyItems(p *Player) []*GroundItem {
 	defer l.lock.RUnlock()
 	var items []*GroundItem
 	for _, i := range l.set {
-		if i, ok := i.(*GroundItem); ok && i.VisibleTo(p) && p.WithinRange(i.Location, p.TransAttrs.VarInt("viewRadius", 16)+5) {
+		if i, ok := i.(*GroundItem); ok && i.VisibleTo(p) && p.WithinRange(i.Location, p.TransAttrs.VarInt("viewRadius", 16)) {
 			items = append(items, i)
 		}
 	}
