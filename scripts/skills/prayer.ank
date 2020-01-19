@@ -1,5 +1,6 @@
 bind = import("bind")
 time = import("time")
+strings = import("strings")
 
 load("scripts/definitions/prayer.ank")
 
@@ -55,5 +56,22 @@ bind.onLogin(func(player) {
 				}
 			}
 		}
+	}
+})
+
+bind.item(itemPredicate(20, 413, 604, 814), func(player, item) {
+	player.Message("You dig a hole in the ground")
+	sleep(tMillis*640)
+	player.Message("You bury the " + strings.ToLower(item.Name()))
+	player.Inventory.RemoveByID(toInt(item.ID), 1)
+	switch item.ID {
+	case 20:
+		player.IncExp(PRAYER, 15/4)
+	case 604:
+		player.IncExp(PRAYER, 18/4)
+	case 413:
+		player.IncExp(PRAYER, 50/4)
+	case 814:
+		player.IncExp(PRAYER, 240/4)
 	}
 })
