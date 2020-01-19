@@ -166,11 +166,17 @@ func Tick() {
 			p.SendPacket(clearDistantChunks)
 		}
 	})
+//	world.Players.Range(func(p *world.Player) {
+//		for _, fn := range p.ResetTickables {
+//			fn()
+//		}
+//		p.ResetTickables = p.ResetTickables[:0]
+//	})
 	world.Players.Range(func(p *world.Player) {
-		for _, fn := range p.ResetTickables {
-			fn()
-		}
-		p.ResetTickables = p.ResetTickables[:0]
+		p.ResetRegionRemoved()
+		p.ResetRegionMoved()
+		p.ResetSpriteUpdated()
+		p.ResetAppearanceChanged()
 	})
 	world.ResetNpcUpdateFlags()
 }
