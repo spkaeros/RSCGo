@@ -1059,6 +1059,21 @@ func (p *Player) StartCombat(target MobileEntity) {
 			return false
 		}
 		nextHit := int(math.Min(float64(defender.Skills().Current(StatHits)), float64(attacker.MeleeDamage(defender))))
+		if attPlayer, ok := attacker.(*Player); ok {
+			if nextHit > 0 {
+				attPlayer.PlaySound("combat1b") // hit
+			} else {
+				attPlayer.PlaySound("combat1a") // miss
+			}
+		}
+		if defPlayer, ok := defender.(*Player); ok {
+			if nextHit > 0 {
+				defPlayer.PlaySound("combat1b") // hit
+			} else {
+				defPlayer.PlaySound("combat1a") // miss
+			}
+		}
+		// TODO: combat(2/3)(a/b) 2nd set is armor sound 3rd is ghostly undead sound
 		defender.Skills().DecreaseCur(StatHits, nextHit)
 		if defender.Skills().Current(StatHits) <= 0 {
 			defender.Killed(attacker)
