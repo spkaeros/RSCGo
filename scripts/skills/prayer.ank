@@ -25,7 +25,6 @@ bind.onLogin(func(player) {
 					player.IncCurStat(PRAYER, -1)
 					if player.Skills().Current(PRAYER) <= 0 {
 						player.Message("You have run out of prayer points. Return to a church to recharge")
-						prayers = copyPrayerDefinitions()
 						for idx in range(14) {
 							player.PrayerOff(idx)
 							prayers[idx] = {
