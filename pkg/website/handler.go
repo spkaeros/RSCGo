@@ -57,7 +57,8 @@ func indexHandler() http.Handler {
 //Start Binds to the web port 8080 and serves HTTP content to it.
 // Note: This is a blocking call, it will not return to caller.
 func Start() {
-	muxCtx.Handle("/", indexHandler())
+	muxCtx.Handle("/", http.RedirectHandler("/404.html", 302))
+	muxCtx.Handle("/index.ws", indexHandler())
 
 	err := http.ListenAndServe(":8080", muxCtx)
 	if err != nil {
