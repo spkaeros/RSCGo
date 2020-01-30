@@ -185,10 +185,18 @@ func (c *client) Read(dst []byte) (int, error) {
 		if c.wsHeader.Length <= c.wsLength {
 			c.wsHeader, c.wsReader, err = wsutil.NextReader(c.readWriter.Reader, ws.StateServerSide)
 			if err != nil {
-				log.Warning.Println("Problem creating reader for next websocket frame:", err)
+				if err == io.EOF || err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
+					return -1, errors.ConnClosed
+				} else if e, ok := err.(net.Error); ok && e.Timeout() {
+					return -1, errors.ConnTimedOut
+				} else {
+					log.Warning.Println("Problem creating reader for next websocket frame:", err)
+				}
+				
 				c.player.Destroy()
 				return -1, err
 			}
+			// reset current read index
 			c.wsLength = 0
 		}
 		n, err := c.wsReader.Read(dst)
@@ -199,14 +207,14 @@ func (c *client) Read(dst []byte) (int, error) {
 				return -1, errors.ConnTimedOut
 			} else if err == io.EOF {
 				if !c.wsHeader.Fin {
-					log.Info.Println(err)
-					return -1, err
+					return -1, errors.ConnClosed
 				}
 				// EOF on fin means end of frame
 				c.wsLength += int64(n)
 				return n, nil
+			} else {
+				log.Warning.Println(err)
 			}
-			log.Info.Println(err)
 			return -1, err
 		}
 		c.wsLength += int64(n)
@@ -228,59 +236,6 @@ func (c *client) Read(dst []byte) (int, error) {
 
 //readPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode of the next packet frame the client is sending us.
 func (c *client) readPacket() (p *packet.Packet, err error) {
-	//if c.websocket {
-	//	// set the read deadline for the socket to 10 seconds from now.
-	//	err := c.Socket.SetReadDeadline(time.Now().Add(time.Second * 10))
-	//	if err != nil {
-	//		return nil, errors.ConnDeadline
-	//	}
-	//	data, err := wsutil.ReadClientBinary(c.readWriter)
-	//	if err != nil {
-	//		log.Warning.Println(err)
-	//		if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
-	//			return nil, errors.ConnClosed
-	//		} else if e, ok := err.(net.Error); ok && e.Timeout() {
-	//			return nil, errors.ConnTimedOut
-	//		}
-	//		return nil, err
-	//	}
-	//	//if len(data) < 3 {
-	//	//	c.CacheBuffer = append(c.CacheBuffer, data...)
-	//	//	return nil, errors.NewNetworkError("SHORT_DATA")
-	//	//}
-	//	//if len(c.CacheBuffer) > 0 {
-	//	//	data = append(c.CacheBuffer, data...)
-	//	//	c.CacheBuffer = c.CacheBuffer[:0]
-	//	//}
-	//	length := int(data[0] & 0xFF)
-	//	if length >= 160 {
-	//		length = (length-160)<<8+int(data[1] & 0xFF)
-	//	} else {
-	//		length--
-	//	}
-	//
-	//	if length+2 >= 5000 || length+2 < 2 {
-	//		log.Suspicious.Printf("Invalid packet length from [%v]: %d\n", c, length)
-	//		log.Warning.Printf("Packet from [%v] length out of bounds; got %d, expected between 0 and 5000\n", c, length)
-	//		return nil, errors.NewNetworkError("Packet length out of bounds; must be between 0 and 5000.")
-	//	}
-	//
-	//	opcode := data[2]
-	//	var payload []byte
-	//	if length != 0 {
-	//		payload = data[3:]
-	//	}
-	//	if length < 160 {
-	//		payload = append(payload, data[1])
-	//	}
-	//	//if len(data) > length+3 {
-	//	//	// too much data left; we should try to parse some more from it..
-	//	//	c.readWriter.Reset(wsutil.)
-	//	//}
-	//	log.Info.Println(c.CacheBuffer, opcode, payload)
-	//	return packet.NewPacket(opcode, payload), nil
-	//}
-
 	header := make([]byte, 2)
 	l, err := c.Read(header)
 	if err != nil {
@@ -293,9 +248,6 @@ func (c *client) readPacket() (p *packet.Packet, err error) {
 	bigLength := length >= 160
 	if bigLength {
 		length = (length-160)<<8 + int(header[1])
-	} else {
-		// We have the final byte of frame data already, stored at header[1]
-		//length--
 	}
 
 	if length+2 >= 5000 || length+2 < 2 {

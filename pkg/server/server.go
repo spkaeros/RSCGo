@@ -20,12 +20,12 @@ var (
 )
 
 func Bind(port int) {
-		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-		if err != nil {
-			log.Error.Printf("Can't bind to specified port: %d\n", port)
-			log.Error.Println(err)
-			os.Exit(1)
-		}
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		log.Error.Printf("Can't bind to specified port: %d\n", port)
+		log.Error.Println(err)
+		os.Exit(1)
+	}
 	go func() {
 		var wsUpgrader = ws.Upgrader{
 			Protocol: func(protocol []byte) bool {
@@ -36,11 +36,13 @@ func Bind(port int) {
 			WriteBufferSize: 5000,
 		}
 
+		
+		certChain, certErr := tls.LoadX509KeyPair("./data/ssl/fullchain.pem", "./data/ssl/privkey.pem")
+
 		defer func() {
 			err := listener.Close()
 			if err != nil {
 				log.Error.Println("Could not close server socket listener:", err)
-				return
 			}
 		}()
 
@@ -53,12 +55,12 @@ func Bind(port int) {
 				continue
 			}
 			if port == config.WSPort() {
-				certChain, err := tls.LoadX509KeyPair("./data/ssl/fullchain.pem", "./data/ssl/privkey.pem")
-				if err != nil {
-					log.Warning.Println("Problem reading cert chain for WSS protocol:", err)
-					return
+				// Fall back to accepting non-SSL WS connections in the event that we could not read the cert files
+				if certErr == nil {
+					// set up socket to use TLS if we have certs that successfully loaded
+					socket = tls.Server(socket, &tls.Config{Certificates:[]tls.Certificate{certChain}, InsecureSkipVerify:true})
 				}
-				socket = tls.Server(socket, &tls.Config{Certificates:[]tls.Certificate{certChain}, InsecureSkipVerify:true})
+				// Regardless of whether we use SSL or not for this WS connection, the rest of our WS code doesn't care at all
 				if _, err := wsUpgrader.Upgrade(socket); err != nil {
 					log.Info.Println("Error upgrading websocket connection:", err)
 					continue
