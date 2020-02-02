@@ -41,7 +41,7 @@ type packetList struct {
 
 func init() {
 	// Just to prevent non-handled packet message from spamming up the logs
-	AddHandler("pingreq", handlerFunc(nil))
+	AddHandler("pingreq", func(*world.Player, *packet.Packet) {})
 }
 
 //UnmarshalPackets Loads the packet definitions into memory from the configured TOML file
