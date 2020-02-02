@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
  *
@@ -7,17 +7,16 @@
  *
  */
 
-package packethandlers
+package handlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
-	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 func init() {
-	PacketHandlers["objectaction"] = func(player *world.Player, p *packet.Packet) {
+	AddHandler("objectaction", func(player *world.Player, p *packet.Packet) {
 		if player.Busy() {
 			return
 		}
@@ -38,7 +37,7 @@ func init() {
 						player.RemoveState(world.MSBusy)
 					}()
 
-					for _, trigger := range script.ObjectTriggers {
+					for _, trigger := range world.ObjectTriggers {
 						if trigger.Check(object, 0) {
 							trigger.Action(player, object, 0)
 							return
@@ -51,8 +50,8 @@ func init() {
 			return false
 
 		})
-	}
-	PacketHandlers["objectaction2"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("objectaction2",  func(player *world.Player, p *packet.Packet) {
 		if player.Busy() {
 			return
 		}
@@ -73,7 +72,7 @@ func init() {
 						player.RemoveState(world.MSBusy)
 					}()
 
-					for _, trigger := range script.ObjectTriggers {
+					for _, trigger := range world.ObjectTriggers {
 						if trigger.Check(object, 1) {
 							trigger.Action(player, object, 1)
 							return
@@ -86,8 +85,8 @@ func init() {
 			}
 			return false
 		})
-	}
-	PacketHandlers["boundaryaction2"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("boundaryaction2",  func(player *world.Player, p *packet.Packet) {
 		if player.Busy() {
 			return
 		}
@@ -112,7 +111,7 @@ func init() {
 						player.RemoveState(world.MSBusy)
 					}()
 
-					for _, trigger := range script.BoundaryTriggers {
+					for _, trigger := range world.BoundaryTriggers {
 						if trigger.Check(object, 1) {
 							trigger.Action(player, object, 1)
 							return
@@ -124,8 +123,8 @@ func init() {
 			}
 			return false
 		})
-	}
-	PacketHandlers["boundaryaction"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("boundaryaction",  func(player *world.Player, p *packet.Packet) {
 		if player.Busy() {
 			return
 		}
@@ -150,7 +149,7 @@ func init() {
 						player.RemoveState(world.MSBusy)
 					}()
 
-					for _, trigger := range script.BoundaryTriggers {
+					for _, trigger := range world.BoundaryTriggers {
 						if trigger.Check(object, 1) {
 							trigger.Action(player, object, 1)
 							return
@@ -162,8 +161,8 @@ func init() {
 			}
 			return false
 		})
-	}
-	PacketHandlers["talktonpc"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("talktonpc",  func(player *world.Player, p *packet.Packet) {
 		idx := p.ReadShort()
 		npc := world.GetNpc(idx)
 		if npc == nil {
@@ -181,7 +180,7 @@ func init() {
 			}
 			if player.WithinRange(npc.Location, 1) && player.NextTo(npc.Location) {
 				player.ResetPath()
-				for _, triggerDef := range script.NpcTriggers {
+				for _, triggerDef := range world.NpcTriggers {
 					if triggerDef.Check(npc) {
 						npc.ResetPath()
 						if player.Location.Equals(npc.Location) {
@@ -269,8 +268,8 @@ func init() {
 			player.WalkTo(npc.Location)
 			return false
 		})
-	}
-	PacketHandlers["invonboundary"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("invonboundary",  func(player *world.Player, p *packet.Packet) {
 		targetX := p.ReadShort()
 		targetY := p.ReadShort()
 		p.ReadByte() // dir, useful?
@@ -299,7 +298,7 @@ func init() {
 					defer func() {
 						player.RemoveState(world.MSBusy)
 					}()
-					for _, fn := range script.InvOnBoundaryTriggers {
+					for _, fn := range world.InvOnBoundaryTriggers {
 						if fn(player, object, invItem) {
 							return
 						}
@@ -311,9 +310,8 @@ func init() {
 			player.WalkTo(object.Location)
 			return false
 		})
-	}
-
-	PacketHandlers["invonplayer"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("invonplayer",  func(player *world.Player, p *packet.Packet) {
 		targetIndex := p.ReadShort()
 		invIndex := p.ReadShort()
 
@@ -345,7 +343,7 @@ func init() {
 						player.RemoveState(world.MSBusy)
 						target.RemoveState(world.MSBusy)
 					}()
-					for _, trigger := range script.InvOnPlayerTriggers {
+					for _, trigger := range world.InvOnPlayerTriggers {
 						if trigger.Check(invItem) {
 							trigger.Action(player, target, invItem)
 							return
@@ -358,9 +356,8 @@ func init() {
 			player.WalkTo(target.Location)
 			return false
 		})
-	}
-
-	PacketHandlers["invonobject"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("invonobject",  func(player *world.Player, p *packet.Packet) {
 		targetX := p.ReadShort()
 		targetY := p.ReadShort()
 		invIndex := p.ReadShort()
@@ -390,7 +387,7 @@ func init() {
 						defer func() {
 							player.RemoveState(world.MSBusy)
 						}()
-						for _, fn := range script.InvOnObjectTriggers {
+						for _, fn := range world.InvOnObjectTriggers {
 							if fn(player, object, invItem) {
 								return
 							}
@@ -409,7 +406,7 @@ func init() {
 					defer func() {
 						player.RemoveState(world.MSBusy)
 					}()
-					for _, fn := range script.InvOnObjectTriggers {
+					for _, fn := range world.InvOnObjectTriggers {
 						if fn(player, object, invItem) {
 							return
 						}
@@ -421,5 +418,5 @@ func init() {
 			player.WalkTo(object.Location)
 			return false
 		})
-	}
+	})
 }

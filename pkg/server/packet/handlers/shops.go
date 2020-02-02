@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
  *
@@ -7,7 +7,7 @@
  *
  */
 
-package packethandlers
+package handlers
 
 import (
 	"strconv"
@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	PacketHandlers["shopbuy"] = func(player *world.Player, p *packet.Packet) {
+	AddHandler("shopbuy", func(player *world.Player, p *packet.Packet) {
 		if player.HasState(world.MSShopping) {
 			id := p.ReadShort()
 			price := p.ReadInt()
@@ -60,8 +60,8 @@ func init() {
 				})
 			}
 		}
-	}
-	PacketHandlers["shopsell"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("shopsell", func(player *world.Player, p *packet.Packet) {
 		if player.HasState(world.MSShopping) {
 			id := p.ReadShort()
 			price := p.ReadInt()
@@ -94,10 +94,10 @@ func init() {
 				})
 			}
 		}
-	}
-	PacketHandlers["shopclose"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("shopclose", func(player *world.Player, p *packet.Packet) {
 		if player.HasState(world.MSShopping) {
 			player.CloseShop()
 		}
-	}
+	})
 }

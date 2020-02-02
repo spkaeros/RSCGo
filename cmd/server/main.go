@@ -12,8 +12,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/config"
 	"github.com/spkaeros/rscgo/pkg/server/db"
 	"github.com/spkaeros/rscgo/pkg/server/log"
-	"github.com/spkaeros/rscgo/pkg/server/packethandlers"
-	"github.com/spkaeros/rscgo/pkg/server/script"
+	"github.com/spkaeros/rscgo/pkg/server/packet/handlers"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
@@ -74,7 +73,7 @@ func main() {
 	var awaitLaunchJobs sync.WaitGroup
 	// Network protocol information
 	asyncExecute(&awaitLaunchJobs, world.LoadCollisionData)
-	asyncExecute(&awaitLaunchJobs, packethandlers.Initialize)
+	asyncExecute(&awaitLaunchJobs, handlers.UnmarshalPackets)
 
 	// Entity definitions
 	asyncExecute(&awaitLaunchJobs, db.LoadObjectDefinitions)
@@ -91,14 +90,14 @@ func main() {
 	//	asyncExecute(&awaitLaunchJobs, script.LoadBoundaryTriggers)
 	//	asyncExecute(&awaitLaunchJobs, script.LoadItemTriggers)
 	awaitLaunchJobs.Wait()
-	asyncExecute(&awaitLaunchJobs, script.Load)
+	asyncExecute(&awaitLaunchJobs, world.RunScripts)
 	asyncExecute(&awaitLaunchJobs, db.LoadObjectLocations)
 	asyncExecute(&awaitLaunchJobs, db.LoadNpcLocations)
 	asyncExecute(&awaitLaunchJobs, db.LoadItemLocations)
 	awaitLaunchJobs.Wait()
 	if config.Verbose() {
 		log.Info.Printf("Loaded %d landscape sectors.\n", len(world.Sectors))
-		log.Info.Printf("Loaded %d packet handlers.\n", packethandlers.Size())
+		log.Info.Printf("Loaded %d packets, %d of which have handlers.\n", handlers.PacketCount(), handlers.HandlerCount())
 		log.Info.Printf("Loaded %d item definitions.\n", len(world.ItemDefs))
 		log.Info.Printf("Loaded %d NPC definitions.\n", len(world.NpcDefs))
 		log.Info.Printf("Loaded %d object definitions.\n", len(world.ObjectDefs))
@@ -106,7 +105,7 @@ func main() {
 		log.Info.Printf("Loaded %d NPCs.\n", world.NpcCounter.Load())
 		log.Info.Printf("Loaded %d ground items.\n", world.ItemIndexer.Load())
 		log.Info.Printf("Loaded %d objects and boundaries.\n", world.ObjectCounter.Load())
-		log.Info.Printf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill] loaded\n", len(script.ItemTriggers), len(script.ObjectTriggers), len(script.BoundaryTriggers), len(script.NpcTriggers), len(script.InvOnBoundaryTriggers), len(script.InvOnObjectTriggers), len(script.NpcAtkTriggers), len(world.NpcDeathTriggers))
+		log.Info.Printf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill] loaded\n", len(world.ItemTriggers), len(world.ObjectTriggers), len(world.BoundaryTriggers), len(world.NpcTriggers), len(world.InvOnBoundaryTriggers), len(world.InvOnObjectTriggers), len(world.NpcAtkTriggers), len(world.NpcDeathTriggers))
 		log.Info.Printf("Finished initializing entities in: %dms\n", time.Since(start).Milliseconds())
 	}
 	server.StartGameEngine()

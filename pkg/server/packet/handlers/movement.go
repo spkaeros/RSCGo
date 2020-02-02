@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
  *
@@ -7,7 +7,7 @@
  *
  */
 
-package packethandlers
+package handlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/packet"
@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	PacketHandlers["walkto"] = func(player *world.Player, p *packet.Packet) {
+	AddHandler("walkto", func(player *world.Player, p *packet.Packet) {
 		if player.IsFighting() {
 			target := player.FightTarget()
 			if target == nil {
@@ -51,8 +51,8 @@ func init() {
 		}
 		player.ResetAll()
 		player.SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
-	}
-	PacketHandlers["walktoentity"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("walktoentity", func(player *world.Player, p *packet.Packet) {
 		if player.IsFighting() {
 			return
 		}
@@ -69,8 +69,8 @@ func init() {
 		}
 		player.ResetAll()
 		player.SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
-	}
-	PacketHandlers["followreq"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("followreq", func(player *world.Player, p *packet.Packet) {
 		if player.IsFighting() {
 			return
 		}
@@ -106,8 +106,8 @@ func init() {
 			}
 			return false
 		})
-	}
-	PacketHandlers["appearancerequest"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("appearancerequest", func(player *world.Player, p *packet.Packet) {
 		playerCount := p.ReadShort()
 		for i := 0; i < playerCount; i++ {
 			serverIndex := p.ReadShort()
@@ -120,5 +120,5 @@ func init() {
 			}
 			player.AppearanceLock.Unlock()
 		}
-	}
+	})
 }

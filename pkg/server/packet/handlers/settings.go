@@ -1,4 +1,13 @@
-package packethandlers
+/*
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
+package handlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/packet"
@@ -6,13 +15,13 @@ import (
 )
 
 func init() {
-	PacketHandlers["clientsetting"] = func(player *world.Player, p *packet.Packet) {
+	AddHandler("clientsetting", func(player *world.Player, p *packet.Packet) {
 		// 2 = mouse buttons
 		// 0 = camera angle manual/auto
 		// 3 = soundFX (false=on, wtf)
 		player.SetClientSetting(int(p.ReadByte()), p.ReadBool())
-	}
-	PacketHandlers["privacysettings"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("privacysettings", func(player *world.Player, p *packet.Packet) {
 		chatBlocked := p.ReadBool()
 		friendBlocked := p.ReadBool()
 		tradeBlocked := p.ReadBool()
@@ -33,5 +42,5 @@ func init() {
 			})
 		}
 		player.SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, duelBlocked)
-	}
+	})
 }

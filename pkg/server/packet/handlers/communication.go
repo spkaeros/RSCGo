@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
  *
@@ -7,7 +7,7 @@
  *
  */
 
-package packethandlers
+package handlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/packet"
@@ -16,14 +16,14 @@ import (
 )
 
 func init() {
-	PacketHandlers["chatmsg"] = func(player *world.Player, p *packet.Packet) {
+	AddHandler("chatmsg", func(player *world.Player, p *packet.Packet) {
 		for _, p1 := range player.NearbyPlayers() {
 			if !p1.ChatBlocked() || p1.Friends(player.UsernameHash()) {
 				p1.SendPacket(world.PlayerChat(player.Index, string(p.Payload)))
 			}
 		}
-	}
-	PacketHandlers["addfriend"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("addfriend", func(player *world.Player, p *packet.Packet) {
 		hash := p.ReadLong()
 		defer func() {
 			player.SendPacket(world.FriendList(player))
@@ -46,15 +46,15 @@ func init() {
 			}
 		}
 		player.FriendList[hash] = false
-	}
-	PacketHandlers["privmsg"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("privmsg", func(player *world.Player, p *packet.Packet) {
 		if c1, ok := world.Players.FromUserHash(p.ReadLong()); ok {
 			if !c1.FriendBlocked() || c1.Friends(player.UsernameHash()) {
 				c1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(strutil.ChatFilter.Unpack(p.Payload[8:]))))
 			}
 		}
-	}
-	PacketHandlers["removefriend"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("removefriend", func(player *world.Player, p *packet.Packet) {
 		hash := p.ReadLong()
 		defer func() {
 			player.SendPacket(world.FriendList(player))
@@ -67,8 +67,8 @@ func init() {
 			c1.SendPacket(world.FriendUpdate(player.UsernameHash(), false))
 		}
 		delete(player.FriendList, hash)
-	}
-	PacketHandlers["addignore"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("addignore", func(player *world.Player, p *packet.Packet) {
 		hash := p.ReadLong()
 		defer func() {
 			player.SendPacket(world.IgnoreList(player))
@@ -82,8 +82,8 @@ func init() {
 			return
 		}
 		player.IgnoreList = append(player.IgnoreList, hash)
-	}
-	PacketHandlers["removeignore"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("removeignore", func(player *world.Player, p *packet.Packet) {
 		hash := p.ReadLong()
 		defer func() {
 			player.SendPacket(world.IgnoreList(player))
@@ -100,8 +100,8 @@ func init() {
 				return
 			}
 		}
-	}
-	PacketHandlers["chooseoption"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("chooseoption", func(player *world.Player, p *packet.Packet) {
 		choice := p.ReadByte()
 		if !player.HasState(world.MSOptionMenu) {
 			return
@@ -110,5 +110,5 @@ func init() {
 			return
 		}
 		player.ReplyMenuC <- int8(choice)
-	}
+	})
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
  *
@@ -7,7 +7,7 @@
  *
  */
 
-package packethandlers
+package handlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/log"
@@ -18,7 +18,7 @@ import (
 func init() {
 	//requiredLevels contains prayer level requirements for each prayer in order from prayer 0 to prayer 13
 	requiredLevels := []int{1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40}
-	PacketHandlers["prayeron"] = func(player *world.Player, p *packet.Packet) {
+	AddHandler("prayeron", func(player *world.Player, p *packet.Packet) {
 		idx := p.ReadByte()
 		if idx < 0 || idx > 13 {
 			log.Suspicious.Printf("%v turned on a prayer that doesn't exist: %d\n", player, idx)
@@ -30,8 +30,8 @@ func init() {
 		}
 		player.PrayerOn(int(idx))
 		player.SendPrayers()
-	}
-	PacketHandlers["prayeroff"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("prayeroff", func(player *world.Player, p *packet.Packet) {
 		idx := p.ReadByte()
 		if idx < 0 || idx > 13 {
 			log.Suspicious.Printf("%v turned off a prayer that doesn't exist: %d\n", player, idx)
@@ -45,5 +45,5 @@ func init() {
 			player.PrayerOff(int(idx))
 		}
 		player.SendPrayers()
-	}
+	})
 }

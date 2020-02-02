@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
  *
@@ -7,7 +7,7 @@
  *
  */
 
-package script
+package world
 
 import (
 	"io/ioutil"
@@ -17,11 +17,9 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/mattn/anko/vm"
-
 	"github.com/mattn/anko/parser"
+	"github.com/mattn/anko/vm"
 	"github.com/spkaeros/rscgo/pkg/server/log"
-	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 var scriptWatcher *fsnotify.Watcher
@@ -30,52 +28,52 @@ var scriptWatcher *fsnotify.Watcher
 // whether or not the callback should run
 type ItemTrigger struct {
 	// Check returns true if this handler should run.
-	Check func(*world.Item) bool
+	Check func(*Item) bool
 	// Action is the function that will run if Check returned true.
-	Action func(*world.Player, *world.Item)
+	Action func(*Player, *Item)
 }
 
 //ItemOnPlayerTrigger A type that defines a callback to run when certain item are used on players, and a predicate to decide
 // whether or not the callback should run
 type ItemOnPlayerTrigger struct {
 	// Check returns true if this handler should run.
-	Check func(*world.Item) bool
+	Check func(*Item) bool
 	// Action is the function that will run if Check returned true.
-	Action func(*world.Player, *world.Player, *world.Item)
+	Action func(*Player, *Player, *Item)
 }
 
 //ObjectTrigger A type that defines a callback to run when certain object actions are performed, and a predicate to decide
 // whether or not the callback should run
 type ObjectTrigger struct {
 	// Check returns true if this handler should run.
-	Check func(*world.Object, int) bool
+	Check func(*Object, int) bool
 	// Action is the function that will run if Check returned true.
-	Action func(*world.Player, *world.Object, int)
+	Action func(*Player, *Object, int)
 }
 
 //NpcTrigger A type that defines a callback to run when certain NPC actions are performed, and a predicate to decide
 // whether or not the callback should run
 type NpcTrigger struct {
 	// Check returns true if this handler should run.
-	Check func(*world.NPC) bool
+	Check func(*NPC) bool
 	// Action is the function that will run if Check returned true.
-	Action func(*world.Player, *world.NPC)
+	Action func(*Player, *NPC)
 }
 
 //NpcActionPredicate A type alias for an NPC related action predicate.
-type NpcActionPredicate = func(*world.Player, *world.NPC) bool
+type NpcActionPredicate = func(*Player, *NPC) bool
 
 //NpcAction A type alias for an NPC related action.
-type NpcAction = func(*world.Player, *world.NPC)
+type NpcAction = func(*Player, *NPC)
 
 //LoginTriggers a list of actions to run when a player logs in.
-var LoginTriggers []func(player *world.Player)
+var LoginTriggers []func(player *Player)
 
 //InvOnBoundaryTriggers a list of actions to run when a player uses an inventory item on a boundary object
-var InvOnBoundaryTriggers []func(player *world.Player, object *world.Object, item *world.Item) bool
+var InvOnBoundaryTriggers []func(player *Player, object *Object, item *Item) bool
 
 //InvOnObjectTriggers a list of actions to run when a player uses an inventory item on a object
-var InvOnObjectTriggers []func(player *world.Player, object *world.Object, item *world.Item) bool
+var InvOnObjectTriggers []func(player *Player, object *Object, item *Item) bool
 
 //ItemTriggers List of script callbacks to run for inventory item actions
 var ItemTriggers []ItemTrigger
@@ -93,7 +91,7 @@ var BoundaryTriggers []ObjectTrigger
 var NpcTriggers []NpcTrigger
 
 //NpcAtkTriggers List of script callbacks to run when you attack an NPC
-var NpcAtkTriggers []world.NpcBlockingTrigger
+var NpcAtkTriggers []NpcBlockingTrigger
 
 //Clear clears all of the lists of triggers.
 func Clear() {
@@ -101,15 +99,15 @@ func Clear() {
 	ObjectTriggers = ObjectTriggers[:0]
 	NpcTriggers = NpcTriggers[:0]
 	NpcAtkTriggers = NpcAtkTriggers[:0]
-	world.NpcDeathTriggers = world.NpcDeathTriggers[:0]
+	NpcDeathTriggers = NpcDeathTriggers[:0]
 	BoundaryTriggers = BoundaryTriggers[:0]
 	LoginTriggers = LoginTriggers[:0]
 	InvOnBoundaryTriggers = InvOnBoundaryTriggers[:0]
 	InvOnObjectTriggers = InvOnObjectTriggers[:0]
 }
 
-//Load Loads all of the scripts in ./scripts.  This will ignore any folders named definitions or lib.
-func Load() {
+//RunScripts Loads all of the scripts in ./scripts.  This will ignore any folders named definitions or lib.
+func RunScripts() {
 	var err error
 	if scriptWatcher == nil {
 		scriptWatcher, err = fsnotify.NewWatcher()
@@ -130,7 +128,7 @@ func Load() {
 						lastEvent = time.Now()
 						lastPath = event.Name
 						log.Info.Println("Reloading " + event.Name)
-						_, err := vm.Execute(WorldModule(), &vm.Options{Debug: true}, load(event.Name))
+						_, err := vm.Execute(ScriptEnv(), &vm.Options{Debug: true}, load(event.Name))
 
 						if err != nil {
 							log.Info.Println("Anko error ['"+event.Name+"']:", err)
@@ -150,7 +148,7 @@ func Load() {
 
 	err = filepath.Walk("./scripts", func(path string, info os.FileInfo, err error) error {
 		if !info.Mode().IsDir() && !strings.Contains(path, "definitions") && !strings.Contains(path, "lib") && strings.HasSuffix(path, "ank") {
-			_, err := vm.Execute(WorldModule(), &vm.Options{Debug: true}, load(path))
+			_, err := vm.Execute(ScriptEnv(), &vm.Options{Debug: true}, load(path))
 
 			if err != nil {
 				log.Info.Println("Anko error ['"+path+"']:", err)

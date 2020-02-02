@@ -1,4 +1,13 @@
-package packethandlers
+/*
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
+package handlers
 
 import (
 	"math"
@@ -17,7 +26,7 @@ type spell struct {
 }
 
 var spellDefs = []spell{
-	spell{
+	{
 		level: 1,
 		kind:  2,
 		runes: map[int]int{
@@ -25,7 +34,7 @@ var spellDefs = []spell{
 			35: 1,
 		},
 	},
-	spell{
+	{
 		level: 3,
 		kind:  2,
 		runes: map[int]int{
@@ -34,7 +43,7 @@ var spellDefs = []spell{
 			36: 1,
 		},
 	},
-	spell{
+	{
 		level: 5,
 		kind:  2,
 		runes: map[int]int{
@@ -43,7 +52,7 @@ var spellDefs = []spell{
 			35: 1,
 		},
 	},
-	spell{
+	{
 		level: 7,
 		kind:  3,
 		runes: map[int]int{
@@ -51,7 +60,7 @@ var spellDefs = []spell{
 			46: 1,
 		},
 	},
-	spell{
+	{
 		level: 9,
 		kind:  2,
 		runes: map[int]int{
@@ -60,7 +69,7 @@ var spellDefs = []spell{
 			35: 1,
 		},
 	},
-	spell{
+	{
 		level: 11,
 		kind:  2,
 		runes: map[int]int{
@@ -69,7 +78,7 @@ var spellDefs = []spell{
 			36: 1,
 		},
 	},
-	spell{
+	{
 		level: 13,
 		kind:  2,
 		runes: map[int]int{
@@ -78,7 +87,7 @@ var spellDefs = []spell{
 			35: 1,
 		},
 	},
-	spell{
+	{
 		level: 15,
 		kind:  0,
 		runes: map[int]int{
@@ -87,7 +96,7 @@ var spellDefs = []spell{
 			40: 1,
 		},
 	},
-	spell{
+	{
 		level: 17,
 		kind:  2,
 		runes: map[int]int{
@@ -95,7 +104,7 @@ var spellDefs = []spell{
 			41: 1,
 		},
 	},
-	spell{
+	{
 		level: 19,
 		kind:  2,
 		runes: map[int]int{
@@ -104,7 +113,7 @@ var spellDefs = []spell{
 			36: 1,
 		},
 	},
-	spell{
+	{
 		level: 21,
 		kind:  3,
 		runes: map[int]int{
@@ -112,7 +121,7 @@ var spellDefs = []spell{
 			40: 1,
 		},
 	},
-	spell{
+	{
 		level: 23,
 		kind:  2,
 		runes: map[int]int{
@@ -121,7 +130,7 @@ var spellDefs = []spell{
 			41: 1,
 		},
 	},
-	spell{
+	{
 		level: 25,
 		kind:  0,
 		runes: map[int]int{
@@ -130,7 +139,7 @@ var spellDefs = []spell{
 			42: 1,
 		},
 	},
-	spell{
+	{
 		level: 27,
 		kind:  3,
 		runes: map[int]int{
@@ -138,7 +147,7 @@ var spellDefs = []spell{
 			46: 1,
 		},
 	},
-	spell{
+	{
 		level: 29,
 		kind:  2,
 		runes: map[int]int{
@@ -147,7 +156,7 @@ var spellDefs = []spell{
 			41: 1,
 		},
 	},
-	spell{
+	{
 		level: 31,
 		kind:  0,
 		runes: map[int]int{
@@ -156,7 +165,7 @@ var spellDefs = []spell{
 			42: 1,
 		},
 	},
-	spell{
+	{
 		level: 33,
 		kind:  3,
 		runes: map[int]int{
@@ -164,7 +173,7 @@ var spellDefs = []spell{
 			42: 1,
 		},
 	},
-	spell{
+	{
 		level: 35,
 		kind:  2,
 		runes: map[int]int{
@@ -173,7 +182,7 @@ var spellDefs = []spell{
 			41: 1,
 		},
 	},
-	spell{
+	{
 		level: 37,
 		kind:  0,
 		runes: map[int]int{
@@ -182,7 +191,7 @@ var spellDefs = []spell{
 			42: 1,
 		},
 	},
-	spell{
+	{
 		level: 39,
 		kind:  2,
 		runes: map[int]int{
@@ -191,7 +200,7 @@ var spellDefs = []spell{
 			41: 1,
 		},
 	},
-	spell{
+	{
 		level: 41,
 		kind:  2,
 		runes: map[int]int{
@@ -199,7 +208,7 @@ var spellDefs = []spell{
 			38: 1,
 		},
 	},
-	spell{
+	{
 		level: 43,
 		kind:  3,
 		runes: map[int]int{
@@ -207,7 +216,7 @@ var spellDefs = []spell{
 			40: 1,
 		},
 	},
-	spell{
+	{
 		level: 45,
 		kind:  0,
 		runes: map[int]int{
@@ -215,7 +224,7 @@ var spellDefs = []spell{
 			42: 1,
 		},
 	},
-	spell{
+	{
 		level: 47,
 		kind:  2,
 		runes: map[int]int{
@@ -224,7 +233,7 @@ var spellDefs = []spell{
 			38: 1,
 		},
 	},
-	spell{
+	{
 		level: 49,
 		kind:  3,
 		runes: map[int]int{
@@ -232,7 +241,7 @@ var spellDefs = []spell{
 			46: 1,
 		},
 	},
-	spell{
+	{
 		level: 50,
 		kind:  2,
 		runes: map[int]int{
@@ -240,7 +249,7 @@ var spellDefs = []spell{
 			38: 1,
 		},
 	},
-	spell{
+	{
 		level: 51,
 		kind:  0,
 		runes: map[int]int{
@@ -248,7 +257,7 @@ var spellDefs = []spell{
 			42: 2,
 		},
 	},
-	spell{
+	{
 		level: 53,
 		kind:  2,
 		runes: map[int]int{
@@ -257,7 +266,7 @@ var spellDefs = []spell{
 			38: 1,
 		},
 	},
-	spell{
+	{
 		level: 55,
 		kind:  3,
 		runes: map[int]int{
@@ -265,7 +274,7 @@ var spellDefs = []spell{
 			40: 1,
 		},
 	},
-	spell{
+	{
 		level: 56,
 		kind:  5,
 		runes: map[int]int{
@@ -274,7 +283,7 @@ var spellDefs = []spell{
 			611: 1,
 		},
 	},
-	spell{
+	{
 		level: 57,
 		kind:  3,
 		runes: map[int]int{
@@ -282,7 +291,7 @@ var spellDefs = []spell{
 			46: 1,
 		},
 	},
-	spell{
+	{
 		level: 58,
 		kind:  0,
 		runes: map[int]int{
@@ -290,7 +299,7 @@ var spellDefs = []spell{
 			42: 2,
 		},
 	},
-	spell{
+	{
 		level: 59,
 		kind:  2,
 		runes: map[int]int{
@@ -299,7 +308,7 @@ var spellDefs = []spell{
 			38: 1,
 		},
 	},
-	spell{
+	{
 		level: 60,
 		kind:  2,
 		runes: map[int]int{
@@ -308,7 +317,7 @@ var spellDefs = []spell{
 			619: 2,
 		},
 	},
-	spell{
+	{
 		level: 60,
 		kind:  2,
 		runes: map[int]int{
@@ -317,7 +326,7 @@ var spellDefs = []spell{
 			619: 2,
 		},
 	},
-	spell{
+	{
 		level: 60,
 		kind:  2,
 		runes: map[int]int{
@@ -326,7 +335,7 @@ var spellDefs = []spell{
 			619: 2,
 		},
 	},
-	spell{
+	{
 		level: 60,
 		kind:  5,
 		runes: map[int]int{
@@ -335,7 +344,7 @@ var spellDefs = []spell{
 			611: 1,
 		},
 	},
-	spell{
+	{
 		level: 62,
 		kind:  2,
 		runes: map[int]int{
@@ -343,7 +352,7 @@ var spellDefs = []spell{
 			619: 1,
 		},
 	},
-	spell{
+	{
 		level: 63,
 		kind:  5,
 		runes: map[int]int{
@@ -352,7 +361,7 @@ var spellDefs = []spell{
 			611: 1,
 		},
 	},
-	spell{
+	{
 		level: 65,
 		kind:  2,
 		runes: map[int]int{
@@ -361,7 +370,7 @@ var spellDefs = []spell{
 			619: 1,
 		},
 	},
-	spell{
+	{
 		level: 66,
 		kind:  5,
 		runes: map[int]int{
@@ -370,7 +379,7 @@ var spellDefs = []spell{
 			611: 1,
 		},
 	},
-	spell{
+	{
 		level: 66,
 		kind:  2,
 		runes: map[int]int{
@@ -379,7 +388,7 @@ var spellDefs = []spell{
 			825: 1,
 		},
 	},
-	spell{
+	{
 		level: 68,
 		kind:  3,
 		runes: map[int]int{
@@ -388,7 +397,7 @@ var spellDefs = []spell{
 			46: 1,
 		},
 	},
-	spell{
+	{
 		level: 70,
 		kind:  2,
 		runes: map[int]int{
@@ -397,7 +406,7 @@ var spellDefs = []spell{
 			619: 1,
 		},
 	},
-	spell{
+	{
 		level: 73,
 		kind:  2,
 		runes: map[int]int{
@@ -406,7 +415,7 @@ var spellDefs = []spell{
 			825: 1,
 		},
 	},
-	spell{
+	{
 		level: 75,
 		kind:  2,
 		runes: map[int]int{
@@ -415,7 +424,7 @@ var spellDefs = []spell{
 			619: 1,
 		},
 	},
-	spell{
+	{
 		level: 80,
 		kind:  2,
 		runes: map[int]int{
@@ -424,7 +433,7 @@ var spellDefs = []spell{
 			825: 1,
 		},
 	},
-	spell{
+	{
 		level: 80,
 		kind:  0,
 		runes: map[int]int{
@@ -455,7 +464,7 @@ var dmgs = map[int]int{ // reqLvl mapped to maxDmg
 }
 
 func init() {
-	PacketHandlers["spellnpc"] = func(player *world.Player, p *packet.Packet) {
+	AddHandler("spellnpc", func(player *world.Player, p *packet.Packet) {
 		targetIndex := int(p.ReadShort())
 		target := world.GetNpc(targetIndex)
 		if target == nil {
@@ -464,8 +473,8 @@ func init() {
 		spellIndex := int(p.ReadShort())
 		log.Info.Println("cast on npc:", targetIndex, target.ID, spellIndex)
 		handleSpells(player, spellIndex, target)
-	}
-	PacketHandlers["spellplayer"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("spellplayer", func(player *world.Player, p *packet.Packet) {
 		targetIndex := int(p.ReadShort())
 		target, ok := world.Players.FromIndex(targetIndex)
 		if !ok {
@@ -474,26 +483,26 @@ func init() {
 		spellIndex := int(p.ReadShort())
 		log.Info.Println("cast on player:", targetIndex, target.String(), spellIndex)
 		handleSpells(player, spellIndex, target)
-	}
-	PacketHandlers["spellself"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("spellself", func(player *world.Player, p *packet.Packet) {
 		idx := int(p.ReadShort())
 
 		log.Info.Println("Cast on self:", idx)
 		handleSpells(player, idx, nil)
-	}
-	PacketHandlers["spellinvitem"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("spellinvitem", func(player *world.Player, p *packet.Packet) {
 		itemIndex := int(p.ReadShort())
 		spellIndex := int(p.ReadShort())
 		log.Info.Println(itemIndex, spellIndex)
-	}
-	PacketHandlers["spellgrounditem"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("spellgrounditem", func(player *world.Player, p *packet.Packet) {
 		itemX := int(p.ReadShort())
 		itemY := int(p.ReadShort())
 		itemID := int(p.ReadShort())
 		spellIndex := int(p.ReadShort())
 		log.Info.Println(itemX, itemY, itemID, spellIndex)
 		handleSpells(player, spellIndex, nil)
-	}
+	})
 }
 
 func handleSpells(player *world.Player, idx int, target world.MobileEntity) {
@@ -531,7 +540,7 @@ func handleSpells(player *world.Player, idx int, target world.MobileEntity) {
 	checkFail := func() bool {
 		lvDelta := player.Skills().Current(world.StatMagic) - s.level
 		if lvDelta < 0 ||
-			(lvDelta < 10-int(math.Min(5, math.Max(float64((player.MagicPoints()-5))/5, 0))) && rand.Int31N(0, (lvDelta+2)*2) == 0) {
+			(lvDelta < 10-int(math.Min(5, math.Max(float64(player.MagicPoints()-5)/5, 0))) && rand.Int31N(0, (lvDelta+2)*2) == 0) {
 			player.Message("The spell fails! You may try again in 20 seconds")
 			player.PlaySound("spellfail")
 			player.ResetPath()
@@ -672,7 +681,7 @@ func handleSpells(player *world.Player, idx int, target world.MobileEntity) {
 					probs := map[int]float64{}
 					rat := 45.0 + float64(player.MagicPoints())
 					peak := (dmg / 100.0) * rat
-					dip := (peak / 3.0)
+					dip := peak / 3.0
 		
 					curProb := 100.0*3.0*dmg
 					for i := 0.0; i <= dmg; i++ {

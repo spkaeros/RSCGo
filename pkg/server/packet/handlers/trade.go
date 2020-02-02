@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
  *
@@ -7,7 +7,7 @@
  *
  */
 
-package packethandlers
+package handlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/log"
@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	PacketHandlers["tradereq"] = func(player *world.Player, p *packet.Packet) {
+	AddHandler("tradereq", func(player *world.Player, p *packet.Packet) {
 		if player.Busy() {
 			return
 		}
@@ -53,8 +53,8 @@ func init() {
 			player.Message("Sending trade request.")
 			p1.Message(player.Username() + " wishes to trade with you.")
 		}
-	}
-	PacketHandlers["tradeupdate"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("tradeupdate", func(player *world.Player, p *packet.Packet) {
 		if !player.IsTrading() {
 			log.Suspicious.Printf("%v attempted to decline a non-existant trade!\n", player.String())
 			player.ResetTrade()
@@ -102,8 +102,8 @@ func init() {
 		for i := 0; i < itemCount; i++ {
 			player.TradeOffer.Add(p.ReadShort(), p.ReadInt())
 		}
-	}
-	PacketHandlers["tradedecline"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("tradedecline", func(player *world.Player, p *packet.Packet) {
 		if !player.IsTrading() {
 			log.Suspicious.Printf("%v attempted to decline a trade it was not in!\n", player.String())
 			player.ResetTrade()
@@ -124,8 +124,8 @@ func init() {
 		c1.ResetTrade()
 		c1.Message(player.Username() + " has declined the trade.")
 		c1.SendPacket(world.TradeClose)
-	}
-	PacketHandlers["tradeaccept"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("tradeaccept", func(player *world.Player, p *packet.Packet) {
 		if !player.IsTrading() {
 			log.Suspicious.Printf("%v attempted to accept a trade it was not in!\n", player.String())
 			player.ResetTrade()
@@ -154,8 +154,8 @@ func init() {
 		} else {
 			c1.SendPacket(world.TradeTargetAccept(true))
 		}
-	}
-	PacketHandlers["tradeconfirmaccept"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("tradeconfirmaccept", func(player *world.Player, p *packet.Packet) {
 		if !player.IsTrading() || !player.TransAttrs.VarBool("trade1accept", false) {
 			log.Suspicious.Printf("%v attempted to accept a trade confirmation it was not in!\n", player.String())
 			player.ResetTrade()
@@ -228,5 +228,5 @@ func init() {
 			player.Message("Trade completed.")
 			target.Message("Trade completed.")
 		}
-	}
+	})
 }

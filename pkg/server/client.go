@@ -15,112 +15,80 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/errors"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
-	"github.com/spkaeros/rscgo/pkg/server/packethandlers"
+	"github.com/spkaeros/rscgo/pkg/server/packet/handlers"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 //client Represents a single connecting client.
 type client struct {
-	player          *world.Player
-	IncomingPackets chan *packet.Packet
-	CacheBuffer     []byte
-	Socket          net.Conn
-	destroyer       sync.Once
-	readWriter      *bufio.ReadWriter
-	wsReader        io.Reader
-	wsHeader        ws.Header
-	wsLength        int64
-	websocket       bool
+	player      *world.Player
+	socket      net.Conn
+	destroyer   sync.Once
+	readWriter  *bufio.ReadWriter
+	wsReader    io.Reader
+	wsHeader    ws.Header
+	wsLength    int64
 }
 
-//startReader Starts the client Socket reader goroutine.  Takes a waitgroup as an argument to facilitate synchronous destruction.
-func (c *client) startReader() {
-	defer c.player.Destroy()
-	for {
-		select {
-		default:
-			p, err := c.readPacket()
-			if err != nil {
-				if err, ok := err.(errors.NetError); ok && err.Error() != "Connection closed." && err.Error() != "Connection timed out." {
-					if err.Error() != "SHORT_DATA" {
-						log.Warning.Printf("Rejected Packet from: %s\n", c.player.String())
-						log.Warning.Println(err)
-					}
-					continue
-				}
-				return
-			}
-			if !c.player.Connected() && p.Opcode != 32 && p.Opcode != 0 && p.Opcode != 2 && p.Opcode != 220 {
-				log.Warning.Printf("Unauthorized packet[opcode:%v,len:%v] rejected from: %v\n", p.Opcode, len(p.Payload), c)
-				return
-			}
-			c.IncomingPackets <- p
-		case <-c.player.KillC:
-			return
-		}
-	}
-}
-
-//startWriter Starts the client Socket writer goroutine.
-func (c *client) startWriter() {
-	defer c.player.Destroy()
-	for {
-		select {
-		case p := <-c.player.OutgoingPackets:
-			if p == nil {
-				return
-			}
-			c.writePacket(*p)
-		case <-time.After(time.Second * 10):
-			c.writePacket(*world.ResponsePong)
-		case <-c.player.KillC:
-			return
-		}
-	}
-}
-
-//destroy Safely tears down a client, saves it to the database, and removes it from server-wide player list.
-func (c *client) destroy(wg *sync.WaitGroup) {
-	// Wait for network goroutines to finish.
-	c.destroyer.Do(func() {
-		(*wg).Wait()
-		c.player.TransAttrs.UnsetVar("connected")
-		close(c.player.OutgoingPackets)
-		close(c.IncomingPackets)
-		if err := c.Socket.Close(); err != nil {
-			log.Error.Println("Couldn't close Socket:", err)
-		}
-		if player, ok := world.Players.FromIndex(c.player.Index); ok && player == c.player {
-			c.player.SetConnected(false)
-			go db.SavePlayer(c.player)
-			world.RemovePlayer(c.player)
-			c.player.SetRegionRemoved()
-			world.Players.BroadcastLogin(c.player, false)
-			world.Players.Remove(c.player)
-			log.Info.Printf("Unregistered: %v\n", c.player.String())
-		}
-	})
-}
-
-//startNetworking Starts up 3 new goroutines; one for reading incoming data from the Socket, one for writing outgoing data to the Socket, and one for client state updates and parsing plus handling incoming world.  When the client kill signal is sent through the kill channel, the state update and packet handling goroutine will wait for both the reader and writer goroutines to complete their operations before unregistering the client.
+//startNetworking Starts up 3 new goroutines; one for reading incoming data from the socket, one for writing outgoing data to the socket, and one for client state updates and parsing plus handling incoming world.  When the client kill signal is sent through the kill channel, the state update and packet handling goroutine will wait for both the reader and writer goroutines to complete their operations before unregistering the client.
 func (c *client) startNetworking() {
-	var nwg sync.WaitGroup
-	nwg.Add(2)
+	incomingPackets := make(chan *packet.Packet, 20)
+	awaitDeath := sync.WaitGroup{}
+
 	go func() {
-		defer nwg.Done()
-		c.startReader()
-	}()
-	go func() {
-		defer nwg.Done()
-		c.startWriter()
-	}()
-	go func() {
-		defer c.destroy(&nwg)
+		defer awaitDeath.Done()
+		defer c.player.Destroy()
+		awaitDeath.Add(1)
 		for {
 			select {
-			case p := <-c.IncomingPackets:
+			case p := <-c.player.OutgoingPackets:
 				if p == nil {
 					return
+				}
+				c.writePacket(*p)
+			case <-c.player.KillC:
+				return
+			}
+		}
+	}()
+	go func() {
+		defer awaitDeath.Done()
+		defer c.player.Destroy()
+		awaitDeath.Add(1)
+		for {
+			select {
+			default:
+				p, err := c.readPacket()
+				if err != nil {
+					if err, ok := err.(errors.NetError); ok && err.Error() != "Connection closed." && err.Error() != "Connection timed out." {
+						if err.Error() != "SHORT_DATA" {
+							log.Warning.Printf("Rejected Packet from: %s\n", c.player.String())
+							log.Warning.Println(err)
+						}
+						continue
+					}
+					return
+				}
+				if !c.player.Connected() && p.Opcode != 32 && p.Opcode != 0 && p.Opcode != 2 && p.Opcode != 220 {
+					log.Warning.Printf("Unauthorized packet[opcode:%v,len:%v] rejected from: %v\n", p.Opcode, len(p.Payload), c)
+					return
+				}
+				incomingPackets <- p
+			case <-c.player.KillC:
+				return
+			}
+		}
+	}()
+	go func() {
+		defer c.destroy()
+		defer awaitDeath.Wait()
+		defer c.player.Destroy()
+		for {
+			select {
+			case p := <-incomingPackets:
+				if p == nil {
+					log.Warning.Println("Tried processing nil packet!")
+					continue
 				}
 				c.handlePacket(p)
 			case <-c.player.KillC:
@@ -130,9 +98,31 @@ func (c *client) startNetworking() {
 	}()
 }
 
+//destroy Safely tears down a client, saves it to the database, and removes it from server-wide player list.
+func (c *client) destroy() {
+	c.destroyer.Do(func() {
+		log.Info.Printf("Unregistered: %v\n", c.player.String())
+		//close(c.IncomingPackets)
+		close(c.player.OutgoingPackets)
+		if err := c.socket.Close(); err != nil {
+			log.Error.Println("Couldn't close socket:", err)
+		}
+		world.RemovePlayer(c.player)
+		c.player.SetRegionRemoved()
+		c.player.SetConnected(false)
+		world.Players.BroadcastLogin(c.player, false)
+		if player, ok := world.Players.FromIndex(c.player.Index); ok && player != c.player {
+			log.Warning.Println("Destroying Player did not match player that is assigned index in map!")
+			return
+		}
+		go db.SavePlayer(c.player)
+		world.Players.Remove(c.player)
+	})
+}
+
 //handlePacket Finds the mapped handler function for the specified packet, and calls it with the specified parameters.
 func (c *client) handlePacket(p *packet.Packet) {
-	handler := packethandlers.Get(p.Opcode)
+	handler := handlers.Handler(p.Opcode)
 	if handler == nil {
 		log.Info.Printf("Unhandled Packet: {opcode:%d; length:%d};\n", p.Opcode, len(p.Payload))
 		fmt.Printf("CONTENT: %v\n", p.Payload)
@@ -144,26 +134,25 @@ func (c *client) handlePacket(p *packet.Packet) {
 
 //newClient Creates a new instance of a client, launches goroutines to handle I/O for it, and returns a reference to it.
 func newClient(socket net.Conn, ws2 bool) *client {
-	c := &client{Socket: socket, IncomingPackets: make(chan *packet.Packet, 20)}
+	c := &client{socket: socket}
 	c.player = world.NewPlayer(world.Players.NextIndex(), strings.Split(socket.RemoteAddr().String(), ":")[0])
 	c.readWriter = bufio.NewReadWriter(bufio.NewReader(socket), bufio.NewWriter(socket))
 	if ws2 {
 		c.wsHeader, c.wsReader, _ = wsutil.NextReader(socket, ws.StateServerSide)
 	}
-	c.websocket = ws2
 	c.startNetworking()
 	return c
 }
 
-//Write Writes data to the client's Socket from `b`.  Returns the length of the written bytes.
+//Write Writes data to the client's socket from `b`.  Returns the length of the written bytes.
 func (c *client) Write(src []byte) int {
 	var err error
 	var dataLen int
-	if c.websocket {
-		err = wsutil.WriteServerBinary(c.Socket, src)
+	if c.wsReader != nil {
+		err = wsutil.WriteServerBinary(c.socket, src)
 		dataLen = len(src)
 	} else {
-		dataLen, err = c.Socket.Write(src)
+		dataLen, err = c.socket.Write(src)
 	}
 	if err != nil {
 		log.Error.Println("Problem writing to websocket client:", err)
@@ -173,15 +162,15 @@ func (c *client) Write(src []byte) int {
 	return dataLen
 }
 
-//Read Reads data off of the client's Socket into 'dst'.  Returns length read into dst upon success.  Otherwise, returns -1 with a meaningful error message.
+//Read Reads data off of the client's socket into 'dst'.  Returns length read into dst upon success.  Otherwise, returns -1 with a meaningful error message.
 func (c *client) Read(dst []byte) (int, error) {
 	// set the read deadline for the socket to 10 seconds from now.
-	err := c.Socket.SetReadDeadline(time.Now().Add(time.Second * 10))
+	err := c.socket.SetReadDeadline(time.Now().Add(time.Second * 10))
 	if err != nil {
 		return -1, errors.ConnDeadline
 	}
 
-	if c.websocket {
+	if c.wsReader != nil {
 		if c.wsHeader.Length <= c.wsLength {
 			c.wsHeader, c.wsReader, err = wsutil.NextReader(c.readWriter.Reader, ws.StateServerSide)
 			if err != nil {

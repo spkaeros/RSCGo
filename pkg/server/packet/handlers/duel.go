@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
  *
@@ -7,7 +7,7 @@
  *
  */
 
-package packethandlers
+package handlers
 
 import (
 	"strconv"
@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	PacketHandlers["duelreq"] = func(player *world.Player, p *packet.Packet) {
+	AddHandler("duelreq", func(player *world.Player, p *packet.Packet) {
 		index := p.ReadShort()
 		if player.Busy() {
 			return
@@ -55,8 +55,8 @@ func init() {
 		target.AddState(world.MSDueling)
 		target.ResetPath()
 		target.SendPacket(world.DuelOpen(player.Index))
-	}
-	PacketHandlers["duelupdate"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("duelupdate", func(player *world.Player, p *packet.Packet) {
 		if !player.IsDueling() {
 			log.Suspicious.Printf("%v attempted to update a duel it was not in!\n", player.String())
 			player.ResetDuel()
@@ -108,8 +108,8 @@ func init() {
 		for i := 0; i < itemCount; i++ {
 			player.DuelOffer.Add(p.ReadShort(), p.ReadInt())
 		}
-	}
-	PacketHandlers["dueloptions"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("dueloptions", func(player *world.Player, p *packet.Packet) {
 		if !player.IsDueling() {
 			log.Suspicious.Printf("%v tried changing duel options in a duel that they are not in!\n", player.String())
 			player.ResetDuel()
@@ -154,8 +154,8 @@ func init() {
 		target.TransAttrs.SetVar("duelCanEquip", !equipmentAllowed)
 		player.SendPacket(world.DuelOptions(player))
 		target.SendPacket(world.DuelOptions(target))
-	}
-	PacketHandlers["dueldecline"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("dueldecline", func(player *world.Player, p *packet.Packet) {
 		if !player.IsDueling() {
 			log.Suspicious.Printf("%v attempted to decline a duel it was not in!\n", player.String())
 			player.ResetDuel()
@@ -184,8 +184,8 @@ func init() {
 		target.ResetDuel()
 		target.Message(player.Username() + " has declined the duel")
 		target.SendPacket(world.DuelClose)
-	}
-	PacketHandlers["duelaccept"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("duelaccept", func(player *world.Player, p *packet.Packet) {
 		if !player.IsDueling() {
 			log.Suspicious.Printf("%v attempted to decline a duel it was not in!\n", player.String())
 			player.ResetDuel()
@@ -218,8 +218,8 @@ func init() {
 		} else {
 			target.SendPacket(world.DuelTargetAccept(true))
 		}
-	}
-	PacketHandlers["duelconfirmaccept"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("duelconfirmaccept", func(player *world.Player, p *packet.Packet) {
 		if !player.IsDueling() || !player.TransAttrs.VarBool("duel1accept", false) {
 			log.Suspicious.Printf("%v attempted to accept a duel confirmation it was not in!\n", player.String())
 			player.ResetDuel()
@@ -285,5 +285,5 @@ func init() {
 			player.Message("Commencing Duel!")
 			target.Message("Commencing Duel!")
 		}
-	}
+	})
 }

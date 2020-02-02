@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
  *
@@ -7,7 +7,7 @@
  *
  */
 
-package packethandlers
+package handlers
 
 import (
 	"strings"
@@ -16,7 +16,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/server/crypto"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
-	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 
 	"github.com/spkaeros/rscgo/pkg/server/config"
@@ -26,12 +25,12 @@ import (
 )
 
 func init() {
-	PacketHandlers["sessionreq"] = sessionRequest
-	PacketHandlers["loginreq"] = loginRequest
-	PacketHandlers["logoutreq"] = logout
-	PacketHandlers["closeconn"] = closedConn
-	PacketHandlers["newplayer"] = newPlayer
-	PacketHandlers["forgotpass"] = func(player *world.Player, p *packet.Packet) {
+	AddHandler("sessionreq", sessionRequest)
+	AddHandler("loginreq", loginRequest)
+	AddHandler("logoutreq", logout)
+	AddHandler("closeconn", closedConn)
+	AddHandler("newplayer", newPlayer)
+	AddHandler("forgotpass", func(player *world.Player, p *packet.Packet) {
 		usernameHash := p.ReadLong()
 		if !db.HasRecoveryQuestions(usernameHash) {
 			player.SendPacket(packet.NewBarePacket([]byte{0}))
@@ -42,11 +41,11 @@ func init() {
 		for _, question := range db.GetRecoveryQuestions(usernameHash) {
 			player.SendPacket(packet.NewBarePacket([]byte{byte(len(question))}).AddBytes([]byte(question)))
 		}
-	}
-	PacketHandlers["cancelpq"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("cancelpq", func(player *world.Player, p *packet.Packet) {
 		// empty packet
-	}
-	PacketHandlers["setpq"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("setpq", func(player *world.Player, p *packet.Packet) {
 		var questions []string
 		var answers []uint64
 		for i := 0; i < 5; i++ {
@@ -55,11 +54,11 @@ func init() {
 			answers = append(answers, p.ReadLong())
 		}
 		log.Info.Println(questions, answers)
-	}
-	PacketHandlers["changepq"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("changepq", func(player *world.Player, p *packet.Packet) {
 		player.SendPacket(packet.NewOutgoingPacket(224))
-	}
-	PacketHandlers["changepass"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("changepass", func(player *world.Player, p *packet.Packet) {
 		oldPassword := strings.TrimSpace(p.ReadString(20))
 		newPassword := strings.TrimSpace(p.ReadString(20))
 		if !db.ValidCredentials(player.UsernameHash(), crypto.Hash(oldPassword)) {
@@ -69,7 +68,7 @@ func init() {
 		db.UpdatePassword(player.UsernameHash(), crypto.Hash(newPassword))
 		player.Message("Successfully updated your password to the new password you have provided.")
 		return
-	}
+	})
 }
 
 func closedConn(player *world.Player, p *packet.Packet) {
@@ -159,7 +158,7 @@ func handleLogin(player *world.Player, reply chan byte) {
 			world.Players.Put(player)
 			world.Players.BroadcastLogin(player, true)
 			player.Initialize()
-			for _, fn := range script.LoginTriggers {
+			for _, fn := range world.LoginTriggers {
 				fn(player)
 			}
 			log.Info.Printf("Registered: %v\n", player)

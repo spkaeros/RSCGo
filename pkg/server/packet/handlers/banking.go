@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
  *
@@ -7,7 +7,7 @@
  *
  */
 
-package packethandlers
+package handlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/log"
@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	PacketHandlers["depositbank"] = func(player *world.Player, p *packet.Packet) {
+	AddHandler("depositbank", func(player *world.Player, p *packet.Packet) {
 		if !player.HasState(world.MSBanking) {
 			return
 		}
@@ -36,8 +36,8 @@ func init() {
 			player.Bank().Add(id, amount)
 			player.SendPacket(world.BankUpdateItem(player.Bank().GetIndex(id), id, player.Bank().GetByID(id).Amount))
 		}
-	}
-	PacketHandlers["withdrawbank"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("withdrawbank", func(player *world.Player, p *packet.Packet) {
 		if !player.HasState(world.MSBanking) {
 			return
 		}
@@ -60,11 +60,11 @@ func init() {
 			player.SendInventory()
 			player.SendPacket(world.BankUpdateItem(idx, id, cnt))
 		}
-	}
-	PacketHandlers["closebank"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("closebank", func(player *world.Player, p *packet.Packet) {
 		if !player.HasState(world.MSBanking) {
 			return
 		}
 		player.CloseBank()
-	}
+	})
 }

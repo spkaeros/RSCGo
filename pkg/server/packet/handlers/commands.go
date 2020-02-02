@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
  *
@@ -7,7 +7,7 @@
  *
  */
 
-package packethandlers
+package handlers
 
 import (
 	"fmt"
@@ -20,15 +20,14 @@ import (
 	"github.com/spkaeros/rscgo/pkg/server/db"
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
-	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 func init() {
-	PacketHandlers["command"] = func(player *world.Player, p *packet.Packet) {
+	AddHandler("command", func(player *world.Player, p *packet.Packet) {
 		args := strutil.ModalParse(string(p.Payload))
-		handler, ok := script.CommandHandlers[args[0]]
+		handler, ok := world.CommandHandlers[args[0]]
 		if !ok {
 			player.Message("@que@Invalid command.")
 			log.Commands.Printf("%v sent invalid command: /%v\n", player.Username(), string(p.Payload))
@@ -36,8 +35,8 @@ func init() {
 		}
 		log.Commands.Printf("%v: /%v\n", player.Username(), string(p.Payload))
 		handler(player, args[1:])
-	}
-	script.CommandHandlers["memdump"] = func(player *world.Player, args []string) {
+	})
+	world.CommandHandlers["memdump"] = func(player *world.Player, args []string) {
 		file, err := os.Create("rscgo.mprof")
 		if err != nil {
 			log.Warning.Println("Could not open file to dump memory profile:", err)
@@ -59,7 +58,7 @@ func init() {
 		log.Commands.Println(player.Username() + " dumped memory profile of the server to rscgo.mprof")
 		player.Message("Dumped memory profile.")
 	}
-	script.CommandHandlers["pprof"] = func(player *world.Player, args []string) {
+	world.CommandHandlers["pprof"] = func(player *world.Player, args []string) {
 		if len(args) < 1 {
 			player.Message("Invalid args.  Usage: /pprof <start|stop>")
 			return
@@ -88,7 +87,7 @@ func init() {
 			player.Message("Invalid args.  Usage: /pprof <start|stop>")
 		}
 	}
-	script.CommandHandlers["saveobjects"] = func(player *world.Player, args []string) {
+	world.CommandHandlers["saveobjects"] = func(player *world.Player, args []string) {
 		go func() {
 			if count := db.SaveObjectLocations(); count > 0 {
 				player.Message("Saved " + strconv.Itoa(count) + " game objects to world.db")
@@ -99,7 +98,7 @@ func init() {
 			}
 		}()
 	}
-	script.CommandHandlers["npc"] = func(player *world.Player, args []string) {
+	world.CommandHandlers["npc"] = func(player *world.Player, args []string) {
 		if len(args) < 1 {
 			player.Message("@que@Invalid args.  Usage: /npc <id>")
 			return
@@ -116,41 +115,39 @@ func init() {
 
 		world.AddNpc(world.NewNpc(id, x, y, x-5, x+5, y-5, y+5))
 	}
-	script.CommandHandlers["run"] = func(player *world.Player, args []string) {
+	world.CommandHandlers["run"] = func(player *world.Player, args []string) {
 		line := strings.Join(args, " ")
-		env := script.WorldModule()
+		env := world.ScriptEnv()
 		env.Define("player", player)
-		ret, err := vm.Execute(env, nil,
-			`world = import("world");
-		`+line)
+		ret, err := vm.Execute(env, nil, "bind = import(\"bind\")\nworld = import(\"world\")\n"+line)
 		if err != nil {
 			player.Message("Error: " + err.Error())
 			log.Info.Println("Anko Error: " + err.Error())
-		} else {
-			switch ret.(type) {
-			case string:
-				player.Message(ret.(string))
-			case int64:
-				player.Message("int(" + strconv.Itoa(int(ret.(int64))) + ")")
-			case int:
-				player.Message("int(" + strconv.Itoa(ret.(int)) + ")")
-			case bool:
-				if ret.(bool) {
-					player.Message("TRUE")
-				} else {
-					player.Message("FALSE")
-				}
-			default:
-				player.Message(fmt.Sprintf("%v", ret))
-			}
-			log.Info.Println(ret)
+			return
 		}
+		switch ret.(type) {
+		case string:
+			player.Message(ret.(string))
+		case int64:
+			player.Message("int(" + strconv.Itoa(int(ret.(int64))) + ")")
+		case int:
+			player.Message("int(" + strconv.Itoa(ret.(int)) + ")")
+		case bool:
+			if ret.(bool) {
+				player.Message("TRUE")
+			} else {
+				player.Message("FALSE")
+			}
+		default:
+			player.Message(fmt.Sprintf("%v", ret))
+		}
+		log.Info.Println(ret)
 	}
-	script.CommandHandlers["reload"] = func(player *world.Player, args []string) {
-		script.Clear()
-		script.Load()
-		player.Message(fmt.Sprintf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill]", len(script.ItemTriggers), len(script.ObjectTriggers), len(script.BoundaryTriggers), len(script.NpcTriggers), len(script.InvOnBoundaryTriggers), len(script.InvOnObjectTriggers), len(script.NpcAtkTriggers), len(world.NpcDeathTriggers)))
-		log.Info.Printf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill] loaded\n", len(script.ItemTriggers), len(script.ObjectTriggers), len(script.BoundaryTriggers), len(script.NpcTriggers), len(script.InvOnBoundaryTriggers), len(script.InvOnObjectTriggers), len(script.NpcAtkTriggers), len(world.NpcDeathTriggers))
+	world.CommandHandlers["reload"] = func(player *world.Player, args []string) {
+		world.Clear()
+		world.RunScripts()
+		player.Message(fmt.Sprintf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill]", len(world.ItemTriggers), len(world.ObjectTriggers), len(world.BoundaryTriggers), len(world.NpcTriggers), len(world.InvOnBoundaryTriggers), len(world.InvOnObjectTriggers), len(world.NpcAtkTriggers), len(world.NpcDeathTriggers)))
+		log.Info.Printf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill] loaded\n", len(world.ItemTriggers), len(world.ObjectTriggers), len(world.BoundaryTriggers), len(world.NpcTriggers), len(world.InvOnBoundaryTriggers), len(world.InvOnObjectTriggers), len(world.NpcAtkTriggers), len(world.NpcDeathTriggers))
 	}
 }
 

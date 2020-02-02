@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
  *
@@ -7,17 +7,16 @@
  *
  */
 
-package packethandlers
+package handlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
-	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 func init() {
-	PacketHandlers["invwield"] = func(player *world.Player, p *packet.Packet) {
+	AddHandler("invwield", func(player *world.Player, p *packet.Packet) {
 		index := p.ReadShort()
 		if index < 0 || index >= 30 {
 			log.Suspicious.Printf("Player[%v] tried to wield an item with invalid index: %d\n", player, index)
@@ -36,8 +35,8 @@ func init() {
 			player.SendPacket(world.EquipmentStats(player))
 			player.SendPacket(world.InventoryItems(player))
 		}
-	}
-	PacketHandlers["removeitem"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("removeitem", func(player *world.Player, p *packet.Packet) {
 		index := p.ReadShort()
 		if index < 0 || index >= 30 {
 			log.Suspicious.Printf("Player[%v] tried to wield an item with invalid index: %d\n", player, index)
@@ -53,8 +52,8 @@ func init() {
 			player.SendPacket(world.EquipmentStats(player))
 			player.SendPacket(world.InventoryItems(player))
 		}
-	}
-	PacketHandlers["takeitem"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("takeitem", func(player *world.Player, p *packet.Packet) {
 		if player.Busy() {
 			return
 		}
@@ -91,8 +90,8 @@ func init() {
 			player.SendPacket(world.InventoryItems(player))
 			return true
 		})
-	}
-	PacketHandlers["dropitem"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("dropitem", func(player *world.Player, p *packet.Packet) {
 		if player.Busy() {
 			return
 		}
@@ -112,8 +111,8 @@ func init() {
 				return false
 			})
 		}
-	}
-	PacketHandlers["invaction1"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("invaction1", func(player *world.Player, p *packet.Packet) {
 		if player.Busy() {
 			return
 		}
@@ -125,7 +124,7 @@ func init() {
 				defer func() {
 					player.RemoveState(world.MSItemAction)
 				}()
-				for _, triggerDef := range script.ItemTriggers {
+				for _, triggerDef := range world.ItemTriggers {
 					if triggerDef.Check(item) {
 						triggerDef.Action(player, item)
 						return
@@ -134,5 +133,5 @@ func init() {
 				player.SendPacket(world.DefaultActionMessage)
 			}()
 		}
-	}
+	})
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
  *
@@ -7,19 +7,18 @@
  *
  */
 
-package packethandlers
+package handlers
 
 import (
 	"time"
 
 	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/spkaeros/rscgo/pkg/server/packet"
-	"github.com/spkaeros/rscgo/pkg/server/script"
 	"github.com/spkaeros/rscgo/pkg/server/world"
 )
 
 func init() {
-	PacketHandlers["attacknpc"] = func(player *world.Player, p *packet.Packet) {
+	AddHandler("attacknpc", func(player *world.Player, p *packet.Packet) {
 		npc := world.GetNpc(p.ReadShort())
 		if npc == nil {
 			log.Suspicious.Printf("%v tried to attack nil NPC\n", player)
@@ -34,7 +33,7 @@ func init() {
 		}
 		player.SetDistancedAction(func() bool {
 			if player.NextTo(npc.Location) && player.WithinRange(npc.Location, 1) {
-				for _, trigger := range script.NpcAtkTriggers {
+				for _, trigger := range world.NpcAtkTriggers {
 					if trigger.Check(player, npc) {
 						trigger.Action(player, npc)
 						return true
@@ -52,8 +51,8 @@ func init() {
 			}
 			return false
 		})
-	}
-	PacketHandlers["attackplayer"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("attackplayer", func(player *world.Player, p *packet.Packet) {
 		affectedPlayer, ok := world.Players.FromIndex(p.ReadShort())
 		if affectedPlayer == nil || !ok {
 			log.Suspicious.Printf("player[%v] tried to attack nil player\n", player)
@@ -79,13 +78,13 @@ func init() {
 			}
 			return player.FinishedPath()
 		})
-	}
-	PacketHandlers["fightmode"] = func(player *world.Player, p *packet.Packet) {
+	})
+	AddHandler("fightmode", func(player *world.Player, p *packet.Packet) {
 		mode := p.ReadByte()
 		if mode < 0 || mode > 3 {
 			log.Suspicious.Printf("Invalid fightmode(%v) selected by %s", mode, player.String())
 			return
 		}
 		player.SetFightMode(int(mode))
-	}
+	})
 }

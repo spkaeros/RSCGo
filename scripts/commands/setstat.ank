@@ -36,10 +36,11 @@ bind.command("stats", func(player, args) {
 		player.Message("Invalid args.  Usage: ::stats <atk> <def> <str>")
 		return
 	}
+
 	atk = toInt(args[0])
 	def = toInt(args[1])
 	str = toInt(args[2])
-	hpXp = toInt((lvlToExp(atk) + lvlToExp(def) + lvlToExp(str)) / 3) + 1154
+	hpXp = toInt((lvlToExp(atk) + lvlToExp(def) + lvlToExp(str)) / 3) + lvlToExp(10)
 
 	combat = player.Skills().CombatLevel()
 

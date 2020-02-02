@@ -7,7 +7,7 @@
  *
  */
 
-package script
+package world
 
 import (
 	"os"
@@ -20,87 +20,86 @@ import (
 	_ "github.com/mattn/anko/packages"
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/server/log"
-	"github.com/spkaeros/rscgo/pkg/server/world"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 //CommandHandlers A map to assign in-game commands to the functions they should execute.
-var CommandHandlers = make(map[string]func(*world.Player, []string))
+var CommandHandlers = make(map[string]func(*Player, []string))
 
 func init() {
 	env.Packages["world"] = map[string]reflect.Value{
-		"getPlayer":              reflect.ValueOf(world.Players.FromIndex),
-		"getPlayerByName":        reflect.ValueOf(world.Players.FromUserHash),
-		"players":                reflect.ValueOf(world.Players),
-		"getEquipmentDefinition": reflect.ValueOf(world.GetEquipmentDefinition),
-		"replaceObject":          reflect.ValueOf(world.ReplaceObject),
-		"addObject":              reflect.ValueOf(world.AddObject),
-		"removeObject":           reflect.ValueOf(world.RemoveObject),
-		"addNpc":                 reflect.ValueOf(world.AddNpc),
-		"removeNpc":              reflect.ValueOf(world.RemoveNpc),
-		"addItem":                reflect.ValueOf(world.AddItem),
-		"removeItem":             reflect.ValueOf(world.RemoveItem),
-		"getObjectAt":            reflect.ValueOf(world.GetObject),
-		"getNpc":                 reflect.ValueOf(world.GetNpc),
-		"checkCollisions":        reflect.ValueOf(world.IsTileBlocking),
-		"tileData":               reflect.ValueOf(world.CollisionData),
-		"kickPlayer": reflect.ValueOf(func(client *world.Player) {
-			client.SendPacket(world.Logout)
+		"getPlayer":              reflect.ValueOf(Players.FromIndex),
+		"getPlayerByName":        reflect.ValueOf(Players.FromUserHash),
+		"players":                reflect.ValueOf(Players),
+		"getEquipmentDefinition": reflect.ValueOf(GetEquipmentDefinition),
+		"replaceObject":          reflect.ValueOf(ReplaceObject),
+		"addObject":              reflect.ValueOf(AddObject),
+		"removeObject":           reflect.ValueOf(RemoveObject),
+		"addNpc":                 reflect.ValueOf(AddNpc),
+		"removeNpc":              reflect.ValueOf(RemoveNpc),
+		"addItem":                reflect.ValueOf(AddItem),
+		"removeItem":             reflect.ValueOf(RemoveItem),
+		"getObjectAt":            reflect.ValueOf(GetObject),
+		"getNpc":                 reflect.ValueOf(GetNpc),
+		"checkCollisions":        reflect.ValueOf(IsTileBlocking),
+		"tileData":               reflect.ValueOf(CollisionData),
+		"kickPlayer": reflect.ValueOf(func(client *Player) {
+			client.SendPacket(Logout)
 			client.Destroy()
 		}),
 		"updateStarted": reflect.ValueOf(func() bool {
-			return !world.UpdateTime.IsZero()
+			return !UpdateTime.IsZero()
 		}),
 		"announce": reflect.ValueOf(func(msg string) {
-			world.Players.Range(func(player *world.Player) {
+			Players.Range(func(player *Player) {
 				player.Message("@que@" + msg)
 			})
 		}),
-		"walkTo": reflect.ValueOf(func(target *world.Player, x, y int) {
-			target.WalkTo(world.NewLocation(x, y))
+		"walkTo": reflect.ValueOf(func(target *Player, x, y int) {
+			target.WalkTo(NewLocation(x, y))
 		}),
 		"systemUpdate": reflect.ValueOf(func(t int) {
-			world.UpdateTime = time.Now().Add(time.Second * time.Duration(t))
+			UpdateTime = time.Now().Add(time.Second * time.Duration(t))
 			go func() {
 				time.Sleep(time.Second * time.Duration(t))
-				world.Players.Range(func(player *world.Player) {
-					player.SendPacket(world.Logout)
+				Players.Range(func(player *Player) {
+					player.SendPacket(Logout)
 					player.Destroy()
 				})
 				time.Sleep(300 * time.Millisecond)
 				os.Exit(200)
 			}()
-			world.Players.Range(func(player *world.Player) {
+			Players.Range(func(player *Player) {
 				player.SendUpdateTimer()
 			})
 		}),
-		"teleport": reflect.ValueOf(func(target *world.Player, x, y int, bubble bool) {
+		"teleport": reflect.ValueOf(func(target *Player, x, y int, bubble bool) {
 			if bubble {
-				target.SendPacket(world.TeleBubble(0, 0))
+				target.SendPacket(TeleBubble(0, 0))
 				for _, nearbyPlayer := range target.NearbyPlayers() {
-					nearbyPlayer.SendPacket(world.TeleBubble(target.X()-nearbyPlayer.X(), target.Y()-nearbyPlayer.Y()))
+					nearbyPlayer.SendPacket(TeleBubble(target.X()-nearbyPlayer.X(), target.Y()-nearbyPlayer.Y()))
 				}
 			}
 			plane := target.Plane()
 			target.Teleport(x, y)
 			if target.Plane() != plane {
-				target.SendPacket(world.PlaneInfo(target))
+				target.SendPacket(PlaneInfo(target))
 			}
 		}),
-		"newShop":        reflect.ValueOf(world.NewShop),
-		"newLocation":        reflect.ValueOf(world.NewLocation),
-		"newGeneralShop": reflect.ValueOf(world.NewGeneralShop),
-		"getShop":        reflect.ValueOf(world.Shops.Get),
-		"hasShop":        reflect.ValueOf(world.Shops.Contains),
+		"newShop":        reflect.ValueOf(NewShop),
+		"newLocation":        reflect.ValueOf(NewLocation),
+		"newGeneralShop": reflect.ValueOf(NewGeneralShop),
+		"getShop":        reflect.ValueOf(Shops.Get),
+		"hasShop":        reflect.ValueOf(Shops.Contains),
 	}
 	env.PackageTypes["world"] = map[string]reflect.Type{
-		"players":    reflect.TypeOf(world.Players),
-		"player":     reflect.TypeOf(&world.Player{}),
-		"object":     reflect.TypeOf(&world.Object{}),
-		"item":       reflect.TypeOf(&world.Item{}),
-		"groundItem": reflect.TypeOf(&world.GroundItem{}),
-		"npc":        reflect.TypeOf(&world.NPC{}),
-		"location":   reflect.TypeOf(world.Location{}),
+		"players":    reflect.TypeOf(Players),
+		"player":     reflect.TypeOf(&Player{}),
+		"object":     reflect.TypeOf(&Object{}),
+		"item":       reflect.TypeOf(&Item{}),
+		"groundItem": reflect.TypeOf(&GroundItem{}),
+		"npc":        reflect.TypeOf(&NPC{}),
+		"location":   reflect.TypeOf(Location{}),
 	}
 	env.Packages["ids"] = map[string]reflect.Value{
 		"COOKEDMEAT":               reflect.ValueOf(132),
@@ -222,37 +221,37 @@ func init() {
 		"COAL":                     reflect.ValueOf(155),
 	}
 	env.Packages["bind"] = map[string]reflect.Value{
-		"onLogin": reflect.ValueOf(func(fn func(player *world.Player)) {
+		"onLogin": reflect.ValueOf(func(fn func(player *Player)) {
 			LoginTriggers = append(LoginTriggers, fn)
 		}),
-		"invOnBoundary": reflect.ValueOf(func(fn func(player *world.Player, boundary *world.Object, item *world.Item) bool) {
+		"invOnBoundary": reflect.ValueOf(func(fn func(player *Player, boundary *Object, item *Item) bool) {
 			InvOnBoundaryTriggers = append(InvOnBoundaryTriggers, fn)
 		}),
-		"invOnPlayer": reflect.ValueOf(func(pred func(*world.Item) bool, fn func(player *world.Player, target *world.Player, item *world.Item)) {
+		"invOnPlayer": reflect.ValueOf(func(pred func(*Item) bool, fn func(player *Player, target *Player, item *Item)) {
 			InvOnPlayerTriggers = append(InvOnPlayerTriggers, ItemOnPlayerTrigger{pred, fn})
 		}),
-		"invOnObject": reflect.ValueOf(func(fn func(player *world.Player, boundary *world.Object, item *world.Item) bool) {
+		"invOnObject": reflect.ValueOf(func(fn func(player *Player, boundary *Object, item *Item) bool) {
 			InvOnObjectTriggers = append(InvOnObjectTriggers, fn)
 		}),
-		"object": reflect.ValueOf(func(pred func(*world.Object, int) bool, fn func(player *world.Player, object *world.Object, click int)) {
+		"object": reflect.ValueOf(func(pred func(*Object, int) bool, fn func(player *Player, object *Object, click int)) {
 			ObjectTriggers = append(ObjectTriggers, ObjectTrigger{pred, fn})
 		}),
-		"item": reflect.ValueOf(func(check func(item *world.Item) bool, fn func(player *world.Player, item *world.Item)) {
+		"item": reflect.ValueOf(func(check func(item *Item) bool, fn func(player *Player, item *Item)) {
 			ItemTriggers = append(ItemTriggers, ItemTrigger{check, fn})
 		}),
-		"boundary": reflect.ValueOf(func(pred func(*world.Object, int) bool, fn func(player *world.Player, object *world.Object, click int)) {
+		"boundary": reflect.ValueOf(func(pred func(*Object, int) bool, fn func(player *Player, object *Object, click int)) {
 			BoundaryTriggers = append(BoundaryTriggers, ObjectTrigger{pred, fn})
 		}),
-		"npc": reflect.ValueOf(func(predicate func(npc *world.NPC) bool, fn func(player *world.Player, npc *world.NPC)) {
+		"npc": reflect.ValueOf(func(predicate func(npc *NPC) bool, fn func(player *Player, npc *NPC)) {
 			NpcTriggers = append(NpcTriggers, NpcTrigger{predicate, fn})
 		}),
-		"npcAttack": reflect.ValueOf(func(pred NpcActionPredicate, fn func(player *world.Player, npc *world.NPC)) {
-			NpcAtkTriggers = append(NpcAtkTriggers, world.NpcBlockingTrigger{pred, fn})
+		"npcAttack": reflect.ValueOf(func(pred NpcActionPredicate, fn func(player *Player, npc *NPC)) {
+			NpcAtkTriggers = append(NpcAtkTriggers, NpcBlockingTrigger{pred, fn})
 		}),
-		"npcKilled": reflect.ValueOf(func(pred NpcActionPredicate, fn func(player *world.Player, npc *world.NPC)) {
-			world.NpcDeathTriggers = append(world.NpcDeathTriggers, world.NpcBlockingTrigger{pred, fn})
+		"npcKilled": reflect.ValueOf(func(pred NpcActionPredicate, fn func(player *Player, npc *NPC)) {
+			NpcDeathTriggers = append(NpcDeathTriggers, NpcBlockingTrigger{pred, fn})
 		}),
-		"command": reflect.ValueOf(func(name string, fn func(p *world.Player, args []string)) {
+		"command": reflect.ValueOf(func(name string, fn func(p *Player, args []string)) {
 			CommandHandlers[name] = fn
 		}),
 	}
@@ -270,7 +269,7 @@ func init() {
 	}
 }
 
-func WorldModule() *env.Env {
+func ScriptEnv() *env.Env {
 	e := env.NewEnv()
 	e.Define("sleep", time.Sleep)
 	e.Define("runAfter", time.AfterFunc)
@@ -281,49 +280,49 @@ func WorldModule() *env.Env {
 	e.Define("tMillis", time.Millisecond)
 	e.Define("ChatDelay", time.Millisecond*1800)
 	e.Define("tNanos", time.Nanosecond)
-	e.Define("ATTACK", world.StatAttack)
-	e.Define("DEFENSE", world.StatDefense)
-	e.Define("STRENGTH", world.StatStrength)
-	e.Define("HITPOINTS", world.StatHits)
-	e.Define("RANGED", world.StatRanged)
-	e.Define("PRAYER", world.StatPrayer)
-	e.Define("MAGIC", world.StatMagic)
-	e.Define("COOKING", world.StatCooking)
-	e.Define("WOODCUTTING", world.StatWoodcutting)
-	e.Define("FLETCHING", world.StatFletching)
-	e.Define("FISHING", world.StatFishing)
-	e.Define("FIREMAKING", world.StatFiremaking)
-	e.Define("CRAFTING", world.StatCrafting)
-	e.Define("SMITHING", world.StatSmithing)
-	e.Define("MINING", world.StatMining)
-	e.Define("HERBLAW", world.StatHerblaw)
-	e.Define("AGILITY", world.StatAgility)
-	e.Define("THIEVING", world.StatThieving)
+	e.Define("ATTACK", StatAttack)
+	e.Define("DEFENSE", StatDefense)
+	e.Define("STRENGTH", StatStrength)
+	e.Define("HITPOINTS", StatHits)
+	e.Define("RANGED", StatRanged)
+	e.Define("PRAYER", StatPrayer)
+	e.Define("MAGIC", StatMagic)
+	e.Define("COOKING", StatCooking)
+	e.Define("WOODCUTTING", StatWoodcutting)
+	e.Define("FLETCHING", StatFletching)
+	e.Define("FISHING", StatFishing)
+	e.Define("FIREMAKING", StatFiremaking)
+	e.Define("CRAFTING", StatCrafting)
+	e.Define("SMITHING", StatSmithing)
+	e.Define("MINING", StatMining)
+	e.Define("HERBLAW", StatHerblaw)
+	e.Define("AGILITY", StatAgility)
+	e.Define("THIEVING", StatThieving)
 	e.Define("PRAYER_RAPID_RESTORE", 6)
 	e.Define("PRAYER_RAPID_HEAL", 7)
 	e.Define("ZeroTime", time.Time{})
-	e.Define("itemDefs", world.ItemDefs)
-	e.Define("objectDefs", world.ObjectDefs)
-	e.Define("boundaryDefs", world.BoundaryDefs)
-	e.Define("npcDefs", world.NpcDefs)
-	e.Define("lvlToExp", world.LevelToExperience)
-	e.Define("expToLvl", world.ExperienceToLevel)
-	e.Define("withinWorld", world.WithinWorld)
-	e.Define("skillIndex", world.SkillIndex)
-	e.Define("skillName", world.SkillName)
-	e.Define("newNpc", world.NewNpc)
-	e.Define("newObject", world.NewObject)
+	e.Define("itemDefs", ItemDefs)
+	e.Define("objectDefs", ObjectDefs)
+	e.Define("boundaryDefs", BoundaryDefs)
+	e.Define("npcDefs", NpcDefs)
+	e.Define("lvlToExp", LevelToExperience)
+	e.Define("expToLvl", ExperienceToLevel)
+	e.Define("withinWorld", WithinWorld)
+	e.Define("skillIndex", SkillIndex)
+	e.Define("skillName", SkillName)
+	e.Define("newNpc", NewNpc)
+	e.Define("newObject", NewObject)
 	e.Define("base37", strutil.Base37.Encode)
 	e.Define("rand", rand.Int31N)
-	e.Define("North", world.North)
-	e.Define("NorthEast", world.NorthEast)
-	e.Define("NorthWest", world.NorthWest)
-	e.Define("South", world.South)
-	e.Define("SouthEast", world.SouthEast)
-	e.Define("SouthWest", world.SouthWest)
-	e.Define("East", world.East)
-	e.Define("West", world.West)
-	e.Define("parseDirection", world.ParseDirection)
+	e.Define("North", North)
+	e.Define("NorthEast", NorthEast)
+	e.Define("NorthWest", NorthWest)
+	e.Define("South", South)
+	e.Define("SouthEast", SouthEast)
+	e.Define("SouthWest", SouthWest)
+	e.Define("East", East)
+	e.Define("West", West)
+	e.Define("parseDirection", ParseDirection)
 	e.Define("contains", func(s []int64, elem int64) bool {
 		for _, v := range s {
 			if v == elem {
@@ -338,12 +337,12 @@ func WorldModule() *env.Env {
 		}
 		return float64(rand.Int31N(1, 128)) <= (float64(cur)+40)-(float64(req)*1.5)
 	})
-	e.Define("roll", world.Chance)
-	e.Define("boundedRoll", world.BoundedChance)
-	e.Define("weightedChance", world.WeightedChoice)
+	e.Define("roll", Chance)
+	e.Define("boundedRoll", BoundedChance)
+	e.Define("weightedChance", WeightedChoice)
 
-	e.Define("npcPredicate", func(ids ...interface{}) func(*world.NPC) bool {
-		return func(npc *world.NPC) bool {
+	e.Define("npcPredicate", func(ids ...interface{}) func(*NPC) bool {
+		return func(npc *NPC) bool {
 			for _, id := range ids {
 				if cmd, ok := id.(string); ok {
 					if npc.Name() == cmd {
@@ -358,8 +357,8 @@ func WorldModule() *env.Env {
 			return false
 		}
 	})
-	e.Define("npcBlockingPredicate", func(ids ...interface{}) func(*world.Player, *world.NPC) bool {
-		return func(player *world.Player, npc *world.NPC) bool {
+	e.Define("npcBlockingPredicate", func(ids ...interface{}) func(*Player, *NPC) bool {
+		return func(player *Player, npc *NPC) bool {
 			for _, id := range ids {
 				if cmd, ok := id.(string); ok {
 					if npc.Name() == cmd {
@@ -378,7 +377,7 @@ func WorldModule() *env.Env {
 
 	e.Define("fuzzyFindItem", func(input string) []map[string]interface{} {
 		var itemList []map[string]interface{}
-		for id, item := range world.ItemDefs {
+		for id, item := range ItemDefs {
 			if fuzzy.MatchFold(input, item.Name) {
 				itemList = append(itemList, map[string]interface{} {"name": item.Name, "id": id})
 			}
@@ -386,8 +385,8 @@ func WorldModule() *env.Env {
 		return itemList
 	})
 
-	e.Define("itemPredicate", func(ids ...interface{}) func(*world.Item) bool {
-		return func(item *world.Item) bool {
+	e.Define("itemPredicate", func(ids ...interface{}) func(*Item) bool {
+		return func(item *Item) bool {
 			for _, id := range ids {
 				if cmd, ok := id.(string); ok {
 					if item.Command() == cmd {
@@ -402,11 +401,11 @@ func WorldModule() *env.Env {
 			return false
 		}
 	})
-	e.Define("objectPredicate", func(ids ...interface{}) func(*world.Object, int) bool {
-		return func(object *world.Object, click int) bool {
+	e.Define("objectPredicate", func(ids ...interface{}) func(*Object, int) bool {
+		return func(object *Object, click int) bool {
 			for _, id := range ids {
 				if cmd, ok := id.(string); ok {
-					if world.ObjectDefs[object.ID].Commands[click] == cmd {
+					if ObjectDefs[object.ID].Commands[click] == cmd {
 						return true
 					}
 				} else if id, ok := id.(int64); ok {
