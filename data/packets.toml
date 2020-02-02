@@ -61,4 +61,10 @@ packets = [
 	{ name = 'duelconfirmaccept', opcode = 77},
 	{ name = 'duelupdate', opcode = 33},
 	{ name = 'dueloptions', opcode = 8},
+	{ name = 'reportabuse', opcode = 206},
+	{ name = 'spellnpc', opcode = 50},
+	{ name = 'spellgrounditem', opcode = 249},
+	{ name = 'spellinvitem', opcode = 4},
+	{ name = 'spellplayer', opcode = 229},
+	{ name = 'spellself', opcode = 137},
 ]
