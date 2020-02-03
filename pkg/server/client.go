@@ -102,21 +102,20 @@ func (c *client) startNetworking() {
 //destroy Safely tears down a client, saves it to the database, and removes it from server-wide player list.
 func (c *client) destroy() {
 	c.destroyer.Do(func() {
-		//close(c.IncomingPackets)
 		close(c.player.OutgoingPackets)
 		if err := c.socket.Close(); err != nil {
 			log.Error.Println("Couldn't close socket:", err)
 		}
-		if player, ok := world.Players.FromIndex(c.player.Index); ok || player != c.player {
+		c.player.SetConnected(false)
+		c.player.SetRegionRemoved()
+		if player, ok := world.Players.FromIndex(c.player.Index); !ok || player != c.player {
 			log.Warning.Println("Destroying Player did not match player that is assigned index in map!")
 			return
 		}
+		go db.SavePlayer(c.player)
 		log.Info.Printf("Unregistered: %v\n", c.player.String())
 		world.RemovePlayer(c.player)
-		c.player.SetRegionRemoved()
-		c.player.SetConnected(false)
 		world.Players.BroadcastLogin(c.player, false)
-		go db.SavePlayer(c.player)
 		world.Players.Remove(c.player)
 	})
 }
