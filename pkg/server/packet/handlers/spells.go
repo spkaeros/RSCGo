@@ -12,6 +12,8 @@ package handlers
 import (
 	"math"
 	"time"
+	"strconv"
+//	stdrand "math/rand"
 
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/server/log"
@@ -493,75 +495,76 @@ func init() {
 	AddHandler("spellinvitem", func(player *world.Player, p *packet.Packet) {
 		itemIndex := int(p.ReadShort())
 		spellIndex := int(p.ReadShort())
-		log.Info.Println(itemIndex, spellIndex)
+		log.Info.Println("Cast on invitem:", spellIndex, "on", itemIndex)
 	})
 	AddHandler("spellgrounditem", func(player *world.Player, p *packet.Packet) {
 		itemX := int(p.ReadShort())
 		itemY := int(p.ReadShort())
 		itemID := int(p.ReadShort())
 		spellIndex := int(p.ReadShort())
-		log.Info.Println(itemX, itemY, itemID, spellIndex)
+		log.Info.Println(itemX, itemY, itemID, "cast on grounditem:", spellIndex, "on", strconv.Itoa(itemID), "at", strconv.Itoa(itemX) + "," + strconv.Itoa(itemY))
 		handleSpells(player, spellIndex, nil)
 	})
 }
 
 func handleSpells(player *world.Player, idx int, target world.MobileEntity) {
-	if idx < 0 || idx > len(spellDefs) {
+	if idx < 0 || idx >= len(spellDefs) {
 		return
 	}
 	s := spellDefs[idx]
-	checkRunes := func() bool {
+	checkAndRemoveRunes := func() bool {
 		for id, amt := range s.runes {
 			if player.Inventory.CountID(id) < amt {
-				log.Suspicious.Println(player, "casted spell on self with not enough runes")
+				log.Suspicious.Println(player, "casted spell with not enough runes")
 				player.Message("You don't have all the reagents you need for this spell")
 				return false
 			}
 		}
-		return true
-	}
-	removeRunes := func() {
 		for id, amt := range s.runes {
 			player.Inventory.RemoveByID(id, amt)
 		}
-	}
-	checkAndRemoveRunes := func() bool {
-		if !checkRunes() {
-			return false
-		}
-		removeRunes()
 		return true
 	}
 	finalize := func() {
 		player.TransAttrs.SetVar("lastSpell", time.Now())
 		player.PlaySound("spellok")
 		player.Message("Cast spell successfully")
+		player.ResetPath()
 	}
-	checkFail := func() bool {
-		lvDelta := player.Skills().Current(world.StatMagic) - s.level
-		if lvDelta < 0 ||
-			(lvDelta < 10-int(math.Min(5, math.Max(float64(player.MagicPoints()-5)/5, 0))) && rand.Int31N(0, (lvDelta+2)*2) == 0) {
-			player.Message("The spell fails! You may try again in 20 seconds")
-			player.PlaySound("spellfail")
-			player.ResetPath()
-			return true
-		}
-		return false
-	}
-
 	if player.Skills().Current(world.StatMagic) < s.level {
 		player.Message("Your magic ability is not high enough for this spell.")
 		player.ResetPath()
 		return
 	}
-	if checkFail() {
+	log.Info.Println(s)
+	if lvDelta := player.Skills().Current(world.StatMagic) - s.level;
+			lvDelta < 0 || (lvDelta < 10-int(math.Min(math.Max((float64(player.MagicPoints())-5)/5, 0), 5)) &&
+			rand.Int31N(0, (lvDelta+2)*2) == 0) {
+		player.PlaySound("spellfail")
+		player.Message("The spell fails! You may try again in 20 seconds")
+		player.ResetPath()
 		return
 	}
 
-	log.Info.Println(s)
-
-	handleTeleportation := func() {
+	switch s.kind {
+	case 0: // Self
 		switch idx {
+		case 7:
+			count := player.Inventory.CountID(20)
+			if count <= 0 {
+				player.Message("You aren't holding any bones!")
+				return
+			}
+			if !checkAndRemoveRunes() {
+				return
+			}
+			player.Inventory.RemoveByID(20, count)
+			for i := 0; i < count; i++ {
+				player.Inventory.Add(249, 1)
+			}
+			player.SendInventory()
+			finalize()
+			return
 		case 12: // Varrock Teleport
 			if !checkAndRemoveRunes() {
 				return
@@ -596,36 +599,10 @@ func handleSpells(player *world.Player, idx int, target world.MobileEntity) {
 			player.Message("You cannot cast this spell")
 			player.Message("You need to finish the watchtower quest first")
 			return
-		default:
-			return
-		}
-	}
-
-	switch s.kind {
-	case 0: // Self
-		switch idx {
-		case 7:
-			if !checkAndRemoveRunes() {
-				return
-			}
-			count := player.Inventory.CountID(20)
-			if count <= 0 {
-				player.Message("You aren't holding any bones!")
-				return
-			}
-			for i := 0; i < count; i++ {
-				if player.Inventory.RemoveByID(20, 1) >= 0 {
-					player.Inventory.Add(249, 1)
-				}
-			}
-			player.SendInventory()
-			finalize()
-			return
 		case 47:
-			player.Message("@ora@Not yet implemented.")
-			return
+			fallthrough
 		default:
-			handleTeleportation()
+			player.Message("@ora@Not yet implemented.")
 			return
 		}
 	case 2: // combat spell
@@ -674,49 +651,59 @@ func handleSpells(player *world.Player, idx int, target world.MobileEntity) {
 							steps++
 						}
 					}
-					// reaching here means made it to target within 4 steps
+					// reaching here means made it to target within 4 steps without hitting a barrier
 					player.ResetPath()
-					checkAndRemoveRunes()
+					if !checkAndRemoveRunes() {
+						return true
+					}
+					finalize()
+					
 					dmg := float64(val)
 					probs := map[int]float64{}
 					rat := 45.0 + float64(player.MagicPoints())
 					peak := (dmg / 100.0) * rat
 					dip := peak / 3.0
 		
-					curProb := 100.0*3.0*dmg
+					curProb := 100.0*dmg
 					for i := 0.0; i <= dmg; i++ {
 						probs[int(i)] = curProb
 						if i < dip || i > peak {
-							curProb -= (dmg*300)/3
+							curProb -= (dmg*100)/3
 						} else {
-							curProb += (dmg*300)/3
+							curProb += (dmg*100)/3
 						}
 					}
 					hit := int(math.Min(float64(target.Skills().Current(world.StatHits)), float64(world.WeightedChoice(probs))))
 					target.Skills().DecreaseCur(world.StatHits, hit)
-					finalize()
 					if target.Skills().Current(world.StatHits) <= 0 {
 						target.Killed(player)
 						return true
 					}
 					target.Damage(hit)
-					
 					return true
-
 				}
 				player.WalkTo(world.NewLocation(target.X(), target.Y()))
 				return false
 			})
+		} else {
+			// TODO: Handle these spells
+			// Curses (e.g any stat-lowering spells), godspells, and crumble undead are all that fit this description I think?
 		}
 	case 3: // enchant spell
 		switch idx {
-		case 16: // telegrab
-			player.Message("@ora@Not yet implemented.")
+//		case 16: // telegrab
 		default:
+			player.Message("@ora@Not yet implemented.")
 			return
 		}
 	case 5: // charge orb
-
+		switch idx {
+		default:
+			player.Message("@ora@Not yet implemented.")
+			return
+		}
+	default: // charge orb
+		return
 	}
 }
 
