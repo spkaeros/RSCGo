@@ -12,6 +12,8 @@ package handlers
 import (
 	"fmt"
 	"os"
+	"sync"
+	"time"
 	"runtime/pprof"
 	"strconv"
 	"strings"
@@ -25,6 +27,21 @@ import (
 )
 
 func init() {
+	world.CommandHandlers["shutdown"] = func(player *world.Player, args []string) {
+		var wg sync.WaitGroup
+		world.Players.Range(func(p1 *world.Player) {
+			p1.Message("Shutting down.")
+			wg.Add(1)
+			p1.SendPacket(world.Logout)
+			go func() {
+				defer wg.Done()
+				db.SavePlayer(p1)
+				time.Sleep(1*time.Second)
+			}()
+		})
+		wg.Wait()
+		os.Exit(1)
+	}
 	AddHandler("command", func(player *world.Player, p *packet.Packet) {
 		args := strutil.ModalParse(string(p.Payload))
 		handler, ok := world.CommandHandlers[args[0]]

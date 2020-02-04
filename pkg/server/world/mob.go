@@ -466,29 +466,30 @@ func (m *Mob) StyleBonus(stat int) int {
 
 //MaxMeleeDamage Calculates and returns the current max hit for this mob, based on many variables.
 func (m *Mob) MaxMeleeDamage() float64 {
-	return math.Ceil(((float64(m.Skills().Current(StatStrength))*m.PrayerModifiers()[StatStrength])+float64(m.StyleBonus(StatStrength)))*((float64(m.PowerPoints())*0.00175)+0.1) + 1.05)
+	return float64(((float64(m.Skills().Current(StatStrength))*m.PrayerModifiers()[StatStrength])+float64(m.StyleBonus(StatStrength))) * ((float64(m.PowerPoints())*0.00175)+0.1)) + 1.05
 }
 
 //AttackPoints Calculates and returns the accuracy capability of this mob, based on many variables, as a single variable.
 func (m *Mob) AttackPoints() float64 {
-	return (float64(m.Skills().Current(StatAttack)) * m.PrayerModifiers()[StatAttack]) + float64(m.StyleBonus(StatAttack)+m.AimPoints())
+	return float64(((float64(m.Skills().Current(StatAttack))*m.PrayerModifiers()[StatAttack])+float64(m.StyleBonus(StatAttack))) * ((float64(m.AimPoints())*0.00175)+0.1)) + 1.05
+//	return (float64(m.Skills().Current(StatAttack)) * m.PrayerModifiers()[StatAttack]) + float64(m.StyleBonus(StatAttack)+m.AimPoints())
 }
 
 //DefensePoints Calculates and returns the defensive capability of this mob, based on many variables, as a single variable.
 func (m *Mob) DefensePoints() float64 {
-	return (float64(m.Skills().Current(StatDefense)) * m.PrayerModifiers()[StatDefense]) + float64(m.StyleBonus(StatDefense)+m.ArmourPoints())
+	return float64(((float64(m.Skills().Current(StatDefense))*m.PrayerModifiers()[StatDefense])+float64(m.StyleBonus(StatDefense))) * ((float64(m.ArmourPoints())*0.00175)+0.1)) + 1.05
+//	return (float64(m.Skills().Current(StatDefense)) * m.PrayerModifiers()[StatDefense]) + float64(m.StyleBonus(StatDefense)+m.ArmourPoints())
 }
 
 //MeleeDamage Calculates and returns a melee damage from the receiver mob onto the target mob.
 func (m *Mob) MeleeDamage(target MobileEntity) int {
-	//log.Info.Println(BoundedChance((m.AttackPoints()/(target.DefensePoints()*6))*100, 2.5, 84.0))
-	if BoundedChance(m.AttackPoints()/(target.DefensePoints()*4)*100, 2.5, 83.0) {
+	log.Info.Println((m.AttackPoints()/(target.DefensePoints()*4))*100)
+	if BoundedChance(m.AttackPoints()/(target.DefensePoints()*4)*100, 0.0, 82.0) {
 		maxDamage := m.MaxMeleeDamage()
-		//damage := (rand.NormFloat64()*(maxDamage/3))+(maxDamage/2)
 		var damage float64
 		for damage > maxDamage || damage < 1 {
 			//damage = rand.ExpFloat64()/(1/(maxDamage))
-			damage = (rand.NormFloat64() * (maxDamage / 3)) + (maxDamage / 2)
+			damage = math.Floor((rand.NormFloat64() * (maxDamage / 3)) + (maxDamage / 2))
 		}
 		return int(damage)
 	}
