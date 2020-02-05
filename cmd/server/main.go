@@ -8,20 +8,20 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/jessevdk/go-flags"
-	"github.com/spkaeros/rscgo/pkg/server"
-	"github.com/spkaeros/rscgo/pkg/server/config"
-	"github.com/spkaeros/rscgo/pkg/server/db"
-	"github.com/spkaeros/rscgo/pkg/server/log"
-	"github.com/spkaeros/rscgo/pkg/server/packet/handlers"
-	"github.com/spkaeros/rscgo/pkg/server/world"
+	"github.com/spkaeros/rscgo/pkg/db"
+	"github.com/spkaeros/rscgo/pkg/game"
+	"github.com/spkaeros/rscgo/pkg/game/config"
+	"github.com/spkaeros/rscgo/pkg/game/net/handlers"
+	"github.com/spkaeros/rscgo/pkg/game/world"
+	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 //Flags This is used to interface with the go-flags package from some guy on github.
 var Flags struct {
 	Verbose   []bool `short:"v" long:"verbose" description:"Display more verbose output"`
-	Port      int    `short:"p" long:"port" description:"The TCP port for the server to listen on, (Websocket will use the port directly above it)"`
-	Config    string `short:"c" long:"config" description:"Specify the TOML configuration file to load server settings from" default:"config.toml"`
-	UseCipher bool   `short:"e" long:"encryption" description:"Enable command opcode encryption using a variant of ISAAC to encrypt packet opcodes."`
+	Port      int    `short:"p" long:"port" description:"The TCP port for the game to listen on, (Websocket will use the port directly above it)"`
+	Config    string `short:"c" long:"config" description:"Specify the TOML configuration file to load game settings from" default:"config.toml"`
+	UseCipher bool   `short:"e" long:"encryption" description:"Enable command opcode encryption using a variant of ISAAC to encrypt net opcodes."`
 }
 
 //asyncExecute First this will add 1 task to the specified waitgroup, then it will execute the function fn in its own goroutine, and upon exiting this goroutine will indicate to wg that the task we added is finished.
@@ -43,7 +43,7 @@ func init() {
 	}
 	if !strings.HasSuffix(Flags.Config, ".toml") {
 		log.Warning.Println("You entered an invalid configuration file extension.")
-		log.Warning.Println("TOML is currently the only supported format for server properties.")
+		log.Warning.Println("TOML is currently the only supported format for game properties.")
 		log.Warning.Println()
 		log.Info.Println("Setting back to default: `config.toml`")
 		Flags.Config = "config.toml"
@@ -108,16 +108,16 @@ func main() {
 		log.Info.Printf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill] loaded\n", len(world.ItemTriggers), len(world.ObjectTriggers), len(world.BoundaryTriggers), len(world.NpcTriggers), len(world.InvOnBoundaryTriggers), len(world.InvOnObjectTriggers), len(world.NpcAtkTriggers), len(world.NpcDeathTriggers))
 		log.Info.Printf("Finished initializing entities in: %dms\n", time.Since(start).Milliseconds())
 	}
-	server.StartGameEngine()
+	game.StartGameEngine()
 	if config.Verbose() {
 		log.Info.Println("Launched game engine.")
 		log.Info.Println()
 	}
-	server.StartConnectionService()
+	game.StartConnectionService()
 	log.Info.Println("RSCGo is now running.")
 	log.Info.Printf("Listening on TCP port %d, websocket port %d...\n", config.Port(), config.WSPort())
 	select {
-	case <-server.Kill:
+	case <-game.Kill:
 		os.Exit(0)
 	}
 }

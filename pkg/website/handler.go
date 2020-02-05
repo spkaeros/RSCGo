@@ -10,33 +10,33 @@
 package website
 
 import (
-	"io"
-	"fmt"
 	"bufio"
+	"fmt"
 	"html/template"
+	"io"
 	"net/http"
 	"os"
-	"time"
 	"os/exec"
-	"strings"
 	"strconv"
+	"strings"
+	"time"
 
-	"github.com/spkaeros/rscgo/pkg/server/log"
 	"github.com/gorilla/websocket"
-	"github.com/spkaeros/rscgo/pkg/server/world"
+	"github.com/spkaeros/rscgo/pkg/game/world"
+	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 var muxCtx = http.NewServeMux()
 
 type InformationData struct {
-	Title string
-	Owner string
+	Title     string
+	Owner     string
 	Copyright string
 }
 
 var Information = InformationData{
-	Title: "RSCGo",
-	Owner: "ZlackCode LLC",
+	Title:     "RSCGo",
+	Owner:     "ZlackCode LLC",
 	Copyright: "2019-2020",
 }
 
@@ -61,9 +61,8 @@ func indexHandler() http.Handler {
 	})
 }
 
-
 var html = []byte(
-`<html>
+	`<html>
 	<body>
 		<h1>game process stdout/stderr</h1>
 		<code></code>
@@ -76,7 +75,7 @@ var html = []byte(
 	</body>
 </html>
 `)
-	
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -84,6 +83,7 @@ var upgrader = websocket.Upgrader{
 
 var outBuffer = make(chan []byte, 256)
 var ServerProc *os.Process
+
 //Start Binds to the web port 8080 and serves HTTP content to it.
 // Note: This is a blocking call, it will not return to caller.
 func Start() {
@@ -92,22 +92,22 @@ func Start() {
 	muxCtx.HandleFunc("/game/launch.ws", func(w http.ResponseWriter, r *http.Request) {
 		w.Write(html)
 		if ServerProc != nil {
-			w.Write([]byte("server already started\n"))
+			w.Write([]byte("game already started\n"))
 			return
 		}
 		w.Header().Set("Content-Type", "text/html")
-		cmd := exec.Command("./server", "-v")
+		cmd := exec.Command("./game", "-v")
 
 		outReader, err := cmd.StdoutPipe()
 		if err != nil {
-			w.Write([]byte("Error getting game server output pipe reader:" + err.Error()))
+			w.Write([]byte("Error getting game game output pipe reader:" + err.Error()))
 		}
 		errReader, err := cmd.StderrPipe()
 		if err != nil {
-			w.Write([]byte("Error getting game server error pipe reader:" + err.Error()))
+			w.Write([]byte("Error getting game game error pipe reader:" + err.Error()))
 		}
 		scanner := bufio.NewScanner(io.MultiReader(outReader, errReader))
-//		multiWriter := io.MultiWriter(os.Stdout, &outBuffer)
+		//		multiWriter := io.MultiWriter(os.Stdout, &outBuffer)
 		go func() {
 			for scanner.Scan() {
 				os.Stdout.Write(append(scanner.Bytes(), byte('\n')))
@@ -116,24 +116,24 @@ func Start() {
 		}()
 		err = cmd.Start()
 		if err != nil {
-			w.Write([]byte("Error starting server process:" + err.Error()))
+			w.Write([]byte("Error starting game process:" + err.Error()))
 			return
 		}
 		ServerProc = cmd.Process
-		w.Write([]byte("Started server, process: " + strconv.Itoa(ServerProc.Pid) + "."))
+		w.Write([]byte("Started game, process: " + strconv.Itoa(ServerProc.Pid) + "."))
 	})
 	muxCtx.HandleFunc("/game/shutdown.ws", func(w http.ResponseWriter, r *http.Request) {
 		if ServerProc == nil {
-			w.Write([]byte("server child process not launched.\n"))
+			w.Write([]byte("game child process not launched.\n"))
 			return
 		}
-		cmd := exec.Command("kill","-9",strconv.Itoa(ServerProc.Pid))
+		cmd := exec.Command("kill", "-9", strconv.Itoa(ServerProc.Pid))
 		err := cmd.Run()
 		if err != nil {
 			w.Write([]byte("Error starting kill process:" + err.Error()))
 			return
 		}
-		w.Write([]byte("Game server(" + strconv.Itoa(ServerProc.Pid) + ") shut down successfully"))
+		w.Write([]byte("Game game(" + strconv.Itoa(ServerProc.Pid) + ") shut down successfully"))
 		ServerProc = nil
 	})
 	muxCtx.HandleFunc("/game/out.ws", func(w http.ResponseWriter, r *http.Request) {
@@ -155,14 +155,14 @@ func Start() {
 			}
 		}(ws)
 
-		ticker := time.NewTicker(54*time.Second)
+		ticker := time.NewTicker(54 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
 			case line, ok := <-outBuffer:
-				ws.SetWriteDeadline(time.Now().Add(10*time.Second))
+				ws.SetWriteDeadline(time.Now().Add(10 * time.Second))
 				if !ok {
-					ws.WriteMessage(websocket.CloseMessage,[]byte{})
+					ws.WriteMessage(websocket.CloseMessage, []byte{})
 					return
 				}
 				if err := ws.WriteMessage(1, line); err != nil {
@@ -170,7 +170,7 @@ func Start() {
 					return
 				}
 			case <-ticker.C:
-				ws.SetWriteDeadline(time.Now().Add(10*time.Second))
+				ws.SetWriteDeadline(time.Now().Add(10 * time.Second))
 				if err := ws.WriteMessage(websocket.PingMessage, nil); err != nil {
 					log.Info.Println(err)
 					return

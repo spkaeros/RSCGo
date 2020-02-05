@@ -16,7 +16,7 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/spkaeros/rscgo/pkg/server/log"
+	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 // TODO: Parse metadata into meaningful data structures for easier reading and to provide a better API
