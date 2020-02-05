@@ -108,8 +108,12 @@ func (c *client) destroy() {
 		}
 		c.player.SetConnected(false)
 		c.player.SetRegionRemoved()
-		if player, ok := world.Players.FromIndex(c.player.Index); !ok || player != c.player {
-			log.Warning.Println("Destroying PlayerService did not match player that is assigned index in map!")
+		if player, ok := world.Players.FromIndex(c.player.Index); (ok && player != c.player) || !ok {
+			log.Warning.Printf("Unregistered: Unauthenticated connection ('%v'@'%v')\n", c.player.Username(), c.player.CurrentIP())
+			if ok {
+				// found player at index, and it's not us.  Weird, potentially an issue, shouldn't happen
+				log.Warning.Printf("Unauthenticated player being destroyed had index %d and there is a player that is assigned that index already! (%v)\n", c.player.Index, c.player, player)
+			}
 			return
 		}
 		go db.DefaultPlayerService.PlayerSave(c.player)
