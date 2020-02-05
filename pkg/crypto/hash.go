@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"runtime"
 
-	"github.com/spkaeros/rscgo/pkg/game/config"
+	"github.com/spkaeros/rscgo/pkg/config"
 	"golang.org/x/crypto/argon2"
 )
 

@@ -81,3 +81,18 @@ func WorldDB() string {
 func PlayerDB() string {
 	return TomlConfig.Database.PlayerDB
 }
+
+func init() {
+	TomlConfig.MaxPlayers = 1250
+	TomlConfig.DataDir = "./data/"
+	TomlConfig.Database.PlayerDB = "players.db"
+	TomlConfig.Database.WorldDB = "world.db"
+	TomlConfig.PacketHandlerFile = "packets.toml"
+	TomlConfig.Crypto.HashComplexity = 15
+	TomlConfig.Crypto.HashLength = 32
+	TomlConfig.Crypto.HashMemory = 8
+	TomlConfig.Crypto.HashSalt = "rscgo./GOLANG!RULES/.1994"
+	TomlConfig.Version = 204
+	TomlConfig.Port = 43594 // = 43595 for websocket connections
+	TomlConfig.Crypto.RsaKeyFile = "rsa.der" // TODO: Remove all RSA/ISAAC and add TLS to Java client
+}

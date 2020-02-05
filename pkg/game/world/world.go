@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/spkaeros/rscgo/pkg/game/config"
+	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/log"
 	rscRand "github.com/spkaeros/rscgo/pkg/rand"
 )

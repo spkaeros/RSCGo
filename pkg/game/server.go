@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/gobwas/ws"
-	"github.com/spkaeros/rscgo/pkg/game/config"
+	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
