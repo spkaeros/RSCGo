@@ -35,7 +35,7 @@ func init() {
 			p1.SendPacket(world.Logout)
 			go func() {
 				defer wg.Done()
-				db.SavePlayer(p1)
+				db.DefaultPlayerService.PlayerSave(p1)
 				time.Sleep(1 * time.Second)
 			}()
 		})

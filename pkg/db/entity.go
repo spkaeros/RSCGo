@@ -10,7 +10,7 @@ import (
 
 //LoadObjectDefinitions Loads game object data into memory for quick access.
 func LoadObjectDefinitions() {
-	database := Open(config.WorldDB())
+	database := sqlOpen("sqlite3", "file:" + config.DataDir() + config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT id, name, description, command_one, command_two, type, width, height, ground_item_var FROM `game_objects`")
 	if err != nil {
@@ -29,7 +29,7 @@ func LoadObjectDefinitions() {
 }
 
 func LoadEquipmentDefinitions() {
-	database := Open(config.WorldDB())
+	database := sqlOpen("sqlite3", "file:" + config.DataDir() + config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT id, sprite, type, armour_points, magic_points, prayer_points, range_points, weapon_aim_points, weapon_power_points, pos, femaleOnly FROM `item_wieldable`")
 	if err != nil {
@@ -46,7 +46,7 @@ func LoadEquipmentDefinitions() {
 
 //LoadTileDefinitions Loads game tile attribute data into memory for quick access.
 func LoadTileDefinitions() {
-	database := Open(config.WorldDB())
+	database := sqlOpen("sqlite3", "file:" + config.DataDir() + config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT colour, unknown, objectType unknown FROM `tiles`")
 	defer rows.Close()
@@ -63,7 +63,7 @@ func LoadTileDefinitions() {
 
 //LoadBoundaryDefinitions Loads game boundary object data into memory for quick access.
 func LoadBoundaryDefinitions() {
-	database := Open(config.WorldDB())
+	database := sqlOpen("sqlite3", "file:" + config.DataDir() + config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT id, name, description, command_one, command_two, door_type, unknown FROM `doors` ORDER BY id")
 	defer rows.Close()
@@ -83,7 +83,7 @@ func LoadBoundaryDefinitions() {
 
 //LoadItemDefinitions Loads game item data into memory for quick access.
 func LoadItemDefinitions() {
-	database := Open(config.WorldDB())
+	database := sqlOpen("sqlite3", "file:" + config.DataDir() + config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT id, name, description, command, base_price, stackable, special, members FROM `items` ORDER BY id")
 	if err != nil {
@@ -100,7 +100,7 @@ func LoadItemDefinitions() {
 
 //LoadNpcDefinitions Loads game NPC data into memory for quick access.
 func LoadNpcDefinitions() {
-	database := Open(config.WorldDB())
+	database := sqlOpen("sqlite3", "file:" + config.DataDir() + config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT id, name, description, command, hits, attack, strength, defense, attackable FROM `npcs` ORDER BY id")
 	if err != nil {
@@ -117,7 +117,7 @@ func LoadNpcDefinitions() {
 
 //LoadObjectLocations Loads the game objects into memory from the SQLite3 database.
 func LoadObjectLocations() {
-	database := Open(config.WorldDB())
+	database := sqlOpen("sqlite3", "file:" + config.DataDir() + config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT `id`, `direction`, `boundary`, `x`, `y` FROM `game_object_locations`")
 	if err != nil {
@@ -137,7 +137,7 @@ func LoadObjectLocations() {
 
 //LoadNpcLocations Loads the games NPCs into memory from the SQLite3 database.
 func LoadNpcLocations() {
-	database := Open(config.WorldDB())
+	database := sqlOpen("sqlite3", "file:" + config.DataDir() + config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT `id`, `startX`, `minX`, `maxX`, `startY`, `minY`, `maxY` FROM `npc_locations`")
 	if err != nil {
@@ -154,7 +154,7 @@ func LoadNpcLocations() {
 
 //LoadItemLocations Loads the games ground items into memory from the SQLite3 database.
 func LoadItemLocations() {
-	database := Open(config.WorldDB())
+	database := sqlOpen("sqlite3", "file:" + config.DataDir() + config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT `id`, `amount`, `x`, `y`, `respawn` FROM `item_locations`")
 	if err != nil {
@@ -171,7 +171,7 @@ func LoadItemLocations() {
 
 //SaveObjectLocations Clears world.db game object locations and repopulates it with the current game locations.
 func SaveObjectLocations() int {
-	database := Open(config.WorldDB())
+	database := sqlOpen("sqlite3", "file:" + config.DataDir() + config.WorldDB())
 	defer database.Close()
 	tx, err := database.Begin()
 	if err != nil {

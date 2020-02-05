@@ -32,13 +32,13 @@ func init() {
 	AddHandler("newplayer", newPlayer)
 	AddHandler("forgotpass", func(player *world.Player, p *net.Packet) {
 		usernameHash := p.ReadLong()
-		if !db.HasRecoveryQuestions(usernameHash) {
+		if !db.DefaultPlayerService.PlayerHasRecoverys(usernameHash) {
 			player.SendPacket(net.NewBarePacket([]byte{0}))
 			player.Destroy()
 			return
 		}
 		player.SendPacket(net.NewBarePacket([]byte{1}))
-		for _, question := range db.GetRecoveryQuestions(usernameHash) {
+		for _, question := range db.DefaultPlayerService.PlayerLoadRecoverys(usernameHash) {
 			player.SendPacket(net.NewBarePacket([]byte{byte(len(question))}).AddBytes([]byte(question)))
 		}
 	})
@@ -61,11 +61,11 @@ func init() {
 	AddHandler("changepass", func(player *world.Player, p *net.Packet) {
 		oldPassword := strings.TrimSpace(p.ReadString(20))
 		newPassword := strings.TrimSpace(p.ReadString(20))
-		if !db.ValidCredentials(player.UsernameHash(), crypto.Hash(oldPassword)) {
+		if !db.DefaultPlayerService.PlayerValidLogin(player.UsernameHash(), crypto.Hash(oldPassword)) {
 			player.Message("The old password you provided does not appear to be valid.  Try again.")
 			return
 		}
-		db.UpdatePassword(player.UsernameHash(), crypto.Hash(newPassword))
+		db.DefaultPlayerService.PlayerChangePassword(player.UsernameHash(), crypto.Hash(newPassword))
 		player.Message("Successfully updated your password to the new password you have provided.")
 		return
 	})
@@ -116,13 +116,13 @@ func newPlayer(player *world.Player, p *net.Packet) {
 		reply <- 0
 		return
 	}
-	if db.UsernameExists(username) {
+	if db.DefaultPlayerService.PlayerValidName(username) {
 		log.Info.Printf("New player denied: [ Reason:'Username is taken'; username='%s'; ip='%s' ]\n", username, player.CurrentIP())
 		reply <- 3
 		return
 	}
 
-	if db.CreatePlayer(username, password) {
+	if db.DefaultPlayerService.PlayerCreate(username, password) {
 		log.Info.Printf("New player accepted: [ username='%s'; ip='%s' ]", username, player.CurrentIP())
 		reply <- 2
 		return
@@ -211,7 +211,7 @@ func loginRequest(player *world.Player, p *net.Packet) {
 	usernameHash := strutil.Base37.Encode(strings.TrimSpace(p.ReadString(20)))
 	player.TransAttrs.SetVar("username", usernameHash)
 	password := strings.TrimSpace(p.ReadString(20))
-	if !db.UsernameExists(strutil.Base37.Decode(usernameHash)) {
+	if !db.DefaultPlayerService.PlayerValidName(strutil.Base37.Decode(usernameHash)) {
 		loginReply <- 3
 		return
 	}
@@ -223,5 +223,5 @@ func loginRequest(player *world.Player, p *net.Packet) {
 		loginReply <- 8
 		return
 	}
-	go db.LoadPlayer(player, usernameHash, password, loginReply)
+	go db.DefaultPlayerService.PlayerLoad(player, usernameHash, password, loginReply)
 }

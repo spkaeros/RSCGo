@@ -109,10 +109,10 @@ func (c *client) destroy() {
 		c.player.SetConnected(false)
 		c.player.SetRegionRemoved()
 		if player, ok := world.Players.FromIndex(c.player.Index); !ok || player != c.player {
-			log.Warning.Println("Destroying Player did not match player that is assigned index in map!")
+			log.Warning.Println("Destroying PlayerService did not match player that is assigned index in map!")
 			return
 		}
-		go db.SavePlayer(c.player)
+		go db.DefaultPlayerService.PlayerSave(c.player)
 		log.Info.Printf("Unregistered: %v\n", c.player.String())
 		world.RemovePlayer(c.player)
 		world.Players.BroadcastLogin(c.player, false)

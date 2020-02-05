@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"time"
@@ -14,62 +15,81 @@ import (
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
-// FIXME: This is an exact copy from the old database code model to its own, isolated package, and the result is clumsy and needs to be tidied up badly.
+//PlayerService An interface for manipulating player save data.
+type PlayerService interface {
+	PlayerCreate(string, string) bool
+	PlayerValidName(username string) bool
+	PlayerHasRecoverys(uint64) bool
+	PlayerValidLogin(uint64, string) bool
+	PlayerChangePassword(uint64, string) bool
+	PlayerLoadRecoverys(uint64) []string
+	PlayerLoad(*world.Player, uint64, string, chan byte)
+	PlayerSave(*world.Player)
+}
 
-//CreatePlayer Creates a new entry in the player SQLite3 database with the specified credentials.
+//NewPlayerServiceSql Returns a new SqlPlayerService to manage the specified *sql.DB instance.
+// Note: To use this, you must load a database/sql driver.
+func NewPlayerServiceSql(addr string) PlayerService {
+	return newSqlService(sqlOpen("sqlite3", "file:"+config.DataDir()+addr))
+}
+
+//DefaultPlayerService the default player save managing service in use by the game server
+// Currently using an sqlService.
+var DefaultPlayerService = NewPlayerServiceSql(config.PlayerDB())
+
+//PlayerCreate Creates a new entry in the player SQLite3 database with the specified credentials.
 // Returns true if successful, otherwise returns false.
-func CreatePlayer(username, password string) bool {
-	database := Open(config.PlayerDB())
-	defer database.Close()
-
-	tx, err := database.Begin()
+func (s *sqlService) PlayerCreate(username, password string) bool {
+	db := s.connect(context.Background())
+	defer db.Close()
+	tx, err := db.BeginTx(context.Background(), nil)
 	if err != nil {
-		log.Info.Println("CreatePlayer(): Could not begin transaction for new player.")
+		log.Info.Println("SQLiteService Could not begin transaction:", err)
 		return false
 	}
 
-	s, err := tx.Exec("INSERT INTO player(username, userhash, password, x, y, group_id) VALUES(?, ?, ?, 220, 445, 0)", username, strutil.Base37.Encode(username), crypto.Hash(password))
+	stmt, err := tx.Exec("INSERT INTO player(username, userhash, password, x, y, group_id) VALUES(?, ?, ?, 220, 445, 0)", username, strutil.Base37.Encode(username), crypto.Hash(password))
 	if err != nil {
-		log.Info.Println("CreatePlayer(): Could not insert new player profile information:", err)
+		log.Info.Println("SQLiteService Could not insert new player profile information:", err)
 		return false
 	}
-	playerID, err := s.LastInsertId()
+	playerID, err := stmt.LastInsertId()
 	if err != nil || playerID < 0 {
-		log.Info.Printf("CreatePlayer(): Could not retrieve player database ID(got %d):\n%v", playerID, err)
+		log.Info.Printf("PlayerCreate(): Could not retrieve player database ID(got %d):\n%v", playerID, err)
 		return false
 	}
 	_, err = tx.Exec("INSERT INTO appearance VALUES(?, 2, 8, 14, 0, 1, 2)", playerID)
 	if err != nil {
-		log.Info.Println("CreatePlayer(): Could not insert new player profile information:", err)
+		log.Info.Println("PlayerCreate(): Could not insert new player profile information:", err)
 		return false
 	}
 	if err := tx.Commit(); err != nil {
-		log.Warning.Println("CreatePlayer(): Error committing transaction for new player:", err)
+		log.Warning.Println("PlayerCreate(): Error committing transaction for new player:", err)
 		return false
 	}
 
 	return true
 }
 
-//UsernameExists Returns true if there is a player with the name 'username' in the player database, otherwise returns false.
-func UsernameExists(username string) bool {
-	database := Open(config.PlayerDB())
+//PlayerValidName Returns true if there is a player with the name 'username' in the player database, otherwise returns false.
+func (s *sqlService) PlayerValidName(username string) bool {
+	database := s.connect(context.Background())
 	defer database.Close()
-	s, err := database.Query("SELECT id FROM player WHERE userhash=?", strutil.Base37.Encode(username))
+	stmt, err := database.QueryContext(context.Background(), "SELECT id FROM player WHERE userhash=?", strutil.Base37.Encode(username))
 	if err != nil {
 		log.Info.Println("UsernameTaken: Could not query player profile information:", err)
 		// return true just to be safe since we could not check
 		return true
 	}
-	defer s.Close()
-	return s.Next()
+	defer stmt.Close()
+	return stmt.Next()
 }
 
-//ValidCredentials Returns true if it finds a user with this username hash and password in the database, otherwise returns false
-func ValidCredentials(userHash uint64, password string) bool {
-	database := Open(config.PlayerDB())
+//PlayerValidLogin Returns true if it finds a user with this username hash and password in the database, otherwise returns false
+func (s *sqlService) PlayerValidLogin(userHash uint64, password string) bool {
+	database := s.connect(context.Background())
 	defer database.Close()
-	rows, err := database.Query("SELECT id FROM player WHERE userhash=? AND password=?", userHash, password)
+	rows, err := database.QueryContext(context.Background(), "SELECT id FROM player WHERE userhash=? AND password=?", userHash, password)
 	if err != nil {
 		log.Info.Println("Validate: Could not validate user credentials:", err)
 		return false
@@ -78,92 +98,43 @@ func ValidCredentials(userHash uint64, password string) bool {
 	return rows.Next()
 }
 
-//LoadPlayerProfile Looks for a player with the specified credentials in the player database.  Returns nil if it finds the player, otherwise returns an error.
-func LoadPlayerProfile(usernameHash uint64, password string, loginReply chan byte, player *world.Player) error {
-	database := Open(config.PlayerDB())
+//PlayerChangePassword Updates the players password to password in the database.
+func (s *sqlService) PlayerChangePassword(userHash uint64, password string) bool {
+	database := s.connect(context.Background())
 	defer database.Close()
-	rows, err := database.Query("SELECT player.id, player.x, player.y, player.group_id, appearance.haircolour, appearance.topcolour, appearance.trousercolour, appearance.skincolour, appearance.head, appearance.body FROM player INNER JOIN appearance WHERE appearance.playerid=player.id AND player.userhash=? AND player.password=?", usernameHash, crypto.Hash(password))
+	stmt, err := database.ExecContext(context.Background(), "UPDATE player SET password=? WHERE userhash=?", password, userHash)
 	if err != nil {
-		log.Info.Println("ValidatePlayer(uint64,string): Could not prepare query statement for player:", err)
-		loginReply <- byte(3)
-		return errors.NewDatabaseError(err.Error())
-	}
-	defer rows.Close()
-	if !rows.Next() {
-		loginReply <- byte(3)
-		return errors.NewDatabaseError("Could not find player")
-	}
-	var x, y, rank, dbID int
-	rows.Scan(&dbID, &x, &y, &rank, &player.Appearance.HeadColor, &player.Appearance.BodyColor, &player.Appearance.LegsColor, &player.Appearance.SkinColor, &player.Appearance.Head, &player.Appearance.Body)
-	//	player.Location = world.NewLocation(x, y)
-	//	player.Teleport(220, 445)
-	player.TransAttrs.SetVar("dbID", dbID)
-	player.TransAttrs.SetVar("rank", rank)
-	player.Equips[0] = player.Appearance.Head
-	player.Equips[1] = player.Appearance.Body
-	player.SetX(x)
-	player.SetY(y)
-	return nil
-}
-
-func LoadPlayerStats(player *world.Player) error {
-	database := Open(config.PlayerDB())
-	defer database.Close()
-	rows, err := database.Query("SELECT cur, exp FROM stats WHERE playerid=? ORDER BY num", player.DatabaseID())
-	if err != nil {
-		log.Info.Println("ValidatePlayer(uint64,string): Could not prepare query statement for player:", err)
-		return errors.NewDatabaseError(err.Error())
-	}
-	defer rows.Close()
-	i := 0
-	for rows.Next() {
-		var cur, exp int
-		rows.Scan(&cur, &exp)
-		player.Skills().SetCur(i, cur)
-		player.Skills().SetMax(i, world.ExperienceToLevel(exp))
-		player.Skills().SetExp(i, exp)
-		i++
-	}
-	return nil
-}
-
-//UpdatePassword Updates the players password to password in the database.
-func UpdatePassword(userHash uint64, password string) bool {
-	database := Open(config.PlayerDB())
-	defer database.Close()
-	s, err := database.Exec("UPDATE player SET password=? WHERE userhash=?", password, userHash)
-	if err != nil {
-		log.Info.Println("UpdatePassword: Could not update player password:", err)
+		log.Info.Println("PlayerChangePassword: Could not update player password:", err)
 		return false
 	}
-	count, err := s.RowsAffected()
+	count, err := stmt.RowsAffected()
 	if count <= 0 || err != nil {
-		log.Info.Println("UpdatePassword: Could not update player password:", err)
+		log.Info.Println("PlayerChangePassword: Could not update player password:", err)
 		return false
 	}
 	return true
 }
 
-//HasRecoveryQuestions Returns true if this username has recovery questions assigned to it, otherwise returns false.
-func HasRecoveryQuestions(userHash uint64) bool {
-	database := Open(config.PlayerDB())
+//PlayerHasRecoverys Returns true if this username has recovery questions assigned to it, otherwise returns false.
+func (s *sqlService) PlayerHasRecoverys(userHash uint64) bool {
+	database := s.connect(context.Background())
 	defer database.Close()
-	rows, err := database.Query("SELECT question1 FROM recovery_questions WHERE userhash=?", userHash)
+	rows, err := database.QueryContext(context.Background(), "SELECT question1 FROM recovery_questions WHERE userhash=?", userHash)
 	if err != nil {
-		log.Info.Println("HasRecoveryQuestions: Could not search for recovery questions:", err)
+		log.Info.Println("PlayerHasRecoverys: Could not search for recovery questions:", err)
 		return false
 	}
 	defer rows.Close()
 	return rows.Next()
 }
 
-//GetRecoveryQuestions Retrieves the recovery questions assigned to this username if any, otherwise returns nil
-func GetRecoveryQuestions(userHash uint64) []string {
-	database := Open(config.PlayerDB())
+//PlayerLoadRecoverys Retrieves the recovery questions assigned to this username if any, otherwise returns nil
+func (s *sqlService) PlayerLoadRecoverys(userHash uint64) []string {
+	database := s.connect(context.Background())
 	defer database.Close()
-	rows, err := database.Query("SELECT question1, question2, question3, question4, question5 FROM recovery_questions WHERE userhash=?", userHash)
+	rows, err := database.QueryContext(context.Background(), "SELECT question1, question2, question3, question4, question5 FROM recovery_questions WHERE userhash=?", userHash)
 	if err != nil {
-		log.Info.Println("GetRecoveryQuestions: Could not find recovery questions:", err)
+		log.Info.Println("PlayerLoadRecoverys: Could not find recovery questions:", err)
 		return nil
 	}
 	defer rows.Close()
@@ -172,7 +143,7 @@ func GetRecoveryQuestions(userHash uint64) []string {
 	if rows.Next() {
 		err := rows.Scan(&question1, &question2, &question3, &question4, &question5)
 		if err != nil {
-			log.Info.Println("GetRecoveryQuestions: Could not scan recovery questions to variables:", err)
+			log.Info.Println("PlayerLoadRecoverys: Could not scan recovery questions to variables:", err)
 			return nil
 		}
 		return []string{question1, question2, question3, question4, question5}
@@ -182,161 +153,201 @@ func GetRecoveryQuestions(userHash uint64) []string {
 }
 
 //SaveRecoveryQuestions Saves new recovery questions to the database.
-func SaveRecoveryQuestions(userHash uint64, questions []string, answers []uint64) {
+func (s *sqlService) SaveRecoveryQuestions(userHash uint64, questions []string, answers []uint64) {
 
 }
 
-//LoadPlayerAttributes Looks for a player with the specified credentials in the player database.  Returns nil if it finds the player, otherwise returns an error.
-func LoadPlayerAttributes(player *world.Player) error {
-	database := Open(config.PlayerDB())
-	defer database.Close()
-
-	rows, err := database.Query("SELECT name, value FROM player_attr WHERE player_id=?", player.DatabaseID())
-	if err != nil {
-		log.Info.Println("LoadPlayer(uint64,string): Could not execute query statement for player attributes:", err)
-		return errors.NewDatabaseError("Statement could not execute.")
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var name, value string
-		rows.Scan(&name, &value)
-		switch value[0] {
-		case 'i':
-			val, err := strconv.ParseInt(value[1:], 10, 64)
-			if err != nil {
-				log.Info.Printf("Error loading int attribute[%v]: value=%v\n", name, value[1:])
-				log.Info.Println(err)
-			}
-			player.Attributes.SetVar(name, int(val))
-			break
-		case 'l':
-			val, err := strconv.ParseUint(value[1:], 10, 64)
-			if err != nil {
-				log.Info.Printf("Error loading long int attribute[%v]: value=%v\n", name, value[1:])
-				log.Info.Println(err)
-			}
-			player.Attributes.SetVar(name, uint(val))
-			break
-		case 'b':
-			val, err := strconv.ParseBool(value[1:])
-			if err != nil {
-				log.Info.Printf("Error loading boolean attribute[%v]: value=%v\n", name, value[1:])
-				log.Info.Println(err)
-			}
-			player.Attributes.SetVar(name, val)
-			break
-		case 's':
-			player.Attributes.SetVar(name, value[1:])
-			break
-		case 'd':
-			t, err := time.ParseDuration(value[1:])
-			if err != nil {
-				continue
-			}
-			player.Attributes.SetVar(name, time.Now().Add(t))
-		case 't':
-			t, err := time.ParseInLocation(time.RFC822, value[1:], time.Local)
-			if err != nil {
-				continue
-			}
-			player.Attributes.SetVar(name, t)
+//PlayerLoad Loads a player from the SQLite3 database, returns a login response code.
+func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, password string, loginReply chan byte) {
+	loadProfile := func() error {
+		database := s.connect(context.Background())
+		defer database.Close()
+		rows, err := database.QueryContext(context.Background(), "SELECT player.id, player.x, player.y, player.group_id, appearance.haircolour, appearance.topcolour, appearance.trousercolour, appearance.skincolour, appearance.head, appearance.body FROM player INNER JOIN appearance WHERE appearance.playerid=player.id AND player.userhash=? AND player.password=?", usernameHash, crypto.Hash(password))
+		if err != nil {
+			log.Info.Println("ValidatePlayer(uint64,string): Could not prepare query statement for player:", err)
+			loginReply <- byte(3)
+			return errors.NewDatabaseError(err.Error())
 		}
-	}
-	return nil
-}
-
-//LoadPlayerContacts Looks for a player with the specified credentials in the player database.  Returns nil if it finds the player, otherwise returns an error.
-func LoadPlayerContacts(listType string, player *world.Player) error {
-	database := Open(config.PlayerDB())
-	defer database.Close()
-
-	rows, err := database.Query("SELECT playerhash FROM contacts WHERE playerid=? AND `type`=?", player.DatabaseID(), listType)
-	if err != nil {
-		log.Info.Println("LoadPlayer(uint64,string): Could not execute query statement for player friends:", err)
-		return errors.NewDatabaseError("Statement could not execute.")
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var hash uint64
-		rows.Scan(&hash)
-		if listType == "friend" {
-			player.FriendList[hash] = false
-		} else {
-			player.IgnoreList = append(player.IgnoreList, hash)
+		defer rows.Close()
+		if !rows.Next() {
+			loginReply <- byte(3)
+			return errors.NewDatabaseError("Could not find player")
 		}
+		var x, y, rank, dbID int
+		rows.Scan(&dbID, &x, &y, &rank, &player.Appearance.HeadColor, &player.Appearance.BodyColor, &player.Appearance.LegsColor, &player.Appearance.SkinColor, &player.Appearance.Head, &player.Appearance.Body)
+		//	player.Location = world.NewLocation(x, y)
+		//	player.Teleport(220, 445)
+		player.TransAttrs.SetVar("dbID", dbID)
+		player.TransAttrs.SetVar("rank", rank)
+		player.Equips[0] = player.Appearance.Head
+		player.Equips[1] = player.Appearance.Body
+		player.SetX(x)
+		player.SetY(y)
+		return nil
 	}
-	return nil
-}
+	loadAttributes := func() error {
+		database := s.connect(context.Background())
+		defer database.Close()
 
-//LoadPlayerInventory Looks for a player with the specified credentials in the player database.  Returns nil if it finds the player, otherwise returns an error.
-func LoadPlayerInventory(player *world.Player) error {
-	database := Open(config.PlayerDB())
-	defer database.Close()
-	rows, err := database.Query("SELECT itemid, amount, wielded FROM inventory WHERE playerid=?", player.DatabaseID())
-	if err != nil {
-		log.Info.Println("LoadPlayer(uint64,string): Could not execute query statement for player inventory:", err)
-		return errors.NewDatabaseError("Statement could not execute.")
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var id, amt int
-		wielded := false
-		rows.Scan(&id, &amt, &wielded)
-		index := player.Inventory.Add(id, amt)
-		if e := world.GetEquipmentDefinition(id); e != nil && wielded {
-			player.Inventory.Get(index).Worn = true
-			player.Equips[e.Position] = e.Sprite
-			player.SetAimPoints(player.AimPoints() + e.Aim)
-			player.SetPowerPoints(player.PowerPoints() + e.Power)
-			player.SetArmourPoints(player.ArmourPoints() + e.Armour)
-			player.SetMagicPoints(player.MagicPoints() + e.Magic)
-			player.SetPrayerPoints(player.PrayerPoints() + e.Prayer)
-			player.SetRangedPoints(player.RangedPoints() + e.Ranged)
+		rows, err := database.QueryContext(context.Background(), "SELECT name, value FROM player_attr WHERE player_id=?", player.DatabaseID())
+		if err != nil {
+			log.Info.Println("PlayerLoad(uint64,string): Could not execute query statement for player attributes:", err)
+			return errors.NewDatabaseError("Statement could not execute.")
 		}
+		defer rows.Close()
+		for rows.Next() {
+			var name, value string
+			rows.Scan(&name, &value)
+			switch value[0] {
+			case 'i':
+				val, err := strconv.ParseInt(value[1:], 10, 64)
+				if err != nil {
+					log.Info.Printf("Error loading int attribute[%v]: value=%v\n", name, value[1:])
+					log.Info.Println(err)
+				}
+				player.Attributes.SetVar(name, int(val))
+				break
+			case 'l':
+				val, err := strconv.ParseUint(value[1:], 10, 64)
+				if err != nil {
+					log.Info.Printf("Error loading long int attribute[%v]: value=%v\n", name, value[1:])
+					log.Info.Println(err)
+				}
+				player.Attributes.SetVar(name, uint(val))
+				break
+			case 'b':
+				val, err := strconv.ParseBool(value[1:])
+				if err != nil {
+					log.Info.Printf("Error loading boolean attribute[%v]: value=%v\n", name, value[1:])
+					log.Info.Println(err)
+				}
+				player.Attributes.SetVar(name, val)
+				break
+			case 's':
+				player.Attributes.SetVar(name, value[1:])
+				break
+			case 'd':
+				t, err := time.ParseDuration(value[1:])
+				if err != nil {
+					continue
+				}
+				player.Attributes.SetVar(name, time.Now().Add(t))
+			case 't':
+				t, err := time.ParseInLocation(time.RFC822, value[1:], time.Local)
+				if err != nil {
+					continue
+				}
+				player.Attributes.SetVar(name, t)
+			}
+		}
+		return nil
 	}
-	return nil
-}
+	loadContactList := func(list string) error {
+		database := s.connect(context.Background())
+		defer database.Close()
 
-//LoadPlayerBank Loads the bank items this player has
-func LoadPlayerBank(player *world.Player) error {
-	database := Open(config.PlayerDB())
-	defer database.Close()
-	rows, err := database.Query("SELECT itemid, amount FROM bank WHERE playerid=?", player.DatabaseID())
-	if err != nil {
-		log.Info.Println("LoadPlayer(uint64,string): Could not execute query statement for player inventory:", err)
-		return errors.NewDatabaseError("Statement could not execute.")
+		rows, err := database.QueryContext(context.Background(), "SELECT playerhash FROM contacts WHERE playerid=? AND `type`=?", player.DatabaseID(), list)
+		if err != nil {
+			log.Info.Println("PlayerLoad(uint64,string): Could not execute query statement for player friends:", err)
+			return errors.NewDatabaseError("Statement could not execute.")
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var hash uint64
+			rows.Scan(&hash)
+			switch list {
+			case "friend":
+				player.FriendList[hash] = false
+			case "ignore":
+				player.IgnoreList = append(player.IgnoreList, hash)
+			}
+		}
+		return nil
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var id, amt int
-		rows.Scan(&id, &amt)
-		player.Bank().Add(id, amt)
+	loadInventory := func() error {
+		database := s.connect(context.Background())
+		defer database.Close()
+		rows, err := database.QueryContext(context.Background(), "SELECT itemid, amount, wielded FROM inventory WHERE playerid=?", player.DatabaseID())
+		if err != nil {
+			log.Info.Println("PlayerLoad(uint64,string): Could not execute query statement for player inventory:", err)
+			return errors.NewDatabaseError("Statement could not execute.")
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id, amt int
+			wielded := false
+			rows.Scan(&id, &amt, &wielded)
+			index := player.Inventory.Add(id, amt)
+			if e := world.GetEquipmentDefinition(id); e != nil && wielded {
+				player.Inventory.Get(index).Worn = true
+				player.Equips[e.Position] = e.Sprite
+				player.SetAimPoints(player.AimPoints() + e.Aim)
+				player.SetPowerPoints(player.PowerPoints() + e.Power)
+				player.SetArmourPoints(player.ArmourPoints() + e.Armour)
+				player.SetMagicPoints(player.MagicPoints() + e.Magic)
+				player.SetPrayerPoints(player.PrayerPoints() + e.Prayer)
+				player.SetRangedPoints(player.RangedPoints() + e.Ranged)
+			}
+		}
+		return nil
 	}
-	return nil
-}
+	loadBank := func() error {
+		database := s.connect(context.Background())
+		defer database.Close()
+		rows, err := database.QueryContext(context.Background(), "SELECT itemid, amount FROM bank WHERE playerid=?", player.DatabaseID())
+		if err != nil {
+			log.Info.Println("PlayerLoad(uint64,string): Could not execute query statement for player inventory:", err)
+			return errors.NewDatabaseError("Statement could not execute.")
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id, amt int
+			rows.Scan(&id, &amt)
+			player.Bank().Add(id, amt)
+		}
+		return nil
+	}
+	loadStats := func() error {
+		database := s.connect(context.Background())
+		defer database.Close()
+		rows, err := database.QueryContext(context.Background(), "SELECT cur, exp FROM stats WHERE playerid=? ORDER BY num", player.DatabaseID())
+		if err != nil {
+			log.Info.Println("ValidatePlayer(uint64,string): Could not prepare query statement for player:", err)
+			return errors.NewDatabaseError(err.Error())
+		}
+		defer rows.Close()
+		i := 0
+		for rows.Next() {
+			var cur, exp int
+			rows.Scan(&cur, &exp)
+			player.Skills().SetCur(i, cur)
+			player.Skills().SetMax(i, world.ExperienceToLevel(exp))
+			player.Skills().SetExp(i, exp)
+			i++
+		}
+		return nil
+	}
 
-//LoadPlayer Loads a player from the SQLite3 database, returns a login response code.
-func LoadPlayer(player *world.Player, usernameHash uint64, password string, loginReply chan byte) {
 	// If this fails, then the login information was incorrect, and we don't need to do anything else
-	if err := LoadPlayerProfile(usernameHash, password, loginReply, player); err != nil {
+	if err := loadProfile(); err != nil {
 		return
 	}
-	if err := LoadPlayerAttributes(player); err != nil {
+	if err := loadAttributes(); err != nil {
 		return
 	}
-	if err := LoadPlayerContacts("friend", player); err != nil {
+	if err := loadContactList("friend"); err != nil {
 		return
 	}
-	if err := LoadPlayerContacts("ignore", player); err != nil {
+	if err := loadContactList("ignore"); err != nil {
 		return
 	}
-	if err := LoadPlayerInventory(player); err != nil {
+	if err := loadInventory(); err != nil {
 		return
 	}
-	if err := LoadPlayerBank(player); err != nil {
+	if err := loadBank(); err != nil {
 		return
 	}
-	if err := LoadPlayerStats(player); err != nil {
+	if err := loadStats(); err != nil {
 		return
 	}
 
@@ -354,11 +365,11 @@ func LoadPlayer(player *world.Player, usernameHash uint64, password string, logi
 	}
 }
 
-//SavePlayer Saves a player to the SQLite3 database.
-func SavePlayer(player *world.Player) {
-	db := Open(config.PlayerDB())
+//PlayerSave Saves a player to the SQLite3 database.
+func (s *sqlService) PlayerSave(player *world.Player) {
+	db := s.connect(context.Background())
 	defer db.Close()
-	tx, err := db.Begin()
+	tx, err := db.BeginTx(context.Background(), nil)
 	if err != nil {
 		log.Info.Println("Save(): Could not begin transcaction for player update.")
 		return
