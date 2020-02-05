@@ -13,10 +13,10 @@ import (
 	"io"
 	"fmt"
 	"bufio"
-	"bytes"
 	"html/template"
 	"net/http"
 	"os"
+	"time"
 	"os/exec"
 	"strings"
 	"strconv"
@@ -82,9 +82,7 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-var StdOut, StdErr bytes.Buffer
-var StdOutIn, StdErrIn io.Reader
-var StdOutR, StdErrR io.Writer
+var outBuffer = make(chan []byte, 256)
 var ServerProc *os.Process
 //Start Binds to the web port 8080 and serves HTTP content to it.
 // Note: This is a blocking call, it will not return to caller.
@@ -92,63 +90,56 @@ func Start() {
 	muxCtx.Handle("/", http.NotFoundHandler())
 	muxCtx.Handle("/index.ws", indexHandler())
 	muxCtx.HandleFunc("/game/launch.ws", func(w http.ResponseWriter, r *http.Request) {
+		w.Write(html)
 		if ServerProc != nil {
 			w.Write([]byte("server already started\n"))
 			return
 		}
+		w.Header().Set("Content-Type", "text/html")
 		cmd := exec.Command("./server", "-v")
 
-		var err error
-		StdOutIn, err = cmd.StdoutPipe()
+		outReader, err := cmd.StdoutPipe()
 		if err != nil {
-			w.Write([]byte("Error setting stdout to var:" + err.Error()))
+			w.Write([]byte("Error getting game server output pipe reader:" + err.Error()))
 		}
-		StdErrIn, err = cmd.StderrPipe()
+		errReader, err := cmd.StderrPipe()
 		if err != nil {
-			w.Write([]byte("Error setting stdout to var:" + err.Error()))
+			w.Write([]byte("Error getting game server error pipe reader:" + err.Error()))
 		}
-		StdOutR = io.MultiWriter(os.Stdout, &StdOut)
-		StdErrR = io.MultiWriter(os.Stderr, &StdErr)
+		scanner := bufio.NewScanner(io.MultiReader(outReader, errReader))
+//		multiWriter := io.MultiWriter(os.Stdout, &outBuffer)
+		go func() {
+			for scanner.Scan() {
+				os.Stdout.Write(append(scanner.Bytes(), byte('\n')))
+				outBuffer <- []byte(scanner.Text())
+			}
+		}()
 		err = cmd.Start()
 		if err != nil {
 			w.Write([]byte("Error starting server process:" + err.Error()))
 			return
 		}
-/*		go func() {
-			_, err = io.Copy(StdOutR, StdOutIn,)
-			if err != nil {
-				w.Write([]byte("Error piping stdout to var:" + err.Error()))
-			}
-			_, err = io.Copy(StdErrR, StdErrIn,)
-			if err != nil {
-				w.Write([]byte("Error piping stderr to var:" + err.Error()))
-			}
-		}()
-*/		ServerProc = cmd.Process
-		w.Write(html)
+		ServerProc = cmd.Process
 		w.Write([]byte("Started server, process: " + strconv.Itoa(ServerProc.Pid) + "."))
 	})
 	muxCtx.HandleFunc("/game/shutdown.ws", func(w http.ResponseWriter, r *http.Request) {
 		if ServerProc == nil {
+			w.Write([]byte("server child process not launched.\n"))
 			return
 		}
 		cmd := exec.Command("kill","-9",strconv.Itoa(ServerProc.Pid))
 		err := cmd.Run()
 		if err != nil {
-			w.Write([]byte("Error starting server process:" + err.Error()))
+			w.Write([]byte("Error starting kill process:" + err.Error()))
 			return
 		}
-		w.Write([]byte("gameserver killed successfully"))
+		w.Write([]byte("Game server(" + strconv.Itoa(ServerProc.Pid) + ") shut down successfully"))
 		ServerProc = nil
 	})
 	muxCtx.HandleFunc("/game/out.ws", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(StdOut.Bytes()))
-		w.Write([]byte(StdErr.Bytes()))
+		w.Write(html)
 	})
-//	ctx := http.NewServeMux()
 	muxCtx.HandleFunc("/game/out", func(w http.ResponseWriter, r *http.Request) {
-//		w.Write([]byte(StdOut.Bytes()))
-//		w.Write([]byte(StdErr.Bytes()))
 		ws, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			w.Write([]byte(fmt.Sprintf("", err)))
@@ -164,21 +155,30 @@ func Start() {
 			}
 		}(ws)
 
-		s := bufio.NewScanner(io.MultiReader(StdOutIn,StdErrIn))
-		for s.Scan() {
-			ws.WriteMessage(1, s.Bytes())
+		ticker := time.NewTicker(54*time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case line, ok := <-outBuffer:
+				ws.SetWriteDeadline(time.Now().Add(10*time.Second))
+				if !ok {
+					ws.WriteMessage(websocket.CloseMessage,[]byte{})
+					return
+				}
+				if err := ws.WriteMessage(1, line); err != nil {
+					log.Error.Println(err)
+					return
+				}
+			case <-ticker.C:
+				ws.SetWriteDeadline(time.Now().Add(10*time.Second))
+				if err := ws.WriteMessage(websocket.PingMessage, nil); err != nil {
+					log.Info.Println(err)
+					return
+				}
+			}
 		}
 	})
-	muxCtx.HandleFunc("/game/wot.ws", func(w http.ResponseWriter, r *http.Request) {
-	})
-/*	go func() {
-		err := http.ListenAndServe(":8081", muxCtx)
-		if err != nil {
-			log.Error.Println("Could not bind to website port:", err)
-			os.Exit(98)
-		}
-	}()
-*/	err := http.ListenAndServe(":8080", muxCtx)
+	err := http.ListenAndServe(":8080", muxCtx)
 	if err != nil {
 		log.Error.Println("Could not bind to website port:", err)
 		os.Exit(99)
