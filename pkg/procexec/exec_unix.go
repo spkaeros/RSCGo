@@ -38,7 +38,7 @@ func Command(path string, name string) *exec.Cmd {
 }
 
 func getCmd(path string) *exec.Cmd {
-	cmd := exec.Command(path, " -v")
+	cmd := exec.Command(path, "-v")
 	cmd.Args[0] = "rscgo"
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pgid: 0}
 	return cmd
