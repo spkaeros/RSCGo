@@ -59,7 +59,7 @@ func indexHandler() http.Handler {
 		}
 	})
 }
-
+/*
 var html = []byte(
 	`<html>
 	<body>
@@ -74,7 +74,97 @@ var html = []byte(
 	</body>
 </html>
 `)
+*/
 
+var html = []byte(`<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link rel="stylesheet" type="text/css" href="/style.css" />
+		<script>
+			function setStatus(status) {
+				document.getElementById("reply").innerHTML = status;
+			}
+
+			function appendOutput(msg) {
+				document.getElementById("stdout").innerHTML += msg + "<br>\n"
+			}
+
+			function callApi(url) {
+				var xhttp = new XMLHttpRequest();
+				xhttp.onreadystatechange = function() {
+					if (this.readyState == 4 && this.status == 200) {
+						setStatus(this.responseText);
+					}
+				};
+				xhttp.open("GET", url, true);
+				xhttp.send(); 
+			}
+
+			function initWebsocket() {
+				if (window.WebSocket === undefined) {
+					document.getElementById("stdout").innerHTML = "Your browser does not appear to have WebSockets capabilities.<br>\nTo use this page, consider upgrading to any modern alternative, such as Firefox or Chromium.";
+					return;
+				}
+
+				var ws = new WebSocket("wss://rscturmoil.com/game/out");
+
+				ws.onmessage = function(event) {
+					appendOutput(event.data);
+					var container = document.getElementById("stdout-box");
+					container.scrollTop = container.scrollHeight;
+				}
+				
+				ws.onopen = function() {
+					appendOutput("[WS] Connected to stdout HTTP endpoint" + "<br>\n");
+				}
+				
+				ws.onclose = function() {
+					appendOutput("<br><br>\n\n" + "[WS] Disconnected" + "<br>\n");
+				}
+			}
+			function launch() {
+				setStatus("Attempting to launch server...");
+				callApi("launch.ws");
+			};
+			
+			function terminate() {
+				setStatus("Attempting to shutdown server...");
+				callApi("shutdown.ws");
+			}
+			initWebsocket();
+		</script>
+		<title>Game server controls</title>
+	</head>
+
+	<body>
+		<div class="rsc-container" style="text-align:center;">
+			<header>
+				<div class="rsc-border-top rsc-border-bar"></div>
+				<div class="rsc-box rsc-header">
+					<b>Server Controls</b><br>
+					<a class="rsc-link" href="/index.ws">Main menu</a>
+				</div>
+			</header>
+
+			<p style="font-variant:petite-caps; font-weight:bold;" id="reply"></p>
+			<div class="rsc-box" id="stdout-box" style="margin:5px 55px 15px 55px; border-radius: 15px; padding:23px; height:356px; text-align:left; overflow-y:scroll; ">
+				<code id="stdout"></code>
+			</div>
+			<p>
+				<h2>Controls:</h2><br>
+				<button href="#" id="launch" onclick="launch()" type="button">Start</button>
+				<button href="#" style="margin-left:50px;" id="terminate" onclick="terminate()" type="button">Stop</button>
+			</p>
+			<footer class="rsc-border-bottom rsc-border-bar">
+				<div class="rsc-footer">
+					This webpage and its contents is copyright © 2019-2020 ZlackCode, LLC.
+					<br>To use our service you must agree to our <a class="rsc-link" href="/terms.html">Terms+Conditions</a> and <a class="rsc-link" href="/privacy.html">Privacy policy</a>
+				</div>
+			</footer>
+		</div>
+	</body>
+</html>`)
 var upgrader = ws.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -90,13 +180,12 @@ func Start() {
 	muxCtx.Handle("/", http.NotFoundHandler())
 	muxCtx.Handle("/index.ws", indexHandler())
 	muxCtx.HandleFunc("/game/launch.ws", func(w http.ResponseWriter, r *http.Request) {
-		w.Write(html)
 		if ServerProc != nil {
 			w.Write([]byte("game already started\n"))
 			return
 		}
 		w.Header().Set("Content-Type", "text/html")
-		cmd := exec.Command("./game", "-v")
+		cmd := exec.Command("./bin/game", "-v")
 
 		outReader, err := cmd.StdoutPipe()
 		if err != nil {
@@ -120,7 +209,7 @@ func Start() {
 			return
 		}
 		ServerProc = cmd.Process
-		w.Write([]byte("Started game server process: " + strconv.Itoa(ServerProc.Pid) + "."))
+		w.Write([]byte("Started game server (pid: " + strconv.Itoa(ServerProc.Pid) + ")"))
 	})
 	muxCtx.HandleFunc("/game/shutdown.ws", func(w http.ResponseWriter, r *http.Request) {
 		if ServerProc == nil {
@@ -133,10 +222,10 @@ func Start() {
 			w.Write([]byte("Error starting kill process:" + err.Error()))
 			return
 		}
-		w.Write([]byte("Game server (pid " + strconv.Itoa(ServerProc.Pid) + ") shut down successfully"))
+		w.Write([]byte("Shut down game server (pid: " + strconv.Itoa(ServerProc.Pid) + ")"))
 		ServerProc = nil
 	})
-	muxCtx.HandleFunc("/game/out.ws", func(w http.ResponseWriter, r *http.Request) {
+	muxCtx.HandleFunc("/game/control.ws", func(w http.ResponseWriter, r *http.Request) {
 		w.Write(html)
 	})
 	muxCtx.HandleFunc("/game/out", func(w http.ResponseWriter, r *http.Request) {
@@ -152,7 +241,7 @@ func Start() {
 				return
 			}
 		}
-		for ServerProc != nil {
+		for {
 			select {
 			case line, ok := <-outBuffer:
 				if !ok {
@@ -169,6 +258,7 @@ func Start() {
 				}
 			}
 		}
+		backBuffer = backBuffer[:0]
 	})
 	err := http.ListenAndServe(":8080", muxCtx)
 	if err != nil {
