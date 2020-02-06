@@ -23,6 +23,7 @@ import (
 	"github.com/gobwas/ws/wsutil"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
+	"github.com/spkaeros/rscgo/pkg/procexec"
 )
 
 var muxCtx = http.NewServeMux()
@@ -59,6 +60,7 @@ func indexHandler() http.Handler {
 		}
 	})
 }
+
 /*
 var html = []byte(
 	`<html>
@@ -181,29 +183,48 @@ func Start() {
 	muxCtx.Handle("/index.ws", indexHandler())
 	muxCtx.HandleFunc("/game/launch.ws", func(w http.ResponseWriter, r *http.Request) {
 		if ServerProc != nil {
-			w.Write([]byte("game already started\n"))
+			_, err := w.Write([]byte("game already started\n"))
+			if err != nil {
+				log.Warning.Println("Could not write game server control response:", err)
+			}
 			return
 		}
-		w.Header().Set("Content-Type", "text/html")
-		cmd := exec.Command("./bin/game", "-v")
+		w.Header().Set("Content-Type", "text/plain")
+		cmd := procexec.Command("./bin/game", "-v")
 
 		outReader, err := cmd.StdoutPipe()
 		if err != nil {
-			w.Write([]byte("Error getting game game output pipe reader:" + err.Error()))
+			_, err := w.Write([]byte("Error making stdout pipe:" + err.Error()))
+			if err != nil {
+				log.Warning.Println("Could not write game server control response:", err)
+			}
+			return
 		}
 		errReader, err := cmd.StderrPipe()
 		if err != nil {
-			w.Write([]byte("Error getting game game error pipe reader:" + err.Error()))
+			_, err := w.Write([]byte("Error making stderr pipe:" + err.Error()))
+			if err != nil {
+				log.Warning.Println("Could not write game server control response:", err)
+				return
+			}
+			return
 		}
-		scanner := bufio.NewScanner(io.MultiReader(outReader, errReader))
-		//		multiWriter := io.MultiWriter(os.Stdout, &outBuffer)
 		go func() {
-			for scanner.Scan() {
-				os.Stdout.Write(append(scanner.Bytes(), byte('\n')))
-				outBuffer <- []byte(scanner.Text())
+			s := bufio.NewScanner(io.MultiReader(outReader, errReader))
+			for s.Scan() {
+				log.Info.Println(s.Text())
+				outBuffer <- s.Bytes()
+				if err != nil {
+					if err != nil {
+						log.Warning.Println("Could not write game server control response:", err)
+						return
+					}
+					return
+				}
 			}
 		}()
-	err = cmd.Start()
+
+		err = cmd.Start()
 		if err != nil {
 			w.Write([]byte("Error starting game process:" + err.Error()))
 			return
@@ -266,4 +287,3 @@ func Start() {
 		os.Exit(99)
 	}
 }
-
