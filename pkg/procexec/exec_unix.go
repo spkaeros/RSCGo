@@ -19,27 +19,24 @@ import (
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 
-//Command Attempts to make a *exec.Cmd setup to run the file at path, and tries system-specific
+//Command Attempts to make a *exec.Cmd setup to run the file, with system-specific
 // API calls to prevent tying the child processes lifetime to the parents.
-// Returns a valid *exec.Cmd that can run the file at path upon success, or nil upon failure
-func Command(path string, name string) *exec.Cmd {
-	s, err := os.Stat(path)
+// Returns a valid *exec.Cmd that can run the file upon success, or nil upon failure
+func Command(name string, file string, args ...string) *exec.Cmd {
+	s, err := os.Stat(file)
 	if err != nil {
 		log.Warning.Println("Could not stat file:", err)
 		return nil
 	}
 
-	if s.IsDir() {
-		log.Warning.Println("File at path '" + path + "' is not an executable binary file!")
+	if !s.Mode().IsRegular() || s.Mode()&0111 == 0 {
+		log.Warning.Println("File at path '" + file + "' is not an executable file!")
 		return nil
-
 	}
-	return getCmd(path)
-}
 
-func getCmd(path string) *exec.Cmd {
-	cmd := exec.Command(path, "-v")
-	cmd.Args[0] = "rscgo"
+	cmd := exec.Command(file, args...)
+	cmd.Args[0] = name
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pgid: 0}
+
 	return cmd
 }

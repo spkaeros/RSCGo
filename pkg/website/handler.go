@@ -11,6 +11,7 @@ package website
 
 import (
 	"bufio"
+	"fmt"
 	"html/template"
 	"io"
 	"net/http"
@@ -167,14 +168,12 @@ var html = []byte(`<html lang="en">
 		</div>
 	</body>
 </html>`)
-var upgrader = ws.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-}
 
-var outBuffer = make(chan []byte, 256)
+var stdout io.Reader
+var outBuffers []chan []byte
 var backBuffer = make([][]byte, 0, 1000)
-var ServerProc *os.Process
+var ServerCmd *exec.Cmd
+var done = make(chan struct{})
 
 //Start Binds to the web port 8080 and serves HTTP content to it.
 // Note: This is a blocking call, it will not return to caller.
@@ -182,17 +181,17 @@ func Start() {
 	muxCtx.Handle("/", http.NotFoundHandler())
 	muxCtx.Handle("/index.ws", indexHandler())
 	muxCtx.HandleFunc("/game/launch.ws", func(w http.ResponseWriter, r *http.Request) {
-		if ServerProc != nil {
+		w.Header().Set("Content-Type", "text/plain")
+		if ServerCmd != nil {
 			_, err := w.Write([]byte("game already started\n"))
 			if err != nil {
 				log.Warning.Println("Could not write game server control response:", err)
 			}
 			return
 		}
-		w.Header().Set("Content-Type", "text/plain")
-		cmd := procexec.Command("./bin/game", "-v")
+		ServerCmd = procexec.Command("rscgo", "./bin/game", "-v")
 
-		outReader, err := cmd.StdoutPipe()
+		out, err := ServerCmd.StdoutPipe()
 		if err != nil {
 			_, err := w.Write([]byte("Error making stdout pipe:" + err.Error()))
 			if err != nil {
@@ -200,7 +199,7 @@ func Start() {
 			}
 			return
 		}
-		errReader, err := cmd.StderrPipe()
+		e, err := ServerCmd.StderrPipe()
 		if err != nil {
 			_, err := w.Write([]byte("Error making stderr pipe:" + err.Error()))
 			if err != nil {
@@ -209,45 +208,90 @@ func Start() {
 			}
 			return
 		}
+		stdout = io.MultiReader(out, e)
+
+		err = ServerCmd.Start()
+		if err != nil {
+			_, err = w.Write([]byte("Error starting game server:"+err.Error()))
+			if err != nil {
+				log.Warning.Println("Could not write game server control response:", err)
+				return
+			}
+		}
 		go func() {
-			s := bufio.NewScanner(io.MultiReader(outReader, errReader))
-			for s.Scan() {
-				log.Info.Println(s.Text())
-				outBuffer <- s.Bytes()
-				if err != nil {
-					if err != nil {
-						log.Warning.Println("Could not write game server control response:", err)
-						return
-					}
-					return
+			err := ServerCmd.Wait()
+			if err != nil && !strings.Contains(err.Error(), "killed") {
+				log.Warning.Println("Error waiting for server command to finish running:", err)
+				log.Warning.Printf("%v\n", ServerCmd.ProcessState)
+				return
+			}
+			done <- struct {}{}
+			if ServerCmd.ProcessState != nil {
+				if failureCode := ServerCmd.ProcessState.ExitCode(); failureCode != 0 {
+					log.Warning.Println("Server exited with failure code:", failureCode)
+					log.Warning.Println(ServerCmd.ProcessState.String())
 				}
 			}
 		}()
+		go func() {
+			b := bufio.NewReader(stdout)
+			for ServerCmd != nil {
+				line, err := b.ReadBytes('\n')
+				if err != nil {
+					return
+				}
 
-		err = cmd.Start()
+				fmt.Printf("[GAME] %s", line)
+				for _, buf := range outBuffers {
+					buf <- line
+				}
+			}
+		}()
+		_, err = w.Write([]byte("Successfully started game server (pid: " + strconv.Itoa(ServerCmd.Process.Pid) + ")"))
 		if err != nil {
-			w.Write([]byte("Error starting game process:" + err.Error()))
+			log.Warning.Println("Could not write game server control response:", err)
 			return
 		}
-		ServerProc = cmd.Process
-		w.Write([]byte("Started game server (pid: " + strconv.Itoa(ServerProc.Pid) + ")"))
 	})
 	muxCtx.HandleFunc("/game/shutdown.ws", func(w http.ResponseWriter, r *http.Request) {
-		if ServerProc == nil {
-			w.Write([]byte("game child process not launched.\n"))
+		w.Header().Set("Content-Type", "text/plain")
+		if ServerCmd == nil || ServerCmd.Process == nil || (ServerCmd.ProcessState != nil && ServerCmd.ProcessState.Exited()) {
+			_, err := w.Write([]byte("Game server process could not be found.\n"))
+			if err != nil {
+				log.Warning.Println("Could not write game server control response:", err)
+				return
+			}
 			return
 		}
-		cmd := exec.Command("kill", "-9", strconv.Itoa(ServerProc.Pid))
-		err := cmd.Run()
+		err := ServerCmd.Process.Kill()
 		if err != nil {
-			w.Write([]byte("Error starting kill process:" + err.Error()))
+			cmd := exec.Command("kill", "-9", strconv.Itoa(ServerCmd.Process.Pid))
+			err := cmd.Run()
+			if err != nil {
+				_, err := w.Write([]byte("Error killing the game server process:" + err.Error()))
+				if err != nil {
+					log.Warning.Println("Could not write game server control response:", err)
+					return
+				}
+				return
+			}
 			return
 		}
-		w.Write([]byte("Shut down game server (pid: " + strconv.Itoa(ServerProc.Pid) + ")"))
-		ServerProc = nil
+		_, err = w.Write([]byte("Successfully killed game server"))
+
+		if err != nil {
+			log.Warning.Println("Could not write game server control response:", err)
+			return
+		}
+		backBuffer = backBuffer[:0]
+		ServerCmd = nil
 	})
 	muxCtx.HandleFunc("/game/control.ws", func(w http.ResponseWriter, r *http.Request) {
-		w.Write(html)
+		_, err := w.Write(html)
+		if err != nil {
+			log.Warning.Println("Could not write game server control panel:", err)
+			return
+		}
 	})
 	muxCtx.HandleFunc("/game/out", func(w http.ResponseWriter, r *http.Request) {
 		conn, _, _, err := ws.UpgradeHTTP(r, w)
@@ -262,24 +306,22 @@ func Start() {
 				return
 			}
 		}
+		newBuffer := make(chan []byte, 256)
+		outBuffers = append(outBuffers, newBuffer)
+		defer close(newBuffer)
+
 		for {
 			select {
-			case line, ok := <-outBuffer:
-				if !ok {
-					return
-				}
-				if len(backBuffer) == 1000 {
-					backBuffer = backBuffer[100:]
-				}
-				backBuffer = append(backBuffer, line)
+			case line := <-newBuffer:
 				err := wsutil.WriteServerText(conn, line)
 				if err != nil {
 					log.Info.Println(err)
 					return
 				}
+			case <-done:
+				return
 			}
 		}
-		backBuffer = backBuffer[:0]
 	})
 	err := http.ListenAndServe(":8080", muxCtx)
 	if err != nil {
