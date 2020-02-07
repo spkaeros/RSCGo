@@ -17,10 +17,10 @@ import (
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 
-//Command Attempts to make a *exec.Cmd setup to run the file, with system-specific
+//Run Attempts to make a *exec.Cmd setup to run the specified file, with system-specific
 // API calls to prevent tying the child processes lifetime to the parents.
 // Returns a valid *exec.Cmd that can run the file upon success, or nil upon failure
-func Command(name string, file string, args ...string) *exec.Cmd {
+func Run(name string, file string, args ...string) *exec.Cmd {
 	s, err := os.Stat(file)
 	if err != nil {
 		log.Warning.Println("Could not stat file:", err)
