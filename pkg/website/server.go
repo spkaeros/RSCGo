@@ -13,6 +13,7 @@ import (
 	"html/template"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spkaeros/rscgo/pkg/game/world"
@@ -43,8 +44,6 @@ func (s InformationData) OnlineCount() int {
 	return world.Players.Size()
 }
 
-var indexPage = template.Must(template.ParseFiles("./website/layout.html", "./website/index.html"))
-
 //writeContent is a helper function to write to a http.ResponseWriter easily with error handling
 // returns true on success, otherwise false
 func writeContent(w http.ResponseWriter, content []byte) bool {
@@ -56,25 +55,45 @@ func writeContent(w http.ResponseWriter, content []byte) bool {
 	return true
 }
 
-func pageHandler(title string, template *template.Template) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		Information.PageTitle = title
-		w.Header().Set("Content-Type", "text/html")
-		err := template.ExecuteTemplate(w, "layout", Information)
-		if err != nil {
-			log.Error.Println("Could not execute layout template:", err)
-			return
-		}
-	})
+var templates = make(map[string]*template.Template)
+
+// Load templates on program initialisation
+func init() {
+	layouts, err := filepath.Glob("website/*/*.html")
+	if err != nil {
+		log.Error.Fatal(err)
+	}
+	layouts2, err := filepath.Glob("website/*.html")
+
+	// Generate our templates map from our layouts/ and includes/ directories
+	for _, layout := range append(layouts, layouts2...) {
+		templates[layout[8:]] = template.Must(template.ParseFiles("website/layouts/layout.html", layout))
+	}
 }
 
-var controlPage = template.Must(template.ParseFiles("./website/layout.html", "./website/server_control.html"))
+func render(w http.ResponseWriter, r *http.Request) {
+	name := strings.ReplaceAll(filepath.Clean(r.URL.Path[1:]), ".ws", ".html")
+	tmpl, ok := templates[name]
+	if !ok {
+		w.WriteHeader(404)
+		writeContent(w, []byte("404 file not found"))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	err := tmpl.ExecuteTemplate(w, "layout", Information)
+	if err != nil {
+		w.WriteHeader(500)
+		writeContent(w, []byte("Internal Server Error"))
+	}
+}
+//var controlPage = template.Must(template.ParseFiles("./website/layouts/layout.html", "./website/control.html"))
 
 //Start Binds to the web port 8080 and serves HTTP template to it.
 // Note: This is a blocking call, it will not return to caller.
 func Start() {
-	muxCtx.Handle("/", http.NotFoundHandler())
-	muxCtx.Handle("/index.ws", pageHandler("", indexPage))
+	muxCtx.HandleFunc("/", render)
+	muxCtx.HandleFunc("/game/", render)
 	addControlPanel()
 	err := http.ListenAndServe(":8080", muxCtx)
 	if err != nil {

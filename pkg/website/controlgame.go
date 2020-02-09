@@ -39,7 +39,7 @@ func addControlPanel() {
 	var ServerCmd *exec.Cmd
 	var done = make(chan struct{})
 
-	muxCtx.Handle("/game/control.ws", pageHandler("Game Server Control", controlPage))
+	//muxCtx.Handle("/game/control.ws", pageHandler("Game Server Control", controlPage))
 	muxCtx.HandleFunc("/game/launch.ws", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		if ServerCmd != nil {

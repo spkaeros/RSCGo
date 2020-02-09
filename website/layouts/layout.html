@@ -4,25 +4,15 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<link rel="stylesheet" type="text/css" href="/style.css" />
-        {{ if (ne .PageTitle "") }}
-		<title>{{.PageTitle}} / {{.Title}} by {{.Owner}}</title>
-		{{else}}
-		<title>{{.Title}} by {{.Owner}}</title>
-		{{end}}
 	</head>
 	<body>
 	<div class="rsc-container" style="text-align:center;">
 		<header>
 			<div class="rsc-border-top rsc-border-bar"></div>
-			{{ if (ne .PageTitle "") }}
-			<div class="rsc-box rsc-header">
-				<b>{{.PageTitle}}</b><br>
-				<a class="rsc-link" href="/index.ws">Main menu</a>
-			</div>
-			{{end}}
+			{{ template "header" . }}
 		</header>
 
-        {{ template "content" }}
+        {{ template "content" . }}
 
 		<footer class="rsc-border-bottom rsc-border-bar">
 			<div class="rsc-footer">

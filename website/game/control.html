@@ -1,4 +1,11 @@
-{{ define "content" }}
+{{define "header"}}
+		<title>Game Server Control / {{.Title}} by {{.Owner}}</title>
+		<div class="rsc-box rsc-header">
+			<b>Game Server Control</b><br>
+			<a class="rsc-link" href="/index.ws">Main menu</a>
+		</div>
+{{end}}
+{{define "content"}}
 		<script>
 	        function wsConnect(endpoint) {
 	            if (window.WebSocket === undefined) {

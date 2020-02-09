@@ -1,5 +1,8 @@
-{{ define "content" }}
-		<div class="rsc-wrap">
+{{define "header"}}
+		<title>{{.Title}} by {{.Owner}}</title>
+{{end}}
+{{define "content"}}
+<div class="rsc-wrap">
 			<h1>
 				<img class="rsc-logo" src="/res/{{ .ToLower .Title }}.png" alt="{{.Title}} logo">
 			</h1>
@@ -16,4 +19,4 @@
 				<a class="rsc-button rsc-stone-button" href="/hiscores.html">Hiscores</a>
 			</section>
 		</div>
-{{ end }}
+{{end}}
