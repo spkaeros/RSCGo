@@ -1,0 +1,176 @@
+{{define "header"}}
+<title>Highscores / {{.Title}} by {{.Owner}}</title>
+{{end}}
+{{define "content"}}
+<div class="rsc-wrap">
+	<div class="rsc-box rsc-header">
+		<b>Highscores</b><br>
+		<a class="rsc-link" href="/index.ws">Main menu</a>
+	</div>
+	<div class="rsc-row">
+
+		<aside class="rsc-col rsc-col-36">
+			<h2>Select hiscore table</h2>
+			<div class="rsc-box rsc-hiscores-skills">
+				<ul>
+					<li><strong><a class="rsc-link" href="/hiscores.html?category=overall">Overall</a></strong></li>
+					<li><a class="rsc-link" href="/hiscores.html?category=attack">Attack</a></li>
+					<li><a class="rsc-link" href="/hiscores.html?category=defence">Defence</a></li>
+					<li><a class="rsc-link" href="/hiscores.html?category=strength">Strength</a></li>
+					<li><a class="rsc-link" href="/hiscores.html?category=ranged">Ranged</a></li>
+					<li><a class="rsc-link" href="/hiscores.html?category=prayer">Prayer</a></li>
+					<li><a class="rsc-link" href="/hiscores.html?category=magic">Magic</a></li>
+					<li><a class="rsc-link" href="/hiscores.html?category=cooking">Cooking</a></li>
+					<li><a class="rsc-link" href="/hiscores.html?category=woodcutting">Woodcutting</a></li>
+					<li><a class="rsc-link" href="/hiscores.html?category=fletching">Fletching</a></li>
+					<li><a class="rsc-link" href="/hiscores.html?category=fishing">Fishing</a></li>
+					<li><a class="rsc-link" href="/hiscores.html?category=firemaking">Firemaking</a></li>
+					<li><a class="rsc-link" href="/hiscores.html?category=crafting">Crafting</a></li>
+					<li><a class="rsc-link" href="/hiscores.html?category=smithing">Smithing</a></li>
+					<li><a class="rsc-link" href="/hiscores.html?category=mining">Mining</a></li>
+					<li><a class="rsc-link" href="/hiscores.html?category=herblaw">Herblaw</a></li>
+					<li><a class="rsc-link" href="/hiscores.html?category=agility">Agility</a></li>
+					<li><a class="rsc-link" href="/hiscores.html?category=thieving">Thieving</a></li>
+				</ul>
+			</div>
+		</aside>
+		<section class="rsc-col rsc-col-64">
+			<h2>Overall Hiscores</h2>
+			<div class="rsc-box rsc-hiscores-ranks">
+				<table>
+					<tr>
+						<th class="rsc-col-rank">Rank</th>
+						<th class="rsc-col-name">Name</th>
+						<th class="rsc-col-level">Level</th>
+						<th class="rsc-col-xp">XP</th>
+					</tr>
+					<tr>
+						<td>1</td>
+						<td class="rsc-col-name">tks</td>
+						<td class="rsc-col-level">1,535</td>
+						<td class="rsc-col-xp">83,052,000</td>
+					</tr>
+					<tr>
+						<td class="rsc-col-rank">2</td>
+						<td class="rsc-col-name">the_old_nite</td>
+						<td class="rsc-col-level">1,499</td>
+						<td class="rsc-col-xp">62,906,750</td>
+					</tr>
+					<tr>
+						<td class="rsc-col-rank">3</td>
+						<td class="rsc-col-name">flubber13</td>
+						<td class="rsc-col-level">1,489</td>
+						<td class="rsc-col-xp">61,108,750</td>
+					</tr>
+					<tr>
+						<td class="rsc-col-rank">4</td>
+						<td class="rsc-col-name">-</td>
+						<td class="rsc-col-level">-</td>
+						<td class="rsc-col-xp">-</td>
+					</tr>
+					<tr>
+						<td class="rsc-col-rank">5</td>
+						<td class="rsc-col-name">-</td>
+						<td class="rsc-col-level">-</td>
+						<td class="rsc-col-xp">-</td>
+					</tr>
+					<tr>
+						<td class="rsc-col-rank">5</td>
+						<td class="rsc-col-name">-</td>
+						<td class="rsc-col-level">-</td>
+						<td class="rsc-col-xp">-</td>
+					</tr>
+					<tr>
+						<td class="rsc-col-rank">6</td>
+						<td class="rsc-col-name">-</td>
+						<td class="rsc-col-level">-</td>
+						<td class="rsc-col-xp">-</td>
+					</tr>
+					<tr>
+						<td class="rsc-col-rank">7</td>
+						<td class="rsc-col-name">-</td>
+						<td class="rsc-col-level">-</td>
+						<td class="rsc-col-xp">-</td>
+					</tr>
+					<tr>
+						<td class="rsc-col-rank">8</td>
+						<td class="rsc-col-name">-</td>
+						<td class="rsc-col-level">-</td>
+						<td class="rsc-col-xp">-</td>
+					</tr>
+					<tr>
+						<td class="rsc-col-rank">9</td>
+						<td class="rsc-col-name">-</td>
+						<td class="rsc-col-level">-</td>
+						<td class="rsc-col-xp">-</td>
+					</tr>
+					<tr>
+						<td class="rsc-col-rank">10</td>
+						<td class="rsc-col-name">-</td>
+						<td class="rsc-col-level">-</td>
+						<td class="rsc-col-xp">-</td>
+					</tr>
+					<tr>
+						<td class="rsc-col-rank">11</td>
+						<td class="rsc-col-name">-</td>
+						<td class="rsc-col-level">-</td>
+						<td class="rsc-col-xp">-</td>
+					</tr>
+					<tr>
+						<td class="rsc-col-rank">12</td>
+						<td class="rsc-col-name">-</td>
+						<td class="rsc-col-level">-</td>
+						<td class="rsc-col-xp">-</td>
+					</tr>
+					<tr>
+						<td class="rsc-col-rank">13</td>
+						<td class="rsc-col-name">-</td>
+						<td class="rsc-col-level">-</td>
+						<td class="rsc-col-xp">-</td>
+					</tr>
+					<tr>
+						<td class="rsc-col-rank">14</td>
+						<td class="rsc-col-name">-</td>
+						<td class="rsc-col-level">-</td>
+						<td class="rsc-col-xp">-</td>
+					</tr>
+					<tr>
+						<td class="rsc-col-rank">15</td>
+						<td class="rsc-col-name">-</td>
+						<td class="rsc-col-level">-</td>
+						<td class="rsc-col-xp">-</td>
+					</tr>
+					<tr>
+						<td class="rsc-col-rank">16</td>
+						<td class="rsc-col-name">-</td>
+						<td class="rsc-col-level">-</td>
+						<td class="rsc-col-xp">-</td>
+					</tr>
+				</table>
+			</div>
+		</section>
+	</div>
+	<div class="rsc-row">
+		<div class="rsc-col rsc-col-50">
+			<div class="rsc-stone-box">
+				<form method="get">
+				<input type="hidden" name="category" value="overall">
+				<label for="rsc-search-rank">Search by rank</label>
+				<input id="rsc-search-rank" name="rank" type="number" min="1">
+				<input type="submit" value="Search">
+				</form>
+			</div>
+		</div>
+		<div class="rsc-col rsc-col-50">
+			<div class="rsc-stone-box">
+				<form method="get">
+					<input type="hidden" name="category" value="overall">
+					<label for="rsc-search-name">Search by name</label>
+					<input id="rsc-search-name" name="name" type="text" maxlength="12">
+					<input type="submit" value="Search">
+				</form>
+			</div>
+		</div>
+	</div>
+</div>
+{{end}}
