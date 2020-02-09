@@ -96,15 +96,11 @@ func UpdateNPCPositions() {
 		}
 		if n.TransAttrs.VarTime("nextMove").Before(time.Now()) {
 			for _, r := range surroundingRegions(n.X(), n.Y()) {
-				r.Players.lock.RLock()
-				if len(r.Players.set) > 0 {
-					r.Players.lock.RUnlock()
+				if r.Players.Size() > 0 {
 					n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
-					//					go n.WalkTo(NewRandomLocation(n.Boundaries))
 					n.TransAttrs.SetVar("pathLength", rand.Int31N(5, 15))
 					break
 				}
-				r.Players.lock.RUnlock()
 			}
 		}
 		n.TraversePath()
@@ -153,13 +149,13 @@ var NpcDeathTriggers []NpcBlockingTrigger
 
 func (n *NPC) Damage(dmg int) {
 	for _, r := range surroundingRegions(n.X(), n.Y()) {
-		r.Players.lock.RLock()
-		for _, p1 := range r.Players.set {
-			if p1, ok := p1.(*Player); ok {
-				p1.SendPacket(NpcDamage(n, dmg))
+		r.Players.RangePlayers(func(p1 *Player) bool {
+			if !n.WithinRange(p1.Location, 16) {
+				return false
 			}
-		}
-		r.Players.lock.RUnlock()
+			p1.SendPacket(NpcDamage(n, dmg))
+			return false
+		})
 	}
 }
 

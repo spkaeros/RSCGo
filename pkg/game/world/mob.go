@@ -51,6 +51,91 @@ const (
 	SyncNeedsPosition = SyncRemoved | SyncMoved | SyncSprite
 )
 
+// mobSet a collection of MobileEntitys
+type mobSet []MobileEntity
+
+//MobList a container type for holding MobileEntitys
+type MobList struct{
+	mobSet
+	sync.RWMutex
+}
+
+//NewMobList returns a pointer to a newly pre-allocated MobList, with an initial capacity
+// of 1250.
+func NewMobList() *MobList {
+	return &MobList{mobSet: make(mobSet, 0, 1250)}
+}
+
+//Add Adds a MobileEntity to this MobList
+func (l *MobList) Add(m MobileEntity) int {
+	l.Lock()
+	defer l.Unlock()
+	l.mobSet = append(l.mobSet, m)
+	return len(l.mobSet)
+}
+
+//Range Runs action(MobileEntity) for each MobileEntity in the lists collection, until
+// either running out of entries, or action returns true.
+func (l *MobList) Range(action func(MobileEntity) bool) int {
+	l.RLock()
+	defer l.RUnlock()
+	for i, v := range l.mobSet {
+		if action(v) {
+			return i
+		}
+	}
+	return -1
+}
+
+//Size returns the number of mobile entitys entered into this list.
+func (l *MobList) Size() int {
+	l.RLock()
+	defer l.RUnlock()
+	return len(l.mobSet)
+}
+
+//Size returns the number of mobile entitys entered into this list.
+func (l *MobList) Contains(mob MobileEntity) bool {
+	return l.Range(func(m MobileEntity) bool {
+		return m == mob
+	}) > -1
+}
+
+//Remove removes a MobileEntity from this list and reslices the collection.
+func (l *MobList) Remove(m MobileEntity) bool {
+	l.Lock()
+	defer l.Unlock()
+	for i, v := range l.mobSet {
+		if v == m {
+			if len(l.mobSet) >= i+1 {
+				l.mobSet = append(l.mobSet[:i], l.mobSet[i+1:]...)
+			} else {
+				l.mobSet = l.mobSet[:i]
+			}
+			return true
+		}
+	}
+	return false
+}
+
+func (l *MobList) RangePlayers(action func(*Player) bool) int {
+	return l.Range(func(m MobileEntity) bool {
+		if p, ok := m.(*Player); ok {
+			return action(p)
+		}
+		return false
+	})
+}
+
+func (l *MobList) RangeNpcs(action func(*NPC) bool) int {
+	return l.Range(func(m MobileEntity) bool {
+		if n, ok := m.(*NPC); ok {
+			return action(n)
+		}
+		return false
+	})
+}
+
 //Mob Represents a mobile entity within the game world.
 type Mob struct {
 	*Entity
@@ -115,6 +200,15 @@ type MobileEntity interface {
 
 func (p *Player) IsPlayer() bool {
 	return true
+}
+
+func (p *Player) ServerIndex() int {
+	return p.Index
+}
+
+
+func (n *NPC) ServerIndex() int {
+	return n.Index
 }
 
 func (p *Player) IsNpc() bool {

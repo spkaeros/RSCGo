@@ -34,8 +34,8 @@ func DefaultAppearance() AppearanceTable {
 
 //player Represents a single player.
 type Player struct {
-	LocalPlayers     *entityList
-	LocalNPCs        *entityList
+	LocalPlayers     *MobList
+	LocalNPCs        *MobList
 	LocalObjects     *entityList
 	LocalItems       *entityList
 	FriendList       map[uint64]bool
@@ -488,7 +488,12 @@ func (p *Player) SetFatigue(i int) {
 //NearbyPlayers Returns nearby players.
 func (p *Player) NearbyPlayers() (players []*Player) {
 	for _, r := range surroundingRegions(p.X(), p.Y()) {
-		players = append(players, r.Players.NearbyPlayers(p)...)
+		r.Players.RangePlayers(func(p1 *Player) bool {
+			if p.WithinRange(p1.Location, 16) && p != p1 {
+				players = append(players, p1)
+			}
+			return false
+		})
 	}
 
 	return
@@ -497,7 +502,12 @@ func (p *Player) NearbyPlayers() (players []*Player) {
 //NearbyNpcs Returns nearby NPCs.
 func (p *Player) NearbyNpcs() (npcs []*NPC) {
 	for _, r := range surroundingRegions(p.X(), p.Y()) {
-		npcs = append(npcs, r.NPCs.NearbyNpcs(p)...)
+		r.NPCs.RangeNpcs(func(n *NPC) bool {
+			if p.WithinRange(n.Location, 16) && !n.Location.Equals(DeathPoint) {
+				npcs = append(npcs, n)
+			}
+			return false
+		})
 	}
 
 	return
@@ -541,11 +551,12 @@ func (p *Player) NewItems() (items []*GroundItem) {
 //NewPlayers Returns nearby players that this player is unaware of.
 func (p *Player) NewPlayers() (players []*Player) {
 	for _, r := range surroundingRegions(p.X(), p.Y()) {
-		for _, p1 := range r.Players.NearbyPlayers(p) {
-			if !p.LocalPlayers.Contains(p1) {
+		r.Players.RangePlayers(func(p1 *Player) bool {
+			if !p.LocalPlayers.Contains(p1) && p != p1 && p.WithinRange(p1.Location, 16) {
 				players = append(players, p1)
 			}
-		}
+			return false
+		})
 	}
 
 	return
@@ -554,11 +565,12 @@ func (p *Player) NewPlayers() (players []*Player) {
 //NewNPCs Returns nearby NPCs that this player is unaware of.
 func (p *Player) NewNPCs() (npcs []*NPC) {
 	for _, r := range surroundingRegions(p.X(), p.Y()) {
-		for _, n := range r.NPCs.NearbyNpcs(p) {
-			if !p.LocalNPCs.Contains(n) {
+		r.NPCs.RangeNpcs(func(n *NPC) bool {
+			if !p.LocalNPCs.Contains(n) && p.WithinRange(n.Location, 16) {
 				npcs = append(npcs, n)
 			}
-		}
+			return false
+		})
 	}
 
 	return
@@ -767,7 +779,7 @@ func (p *Player) Initialize() {
 //NewPlayer Returns a reference to a new player.
 func NewPlayer(index int, ip string) *Player {
 	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Lumbridge.Clone()}, TransAttrs: NewAttributeList()},
-		Attributes: NewAttributeList(), LocalPlayers: &entityList{}, LocalNPCs: &entityList{}, LocalObjects: &entityList{},
+		Attributes: NewAttributeList(), LocalPlayers: NewMobList(), LocalNPCs: NewMobList(), LocalObjects: &entityList{},
 		Appearance: DefaultAppearance(), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int),
 		Inventory: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, DuelOffer: &Inventory{Capacity: 8},
 		LocalItems: &entityList{}, OutgoingPackets: make(chan *net.Packet, 20), KillC: make(chan struct{})}
@@ -1005,8 +1017,8 @@ func (p *Player) SetSkulled(val bool) {
 }
 
 func (p *Player) StartCombat(target MobileEntity) {
-	if p1, ok := target.(*Player); ok {
-		p1.PlaySound("underattack")
+	if target.IsPlayer() {
+		target.(*Player).PlaySound("underattack")
 		if !p.IsDueling() {
 			p.SetSkulled(true)
 		}
@@ -1023,8 +1035,8 @@ func (p *Player) StartCombat(target MobileEntity) {
 	curTick := 0
 	p.Tickables = append(p.Tickables, func() bool {
 		curTick++
-		if p1, ok := target.(*Player); ok {
-			if !p1.Connected() {
+		if target.IsPlayer() {
+			if p1 := target.(*Player); !p1.Connected() {
 				if p.HasState(MSFighting) {
 					p.ResetFighting()
 				}
@@ -1060,15 +1072,15 @@ func (p *Player) StartCombat(target MobileEntity) {
 			return false
 		}
 		nextHit := int(math.Min(float64(defender.Skills().Current(StatHits)), float64(attacker.MeleeDamage(defender))))
-		if attPlayer, ok := attacker.(*Player); ok {
-			if nextHit > 0 {
+		if attacker.IsPlayer() {
+			if attPlayer := attacker.(*Player); nextHit > 0 {
 				attPlayer.PlaySound("combat1b") // hit
 			} else {
 				attPlayer.PlaySound("combat1a") // miss
 			}
 		}
-		if defPlayer, ok := defender.(*Player); ok {
-			if nextHit > 0 {
+		if defender.IsPlayer() {
+			if defPlayer := defender.(*Player); nextHit > 0 {
 				defPlayer.PlaySound("combat1b") // hit
 			} else {
 				defPlayer.PlaySound("combat1a") // miss
@@ -1115,7 +1127,8 @@ func (p *Player) Killed(killer MobileEntity) {
 		deathItems = p.DuelOffer
 	}
 	var itemOwner *Player
-	if killer, ok := killer.(*Player); killer != nil && ok {
+	if killer != nil && killer.IsPlayer() {
+		killer := killer.(*Player)
 		killer.DistributeMeleeExp(int(math.Ceil(MeleeExperience(p) / 4.0)))
 		killer.Message("You have defeated " + p.Username() + "!")
 		itemOwner = killer
@@ -1156,18 +1169,15 @@ func (p *Player) Killed(killer MobileEntity) {
 }
 
 func (p *Player) NpcWithin(id int, rad int) *NPC {
-	p.LocalNPCs.lock.RLock()
-	defer p.LocalNPCs.lock.RUnlock()
 	var npc *NPC
 	dist := math.MaxInt32
-	for _, n := range p.LocalNPCs.set {
-		if n := n.(*NPC); n.ID == id && n.WithinRange(p.Location, rad) {
-			if d := n.LongestDelta(p.Location); d < dist {
-				dist = d
-				npc = n
-			}
+	p.LocalNPCs.RangeNpcs(func(n *NPC) bool {
+		if n.ID == id && p.WithinRange(n.Location, rad) {
+			dist = p.LongestDelta(n.Location)
+			npc = n
 		}
-	}
+		return false
+	})
 
 	return npc
 }

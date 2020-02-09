@@ -130,8 +130,8 @@ func (m *PlayerMap) BroadcastLogin(player *Player, online bool) {
 
 //region Represents a 48x48 section of map.  The purpose of this is to keep track of entities in the entire world without having to allocate tiles individually, which would make search algorithms slower and utilizes a great deal of memory.
 type region struct {
-	Players *entityList
-	NPCs    *entityList
+	Players *MobList
+	NPCs    *MobList
 	Objects *entityList
 	Items   *entityList
 }
@@ -453,17 +453,17 @@ func getRegionFromIndex(areaX, areaY int) *region {
 	}
 	if areaX >= HorizontalPlanes {
 		fmt.Println("planeX index out of range")
-		return &region{&entityList{}, &entityList{}, &entityList{}, &entityList{}}
+		return &region{&MobList{}, &MobList{}, &entityList{}, &entityList{}}
 	}
 	if areaY < 0 {
 		areaY = 0
 	}
 	if areaY >= VerticalPlanes {
 		fmt.Println("planeY index out of range")
-		return &region{&entityList{}, &entityList{}, &entityList{}, &entityList{}}
+		return &region{&MobList{}, &MobList{}, &entityList{}, &entityList{}}
 	}
 	if regions[areaX][areaY] == nil {
-		regions[areaX][areaY] = &region{&entityList{}, &entityList{}, &entityList{}, &entityList{}}
+		regions[areaX][areaY] = &region{&MobList{}, &MobList{}, &entityList{}, &entityList{}}
 	}
 	return regions[areaX][areaY]
 }

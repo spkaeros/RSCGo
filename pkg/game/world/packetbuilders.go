@@ -221,39 +221,40 @@ var OptionMenuClose = net.NewOutgoingPacket(252)
 func NPCPositions(player *Player) (p *net.Packet) {
 	p = net.NewOutgoingPacket(79)
 	counter := 0
-	p.AddBits(len(player.LocalNPCs.set), 8)
-	var removing = entityList{}
-	for _, n := range player.LocalNPCs.set {
-		if n, ok := n.(*NPC); ok {
-			counter++
-			n.RLock()
-			if !player.WithinRange(player.Location, player.TransAttrs.VarInt("viewRadius", 16)) || n.SyncMask&SyncRemoved == SyncRemoved || n.Location.Equals(DeathPoint) {
-				p.AddBits(1, 1)
-				p.AddBits(1, 1)
-				p.AddBits(3, 2)
-				removing.set = append(removing.set, n)
-			} else if n.SyncMask&SyncMoved == SyncMoved {
-				p.AddBits(1, 1)
-				p.AddBits(0, 1)
-				p.AddBits(n.Direction(), 3)
-			} else if n.SyncMask&SyncSprite == SyncSprite {
-				p.AddBits(1, 1)
-				p.AddBits(1, 1)
-				p.AddBits(n.Direction(), 4)
-			} else {
-				p.AddBits(0, 1)
-				counter--
-			}
-			n.RUnlock()
+	p.AddBits(player.LocalNPCs.Size(), 8)
+	var removing = NewMobList()
+	player.LocalNPCs.RangeNpcs(func(n *NPC) bool {
+		counter++
+		n.RLock()
+		if !player.WithinRange(player.Location, player.TransAttrs.VarInt("viewRadius", 16)) || n.SyncMask&SyncRemoved == SyncRemoved || n.Location.Equals(DeathPoint) {
+			p.AddBits(1, 1)
+			p.AddBits(1, 1)
+			p.AddBits(3, 2)
+			removing.Add(n)
+		} else if n.SyncMask&SyncMoved == SyncMoved {
+			p.AddBits(1, 1)
+			p.AddBits(0, 1)
+			p.AddBits(n.Direction(), 3)
+		} else if n.SyncMask&SyncSprite == SyncSprite {
+			p.AddBits(1, 1)
+			p.AddBits(1, 1)
+			p.AddBits(n.Direction(), 4)
+		} else {
+			p.AddBits(0, 1)
+			counter--
 		}
-	}
-	for _, n := range removing.set {
+		n.RUnlock()
+		return false
+	})
+
+	removing.RangeNpcs(func(n *NPC) bool {
 		player.LocalNPCs.Remove(n)
-	}
+		return true
+	})
 
 	newCount := 0
 	for _, n := range player.NewNPCs() {
-		if len(player.LocalNPCs.set) >= 255 {
+		if player.LocalNPCs.Size() >= 255 {
 			break
 		}
 		if newCount >= 25 {
@@ -303,7 +304,7 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 	p.AddBits(player.X(), 11)
 	p.AddBits(player.Y(), 13)
 	p.AddBits(player.Direction(), 4)
-	p.AddBits(len(player.LocalPlayers.set), 8)
+	p.AddBits(player.LocalPlayers.Size(), 8)
 	counter := 0
 	player.RLock()
 	//	if player.SyncMask&SyncNeedsPosition != 0 {
@@ -315,52 +316,53 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 	//		})
 	//	}
 	player.RUnlock()
-	var removing = entityList{}
-	for _, p1 := range player.LocalPlayers.set {
-		if p1, ok := p1.(*Player); ok {
-			p1.RLock()
-			counter++
-			if p1.LongestDelta(player.Location) >= player.TransAttrs.VarInt("viewRadius", 16) || p1.SyncMask&SyncRemoved == SyncRemoved {
-				p.AddBits(1, 1)
-				p.AddBits(1, 1)
-				p.AddBits(3, 2)
-				removing.set = append(removing.set, p1)
-				player.AppearanceLock.Lock()
-				delete(player.KnownAppearances, p1.Index)
-				player.AppearanceLock.Unlock()
-				//				p1.ResetTickables = append(p1.ResetTickables, func() {
-				//					p1.ResetRegionRemoved()
-				//p1.ResetRegionMoved()
-				//p1.ResetSpriteUpdated()
-				//				})
-			} else if p1.SyncMask&SyncMoved == SyncMoved {
-				p.AddBits(1, 1)
-				p.AddBits(0, 1)
-				p.AddBits(p1.Direction(), 3)
-				//				p1.ResetTickables = append(p1.ResetTickables, func() {
-				//					p1.ResetRegionMoved()
-				//p1.ResetSpriteUpdated()
-				//				})
-			} else if p1.SyncMask&SyncSprite == SyncSprite {
-				p.AddBits(1, 1)
-				p.AddBits(1, 1)
-				p.AddBits(p1.Direction(), 4)
-				//				p1.ResetTickables = append(p1.ResetTickables, func() {
-				//					p1.ResetSpriteUpdated()
-				//				})
-			} else {
-				p.AddBits(0, 1)
-				counter--
-			}
-			p1.RUnlock()
+	var removing = NewMobList()
+	player.LocalPlayers.RangePlayers(func(p1 *Player) bool {
+		p1.RLock()
+		counter++
+		if p1.LongestDelta(player.Location) >= player.TransAttrs.VarInt("viewRadius", 16) || p1.SyncMask&SyncRemoved == SyncRemoved {
+			p.AddBits(1, 1)
+			p.AddBits(1, 1)
+			p.AddBits(3, 2)
+			removing.Add(p1)
+			player.AppearanceLock.Lock()
+			delete(player.KnownAppearances, p1.Index)
+			player.AppearanceLock.Unlock()
+			//				p1.ResetTickables = append(p1.ResetTickables, func() {
+			//					p1.ResetRegionRemoved()
+			//p1.ResetRegionMoved()
+			//p1.ResetSpriteUpdated()
+			//				})
+		} else if p1.SyncMask&SyncMoved == SyncMoved {
+			p.AddBits(1, 1)
+			p.AddBits(0, 1)
+			p.AddBits(p1.Direction(), 3)
+			//				p1.ResetTickables = append(p1.ResetTickables, func() {
+			//					p1.ResetRegionMoved()
+			//p1.ResetSpriteUpdated()
+			//				})
+		} else if p1.SyncMask&SyncSprite == SyncSprite {
+			p.AddBits(1, 1)
+			p.AddBits(1, 1)
+			p.AddBits(p1.Direction(), 4)
+			//				p1.ResetTickables = append(p1.ResetTickables, func() {
+			//					p1.ResetSpriteUpdated()
+			//				})
+		} else {
+			p.AddBits(0, 1)
+			counter--
 		}
-	}
-	for _, p1 := range removing.set {
-		player.LocalPlayers.Remove(p1)
-	}
+		p1.RUnlock()
+		return true
+	})
+	removing.Range(func(m MobileEntity) bool {
+		player.LocalPlayers.Remove(m)
+		return false
+	})
 	newPlayerCount := 0
+	player.NewPlayers()
 	for _, p1 := range player.NewPlayers() {
-		if len(player.LocalPlayers.set) >= 255 {
+		if len(player.LocalPlayers.mobSet) >= 255 {
 			break
 		}
 		if newPlayerCount >= 25 {
@@ -423,15 +425,14 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	appearanceList = append(appearanceList, ourPlayer.AppearanceReq...)
 	ourPlayer.AppearanceReq = ourPlayer.AppearanceReq[:0]
 	ourPlayer.AppearanceLock.Unlock()
-	for _, p1 := range ourPlayer.LocalPlayers.set {
-		if p1, ok := p1.(*Player); ok {
-			ourPlayer.AppearanceLock.RLock()
-			if ticket, ok := ourPlayer.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket() {
-				appearanceList = append(appearanceList, p1)
-			}
-			ourPlayer.AppearanceLock.RUnlock()
+	ourPlayer.LocalPlayers.Range(func(p1 MobileEntity) bool {
+		ourPlayer.AppearanceLock.RLock()
+		if ticket, ok := ourPlayer.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.(*Player).AppearanceTicket() {
+			appearanceList = append(appearanceList, p1.(*Player))
 		}
-	}
+		ourPlayer.AppearanceLock.RUnlock()
+		return false
+	})
 	if len(appearanceList) <= 0 {
 		return nil
 	}
