@@ -1,12 +1,13 @@
 {{ define "layout" }}
+<!doctype html>
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<link rel="stylesheet" type="text/css" href="/style.css" />
+		<link rel="stylesheet" type="text/css" href="/res/style.css" />
 	</head>
 	<body>
-	<div class="rsc-container" style="text-align:center;">
+	<div class="rsc-container">
 		<header>
 			<div class="rsc-border-top rsc-border-bar"></div>
 			{{ template "header" . }}
@@ -14,12 +15,13 @@
 
         {{ template "content" . }}
 
-		<footer class="rsc-border-bottom rsc-border-bar">
+		<footer>
 			<div class="rsc-footer">
-				This webpage and its contents is copyright © {{.Copyright}} {{.Owner}}
-				<br>To use our service you must agree to our <a class="rsc-link" href="/terms.template">Terms+Conditions</a> and <a class="rsc-link" href="/privacy.template">Privacy policy</a>
+			This webpage and its contents is copyright © {{.Copyright}} {{.Owner}}
+			<br>To use our service you must agree to our <a class="rsc-link" href="/terms.html">Terms+Conditions</a> and <a class="rsc-link" href="/privacy.html">Privacy policy</a>
 			</div>
 		</footer>
+		<div class="rsc-border-bottom rsc-border-bar"></div>
 	</div>
 	</body>
 </html>
