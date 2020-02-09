@@ -1,0 +1,35 @@
+{{define "header"}}
+	<title>Select Game Type / RSCGo by ZlackCode LLC</title>
+{{end}}
+{{define "content"}}
+		<div class="rsc-wrap">
+			<div class="rsc-box rsc-header">
+				<b>Select Game Type</b><br>
+				<a class="rsc-link" href="/index.ws">Main menu</a>
+			</div>
+			<section class="rsc-game-select-wrap">
+				<div class="rsc-game-select rsc-select-free">
+					<h2><a class="rsc-select-button" href="/game.ws#free">
+						<small>Click here for</small>
+						<strong>free<br>game</strong>
+					</a></h2>
+				</div>
+				<div class="rsc-game-select rsc-select-members">
+					<h3><a class="rsc-select-button" href="/game.ws#members">
+						<small>Click here for</small>
+						<strong>members<br>game</strong>
+					</a></h3>
+				</div>
+			</section>
+			<div class="rsc-scroll">
+				<label for="rsc-client-type">
+					Select client version - only change this if the default doesn't work
+				</label>
+				<br>
+				<select id="rsc-client-type">
+					<option value="web">Web Client Using JavaScript (Recommended)</option>
+					<option value="download">Desktop Client Using Java</option>
+				</select>
+			</div>
+		</div>
+{{end}}

@@ -1,0 +1,22 @@
+{{define "header"}}
+		<title>Error / {{.Title}} by {{.Owner}}</title>
+{{end}}
+
+{{define "content"}}
+		<div class="rsc-box rsc-header">
+			<b>Server Error</b><br>
+			<a class="rsc-link" href="/index.ws">Main menu</a>
+		</div>
+		<div class="rsc-box" style="margin:5px 55px 15px 55px; border-radius: 15px; padding-inline:23px;padding-bottom:10px;">
+			<font size="6" >
+				<b>Server Error:</b><br>
+			</font>
+			<font size="6"><p style="padding-block:0;">
+				<u>404</u><br>
+				<font size="4">File Not Found</font>
+			</p></font>
+			<em style="font-size:small;font-variant:normal;">
+				If you believe you have reached this page by mistake, please<br>attempt to contact the <span style="text-decoration: underline;">rscturmoil.com</span> staff via email at:<br><a class="rsc-link" href="mailto:support@rscturmoil.com">support@rscturmoil.com</a>.
+			</em>
+		</div>
+{{end}}

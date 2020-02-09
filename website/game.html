@@ -1,0 +1,11 @@
+{{define "header"}}
+		<title>RSCTurmoil Game / {{.Title}} by {{.Owner}}</title>
+{{end}}
+{{define "content"}}
+			<div class="rsc-box rsc-header">
+				<b>RSCTurmoil Game</b><br>
+				<a class="rsc-link" href="/index.ws">Main menu</a>
+			</div>
+			<canvas id="gameCanvas" style="margin:25px auto 25px auto;width:512px;height:346px;"></canvas>
+			<script src="client.js"></script>
+{{end}}
