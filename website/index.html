@@ -2,11 +2,10 @@
 		<title>{{.Title}} by {{.Owner}}</title>
 {{end}}
 {{define "content"}}
-		<img class="rsc-logo" src="/res/{{ .ToLower .Title }}.png" alt="{{.Title}} logo">
-		<p class="rsc-player-count">There are currently {{.OnlineCount}} people playing!</p>
 		<div class="rsc-wrap">
+			<img class="rsc-logo" src="/res/{{ .ToLower .Title }}.png" alt="{{.Title}} logo">
+			<p class="rsc-player-count">There are currently {{.OnlineCount}} people playing!</p>
 			<section class="rsc-button-wheel">
-
 				<a class="rsc-button rsc-play-button" href="/play.html">Play Game</a>
 				<a class="rsc-button rsc-stone-button" href="/manual.html">Manual</a>
 				<a class="rsc-button rsc-stone-button" href="/support.html">Customer Support</a>
