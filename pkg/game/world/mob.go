@@ -63,6 +63,9 @@ type Mob struct {
 type MobileEntity interface {
 	X() int
 	Y() int
+	ServerIndex() int
+	IsNpc() bool
+	IsPlayer() bool
 	Skills() *SkillTable
 	MeleeDamage(target MobileEntity) int
 	DefensePoints() float64
@@ -108,6 +111,22 @@ type MobileEntity interface {
 	Damage(int)
 	StyleBonus(int) int
 	PrayerModifiers() [3]float64
+}
+
+func (p *Player) IsPlayer() bool {
+	return true
+}
+
+func (p *Player) IsNpc() bool {
+	return false
+}
+
+func (n *NPC) IsPlayer() bool {
+	return false
+}
+
+func (n *NPC) IsNpc() bool {
+	return true
 }
 
 func (m *Mob) Transients() *AttributeList {

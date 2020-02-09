@@ -679,6 +679,12 @@ func handleSpells(player *world.Player, idx int, target world.MobileEntity) {
 						target.Killed(player)
 						return true
 					}
+					projectile := world.CreateProjectile(player,target,1)
+					for _, v := range player.NearbyPlayers() {
+						
+						v.SendPacket(projectile)
+					}
+					player.SendPacket(projectile)
 					target.Damage(hit)
 					return true
 				}

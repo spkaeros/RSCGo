@@ -41,6 +41,22 @@ func PrivateMessage(hash uint64, msg string) (p *net.Packet) {
 	return p
 }
 
+func CreateProjectile(owner *Player, target MobileEntity, projectileID int) *net.Packet {
+	p := net.NewOutgoingPacket(234)
+	p.AddShort(1)
+	p.AddShort(uint16(owner.Index))
+	eventID := 3
+	if target.IsPlayer() {
+		eventID = 4
+	}
+	p.AddByte(uint8(eventID))
+	
+	p.AddShort(uint16(projectileID))
+	p.AddShort(uint16(target.ServerIndex()))
+	
+	return p
+}
+
 //IgnoreList Builds a net with the players ignore entityList information in it.
 func IgnoreList(player *Player) (p *net.Packet) {
 	p = net.NewOutgoingPacket(109)

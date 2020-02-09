@@ -10,6 +10,11 @@ type Entity struct {
 	Index int
 }
 
+func (e *Entity) ServerIndex() int {
+	return e.Index
+}
+
+
 //AtLocation Returns true if the entity is at the specified location, otherwise returns false
 func (e *Entity) AtLocation(location Location) bool {
 	return e.Location.Equals(location)
