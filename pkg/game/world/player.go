@@ -71,6 +71,32 @@ func (p *Player) Bank() *Inventory {
 	return nil
 }
 
+func (p *Player) CanAttack(target MobileEntity) bool {
+	if target.IsNpc() {
+		return NpcDefs[target.(*NPC).ID].Attackable
+	}
+	p1 := target.(*Player)
+	ourWild := p.Wilderness()
+	targetWild := p1.Wilderness()
+	if ourWild < 1 || targetWild < 1 {
+		p.Message("You cannot attack other players outside of the wilderness!")
+		return false
+	}
+	delta := p.CombatDelta(target)
+	if delta < 0 {
+		delta = -delta
+	}
+	if delta > ourWild {
+		p.Message("You must move to at least level " + strconv.Itoa(delta) + " wilderness to attack " + p1.Username() + "!")
+		return false
+	}
+	if delta > targetWild {
+		p.Message(p1.Username() + "is not in high enough wilderness for you to attack!")
+		return false
+	}
+	return true
+}
+
 func (p *Player) Username() string {
 	return strutil.Base37.Decode(p.TransAttrs.VarLong("username", strutil.Base37.Encode("NIL")))
 }
@@ -850,7 +876,7 @@ func (p *Player) OpenOptionMenu(options ...string) int {
 			p.Chat(options[reply])
 		}
 		return int(reply)
-	case <-time.After(time.Second * 20):
+	case <-time.After(time.Second * 60):
 		if p.HasState(MSOptionMenu) {
 			p.RemoveState(MSOptionMenu)
 			close(p.ReplyMenuC)

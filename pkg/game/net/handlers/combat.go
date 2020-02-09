@@ -24,14 +24,13 @@ func init() {
 			log.Suspicious.Printf("%v tried to attack nil NPC\n", player)
 			return
 		}
-		if player.Busy() {
-			return
-		}
-		if !world.NpcDefs[npc.ID].Attackable {
-			log.Info.Println("Player attacked not attackable NPC!", world.NpcDefs[npc.ID])
-			return
-		}
 		player.SetDistancedAction(func() bool {
+			if player.Busy() {
+				return true
+			}
+			if !player.CanAttack(npc) {
+				return true
+			}
 			if player.NextTo(npc.Location) && player.WithinRange(npc.Location, 1) {
 				for _, trigger := range world.NpcAtkTriggers {
 					if trigger.Check(player, npc) {
@@ -58,14 +57,17 @@ func init() {
 			log.Suspicious.Printf("player[%v] tried to attack nil player\n", player)
 			return
 		}
-		if player.Busy() {
-			return
-		}
-		if affectedPlayer.Busy() {
-			log.Info.Printf("Target player busy during attack request  State: %d\n", affectedPlayer.State)
-			return
-		}
 		player.SetDistancedAction(func() bool {
+			if player.Busy() {
+				return true
+			}
+			if affectedPlayer.Busy() {
+				log.Info.Printf("Target player busy during attack request  State: %d\n", affectedPlayer.State)
+				return true
+			}
+			if !player.CanAttack(affectedPlayer) {
+				return true
+			}
 			if player.NextTo(affectedPlayer.Location) && player.WithinRange(affectedPlayer.Location, 2) {
 				player.ResetPath()
 				if time.Since(affectedPlayer.TransAttrs.VarTime("lastRetreat")) <= time.Second*3 || affectedPlayer.IsFighting() {

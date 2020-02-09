@@ -148,6 +148,7 @@ type Mob struct {
 type MobileEntity interface {
 	X() int
 	Y() int
+	Wilderness() int
 	ServerIndex() int
 	IsNpc() bool
 	IsPlayer() bool

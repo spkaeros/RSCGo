@@ -537,7 +537,6 @@ func handleSpells(player *world.Player, idx int, target world.MobileEntity) {
 		player.ResetPath()
 		return
 	}
-	log.Info.Println(s)
 	if lvDelta := player.Skills().Current(world.StatMagic) - s.level; lvDelta < 0 || (lvDelta < 10-int(math.Min(math.Max((float64(player.MagicPoints())-5)/5, 0), 5)) &&
 		rand.Int31N(0, (lvDelta+2)*2) == 0) {
 		player.PlaySound("spellfail")
@@ -612,10 +611,15 @@ func handleSpells(player *world.Player, idx int, target world.MobileEntity) {
 		// if it is in our damage defs, it's an offensive spell without any special fx
 		if val, ok := dmgs[s.level]; ok {
 			player.SetDistancedAction(func() bool {
-				if player.Busy() || target == nil {
+				if (player.Busy() && !player.IsFighting()) || target == nil {
 					return true
 				}
-
+				if player.IsDueling() && (player.Direction() == 7 || player.Direction() == 8) && !player.TransAttrs.VarBool("duelCanMagic", true) {
+					return true
+				}
+				if !player.CanAttack(target) {
+					return true
+				}
 				if player.WithinRange(world.NewLocation(target.X(), target.Y()), 4) {
 					steps := 0
 					xOff := player.X()
@@ -681,7 +685,6 @@ func handleSpells(player *world.Player, idx int, target world.MobileEntity) {
 					}
 					projectile := world.CreateProjectile(player,target,1)
 					for _, v := range player.NearbyPlayers() {
-						
 						v.SendPacket(projectile)
 					}
 					player.SendPacket(projectile)
