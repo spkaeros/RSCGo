@@ -32,12 +32,14 @@ import (
 var muxCtx = http.NewServeMux()
 
 type InformationData struct {
+	PageTitle     string
 	Title     string
 	Owner     string
 	Copyright string
 }
 
 var Information = InformationData{
+	PageTitle: "",
 	Title:     "RSCGo",
 	Owner:     "ZlackCode LLC",
 	Copyright: "2019-2020",
@@ -51,126 +53,18 @@ func (s InformationData) OnlineCount() int {
 	return world.Players.Size()
 }
 
-var index = template.Must(template.ParseFiles("./website/index.gohtml"))
+var indexPage = template.Must(template.ParseFiles("./website/index.gohtml"))
 
 func indexHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		err := index.Execute(w, Information)
+		err := indexPage.Execute(w, Information)
 		if err != nil {
-			log.Error.Println("Could not execute html template:", err)
+			log.Error.Println("Could not execute template template:", err)
 			return
 		}
 	})
 }
-
-/*
-var html = []byte(
-	`<html>
-	<body>
-		<h1>game process stdout/stderr</h1>
-		<code></code>
-		<script>
-			var ws = new WebSocket("wss://rscturmoil.com/game/out")
-			ws.onmessage = function(e) {
-				document.querySelector("code").innerHTML += e.data + "<br>"
-			}
-		</script>
-	</body>
-</html>
-`)
-*/
-
-
-var html = []byte(`<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<link rel="stylesheet" type="text/css" href="/style.css" />
-		<script>
-			function setStatus(status) {
-				document.getElementById("reply").innerHTML = status;
-			}
-
-			function appendOutput(msg) {
-				document.getElementById("stdout").innerHTML += msg + "<br>\n"
-			}
-
-			function callApi(url) {
-				var xhttp = new XMLHttpRequest();
-				xhttp.onreadystatechange = function() {
-					if (this.readyState == 4 && this.status == 200) {
-						setStatus(this.responseText);
-					}
-				};
-				xhttp.open("GET", url, true);
-				xhttp.send(); 
-			}
-
-			function initWebsocket() {
-				if (window.WebSocket === undefined) {
-					document.getElementById("stdout").innerHTML = "Your browser does not appear to have WebSockets capabilities.<br>\nTo use this page, consider upgrading to any modern alternative, such as Firefox or Chromium.";
-					return;
-				}
-
-				var ws = new WebSocket("wss://rscturmoil.com/game/out");
-
-				ws.onmessage = function(event) {
-					appendOutput(event.data);
-					var container = document.getElementById("stdout-box");
-					container.scrollTop = container.scrollHeight;
-				}
-				
-				ws.onopen = function() {
-					appendOutput("[WS] Connected to stdout HTTP endpoint" + "<br>\n");
-				}
-				
-				ws.onclose = function() {
-					appendOutput("<br><br>\n\n" + "[WS] Disconnected" + "<br>\n");
-				}
-			}
-			function launch() {
-				setStatus("Attempting to launch server...");
-				callApi("launch.ws");
-			};
-			
-			function terminate() {
-				setStatus("Attempting to shutdown server...");
-				callApi("kill.ws");
-			}
-			initWebsocket();
-		</script>
-		<title>Game server controls</title>
-	</head>
-
-	<body>
-		<div class="rsc-container" style="text-align:center;">
-			<header>
-				<div class="rsc-border-top rsc-border-bar"></div>
-				<div class="rsc-box rsc-header">
-					<b>Server Controls</b><br>
-					<a class="rsc-link" href="/index.ws">Main menu</a>
-				</div>
-			</header>
-
-			<p style="font-variant:petite-caps; font-weight:bold;" id="reply"></p>
-			<div class="rsc-box" id="stdout-box" style="margin:5px 55px 15px 55px; border-radius: 15px; padding:23px; height:356px; text-align:left; overflow-y:scroll; ">
-				<code id="stdout"></code>
-			</div>
-			<p>
-				<h2>Controls:</h2><br>
-				<button href="#" id="launch" onclick="launch()" type="button">Start</button>
-				<button href="#" style="margin-left:50px;" id="terminate" onclick="terminate()" type="button">Stop</button>
-			</p>
-			<footer class="rsc-border-bottom rsc-border-bar">
-				<div class="rsc-footer">
-					This webpage and its contents is copyright © 2019-2020 ZlackCode, LLC.
-					<br>To use our service you must agree to our <a class="rsc-link" href="/terms.html">Terms+Conditions</a> and <a class="rsc-link" href="/privacy.html">Privacy policy</a>
-				</div>
-			</footer>
-		</div>
-	</body>
-</html>`)
 
 var stdout io.Reader
 type buffers = map[uint64]chan []byte
@@ -184,11 +78,37 @@ var ServerCmd *exec.Cmd
 var done = make(chan struct{})
 var removing = make(chan int)
 
-//Start Binds to the web port 8080 and serves HTTP content to it.
+//writeContent is a helper function to write to a http.ResponseWriter easily with error handling
+// returns true on success, otherwise false
+func writeContent(w http.ResponseWriter, content []byte) bool {
+	_, err := w.Write(content)
+	if err != nil {
+		log.Warning.Println("Error writing template to client:", err)
+		return false
+	}
+	return true
+}
+
+func pageHandler(title string, template *template.Template) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		Information.PageTitle = title
+		w.Header().Set("Content-Type", "text/html")
+		err := template.ExecuteTemplate(w, "layout", Information)
+		if err != nil {
+			log.Error.Println("Could not execute layout template:", err)
+			return
+		}
+	})
+}
+
+var controlPage = template.Must(template.ParseFiles("./website/layout.html", "./website/server_control.html"))
+
+//Start Binds to the web port 8080 and serves HTTP template to it.
 // Note: This is a blocking call, it will not return to caller.
 func Start() {
 	muxCtx.Handle("/", http.NotFoundHandler())
 	muxCtx.Handle("/index.ws", indexHandler())
+	muxCtx.Handle("/game/control.ws", pageHandler("Game Server Control", controlPage))
 	muxCtx.HandleFunc("/game/launch.ws", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		if ServerCmd != nil {
@@ -301,15 +221,7 @@ func Start() {
 		}
 		ServerCmd = nil
 	})
-	muxCtx.HandleFunc("/game/control.ws", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		_, err := w.Write(html)
-		if err != nil {
-			log.Warning.Println("Could not write game server control panel:", err)
-			return
-		}
-	})
-	muxCtx.HandleFunc("/game/out", func(w http.ResponseWriter, r *http.Request) {
+	muxCtx.HandleFunc("/api/game/stdout", func(w http.ResponseWriter, r *http.Request) {
 		conn, _, _, err := ws.UpgradeHTTP(r, w)
 		if err != nil {
 			log.Error.Printf("upgrade error: %s", err)
