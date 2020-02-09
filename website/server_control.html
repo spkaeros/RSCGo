@@ -1,71 +1,71 @@
-{{define "content" }}
-	<script>
-        function wsConnect(endpoint) {
-            if (window.WebSocket === undefined) {
-                document.getElementById('stdout').innerHTML = 'Your browser does not appear to have WebSockets capabilities.<br>\nTo use this page, consider upgrading to any modern alternative, such as Firefox or Chromium.';
-                return;
-            }
+{{ define "content" }}
+		<script>
+	        function wsConnect(endpoint) {
+	            if (window.WebSocket === undefined) {
+	                document.getElementById('stdout').innerHTML = 'Your browser does not appear to have WebSockets capabilities.<br>\nTo use this page, consider upgrading to any modern alternative, such as Firefox or Chromium.';
+	                return;
+	            }
 
-            let ws = new WebSocket('wss://rscturmoil.com/api/' + endpoint);
+	            let ws = new WebSocket('wss://rscturmoil.com/api/' + endpoint);
 
-            ws.onmessage = function(event) {
-                appendOutput(event.data);
-            };
+	            ws.onmessage = function(event) {
+	                appendOutput(event.data);
+	            };
 
-            ws.onopen = function() {
-                document.getElementById("stdout").innerHTML = "[WS] Connected to HTTP websocket endpoint" + "<br>\n";
-            };
+	            ws.onopen = function() {
+	                document.getElementById('stdout').innerHTML = '[WS] Connected to HTTP websocket endpoint<br>\n';
+	            };
 
-            ws.onclose = function() {
-                appendOutput("<br><br>\n\n" + "[WS] Disconnected" + "<br>\n");
-            };
-        }
+	            ws.onclose = function() {
+	                appendOutput('<br><br>\n\n[WS] Disconnected<br>\n');
+	            };
+	        }
 
-        function setStatus(status) {
-            document.getElementById('status').innerHTML = status;
-        }
+	        function setStatus(status) {
+	            document.getElementById('status').innerHTML = status;
+	        }
 
-        function appendOutput(msg) {
-            let container = document.getElementById("stdout-box");
-            container.scrollTop = container.scrollHeight;
-            document.getElementById("stdout").innerHTML += msg + "<br>\n"
-        }
+	        function appendOutput(msg) {
+	            let container = document.getElementById('stdout-box');
+	            container.scrollTop = container.scrollHeight;
+	            document.getElementById('stdout').innerHTML += msg + '<br>\n'
+	        }
 
-        function callApi(url) {
-            let req = new XMLHttpRequest();
-            req.onreadystatechange = function() {
-                if (this.readyState === 4 && this.status === 200) {
-                    setStatus(this.responseText);
-                }
-            };
-            req.open("GET", url, true);
-            req.send();
-        }
+	        function callApi(url) {
+	            let req = new XMLHttpRequest();
+	            req.onreadystatechange = function() {
+	                if (this.readyState === 4 && this.status === 200) {
+	                    setStatus(this.responseText);
+	                }
+	            };
+	            req.open('GET', url, true);
+	            req.send();
+	        }
 
-        function launch() {
-            setStatus('Attempting to launch server...');
-            callApi('launch.ws');
-        }
+	        function launch() {
+	            setStatus('Attempting to launch server...');
+	            callApi('launch.ws');
+	        }
 
-        function terminate() {
-            setStatus("Attempting to shutdown server...");
-            callApi('kill.ws');
-        }
-        wsConnect('game/stdout');
-	</script>
+	        function terminate() {
+	            setStatus('Attempting to shutdown server...');
+	            callApi('kill.ws');
+	        }
+	        wsConnect('game/stdout');
+		</script>
 
-	<p style="font-variant:petite-caps; font-weight:bold;" id="status">
-	</p>
+		<p style="font-variant:petite-caps; font-weight:bold;" id="status">
+		</p>
 
-	<div class="rsc-box" id="stdout-box" style="margin:5px 55px 15px 55px; border-radius: 15px; padding:23px; height:356px; text-align:left; overflow-y:scroll; ">
-		<code id="stdout"></code>
-	</div>
+		<div class="rsc-box" id="stdout-box" style="margin:5px 55px 15px 55px; border-radius: 15px; padding:23px; height:356px; text-align:left; overflow-y:scroll; ">
+			<code id="stdout"></code>
+		</div>
 
-	<p id="controls">
-		<b>Controls:</b>
-	</p>
-	<p>
-		<button href="#" id="launch" onclick="launch()" type="button">Start</button>
-		<button href="#" style="margin-left:50px;" id="terminate" onclick="terminate()" type="button">Stop</button>
-	</p>
+		<p id="controls">
+			<b>Controls:</b>
+		</p>
+		<p>
+			<button href="#" id="launch" onclick="launch()" type="button">Start</button>
+			<button href="#" style="margin-left:50px;" id="terminate" onclick="terminate()" type="button">Stop</button>
+		</p>
 {{end}}

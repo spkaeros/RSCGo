@@ -12,10 +12,8 @@ package website
 import (
 	"bufio"
 	"fmt"
-	"html/template"
 	"io"
 	"net/http"
-	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -23,129 +21,50 @@ import (
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
-	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/procexec"
 	"github.com/spkaeros/rscgo/pkg/rand"
 )
 
-var muxCtx = http.NewServeMux()
-
-type InformationData struct {
-	PageTitle     string
-	Title     string
-	Owner     string
-	Copyright string
-}
-
-var Information = InformationData{
-	PageTitle: "",
-	Title:     "RSCGo",
-	Owner:     "ZlackCode LLC",
-	Copyright: "2019-2020",
-}
-
-func (s InformationData) ToLower(s2 string) string {
-	return strings.ToLower(s2)
-}
-
-func (s InformationData) OnlineCount() int {
-	return world.Players.Size()
-}
-
-var indexPage = template.Must(template.ParseFiles("./website/index.gohtml"))
-
-func indexHandler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		err := indexPage.Execute(w, Information)
-		if err != nil {
-			log.Error.Println("Could not execute template template:", err)
-			return
-		}
-	})
-}
-
-var stdout io.Reader
 type buffers = map[uint64]chan []byte
 type bufferSet struct{
 	buffers
 	sync.RWMutex
 }
-var outBuffers = bufferSet{buffers: make(buffers)}
-var backBuffer = make([][]byte, 0, 1000)
-var ServerCmd *exec.Cmd
-var done = make(chan struct{})
-var removing = make(chan int)
 
-//writeContent is a helper function to write to a http.ResponseWriter easily with error handling
-// returns true on success, otherwise false
-func writeContent(w http.ResponseWriter, content []byte) bool {
-	_, err := w.Write(content)
-	if err != nil {
-		log.Warning.Println("Error writing template to client:", err)
-		return false
-	}
-	return true
-}
+func addControlPanel() {
+	var stdout io.Reader
+	var outBuffers = bufferSet{buffers: make(buffers)}
+	var backBuffer = make([][]byte, 0, 1000)
+	var ServerCmd *exec.Cmd
+	var done = make(chan struct{})
 
-func pageHandler(title string, template *template.Template) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		Information.PageTitle = title
-		w.Header().Set("Content-Type", "text/html")
-		err := template.ExecuteTemplate(w, "layout", Information)
-		if err != nil {
-			log.Error.Println("Could not execute layout template:", err)
-			return
-		}
-	})
-}
-
-var controlPage = template.Must(template.ParseFiles("./website/layout.html", "./website/server_control.html"))
-
-//Start Binds to the web port 8080 and serves HTTP template to it.
-// Note: This is a blocking call, it will not return to caller.
-func Start() {
-	muxCtx.Handle("/", http.NotFoundHandler())
-	muxCtx.Handle("/index.ws", indexHandler())
 	muxCtx.Handle("/game/control.ws", pageHandler("Game Server Control", controlPage))
 	muxCtx.HandleFunc("/game/launch.ws", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		if ServerCmd != nil {
-			_, err := w.Write([]byte("game already started\n"))
-			if err != nil {
-				log.Warning.Println("Could not write game server control response:", err)
-			}
+			writeContent(w, []byte("game already started\n"))
 			return
 		}
-		procexec.Command("pkill", "-9", "game").Run()
-		
+		_ = procexec.Command("pkill", "-9", "game").Run()
+
 		ServerCmd = procexec.Run("rscgo", "./bin/game", "-v")
 
 		out, err := ServerCmd.StdoutPipe()
 		if err != nil {
-			_, err := w.Write([]byte("Error making stdout pipe:" + err.Error()))
-			if err != nil {
-				log.Warning.Println("Could not write game server control response:", err)
-			}
+			writeContent(w, []byte("Error making stdout pipe:" + err.Error()))
 			return
 		}
 		e, err := ServerCmd.StderrPipe()
 		if err != nil {
-			_, err := w.Write([]byte("Error making stderr pipe:" + err.Error()))
-			if err != nil {
-				log.Warning.Println("Could not write game server control response:", err)
-				return
-			}
+			writeContent(w, []byte("Error making stderr pipe:" + err.Error()))
 			return
 		}
 		stdout = io.MultiReader(out, e)
 
 		err = ServerCmd.Start()
 		if err != nil {
-			_, err = w.Write([]byte("Error starting game server:"+err.Error()))
-			if err != nil {
-				log.Warning.Println("Could not write game server control response:", err)
+			if !writeContent(w, []byte("Error starting game server:"+err.Error())) {
 				return
 			}
 		}
@@ -183,20 +102,12 @@ func Start() {
 				outBuffers.RUnlock()
 			}
 		}()
-		_, err = w.Write([]byte("Successfully started game server (pid: " + strconv.Itoa(ServerCmd.Process.Pid) + ")"))
-		if err != nil {
-			log.Warning.Println("Could not write game server control response:", err)
-			return
-		}
+		writeContent(w, []byte("Successfully started game server (pid: " + strconv.Itoa(ServerCmd.Process.Pid) + ")"))
 	})
 	muxCtx.HandleFunc("/game/kill.ws", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		if ServerCmd == nil || ServerCmd.Process == nil || (ServerCmd.ProcessState != nil && ServerCmd.ProcessState.Exited()) {
-			_, err := w.Write([]byte("Game server process could not be found.\n"))
-			if err != nil {
-				log.Warning.Println("Could not write game server control response:", err)
-				return
-			}
+			writeContent(w, []byte("Game server process could not be found.\n"))
 			return
 		}
 		err := ServerCmd.Process.Kill()
@@ -204,21 +115,13 @@ func Start() {
 			cmd := procexec.Command("pkill", "game")
 			err := cmd.Run()
 			if err != nil {
-				_, err := w.Write([]byte("Error killing the game server process:" + err.Error()))
-				if err != nil {
-					log.Warning.Println("Could not write game server control response:", err)
-					return
-				}
+				writeContent(w, []byte("Error killing the game server process:" + err.Error()))
 				return
 			}
 			return
 		}
-		_, err = w.Write([]byte("Successfully killed game server"))
 
-		if err != nil {
-			log.Warning.Println("Could not write game server control response:", err)
-			return
-		}
+		writeContent(w, []byte("Successfully killed game server"))
 		ServerCmd = nil
 	})
 	muxCtx.HandleFunc("/api/game/stdout", func(w http.ResponseWriter, r *http.Request) {
@@ -257,9 +160,4 @@ func Start() {
 			}
 		}
 	})
-	err := http.ListenAndServe(":8080", muxCtx)
-	if err != nil {
-		log.Error.Println("Could not bind to website port:", err)
-		os.Exit(99)
-	}
 }
