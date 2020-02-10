@@ -23,7 +23,7 @@ import (
 var muxCtx = http.NewServeMux()
 
 type InformationData struct {
-	PageTitle     string
+	PageTitle string
 	Title     string
 	Owner     string
 	Copyright string
@@ -87,6 +87,7 @@ func render(w http.ResponseWriter, r *http.Request) {
 		writeContent(w, []byte("Internal Server Error"))
 	}
 }
+
 //var controlPage = template.Must(template.ParseFiles("./website/layouts/layout.html", "./website/control.html"))
 
 //Start Binds to the web port 8080 and serves HTTP template to it.

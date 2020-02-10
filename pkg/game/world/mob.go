@@ -55,7 +55,7 @@ const (
 type mobSet []MobileEntity
 
 //MobList a container type for holding MobileEntitys
-type MobList struct{
+type MobList struct {
 	mobSet
 	sync.RWMutex
 }
@@ -206,7 +206,6 @@ func (p *Player) IsPlayer() bool {
 func (p *Player) ServerIndex() int {
 	return p.Index
 }
-
 
 func (n *NPC) ServerIndex() int {
 	return n.Index

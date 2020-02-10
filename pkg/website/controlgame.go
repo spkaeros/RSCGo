@@ -27,7 +27,7 @@ import (
 )
 
 type buffers = map[uint64]chan []byte
-type bufferSet struct{
+type bufferSet struct {
 	buffers
 	sync.RWMutex
 }
@@ -52,12 +52,12 @@ func bindGameProcManager() {
 
 		out, err := ServerCmd.StdoutPipe()
 		if err != nil {
-			writeContent(w, []byte("Error making stdout pipe:" + err.Error()))
+			writeContent(w, []byte("Error making stdout pipe:"+err.Error()))
 			return
 		}
 		e, err := ServerCmd.StderrPipe()
 		if err != nil {
-			writeContent(w, []byte("Error making stderr pipe:" + err.Error()))
+			writeContent(w, []byte("Error making stderr pipe:"+err.Error()))
 			return
 		}
 		stdout = io.MultiReader(out, e)
@@ -75,7 +75,7 @@ func bindGameProcManager() {
 				log.Warning.Printf("%v\n", ServerCmd.ProcessState)
 				return
 			}
-			done <- struct {}{}
+			done <- struct{}{}
 			if ServerCmd != nil && ServerCmd.ProcessState != nil {
 				if failureCode := ServerCmd.ProcessState.ExitCode(); failureCode != 0 {
 					log.Warning.Println("Server exited with failure code:", failureCode)
@@ -102,7 +102,7 @@ func bindGameProcManager() {
 				stdoutClients.RUnlock()
 			}
 		}()
-		writeContent(w, []byte("Successfully started game server (pid: " + strconv.Itoa(ServerCmd.Process.Pid) + ")"))
+		writeContent(w, []byte("Successfully started game server (pid: "+strconv.Itoa(ServerCmd.Process.Pid)+")"))
 	})
 	muxCtx.HandleFunc("/game/kill.ws", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
@@ -115,7 +115,7 @@ func bindGameProcManager() {
 			cmd := procexec.Command("pkill", "game")
 			err := cmd.Run()
 			if err != nil {
-				writeContent(w, []byte("Error killing the game server process:" + err.Error()))
+				writeContent(w, []byte("Error killing the game server process:"+err.Error()))
 				return
 			}
 			return

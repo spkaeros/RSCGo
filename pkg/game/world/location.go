@@ -76,8 +76,9 @@ func (l Location) Wilderness() int {
 	if l.X() > 344 {
 		return 0
 	}
-	return (2203-(l.Y() + 1776))/6+1
+	return (2203-(l.Y()+1776))/6 + 1
 }
+
 var (
 	//DeathSpot The spot where NPCs go to be dead.
 	DeathPoint = NewLocation(0, 0)

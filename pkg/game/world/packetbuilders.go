@@ -50,10 +50,10 @@ func CreateProjectile(owner *Player, target MobileEntity, projectileID int) *net
 		eventID = 4
 	}
 	p.AddByte(uint8(eventID))
-	
+
 	p.AddShort(uint16(projectileID))
 	p.AddShort(uint16(target.ServerIndex()))
-	
+
 	return p
 }
 
