@@ -138,61 +138,6 @@ type region struct {
 
 var regions [HorizontalPlanes][VerticalPlanes]*region
 
-// A convencience type for tickable task closures, as typing func signatures out as return signatures gets tiresome.
-type Task func() bool
-type taskSet map[string]Task
-
-type TaskCollection struct {
-	taskSet
-	sync.RWMutex
-}
-
-func (t *TaskCollection) Range(fn func(string, Task)) {
-	t.RLock()
-	for name, task := range t.taskSet {
-		fn(name, task)
-	}
-	t.RUnlock()
-}
-
-func (t *TaskCollection) ExecuteSequentially() {
-	var removed []string
-	t.Lock()
-	for name, task := range t.taskSet {
-		//start := time.Now()
-		if task() {
-			removed = append(removed, name)
-		}
-		//log.Info.Printf("tickTask--%s; finished executing in %v", name, time.Since(start))
-	}
-	for _, taskName := range removed {
-		delete(Tickables.taskSet, taskName)
-	}
-	t.Unlock()
-}
-
-func (t *TaskCollection) Add(name string, fn Task) {
-	t.Lock()
-	t.taskSet[name] = fn
-	t.Unlock()
-}
-
-func (t *TaskCollection) Get(name string) Task {
-	t.RLock()
-	defer t.RUnlock()
-	return t.taskSet[name]
-}
-
-func (t *TaskCollection) Remove(name string) {
-	t.Lock()
-	delete(t.taskSet, name)
-	t.Unlock()
-}
-
-var Tickables = &TaskCollection{
-	taskSet: make(taskSet),
-}
-
 //IsValid Returns true if the tile at x,y is within world boundaries, false otherwise.
 func WithinWorld(x, y int) bool {
 	return x <= MaxX && x >= 0 && y >= 0 && y <= MaxY
@@ -446,6 +391,54 @@ func GetNpc(index int) *NPC {
 	return Npcs[index]
 }
 
+//NpcNearest looks for the NPC with the given ID, that is the closest to the given coordinates
+// and then returns it.
+// Returns nil if it can not find an NPC to fit the given description.
+func NpcNearest(id, x, y int) *NPC {
+	point := NewLocation(x, y)
+	minDelta := 16
+	var npc *NPC
+	for x := 0; x < MaxX; x += RegionSize {
+		for y := 0; y < MaxY; y += RegionSize {
+			if r := regions[x/RegionSize][y/RegionSize]; r != nil {
+				r.NPCs.RangeNpcs(func(n *NPC) bool {
+					if n.ID == id && n.LongestDelta(point) < minDelta {
+						minDelta = n.LongestDelta(point)
+						npc = n
+					}
+					return false
+				})
+			}
+		}
+
+	}
+	return npc
+}
+
+//NpcNear looks for any NPC with the given ID, that is within a 16x16 square
+// surrounding the given coordinates, and then returns it.
+// Returns nil if it can not find an NPC to fit the given parameters.
+func NpcNear(id, x, y int) *NPC {
+	point := NewLocation(x, y)
+	minDelta := 16
+	var npc *NPC
+	for x := 0; x < MaxX; x += RegionSize {
+		for y := 0; y < MaxY; y += RegionSize {
+			if r := regions[x/RegionSize][y/RegionSize]; r != nil {
+				r.NPCs.RangeNpcs(func(n *NPC) bool {
+					if n.ID == id && n.LongestDelta(point) < minDelta {
+						minDelta = n.LongestDelta(point)
+						npc = n
+					}
+					return false
+				})
+			}
+		}
+
+	}
+	return npc
+}
+
 //getRegionFromIndex internal function to get a region by its row amd column indexes
 func getRegionFromIndex(areaX, areaY int) *region {
 	if areaX < 0 {
@@ -471,11 +464,6 @@ func getRegionFromIndex(areaX, areaY int) *region {
 //getRegion Returns the region that corresponds with the given coordinates.  If it does not exist yet, it will allocate a new onr and store it for the lifetime of the application in the regions map.
 func getRegion(x, y int) *region {
 	return getRegionFromIndex(x/RegionSize, y/RegionSize)
-}
-
-//getRegionFromLocation Returns the region that corresponds with the given location.  If it does not exist yet, it will allocate a new onr and store it for the lifetime of the application in the regions map.
-func getRegionFromLocation(loc *Location) *region {
-	return getRegionFromIndex(loc.X()/RegionSize, loc.Y()/RegionSize)
 }
 
 //surroundingRegions Returns the regions surrounding the given coordinates.  It wil
@@ -539,7 +527,7 @@ func Chance(percent float64) bool {
 	return BoundedChance(percent, 0.0, 100.0)
 }
 
-//WeightedChance Awesome API call takes map[retVal]probability as input and returns a statistically weighted randomized retVal as output.
+//WeightedChoice Awesome API call takes map[retVal]probability as input and returns a statistically weighted randomized retVal as output.
 //
 // The input's mapped value assigned to each key is its return probability, out of the total sum of all return probabilities.
 // You can determine the percentage chance of any given input entry being returned by: probability/sumOfAllProbabilities*100
@@ -549,10 +537,7 @@ func Chance(percent float64) bool {
 func WeightedChoice(choices map[int]float64) int {
 	total := 0.0
 	totalProb := 0.0
-	for ret, probability := range choices {
-		if probability > 100 && config.Verbose() {
-			log.Warning.Println("Probability of a single WeightedChance entry is over 100%:{entryVal:", ret, "; probability:", probability, "}; it is likely you are not using this function properly.")
-		}
+	for _, probability := range choices {
 		totalProb += probability
 	}
 
@@ -590,40 +575,4 @@ func WeightedChoice(choices map[int]float64) int {
 //MeleeExperience returns how much combat experience to award for killing an opponent with melee.
 func MeleeExperience(victim MobileEntity) float64 {
 	return float64((victim.Skills().CombatLevel()*2.0)+10.0) * 1.5
-}
-
-//CombatPrefix Returns the chat prefix to colorize combat levels in right click menus and such.
-// The color fades red as the target compares better than you, or fades green as the target compares worse than you.
-// White indicates an equal target.
-func CombatPrefix(delta int) string {
-	// They're stronger
-	if delta < -9 {
-		return "@red@"
-	}
-	if delta < -6 {
-		return "@or3@"
-	}
-	if delta < -3 {
-		return "@or2@"
-	}
-	if delta < 0 {
-		return "@or1@"
-	}
-
-	// They're weaker
-	if delta > 9 {
-		return "@gre@"
-	}
-	if delta > 6 {
-		return "@gr3@"
-	}
-	if delta > 3 {
-		return "@gr2@"
-	}
-	if delta > 0 {
-		return "@gr1@"
-	}
-
-	// They're the same
-	return "@whi@"
 }

@@ -11,6 +11,8 @@ package world
 
 import (
 	"sync"
+
+	"github.com/spkaeros/rscgo/pkg/game/tasks"
 )
 
 const (
@@ -182,7 +184,7 @@ func NewGeneralShop(name string) *Shop {
 	shop := &Shop{true, 40, 130, generalStock.Clone(), generalStock.Clone(), name}
 	Shops.Add(name, shop)
 	shopTicker := 0
-	Tickables.Add("shop-"+name, func() bool {
+	tasks.TickerList.Add("shop-"+name, func() bool {
 		shopTicker++
 		if shopTicker%20 == 0 {
 			changed := false

@@ -74,6 +74,42 @@ func ModalParse(s string) []string {
 	return out
 }
 
+//CombatPrefix Returns the chat prefix to colorize combat levels in right click menus and such.
+// The color fades red as the target compares better than you, or fades green as the target compares worse than you.
+// White indicates an equal target.
+func CombatPrefix(delta int) string {
+	// They're stronger
+	if delta < -9 {
+		return "@red@"
+	}
+	if delta < -6 {
+		return "@or3@"
+	}
+	if delta < -3 {
+		return "@or2@"
+	}
+	if delta < 0 {
+		return "@or1@"
+	}
+
+	// They're weaker
+	if delta > 9 {
+		return "@gre@"
+	}
+	if delta > 6 {
+		return "@gr3@"
+	}
+	if delta > 3 {
+		return "@gr2@"
+	}
+	if delta > 0 {
+		return "@gr1@"
+	}
+
+	// They're the same
+	return "@whi@"
+}
+
 //ChatFilter Represents a single API access point for encoding and decoding chat messages using
 var ChatFilter struct {
 	//Pack Takes a string as input, and returns a packed bitstream as output.  It can fit any of the first 13 runes in the alphabet into 4 bits per rune, but for the rest of the alphabet it's 8 bits.

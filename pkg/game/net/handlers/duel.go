@@ -15,6 +15,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
+	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 func init() {
@@ -42,7 +43,7 @@ func init() {
 		player.SetDuelTarget(target)
 		if target.DuelTarget() != player {
 			player.Message("Sending duel request")
-			target.Message(player.Username() + " " + world.CombatPrefix(target.CombatDelta(player)) + "(level-" + strconv.Itoa(player.Skills().CombatLevel()) + ")@whi@ wishes to duel with you")
+			target.Message(player.Username() + " " + strutil.CombatPrefix(target.CombatDelta(player)) + "(level-" + strconv.Itoa(player.Skills().CombatLevel()) + ")@whi@ wishes to duel with you")
 			return
 		}
 		if player.Busy() || target.Busy() {

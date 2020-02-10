@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spkaeros/rscgo/pkg/game/tasks"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"go.uber.org/atomic"
 )
@@ -200,7 +201,7 @@ func NewGroundItem(id, amount, x, y int) *GroundItem {
 		},
 	}
 	item.SetVar("visibility", 1)
-	Tickables.Add("gItem-"+strconv.Itoa(item.Index), func() bool {
+	tasks.TickerList.Add("gItem-"+strconv.Itoa(item.Index), func() bool {
 		item.IncVar("ticker", 1)
 		curTick := item.VarInt("ticker", 0)
 		// Visiblity is scoped to item owner but I guess it doesn't have an owner.

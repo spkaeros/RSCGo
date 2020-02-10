@@ -11,6 +11,7 @@ import (
 
 	"github.com/gobwas/ws"
 	"github.com/spkaeros/rscgo/pkg/config"
+	"github.com/spkaeros/rscgo/pkg/game/tasks"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
@@ -131,7 +132,7 @@ func runTickables(p *world.Player) {
 
 //Tick One game engine 'tick'.  This is to handle movement, to synchronize client, to update movement-related state variables... Runs once per 600ms.
 func Tick() {
-	world.Tickables.ExecuteSequentially()
+	tasks.TickerList.RunSynchronous()
 
 	world.Players.Range(func(p *world.Player) {
 		runTickables(p)

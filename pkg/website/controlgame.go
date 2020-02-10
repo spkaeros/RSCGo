@@ -32,9 +32,9 @@ type bufferSet struct{
 	sync.RWMutex
 }
 
-func addControlPanel() {
+func bindGameProcManager() {
 	var stdout io.Reader
-	var outBuffers = bufferSet{buffers: make(buffers)}
+	var stdoutClients = bufferSet{buffers: make(buffers)}
 	var backBuffer = make([][]byte, 0, 1000)
 	var ServerCmd *exec.Cmd
 	var done = make(chan struct{})
@@ -95,11 +95,11 @@ func addControlPanel() {
 					backBuffer = backBuffer[100:]
 				}
 				fmt.Printf("[GAME] %s", line)
-				outBuffers.RLock()
-				for _, buf := range outBuffers.buffers {
+				stdoutClients.RLock()
+				for _, buf := range stdoutClients.buffers {
 					buf <- line
 				}
-				outBuffers.RUnlock()
+				stdoutClients.RUnlock()
 			}
 		}()
 		writeContent(w, []byte("Successfully started game server (pid: " + strconv.Itoa(ServerCmd.Process.Pid) + ")"))
@@ -138,15 +138,15 @@ func addControlPanel() {
 			}
 		}
 		identifier := rand.Uint64()
-		outBuffers.Lock()
-		outBuffers.buffers[identifier] = make(chan []byte, 256)
-		outBuffers.Unlock()
-		buf := outBuffers.buffers[identifier]
+		stdoutClients.Lock()
+		stdoutClients.buffers[identifier] = make(chan []byte, 256)
+		stdoutClients.Unlock()
+		buf := stdoutClients.buffers[identifier]
 
 		defer func() {
-			outBuffers.Lock()
-			delete(outBuffers.buffers, identifier)
-			outBuffers.Unlock()
+			stdoutClients.Lock()
+			delete(stdoutClients.buffers, identifier)
+			stdoutClients.Unlock()
 			close(buf)
 		}()
 

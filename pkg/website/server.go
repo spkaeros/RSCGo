@@ -94,7 +94,7 @@ func render(w http.ResponseWriter, r *http.Request) {
 func Start() {
 	muxCtx.HandleFunc("/", render)
 	muxCtx.HandleFunc("/game/", render)
-	addControlPanel()
+	bindGameProcManager()
 	err := http.ListenAndServe(":8080", muxCtx)
 	if err != nil {
 		log.Error.Println("Could not bind to website port:", err)
