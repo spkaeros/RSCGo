@@ -38,7 +38,7 @@ func (l IpThrottle) Recent(ip string) int {
 			if i == len(attempts) {
 				l[strutil.IPToInteger(ip)] = attempts[:i]
 			} else {
-				l[strutil.IPToInteger(ip)] = attempts = append(attempts[:i], attempts[i+1:]...)
+				l[strutil.IPToInteger(ip)] = append(attempts[:i], attempts[i+1:]...)
 			}
 		}
 	}
