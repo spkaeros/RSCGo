@@ -258,7 +258,7 @@ func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, passw
 			rows.Scan(&hash)
 			switch list {
 			case "friend":
-				player.FriendList[hash] = false
+				player.FriendList.Add(hash)
 			case "ignore":
 				player.IgnoreList = append(player.IgnoreList, hash)
 			}
@@ -568,9 +568,10 @@ func (s *sqlService) PlayerSave(player *world.Player) {
 	updateLocation()
 	updateAppearance()
 	player.Attributes.Range(insertAttribute)
-	for hash := range player.FriendList {
-		insertContact("friend", hash)
-	}
+	player.FriendList.ForEach(func(s string, b bool) bool {
+		insertContact("friend", strutil.Base37.Encode(s))
+		return false
+	})
 	for _, hash := range player.IgnoreList {
 		insertContact("ignore", hash)
 	}

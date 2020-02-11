@@ -13,7 +13,5 @@ bind.command("kick", func(player, args) {
 		return
 	}
 	player.Message("Kicking: '" + target.Username() + "'")
-	go runAfter(tMillis*100, func() {
-		world.kickPlayer(target)
-	})
+	world.kickPlayer(target)
 })

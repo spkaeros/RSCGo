@@ -19,15 +19,19 @@ import (
 //FriendList Builds a net with the players friend entityList information in it.
 func FriendList(player *Player) (p *net.Packet) {
 	p = net.NewOutgoingPacket(71)
-	p.AddByte(byte(len(player.FriendList)))
-	for hash, online := range player.FriendList {
+	p.AddByte(byte(player.FriendList.size()))
+	player.FriendList.ForEach(func(s string, b bool) bool {
+		hash := strutil.Base37.Encode(s)
 		p.AddLong(hash)
-		status := 0
-		if online {
-			status = 0xFF
+
+		p1, ok := Players.FromUserHash(hash)
+		if p1 != nil && ok &&  (p1.FriendList.contains(player.Username()) || !p1.FriendBlocked()) {
+			p.AddByte(0xFF)
+		} else {
+			p.AddByte(0)
 		}
-		p.AddByte(byte(status)) // 255 for online, 0 for offline.
-	}
+		return false
+	})
 	return p
 }
 

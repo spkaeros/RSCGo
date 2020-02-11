@@ -15,7 +15,9 @@ import (
 
 	"github.com/spkaeros/rscgo/pkg/crypto"
 	"github.com/spkaeros/rscgo/pkg/game/net"
+	"github.com/spkaeros/rscgo/pkg/game/tasks"
 	"github.com/spkaeros/rscgo/pkg/game/world"
+	"github.com/spkaeros/rscgo/pkg/ipthrottle"
 	"github.com/spkaeros/rscgo/pkg/rand"
 
 	"github.com/spkaeros/rscgo/pkg/config"
@@ -23,6 +25,8 @@ import (
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
+
+var LoginThrottle = ipthrottle.NewThrottle()
 
 func init() {
 	AddHandler("sessionreq", sessionRequest)
@@ -76,28 +80,32 @@ func closedConn(player *world.Player, p *net.Packet) {
 }
 
 func logout(player *world.Player, _ *net.Packet) {
-	if player.Busy() {
-		player.SendPacket(world.CannotLogout)
-		return
-	}
-	if player.Connected() {
-		player.SendPacket(world.Logout)
-		player.Destroy()
-	}
+	tasks.TickerList.Add("playerDestroy", func() bool {
+		if player.Busy() {
+			player.SendPacket(world.CannotLogout)
+			return true
+		}
+		if player.Connected() {
+			player.Destroy()
+		}
+		return true
+	})
 }
 
 //handleRegister This method will block until a byte is sent down the reply channel with the registration response to send to the client, or if this doesn't occur, it will timeout after 10 seconds.
 func handleRegister(player *world.Player, reply chan byte) {
-	defer player.Destroy()
-	defer close(reply)
-	select {
-	case r := <-reply:
-		player.SendPacket(world.LoginResponse(int(r)))
-		return
-	case <-time.After(time.Second * 10):
-		player.SendPacket(world.LoginResponse(0))
-		return
-	}
+	tasks.TickerList.Add("playerDestroy", func() bool {
+		defer player.Destroy()
+		defer close(reply)
+		select {
+		case r := <-reply:
+			player.SendPacket(world.LoginResponse(int(r)))
+			return true
+		case <-time.After(time.Second * 10):
+			player.SendPacket(world.LoginResponse(0))
+			return true
+		}
+	})
 }
 
 func newPlayer(player *world.Player, p *net.Packet) {
@@ -150,27 +158,28 @@ func handleLogin(player *world.Player, reply chan byte) {
 		}
 		return false
 	}
-	defer close(reply)
-	select {
-	case r := <-reply:
-		player.OutgoingPackets <- world.LoginResponse(int(r))
-		if isValid(r) {
-			world.Players.Put(player)
-			world.Players.BroadcastLogin(player, true)
-			player.Initialize()
-			for _, fn := range world.LoginTriggers {
-				fn(player)
+	tasks.TickerList.Add("playerCreating", func() bool {
+		defer close(reply)
+		select {
+		case r := <-reply:
+			player.OutgoingPackets <- world.LoginResponse(int(r))
+			if isValid(r) {
+				player.Initialize()
+				for _, fn := range world.LoginTriggers {
+					fn(player)
+				}
+				log.Info.Printf("Registered: %v\n", player)
+				return true
 			}
-			log.Info.Printf("Registered: %v\n", player)
-			return
+			LoginThrottle.Add(player.CurrentIP())
+			log.Info.Printf("Denied: %v (Response='%v')\n", player.String(), r)
+			player.Destroy()
+			return true
+		case <-time.After(time.Second * 10):
+			player.SendPacket(world.LoginResponse(-1))
+			return true
 		}
-		log.Info.Printf("Denied: %v (Response='%v')\n", player.String(), r)
-		player.Destroy()
-		return
-	case <-time.After(time.Second * 10):
-		player.SendPacket(world.LoginResponse(-1))
-		return
-	}
+	})
 }
 
 func loginRequest(player *world.Player, p *net.Packet) {
@@ -186,6 +195,10 @@ func loginRequest(player *world.Player, p *net.Packet) {
 			return
 		}
 	*/
+	if LoginThrottle.Recent(player.CurrentIP()) >= 5 {
+		loginReply <- 7
+		return
+	}
 	player.SetReconnecting(p.ReadBool())
 	if ver := p.ReadShort(); ver != config.Version() {
 		log.Info.Printf("Invalid client version attempted to login: %d\n", ver)
@@ -193,7 +206,6 @@ func loginRequest(player *world.Player, p *net.Packet) {
 		return
 	}
 
-	// TODO: SetRegionRemoved all this bs from protocol...
 	p.ReadBool() // limit30
 	p.ReadByte() // 0xA.  Some sort of separator I think?
 
@@ -210,6 +222,7 @@ func loginRequest(player *world.Player, p *net.Packet) {
 
 	usernameHash := strutil.Base37.Encode(strings.TrimSpace(p.ReadString(20)))
 	player.TransAttrs.SetVar("username", usernameHash)
+	player.FriendList.Owner = player.Username()
 	password := strings.TrimSpace(p.ReadString(20))
 	if !db.DefaultPlayerService.PlayerValidName(strutil.Base37.Decode(usernameHash)) {
 		loginReply <- 3

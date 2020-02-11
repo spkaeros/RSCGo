@@ -33,7 +33,7 @@ func init() {
 			player.Message("You are too far away to do that")
 			return
 		}
-		if p1.TradeBlocked() && !p1.Friends(player.UsernameHash()) {
+		if p1.TradeBlocked() && !p1.FriendsWith(player.UsernameHash()) {
 			player.Message("This player has trade requests blocked.")
 			return
 		}

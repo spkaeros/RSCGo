@@ -41,6 +41,61 @@ func NewAppearanceTable(head, body int, male bool, hair, top, bottom, skin int) 
 func DefaultAppearance() AppearanceTable {
 	return NewAppearanceTable(1, 2, true, 2, 8, 14, 0)
 }
+type friendSet map[uint64]bool
+
+type FriendsList struct {
+	sync.RWMutex
+	friendSet
+	Owner string
+}
+
+func (f *FriendsList) contains(name string) bool {
+	f.RLock()
+	defer f.RUnlock()
+	_, ok := f.friendSet[strutil.Base37.Encode(name)]
+	return ok
+}
+
+func (f *FriendsList) containsHash(hash uint64) bool {
+	f.RLock()
+	defer f.RUnlock()
+	_, ok := f.friendSet[hash]
+	return ok
+}
+
+func (f *FriendsList) Add(name string) {
+	f.Lock()
+	defer f.Unlock()
+	hash := strutil.Base37.Encode(name)
+	p, ok := Players.FromUserHash(hash)
+	f.friendSet[hash] = p != nil && ok &&  (p.FriendList.contains(f.Owner) || !p.FriendBlocked())
+}
+
+func (f *FriendsList) Remove(name string) {
+	f.Lock()
+	defer f.Unlock()
+	hash := strutil.Base37.Encode(name)
+	delete(f.friendSet, hash)
+	if p, ok := Players.FromUserHash(hash); ok && p.FriendList.contains(f.Owner) {
+		p.SendPacket(FriendUpdate(strutil.Base37.Encode(f.Owner), false))
+	}
+}
+
+func (f *FriendsList) ForEach(fn func(string, bool) bool) {
+	f.Lock()
+	defer f.Unlock()
+	for name, status := range f.friendSet {
+		if fn(strutil.Base37.Decode(name), status) {
+			break
+		}
+	}
+}
+
+func (f *FriendsList) size() int {
+	f.RLock()
+	defer f.RUnlock()
+	return len(f.friendSet)
+}
 
 //player Represents a single player.
 type Player struct {
@@ -48,7 +103,7 @@ type Player struct {
 	LocalNPCs        *MobList
 	LocalObjects     *entityList
 	LocalItems       *entityList
-	FriendList       map[uint64]bool
+	FriendList		 *FriendsList
 	IgnoreList       []uint64
 	Appearance       AppearanceTable
 	KnownAppearances map[int]int
@@ -84,6 +139,9 @@ func (p *Player) Bank() *Inventory {
 func (p *Player) CanAttack(target entity.MobileEntity) bool {
 	if target.IsNpc() {
 		return NpcDefs[target.(*NPC).ID].Attackable
+	}
+	if p.IsDueling() && p.IsFighting() {
+		return p.DuelTarget() == target && !p.TransAttrs.VarBool("duelCanMagic", true)
 	}
 	p1 := target.(*Player)
 	ourWild := p.Wilderness()
@@ -146,14 +204,9 @@ func (p *Player) ResetDistancedAction() {
 	p.ActionLock.Unlock()
 }
 
-//Friends returns true if specified username is in our friend entityList.
-func (p *Player) Friends(other uint64) bool {
-	for hash := range p.FriendList {
-		if hash == other {
-			return true
-		}
-	}
-	return false
+//FriendsWith returns true if specified username is in our friend entityList.
+func (p *Player) FriendsWith(other uint64) bool {
+	return p.FriendList.containsHash(other)
 }
 
 //Ignoring returns true if specified username is in our ignore entityList.
@@ -186,12 +239,31 @@ func (p *Player) DuelBlocked() bool {
 	return p.Attributes.VarBool("duel_block", false)
 }
 
+func (p *Player) UpdateStatus(status bool) {
+	Players.Range(func(player *Player) {
+		if player.FriendList.contains(p.Username()) {
+			if p.FriendList.contains(player.Username()) || !p.FriendBlocked() {
+				p.SendPacket(FriendUpdate(p.UsernameHash(), status))
+			}
+		}
+	})
+}
+
 //SetPrivacySettings sets privacy settings to specified values.
 func (p *Player) SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, duelBlocked bool) {
 	p.Attributes.SetVar("chat_block", chatBlocked)
 	p.Attributes.SetVar("friend_block", friendBlocked)
 	p.Attributes.SetVar("trade_block", tradeBlocked)
 	p.Attributes.SetVar("duel_block", duelBlocked)
+
+
+	//Players.Range(func(player *Player) {
+	//	if player.FriendList.contains(p.Username()) {
+	//		if !p.FriendList.contains(player.Username()) || p.FriendBlocked() {
+	//			p.SendPacket(FriendUpdate(p.UsernameHash(), !p.FriendBlocked() || p.FriendList.contains(player.Username())))
+	//		}
+	//	}
+	//})
 }
 
 //SetClientSetting sets the specified client setting to flag.
@@ -694,7 +766,11 @@ func (p *Player) SetDuel2Accepted() {
 
 //DuelTarget Returns the player that the receiver is targeting to duel with, or if none, returns nil
 func (p *Player) DuelTarget() *Player {
-	return p.TransAttrs.VarMob("duelTarget").(*Player)
+	v, ok := p.TransAttrs.VarMob("duelTarget").(*Player)
+	if ok {
+		return v
+	}
+	return nil
 }
 
 //SendPacket sends a net to the client.
@@ -708,6 +784,7 @@ func (p *Player) SendPacket(packet *net.Packet) {
 //Destroy sends a kill signal to the underlying client to tear down all of the I/O routines and save the player.
 func (p *Player) Destroy() {
 	p.killer.Do(func() {
+		p.SendPacket(Logout)
 		p.ResetAll()
 		p.Attributes.SetVar("lastIP", p.CurrentIP())
 		p.Inventory.Owner = nil
@@ -782,6 +859,7 @@ func (p *Player) Initialize() {
 	p.SetAppearanceChanged()
 	p.SetSpriteUpdated()
 	AddPlayer(p)
+	p.UpdateStatus(true)
 	p.SendPacket(FriendList(p))
 	p.SendPacket(IgnoreList(p))
 	p.SendPlane()
@@ -820,7 +898,7 @@ func (p *Player) Initialize() {
 func NewPlayer(index int, ip string) *Player {
 	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Lumbridge.Clone()}, TransAttrs: entity.NewAttributeList()},
 		Attributes: entity.NewAttributeList(), LocalPlayers: NewMobList(), LocalNPCs: NewMobList(), LocalObjects: &entityList{},
-		Appearance: DefaultAppearance(), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int),
+		Appearance: DefaultAppearance(), FriendList: &FriendsList{friendSet: make(friendSet)}, KnownAppearances: make(map[int]int),
 		Inventory: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, DuelOffer: &Inventory{Capacity: 8},
 		LocalItems: &entityList{}, OutgoingPackets: make(chan *net.Packet, 20), KillC: make(chan struct{})}
 	p.Transients().SetVar("skills", &entity.SkillTable{})
@@ -1056,6 +1134,11 @@ func (p *Player) SetSkulled(val bool) {
 	p.UpdateAppearance()
 }
 
+func (p *Player) ResetFighting() {
+	defer p.Mob.ResetFighting()
+	p.ResetDuel()
+}
+
 func (p *Player) StartCombat(target entity.MobileEntity) {
 	if target.IsPlayer() {
 		target.(*Player).PlaySound("underattack")
@@ -1074,6 +1157,16 @@ func (p *Player) StartCombat(target entity.MobileEntity) {
 	curRound := 0
 	curTick := 0
 	p.Tickables = append(p.Tickables, func() bool {
+		if p.LongestDeltaCoords(target.X(), target.Y()) > 0 {
+			// Teleports can cause this, and probably a way to fix possible bugs
+			if p.HasState(MSFighting) {
+				p.ResetFighting()
+			}
+			if target.HasState(MSFighting) {
+				target.ResetFighting()
+			}
+			return true
+		}
 		curTick++
 		if target.IsPlayer() {
 			if p1 := target.(*Player); !p1.Connected() {
@@ -1129,6 +1222,9 @@ func (p *Player) StartCombat(target entity.MobileEntity) {
 		// TODO: combat(2/3)(a/b) 2nd set is armor sound 3rd is ghostly undead sound
 		defender.Skills().DecreaseCur(entity.StatHits, nextHit)
 		if defender.Skills().Current(entity.StatHits) <= 0 {
+			if attacker, ok := attacker.(*Player); ok {
+				attacker.PlaySound("victory")
+			}
 			defender.Killed(attacker)
 			return true
 		}

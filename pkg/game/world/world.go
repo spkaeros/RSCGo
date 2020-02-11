@@ -115,17 +115,6 @@ func (m *PlayerMap) NextIndex() int {
 //BroadcastLogin Broadcasts the login status of player to the whole game.
 func (m *PlayerMap) BroadcastLogin(player *Player, online bool) {
 	m.Range(func(rangedPlayer *Player) {
-		if player.Friends(rangedPlayer.UsernameHash()) {
-			if !rangedPlayer.FriendBlocked() || rangedPlayer.Friends(rangedPlayer.UsernameHash()) {
-				player.FriendList[rangedPlayer.UsernameHash()] = online
-			}
-		}
-		if rangedPlayer.Friends(player.UsernameHash()) {
-			if !player.FriendBlocked() || player.Friends(rangedPlayer.UsernameHash()) {
-				rangedPlayer.FriendList[player.UsernameHash()] = online
-				rangedPlayer.SendPacket(FriendUpdate(player.UsernameHash(), online))
-			}
-		}
 	})
 }
 
@@ -147,11 +136,21 @@ func WithinWorld(x, y int) bool {
 //AddPlayer Add a player to the region.
 func AddPlayer(p *Player) {
 	getRegion(p.X(), p.Y()).Players.Add(p)
+	Players.Put(p)
+	Players.Range(func(player *Player) {
+		player.SendPacket(FriendUpdate(p.UsernameHash(), p.FriendList.contains(player.Username()) || !p.FriendBlocked()))
+	})
 }
 
 //RemovePlayer SetRegionRemoved a player from the region.
 func RemovePlayer(p *Player) {
+//	p.UpdateStatus(false)
+	Players.Range(func(player *Player) {
+		player.SendPacket(FriendUpdate(p.UsernameHash(), !p.FriendBlocked()))
+	})
 	getRegion(p.X(), p.Y()).Players.Remove(p)
+	Players.Remove(p)
+	p.SetRegionRemoved()
 }
 
 //AddNpc Add a NPC to the region.

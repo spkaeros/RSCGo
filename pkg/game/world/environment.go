@@ -47,7 +47,6 @@ func init() {
 		"checkCollisions":        reflect.ValueOf(IsTileBlocking),
 		"tileData":               reflect.ValueOf(CollisionData),
 		"kickPlayer": reflect.ValueOf(func(client *Player) {
-			client.SendPacket(Logout)
 			client.Destroy()
 		}),
 		"updateStarted": reflect.ValueOf(func() bool {
@@ -66,10 +65,9 @@ func init() {
 			go func() {
 				time.Sleep(time.Second * time.Duration(t))
 				Players.Range(func(player *Player) {
-					player.SendPacket(Logout)
 					player.Destroy()
 				})
-				time.Sleep(300 * time.Millisecond)
+				time.Sleep(2 * time.Second)
 				os.Exit(200)
 			}()
 			Players.Range(func(player *Player) {

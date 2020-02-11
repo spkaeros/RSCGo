@@ -150,8 +150,8 @@ func init() {
 					}()
 
 					for _, trigger := range world.BoundaryTriggers {
-						if trigger.Check(object, 1) {
-							trigger.Action(player, object, 1)
+						if trigger.Check(object, 0) {
+							trigger.Action(player, object, 0)
 							return
 						}
 					}

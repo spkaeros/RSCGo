@@ -29,14 +29,14 @@ func init() {
 		if player.FriendBlocked() && !friendBlocked {
 			// turning off private chat block
 			world.Players.Range(func(c1 *world.Player) {
-				if c1.Friends(player.UsernameHash()) && !player.Friends(c1.UsernameHash()) {
+				if c1.FriendsWith(player.UsernameHash()) && !player.FriendsWith(c1.UsernameHash()) {
 					c1.SendPacket(world.FriendUpdate(player.UsernameHash(), true))
 				}
 			})
 		} else if !player.FriendBlocked() && friendBlocked {
 			// turning on private chat block
 			world.Players.Range(func(c1 *world.Player) {
-				if c1.Friends(player.UsernameHash()) && !player.Friends(c1.UsernameHash()) {
+				if c1.FriendsWith(player.UsernameHash()) && !player.FriendsWith(c1.UsernameHash()) {
 					c1.SendPacket(world.FriendUpdate(player.UsernameHash(), false))
 				}
 			})

@@ -166,6 +166,16 @@ func (l *Location) LongestDelta(other Location) int {
 	return deltaY
 }
 
+//LongestDeltaCoords returns the number of tiles the coordinates provided
+func (l *Location) LongestDeltaCoords(x, y int) int {
+	other := NewLocation(x, y)
+	deltaX, deltaY := l.DeltaX(other), l.DeltaY(other)
+	if deltaX > deltaY {
+		return deltaX
+	}
+	return deltaY
+}
+
 //WithinRange Returns true if the other location is within radius tiles of the receiver location, otherwise false.
 func (l *Location) WithinRange(other Location, radius int) bool {
 	return l.LongestDelta(other) <= radius

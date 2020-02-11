@@ -143,7 +143,9 @@ func Tick() {
 		}
 		p.TraversePath()
 	})
+
 	world.UpdateNPCPositions()
+
 	world.Players.Range(func(p *world.Player) {
 		// Everything is updated relative to our player's position, so player position net comes first
 		if positions := world.PlayerPositions(p); positions != nil {
@@ -168,6 +170,7 @@ func Tick() {
 			p.SendPacket(clearDistantChunks)
 		}
 	})
+
 	//	world.Players.Range(func(p *world.Player) {
 	//		for _, fn := range p.ResetTickables {
 	//			fn()

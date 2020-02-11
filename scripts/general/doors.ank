@@ -1,4 +1,5 @@
 bind = import("bind")
+strings = import("strings")
 log = import("log")
 world = import("world")
 
@@ -44,7 +45,7 @@ bind.object(gatePredicate, func(player, object, click) {
 })
 
 bind.boundary(doorPredicate, func(player, object, click) {
-	player.PlaySound(boundaryDefs[object.ID].Commands[click] + "door")
+	player.PlaySound(strings.ToLower(boundaryDefs[object.ID].Commands[click] + "door"))
 	for open, closed in doors {
 		if object.ID == open || object.ID == closed {
 			world.replaceObject(object, object.ID == closed ? open : closed)

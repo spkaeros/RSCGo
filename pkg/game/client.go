@@ -102,25 +102,23 @@ func (c *client) startNetworking() {
 //destroy Safely tears down a client, saves it to the database, and removes it from game-wide player list.
 func (c *client) destroy() {
 	c.destroyer.Do(func() {
-		close(c.player.OutgoingPackets)
-		if err := c.socket.Close(); err != nil {
-			log.Error.Println("Couldn't close socket:", err)
-		}
-		c.player.SetConnected(false)
-		c.player.SetRegionRemoved()
-		if player, ok := world.Players.FromIndex(c.player.Index); (ok && player != c.player) || !ok {
-			log.Warning.Printf("Unregistered: Unauthenticated connection ('%v'@'%v')\n", c.player.Username(), c.player.CurrentIP())
-			if ok {
-				// found player at index, and it's not us.  Weird, potentially an issue, shouldn't happen
-				log.Warning.Printf("Unauthenticated player being destroyed had index %d and there is a player that is assigned that index already! (%v)\n", c.player.Index, c.player, player)
+		go func() {
+			c.player.SetConnected(false)
+			if err := c.socket.Close(); err != nil {
+				log.Error.Println("Couldn't close socket:", err)
 			}
-			return
-		}
-		go db.DefaultPlayerService.PlayerSave(c.player)
-		log.Info.Printf("Unregistered: %v\n", c.player.String())
-		world.RemovePlayer(c.player)
-		world.Players.BroadcastLogin(c.player, false)
-		world.Players.Remove(c.player)
+			close(c.player.OutgoingPackets)
+			if player, ok := world.Players.FromIndex(c.player.Index); c.player.Index == -1 || (ok && player != c.player) || !ok {
+				log.Warning.Printf("Unregistered: Unauthenticated connection ('%v'@'%v')\n", c.player.Username(), c.player.CurrentIP())
+				if ok {
+					log.Warning.Printf("Unauthenticated player being destroyed had index %d and there is a player that is assigned that index already! (%v)\n", c.player, player)
+				}
+				return
+			}
+			world.RemovePlayer(c.player)
+			db.DefaultPlayerService.PlayerSave(c.player)
+			log.Info.Printf("Unregistered: %v\n", c.player.String())
+		}()
 	})
 }
 
@@ -139,7 +137,7 @@ func (c *client) handlePacket(p *net.Packet) {
 //newClient Creates a new instance of a client, launches goroutines to handle I/O for it, and returns a reference to it.
 func newClient(socket stdnet.Conn, ws2 bool) *client {
 	c := &client{socket: socket}
-	c.player = world.NewPlayer(world.Players.NextIndex(), strings.Split(socket.RemoteAddr().String(), ":")[0])
+	c.player = world.NewPlayer(-1, strings.Split(socket.RemoteAddr().String(), ":")[0])
 	c.readWriter = bufio.NewReadWriter(bufio.NewReader(socket), bufio.NewWriter(socket))
 	if ws2 {
 		c.wsHeader, c.wsReader, _ = wsutil.NextReader(socket, ws.StateServerSide)

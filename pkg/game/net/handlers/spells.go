@@ -616,6 +616,7 @@ func handleSpells(player *world.Player, idx int, target entity.MobileEntity) {
 					return true
 				}
 				if player.IsDueling() && (player.Direction() == 7 || player.Direction() == 8) && !player.TransAttrs.VarBool("duelCanMagic", true) {
+					player.Message("Magic cannot be used during this duel!")
 					return true
 				}
 				if !player.CanAttack(target) {
@@ -657,7 +658,7 @@ func handleSpells(player *world.Player, idx int, target entity.MobileEntity) {
 						}
 					}
 					// reaching here means made it to target within 4 steps without hitting a barrier
-					player.ResetPath()
+					player.ResetAll()
 					if !checkAndRemoveRunes() {
 						return true
 					}

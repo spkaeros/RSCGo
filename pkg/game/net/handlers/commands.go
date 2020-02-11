@@ -30,20 +30,23 @@ func init() {
 	world.CommandHandlers["shutdown"] = func(player *world.Player, args []string) {
 		var wg sync.WaitGroup
 		world.Players.Range(func(p1 *world.Player) {
-			p1.Message("Shutting down.")
-			wg.Add(1)
-			p1.SendPacket(world.Logout)
 			go func() {
 				defer wg.Done()
-				db.DefaultPlayerService.PlayerSave(p1)
-				time.Sleep(1 * time.Second)
+				p1.Message("Shutting down.")
+				wg.Add(1)
+				p1.Destroy()
 			}()
 		})
 		wg.Wait()
+		time.Sleep(1 * time.Second)
 		os.Exit(1)
 	}
 	AddHandler("command", func(player *world.Player, p *net.Packet) {
 		args := strutil.ModalParse(string(p.Payload))
+		if len(args) <= 0 {
+			// prevent `::` freezing player
+			return
+		}
 		handler, ok := world.CommandHandlers[args[0]]
 		if !ok {
 			player.Message("@que@Invalid command.")

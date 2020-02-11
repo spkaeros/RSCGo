@@ -160,7 +160,7 @@ func (i *GroundItem) Owner() uint64 {
 // This is a special state attribute to indicate who the receiver item is visible to.
 // Value 0 means the item has expired and is no longer visible to anybody.
 //
-// Value 1 means the item is visible to only the owner of it and game administrators(rank=2), e.g if you kill someone or something,
+// Value 1 means the item is visible to only the Owner of it and game administrators(rank=2), e.g if you kill someone or something,
 // this will be the value for the first minute or two after it is created, and then will change to value 2.
 // NOTE: If this is the current value, but the belongsTo attribute is not set e.g nobody owns this item, it will update
 // itself to value 2 prior to when it normally would.
@@ -239,7 +239,7 @@ func NewGroundItem(id, amount, x, y int) *GroundItem {
 	return item
 }
 
-//NewGroundItemFor Creates a new ground item with an owner in the game world and returns a reference to it.
+//NewGroundItemFor Creates a new ground item with an Owner in the game world and returns a reference to it.
 func NewGroundItemFor(owner uint64, id, amount, x, y int) *GroundItem {
 	item := NewGroundItem(id, amount, x, y)
 	item.SetVar("belongsTo", owner)
@@ -420,7 +420,12 @@ func (i *Inventory) Size() int {
 func (i *Inventory) Add(id int, qty int) int {
 	curSize := i.Size()
 	if item := i.GetByID(id); (i.stackEverything || ItemDefs[id].Stackable) && item != nil {
-		item.Amount += qty
+		if item.Amount + qty >= math.MaxInt32 || item.Amount < 0 {
+			log.Suspicious.Println("Invalid item amount attempted: current:", item.Amount, "adding: ", qty)
+			log.Info.Println("Invalid item amount attempted: current:", item.Amount, "adding: ", qty)
+		} else {
+			item.Amount += qty
+		}
 		return i.GetIndex(id)
 	}
 	if curSize >= i.Capacity {

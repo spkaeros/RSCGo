@@ -36,7 +36,7 @@ func init() {
 			player.Message("You are too far away to do that")
 			return
 		}
-		if target.DuelBlocked() && !target.Friends(player.UsernameHash()) {
+		if target.DuelBlocked() && !target.FriendsWith(player.UsernameHash()) {
 			player.Message("This player has duel requests blocked.")
 			return
 		}

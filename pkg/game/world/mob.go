@@ -396,19 +396,23 @@ func (m *Mob) RemoveState(state int) {
 func (m *Mob) ResetFighting() {
 	target := m.TransAttrs.VarMob("fightTarget")
 	if target != nil && target.IsFighting() {
-		target.UpdateLastFight()
 		target.Transients().UnsetVar("fightTarget")
 		target.Transients().UnsetVar("fightRound")
 		target.SetDirection(North)
 		target.RemoveState(MSFighting)
+		if target.HasState(MSDueling) {
+			target.RemoveState(MSDueling)
+		}
 		target.UpdateLastFight()
 	}
 	if m.IsFighting() {
-		target.UpdateLastFight()
 		m.TransAttrs.UnsetVar("fightTarget")
 		m.TransAttrs.UnsetVar("fightRound")
 		m.SetDirection(North)
 		m.RemoveState(MSFighting)
+		if m.HasState(MSDueling) {
+			m.RemoveState(MSDueling)
+		}
 		m.UpdateLastFight()
 	}
 }
