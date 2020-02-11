@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
  *
@@ -7,7 +7,7 @@
  *
  */
 
-package world
+package entity
 
 import (
 	"sync"
@@ -164,7 +164,7 @@ func (a *AttributeList) CheckMask(name string, mask int) bool {
 	return a.VarInt(name, 0)&mask != 0
 }
 
-//VarMob checks if there is a MobileEntity attribute assigned to the specified name, and returns it.
+//VarMob checks if there is a entity.MobileEntity attribute assigned to the specified name, and returns it.
 // Otherwise, returns nil.
 func (a *AttributeList) VarMob(name string) MobileEntity {
 	a.lock.RLock()
@@ -174,18 +174,6 @@ func (a *AttributeList) VarMob(name string) MobileEntity {
 	}
 
 	return a.set[name].(MobileEntity)
-}
-
-//VarPlayer checks if there is a *Player attribute assigned to the specified name, and returns it.
-// Otherwise, returns nil.
-func (a *AttributeList) VarPlayer(name string) *Player {
-	a.lock.RLock()
-	defer a.lock.RUnlock()
-	if _, ok := a.set[name].(*Player); !ok {
-		return nil
-	}
-
-	return a.set[name].(*Player)
 }
 
 //VarSkills checks if there is a *SkillTable attribute assigned to the specified name, and returns it.
@@ -234,16 +222,4 @@ func (a *AttributeList) VarTime(name string) time.Time {
 	}
 
 	return a.set[name].(time.Time)
-}
-
-//VarPath checks if there is a *Pathway attribute assigned to the specified name, and returns it.
-// Otherwise, returns nil
-func (a *AttributeList) VarPath(name string) *Pathway {
-	a.lock.RLock()
-	defer a.lock.RUnlock()
-	if _, ok := a.set[name].(*Pathway); !ok {
-		return nil
-	}
-
-	return a.set[name].(*Pathway)
 }

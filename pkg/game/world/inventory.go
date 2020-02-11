@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/game/tasks"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"go.uber.org/atomic"
@@ -142,7 +143,7 @@ func (i *Item) Stackable() bool {
 //GroundItem Represents a single ground item within the game.
 type GroundItem struct {
 	ID, Amount int
-	*AttributeList
+	*entity.AttributeList
 	*Entity
 }
 
@@ -179,7 +180,7 @@ func (i *GroundItem) SpawnedTime() time.Time {
 
 func NewPersistentGroundItem(id, amount, x, y, respawn int) *GroundItem {
 	item := &GroundItem{ID: id, Amount: amount,
-		AttributeList: NewAttributeList(),
+		AttributeList: entity.NewAttributeList(),
 		Entity: &Entity{
 			Location: NewLocation(x, y),
 			Index:    int(ItemIndexer.Swap(ItemIndexer.Load() + 1)),
@@ -194,7 +195,7 @@ func NewPersistentGroundItem(id, amount, x, y, respawn int) *GroundItem {
 //NewGroundItem Creates a new ground item in the game world and returns a reference to it.
 func NewGroundItem(id, amount, x, y int) *GroundItem {
 	item := &GroundItem{ID: id, Amount: amount,
-		AttributeList: NewAttributeList(),
+		AttributeList: entity.NewAttributeList(),
 		Entity: &Entity{
 			Location: NewLocation(x, y),
 			Index:    int(ItemIndexer.Swap(ItemIndexer.Load() + 1)),

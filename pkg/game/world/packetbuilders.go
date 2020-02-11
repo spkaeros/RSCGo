@@ -10,6 +10,7 @@
 package world
 
 import (
+	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/strutil"
@@ -41,7 +42,7 @@ func PrivateMessage(hash uint64, msg string) (p *net.Packet) {
 	return p
 }
 
-func CreateProjectile(owner *Player, target MobileEntity, projectileID int) *net.Packet {
+func CreateProjectile(owner *Player, target entity.MobileEntity, projectileID int) *net.Packet {
 	p := net.NewOutgoingPacket(234)
 	p.AddShort(1)
 	p.AddShort(uint16(owner.Index))
@@ -97,8 +98,8 @@ func PlayerDamage(victim *Player, damage int) *net.Packet {
 	p.AddShort(uint16(victim.Index))
 	p.AddByte(2)
 	p.AddByte(uint8(damage))
-	p.AddByte(uint8(victim.Skills().Current(StatHits)))
-	p.AddByte(uint8(victim.Skills().Maximum(StatHits)))
+	p.AddByte(uint8(victim.Skills().Current(entity.StatHits)))
+	p.AddByte(uint8(victim.Skills().Maximum(entity.StatHits)))
 	return p
 }
 
@@ -119,8 +120,8 @@ func NpcDamage(victim *NPC, damage int) *net.Packet {
 	p.AddShort(uint16(victim.Index))
 	p.AddByte(2)
 	p.AddByte(uint8(damage))
-	p.AddByte(uint8(victim.Skills().Current(StatHits)))
-	p.AddByte(uint8(victim.Skills().Maximum(StatHits)))
+	p.AddByte(uint8(victim.Skills().Current(entity.StatHits)))
+	p.AddByte(uint8(victim.Skills().Maximum(entity.StatHits)))
 	return p
 }
 
@@ -249,7 +250,7 @@ func NPCPositions(player *Player) (p *net.Packet) {
 
 	removing.RangeNpcs(func(n *NPC) bool {
 		player.LocalNPCs.Remove(n)
-		return true
+		return false
 	})
 
 	newCount := 0
@@ -353,9 +354,9 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 			counter--
 		}
 		p1.RUnlock()
-		return true
+		return false
 	})
-	removing.Range(func(m MobileEntity) bool {
+	removing.Range(func(m entity.MobileEntity) bool {
 		player.LocalPlayers.Remove(m)
 		return false
 	})
@@ -425,7 +426,7 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	appearanceList = append(appearanceList, ourPlayer.AppearanceReq...)
 	ourPlayer.AppearanceReq = ourPlayer.AppearanceReq[:0]
 	ourPlayer.AppearanceLock.Unlock()
-	ourPlayer.LocalPlayers.Range(func(p1 MobileEntity) bool {
+	ourPlayer.LocalPlayers.Range(func(p1 entity.MobileEntity) bool {
 		ourPlayer.AppearanceLock.RLock()
 		if ticket, ok := ourPlayer.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.(*Player).AppearanceTicket() {
 			appearanceList = append(appearanceList, p1.(*Player))

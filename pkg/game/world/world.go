@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/spkaeros/rscgo/pkg/config"
+	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/log"
 	rscRand "github.com/spkaeros/rscgo/pkg/rand"
 )
@@ -573,6 +574,6 @@ func WeightedChoice(choices map[int]float64) int {
 }
 
 //MeleeExperience returns how much combat experience to award for killing an opponent with melee.
-func MeleeExperience(victim MobileEntity) float64 {
+func MeleeExperience(victim entity.MobileEntity) float64 {
 	return float64((victim.Skills().CombatLevel()*2.0)+10.0) * 1.5
 }

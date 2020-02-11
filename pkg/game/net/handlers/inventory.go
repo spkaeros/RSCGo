@@ -76,15 +76,19 @@ func init() {
 				log.Suspicious.Printf("%v attempted to pick up an item that doesn't exist: %d,%d,%d\n", player, id, x, y)
 				return true
 			}
-			if !player.WithinRange(item.Location, 0) {
+			distance := 0
+			if world.IsTileBlocking(x, y, 64, false) {
+				distance++
+			}
+			if !player.WithinRange(item.Location, distance) {
 				return false
 			}
-			player.PlaySound("takeobject")
 			player.ResetPath()
 			if player.Inventory.Size() >= 30 {
 				player.Message("You do not have room for that item in your inventory.")
 				return true
 			}
+			player.PlaySound("takeobject")
 			item.Remove()
 			player.Inventory.Add(item.ID, item.Amount)
 			player.SendPacket(world.InventoryItems(player))

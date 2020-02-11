@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"go.uber.org/atomic"
 )
@@ -51,20 +52,20 @@ type NPC struct {
 
 //NewNpc Creates a new NPC and returns a reference to it
 func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
-	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: NewLocation(startX, startY)}, TransAttrs: &AttributeList{set: make(map[string]interface{})}}}
-	n.Transients().SetVar("skills", &SkillTable{})
+	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: NewLocation(startX, startY)}, TransAttrs: entity.NewAttributeList()}}
+	n.Transients().SetVar("skills", &entity.SkillTable{})
 	n.Boundaries[0] = NewLocation(minX, minY)
 	n.Boundaries[1] = NewLocation(maxX, maxY)
 	n.StartPoint = NewLocation(startX, startY)
 	if id < 794 {
-		n.Skills().current[0] = NpcDefs[id].Attack
-		n.Skills().current[1] = NpcDefs[id].Defense
-		n.Skills().current[2] = NpcDefs[id].Strength
-		n.Skills().current[3] = NpcDefs[id].Hits
-		n.Skills().maximum[0] = NpcDefs[id].Attack
-		n.Skills().maximum[1] = NpcDefs[id].Defense
-		n.Skills().maximum[2] = NpcDefs[id].Strength
-		n.Skills().maximum[3] = NpcDefs[id].Hits
+		n.Skills().SetCur(0, NpcDefs[id].Attack)
+		n.Skills().SetCur(1,  NpcDefs[id].Defense)
+		n.Skills().SetCur(2, NpcDefs[id].Strength)
+		n.Skills().SetCur(3, NpcDefs[id].Hits)
+		n.Skills().SetMax(0, NpcDefs[id].Attack)
+		n.Skills().SetMax(1, NpcDefs[id].Defense)
+		n.Skills().SetMax(2, NpcDefs[id].Strength)
+		n.Skills().SetMax(3, NpcDefs[id].Hits)
 	}
 	npcsLock.Lock()
 	Npcs = append(Npcs, n)
@@ -147,6 +148,10 @@ type NpcBlockingTrigger struct {
 //NpcDeathTriggers List of script callbacks to run when you kill an NPC
 var NpcDeathTriggers []NpcBlockingTrigger
 
+func (n *NPC) Type() entity.EntityType {
+	return entity.TypeNpc
+}
+
 func (n *NPC) Damage(dmg int) {
 	for _, r := range surroundingRegions(n.X(), n.Y()) {
 		r.Players.RangePlayers(func(p1 *Player) bool {
@@ -159,7 +164,7 @@ func (n *NPC) Damage(dmg int) {
 	}
 }
 
-func (n *NPC) Killed(killer MobileEntity) {
+func (n *NPC) Killed(killer entity.MobileEntity) {
 	if killer, ok := killer.(*Player); ok {
 		for _, t := range NpcDeathTriggers {
 			if t.Check(killer, n) {
@@ -171,7 +176,7 @@ func (n *NPC) Killed(killer MobileEntity) {
 	if killer, ok := killer.(*Player); ok {
 		killer.DistributeMeleeExp(int(math.Ceil(MeleeExperience(n) / 4.0)))
 	}
-	n.Skills().SetCur(StatHits, n.Skills().Maximum(StatHits))
+	n.Skills().SetCur(entity.StatHits, n.Skills().Maximum(entity.StatHits))
 	n.SetLocation(DeathPoint, true)
 	killer.ResetFighting()
 	n.ResetFighting()

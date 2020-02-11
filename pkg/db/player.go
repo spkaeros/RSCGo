@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/spkaeros/rscgo/pkg/crypto"
+	"github.com/spkaeros/rscgo/pkg/game/entity"
 
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/errors"
@@ -321,7 +322,7 @@ func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, passw
 			var cur, exp int
 			rows.Scan(&cur, &exp)
 			player.Skills().SetCur(i, cur)
-			player.Skills().SetMax(i, world.ExperienceToLevel(exp))
+			player.Skills().SetMax(i, entity.ExperienceToLevel(exp))
 			player.Skills().SetExp(i, exp)
 			i++
 		}

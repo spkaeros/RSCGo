@@ -16,6 +16,7 @@ import (
 
 	//	stdrand "math/rand"
 
+	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -508,7 +509,7 @@ func init() {
 	})
 }
 
-func handleSpells(player *world.Player, idx int, target world.MobileEntity) {
+func handleSpells(player *world.Player, idx int, target entity.MobileEntity) {
 	if idx < 0 || idx >= len(spellDefs) {
 		return
 	}
@@ -532,12 +533,12 @@ func handleSpells(player *world.Player, idx int, target world.MobileEntity) {
 		player.Message("Cast spell successfully")
 		player.ResetPath()
 	}
-	if player.Skills().Current(world.StatMagic) < s.level {
+	if player.Skills().Current(entity.StatMagic) < s.level {
 		player.Message("Your magic ability is not high enough for this spell.")
 		player.ResetPath()
 		return
 	}
-	if lvDelta := player.Skills().Current(world.StatMagic) - s.level; lvDelta < 0 || (lvDelta < 10-int(math.Min(math.Max((float64(player.MagicPoints())-5)/5, 0), 5)) &&
+	if lvDelta := player.Skills().Current(entity.StatMagic) - s.level; lvDelta < 0 || (lvDelta < 10-int(math.Min(math.Max((float64(player.MagicPoints())-5)/5, 0), 5)) &&
 		rand.Int31N(0, (lvDelta+2)*2) == 0) {
 		player.PlaySound("spellfail")
 		player.Message("The spell fails! You may try again in 20 seconds")
@@ -677,9 +678,9 @@ func handleSpells(player *world.Player, idx int, target world.MobileEntity) {
 							curProb += (dmg * 100) / 3
 						}
 					}
-					hit := int(math.Min(float64(target.Skills().Current(world.StatHits)), float64(world.WeightedChoice(probs))))
-					target.Skills().DecreaseCur(world.StatHits, hit)
-					if target.Skills().Current(world.StatHits) <= 0 {
+					hit := int(math.Min(float64(target.Skills().Current(entity.StatHits)), float64(world.WeightedChoice(probs))))
+					target.Skills().DecreaseCur(entity.StatHits, hit)
+					if target.Skills().Current(entity.StatHits) <= 0 {
 						target.Killed(player)
 						return true
 					}

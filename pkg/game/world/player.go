@@ -1,3 +1,12 @@
+/*
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
 package world
 
 import (
@@ -7,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
@@ -44,7 +54,7 @@ type Player struct {
 	KnownAppearances map[int]int
 	AppearanceReq    []*Player
 	AppearanceLock   sync.RWMutex
-	Attributes       *AttributeList
+	Attributes       *entity.AttributeList
 	Inventory        *Inventory
 	TradeOffer       *Inventory
 	DuelOffer        *Inventory
@@ -71,7 +81,7 @@ func (p *Player) Bank() *Inventory {
 	return nil
 }
 
-func (p *Player) CanAttack(target MobileEntity) bool {
+func (p *Player) CanAttack(target entity.MobileEntity) bool {
 	if target.IsNpc() {
 		return NpcDefs[target.(*NPC).ID].Attackable
 	}
@@ -384,6 +394,10 @@ func (p *Player) UpdateRegion(x, y int) {
 	}
 }
 
+func Type() entity.EntityType {
+	return entity.TypePlayer
+}
+
 //DistributeMeleeExp This is a helper method to distribute experience amongst the players melee stats according to
 // its current fight stance.
 //
@@ -396,13 +410,13 @@ func (p *Player) DistributeMeleeExp(experience int) {
 			p.IncExp(i, experience)
 		}
 	case 1:
-		p.IncExp(StatStrength, experience*3)
+		p.IncExp(entity.StatStrength, experience*3)
 	case 2:
-		p.IncExp(StatAttack, experience*3)
+		p.IncExp(entity.StatAttack, experience*3)
 	case 3:
-		p.IncExp(StatDefense, experience*3)
+		p.IncExp(entity.StatDefense, experience*3)
 	}
-	p.IncExp(StatHits, experience)
+	p.IncExp(entity.StatHits, experience)
 }
 
 //EquipItem equips an item to this player, and sends inventory and equipment bonuses.
@@ -578,7 +592,7 @@ func (p *Player) NewItems() (items []*GroundItem) {
 func (p *Player) NewPlayers() (players []*Player) {
 	for _, r := range surroundingRegions(p.X(), p.Y()) {
 		r.Players.RangePlayers(func(p1 *Player) bool {
-			if !p.LocalPlayers.Contains(p1) && p != p1 && p.WithinRange(p1.Location, 16) {
+			if !p.LocalPlayers.Contains(p1) && p != p1 && p.WithinRange(p1.Location, 15) {
 				players = append(players, p1)
 			}
 			return false
@@ -592,7 +606,7 @@ func (p *Player) NewPlayers() (players []*Player) {
 func (p *Player) NewNPCs() (npcs []*NPC) {
 	for _, r := range surroundingRegions(p.X(), p.Y()) {
 		r.NPCs.RangeNpcs(func(n *NPC) bool {
-			if !p.LocalNPCs.Contains(n) && p.WithinRange(n.Location, 16) {
+			if !p.LocalNPCs.Contains(n) && p.WithinRange(n.Location, 15) {
 				npcs = append(npcs, n)
 			}
 			return false
@@ -629,7 +643,7 @@ func (p *Player) TradeTarget() int {
 }
 
 //CombatDelta returns the difference between our combat level and the other mobs combat level
-func (p *Player) CombatDelta(other MobileEntity) int {
+func (p *Player) CombatDelta(other entity.MobileEntity) int {
 	return p.Skills().CombatLevel() - other.Skills().CombatLevel()
 }
 
@@ -680,7 +694,7 @@ func (p *Player) SetDuel2Accepted() {
 
 //DuelTarget Returns the player that the receiver is targeting to duel with, or if none, returns nil
 func (p *Player) DuelTarget() *Player {
-	return p.TransAttrs.VarPlayer("duelTarget")
+	return p.TransAttrs.VarMob("duelTarget").(*Player)
 }
 
 //SendPacket sends a net to the client.
@@ -787,9 +801,9 @@ func (p *Player) Initialize() {
 				p.Skills().SetExp(i, 0)
 			}
 		}
-		p.Skills().SetCur(StatHits, 10)
-		p.Skills().SetMax(StatHits, 10)
-		p.Skills().SetExp(StatHits, LevelToExperience(10))
+		p.Skills().SetCur(entity.StatHits, 10)
+		p.Skills().SetMax(entity.StatHits, 10)
+		p.Skills().SetExp(entity.StatHits, entity.LevelToExperience(10))
 		p.OpenAppearanceChanger()
 	}
 	if !p.Reconnecting() {
@@ -804,12 +818,12 @@ func (p *Player) Initialize() {
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer(index int, ip string) *Player {
-	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Lumbridge.Clone()}, TransAttrs: NewAttributeList()},
-		Attributes: NewAttributeList(), LocalPlayers: NewMobList(), LocalNPCs: NewMobList(), LocalObjects: &entityList{},
+	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Lumbridge.Clone()}, TransAttrs: entity.NewAttributeList()},
+		Attributes: entity.NewAttributeList(), LocalPlayers: NewMobList(), LocalNPCs: NewMobList(), LocalObjects: &entityList{},
 		Appearance: DefaultAppearance(), FriendList: make(map[uint64]bool), KnownAppearances: make(map[int]int),
 		Inventory: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, DuelOffer: &Inventory{Capacity: 8},
 		LocalItems: &entityList{}, OutgoingPackets: make(chan *net.Packet, 20), KillC: make(chan struct{})}
-	p.Transients().SetVar("skills", &SkillTable{})
+	p.Transients().SetVar("skills", &entity.SkillTable{})
 	p.Transients().SetVar("bank", &Inventory{Capacity: 48 * 4, stackEverything: true})
 	p.Transients().SetVar("viewRadius", 16)
 	p.Transients().SetVar("currentIP", ip)
@@ -946,9 +960,9 @@ func (p *Player) IncCurStat(idx int, lvl int) {
 func (p *Player) IncExp(idx int, amt int) {
 	// TODO: Fatigue
 	p.Skills().IncExp(idx, amt)
-	delta := ExperienceToLevel(p.Skills().Experience(idx)) - p.Skills().Maximum(idx)
+	delta := entity.ExperienceToLevel(p.Skills().Experience(idx)) - p.Skills().Maximum(idx)
 	if delta != 0 {
-		p.Message(fmt.Sprintf("@gre@You just advanced %d %v level!", delta, SkillName(idx)))
+		p.Message(fmt.Sprintf("@gre@You just advanced %d %v level!", delta, entity.SkillName(idx)))
 		p.PlaySound("advance")
 		oldCombat := p.Skills().CombatLevel()
 		p.Skills().IncreaseCur(idx, delta)
@@ -965,7 +979,7 @@ func (p *Player) IncExp(idx int, amt int) {
 //SetMaxStat sets this players maximum stat at idx to lvl and updates the client about it.
 func (p *Player) SetMaxStat(idx int, lvl int) {
 	p.Skills().SetMax(idx, lvl)
-	p.Skills().SetExp(idx, LevelToExperience(lvl))
+	p.Skills().SetExp(idx, entity.LevelToExperience(lvl))
 	p.SendStat(idx)
 }
 
@@ -1042,7 +1056,7 @@ func (p *Player) SetSkulled(val bool) {
 	p.UpdateAppearance()
 }
 
-func (p *Player) StartCombat(target MobileEntity) {
+func (p *Player) StartCombat(target entity.MobileEntity) {
 	if target.IsPlayer() {
 		target.(*Player).PlaySound("underattack")
 		if !p.IsDueling() {
@@ -1084,7 +1098,7 @@ func (p *Player) StartCombat(target MobileEntity) {
 		if curTick%2 == 0 {
 			return false
 		}
-		var attacker, defender MobileEntity
+		var attacker, defender entity.MobileEntity
 		if curRound%2 == 0 {
 			attacker = p
 			defender = target
@@ -1097,7 +1111,7 @@ func (p *Player) StartCombat(target MobileEntity) {
 			curRound++
 			return false
 		}
-		nextHit := int(math.Min(float64(defender.Skills().Current(StatHits)), float64(attacker.MeleeDamage(defender))))
+		nextHit := int(math.Min(float64(defender.Skills().Current(entity.StatHits)), float64(attacker.MeleeDamage(defender))))
 		if attacker.IsPlayer() {
 			if attPlayer := attacker.(*Player); nextHit > 0 {
 				attPlayer.PlaySound("combat1b") // hit
@@ -1113,8 +1127,8 @@ func (p *Player) StartCombat(target MobileEntity) {
 			}
 		}
 		// TODO: combat(2/3)(a/b) 2nd set is armor sound 3rd is ghostly undead sound
-		defender.Skills().DecreaseCur(StatHits, nextHit)
-		if defender.Skills().Current(StatHits) <= 0 {
+		defender.Skills().DecreaseCur(entity.StatHits, nextHit)
+		if defender.Skills().Current(entity.StatHits) <= 0 {
 			defender.Killed(attacker)
 			return true
 		}
@@ -1127,7 +1141,7 @@ func (p *Player) StartCombat(target MobileEntity) {
 }
 
 //Killed kills this player, dropping all of its items where it stands.
-func (p *Player) Killed(killer MobileEntity) {
+func (p *Player) Killed(killer entity.MobileEntity) {
 	p.Transients().SetVar("deathTime", time.Now())
 	p.PlaySound("death")
 	p.SendPacket(Death)
@@ -1238,7 +1252,7 @@ func (p *Player) ItemBubble(id int) {
 func (p *Player) SetStat(idx, lvl int) {
 	p.Skills().SetCur(idx, lvl)
 	p.Skills().SetMax(idx, lvl)
-	p.Skills().SetExp(idx, LevelToExperience(lvl))
+	p.Skills().SetExp(idx, entity.LevelToExperience(lvl))
 	p.SendStat(idx)
 }
 

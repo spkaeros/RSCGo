@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 
@@ -51,32 +52,32 @@ const (
 	SyncNeedsPosition = SyncRemoved | SyncMoved | SyncSprite
 )
 
-// mobSet a collection of MobileEntitys
-type mobSet []MobileEntity
+// mobSet a collection of entity.MobileEntitys
+type mobSet []entity.MobileEntity
 
-//MobList a container type for holding MobileEntitys
+//MobList a container type for holding entity.MobileEntitys
 type MobList struct {
 	mobSet
 	sync.RWMutex
 }
 
 //NewMobList returns a pointer to a newly pre-allocated MobList, with an initial capacity
-// of 1250.
+// of 255.
 func NewMobList() *MobList {
-	return &MobList{mobSet: make(mobSet, 0, 1250)}
+	return &MobList{mobSet: make(mobSet, 0, 255)}
 }
 
-//Add Adds a MobileEntity to this MobList
-func (l *MobList) Add(m MobileEntity) int {
+//Add Adds a entity.MobileEntity to this MobList
+func (l *MobList) Add(m entity.MobileEntity) int {
 	l.Lock()
 	defer l.Unlock()
 	l.mobSet = append(l.mobSet, m)
 	return len(l.mobSet)
 }
 
-//Range Runs action(MobileEntity) for each MobileEntity in the lists collection, until
+//Range Runs action(entity.MobileEntity) for each entity.MobileEntity in the lists collection, until
 // either running out of entries, or action returns true.
-func (l *MobList) Range(action func(MobileEntity) bool) int {
+func (l *MobList) Range(action func(entity.MobileEntity) bool) int {
 	l.RLock()
 	defer l.RUnlock()
 	for i, v := range l.mobSet {
@@ -95,14 +96,14 @@ func (l *MobList) Size() int {
 }
 
 //Size returns the number of mobile entitys entered into this list.
-func (l *MobList) Contains(mob MobileEntity) bool {
-	return l.Range(func(m MobileEntity) bool {
+func (l *MobList) Contains(mob entity.MobileEntity) bool {
+	return l.Range(func(m entity.MobileEntity) bool {
 		return m == mob
 	}) > -1
 }
 
-//Remove removes a MobileEntity from this list and reslices the collection.
-func (l *MobList) Remove(m MobileEntity) bool {
+//Remove removes a entity.MobileEntity from this list and reslices the collection.
+func (l *MobList) Remove(m entity.MobileEntity) bool {
 	l.Lock()
 	defer l.Unlock()
 	for i, v := range l.mobSet {
@@ -119,7 +120,7 @@ func (l *MobList) Remove(m MobileEntity) bool {
 }
 
 func (l *MobList) RangePlayers(action func(*Player) bool) int {
-	return l.Range(func(m MobileEntity) bool {
+	return l.Range(func(m entity.MobileEntity) bool {
 		if p, ok := m.(*Player); ok {
 			return action(p)
 		}
@@ -128,7 +129,7 @@ func (l *MobList) RangePlayers(action func(*Player) bool) int {
 }
 
 func (l *MobList) RangeNpcs(action func(*NPC) bool) int {
-	return l.Range(func(m MobileEntity) bool {
+	return l.Range(func(m entity.MobileEntity) bool {
 		if n, ok := m.(*NPC); ok {
 			return action(n)
 		}
@@ -139,68 +140,18 @@ func (l *MobList) RangeNpcs(action func(*NPC) bool) int {
 //Mob Represents a mobile entity within the game world.
 type Mob struct {
 	*Entity
-	TransAttrs     *AttributeList
+	TransAttrs     *entity.AttributeList
 	SyncMask       int
 	ResetTickables []func()
 	sync.RWMutex
 }
 
-type MobileEntity interface {
-	X() int
-	Y() int
-	Wilderness() int
-	ServerIndex() int
-	IsNpc() bool
-	IsPlayer() bool
-	Skills() *SkillTable
-	MeleeDamage(target MobileEntity) int
-	DefensePoints() float64
-	AttackPoints() float64
-	MaxMeleeDamage() float64
-	Transients() *AttributeList
-	IsFighting() bool
-	FightTarget() MobileEntity
-	SetFightTarget(MobileEntity)
-	FightRound() int
-	SetFightRound(int)
-	ResetFighting()
-	HasState(...int) bool
-	AddState(int)
-	RemoveState(int)
-	State() int
-	Busy() bool
-	SetX(int)
-	SetY(int)
-	SetCoords(int, int, bool)
-	Teleport(int, int)
-	Direction() int
-	SetDirection(int)
-	Path() *Pathway
-	ResetPath()
-	SetPath(*Pathway)
-	TraversePath()
-	FinishedPath() bool
-	SetLocation(Location, bool)
-	UpdateLastFight()
-	LastFight() time.Time
-	UpdateLastRetreat()
-	LastRetreat() time.Time
-	SetRegionMoved()
-	SetRegionRemoved()
-	SetSpriteUpdated()
-	SetAppearanceChanged()
-	ResetRegionMoved()
-	ResetRegionRemoved()
-	ResetSpriteUpdated()
-	ResetAppearanceChanged()
-	Killed(MobileEntity)
-	Damage(int)
-	StyleBonus(int) int
-	PrayerModifiers() [3]float64
-}
-
 func (p *Player) IsPlayer() bool {
 	return true
+}
+
+func (p *Player) Type() entity.EntityType {
+	return -1
 }
 
 func (p *Player) ServerIndex() int {
@@ -223,7 +174,7 @@ func (n *NPC) IsNpc() bool {
 	return true
 }
 
-func (m *Mob) Transients() *AttributeList {
+func (m *Mob) Transients() *entity.AttributeList {
 	return m.TransAttrs
 }
 
@@ -236,11 +187,11 @@ func (m *Mob) IsFighting() bool {
 	return m.HasState(MSFighting)
 }
 
-func (m *Mob) FightTarget() MobileEntity {
+func (m *Mob) FightTarget() entity.MobileEntity {
 	return m.TransAttrs.VarMob("fightTarget")
 }
 
-func (m *Mob) SetFightTarget(m2 MobileEntity) {
+func (m *Mob) SetFightTarget(m2 entity.MobileEntity) {
 	m.TransAttrs.SetVar("fightTarget", m2)
 }
 
@@ -342,7 +293,11 @@ func (m *Mob) WalkTo(end Location) {
 
 //Path returns the path that this mob is trying to traverse.
 func (m *Mob) Path() *Pathway {
-	return m.TransAttrs.VarPath("path")
+	v, ok := m.TransAttrs.Var("path")
+	if ok {
+		return v.(*Pathway)
+	}
+	return nil
 }
 
 //ResetPath Sets the mobs path to nil, to stop the traversal of the path instantly
@@ -528,7 +483,7 @@ func (m *Mob) SetRangedPoints(i int) {
 	m.TransAttrs.SetVar("ranged_points", i)
 }
 
-func (m *Mob) Skills() *SkillTable {
+func (m *Mob) Skills() *entity.SkillTable {
 	return m.TransAttrs.VarSkills("skills")
 }
 
@@ -571,7 +526,7 @@ func (m *Mob) StyleBonus(stat int) int {
 	if mode == 0 {
 		return 1
 	}
-	if (mode == 1 && stat == StatStrength) || (mode == 2 && stat == StatAttack) || (mode == 3 && stat == StatDefense) {
+	if (mode == 1 && stat == entity.StatStrength) || (mode == 2 && stat == entity.StatAttack) || (mode == 3 && stat == entity.StatDefense) {
 		return 3
 	}
 	return 0
@@ -579,23 +534,23 @@ func (m *Mob) StyleBonus(stat int) int {
 
 //MaxMeleeDamage Calculates and returns the current max hit for this mob, based on many variables.
 func (m *Mob) MaxMeleeDamage() float64 {
-	return float64(((float64(m.Skills().Current(StatStrength))*m.PrayerModifiers()[StatStrength])+float64(m.StyleBonus(StatStrength)))*((float64(m.PowerPoints())*0.00175)+0.1)) + 1.05
+	return float64(((float64(m.Skills().Current(entity.StatStrength))*m.PrayerModifiers()[entity.StatStrength])+float64(m.StyleBonus(entity.StatStrength)))*((float64(m.PowerPoints())*0.00175)+0.1)) + 1.05
 }
 
 //AttackPoints Calculates and returns the accuracy capability of this mob, based on many variables, as a single variable.
 func (m *Mob) AttackPoints() float64 {
-	return float64(((float64(m.Skills().Current(StatAttack))*m.PrayerModifiers()[StatAttack])+float64(m.StyleBonus(StatAttack)))*((float64(m.AimPoints())*0.00175)+0.1)) + 1.05
+	return float64(((float64(m.Skills().Current(entity.StatAttack))*m.PrayerModifiers()[entity.StatAttack])+float64(m.StyleBonus(entity.StatAttack)))*((float64(m.AimPoints())*0.00175)+0.1)) + 1.05
 	//	return (float64(m.Skills().Current(StatAttack)) * m.PrayerModifiers()[StatAttack]) + float64(m.StyleBonus(StatAttack)+m.AimPoints())
 }
 
 //DefensePoints Calculates and returns the defensive capability of this mob, based on many variables, as a single variable.
 func (m *Mob) DefensePoints() float64 {
-	return float64(((float64(m.Skills().Current(StatDefense))*m.PrayerModifiers()[StatDefense])+float64(m.StyleBonus(StatDefense)))*((float64(m.ArmourPoints())*0.00175)+0.1)) + 1.05
+	return float64(((float64(m.Skills().Current(entity.StatDefense))*m.PrayerModifiers()[entity.StatDefense])+float64(m.StyleBonus(entity.StatDefense)))*((float64(m.ArmourPoints())*0.00175)+0.1)) + 1.05
 	//	return (float64(m.Skills().Current(StatDefense)) * m.PrayerModifiers()[StatDefense]) + float64(m.StyleBonus(StatDefense)+m.ArmourPoints())
 }
 
 //MeleeDamage Calculates and returns a melee damage from the receiver mob onto the target mob.
-func (m *Mob) MeleeDamage(target MobileEntity) int {
+func (m *Mob) MeleeDamage(target entity.MobileEntity) int {
 	log.Info.Println((m.AttackPoints() / (target.DefensePoints() * 4)) * 100)
 	if BoundedChance(m.AttackPoints()/(target.DefensePoints()*4)*100, 0.0, 82.0) {
 		maxDamage := m.MaxMeleeDamage()
