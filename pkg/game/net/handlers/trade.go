@@ -56,7 +56,7 @@ func init() {
 	})
 	AddHandler("tradeupdate", func(player *world.Player, p *net.Packet) {
 		if !player.IsTrading() {
-			log.Suspicious.Printf("%v attempted to decline a non-existant trade!\n", player.String())
+			log.Suspicious.Printf("%v attempted to decline a non-existent trade!\n", player.String())
 			player.ResetTrade()
 			player.SendPacket(world.TradeClose)
 			return

@@ -64,6 +64,9 @@ func init() {
 		log.Error.Fatal(err)
 	}
 	layouts2, err := filepath.Glob("website/*.html")
+	if err != nil {
+		log.Error.Fatal(err)
+	}
 
 	// Generate our templates map from our layouts/ and includes/ directories
 	for _, layout := range append(layouts, layouts2...) {

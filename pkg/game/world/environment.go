@@ -17,10 +17,12 @@ import (
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/mattn/anko/core"
 	"github.com/mattn/anko/env"
-	_ "github.com/mattn/anko/packages"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/strutil"
+
+	// Defines various package-related scripting utilities
+	_ "github.com/mattn/anko/packages"
 )
 
 //CommandHandlers A map to assign in-game commands to the functions they should execute.

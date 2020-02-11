@@ -18,7 +18,7 @@ import (
 
 //Packet The definition of a game net.  Generally, these are commands, indexed by their Opcode(0-255), with
 //  a 5000-byte buffer for arguments, stored in Payload.  If the net is bare, raw data is intended to be
-//  transmitted when writing the net stucture to a socket, otherwise we put a 2-byte unsigned short for the
+//  transmitted when writing the net structure to a socket, otherwise we put a 2-byte unsigned short for the
 //  length of the arguments buffer(plus one because the opcode is included in the payload size), and the 1-byte
 //  opcode at the start of the net, as a header for the client to easily parse the information for each frame.
 type Packet struct {

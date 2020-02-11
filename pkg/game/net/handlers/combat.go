@@ -45,9 +45,8 @@ func init() {
 				npc.ResetPath()
 				player.StartCombat(npc)
 				return true
-			} else {
-				player.SetPath(world.MakePath(player.Location, npc.Location))
 			}
+			player.SetPath(world.MakePath(player.Location, npc.Location))
 			return false
 		})
 	})

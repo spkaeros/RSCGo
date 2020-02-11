@@ -437,7 +437,7 @@ func (i *Inventory) Add(id int, qty int) int {
 func (i *Inventory) Remove(index int) bool {
 	item := i.Get(index)
 	if item == nil {
-		log.Suspicious.Printf("Attempted removing non-existant. item:%v\n", index)
+		log.Suspicious.Printf("Attempted removing non-existent. item:%v\n", index)
 		return false
 	}
 	if i.Owner != nil && i.Owner.Connected() {

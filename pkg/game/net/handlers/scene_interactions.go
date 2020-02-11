@@ -24,7 +24,7 @@ func init() {
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
 		if object == nil || object.Boundary {
-			log.Suspicious.Printf("Player %v attempted to use a non-existant object at %d,%d\n", player, x, y)
+			log.Suspicious.Printf("Player %v attempted to use a non-existent object at %d,%d\n", player, x, y)
 			return
 		}
 		player.SetDistancedAction(func() bool {
@@ -59,7 +59,7 @@ func init() {
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
 		if object == nil || object.Boundary {
-			log.Suspicious.Printf("Player %v attempted to use a non-existant object at %d,%d\n", player, x, y)
+			log.Suspicious.Printf("Player %v attempted to use a non-existent object at %d,%d\n", player, x, y)
 			return
 		}
 		player.SetDistancedAction(func() bool {
@@ -94,7 +94,7 @@ func init() {
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
 		if object == nil || !object.Boundary {
-			log.Suspicious.Printf("Player %v attempted to use a non-existant boundary at %d,%d\n", player, x, y)
+			log.Suspicious.Printf("Player %v attempted to use a non-existent boundary at %d,%d\n", player, x, y)
 			return
 		}
 		bounds := object.Boundaries()
@@ -132,7 +132,7 @@ func init() {
 		y := p.ReadShort()
 		object := world.GetObject(x, y)
 		if object == nil || !object.Boundary {
-			log.Suspicious.Printf("%v attempted to use a non-existant boundary at %d,%d\n", player, x, y)
+			log.Suspicious.Printf("%v attempted to use a non-existent boundary at %d,%d\n", player, x, y)
 			return
 		}
 		bounds := object.Boundaries()
@@ -277,11 +277,11 @@ func init() {
 
 		object := world.GetObject(targetX, targetY)
 		if object == nil || !object.Boundary {
-			log.Suspicious.Printf("%v attempted to use a non-existant boundary at %d,%d\n", player, targetX, targetY)
+			log.Suspicious.Printf("%v attempted to use a non-existent boundary at %d,%d\n", player, targetX, targetY)
 			return
 		}
 		if invIndex >= player.Inventory.Size() {
-			log.Suspicious.Printf("%v attempted to use a non-existant item(idx:%v, cap:%v) on a boundary at %d,%d\n", player, invIndex, player.Inventory.Size()-1, targetX, targetY)
+			log.Suspicious.Printf("%v attempted to use a non-existent item(idx:%v, cap:%v) on a boundary at %d,%d\n", player, invIndex, player.Inventory.Size()-1, targetX, targetY)
 			return
 		}
 		invItem := player.Inventory.Get(invIndex)
@@ -326,7 +326,7 @@ func init() {
 			return
 		}
 		if invIndex >= player.Inventory.Size() {
-			log.Suspicious.Printf("%s attempted to use a non-existant item(idx:%v, cap:%v)  on a player(%s)\n", player.String(), invIndex, player.Inventory.Size()-1, target.String())
+			log.Suspicious.Printf("%s attempted to use a non-existent item(idx:%v, cap:%v)  on a player(%s)\n", player.String(), invIndex, player.Inventory.Size()-1, target.String())
 			return
 		}
 		invItem := player.Inventory.Get(invIndex)
@@ -364,11 +364,11 @@ func init() {
 
 		object := world.GetObject(targetX, targetY)
 		if object == nil || object.Boundary {
-			log.Suspicious.Printf("%v attempted to use a non-existant boundary at %d,%d\n", player, targetX, targetY)
+			log.Suspicious.Printf("%v attempted to use a non-existent boundary at %d,%d\n", player, targetX, targetY)
 			return
 		}
 		if invIndex >= player.Inventory.Size() {
-			log.Suspicious.Printf("%v attempted to use a non-existant item(idx:%v, cap:%v) on a boundary at %d,%d\n", player, invIndex, player.Inventory.Size()-1, targetX, targetY)
+			log.Suspicious.Printf("%v attempted to use a non-existent item(idx:%v, cap:%v) on a boundary at %d,%d\n", player, invIndex, player.Inventory.Size()-1, targetX, targetY)
 			return
 		}
 		invItem := player.Inventory.Get(invIndex)
