@@ -138,7 +138,10 @@ func AddPlayer(p *Player) {
 	getRegion(p.X(), p.Y()).Players.Add(p)
 	Players.Put(p)
 	Players.Range(func(player *Player) {
-		player.SendPacket(FriendUpdate(p.UsernameHash(), p.FriendList.contains(player.Username()) || !p.FriendBlocked()))
+		if player.FriendList.contains(p.Username()) {
+			player.SendPacket(FriendUpdate(p.UsernameHash(), p.FriendList.contains(player.Username()) || !p.FriendBlocked()))
+
+		}
 	})
 }
 
@@ -146,7 +149,9 @@ func AddPlayer(p *Player) {
 func RemovePlayer(p *Player) {
 //	p.UpdateStatus(false)
 	Players.Range(func(player *Player) {
-		player.SendPacket(FriendUpdate(p.UsernameHash(), !p.FriendBlocked()))
+		if player.FriendList.contains(p.Username()) {
+			player.SendPacket(FriendUpdate(p.UsernameHash(), !p.FriendBlocked()))
+		}
 	})
 	getRegion(p.X(), p.Y()).Players.Remove(p)
 	Players.Remove(p)

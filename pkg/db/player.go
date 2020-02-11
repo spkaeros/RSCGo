@@ -258,7 +258,7 @@ func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, passw
 			rows.Scan(&hash)
 			switch list {
 			case "friend":
-				player.FriendList.Add(hash)
+				player.FriendList.Add(strutil.Base37.Decode(hash))
 			case "ignore":
 				player.IgnoreList = append(player.IgnoreList, hash)
 			}

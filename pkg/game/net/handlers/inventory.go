@@ -30,7 +30,6 @@ func init() {
 			if item.Worn {
 				return
 			}
-			player.PlaySound("click")
 			player.EquipItem(item)
 			player.SendPacket(world.EquipmentStats(player))
 			player.SendPacket(world.InventoryItems(player))

@@ -502,6 +502,7 @@ func (p *Player) EquipItem(item *Item) {
 		p.Message("You must be a female to wear that")
 		return
 	}
+	p.PlaySound("click")
 	p.Inventory.Range(func(otherItem *Item) bool {
 		otherDef := GetEquipmentDefinition(otherItem.ID)
 		if otherItem == item || !otherItem.Worn || otherDef == nil || def.Type&otherDef.Type == 0 {
