@@ -25,16 +25,20 @@ func (l IpThrottle) Add(ip string) {
 
 func (l IpThrottle) Recent(ip string) int {
 	valid := 0
+	var removing []string
 	if attempts, ok := l[strutil.IPToInteger(ip)]; ok {
-		for i, v := range attempts {
+		for _, v := range attempts {
 			if time.Since(v) < 5*time.Minute {
 				valid++
 				continue
 			}
+			removing = append(removing, ip)
+		}
+		for i := range removing {
 			if i == len(attempts) {
-				attempts = attempts[:i]
+				l[strutil.IPToInteger(ip)] = attempts[:i]
 			} else {
-				attempts = append(attempts[:i], attempts[i+1:]...)
+				l[strutil.IPToInteger(ip)] = attempts = append(attempts[:i], attempts[i+1:]...)
 			}
 		}
 	}
