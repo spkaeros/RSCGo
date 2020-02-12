@@ -24,10 +24,10 @@ var RegisterThrottler = ipthrottle.NewThrottle()
 type (
 	ResponseType int
 	ResponseCode int
-	Response struct {
-		kind ResponseType
+	Response     struct {
+		kind     ResponseType
 		listener chan ResponseCode
-		player *world.Player
+		player   *world.Player
 	}
 )
 

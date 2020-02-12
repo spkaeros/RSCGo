@@ -147,7 +147,7 @@ func AddPlayer(p *Player) {
 
 //RemovePlayer SetRegionRemoved a player from the region.
 func RemovePlayer(p *Player) {
-//	p.UpdateStatus(false)
+	//	p.UpdateStatus(false)
 	Players.Range(func(player *Player) {
 		if player.FriendList.contains(p.Username()) {
 			player.SendPacket(FriendUpdate(p.UsernameHash(), !p.FriendBlocked()))

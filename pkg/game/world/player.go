@@ -42,6 +42,7 @@ func NewAppearanceTable(head, body int, male bool, hair, top, bottom, skin int) 
 func DefaultAppearance() AppearanceTable {
 	return NewAppearanceTable(1, 2, true, 2, 8, 14, 0)
 }
+
 type friendSet map[uint64]bool
 
 type FriendsList struct {
@@ -69,7 +70,7 @@ func (f *FriendsList) Add(name string) {
 	defer f.Unlock()
 	hash := strutil.Base37.Encode(name)
 	p, ok := Players.FromUserHash(hash)
-	f.friendSet[hash] = p != nil && ok &&  (p.FriendList.contains(f.Owner) || !p.FriendBlocked())
+	f.friendSet[hash] = p != nil && ok && (p.FriendList.contains(f.Owner) || !p.FriendBlocked())
 }
 
 func (f *FriendsList) Remove(name string) {
@@ -104,7 +105,7 @@ type Player struct {
 	LocalNPCs        *MobList
 	LocalObjects     *entityList
 	LocalItems       *entityList
-	FriendList		 *FriendsList
+	FriendList       *FriendsList
 	IgnoreList       []uint64
 	Appearance       AppearanceTable
 	KnownAppearances map[int]int
@@ -256,7 +257,6 @@ func (p *Player) SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, du
 	p.Attributes.SetVar("friend_block", friendBlocked)
 	p.Attributes.SetVar("trade_block", tradeBlocked)
 	p.Attributes.SetVar("duel_block", duelBlocked)
-
 
 	//Players.Range(func(player *Player) {
 	//	if player.FriendList.contains(p.Username()) {
@@ -1262,7 +1262,7 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 	p.SendStats()
 	p.SetDirection(North)
 
-	deathItems := []*GroundItem{NewGroundItem(DefaultDrop,1,p.X(),p.Y())}
+	deathItems := []*GroundItem{NewGroundItem(DefaultDrop, 1, p.X(), p.Y())}
 	if !p.IsDueling() {
 		keepCount := 0
 		if p.PrayerActivated(8) {
@@ -1298,8 +1298,8 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 			}
 			AddItem(v)
 		} else {
-			log.Warning.Printf("Death item failed during removal: %v,%v owner:%v, killer:%v!\n", v.ID,v.Amount,p,killer)
-			log.Suspicious.Printf("Death item failed during removal: %v,%v owner:%v, killer:%v!\n", v.ID,v.Amount,p,killer)
+			log.Warning.Printf("Death item failed during removal: %v,%v owner:%v, killer:%v!\n", v.ID, v.Amount, p, killer)
+			log.Suspicious.Printf("Death item failed during removal: %v,%v owner:%v, killer:%v!\n", v.ID, v.Amount, p, killer)
 		}
 	}
 	for i := 0; i < 14; i++ {
@@ -1318,7 +1318,7 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 }
 
 func (p *Player) NpcWithin(id int, rad int) *NPC {
-	return NpcNearest(id,p.X(),p.Y())
+	return NpcNearest(id, p.X(), p.Y())
 }
 
 //SendPlane sends the current plane of this player.

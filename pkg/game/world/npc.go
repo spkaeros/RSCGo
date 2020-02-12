@@ -59,7 +59,7 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 	n.StartPoint = NewLocation(startX, startY)
 	if id < 794 {
 		n.Skills().SetCur(0, NpcDefs[id].Attack)
-		n.Skills().SetCur(1,  NpcDefs[id].Defense)
+		n.Skills().SetCur(1, NpcDefs[id].Defense)
 		n.Skills().SetCur(2, NpcDefs[id].Strength)
 		n.Skills().SetCur(3, NpcDefs[id].Hits)
 		n.Skills().SetMax(0, NpcDefs[id].Attack)

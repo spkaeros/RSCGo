@@ -25,7 +25,7 @@ func FriendList(player *Player) (p *net.Packet) {
 		p.AddLong(hash)
 
 		p1, ok := Players.FromUserHash(hash)
-		if p1 != nil && ok &&  (p1.FriendList.contains(player.Username()) || !p1.FriendBlocked()) {
+		if p1 != nil && ok && (p1.FriendList.contains(player.Username()) || !p1.FriendBlocked()) {
 			p.AddByte(0xFF)
 		} else {
 			p.AddByte(0)

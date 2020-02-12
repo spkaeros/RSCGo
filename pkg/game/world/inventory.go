@@ -431,7 +431,7 @@ func (i *Inventory) Size() int {
 func (i *Inventory) Add(id int, qty int) int {
 	curSize := i.Size()
 	if item := i.GetByID(id); (i.stackEverything || ItemDefs[id].Stackable) && item != nil {
-		if item.Amount + qty >= math.MaxInt32 || item.Amount < 0 {
+		if item.Amount+qty >= math.MaxInt32 || item.Amount < 0 {
 			log.Suspicious.Println("Invalid item amount attempted: current:", item.Amount, "adding: ", qty)
 			log.Info.Println("Invalid item amount attempted: current:", item.Amount, "adding: ", qty)
 		} else {
