@@ -108,10 +108,9 @@ func (r *Response) ResponseListener() chan ResponseCode {
 				}
 				log.Info.Printf("Denied: %v (ResponseCode='%v')\n", r.player.String(), r)
 			case RegisterCode:
-				if code != ResponseRegisterSuccess {
-					r.player.Destroy()
-					RegisterThrottler.Add(r.player.CurrentIP())
-				}
+				r.player.SendPacket(world.SessionResponse(int(code)))
+				r.player.Destroy()
+				RegisterThrottler.Add(r.player.CurrentIP())
 				return true
 			}
 			return true
