@@ -18,17 +18,15 @@ import (
 type IpThrottle map[int][]time.Time
 
 func (l IpThrottle) Add(ip string) {
-	if l.Recent(ip) < 5 {
-		l[strutil.IPToInteger(ip)] = append(l[strutil.IPToInteger(ip)], time.Now())
-	}
+	l[strutil.IPToInteger(ip)] = append(l[strutil.IPToInteger(ip)], time.Now())
 }
 
-func (l IpThrottle) Recent(ip string) int {
+func (l IpThrottle) Recent(ip string, timeFrame time.Duration) int {
 	valid := 0
 	var removing []string
 	if attempts, ok := l[strutil.IPToInteger(ip)]; ok {
 		for _, v := range attempts {
-			if time.Since(v) < 5*time.Minute {
+			if time.Since(v) < timeFrame {
 				valid++
 				continue
 			}

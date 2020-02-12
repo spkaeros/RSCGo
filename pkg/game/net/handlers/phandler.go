@@ -15,14 +15,15 @@ import (
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
+	"github.com/spkaeros/rscgo/pkg/rand"
 )
 
-//handlerFunc Represents a func that is to be called whenever a connected client receives
+//HandlerFunc Represents a func that is to be called whenever a connected client receives
 // a specific incoming net.
-type handlerFunc = func(*world.Player, *net.Packet)
+type HandlerFunc = func(*world.Player, *net.Packet)
 
 //handlers A map with descriptive names for the keys, and functions to run for the value.
-var handlers = make(map[string]handlerFunc)
+var handlers = make(map[string]HandlerFunc)
 
 //definitions a collection of net definitions.
 var definitions packetList
@@ -31,7 +32,7 @@ var definitions packetList
 type packetDefinition struct {
 	Opcode int    `toml:"opcode"`
 	Name   string `toml:"name"`
-	//	Handler handlerFunc
+	//	Handler HandlerFunc
 }
 
 //packetList Represents a mapping of descriptive names to net opcodes.
@@ -42,6 +43,12 @@ type packetList struct {
 func init() {
 	// Just to prevent non-handled net message from spamming up the logs
 	AddHandler("pingreq", func(*world.Player, *net.Packet) {})
+	AddHandler("sessionreq", func(player *world.Player, p *net.Packet) {
+		player.SetConnected(true)
+		p.ReadByte() // UID, useful?
+		player.SetServerSeed(rand.Uint64())
+		player.SendPacket(net.NewBarePacket(nil).AddLong(player.ServerSeed()))
+	})
 }
 
 //UnmarshalPackets Loads the net definitions into memory from the configured TOML file
@@ -53,7 +60,7 @@ func UnmarshalPackets() {
 }
 
 //Handler Returns the net handler function assigned to this opcode.  If it can't be found, returns nil.
-func Handler(opcode byte) handlerFunc {
+func Handler(opcode byte) HandlerFunc {
 	for _, h := range definitions.Set {
 		if byte(h.Opcode) == opcode {
 			return handlers[h.Name]
@@ -63,7 +70,7 @@ func Handler(opcode byte) handlerFunc {
 }
 
 //AddHandler Adds and assigns the net handler to the net with the specified name.
-func AddHandler(name string, h handlerFunc) {
+func AddHandler(name string, h HandlerFunc) {
 	if _, ok := handlers[name]; ok {
 		log.Warning.Printf("Attempted to bind a handler to net '%v' which is already handled elsewhere.  Ignoring bind.", name)
 		return

@@ -8,6 +8,7 @@ import (
 
 	"github.com/spkaeros/rscgo/pkg/crypto"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
+	"github.com/spkaeros/rscgo/pkg/game/login"
 
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/errors"
@@ -19,12 +20,12 @@ import (
 //PlayerService An interface for manipulating player save data.
 type PlayerService interface {
 	PlayerCreate(string, string) bool
-	PlayerValidName(username string) bool
+	PlayerNameTaken(username string) bool
 	PlayerHasRecoverys(uint64) bool
 	PlayerValidLogin(uint64, string) bool
 	PlayerChangePassword(uint64, string) bool
 	PlayerLoadRecoverys(uint64) []string
-	PlayerLoad(*world.Player, uint64, string, chan byte)
+	PlayerLoad(*world.Player, uint64, string, chan login.ResponseCode)
 	PlayerSave(*world.Player)
 }
 
@@ -72,8 +73,8 @@ func (s *sqlService) PlayerCreate(username, password string) bool {
 	return true
 }
 
-//PlayerValidName Returns true if there is a player with the name 'username' in the player database, otherwise returns false.
-func (s *sqlService) PlayerValidName(username string) bool {
+//PlayerNameTaken Returns true if there is a player with the name 'username' in the player database, otherwise returns false.
+func (s *sqlService) PlayerNameTaken(username string) bool {
 	database := s.connect(context.Background())
 	defer database.Close()
 	stmt, err := database.QueryContext(context.Background(), "SELECT id FROM player WHERE userhash=?", strutil.Base37.Encode(username))
@@ -159,19 +160,19 @@ func (s *sqlService) SaveRecoveryQuestions(userHash uint64, questions []string, 
 }
 
 //PlayerLoad Loads a player from the SQLite3 database, returns a login response code.
-func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, password string, loginReply chan byte) {
+func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, password string, loginReply chan login.ResponseCode) {
 	loadProfile := func() error {
 		database := s.connect(context.Background())
 		defer database.Close()
 		rows, err := database.QueryContext(context.Background(), "SELECT player.id, player.x, player.y, player.group_id, appearance.haircolour, appearance.topcolour, appearance.trousercolour, appearance.skincolour, appearance.head, appearance.body FROM player INNER JOIN appearance WHERE appearance.playerid=player.id AND player.userhash=? AND player.password=?", usernameHash, crypto.Hash(password))
 		if err != nil {
 			log.Info.Println("ValidatePlayer(uint64,string): Could not prepare query statement for player:", err)
-			loginReply <- byte(3)
+			loginReply <- login.ResponseBadPassword
 			return errors.NewDatabaseError(err.Error())
 		}
 		defer rows.Close()
 		if !rows.Next() {
-			loginReply <- byte(3)
+			loginReply <- login.ResponseBadPassword
 			return errors.NewDatabaseError("Could not find player")
 		}
 		var x, y, rank, dbID int
@@ -329,6 +330,10 @@ func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, passw
 		return nil
 	}
 
+	if !s.PlayerNameTaken(strutil.Base37.Decode(usernameHash)) {
+		loginReply <- login.ResponseBadPassword
+		return
+	}
 	// If this fails, then the login information was incorrect, and we don't need to do anything else
 	if err := loadProfile(); err != nil {
 		return
@@ -353,16 +358,16 @@ func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, passw
 	}
 
 	if player.Reconnecting() {
-		loginReply <- 1
+		loginReply <- login.ResponseReconnected
 		return
 	}
 	switch player.Rank() {
 	case 2:
-		loginReply <- 25
+		loginReply <- login.ResponseAdministrator
 	case 1:
-		loginReply <- 24
+		loginReply <- login.ResponseModerator
 	default:
-		loginReply <- 0
+		loginReply <- login.ResponseLoginSuccess
 	}
 }
 

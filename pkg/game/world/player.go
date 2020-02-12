@@ -785,9 +785,10 @@ func (p *Player) SendPacket(packet *net.Packet) {
 //Destroy sends a kill signal to the underlying client to tear down all of the I/O routines and save the player.
 func (p *Player) Destroy() {
 	p.killer.Do(func() {
-		p.SendPacket(Logout)
-		p.ResetAll()
-		p.Attributes.SetVar("lastIP", p.CurrentIP())
+		if p.Connected() {
+			p.SendPacket(Logout)
+			p.ResetAll()
+		}
 		p.Inventory.Owner = nil
 		close(p.KillC)
 	})
@@ -893,6 +894,9 @@ func (p *Player) Initialize() {
 	}
 	p.SendStats()
 	p.Attributes.SetVar("lastLogin", time.Now())
+	for _, fn := range LoginTriggers {
+		fn(p)
+	}
 }
 
 //NewPlayer Returns a reference to a new player.

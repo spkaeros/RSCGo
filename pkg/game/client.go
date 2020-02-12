@@ -115,6 +115,7 @@ func (c *client) destroy() {
 				}
 				return
 			}
+			c.player.Attributes.SetVar("lastIP", c.player.CurrentIP())
 			world.RemovePlayer(c.player)
 			db.DefaultPlayerService.PlayerSave(c.player)
 			log.Info.Printf("Unregistered: %v\n", c.player.String())
