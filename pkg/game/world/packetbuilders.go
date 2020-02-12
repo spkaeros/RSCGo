@@ -143,7 +143,7 @@ func ShopOpen(shop *Shop) *net.Packet {
 	shop.Inventory.Range(func(item *Item) bool {
 		p.AddShort(uint16(item.ID))
 		p.AddShort(uint16(item.Amount))
-		p.AddByte(uint8(shop.StockDeltaPercentage(item)))
+		p.AddByte(uint8(shop.DeltaPercentMod(item)))
 		return false
 	})
 	return p

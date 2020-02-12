@@ -18,6 +18,7 @@ import (
 
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/game/net"
+	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
@@ -141,7 +142,7 @@ func (p *Player) CanAttack(target entity.MobileEntity) bool {
 		return NpcDefs[target.(*NPC).ID].Attackable
 	}
 	if p.IsDueling() && p.IsFighting() {
-		return p.DuelTarget() == target && !p.TransAttrs.VarBool("duelCanMagic", true)
+		return p.DuelTarget() == target && p.TransAttrs.VarBool("duelCanMagic", true)
 	}
 	p1 := target.(*Player)
 	ourWild := p.Wilderness()
@@ -579,11 +580,20 @@ func (p *Player) DequipItem(item *Item) {
 //ResetAll in order, calls ResetFighting, ResetTrade, ResetDistancedAction, ResetFollowing, and CloseOptionMenu.
 func (p *Player) ResetAll() {
 	p.ResetFighting()
+	p.ResetDuel()
 	p.ResetTrade()
 	p.ResetDistancedAction()
 	p.ResetFollowing()
 	p.CloseOptionMenu()
-	p.ResetDuel()
+	p.CloseBank()
+	p.CloseShop()
+}
+
+func (p *Player) ResetAllExceptDueling() {
+	p.ResetTrade()
+	p.ResetDistancedAction()
+	p.ResetFollowing()
+	p.CloseOptionMenu()
 	p.CloseBank()
 	p.CloseShop()
 }
@@ -1252,8 +1262,7 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 	p.SendStats()
 	p.SetDirection(North)
 
-	var deathItems *Inventory
-
+	deathItems := []*GroundItem{NewGroundItem(DefaultDrop,1,p.X(),p.Y())}
 	if !p.IsDueling() {
 		keepCount := 0
 		if p.PrayerActivated(8) {
@@ -1263,45 +1272,44 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 		if !p.Skulled() {
 			keepCount += 3
 		}
-		deathItems = p.Inventory.DeathDrops(keepCount)
+		deathItems = append(deathItems, p.Inventory.DeathDrops(keepCount)...)
 	} else {
-		deathItems = p.DuelOffer
+		p.DuelOffer.Lock.RLock()
+		for _, i := range p.DuelOffer.List {
+			deathItems = append(deathItems, NewGroundItem(i.ID, i.Amount, p.X(), p.Y()))
+		}
+		p.DuelOffer.Lock.RUnlock()
+		if p.DuelTarget() != nil {
+			p.DuelTarget().ResetDuel()
+		}
+		p.ResetDuel()
 	}
-	var itemOwner *Player
+
 	if killer != nil && killer.IsPlayer() {
 		killer := killer.(*Player)
 		killer.DistributeMeleeExp(int(math.Ceil(MeleeExperience(p) / 4.0)))
 		killer.Message("You have defeated " + p.Username() + "!")
-		itemOwner = killer
 	}
-	deathItems.Range(func(item *Item) bool {
-		if itemOwner == nil {
-			AddItem(NewGroundItem(item.ID, item.Amount, p.X(), p.Y()))
+	for i, v := range deathItems {
+		// becomes universally visible on NPCs, or temporarily private otherwise
+		if i == 0 || p.Inventory.RemoveByID(v.ID, v.Amount) > -1 {
+			if killer != nil {
+				v.SetVar("belongsTo", killer.Transients().VarLong("username", 0))
+			}
+			AddItem(v)
 		} else {
-			AddItem(NewGroundItemFor(itemOwner.UsernameHash(), item.ID, item.Amount, p.X(), p.Y()))
+			log.Warning.Printf("Death item failed during removal: %v,%v owner:%v, killer:%v!\n", v.ID,v.Amount,p,killer)
+			log.Suspicious.Printf("Death item failed during removal: %v,%v owner:%v, killer:%v!\n", v.ID,v.Amount,p,killer)
 		}
-		return true
-	})
-	p.Inventory.RemoveAll(deathItems)
+	}
 	for i := 0; i < 14; i++ {
 		p.PrayerOff(i)
 	}
-	if itemOwner == nil {
-		AddItem(NewGroundItem(20, 1, p.X(), p.Y()))
-	} else {
-		AddItem(NewGroundItemFor(itemOwner.UsernameHash(), 20, 1, p.X(), p.Y()))
-	}
-
-	if p.IsDueling() {
-		if p.DuelTarget() != nil {
-			p.DuelTarget().ResetDuel()
-		}
-	}
-	p.ResetDuel()
-	p.SetSkulled(false)
 	p.SendPrayers()
-	p.SendEquipBonuses()
+
 	p.ResetFighting()
+	p.SetSkulled(false)
+	p.SendEquipBonuses()
 	plane := p.Plane()
 	p.SetLocation(SpawnPoint, true)
 	if p.Plane() != plane {
@@ -1310,17 +1318,7 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 }
 
 func (p *Player) NpcWithin(id int, rad int) *NPC {
-	var npc *NPC
-	dist := math.MaxInt32
-	p.LocalNPCs.RangeNpcs(func(n *NPC) bool {
-		if n.ID == id && p.WithinRange(n.Location, rad) {
-			dist = p.LongestDelta(n.Location)
-			npc = n
-		}
-		return false
-	})
-
-	return npc
+	return NpcNearest(id,p.X(),p.Y())
 }
 
 //SendPlane sends the current plane of this player.

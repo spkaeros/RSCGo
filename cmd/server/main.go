@@ -10,7 +10,7 @@ import (
 	"github.com/jessevdk/go-flags"
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/db"
-	"github.com/spkaeros/rscgo/pkg/game"
+	"github.com/spkaeros/rscgo/pkg/engine"
 	"github.com/spkaeros/rscgo/pkg/game/net/handlers"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -108,16 +108,16 @@ func main() {
 		log.Info.Printf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill] loaded\n", len(world.ItemTriggers), len(world.ObjectTriggers), len(world.BoundaryTriggers), len(world.NpcTriggers), len(world.InvOnBoundaryTriggers), len(world.InvOnObjectTriggers), len(world.NpcAtkTriggers), len(world.NpcDeathTriggers))
 		log.Info.Printf("Finished initializing entities in: %dms\n", time.Since(start).Milliseconds())
 	}
-	game.StartGameEngine()
+	engine.StartGameEngine()
 	if config.Verbose() {
 		log.Info.Println("Launched game engine.")
 		log.Info.Println()
 	}
-	game.StartConnectionService()
+	engine.StartConnectionService()
 	log.Info.Println("RSCGo is now running.")
 	log.Info.Printf("Listening on TCP port %d, websocket port %d...\n", config.Port(), config.WSPort())
 	select {
-	case <-game.Kill:
+	case <-engine.Kill:
 		os.Exit(0)
 	}
 }

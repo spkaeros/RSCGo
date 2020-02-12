@@ -3,12 +3,3 @@ bind = import("bind")
 bind.command("death", func(player, args) {
 	player.Killed(nil)
 })
-
-bind.command("deathitems", func(player, args) {
-	items = "On death you will lose:%"
-	player.Inventory.DeathDrops(player.PrayerActivated(8) ? 4 : 3).Range(func(item) {
-		items += (item.Name() + "(" + item.ID + (item.Stackable() ? (")x" + item.Amount + ")") : ")") + ", ")
-		return true
-	})
-	player.SendMessageBox(items[:len(items)-2], true)
-})

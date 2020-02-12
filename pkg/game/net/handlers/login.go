@@ -16,9 +16,9 @@ import (
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/crypto"
 	"github.com/spkaeros/rscgo/pkg/db"
+	"github.com/spkaeros/rscgo/pkg/engine/tasks"
 	"github.com/spkaeros/rscgo/pkg/game/login"
 	"github.com/spkaeros/rscgo/pkg/game/net"
-	"github.com/spkaeros/rscgo/pkg/game/tasks"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
@@ -52,7 +52,7 @@ func init() {
 			}
 		*/
 		loginReply := login.NewLoginListener(player).ResponseListener()
-		if login.Throttler.Recent(player.CurrentIP(), time.Minute*5) >= 5 {
+		if login.LoginThrottler.Recent(player.CurrentIP(), time.Minute*5) >= 5 {
 			loginReply <- login.ResponseSpamTimeout
 			return
 		}

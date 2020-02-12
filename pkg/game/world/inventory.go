@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spkaeros/rscgo/pkg/engine/tasks"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
-	"github.com/spkaeros/rscgo/pkg/game/tasks"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"go.uber.org/atomic"
 )
@@ -54,6 +54,8 @@ func GetEquipmentDefinition(id int) *EquipmentDefinition {
 
 	return nil
 }
+
+const DefaultDrop = 20
 
 //Item Represents a single item in the game.
 type Item struct {
@@ -369,22 +371,31 @@ func (i *Inventory) Clone() *Inventory {
 // If the item is stackable, it gets dropped no matter what, even if it is the only item and keep is 3.
 // If the item isn't stackable, the inventory is first sorted by descending BasePrice, and the first `keep` items are
 // sliced off of the top of this sorted list which leaves us with the 30-keep least valuable items.
-func (i *Inventory) DeathDrops(keep int) *Inventory {
+func (i *Inventory) DeathDrops(keep int) []*GroundItem {
 	// clone so we don't modify the players inventory during the sorting process
+	var pile []*GroundItem
 	if keep <= 0 {
-		return i.Clone()
-	}
-	deathItems := i.Clone()
-	sort.Sort(itemSorter(deathItems.List))
-	if len(deathItems.List) < keep {
-		keep = len(deathItems.List)
-	}
-	for idx := keep; idx > 0; idx-- {
-		if deathItems.List[idx-1].Stackable() {
-			keep--
+		i.Lock.RLock()
+		for _, item := range i.List {
+			pile = append(pile, NewGroundItem(item.ID, item.Amount, i.Owner.X(), i.Owner.Y()))
+		}
+		i.Lock.RUnlock()
+	} else {
+		deathItems := i.Clone()
+		sort.Sort(itemSorter(deathItems.List))
+		if len(deathItems.List) < keep {
+			keep = len(deathItems.List)
+		}
+		for idx := keep; idx > 0; idx-- {
+			if deathItems.List[idx-1].Stackable() {
+				keep--
+			}
+		}
+		for _, item := range deathItems.List[keep:] {
+			pile = append(pile, NewGroundItem(item.ID, item.Amount, i.Owner.X(), i.Owner.Y()))
 		}
 	}
-	return &Inventory{List: deathItems.List[keep:], Capacity: 30}
+	return pile
 }
 
 func (i *Inventory) Range(fn func(*Item) bool) int {

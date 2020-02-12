@@ -12,13 +12,13 @@ package login
 import (
 	"time"
 
-	"github.com/spkaeros/rscgo/pkg/game/tasks"
+	"github.com/spkaeros/rscgo/pkg/engine/tasks"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/ipthrottle"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 
-var Throttler = ipthrottle.NewThrottle()
+var LoginThrottler = ipthrottle.NewThrottle()
 var RegisterThrottler = ipthrottle.NewThrottle()
 
 type (
@@ -104,7 +104,7 @@ func (r *Response) ResponseListener() chan ResponseCode {
 				}
 				r.player.Destroy()
 				if code == ResponseBadPassword {
-					Throttler.Add(r.player.CurrentIP())
+					LoginThrottler.Add(r.player.CurrentIP())
 				}
 				log.Info.Printf("Denied: %v (ResponseCode='%v')\n", r.player.String(), r)
 			case RegisterCode:

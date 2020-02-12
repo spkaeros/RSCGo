@@ -612,14 +612,17 @@ func handleSpells(player *world.Player, idx int, target entity.MobileEntity) {
 		// if it is in our damage defs, it's an offensive spell without any special fx
 		if val, ok := dmgs[s.level]; ok {
 			player.SetDistancedAction(func() bool {
-				if (player.Busy() && !player.IsFighting()) || target == nil {
+				if (player.Busy() && !player.IsDueling() && !player.IsFighting()) || target == nil {
+					player.ResetPath()
 					return true
 				}
-				if player.IsDueling() && (player.Direction() == 7 || player.Direction() == 8) && !player.TransAttrs.VarBool("duelCanMagic", true) {
+				if player.IsDueling() && player.IsFighting() && target == player.DuelTarget() && !player.TransAttrs.VarBool("duelCanMagic", true) {
 					player.Message("Magic cannot be used during this duel!")
+					player.ResetPath()
 					return true
 				}
 				if !player.CanAttack(target) {
+					player.ResetPath()
 					return true
 				}
 				if player.WithinRange(world.NewLocation(target.X(), target.Y()), 4) {
@@ -658,7 +661,7 @@ func handleSpells(player *world.Player, idx int, target entity.MobileEntity) {
 						}
 					}
 					// reaching here means made it to target within 4 steps without hitting a barrier
-					player.ResetAll()
+					player.ResetAllExceptDueling()
 					if !checkAndRemoveRunes() {
 						return true
 					}

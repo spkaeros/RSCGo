@@ -264,6 +264,7 @@ func init() {
 					}
 					return true
 				})
+				player.SendInventory()
 			}
 			if !target.TransAttrs.VarBool("duelCanPrayer", true) {
 				for i := 0; i < 14; i++ {
@@ -279,6 +280,7 @@ func init() {
 					}
 					return true
 				})
+				target.SendInventory()
 			}
 			player.StartCombat(target)
 			player.SendPacket(world.DuelClose)

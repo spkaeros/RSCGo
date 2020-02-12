@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Zachariah Knight <aeros.storkpk@gmail.com>
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
  *
@@ -12,7 +12,7 @@ package world
 import (
 	"sync"
 
-	"github.com/spkaeros/rscgo/pkg/game/tasks"
+	"github.com/spkaeros/rscgo/pkg/engine/tasks"
 )
 
 const (
@@ -334,13 +334,13 @@ func (s *Shop) Clone() *Shop {
 	return &Shop{BuysUnstocked: s.BuysUnstocked, BasePurchasePercent: s.BasePurchasePercent, BaseSalePercent: s.BaseSalePercent, Stock: s.Stock.Clone(), Inventory: s.Inventory.Clone()}
 }
 
-//StockDeltaPercentage calculates the percentage to scale the item's price up or down from its respective base percentage.
+//DeltaPercentMod calculates the percentage to scale the item's price up or down from its respective base percentage.
 // The formula simply subtracts the shop's base stocked amount of item from item's amount, and multiplies the difference
 // by ShopNormalDeltaRate.
-func (s *Shop) StockDeltaPercentage(item *Item) int {
+func (s *Shop) DeltaPercentMod(item *Item) int {
 	return item.DeltaAmount(s.Stock.Get(item.ID)) * ShopNormalDeltaRate
 }
 
-func (s *Shop) StockDeltaPercentID(id int) int {
+func (s *Shop) DeltaPercentModID(id int) int {
 	return (s.Stock.Count(id) - s.Inventory.Count(id)) * ShopNormalDeltaRate
 }

@@ -37,7 +37,7 @@ func init() {
 			}
 
 			item := shop.Inventory.Get(id)
-			realPrice := int(item.Price().Scale(shop.BaseSalePercent + shop.StockDeltaPercentage(item)))
+			realPrice := int(item.Price().Scale(shop.BaseSalePercent + shop.DeltaPercentMod(item)))
 			if price != realPrice {
 				log.Suspicious.Println(player, "tried buying item["+strconv.Itoa(id)+"] for ["+strconv.Itoa(price)+"gp] but actual price is currently ["+strconv.Itoa(realPrice)+"gp]")
 				return
@@ -79,7 +79,7 @@ func init() {
 				return
 			}
 
-			realPrice := int(world.Price(world.ItemDefs[id].BasePrice).Scale(shop.BasePurchasePercent + shop.StockDeltaPercentID(id)))
+			realPrice := int(world.Price(world.ItemDefs[id].BasePrice).Scale(shop.BasePurchasePercent + shop.DeltaPercentModID(id)))
 			if price != realPrice {
 				log.Suspicious.Println(player, "tried buying item["+strconv.Itoa(id)+"] for ["+strconv.Itoa(price)+"gp] but actual price is currently ["+strconv.Itoa(realPrice)+"gp]")
 				return
