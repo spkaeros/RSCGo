@@ -279,12 +279,12 @@ func (p *Player) WalkingArrivalAction(target entity.MobileEntity, dist int, acti
 		if !p.CanReachMob(target) {
 			return false
 		}
-		if p.WithinRange(NewLocation(target.X(),target.Y()), dist) {
+		if p.WithinRange(NewLocation(target.X(), target.Y()), dist) {
 			action()
 			return true
 		}
-//		action()		
-//		return p.WithinRange(NewLocation(target.X(), target.Y()), dist)
+		//		action()
+		//		return p.WithinRange(NewLocation(target.X(), target.Y()), dist)
 		return false
 	})
 }

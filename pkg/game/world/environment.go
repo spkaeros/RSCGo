@@ -17,6 +17,7 @@ import (
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/mattn/anko/core"
 	"github.com/mattn/anko/env"
+	"github.com/mattn/anko/parser"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/rand"
@@ -175,6 +176,7 @@ func init() {
 		"E_AIR_BATTLESTAFF":        reflect.ValueOf(684),
 		"E_EARTH_BATTLESTAFF":      reflect.ValueOf(685),
 		"BONES":                    reflect.ValueOf(20),
+		"BANANA":                    reflect.ValueOf(249),
 		"BAT_BONES":                reflect.ValueOf(604),
 		"DRAGON_BONES":             reflect.ValueOf(614),
 		"RUNE_2H":                  reflect.ValueOf(81),
@@ -246,6 +248,12 @@ func init() {
 		"npc": reflect.ValueOf(func(predicate func(npc *NPC) bool, fn func(player *Player, npc *NPC)) {
 			NpcTriggers = append(NpcTriggers, NpcTrigger{predicate, fn})
 		}),
+		"spell": reflect.ValueOf(func(ident interface{}, fn func(player *Player, spell interface{})) {
+			switch ident.(type) {
+			case int64:
+				SpellTriggers[int(ident.(int64))] = fn
+			}
+		}),
 		"npcAttack": reflect.ValueOf(func(pred NpcActionPredicate, fn func(player *Player, npc *NPC)) {
 			NpcAtkTriggers = append(NpcAtkTriggers, NpcBlockingTrigger{pred, fn})
 		}),
@@ -272,9 +280,12 @@ func init() {
 
 func ScriptEnv() *env.Env {
 	e := env.NewEnv()
+	parser.EnableErrorVerbose()
+	//parser.EnableDebug(2)
 	e.Define("sleep", time.Sleep)
 	e.Define("runAfter", time.AfterFunc)
 	e.Define("after", time.After)
+	e.Define("newProjectile", CreateProjectile)
 	e.Define("tMinute", time.Second*60)
 	e.Define("tHour", time.Second*60*60)
 	e.Define("tSecond", time.Second)
@@ -315,6 +326,7 @@ func ScriptEnv() *env.Env {
 	e.Define("newObject", NewObject)
 	e.Define("base37", strutil.Base37.Encode)
 	e.Define("rand", rand.Int31N)
+	e.Define("tNow", time.Now)
 	e.Define("North", North)
 	e.Define("NorthEast", NorthEast)
 	e.Define("NorthWest", NorthWest)

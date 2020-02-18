@@ -60,6 +60,8 @@ type NpcTrigger struct {
 	Action func(*Player, *NPC)
 }
 
+type Trigger func(*Player, interface{})
+
 //NpcActionPredicate A type alias for an NPC related action predicate.
 type NpcActionPredicate = func(*Player, *NPC) bool
 
@@ -89,6 +91,12 @@ var BoundaryTriggers []ObjectTrigger
 
 //NpcTriggers List of script callbacks to run for NPC talking actions
 var NpcTriggers []NpcTrigger
+
+//var Triggers []Trigger
+
+var SpellTriggers = make(map[int]Trigger)
+
+type SpellDef map[string]interface{}
 
 //NpcAtkTriggers List of script callbacks to run when you attack an NPC
 var NpcAtkTriggers []NpcBlockingTrigger
@@ -143,18 +151,23 @@ func RunScripts() {
 			}
 		}()
 	}
-	parser.EnableDebug(1)
-	parser.EnableErrorVerbose()
 
 	err = filepath.Walk("./scripts", func(path string, info os.FileInfo, err error) error {
 		if !info.Mode().IsDir() && !strings.Contains(path, "definitions") && !strings.Contains(path, "lib") && strings.HasSuffix(path, "ank") {
-			_, err := vm.Execute(ScriptEnv(), &vm.Options{Debug: true}, load(path))
 
+			stmt, err := parser.ParseSrc(load(path))
 			if err != nil {
-				log.Info.Println("Anko error ['"+path+"']:", err)
+				log.Warning.Printf("ParseSrc error - received: %v - script: %v", err, path)
+			}
+			// Note: Still want to run the code even after a parse error to see what happens
+			//_, err := vm.Execute(ScriptEnv(), &vm.Options{Debug: true}, load(path))
+			_, err = vm.Run(ScriptEnv(), &vm.Options{Debug: true}, stmt)
+			if err != nil {
+				log.Warning.Println("Anko error ['"+path+"']:", err)
 				//				log.Info.Println(env.String())
 				return nil
 			}
+			//log.Info.Println(val)
 			return scriptWatcher.Add(path)
 		}
 

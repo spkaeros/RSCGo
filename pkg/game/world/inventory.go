@@ -409,6 +409,17 @@ func (i *Inventory) Range(fn func(*Item) bool) int {
 	return -1
 }
 
+func (i *Inventory) RangeRev(fn func(*Item) bool) int {
+	i.Lock.RLock()
+	defer i.Lock.RUnlock()
+	for idx := len(i.List) - 1; idx > 0; idx-- {
+		if !fn(i.List[idx]) {
+			return idx
+		}
+	}
+	return -1
+}
+
 func (i *Inventory) Equipped(id int) bool {
 	i.Lock.RLock()
 	defer i.Lock.RUnlock()
@@ -520,7 +531,7 @@ func (i *Inventory) GetByID(ID int) *Item {
 
 //Get returns the index of the first item with the provided ID.
 func (i *Inventory) GetIndex(ID int) int {
-	return i.Range(func(item *Item) bool {
+	return i.RangeRev(func(item *Item) bool {
 		if item.ID == ID {
 			return false
 		}
