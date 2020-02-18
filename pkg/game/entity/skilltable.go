@@ -10,8 +10,8 @@
 package entity
 
 import (
+	"github.com/lithammer/fuzzysearch/fuzzy"
 	"math"
-	"strings"
 	"sync"
 )
 
@@ -166,7 +166,7 @@ func SkillIndex(s string) int {
 		return skill
 	}
 	for name, idx := range SkillNames {
-		if strings.Contains(name, s) {
+		if fuzzy.Match(s, name) {
 			return idx
 		}
 	}
