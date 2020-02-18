@@ -268,23 +268,28 @@ func (p *Player) WalkingArrivalAction(target entity.MobileEntity, dist int, acti
 			p.ResetPath()
 			return true
 		}
-		if p.Busy() && !p.IsFighting() {
+		if target == nil ||
+				(p.Busy() && !p.IsFighting() && !p.IsDueling()) ||
+				(p.IsFighting() && p.IsDueling() && (!p.TransAttrs.VarBool("duelCanMagic", true) || target != p.DuelTarget())) {
 			p.ResetPath()
 			return true
 		}
-		if !p.WithinRange(NewLocation(target.X(), target.Y()), dist) {
-			p.WalkTo(NewLocation(target.X(), target.Y()))
-		}
-
-		if !p.CanReachMob(target) {
-			return false
-		}
+		
 		if p.WithinRange(NewLocation(target.X(), target.Y()), dist) {
+			if !p.CanReachMob(target) {
+				if p.TransAttrs.VarInt("triedReach", 0) >= 5 {
+					p.TransAttrs.UnsetVar("triedReach")
+					p.ResetPath()
+					return true
+				}
+
+				p.TransAttrs.UnsetVar("triedReach")
+				return false
+			}
 			action()
 			return true
 		}
-		//		action()
-		//		return p.WithinRange(NewLocation(target.X(), target.Y()), dist)
+		p.WalkTo(NewLocation(target.X(), target.Y()))
 		return false
 	})
 }
@@ -295,8 +300,17 @@ func (p *Player) CanReachMob(target entity.MobileEntity) bool {
 	pathX := p.X()
 	pathY := p.Y()
 
+
+	if p.TransAttrs.VarInt("triedReach", 0) >= 5 {
+		// Tried reaching one mob >=5 times without single success, abort early.
+		p.ResetPath()
+		return false
+	}
+	p.TransAttrs.SetVar("triedReach", p.TransAttrs.VarInt("triedReach", 0) + 1)
+
 	for steps := 0; steps < 21; steps++ {
 		if pathX == target.X() && pathY == target.Y() {
+			p.TransAttrs.UnsetVar("triedReach")
 			return true
 		}
 
@@ -324,6 +338,7 @@ func (p *Player) CanReachMob(target entity.MobileEntity) bool {
 			}
 		}
 	}
+	p.TransAttrs.UnsetVar("triedReach")
 
 	return pathX == target.X() && pathY == target.Y()
 }
