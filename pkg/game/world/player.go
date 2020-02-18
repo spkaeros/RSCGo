@@ -251,6 +251,19 @@ func (p *Player) UpdateStatus(status bool) {
 	})
 }
 
+func (p *Player) WalkNearMob(t entity.MobileEntity, fn func() bool) {
+	p.SetDistancedAction(func() bool {
+		if t == nil {
+			p.ResetPath()
+			return true
+		}
+		if p.FinishedPath() || !p.WithinRange(NewLocation(t.X(), t.Y()), 5) {
+			p.WalkTo(NewLocation(t.X(), t.Y()))
+		}
+		return !(p.Busy() && !p.IsDueling() && !p.IsFighting()) && p.WithinRange(NewLocation(t.X(), t.Y()), 5) && fn()
+	})
+}
+
 //SetPrivacySettings sets privacy settings to specified values.
 func (p *Player) SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, duelBlocked bool) {
 	p.Attributes.SetVar("chat_block", chatBlocked)

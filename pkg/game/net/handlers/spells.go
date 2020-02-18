@@ -611,11 +611,7 @@ func handleSpells(player *world.Player, idx int, target entity.MobileEntity) {
 		}
 		// if it is in our damage defs, it's an offensive spell without any special fx
 		if val, ok := dmgs[s.level]; ok {
-			player.SetDistancedAction(func() bool {
-				if (player.Busy() && !player.IsDueling() && !player.IsFighting()) || target == nil {
-					player.ResetPath()
-					return true
-				}
+			player.WalkNearMob(target, func() bool {
 				if player.IsDueling() && player.IsFighting() && target == player.DuelTarget() && !player.TransAttrs.VarBool("duelCanMagic", true) {
 					player.Message("Magic cannot be used during this duel!")
 					player.ResetPath()
@@ -625,79 +621,75 @@ func handleSpells(player *world.Player, idx int, target entity.MobileEntity) {
 					player.ResetPath()
 					return true
 				}
-				if player.WithinRange(world.NewLocation(target.X(), target.Y()), 4) {
-					steps := 0
-					xOff := player.X()
-					yOff := player.Y()
-					for steps < 10 {
-						if xOff == target.X() && yOff == target.Y() {
-							break
+				steps := 0
+				xOff := player.X()
+				yOff := player.Y()
+				for steps < 10 {
+					if xOff == target.X() && yOff == target.Y() {
+						break
+					}
+					if yOff > target.Y() {
+						yOff--
+						if world.IsTileBlocking(xOff, yOff, world.ClipSouth, false) {
+							return false
 						}
-						if yOff > target.Y() {
-							yOff--
-							if world.IsTileBlocking(xOff, yOff, world.ClipSouth, false) {
-								return false
-							}
-							steps++
-						} else if yOff < target.Y() {
-							yOff++
-							if world.IsTileBlocking(xOff, yOff, world.ClipNorth, false) {
-								return false
-							}
-							steps++
+						steps++
+					} else if yOff < target.Y() {
+						yOff++
+						if world.IsTileBlocking(xOff, yOff, world.ClipNorth, false) {
+							return false
 						}
-						if xOff > target.X() {
-							xOff--
-							if world.IsTileBlocking(xOff, yOff, world.ClipWest, false) {
-								return false
-							}
-							steps++
-						} else if xOff < target.X() {
-							xOff++
-							if world.IsTileBlocking(xOff, yOff, world.ClipEast, false) {
-								return false
-							}
-							steps++
+						steps++
+					}
+					if xOff > target.X() {
+						xOff--
+						if world.IsTileBlocking(xOff, yOff, world.ClipWest, false) {
+							return false
 						}
-					}
-					// reaching here means made it to target within 4 steps without hitting a barrier
-					player.ResetAllExceptDueling()
-					if !checkAndRemoveRunes() {
-						return true
-					}
-					finalize()
-
-					dmg := float64(val)
-					probs := map[int]float64{}
-					rat := 45.0 + float64(player.MagicPoints())
-					peak := (dmg / 100.0) * rat
-					dip := peak / 3.0
-
-					curProb := 100.0 * dmg
-					for i := 0.0; i <= dmg; i++ {
-						probs[int(i)] = curProb
-						if i < dip || i > peak {
-							curProb -= (dmg * 100) / 3
-						} else {
-							curProb += (dmg * 100) / 3
+						steps++
+					} else if xOff < target.X() {
+						xOff++
+						if world.IsTileBlocking(xOff, yOff, world.ClipEast, false) {
+							return false
 						}
+						steps++
 					}
-					hit := int(math.Min(float64(target.Skills().Current(entity.StatHits)), float64(world.WeightedChoice(probs))))
-					target.Skills().DecreaseCur(entity.StatHits, hit)
-					if target.Skills().Current(entity.StatHits) <= 0 {
-						target.Killed(player)
-						return true
-					}
-					projectile := world.CreateProjectile(player, target, 1)
-					for _, v := range player.NearbyPlayers() {
-						v.SendPacket(projectile)
-					}
-					player.SendPacket(projectile)
-					target.Damage(hit)
+				}
+				// reaching here means made it to target within 4 steps without hitting a barrier
+				player.ResetAllExceptDueling()
+				if !checkAndRemoveRunes() {
 					return true
 				}
-				player.WalkTo(world.NewLocation(target.X(), target.Y()))
-				return false
+				finalize()
+
+				dmg := float64(val)
+				probs := map[int]float64{}
+				rat := 45.0 + float64(player.MagicPoints())
+				peak := (dmg / 100.0) * rat
+				dip := peak / 3.0
+
+				curProb := 100.0 * dmg
+				for i := 0.0; i <= dmg; i++ {
+					probs[int(i)] = curProb
+					if i < dip || i > peak {
+						curProb -= (dmg * 100) / 3
+					} else {
+						curProb += (dmg * 100) / 3
+					}
+				}
+				hit := int(math.Min(float64(target.Skills().Current(entity.StatHits)), float64(world.WeightedChoice(probs))))
+				target.Skills().DecreaseCur(entity.StatHits, hit)
+				if target.Skills().Current(entity.StatHits) <= 0 {
+					target.Killed(player)
+					return true
+				}
+				projectile := world.CreateProjectile(player, target, 1)
+				for _, v := range player.NearbyPlayers() {
+					v.SendPacket(projectile)
+				}
+				player.SendPacket(projectile)
+				target.Damage(hit)
+				return true
 			})
 		} else {
 			// TODO: Handle these spells
