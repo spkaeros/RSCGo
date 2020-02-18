@@ -251,17 +251,81 @@ func (p *Player) UpdateStatus(status bool) {
 	})
 }
 
-func (p *Player) WalkNearMob(t entity.MobileEntity, fn func() bool) {
+//WalkingRangedAction Runs `fn` once arriving anywhere within 5 tiles in any direction of `t`,
+// with a straight line of sight, e.g no intersecting boundaries, large objects, walls, etc.
+// Runs everything on game engine ticks, retries until catastrophic failure or success.
+func (p *Player) WalkingRangedAction(t entity.MobileEntity, fn func()) {
+	p.WalkingArrivalAction(t, 5, fn)
+}
+
+//WalkingArrivalAction Runs `action` once arriving within dist (min 1 max 2 tiles)
+// of `target` mob, with a straight line of sight, e.g no intersecting boundaries, large
+// objects, walls, etc.
+// Runs everything on game engine ticks, retries until catastrophic failure or success.
+func (p *Player) WalkingArrivalAction(target entity.MobileEntity, dist int, action func()) {
 	p.SetDistancedAction(func() bool {
-		if t == nil {
+		if target == nil {
 			p.ResetPath()
 			return true
 		}
-		if p.FinishedPath() || !p.WithinRange(NewLocation(t.X(), t.Y()), 5) {
-			p.WalkTo(NewLocation(t.X(), t.Y()))
+		if p.Busy() && !p.IsFighting() {
+			p.ResetPath()
+			return true
 		}
-		return !(p.Busy() && !p.IsDueling() && !p.IsFighting()) && p.WithinRange(NewLocation(t.X(), t.Y()), 5) && fn()
+		if !p.WithinRange(NewLocation(target.X(), target.Y()), dist) {
+			p.WalkTo(NewLocation(target.X(), target.Y()))
+		}
+
+		if !p.CanReachMob(target) {
+			return false
+		}
+		if p.WithinRange(NewLocation(target.X(),target.Y()), dist) {
+			action()
+			return true
+		}
+//		action()		
+//		return p.WithinRange(NewLocation(target.X(), target.Y()), dist)
+		return false
 	})
+}
+
+//CanReachMob Check if we can reach a mob traversing the most direct tiles toward them, e.g straight lines.
+// Used to check ranged combat attacks, or trade requests, basically anything needing local interactions.
+func (p *Player) CanReachMob(target entity.MobileEntity) bool {
+	pathX := p.X()
+	pathY := p.Y()
+
+	for steps := 0; steps < 21; steps++ {
+		if pathX == target.X() && pathY == target.Y() {
+			return true
+		}
+
+		if pathY > target.Y() {
+			pathY--
+			if IsTileBlocking(pathX, pathY, ClipSouth, false) {
+				return false
+			}
+		} else if pathY < target.Y() {
+			pathY++
+			if IsTileBlocking(pathX, pathY, ClipNorth, false) {
+				return false
+			}
+		}
+
+		if pathX > target.X() {
+			pathX--
+			if IsTileBlocking(pathX, pathY, ClipWest, false) {
+				return false
+			}
+		} else if pathX < target.X() {
+			pathX++
+			if IsTileBlocking(pathX, pathY, ClipEast, false) {
+				return false
+			}
+		}
+	}
+
+	return pathX == target.X() && pathY == target.Y()
 }
 
 //SetPrivacySettings sets privacy settings to specified values.

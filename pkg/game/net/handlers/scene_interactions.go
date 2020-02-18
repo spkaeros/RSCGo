@@ -168,105 +168,100 @@ func init() {
 		if npc == nil {
 			return
 		}
-		player.SetDistancedAction(func() bool {
-			if player.Busy() {
-				player.ResetPath()
-				return true
-			}
+		if player.IsFighting() {
+			return
+		}
+		player.WalkingArrivalAction(npc, 1, func() {
+			player.ResetPath()
 			if npc.Busy() {
 				player.Message(npc.Name() + " is busy at the moment")
-				player.ResetPath()
-				return true
+				return
 			}
-			if player.WithinRange(npc.Location, 1) && player.NextTo(npc.Location) {
-				player.ResetPath()
-				for _, triggerDef := range world.NpcTriggers {
-					if triggerDef.Check(npc) {
-						npc.ResetPath()
-						if player.Location.Equals(npc.Location) {
-						outer:
-							for offX := -1; offX <= 1; offX++ {
-								for offY := -1; offY <= 1; offY++ {
-									if offX == 0 && offY == 0 {
+			if player.Busy() {
+				return
+			}
+			for _, triggerDef := range world.NpcTriggers {
+				if triggerDef.Check(npc) {
+					npc.ResetPath()
+					if player.Location.Equals(npc.Location) {
+					outer:
+						for offX := -1; offX <= 1; offX++ {
+							for offY := -1; offY <= 1; offY++ {
+								if offX == 0 && offY == 0 {
+									continue
+								}
+								newLoc := world.NewLocation(player.X()+offX, player.Y()+offY)
+								switch player.DirectionTo(newLoc.X(), newLoc.Y()) {
+								case world.North:
+									if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipSouth, false) {
 										continue
 									}
-									newLoc := world.NewLocation(player.X()+offX, player.Y()+offY)
-									switch player.DirectionTo(newLoc.X(), newLoc.Y()) {
-									case world.North:
-										if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipSouth, false) {
-											continue
-										}
-									case world.South:
-										if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipNorth, false) {
-											continue
-										}
-									case world.East:
-										if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipWest, false) {
-											continue
-										}
-									case world.West:
-										if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipEast, false) {
-											continue
-										}
-									case world.NorthWest:
-										if world.IsTileBlocking(player.X(), player.Y()-1, world.ClipSouth, false) {
-											continue
-										}
-										if world.IsTileBlocking(player.X()+1, player.Y(), world.ClipEast, false) {
-											continue
-										}
-									case world.NorthEast:
-										if world.IsTileBlocking(player.X(), player.Y()-1, world.ClipSouth, false) {
-											continue
-										}
-										if world.IsTileBlocking(player.X()-1, player.Y(), world.ClipWest, false) {
-											continue
-										}
-									case world.SouthWest:
-										if world.IsTileBlocking(player.X(), player.Y()+1, world.ClipNorth, false) {
-											continue
-										}
-										if world.IsTileBlocking(player.X()+1, player.Y(), world.ClipEast, false) {
-											continue
-										}
-									case world.SouthEast:
-										if world.IsTileBlocking(player.X(), player.Y()+1, world.ClipNorth, false) {
-											continue
-										}
-										if world.IsTileBlocking(player.X()-1, player.Y(), world.ClipWest, false) {
-											continue
-										}
+								case world.South:
+									if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipNorth, false) {
+										continue
 									}
-									if player.NextTo(newLoc) {
-										player.SetLocation(newLoc, true)
-										break outer
+								case world.East:
+									if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipWest, false) {
+										continue
 									}
+								case world.West:
+									if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipEast, false) {
+										continue
+									}
+								case world.NorthWest:
+									if world.IsTileBlocking(player.X(), player.Y()-1, world.ClipSouth, false) {
+										continue
+									}
+									if world.IsTileBlocking(player.X()+1, player.Y(), world.ClipEast, false) {
+										continue
+									}
+								case world.NorthEast:
+									if world.IsTileBlocking(player.X(), player.Y()-1, world.ClipSouth, false) {
+										continue
+									}
+									if world.IsTileBlocking(player.X()-1, player.Y(), world.ClipWest, false) {
+										continue
+									}
+								case world.SouthWest:
+									if world.IsTileBlocking(player.X(), player.Y()+1, world.ClipNorth, false) {
+										continue
+									}
+									if world.IsTileBlocking(player.X()+1, player.Y(), world.ClipEast, false) {
+										continue
+									}
+								case world.SouthEast:
+									if world.IsTileBlocking(player.X(), player.Y()+1, world.ClipNorth, false) {
+										continue
+									}
+									if world.IsTileBlocking(player.X()-1, player.Y(), world.ClipWest, false) {
+										continue
+									}
+								}
+								if player.NextTo(newLoc) {
+									npc.SetLocation(newLoc, true)
+									break outer
 								}
 							}
 						}
+					}
 
-						if !player.Location.Equals(npc.Location) {
-							player.SetDirection(player.DirectionTo(npc.X(), npc.Y()))
-							npc.SetDirection(npc.DirectionTo(player.X(), player.Y()))
-						}
+					if !player.Location.Equals(npc.Location) {
+						player.SetDirection(player.DirectionTo(npc.X(), npc.Y()))
+						npc.SetDirection(npc.DirectionTo(player.X(), player.Y()))
+					}
+					go func() {
+						defer func() {
+							player.RemoveState(world.MSChatting)
+							npc.RemoveState(world.MSChatting)
+						}()
 						player.AddState(world.MSChatting)
 						npc.AddState(world.MSChatting)
-						go func() {
-							defer func() {
-								player.RemoveState(world.MSChatting)
-								npc.RemoveState(world.MSChatting)
-							}()
-							triggerDef.Action(player, npc)
-						}()
-						return true
-					}
+						triggerDef.Action(player, npc)
+					}()
+					return
 				}
-				player.Message("The " + npc.Name() + " does not appear interested in talking")
-				return true
 			}
-
-			player.WalkTo(npc.Location)
-			return false
+			player.Message("The " + npc.Name() + " does not appear interested in talking")
 		})
 	})
 	AddHandler("invonboundary", func(player *world.Player, p *net.Packet) {

@@ -611,54 +611,20 @@ func handleSpells(player *world.Player, idx int, target entity.MobileEntity) {
 		}
 		// if it is in our damage defs, it's an offensive spell without any special fx
 		if val, ok := dmgs[s.level]; ok {
-			player.WalkNearMob(target, func() bool {
+			player.WalkingRangedAction(target, func() {
 				if player.IsDueling() && player.IsFighting() && target == player.DuelTarget() && !player.TransAttrs.VarBool("duelCanMagic", true) {
 					player.Message("Magic cannot be used during this duel!")
 					player.ResetPath()
-					return true
+					return
 				}
 				if !player.CanAttack(target) {
 					player.ResetPath()
-					return true
-				}
-				steps := 0
-				xOff := player.X()
-				yOff := player.Y()
-				for steps < 10 {
-					if xOff == target.X() && yOff == target.Y() {
-						break
-					}
-					if yOff > target.Y() {
-						yOff--
-						if world.IsTileBlocking(xOff, yOff, world.ClipSouth, false) {
-							return false
-						}
-						steps++
-					} else if yOff < target.Y() {
-						yOff++
-						if world.IsTileBlocking(xOff, yOff, world.ClipNorth, false) {
-							return false
-						}
-						steps++
-					}
-					if xOff > target.X() {
-						xOff--
-						if world.IsTileBlocking(xOff, yOff, world.ClipWest, false) {
-							return false
-						}
-						steps++
-					} else if xOff < target.X() {
-						xOff++
-						if world.IsTileBlocking(xOff, yOff, world.ClipEast, false) {
-							return false
-						}
-						steps++
-					}
+					return
 				}
 				// reaching here means made it to target within 4 steps without hitting a barrier
 				player.ResetAllExceptDueling()
 				if !checkAndRemoveRunes() {
-					return true
+					return
 				}
 				finalize()
 
@@ -681,7 +647,7 @@ func handleSpells(player *world.Player, idx int, target entity.MobileEntity) {
 				target.Skills().DecreaseCur(entity.StatHits, hit)
 				if target.Skills().Current(entity.StatHits) <= 0 {
 					target.Killed(player)
-					return true
+					return
 				}
 				projectile := world.CreateProjectile(player, target, 1)
 				for _, v := range player.NearbyPlayers() {
@@ -689,7 +655,7 @@ func handleSpells(player *world.Player, idx int, target entity.MobileEntity) {
 				}
 				player.SendPacket(projectile)
 				target.Damage(hit)
-				return true
+				return
 			})
 		} else {
 			// TODO: Handle these spells

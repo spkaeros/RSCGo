@@ -24,30 +24,25 @@ func init() {
 			log.Suspicious.Printf("%v tried to attack nil NPC\n", player)
 			return
 		}
-		player.SetDistancedAction(func() bool {
-			if player.Busy() {
-				return true
+		if player.IsFighting() {
+			return
+		}
+		player.WalkingArrivalAction(npc, 1, func() {
+			if player.Busy() && !player.IsFighting() && !player.IsDueling() || !player.CanAttack(npc) {
+				return
 			}
-			if !player.CanAttack(npc) {
-				return true
+			player.ResetPath()
+			if time.Since(npc.TransAttrs.VarTime("lastFight")) <= time.Second*2 || npc.Busy() {
+				return
 			}
-			if player.NextTo(npc.Location) && player.WithinRange(npc.Location, 1) {
-				for _, trigger := range world.NpcAtkTriggers {
-					if trigger.Check(player, npc) {
-						trigger.Action(player, npc)
-						return true
-					}
+			npc.ResetPath()
+			for _, trigger := range world.NpcAtkTriggers {
+				if trigger.Check(player, npc) {
+					trigger.Action(player, npc)
+					return
 				}
-				if time.Since(npc.TransAttrs.VarTime("lastFight")) <= time.Second*2 || npc.Busy() {
-					return true
-				}
-				player.ResetPath()
-				npc.ResetPath()
-				player.StartCombat(npc)
-				return true
 			}
-			player.SetPath(world.MakePath(player.Location, npc.Location))
-			return false
+			player.StartCombat(npc)
 		})
 	})
 	AddHandler("attackplayer", func(player *world.Player, p *net.Packet) {
@@ -56,28 +51,19 @@ func init() {
 			log.Suspicious.Printf("player[%v] tried to attack nil player\n", player)
 			return
 		}
-		player.SetDistancedAction(func() bool {
-			if player.Busy() {
-				return true
+		if player.IsFighting() {
+			return
+		}
+		player.WalkingArrivalAction(affectedPlayer, 2, func() {
+			if player.Busy() || !player.CanAttack(affectedPlayer) {
+				return
 			}
-			if affectedPlayer.Busy() {
-				log.Info.Printf("Target player busy during attack request  State: %d\n", affectedPlayer.State)
-				return true
+			player.ResetPath()
+			if time.Since(affectedPlayer.TransAttrs.VarTime("lastRetreat")) <= time.Second*3 || affectedPlayer.IsFighting() {
+				return
 			}
-			if !player.CanAttack(affectedPlayer) {
-				return true
-			}
-			if player.NextTo(affectedPlayer.Location) && player.WithinRange(affectedPlayer.Location, 2) {
-				player.ResetPath()
-				if time.Since(affectedPlayer.TransAttrs.VarTime("lastRetreat")) <= time.Second*3 || affectedPlayer.IsFighting() {
-					return true
-				}
-				player.ResetPath()
-				affectedPlayer.ResetPath()
-				player.StartCombat(affectedPlayer)
-				return true
-			}
-			return player.FinishedPath()
+			affectedPlayer.ResetPath()
+			player.StartCombat(affectedPlayer)
 		})
 	})
 	AddHandler("fightmode", func(player *world.Player, p *net.Packet) {
