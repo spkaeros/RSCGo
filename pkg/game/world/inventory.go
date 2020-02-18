@@ -439,7 +439,12 @@ func (i *Inventory) Add(id int, qty int) int {
 		}
 		return i.GetIndex(id)
 	}
+
 	if curSize >= i.Capacity {
+		return -1
+	}
+
+	if qty >= math.MaxInt32 || qty < 0 {
 		return -1
 	}
 

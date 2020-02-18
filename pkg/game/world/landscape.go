@@ -242,16 +242,16 @@ func loadSector(data []byte) (s *Sector) {
 			}
 			if verticalWalls > 0 && BoundaryDefs[verticalWalls-1].Unknown == 0 && BoundaryDefs[verticalWalls-1].Traversable != 0 {
 				s.Tiles[tileIdx].CollisionMask |= ClipNorth
-				if tileIdx >= 1 {
+				if y >= 1 {
 					// -1 is tile x,y-1
-					s.Tiles[tileIdx-1].CollisionMask |= ClipSouth
+					s.Tiles[x*RegionSize+(y-1)].CollisionMask |= ClipSouth
 				}
 			}
 			if horizontalWalls > 0 && BoundaryDefs[horizontalWalls-1].Unknown == 0 && BoundaryDefs[horizontalWalls-1].Traversable != 0 {
 				s.Tiles[tileIdx].CollisionMask |= ClipEast
-				if tileIdx >= 48 {
+				if x >= 1 {
 					// -48 is tile x-1,y
-					s.Tiles[tileIdx-48].CollisionMask |= ClipWest
+					s.Tiles[(x-1)*RegionSize+y].CollisionMask |= ClipWest
 				}
 			}
 			if diagonalWalls > 0 && diagonalWalls < 12000 && BoundaryDefs[diagonalWalls-1].Unknown == 0 && BoundaryDefs[diagonalWalls-1].Traversable != 0 {

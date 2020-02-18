@@ -833,7 +833,7 @@ func (p *Player) CanReach(bounds [2]Location) bool {
 		return true
 	}
 	if x >= bounds[0].X() && x <= bounds[1].X() && bounds[0].Y() <= y+1 && bounds[1].Y() >= y+1 &&
-		(CollisionData(x, y-1).CollisionMask&ClipNorth) == 0 {
+		(CollisionData(x, y+1).CollisionMask&ClipNorth) == 0 {
 		return true
 	}
 	return false
