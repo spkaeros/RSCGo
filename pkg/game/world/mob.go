@@ -555,7 +555,7 @@ func (m *Mob) DefensePoints() float64 {
 
 //MeleeDamage Calculates and returns a melee damage from the receiver mob onto the target mob.
 func (m *Mob) MeleeDamage(target entity.MobileEntity) int {
-	log.Info.Println((m.AttackPoints() / (target.DefensePoints() * 4)) * 100)
+	//log.Info.Println((m.AttackPoints() / (target.DefensePoints() * 4)) * 100)
 	if BoundedChance(m.AttackPoints()/(target.DefensePoints()*4)*100, 0.0, 82.0) {
 		maxDamage := m.MaxMeleeDamage()
 		var damage float64

@@ -952,8 +952,8 @@ func InformationBox(msg string) (p *net.Packet) {
 	return p
 }
 
-//SessionResponse Builds a bare net with the login response code.
-func SessionResponse(v int) *net.Packet {
+//HandshakeResponse Builds a bare net with the login response code.
+func HandshakeResponse(v int) *net.Packet {
 	return net.NewBarePacket([]byte{byte(v)})
 }
 

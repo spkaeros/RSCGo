@@ -10,6 +10,7 @@
 package handlers
 
 import (
+	"github.com/spkaeros/rscgo/pkg/game/net/handshake"
 	"strings"
 	"time"
 
@@ -17,7 +18,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/crypto"
 	"github.com/spkaeros/rscgo/pkg/db"
 	"github.com/spkaeros/rscgo/pkg/engine/tasks"
-	"github.com/spkaeros/rscgo/pkg/game/login"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -51,15 +51,15 @@ func init() {
 				return
 			}
 		*/
-		loginReply := login.NewLoginListener(player).ResponseListener()
-		if login.LoginThrottler.Recent(player.CurrentIP(), time.Minute*5) >= 5 {
-			loginReply <- login.ResponseSpamTimeout
+		loginReply := handshake.NewLoginListener(player).ResponseListener()
+		if handshake.LoginThrottle.Recent(player.CurrentIP(), time.Minute*5) >= 5 {
+			loginReply <- handshake.ResponseSpamTimeout
 			return
 		}
 		player.SetReconnecting(p.ReadBool())
 		if ver := p.ReadShort(); ver != config.Version() {
 			log.Info.Printf("Invalid client version attempted to login: %d\n", ver)
-			loginReply <- login.ResponseUpdated
+			loginReply <- handshake.ResponseUpdated
 			return
 		}
 
@@ -82,11 +82,11 @@ func init() {
 		player.FriendList.Owner = player.Username()
 		password := strings.TrimSpace(p.ReadString(20))
 		if _, ok := world.Players.FromUserHash(usernameHash); ok {
-			loginReply <- login.ResponseLoggedIn
+			loginReply <- handshake.ResponseLoggedIn
 			return
 		}
 		if !world.UpdateTime.IsZero() && time.Until(world.UpdateTime).Seconds() <= 0 {
-			loginReply <- login.ResponseLoginServerRejection
+			loginReply <- handshake.ResponseLoginServerRejection
 			return
 		}
 
@@ -144,14 +144,14 @@ func init() {
 		}()
 	})
 	AddHandler("newplayer", func(player *world.Player, p *net.Packet) {
-		reply := login.NewRegistrationListener(player).ResponseListener()
-		if login.RegisterThrottler.Recent(player.CurrentIP(), time.Minute*5) >= 5 {
-			reply <- login.ResponseSpamTimeout
+		reply := handshake.NewRegistrationListener(player).ResponseListener()
+		if handshake.RegisterThrottle.Recent(player.CurrentIP(), time.Minute*5) >= 5 {
+			reply <- handshake.ResponseSpamTimeout
 			return
 		}
 		if version := p.ReadShort(); version != config.Version() {
 			log.Info.Printf("New player denied: [ Reason:'Wrong client version'; ip='%s'; version=%d ]\n", player.CurrentIP(), version)
-			reply <- login.ResponseUpdated
+			reply <- handshake.ResponseUpdated
 			return
 		}
 		username := strutil.Base37.Decode(strutil.Base37.Encode(strings.TrimSpace(p.ReadString(20))))
@@ -165,13 +165,13 @@ func init() {
 		go func() {
 			if db.DefaultPlayerService.PlayerNameTaken(username) {
 				log.Info.Printf("New player denied: [ Reason:'Username is taken'; username='%s'; ip='%s' ]\n", username, player.CurrentIP())
-				reply <- login.ResponseUsernameTaken
+				reply <- handshake.ResponseUsernameTaken
 				return
 			}
 
 			if db.DefaultPlayerService.PlayerCreate(username, password) {
 				log.Info.Printf("New player accepted: [ username='%s'; ip='%s' ]", username, player.CurrentIP())
-				reply <- login.ResponseRegisterSuccess
+				reply <- handshake.ResponseRegisterSuccess
 				return
 			}
 			log.Info.Printf("New player denied: [ Reason:'Most probably database related.  Debug required'; username='%s'; ip='%s' ]\n", username, player.CurrentIP())

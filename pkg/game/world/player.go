@@ -1385,7 +1385,7 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 	for i, v := range deathItems {
 		// becomes universally visible on NPCs, or temporarily private otherwise
 		if i == 0 || p.Inventory.RemoveByID(v.ID, v.Amount) > -1 {
-			if killer != nil {
+			if killer != nil && killer.IsPlayer() {
 				v.SetVar("belongsTo", killer.Transients().VarLong("username", 0))
 			}
 			AddItem(v)

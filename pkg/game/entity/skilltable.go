@@ -41,13 +41,13 @@ type SkillTable struct {
 	current    [18]int
 	maximum    [18]int
 	experience [18]int
-	lock       sync.RWMutex
+	sync.RWMutex
 }
 
 //Current returns the current level of the skill indicated by idx.
 func (s *SkillTable) Current(idx int) int {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+	s.RLock()
+	defer s.RUnlock()
 	return s.current[idx]
 }
 
@@ -58,78 +58,78 @@ func (s *SkillTable) DeltaMax(idx int) int {
 
 //DecreaseCur decreases the current level of the skill at idx by delta
 func (s *SkillTable) DecreaseCur(idx, delta int) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	s.current[idx] -= delta
 }
 
 //IncreaseCur increases the current level of the skill at idx by delta
 func (s *SkillTable) IncreaseCur(idx, delta int) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	s.current[idx] += delta
 }
 
 //SetCur sets the current level of the skill at idx to val
 func (s *SkillTable) SetCur(idx, val int) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	s.current[idx] = val
 }
 
 //DecreaseMax decreases the maximum level of the skill at idx by delta
 func (s *SkillTable) DecreaseMax(idx, delta int) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	s.maximum[idx] -= delta
 }
 
 //IncreaseMax increases the maximum level of the skill at idx by delta
 func (s *SkillTable) IncreaseMax(idx, delta int) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	s.maximum[idx] += delta
 }
 
 //SetMax sets the maximum level of the skill at idx to val
 func (s *SkillTable) SetMax(idx, val int) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	s.maximum[idx] = val
 }
 
 //SetExp Sets the experience of the skill at idx to val
 func (s *SkillTable) SetExp(idx, val int) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	s.experience[idx] = val
 }
 
 //IncExp Increases the experience of the skill at idx by val
 func (s *SkillTable) IncExp(idx, val int) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	s.experience[idx] += val
 }
 
 //Maximum Returns the maximum level of the skill indicated by idx.
 func (s *SkillTable) Maximum(idx int) int {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+	s.RLock()
+	defer s.RUnlock()
 	return s.maximum[idx]
 }
 
 //Experience Returns the current level of the skill indicated by idx.
 func (s *SkillTable) Experience(idx int) int {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+	s.RLock()
+	defer s.RUnlock()
 	return s.experience[idx]
 }
 
 //CombatLevel Calculates and returns the combat level for this skill table.
 func (s *SkillTable) CombatLevel() int {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+	s.RLock()
+	defer s.RUnlock()
 	aggressiveTotal := float32(s.maximum[0] + s.maximum[2])
 	defensiveTotal := float32(s.maximum[1] + s.maximum[3])
 	spiritualTotal := float32((s.maximum[5] + s.maximum[6]) / 8)
@@ -162,9 +162,6 @@ func SkillName(id int) string {
 
 //SkillIndex Tries to parse the skill indicated in s.  If it is out of skill bounds, returns -1.
 func SkillIndex(s string) int {
-	if skill, ok := SkillNames[s]; ok {
-		return skill
-	}
 	for name, idx := range SkillNames {
 		if fuzzy.Match(s, name) {
 			return idx
@@ -173,34 +170,33 @@ func SkillIndex(s string) int {
 	return -1
 }
 
-var experienceLevels [104]int64
+var experienceLevels [104]float64
 
 func init() {
-	i := int64(0)
-	for lvl := 0; lvl < 104; lvl++ {
-		k := float64(lvl + 1)
-		i1 := int64(k + 300*math.Pow(2, k/7))
-		i += i1
-		experienceLevels[lvl] = (i & 0xfffffffc) / 4
+	accumulativeExp := 0.0
+	for lvl := 0; lvl < len(experienceLevels)-1; lvl++ {
+		curLvl := float64(lvl + 1)
+		accumulativeExp += math.Ceil(curLvl + (300 * math.Pow(2, curLvl/7)))
+		experienceLevels[lvl] = accumulativeExp
 	}
 }
 
 //LevelToExperience Finds the experience required for the specified level
 func LevelToExperience(lvl int) int {
 	index := lvl - 2
-	if index < 0 || index > 104 {
+	if index < 0 || index > len(experienceLevels)-1 {
 		return 0
 	}
-	return int(experienceLevels[index])
+	return int(experienceLevels[index]/4)
 }
 
 //ExperienceToLevel Finds the maximum level for the provided experience amount.
 func ExperienceToLevel(exp int) int {
-	for lvl := 0; lvl < 104; lvl++ {
-		if exp < int(experienceLevels[lvl]) {
+	for lvl := 0; lvl < len(experienceLevels)-1; lvl++ {
+		if exp < int(experienceLevels[lvl]/4) {
 			return lvl + 1
 		}
 	}
 
-	return 99
+	return len(experienceLevels)-1
 }

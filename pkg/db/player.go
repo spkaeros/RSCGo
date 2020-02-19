@@ -2,13 +2,13 @@ package db
 
 import (
 	"context"
+	"github.com/spkaeros/rscgo/pkg/game/net/handshake"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spkaeros/rscgo/pkg/crypto"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
-	"github.com/spkaeros/rscgo/pkg/game/login"
 
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/errors"
@@ -25,7 +25,7 @@ type PlayerService interface {
 	PlayerValidLogin(uint64, string) bool
 	PlayerChangePassword(uint64, string) bool
 	PlayerLoadRecoverys(uint64) []string
-	PlayerLoad(*world.Player, uint64, string, chan login.ResponseCode)
+	PlayerLoad(*world.Player, uint64, string, chan handshake.ResponseCode)
 	PlayerSave(*world.Player)
 }
 
@@ -160,19 +160,19 @@ func (s *sqlService) SaveRecoveryQuestions(userHash uint64, questions []string, 
 }
 
 //PlayerLoad Loads a player from the SQLite3 database, returns a login response code.
-func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, password string, loginReply chan login.ResponseCode) {
+func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, password string, loginReply chan handshake.ResponseCode) {
 	loadProfile := func() error {
 		database := s.connect(context.Background())
 		defer database.Close()
 		rows, err := database.QueryContext(context.Background(), "SELECT player.id, player.x, player.y, player.group_id, appearance.haircolour, appearance.topcolour, appearance.trousercolour, appearance.skincolour, appearance.head, appearance.body FROM player INNER JOIN appearance WHERE appearance.playerid=player.id AND player.userhash=? AND player.password=?", usernameHash, crypto.Hash(password))
 		if err != nil {
 			log.Info.Println("ValidatePlayer(uint64,string): Could not prepare query statement for player:", err)
-			loginReply <- login.ResponseBadPassword
+			loginReply <- handshake.ResponseBadPassword
 			return errors.NewDatabaseError(err.Error())
 		}
 		defer rows.Close()
 		if !rows.Next() {
-			loginReply <- login.ResponseBadPassword
+			loginReply <- handshake.ResponseBadPassword
 			return errors.NewDatabaseError("Could not find player")
 		}
 		var x, y, rank, dbID int
@@ -331,7 +331,7 @@ func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, passw
 	}
 
 	if !s.PlayerNameTaken(strutil.Base37.Decode(usernameHash)) {
-		loginReply <- login.ResponseBadPassword
+		loginReply <- handshake.	ResponseBadPassword
 		return
 	}
 	// If this fails, then the login information was incorrect, and we don't need to do anything else
@@ -358,16 +358,16 @@ func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, passw
 	}
 
 	if player.Reconnecting() {
-		loginReply <- login.ResponseReconnected
+		loginReply <- handshake.ResponseReconnected
 		return
 	}
 	switch player.Rank() {
 	case 2:
-		loginReply <- login.ResponseAdministrator
+		loginReply <- handshake.ResponseAdministrator
 	case 1:
-		loginReply <- login.ResponseModerator
+		loginReply <- handshake.ResponseModerator
 	default:
-		loginReply <- login.ResponseLoginSuccess
+		loginReply <- handshake.ResponseLoginSuccess
 	}
 }
 
