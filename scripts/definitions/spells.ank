@@ -523,7 +523,7 @@ func spellCast(s, player) {
 }
 
 func spellFinalize(player) {
-	player.Transients().SetVar("lastSpell", tNow().Add(tMillis * 1350))
+	player.Transients().SetVar("lastSpell", tNow().Add(tMillis * 1280))
 	player.PlaySound("spellok")
 	player.Message("Cast spell successfully")
 	player.ResetPath()

@@ -26,15 +26,14 @@ import (
 	"github.com/spkaeros/rscgo/pkg/rand"
 )
 
-type buffers = map[uint64]chan []byte
 type bufferSet struct {
-	buffers
+	buffers map[uint64]chan []byte
 	sync.RWMutex
 }
 
 func bindGameProcManager() {
 	var stdout io.Reader
-	var stdoutClients = bufferSet{buffers: make(buffers)}
+	var stdoutClients = bufferSet{buffers: make(map[uint64]chan []byte)}
 	var backBuffer = make([][]byte, 0, 1000)
 	var ServerCmd *exec.Cmd
 	var done = make(chan struct{})
@@ -42,13 +41,12 @@ func bindGameProcManager() {
 	//muxCtx.Handle("/game/control.ws", pageHandler("Game Server Control", controlPage))
 	muxCtx.HandleFunc("/game/launch.ws", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		if ServerCmd != nil {
-			writeContent(w, []byte("game already started\n"))
-			return
+		if ServerCmd != nil && (ServerCmd.ProcessState == nil || !ServerCmd.ProcessState.Exited()) {
+			writeContent(w, []byte("killing old instances...\n"))
+			_ = procexec.Command("pkill", "-9", "game").Run()
 		}
-		_ = procexec.Command("pkill", "-9", "game").Run()
 
-		ServerCmd = procexec.Run("rscgo", "./bin/game", "-v")
+		ServerCmd = procexec.Run("game", "./bin/game", "-v")
 
 		out, err := ServerCmd.StdoutPipe()
 		if err != nil {
@@ -105,24 +103,33 @@ func bindGameProcManager() {
 		writeContent(w, []byte("Successfully started game server (pid: "+strconv.Itoa(ServerCmd.Process.Pid)+")"))
 	})
 	muxCtx.HandleFunc("/game/kill.ws", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		if ServerCmd == nil || ServerCmd.Process == nil || (ServerCmd.ProcessState != nil && ServerCmd.ProcessState.Exited()) {
-			writeContent(w, []byte("Game server process could not be found.\n"))
-			return
-		}
-		err := ServerCmd.Process.Kill()
-		if err != nil {
+		pkill := func() error {
 			cmd := procexec.Command("pkill", "game")
 			err := cmd.Run()
 			if err != nil {
 				writeContent(w, []byte("Error killing the game server process:"+err.Error()))
+			}
+			return err
+		}
+		w.Header().Set("Content-Type", "text/plain")
+		if ServerCmd == nil || ServerCmd.Process == nil || (ServerCmd.ProcessState != nil && ServerCmd.ProcessState.Exited()) {
+			if err := pkill(); err != nil {
+				writeContent(w, []byte("Error:['" + err.Error() + "]''; could not stop game server.  Is it running?"))
+			}
+			writeContent(w, []byte("Successfully killed game server"))
+			return
+		}
+		err := ServerCmd.Process.Kill()
+		ServerCmd = nil
+		if err != nil {
+			writeContent(w, []byte("Error:['" + err.Error() + "]''; Falling back to pkill..."))
+			if err := pkill(); err != nil {
+				writeContent(w, []byte("Error:['" + err.Error() + "]''; could not stop game server.  Is it running?"))
 				return
 			}
-			return
 		}
 
 		writeContent(w, []byte("Successfully killed game server"))
-		ServerCmd = nil
 	})
 	muxCtx.HandleFunc("/api/game/stdout", func(w http.ResponseWriter, r *http.Request) {
 		conn, _, _, err := ws.UpgradeHTTP(r, w)
@@ -138,10 +145,10 @@ func bindGameProcManager() {
 			}
 		}
 		identifier := rand.Uint64()
+		buf := make(chan []byte, 256)
 		stdoutClients.Lock()
-		stdoutClients.buffers[identifier] = make(chan []byte, 256)
+		stdoutClients.buffers[identifier] = buf
 		stdoutClients.Unlock()
-		buf := stdoutClients.buffers[identifier]
 
 		defer func() {
 			stdoutClients.Lock()
