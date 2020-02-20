@@ -1,47 +1,89 @@
 bind = import("bind")
 world = import("world")
 
-doors = [83, 77, 90, 85, 88, 84, 82, 75, 81, 80, 89, 78, 76]
+lockedDoors = [
+	{
+		"name": "guide",
+		"loc": [222, 743],
+		"stage": 10,
+	},
+	{
+		"name": "controls guide",
+		"loc": [224, 737],
+		"stage": 15,
+	},
+	{
+		"name": "combat instructor",
+		"loc": [220, 727],
+		"stage": 25,
+	},
+	{
+		"name": "cooking instructor",
+		"loc": [212, 729],
+		"stage": 35,
+	},
+	{
+		"name": "finance advisor",
+		"loc": [206, 730],
+		"stage": 40,
+	},
+	{
+		"name": "fishing instructor",
+		"loc": [201, 734],
+		"stage": 45,
+	},
+	{
+		"name": "mining instructor",
+		"loc": [198, 746],
+		"stage": 55,
+	},
+	{
+		"name": "bank assistant",
+		"loc": [204, 752],
+		"stage": 60,
+	},
+	{
+		"name": "quest advisor",
+		"loc": [209, 754],
+		"stage": 65,
+	},
+	{
+		"name": "wilderness guide",
+		"loc": [217, 760],
+		"stage": 70,
+	},
+	{
+		"name": "magic instructor",
+		"loc": [222, 760],
+		"stage": 80,
+	},
+	{
+		"name": "fatigue expert",
+		"loc": [226, 760],
+		"stage": 90,
+	},
+	{
+		"name": "community instructor",
+		"loc": [230, 759],
+		"stage": 100,
+	},
+]
 
-bind.boundary(objectPredicate(doors...), func(player, object, click) {
-	if object.X() == 204 && object.Y() == 752 && toInt(player.Cache("tutorial")) < 60 {
-		player.Message("You should speak to the bank assistant before going through this door")
-		return
-	} else if object.X() == 220 && object.Y() == 727 && toInt(player.Cache("tutorial")) < 25 {
-		player.Message("You should speak to the combat instructor before going through this door")
-		return
-	} else if object.X() == 230 && object.Y() == 759 && toInt(player.Cache("tutorial")) < 100 {
-		player.Message("You should speak to the community instructor before going through this door")
-		return
-	} else if object.X() == 224 && object.Y() == 737 && toInt(player.Cache("tutorial")) < 15 {
-		player.Message("You should speak to the controls guide before going through this door")
-		return
-	} else if object.X() == 226 && object.Y() == 760 && toInt(player.Cache("tutorial")) < 90 {
-		player.Message("You should speak to the fatigue expert before going through this door")
-		return
-	} else if object.X() == 206 && object.Y() == 730 && toInt(player.Cache("tutorial")) < 40 {
-		player.Message("You should speak to the finance advisor before going through this door")
-		return
-	} else if object.X() == 201 && object.Y() == 734 && toInt(player.Cache("tutorial")) < 45 {
-		player.Message("You should speak to the fishing instructor before going through this door")
-		return
-	} else if object.X() == 222 && object.Y() == 743 && toInt(player.Cache("tutorial")) < 10 {
-		player.Message("You should speak to a guide before going through this door")
-		return
-	} else if object.X() == 198 && object.Y() == 746 && toInt(player.Cache("tutorial")) < 55 {
-		player.Message("You should speak to the mining instructor before going through this door")
-		return
-	} else if object.X() == 209 && object.Y() == 754 && toInt(player.Cache("tutorial")) < 65 {
-		player.Message("You should speak to the quest advisor before going through this door")
-		return
-	} else if object.X() == 217 && object.Y() == 760 && toInt(player.Cache("tutorial")) < 70 {
-		player.Message("You should speak to the wilderness guide before going through this door")
-		return
-	} else if object.X() == 222 && object.Y() == 760 && toInt(player.Cache("tutorial")) < 80 {
-		player.Message("You should speak to the magic instructor before going through this door")
-		return
-	} else if object.X() == 212 && object.Y() == 729 && toInt(player.Cache("tutorial")) < 35 {
-        player.Message("You should speak to the cooking instructor before going through this door")
+bind.boundary(objectPredicate(83, 77, 90, 85, 88, 84, 82, 75, 81, 80, 89, 78, 76), func(player, object, click) {
+	isLocked = func() {
+		for locked in lockedDoors {
+			if object.X() == locked.loc[0] && object.Y() == locked.loc[1] {
+				if toInt(player.Cache("tutorial")) < locked.stage {
+					player.Message("You should speak to the " + locked.name + " before going through this door")
+					return true
+				}
+				break
+			}
+		}
+		return false
+	}
+
+    if isLocked() {
         return
     }
 	player.PlaySound("opendoor")

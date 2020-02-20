@@ -96,3 +96,22 @@ for i = 0; i < len(defs); i++ {
 		})
 	})
 }
+
+func prettyRunes(s) {
+	out = ""
+	for r,a in s.runes {
+		out += ("\t" + r + ": " + a + ",\n")
+	}
+	return out
+}
+
+func printSpell(idx) {
+	printf("{\n\t\"level\": %v,\n\t\"kind\": %v,\n\t\"dmg\": %v,\n\t\"runes\": {\n%v\t},\n},\n", defs[idx].level, defs[idx].kind, defs[idx].dmg, import("strings").Replace(prettyRunes(defs[idx]), "\t", "\t\t", -1))
+}
+
+//idx = 0
+//for k in defs {
+//	printf(idx + ": ")
+//	idx++
+//	printSpell(k)
+//}
