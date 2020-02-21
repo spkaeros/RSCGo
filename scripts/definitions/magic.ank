@@ -26,18 +26,18 @@ func newMissileHandler(power) {
 			}
 
 			odds = {}
-			dmg = toFloat(power) + 1.0
+			dmg = power
 			rat = 45.0 + toFloat(player.MagicPoints())
-			peak = (dmg/100.0)*rat
+			peak = dmg/100.0*rat
 			dip = peak / 3.0
 
-			cur = 65565.0
-			for i = 0; i < dmg; i++ {
+			cur = 100*(dmg+(3/dmg))
+			for i = 0; i <= dmg; i++ {
 				odds[i] = cur
 				if i < dip || i > peak {
-					cur -= (65565*0.03)
+					cur -= 3*(dmg+1)
 				} else {
-					cur += (65565*0.03)
+					cur += 3*(dmg+1)
 				}
 			}
 			hit = math.Min(spell.target.Skills().Current(HITPOINTS), weightedChance(odds))
@@ -229,7 +229,7 @@ defs = [
 		"desc": "A strength 5 missile attack",
 		"kind": 2,
 		"dmg": 5,
-		"handler": newMissileHandler(4),
+		"handler": newMissileHandler(5),
 		"runes": {
 			33: 2,
 			41: 1,
@@ -264,7 +264,7 @@ defs = [
 		"desc": "A strength 6 missile attack",
 		"kind": 2,
 		"dmg": 6,
-		"handler": newMissileHandler(5),
+		"handler": newMissileHandler(6),
 		"runes": {
 			32: 2,
 			33: 2,
@@ -301,7 +301,7 @@ defs = [
 		"desc": "A strength 7 missile attack",
 		"kind": 2,
 		"dmg": 7,
-		"handler": newMissileHandler(5),
+		"handler": newMissileHandler(7),
 		"runes": {
 			34: 3,
 			33: 2,
@@ -338,7 +338,7 @@ defs = [
 		"desc": "A strength 8 missile attack",
 		"kind": 2,
 		"dmg": 8,
-		"handler": newMissileHandler(6),
+		"handler": newMissileHandler(8),
 		"runes": {
 			31: 4,
 			33: 3,
@@ -376,7 +376,7 @@ defs = [
 		"desc": "A strength 9 missile attack",
 		"kind": 2,
 		"dmg": 9,
-		"handler": newMissileHandler(6),
+		"handler": newMissileHandler(9),
 		"runes": {
 			33: 3,
 			38: 1,
@@ -411,7 +411,7 @@ defs = [
 		"desc": "A strength 10 missile attack",
 		"kind": 2,
 		"dmg": 10,
-		"handler": newMissileHandler(7),
+		"handler": newMissileHandler(10),
 		"runes": {
 			32: 3,
 			33: 3,
@@ -466,7 +466,7 @@ defs = [
 		"desc": "A strength 11 missile attack",
 		"kind": 2,
 		"dmg": 11,
-		"handler": newMissileHandler(7),
+		"handler": newMissileHandler(11),
 		"runes": {
 			34: 4,
 			33: 3,
