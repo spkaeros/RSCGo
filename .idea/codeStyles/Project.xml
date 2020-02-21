@@ -6,5 +6,19 @@
         <option name="SMART_TABS" value="true" />
       </value>
     </option>
+    <GoCodeStyleSettings>
+      <option name="USE_BACK_QUOTES_FOR_IMPORTS" value="true" />
+      <option name="ADD_PARENTHESES_FOR_SINGLE_IMPORT" value="true" />
+      <option name="MOVE_ALL_STDLIB_IMPORTS_IN_ONE_GROUP" value="true" />
+      <option name="GROUP_STDLIB_IMPORTS" value="true" />
+      <option name="GROUP_CURRENT_PROJECT_IMPORTS" value="true" />
+    </GoCodeStyleSettings>
+    <codeStyleSettings language="go">
+      <indentOptions>
+        <option name="CONTINUATION_INDENT_SIZE" value="8" />
+        <option name="SMART_TABS" value="true" />
+        <option name="KEEP_INDENTS_ON_EMPTY_LINES" value="true" />
+      </indentOptions>
+    </codeStyleSettings>
   </code_scheme>
 </component>

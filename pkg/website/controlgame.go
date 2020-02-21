@@ -114,7 +114,7 @@ func bindGameProcManager() {
 		w.Header().Set("Content-Type", "text/plain")
 		if ServerCmd == nil || ServerCmd.Process == nil || (ServerCmd.ProcessState != nil && ServerCmd.ProcessState.Exited()) {
 			if err := pkill(); err != nil {
-				writeContent(w, []byte("Error:['" + err.Error() + "]''; could not stop game server.  Is it running?"))
+				writeContent(w, []byte("Error:['"+err.Error()+"]''; could not stop game server.  Is it running?"))
 			}
 			writeContent(w, []byte("Successfully killed game server"))
 			return
@@ -122,9 +122,9 @@ func bindGameProcManager() {
 		err := ServerCmd.Process.Kill()
 		ServerCmd = nil
 		if err != nil {
-			writeContent(w, []byte("Error:['" + err.Error() + "]''; Falling back to pkill..."))
+			writeContent(w, []byte("Error:['"+err.Error()+"]''; Falling back to pkill..."))
 			if err := pkill(); err != nil {
-				writeContent(w, []byte("Error:['" + err.Error() + "]''; could not stop game server.  Is it running?"))
+				writeContent(w, []byte("Error:['"+err.Error()+"]''; could not stop game server.  Is it running?"))
 				return
 			}
 		}

@@ -90,11 +90,12 @@ func main() {
 	//	asyncExecute(&awaitLaunchJobs, script.LoadBoundaryTriggers)
 	//	asyncExecute(&awaitLaunchJobs, script.LoadItemTriggers)
 	awaitLaunchJobs.Wait()
-	asyncExecute(&awaitLaunchJobs, world.RunScripts)
 	asyncExecute(&awaitLaunchJobs, db.LoadObjectLocations)
 	asyncExecute(&awaitLaunchJobs, db.LoadNpcLocations)
 	asyncExecute(&awaitLaunchJobs, db.LoadItemLocations)
 	awaitLaunchJobs.Wait()
+	world.RunScripts()
+	
 	if config.Verbose() {
 		log.Info.Printf("Loaded %d landscape sectors.\n", len(world.Sectors))
 		log.Info.Printf("Loaded %d packets, %d of which have handlers.\n", handlers.PacketCount(), handlers.HandlerCount())

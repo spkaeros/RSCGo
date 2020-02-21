@@ -187,7 +187,7 @@ func LevelToExperience(lvl int) int {
 	if index < 0 || index > len(experienceLevels)-1 {
 		return 0
 	}
-	return int(experienceLevels[index]/4)
+	return int(experienceLevels[index] / 4)
 }
 
 //ExperienceToLevel Finds the maximum level for the provided experience amount.
@@ -198,5 +198,5 @@ func ExperienceToLevel(exp int) int {
 		}
 	}
 
-	return len(experienceLevels)-1
+	return len(experienceLevels) - 1
 }

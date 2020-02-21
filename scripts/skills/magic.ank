@@ -1,117 +1,13 @@
 bind = import("bind")
-world = import("world")
-ids = import("ids")
+load("scripts/definitions/magic.ank")
 
-load("scripts/definitions/spells.ank")
-
-// Bones to bananas
-bind.spell(7, func(player, spell) {
-	amt = player.Inventory.CountID(ids.BONES)
-	if amt <= 0 {
-		player.Message("You aren't holding any bones!")
-		return
-	}
-	if !spellCast(defs[spell.idx], player) {
-		return
-	}
-	for i in range(amt) {
-		if player.Inventory.Remove(player.Inventory.GetIndex(ids.BONES)) {
-			player.Inventory.Add(ids.BANANA, 1)
-		}
-	}
-	player.SendInventory()
-})
-
-// tele-grab
-bind.spell(16, func(player, spell) {
-	player.Message("@que@@or1@Not yet implemented.  Apologies.")
-})
-
-for teleIdx, teleHandler in teleports {
-	bind.spell(teleIdx, teleHandler)
-}
-
-// low-alch
-bind.spell(10, func(player, spell) {
-	player.Message("@que@@or1@Not yet implemented.  Apologies.")
-})
-// high-alch
-bind.spell(28, func(player, spell) {
-	player.Message("@que@@or1@Not yet implemented.  Apologies.")
-})
-
-
-// Charge (god missile spells)
-bind.spell(47, func(player, spell) {
-	player.Message("@que@@or1@Not yet implemented.  Apologies.")
-})
-
-for i = 0; i < len(defs); i++ {
-	if defs[i].dmg == -1 {
+for idx in range(len(defs)) {
+	fn = defs[idx].handler
+	if fn == nil {
+		bind.spell(idx, func(player, spell) {
+			player.Message("Not yet")
+		})
 		continue
 	}
-	// Basic missile spells below
-	bind.spell(i, func(player, spell) {
-		spellDef = defs[spell.idx]
-		player.WalkingRangedAction(spell.target, func() {
-	        if !player.CanAttack(spell.target) {
-				if player.IsDueling() && player.IsFighting() && spell.target == player.DuelTarget() && !player.Transients().VarBool("duelCanMagic", true) {
-		            player.Message("Magic cannot be used during this duel!")
-		        }
-	            player.ResetPath()
-	            return
-	        }
-	        player.ResetAllExceptDueling()
-	        if !spellCast(spellDef, player) {
-				return
-			}
-
-			odds = {}
-			dmg = 0.0 + spellDef.dmg
-			rat = 45.0 + player.MagicPoints()
-			peak = (dmg/100.0)*rat
-			dip = peak / 3.0
-
-			cur = 100.0 * dmg
-			for i = 0; i < dmg; i++ {
-				odds[i] = cur
-				if i < dip || i > peak {
-					cur -= (dmg*100/3)
-				} else {
-					cur += (dmg*100/3)
-				}
-			}
-			hit = import("math").Min(spell.target.Skills().Current(HITPOINTS), weightedChance(odds))
-			spell.target.Skills().DecreaseCur(HITPOINTS, hit)
-			if spell.target.Skills().Current(HITPOINTS) <= 0 {
-				spell.target.Killed(player)
-				return
-			}
-			projectile = newProjectile(player, spell.target, 1)
-			for p in player.NearbyPlayers() {
-				p.SendPacket(projectile)
-			}
-			player.SendPacket(projectile)
-			spell.target.Damage(hit)
-		})
-	})
+	bind.spell(idx, fn)
 }
-
-func prettyRunes(s) {
-	out = ""
-	for r,a in s.runes {
-		out += ("\t" + r + ": " + a + ",\n")
-	}
-	return out
-}
-
-func printSpell(idx) {
-	printf("{\n\t\"level\": %v,\n\t\"kind\": %v,\n\t\"dmg\": %v,\n\t\"runes\": {\n%v\t},\n},\n", defs[idx].level, defs[idx].kind, defs[idx].dmg, import("strings").Replace(prettyRunes(defs[idx]), "\t", "\t\t", -1))
-}
-
-//idx = 0
-//for k in defs {
-//	printf(idx + ": ")
-//	idx++
-//	printSpell(k)
-//}

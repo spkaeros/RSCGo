@@ -331,7 +331,7 @@ func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, passw
 	}
 
 	if !s.PlayerNameTaken(strutil.Base37.Decode(usernameHash)) {
-		loginReply <- handshake.	ResponseBadPassword
+		loginReply <- handshake.ResponseBadPassword
 		return
 	}
 	// If this fails, then the login information was incorrect, and we don't need to do anything else

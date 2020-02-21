@@ -4,12 +4,14 @@
       <w>anko</w>
       <w>ardougne</w>
       <w>arraybuffer</w>
+      <w>attackable</w>
       <w>bitmask</w>
       <w>bruteforce</w>
       <w>cheatf</w>
       <w>debugf</w>
       <w>dequip</w>
       <w>descramble</w>
+      <w>dragonstone</w>
       <w>draynor</w>
       <w>dstone</w>
       <w>edgeville</w>
@@ -26,6 +28,7 @@
       <w>karamja</w>
       <w>kharid</w>
       <w>lumbridge</w>
+      <w>mage</w>
       <w>mithril</w>
       <w>mobstate</w>
       <w>npcs</w>
@@ -53,6 +56,7 @@
       <w>traversable</w>
       <w>upgrader</w>
       <w>varrock</w>
+      <w>waitgroup</w>
       <w>waypoints</w>
       <w>webpage</w>
     </words>

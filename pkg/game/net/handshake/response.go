@@ -38,7 +38,7 @@ type ResponseListener struct {
 	result   ResponseCode
 }
 
-func (r *ResponseListener) String() string{
+func (r *ResponseListener) String() string {
 	kind := ""
 	if r.kind == LoginCode {
 		kind = "LoginResponse"

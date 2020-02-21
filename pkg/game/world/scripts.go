@@ -15,10 +15,10 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
+	
 	"github.com/fsnotify/fsnotify"
-	"github.com/mattn/anko/parser"
 	"github.com/mattn/anko/vm"
+	
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 
@@ -155,13 +155,13 @@ func RunScripts() {
 	err = filepath.Walk("./scripts", func(path string, info os.FileInfo, err error) error {
 		if !info.Mode().IsDir() && !strings.Contains(path, "definitions") && !strings.Contains(path, "lib") && strings.HasSuffix(path, "ank") {
 
-			stmt, err := parser.ParseSrc(load(path))
-			if err != nil {
-				log.Warning.Printf("ParseSrc error - received: %v - script: %v", err, path)
-			}
-			// Note: Still want to run the code even after a parse error to see what happens
-			//_, err := vm.Execute(ScriptEnv(), &vm.Options{Debug: true}, load(path))
-			_, err = vm.Run(ScriptEnv(), &vm.Options{Debug: true}, stmt)
+			_, err := vm.Execute(ScriptEnv(), &vm.Options{Debug: true}, load(path))
+			//stmt, err := parser.ParseSrc(load(path))
+			//if err != nil {
+			//	log.Warning.Printf("ParseSrc error - received: %v - script: %v", err, path)
+			//}
+			//// Note: Still want to run the code even after a parse error to see what happens
+			//_, err = vm.Run(ScriptEnv(), &vm.Options{Debug: true}, stmt)
 			if err != nil {
 				log.Warning.Println("Anko error ['"+path+"']:", err)
 				//				log.Info.Println(env.String())

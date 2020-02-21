@@ -176,7 +176,7 @@ func init() {
 		"E_AIR_BATTLESTAFF":        reflect.ValueOf(684),
 		"E_EARTH_BATTLESTAFF":      reflect.ValueOf(685),
 		"BONES":                    reflect.ValueOf(20),
-		"BANANA":                    reflect.ValueOf(249),
+		"BANANA":                   reflect.ValueOf(249),
 		"BAT_BONES":                reflect.ValueOf(604),
 		"DRAGON_BONES":             reflect.ValueOf(614),
 		"RUNE_2H":                  reflect.ValueOf(81),
