@@ -112,6 +112,7 @@ func (c *client) startNetworking() {
 func (c *client) destroy() {
 	c.destroyer.Do(func() {
 		go func() {
+			c.player.UpdateWG.RLock()
 			c.player.SetConnected(false)
 			if err := c.socket.Close(); err != nil {
 				log.Error.Println("Couldn't close socket:", err)
@@ -128,6 +129,7 @@ func (c *client) destroy() {
 			world.RemovePlayer(c.player)
 			db.DefaultPlayerService.PlayerSave(c.player)
 			log.Info.Printf("Unregistered: %v\n", c.player.String())
+			c.player.UpdateWG.RUnlock()
 		}()
 	})
 }

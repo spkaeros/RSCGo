@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"github.com/spkaeros/rscgo/pkg/game/net/handshake"
 	"strconv"
 	"strings"
 	"time"
@@ -25,7 +24,7 @@ type PlayerService interface {
 	PlayerValidLogin(uint64, string) bool
 	PlayerChangePassword(uint64, string) bool
 	PlayerLoadRecoverys(uint64) []string
-	PlayerLoad(*world.Player, uint64, string, chan handshake.ResponseCode)
+	PlayerLoad(*world.Player) bool
 	PlayerSave(*world.Player)
 }
 
@@ -160,19 +159,18 @@ func (s *sqlService) SaveRecoveryQuestions(userHash uint64, questions []string, 
 }
 
 //PlayerLoad Loads a player from the SQLite3 database, returns a login response code.
-func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, password string, loginReply chan handshake.ResponseCode) {
+// Returns: true on success, false on failure
+func (s *sqlService) PlayerLoad(player *world.Player) bool {
 	loadProfile := func() error {
 		database := s.connect(context.Background())
 		defer database.Close()
-		rows, err := database.QueryContext(context.Background(), "SELECT player.id, player.x, player.y, player.group_id, appearance.haircolour, appearance.topcolour, appearance.trousercolour, appearance.skincolour, appearance.head, appearance.body FROM player INNER JOIN appearance WHERE appearance.playerid=player.id AND player.userhash=? AND player.password=?", usernameHash, crypto.Hash(password))
+		rows, err := database.QueryContext(context.Background(), "SELECT player.id, player.x, player.y, player.group_id, appearance.haircolour, appearance.topcolour, appearance.trousercolour, appearance.skincolour, appearance.head, appearance.body FROM player INNER JOIN appearance WHERE appearance.playerid=player.id AND player.userhash=?", player.UsernameHash())
 		if err != nil {
-			log.Info.Println("ValidatePlayer(uint64,string): Could not prepare query statement for player:", err)
-			loginReply <- handshake.ResponseBadPassword
+			log.Info.Println("Load error: Could not prepare statement:", err)
 			return errors.NewDatabaseError(err.Error())
 		}
 		defer rows.Close()
 		if !rows.Next() {
-			loginReply <- handshake.ResponseBadPassword
 			return errors.NewDatabaseError("Could not find player")
 		}
 		var x, y, rank, dbID int
@@ -193,8 +191,8 @@ func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, passw
 
 		rows, err := database.QueryContext(context.Background(), "SELECT name, value FROM player_attr WHERE player_id=?", player.DatabaseID())
 		if err != nil {
-			log.Info.Println("PlayerLoad(uint64,string): Could not execute query statement for player attributes:", err)
-			return errors.NewDatabaseError("Statement could not execute.")
+			log.Info.Println("Load error: Could not prepare statement:", err)
+			return errors.NewDatabaseError(err.Error())
 		}
 		defer rows.Close()
 		for rows.Next() {
@@ -250,8 +248,8 @@ func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, passw
 
 		rows, err := database.QueryContext(context.Background(), "SELECT playerhash FROM contacts WHERE playerid=? AND `type`=?", player.DatabaseID(), list)
 		if err != nil {
-			log.Info.Println("PlayerLoad(uint64,string): Could not execute query statement for player friends:", err)
-			return errors.NewDatabaseError("Statement could not execute.")
+			log.Info.Println("Load error: Could not prepare statement:", err)
+			return errors.NewDatabaseError(err.Error())
 		}
 		defer rows.Close()
 		for rows.Next() {
@@ -271,8 +269,8 @@ func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, passw
 		defer database.Close()
 		rows, err := database.QueryContext(context.Background(), "SELECT itemid, amount, wielded FROM inventory WHERE playerid=?", player.DatabaseID())
 		if err != nil {
-			log.Info.Println("PlayerLoad(uint64,string): Could not execute query statement for player inventory:", err)
-			return errors.NewDatabaseError("Statement could not execute.")
+			log.Info.Println("Load error: Could not prepare statement:", err)
+			return errors.NewDatabaseError(err.Error())
 		}
 		defer rows.Close()
 		for rows.Next() {
@@ -298,8 +296,8 @@ func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, passw
 		defer database.Close()
 		rows, err := database.QueryContext(context.Background(), "SELECT itemid, amount FROM bank WHERE playerid=?", player.DatabaseID())
 		if err != nil {
-			log.Info.Println("PlayerLoad(uint64,string): Could not execute query statement for player inventory:", err)
-			return errors.NewDatabaseError("Statement could not execute.")
+			log.Info.Println("Load error: Could not prepare statement:", err)
+			return errors.NewDatabaseError(err.Error())
 		}
 		defer rows.Close()
 		for rows.Next() {
@@ -314,7 +312,7 @@ func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, passw
 		defer database.Close()
 		rows, err := database.QueryContext(context.Background(), "SELECT cur, exp FROM stats WHERE playerid=? ORDER BY num", player.DatabaseID())
 		if err != nil {
-			log.Info.Println("ValidatePlayer(uint64,string): Could not prepare query statement for player:", err)
+			log.Info.Println("Load error: Could not prepare statement:", err)
 			return errors.NewDatabaseError(err.Error())
 		}
 		defer rows.Close()
@@ -330,45 +328,29 @@ func (s *sqlService) PlayerLoad(player *world.Player, usernameHash uint64, passw
 		return nil
 	}
 
-	if !s.PlayerNameTaken(strutil.Base37.Decode(usernameHash)) {
-		loginReply <- handshake.ResponseBadPassword
-		return
-	}
 	// If this fails, then the login information was incorrect, and we don't need to do anything else
 	if err := loadProfile(); err != nil {
-		return
+		return false
 	}
 	if err := loadAttributes(); err != nil {
-		return
+		return false
 	}
 	if err := loadContactList("friend"); err != nil {
-		return
+		return false
 	}
 	if err := loadContactList("ignore"); err != nil {
-		return
+		return false
 	}
 	if err := loadInventory(); err != nil {
-		return
+		return false
 	}
 	if err := loadBank(); err != nil {
-		return
+		return false
 	}
 	if err := loadStats(); err != nil {
-		return
+		return false
 	}
-
-	if player.Reconnecting() {
-		loginReply <- handshake.ResponseReconnected
-		return
-	}
-	switch player.Rank() {
-	case 2:
-		loginReply <- handshake.ResponseAdministrator
-	case 1:
-		loginReply <- handshake.ResponseModerator
-	default:
-		loginReply <- handshake.ResponseLoginSuccess
-	}
+	return true
 }
 
 //PlayerSave Saves a player to the SQLite3 database.

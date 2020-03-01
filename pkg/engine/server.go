@@ -144,6 +144,7 @@ func Tick() {
 	tasks.TickerList.RunSynchronous()
 
 	world.Players.Range(func(p *world.Player) {
+		p.UpdateWG.Lock()
 		runTickables(p)
 		if fn := p.DistancedAction; fn != nil {
 			if fn() {
@@ -191,6 +192,7 @@ func Tick() {
 		p.ResetRegionMoved()
 		p.ResetSpriteUpdated()
 		p.ResetAppearanceChanged()
+		p.UpdateWG.Unlock()
 	})
 	world.ResetNpcUpdateFlags()
 }

@@ -122,6 +122,7 @@ type Player struct {
 	Equips           [12]int
 	killer           sync.Once
 	KillC            chan struct{}
+	UpdateWG         sync.RWMutex
 	Tickables        []interface{}
 	*Mob
 }

@@ -45,7 +45,8 @@ func init() {
 	AddHandler("privmsg", func(player *world.Player, p *net.Packet) {
 		if c1, ok := world.Players.FromUserHash(p.ReadLong()); ok {
 			if !c1.FriendBlocked() || c1.FriendsWith(player.UsernameHash()) {
-				c1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(strutil.ChatFilter.Unpack(p.Payload[8:]))))
+				// c1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(strutil.ChatFilter.Unpack(p.Payload[8:]))))
+				c1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(string(p.Payload[8:]))))
 			}
 		}
 	})

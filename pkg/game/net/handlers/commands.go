@@ -42,7 +42,7 @@ func init() {
 		os.Exit(1)
 	}
 	AddHandler("command", func(player *world.Player, p *net.Packet) {
-		args := strutil.ModalParse(string(p.Payload))
+		args := strutil.ModalParse(p.ReadString())
 		if len(args) <= 0 {
 			// prevent `::` freezing player
 			return

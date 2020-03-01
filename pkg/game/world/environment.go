@@ -83,6 +83,7 @@ func init() {
 				}
 			}
 			plane := target.Plane()
+			target.ResetPath()
 			target.Teleport(x, y)
 			if target.Plane() != plane {
 				target.SendPacket(PlaneInfo(target))

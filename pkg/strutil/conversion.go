@@ -65,7 +65,9 @@ func ModalParse(s string) []string {
 		if escaped {
 			escaped = false
 		}
-		cur += string(c)
+//		if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '@' {
+			cur += string(c)
+//		}
 	}
 	if len(cur) > 0 {
 		out = append(out, cur)
@@ -177,6 +179,7 @@ func init() {
 		return buf
 	}
 	ChatFilter.Unpack = func(data []byte) string {
+		// deprecated
 		var buf []rune
 		dataOffset := 0
 		cachedValue := -1
@@ -214,18 +217,25 @@ func init() {
 		buf := []rune(msg)
 		flag := true
 		for i, c := range msg {
-			if (i > 4 && c == '@') || c == '%' {
+			if c == '@' {
+				if i == 4 && msg[i-4] == '@' {
+					flag = true
+				} else if i == 0 && msg[i+4] == '@' {
+					flag = false
+				} else {
+					buf[i] = ' '
+				}
+			} else if c == '%' {
 				buf[i] = ' '
-			}
-			if i == 4 && c == '@' {
+			} else if c == '.' || c == '!' || c == ':' {
 				flag = true
-			}
-			if flag && c >= 'a' && c <= 'z' {
-				buf[i] = unicode.ToUpper(c)
+			} else {
 				flag = false
-			}
-			if c == '.' || c == '!' || c == ':' {
-				flag = true
+				if flag {
+					buf[i] = unicode.ToUpper(c)
+				} else {
+					buf[i] = unicode.ToLower(c)
+				}
 			}
 		}
 

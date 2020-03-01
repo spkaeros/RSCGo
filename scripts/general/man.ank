@@ -52,3 +52,17 @@ bind.npc(npcPredicate(11, 63, 72), func(player, npc) {
 		}
 	}
 })
+
+//hans
+bind.npc(npcPredicate(5), func(player, npc) {
+	npc.Chat(player, "Hello what are you doing here?")
+	switch player.OpenOptionMenu("I'm looking for whoever is in charge of this place",
+			"I have come to kill everyone in this castle", "I don't know. I'm lost. Where am I?") {
+	case 0:
+		npc.Chat(player, "Sorry, I don't know where he is right now")
+	case 1:
+		npc.Chat(player, "HELP HELP!")
+	case 2:
+		npc.Chat(player, "You are in Lumbridge Castle")
+	}
+})

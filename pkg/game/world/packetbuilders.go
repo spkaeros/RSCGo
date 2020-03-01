@@ -40,8 +40,9 @@ func PrivateMessage(hash uint64, msg string) (p *net.Packet) {
 	p = net.NewOutgoingPacket(120)
 	p.AddLong(hash)
 	p.AddInt(rand.Uint32()) // unique Message ID to prevent duplicate messages somehow arriving or something idk
-	for _, c := range strutil.ChatFilter.Pack(msg) {
-		p.AddByte(c)
+	// for _, c := range strutil.ChatFilter.Pack(msg) {
+	for _, c := range msg {
+		p.AddByte(byte(c))
 	}
 	return p
 }
@@ -175,10 +176,11 @@ func NpcMessage(sender *NPC, message string, target *Player) (p *net.Packet) {
 		message = message[:255]
 	}
 	message = strutil.ChatFilter.Format(message)
-	messageRaw := strutil.ChatFilter.Pack(message)
+	// messageRaw := strutil.ChatFilter.Pack(message)
+	messageRaw := message
 	p.AddByte(uint8(len(messageRaw)))
 	for _, c := range messageRaw {
-		p.AddByte(c)
+		p.AddByte(byte(c))
 	}
 	return
 }
@@ -192,10 +194,11 @@ func PlayerMessage(sender *Player, message string) (p *net.Packet) {
 		message = message[:255]
 	}
 	message = strutil.ChatFilter.Format(message)
-	messageRaw := strutil.ChatFilter.Pack(message)
+	// messageRaw := strutil.ChatFilter.Pack(message)
+	messageRaw := message
 	p.AddByte(uint8(len(messageRaw)))
 	for _, c := range messageRaw {
-		p.AddByte(c)
+		p.AddByte(byte(c))
 	}
 	return
 }

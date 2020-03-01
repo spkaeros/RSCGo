@@ -9,6 +9,19 @@ func (e DatabaseError) Error() string {
 	return e.msg
 }
 
+//ArgumentsError A RSCGo network-related error.
+type ArgumentsError struct {
+	msg string
+}
+
+func (e ArgumentsError) Error() string {
+	return e.msg
+}
+
+//NewArgserror Returns a new NetError struct with the specified message.
+func NewArgsError(s string) error {
+	return ArgumentsError{msg: s}
+}
 //NetError A RSCGo network-related error.
 type NetError struct {
 	msg string

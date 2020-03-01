@@ -12,8 +12,11 @@ package net
 import (
 	"fmt"
 	"strconv"
+	"strings"
+	"math"
 
 	"github.com/spkaeros/rscgo/pkg/log"
+	"github.com/spkaeros/rscgo/pkg/errors"
 )
 
 //Packet The definition of a game net.  Generally, these are commands, indexed by their Opcode(0-255), with
@@ -45,32 +48,42 @@ func NewBarePacket(src []byte) *Packet {
 	return &Packet{0, src, true, 0, 0, 0}
 }
 
-func (p *Packet) readVarLengthInt(numBytes int) uint64 {
-	var val uint64
-	for i := numBytes - 1; i >= 0; i-- {
-		val |= uint64(p.ReadByte()) << uint(i*8)
+func (p *Packet) readVarLengthInt(n int) []uint64 {
+	read := func(numBytes int) uint64 {
+		var val uint64
+		for idx, b := range p.ReadBytes(numBytes) {
+			val |= uint64(b) << uint((numBytes-1-idx) << 3)
+		}
+		log.Info.Println(val,numBytes)
+		return val
 	}
-	return val
+
+	set := []uint64{}
+	for ; n > 0; n -= 8 {
+		set = append(set, read(int(math.Min(float64(n), 8))))
+	}
+	return set
+}
+
+//ReadLLong Read the next 128-bit integer from the net payload.
+func (p *Packet) ReadLLong() (msb uint64, lsb uint64) {
+	buf := p.readVarLengthInt(16)
+	return buf[0], buf[1]
 }
 
 //ReadLong Read the next 64-bit integer from the net payload.
 func (p *Packet) ReadLong() uint64 {
-	return p.readVarLengthInt(8)
+	return p.readVarLengthInt(8)[0]
 }
 
 //ReadInt Read the next 32-bit integer from the net payload.
 func (p *Packet) ReadInt() int {
-	return int(p.readVarLengthInt(4))
+	return int(p.readVarLengthInt(4)[0])
 }
 
 //ReadShort Read the next 16-bit integer from the net payload.
 func (p *Packet) ReadShort() int {
-	return int(p.readVarLengthInt(2))
-}
-
-//ReadBool Reads the next byte, if it is 1 returns true, else returns false.
-func (p *Packet) ReadBool() bool {
-	return p.ReadByte() == 1
+	return int(p.readVarLengthInt(2)[0])
 }
 
 func (p *Packet) checkError(err error) bool {
@@ -82,48 +95,69 @@ func (p *Packet) checkError(err error) bool {
 
 //ReadByte Read the next 8-bit integer from the net payload.
 func (p *Packet) ReadByte() byte {
-	if p.readIndex+1 > len(p.Payload) {
-		log.Warning.Println("Error parsing net arguments: { opcode=" + strconv.Itoa(int(p.Opcode)) + "; offset=" + strconv.Itoa(p.readIndex) + " };")
-		return byte(0)
-	}
-	defer func() {
-		p.readIndex++
-	}()
+	defer p.Skip(1)
 	return p.Payload[p.readIndex] & 0xFF
 }
 
-//ReadSByte Read the next 8-bit integer from the net payload, as a signed byte.
+//ReadBool Returns true if the next payload byte isn't 0
+func (p *Packet) ReadBool() bool {
+	defer p.Skip(1)
+	return p.Payload[p.readIndex] != 0
+}
+
+//ReadSByte returns the signed interpretation of the next payload byte.
 func (p *Packet) ReadSByte() int8 {
-	if p.readIndex+1 > len(p.Payload) {
-		log.Warning.Println("Error parsing net arguments: { opcode=" + strconv.Itoa(int(p.Opcode)) + "; offset=" + strconv.Itoa(p.readIndex) + " };")
-		return int8(0)
-	}
-	defer func() {
-		p.readIndex++
-	}()
+	defer p.Skip(1)
 	return int8(p.Payload[p.readIndex])
 }
 
-//ReadString Read the next n bytes from the net payload and return it as a Go-string.
-func (p *Packet) ReadString(n int) (val string) {
-	for i := 0; i < n; i++ {
-		val += string(p.ReadByte())
-	}
-	return
+func (p *Packet) ReadBytes(n int) []byte {
+	defer p.Skip(n)
+	return p.Payload[p.readIndex:p.readIndex+n]
 }
 
-// FIXME: Below is custom, non-jagex, better ReadString for use in modified client
-/*
+func (p *Packet) Rewind(n int) error {
+	if n < 0 {
+		return errors.NewArgsError("ArgsError[InvalidValue] Rewinding the buffer by less than 0 bytes is not permitted.  Perhaps you need *Packet.Skip ?")
+	}
+	if n > p.readIndex {
+		p.readIndex = 0
+		return errors.NewNetworkError("PacketBufferError[OutOfBounds:Rewind] Tried to rewind reader caret (" + strconv.Itoa(p.readIndex) + ") passed the start of the buffer (0)")
+	}
+	p.readIndex -= n
+	return nil
+}
+
+func (p *Packet) Skip(n int) error {
+	if n < 0 {
+		return errors.NewArgsError("ArgsError[BadValue] Skipping the buffer by less than 0 bytes is not permitted.  Perhaps you need *Packet.Rewind ?")
+	}
+	if p.Available() < n {
+		p.readIndex = p.Length()
+		return errors.NewNetworkError("PacketBufferError[OutOfBounds:Skip] Tried to skip reader caret (" + strconv.Itoa(p.readIndex) + ") passed the length of the buffer (" + strconv.Itoa(p.Length()) + ")")
+	}
+	p.readIndex += n
+	return nil
+}
+
+//ReadStringN Reads the next n bytes from the payload and returns it as a UTF-8 string, regardless of payload contents.
+func (p *Packet) ReadStringN(n int) (val string) {
+	return string(p.ReadBytes(n))
+}
+
 //ReadString Read the next variable-length C-string from the net payload and return it as a Go-string.
 // This will keep reading data until it reaches a null-byte or a new-line character ( '\0', 0xA, 0, 10 ).
 func (p *Packet) ReadString() string {
-	var val string
-	for c := p.ReadByte(); c != 0 && c != 0xA; c = p.ReadByte() {
-		val += string(c)
+	start := p.readIndex
+	s := string(p.Payload[start:])
+	end := strings.IndexByte(s, '\x00')
+	if end < 0 {
+		p.readIndex = p.Length()
+		return s[:end]
 	}
-	return val
+	p.readIndex += end
+	return s[:end]
 }
-*/
 
 //AddLong Adds a 64-bit integer to the net payload.
 func (p *Packet) AddLong(l uint64) *Packet {
@@ -191,10 +225,6 @@ func (p *Packet) AddBytes(b []byte) *Packet {
 	return p
 }
 
-func (p *Packet) String() string {
-	return fmt.Sprintf("Packet{opcode='%d',len='%d',payload={ %v }}", p.Opcode, len(p.Payload), p.Payload)
-}
-
 //AddBits Packs value into the numBits next bits of the packetbuilders byte buffer.
 func (p *Packet) AddBits(value int, numBits int) *Packet {
 	bitmasks := []int32{0, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff, 0x1ff, 0x3ff, 0x7ff, 0xfff, 0x1fff,
@@ -222,4 +252,20 @@ func (p *Packet) AddBits(value int, numBits int) *Packet {
 	}
 
 	return p
+}
+
+func (p *Packet) Length() int {
+	return len(p.Payload)
+}
+
+func (p *Packet) Available() int {
+	return p.Length()-p.readIndex
+}
+
+func (p *Packet) Capacity() int {
+	return 5000-p.Length()
+}
+
+func (p *Packet) String() string {
+	return fmt.Sprintf("Packet{opcode:%d,available:%d,capacity:%d,payload:%v}", p.Opcode, p.Available(), p.Capacity(), p.Payload)
 }
