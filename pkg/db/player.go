@@ -31,7 +31,7 @@ type PlayerService interface {
 //NewPlayerServiceSql Returns a new SqlPlayerService to manage the specified *sql.DB instance.
 // Note: To use this, you must load a database/sql driver.
 func NewPlayerServiceSql(addr string) PlayerService {
-	return newSqlService(sqlOpen("postgres", "host=127.0.0.1 port=5432 user=zach password=zebra1 dbname=rscgo sslmode=disable"))
+	return newSqlService(sqlOpen("postgres", "host=127.0.0.1 port=5432 user=zach password=zeb!Rscgo!A2019 dbname=rscgo sslmode=disable"))
 }
 
 //DefaultPlayerService the default player save managing service in use by the game server
@@ -49,7 +49,7 @@ func (s *sqlService) PlayerCreate(username, password string) bool {
 		return false
 	}
 
-	stmt, err := tx.Exec("INSERT INTO player(username, userhash, password, x, y, group_id) VALUES(?, ?, ?, 220, 445, 0)", username, strutil.Base37.Encode(username), crypto.Hash(password))
+	stmt, err := tx.Exec("INSERT INTO player(username, userhash, password, x, y, group_id) VALUES($1, $2, $3, 220, 445, 0)", username, strutil.Base37.Encode(username), crypto.Hash(password))
 	if err != nil {
 		log.Info.Println("SQLiteService Could not insert new player profile information:", err)
 		return false
@@ -59,7 +59,7 @@ func (s *sqlService) PlayerCreate(username, password string) bool {
 		log.Info.Printf("PlayerCreate(): Could not retrieve player database ID(got %d):\n%v", playerID, err)
 		return false
 	}
-	_, err = tx.Exec("INSERT INTO appearance VALUES(?, 2, 8, 14, 0, 1, 2)", playerID)
+	_, err = tx.Exec("INSERT INTO appearance VALUES($1, 2, 8, 14, 0, 1, 2)", playerID)
 	if err != nil {
 		log.Info.Println("PlayerCreate(): Could not insert new player profile information:", err)
 		return false
@@ -76,7 +76,7 @@ func (s *sqlService) PlayerCreate(username, password string) bool {
 func (s *sqlService) PlayerNameTaken(username string) bool {
 	database := s.connect(context.Background())
 	defer database.Close()
-	stmt, err := database.QueryContext(context.Background(), "SELECT id FROM player WHERE userhash=?", strutil.Base37.Encode(username))
+	stmt, err := database.QueryContext(context.Background(), "SELECT id FROM player WHERE userhash=$1", strutil.Base37.Encode(username))
 	if err != nil {
 		log.Info.Println("UsernameTaken: Could not query player profile information:", err)
 		// return true just to be safe since we could not check
@@ -90,7 +90,7 @@ func (s *sqlService) PlayerNameTaken(username string) bool {
 func (s *sqlService) PlayerValidLogin(userHash uint64, password string) bool {
 	database := s.connect(context.Background())
 	defer database.Close()
-	rows, err := database.QueryContext(context.Background(), "SELECT id FROM player WHERE userhash=? AND password=?", userHash, password)
+	rows, err := database.QueryContext(context.Background(), "SELECT id FROM player WHERE userhash=$1 AND password=$2", userHash, password)
 	if err != nil {
 		log.Info.Println("Validate: Could not validate user credentials:", err)
 		return false
@@ -103,7 +103,7 @@ func (s *sqlService) PlayerValidLogin(userHash uint64, password string) bool {
 func (s *sqlService) PlayerChangePassword(userHash uint64, password string) bool {
 	database := s.connect(context.Background())
 	defer database.Close()
-	stmt, err := database.ExecContext(context.Background(), "UPDATE player SET password=? WHERE userhash=?", password, userHash)
+	stmt, err := database.ExecContext(context.Background(), "UPDATE player SET password=$1 WHERE userhash=$2", password, userHash)
 	if err != nil {
 		log.Info.Println("PlayerChangePassword: Could not update player password:", err)
 		return false
@@ -120,7 +120,7 @@ func (s *sqlService) PlayerChangePassword(userHash uint64, password string) bool
 func (s *sqlService) PlayerHasRecoverys(userHash uint64) bool {
 	database := s.connect(context.Background())
 	defer database.Close()
-	rows, err := database.QueryContext(context.Background(), "SELECT question1 FROM recovery_questions WHERE userhash=?", userHash)
+	rows, err := database.QueryContext(context.Background(), "SELECT question1 FROM recovery_questions WHERE userhash=$1", userHash)
 	if err != nil {
 		log.Info.Println("PlayerHasRecoverys: Could not search for recovery questions:", err)
 		return false
@@ -133,7 +133,7 @@ func (s *sqlService) PlayerHasRecoverys(userHash uint64) bool {
 func (s *sqlService) PlayerLoadRecoverys(userHash uint64) []string {
 	database := s.connect(context.Background())
 	defer database.Close()
-	rows, err := database.QueryContext(context.Background(), "SELECT question1, question2, question3, question4, question5 FROM recovery_questions WHERE userhash=?", userHash)
+	rows, err := database.QueryContext(context.Background(), "SELECT question1, question2, question3, question4, question5 FROM recovery_questions WHERE userhash=$1", userHash)
 	if err != nil {
 		log.Info.Println("PlayerLoadRecoverys: Could not find recovery questions:", err)
 		return nil
@@ -164,7 +164,7 @@ func (s *sqlService) PlayerLoad(player *world.Player) bool {
 	loadProfile := func() error {
 		database := s.connect(context.Background())
 		defer database.Close()
-		rows, err := database.QueryContext(context.Background(), "SELECT player.id, player.x, player.y, player.group_id, appearance.haircolour, appearance.topcolour, appearance.trousercolour, appearance.skincolour, appearance.head, appearance.body FROM player INNER JOIN appearance WHERE appearance.playerid=player.id AND player.userhash=?", player.UsernameHash())
+		rows, err := database.QueryContext(context.Background(), "SELECT player.id, player.x, player.y, player.group_id, appearance.haircolour, appearance.topcolour, appearance.trousercolour, appearance.skincolour, appearance.head, appearance.body FROM player INNER JOIN appearance ON appearance.playerid=player.id AND player.userhash=$1", player.UsernameHash())
 		if err != nil {
 			log.Info.Println("Load error: Could not prepare statement:", err)
 			return errors.NewDatabaseError(err.Error())
@@ -189,7 +189,7 @@ func (s *sqlService) PlayerLoad(player *world.Player) bool {
 		database := s.connect(context.Background())
 		defer database.Close()
 
-		rows, err := database.QueryContext(context.Background(), "SELECT name, value FROM player_attr WHERE player_id=?", player.DatabaseID())
+		rows, err := database.QueryContext(context.Background(), "SELECT name, value FROM player_attr WHERE player_id=$1", player.DatabaseID())
 		if err != nil {
 			log.Info.Println("Load error: Could not prepare statement:", err)
 			return errors.NewDatabaseError(err.Error())
@@ -246,7 +246,7 @@ func (s *sqlService) PlayerLoad(player *world.Player) bool {
 		database := s.connect(context.Background())
 		defer database.Close()
 
-		rows, err := database.QueryContext(context.Background(), "SELECT playerhash FROM contacts WHERE playerid=? AND `type`=?", player.DatabaseID(), list)
+		rows, err := database.QueryContext(context.Background(), "SELECT playerhash FROM contacts WHERE playerid=$1 AND type=$2", player.DatabaseID(), list)
 		if err != nil {
 			log.Info.Println("Load error: Could not prepare statement:", err)
 			return errors.NewDatabaseError(err.Error())
@@ -267,7 +267,7 @@ func (s *sqlService) PlayerLoad(player *world.Player) bool {
 	loadInventory := func() error {
 		database := s.connect(context.Background())
 		defer database.Close()
-		rows, err := database.QueryContext(context.Background(), "SELECT itemid, amount, wielded FROM inventory WHERE playerid=?", player.DatabaseID())
+		rows, err := database.QueryContext(context.Background(), "SELECT itemid, amount, wielded FROM inventory WHERE playerid=$1", player.DatabaseID())
 		if err != nil {
 			log.Info.Println("Load error: Could not prepare statement:", err)
 			return errors.NewDatabaseError(err.Error())
@@ -294,7 +294,7 @@ func (s *sqlService) PlayerLoad(player *world.Player) bool {
 	loadBank := func() error {
 		database := s.connect(context.Background())
 		defer database.Close()
-		rows, err := database.QueryContext(context.Background(), "SELECT itemid, amount FROM bank WHERE playerid=?", player.DatabaseID())
+		rows, err := database.QueryContext(context.Background(), "SELECT itemid, amount FROM bank WHERE playerid=$1", player.DatabaseID())
 		if err != nil {
 			log.Info.Println("Load error: Could not prepare statement:", err)
 			return errors.NewDatabaseError(err.Error())
@@ -310,7 +310,7 @@ func (s *sqlService) PlayerLoad(player *world.Player) bool {
 	loadStats := func() error {
 		database := s.connect(context.Background())
 		defer database.Close()
-		rows, err := database.QueryContext(context.Background(), "SELECT cur, exp FROM stats WHERE playerid=? ORDER BY num", player.DatabaseID())
+		rows, err := database.QueryContext(context.Background(), "SELECT cur, exp FROM stats WHERE playerid=$1 ORDER BY num", player.DatabaseID())
 		if err != nil {
 			log.Info.Println("Load error: Could not prepare statement:", err)
 			return errors.NewDatabaseError(err.Error())
@@ -363,7 +363,7 @@ func (s *sqlService) PlayerSave(player *world.Player) {
 		return
 	}
 	updateLocation := func() {
-		rs, err := tx.Exec("UPDATE player SET x=?, y=? WHERE id=?", player.X(), player.Y(), player.DatabaseID())
+		rs, err := tx.Exec("UPDATE player SET x=$1, y=$2 WHERE id=$3", player.X(), player.Y(), player.DatabaseID())
 		if err != nil {
 			log.Warning.Println("Save(): UPDATE failed for player location:", err)
 			if err := tx.Rollback(); err != nil {
@@ -380,7 +380,7 @@ func (s *sqlService) PlayerSave(player *world.Player) {
 	updateAppearance := func() {
 		// TODO: Should this just be attributes too??  Is that abusing the attributes table?
 		appearance := player.Appearance
-		rs, _ := tx.Exec("UPDATE appearance SET haircolour=?, topcolour=?, trousercolour=?, skincolour=?, head=?, body=? WHERE playerid=?", appearance.HeadColor, appearance.BodyColor, appearance.LegsColor, appearance.SkinColor, appearance.Head, appearance.Body, player.DatabaseID())
+		rs, _ := tx.Exec("UPDATE appearance SET haircolour=$1, topcolour=$2, trousercolour=$3, skincolour=$4, head=$5, body=$6 WHERE playerid=$7", appearance.HeadColor, appearance.BodyColor, appearance.LegsColor, appearance.SkinColor, appearance.Head, appearance.Body, player.DatabaseID())
 		count, err := rs.RowsAffected()
 		if err != nil {
 			log.Warning.Println("Save(): UPDATE failed for player appearance:", err)
@@ -395,7 +395,7 @@ func (s *sqlService) PlayerSave(player *world.Player) {
 		}
 	}
 	clearAttributes := func() {
-		if _, err := tx.Exec("DELETE FROM player_attr WHERE player_id=?", player.DatabaseID()); err != nil {
+		if _, err := tx.Exec("DELETE FROM player_attr WHERE player_id=$1", player.DatabaseID()); err != nil {
 			log.Warning.Println("Save(): DELETE failed for player attribute:", err)
 			if err := tx.Rollback(); err != nil {
 				log.Warning.Println("Save(): Transaction delete attributes rollback failed:", err)
@@ -434,7 +434,7 @@ func (s *sqlService) PlayerSave(player *world.Player) {
 				}
 			}
 		}
-		rs, _ := tx.Exec("INSERT INTO player_attr(player_id, name, value) VALUES(?, ?, ?)", player.DatabaseID(), name, val)
+		rs, _ := tx.Exec("INSERT INTO player_attr(player_id, name, value) VALUES($1, $2, $3)", player.DatabaseID(), name, val)
 		count, err := rs.RowsAffected()
 		if err != nil {
 			log.Warning.Println("Save(): INSERT failed for player attribute:", err)
@@ -450,7 +450,7 @@ func (s *sqlService) PlayerSave(player *world.Player) {
 		return false
 	}
 	clearContactList := func(contactType string) {
-		if _, err := tx.Exec("DELETE FROM contacts WHERE playerid=? AND type=?", player.DatabaseID(), contactType); err != nil {
+		if _, err := tx.Exec("DELETE FROM contacts WHERE playerid=$1 AND type=$2", player.DatabaseID(), contactType); err != nil {
 			log.Warning.Println("Save(): DELETE failed for player friends:", err)
 			if err := tx.Rollback(); err != nil {
 				log.Warning.Println("Save(): Transaction delete friends rollback failed:", err)
@@ -459,7 +459,7 @@ func (s *sqlService) PlayerSave(player *world.Player) {
 		}
 	}
 	insertContact := func(contactType string, hash uint64) {
-		rs, _ := tx.Exec("INSERT INTO contacts(playerid, playerhash, type) VALUES(?, ?, ?)", player.DatabaseID(), hash, contactType)
+		rs, _ := tx.Exec("INSERT INTO contacts(playerid, playerhash, type) VALUES($1, $2, $3)", player.DatabaseID(), hash, contactType)
 		count, err := rs.RowsAffected()
 		if err != nil {
 			log.Warning.Println("Save(): INSERT failed for player friends:", err)
@@ -474,7 +474,7 @@ func (s *sqlService) PlayerSave(player *world.Player) {
 		}
 	}
 	clearItems := func() {
-		if _, err := tx.Exec("DELETE FROM inventory WHERE playerid=?", player.DatabaseID()); err != nil {
+		if _, err := tx.Exec("DELETE FROM inventory WHERE playerid=$1", player.DatabaseID()); err != nil {
 			log.Warning.Println("Save(): DELETE failed for player inventory:", err)
 			if err := tx.Rollback(); err != nil {
 				log.Warning.Println("Save(): Transaction delete inventory rollback failed:", err)
@@ -483,7 +483,7 @@ func (s *sqlService) PlayerSave(player *world.Player) {
 		}
 	}
 	clearBank := func() {
-		if _, err := tx.Exec("DELETE FROM bank WHERE playerid=?", player.DatabaseID()); err != nil {
+		if _, err := tx.Exec("DELETE FROM bank WHERE playerid=$1", player.DatabaseID()); err != nil {
 			log.Warning.Println("Save(): DELETE failed for player bank:", err)
 			if err := tx.Rollback(); err != nil {
 				log.Warning.Println("Save(): Transaction delete bank rollback failed:", err)
@@ -492,7 +492,7 @@ func (s *sqlService) PlayerSave(player *world.Player) {
 		}
 	}
 	insertItem := func(id, amt int, worn bool) {
-		rs, _ := tx.Exec("INSERT INTO inventory(playerid, itemid, amount, wielded) VALUES(?, ?, ?, ?)", player.DatabaseID(), id, amt, worn)
+		rs, _ := tx.Exec("INSERT INTO inventory(playerid, itemid, amount, wielded) VALUES($1, $2, $3, $4)", player.DatabaseID(), id, amt, worn)
 		count, err := rs.RowsAffected()
 		if err != nil {
 			log.Warning.Println("Save(): INSERT failed for player items:", err)
@@ -507,7 +507,7 @@ func (s *sqlService) PlayerSave(player *world.Player) {
 		}
 	}
 	insertBank := func(id, amt int) {
-		rs, _ := tx.Exec("INSERT INTO bank(playerid, itemid, amount) VALUES(?, ?, ?)", player.DatabaseID(), id, amt)
+		rs, _ := tx.Exec("INSERT INTO bank(playerid, itemid, amount) VALUES($1, $2, $3)", player.DatabaseID(), id, amt)
 		count, err := rs.RowsAffected()
 		if err != nil {
 			log.Warning.Println("Save(): INSERT failed for player bank items:", err)
@@ -522,7 +522,7 @@ func (s *sqlService) PlayerSave(player *world.Player) {
 		}
 	}
 	clearStats := func() {
-		if _, err := tx.Exec("DELETE FROM stats WHERE playerid=?", player.DatabaseID()); err != nil {
+		if _, err := tx.Exec("DELETE FROM stats WHERE playerid=$1", player.DatabaseID()); err != nil {
 			log.Warning.Println("Save(): DELETE failed for player stats:", err)
 			if err := tx.Rollback(); err != nil {
 				log.Warning.Println("Save(): Transaction delete stats rollback failed:", err)
@@ -531,7 +531,7 @@ func (s *sqlService) PlayerSave(player *world.Player) {
 		}
 	}
 	insertStat := func(idx, cur, exp int) {
-		rs, _ := tx.Exec("INSERT INTO stats(playerid, num, cur, exp) VALUES(?, ?, ?, ?)", player.DatabaseID(), idx, cur, exp)
+		rs, _ := tx.Exec("INSERT INTO stats(playerid, num, cur, exp) VALUES($1, $2, $3, $4)", player.DatabaseID(), idx, cur, exp)
 		count, err := rs.RowsAffected()
 		if err != nil {
 			log.Warning.Println("Save(): INSERT failed for player stats:", err)
