@@ -54,7 +54,6 @@ func (p *Packet) readVarLengthInt(n int) []uint64 {
 		for idx, b := range p.ReadBytes(numBytes) {
 			val |= uint64(b) << uint((numBytes-1-idx) << 3)
 		}
-		log.Info.Println(val,numBytes)
 		return val
 	}
 
