@@ -34,6 +34,23 @@ func asyncExecute(wg *sync.WaitGroup, fn func()) {
 }
 
 func init() {
+	config.TomlConfig.MaxPlayers = 1250
+	config.TomlConfig.DataDir = "./data/"
+	config.TomlConfig.Database.PlayerDriver = "sqlite3"
+	config.TomlConfig.Database.PlayerDB = "file:./data/players.db"
+	config.TomlConfig.Database.WorldDB = "world.db"
+	config.TomlConfig.PacketHandlerFile = "packets.toml"
+	config.TomlConfig.Crypto.HashComplexity = 15
+	config.TomlConfig.Crypto.HashLength = 32
+	config.TomlConfig.Crypto.HashMemory = 8
+	config.TomlConfig.Crypto.HashSalt = "rscgo./GOLANG!RULES/.1994"
+	config.TomlConfig.Version = 204
+	config.TomlConfig.Port = 43594                  // = 43595 for websocket connections
+	//TomlConfig.Crypto.RsaKeyFile = "rsa.der"
+
+}
+
+func main() {
 	if _, err := flags.Parse(&Flags); err != nil {
 		os.Exit(100)
 	}
@@ -61,9 +78,7 @@ func init() {
 	if Flags.Port > 0 {
 		config.TomlConfig.Port = Flags.Port
 	}
-}
-
-func main() {
+	db.DefaultPlayerService = db.NewPlayerServiceSql()
 	log.Info.Println("RSCGo starting up...")
 	log.Info.Println()
 

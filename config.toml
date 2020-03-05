@@ -12,16 +12,16 @@ packet_handler_table = 'packets.toml'
 [database]
 # The SQL database driver to use when connecting to the player saves database.
 # SQLite3
-player_driver = "sqlite3"
+#player_driver = "sqlite3"
 # PostgreSQL
-# player_driver = "postgres"
+player_driver = 'postgres'
 # The SQL connection string for the player saves database.
 # SQLite3
-player_db = "file:/./data/players.db"
+#player_db = "file:./data/players.db"
 # Postgresql
-# player_db = "host=127.0.0.1 port=5432 user=zach password=zebra1 dbname=rscgo sslmode=disable"
+player_db = 'host=127.0.0.1 port=5432 user=zach password=zeb!Rscgo!A2019 dbname=rscgo sslmode=disable'
 # The SQLite3 database containing game world/entity data.
-world_db = "world.db"
+world_db = 'world.db'
 
 [crypto]
 # Length of hash output
@@ -32,6 +32,3 @@ hash_complexity = 15
 hash_memory = 8
 # Salt to make hash output unique
 hash_salt = 'rscgo./GOLANG!RULES/.1994'
-
-# The RSA key file, for decrypting the login/newplayer blocks.
-rsa_key = 'rsa.der'

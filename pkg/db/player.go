@@ -36,7 +36,7 @@ func NewPlayerServiceSql() PlayerService {
 
 //DefaultPlayerService the default player save managing service in use by the game server
 // Currently using an sqlService.
-var DefaultPlayerService = NewPlayerServiceSql()
+var DefaultPlayerService PlayerService
 
 //PlayerCreate Creates a new entry in the player SQLite3 database with the specified credentials.
 // Returns true if successful, otherwise returns false.

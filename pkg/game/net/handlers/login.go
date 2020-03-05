@@ -25,12 +25,11 @@ import (
 )
 
 func init() {
-	//dataService is a db.PlayerService that all login-related functions should use to access or change player profile data.
-	var dataService = db.DefaultPlayerService
-	
 	AddHandler("forgotpass", func(player *world.Player, p *net.Packet) {
 		// TODO: These non-login handlers must be isolated and rewrote
 		go func() {
+			//dataService is a db.PlayerService that all login-related functions should use to access or change player profile data.
+			var dataService = db.DefaultPlayerService
 			usernameHash := p.ReadUint64()
 			if !dataService.PlayerHasRecoverys(usernameHash) {
 				player.SendPacket(net.NewReplyPacket([]byte{0}))
@@ -90,6 +89,8 @@ func init() {
 		}
 
 		go func() {
+			//dataService is a db.PlayerService that all login-related functions should use to access or change player profile data.
+			var dataService = db.DefaultPlayerService
 			if !dataService.PlayerNameTaken(player.Username()) || !dataService.PlayerValidLogin(player.UsernameHash(), crypto.Hash(password)) {
 				loginReply <- handshake.ResponseBadPassword
 				return
@@ -157,6 +158,9 @@ func init() {
 		oldPassword := p.ReadString()
 		newPassword := p.ReadString()
 		go func() {
+
+			//dataService is a db.PlayerService that all login-related functions should use to access or change player profile data.
+			var dataService = db.DefaultPlayerService
 			if !dataService.PlayerValidLogin(player.UsernameHash(), crypto.Hash(oldPassword)) {
 				player.Message("The old password you provided does not appear to be valid.  Try again.")
 				return
@@ -188,6 +192,9 @@ func init() {
 			return
 		}
 		go func() {
+
+			//dataService is a db.PlayerService that all login-related functions should use to access or change player profile data.
+			var dataService = db.DefaultPlayerService
 			if dataService.PlayerNameTaken(username) {
 				log.Info.Printf("New player denied: [ Reason:'Username is taken'; username='%s'; ip='%s' ]\n", username, player.CurrentIP())
 				reply <- handshake.ResponseUsernameTaken

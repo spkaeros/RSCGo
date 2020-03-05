@@ -82,19 +82,3 @@ func PlayerDB() string {
 func PlayerDriver() string {
 	return TomlConfig.Database.PlayerDriver
 }
-
-func init() {
-	TomlConfig.MaxPlayers = 1250
-	TomlConfig.DataDir = "./data/"
-	TomlConfig.Database.PlayerDriver = "sqlite3"
-	TomlConfig.Database.PlayerDB = "players.db"
-	TomlConfig.Database.WorldDB = "world.db"
-	TomlConfig.PacketHandlerFile = "packets.toml"
-	TomlConfig.Crypto.HashComplexity = 15
-	TomlConfig.Crypto.HashLength = 32
-	TomlConfig.Crypto.HashMemory = 8
-	TomlConfig.Crypto.HashSalt = "rscgo./GOLANG!RULES/.1994"
-	TomlConfig.Version = 204
-	TomlConfig.Port = 43594                  // = 43595 for websocket connections
-	//TomlConfig.Crypto.RsaKeyFile = "rsa.der"
-}
