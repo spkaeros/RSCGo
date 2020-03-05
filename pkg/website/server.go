@@ -32,8 +32,8 @@ type InformationData struct {
 var Information = InformationData{
 	PageTitle: "",
 	Title:     "RSCGo",
-	Owner:     "ZlackCode LLC",
-	Copyright: "2019-2020",
+	Owner:     "Zach Knight",
+	Copyright: "2019-2020, Zach Knight and the 2003scape team",
 }
 
 func (s InformationData) ToLower(s2 string) string {

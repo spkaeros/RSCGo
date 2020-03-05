@@ -41,13 +41,13 @@ func init() {
 		if !player.CanWalk() {
 			return
 		}
-		startX := p.ReadShort()
-		startY := p.ReadShort()
-		numWaypoints := (len(p.Payload) - 4) / 2
+		startX := p.ReadUint16()
+		startY := p.ReadUint16()
+		numWaypoints := p.Available() / 2
 		var waypointsX, waypointsY []int
 		for i := 0; i < numWaypoints; i++ {
-			waypointsX = append(waypointsX, int(p.ReadSByte()))
-			waypointsY = append(waypointsY, int(p.ReadSByte()))
+			waypointsX = append(waypointsX, int(p.ReadInt8()))
+			waypointsY = append(waypointsY, int(p.ReadInt8()))
 		}
 		player.ResetAll()
 		player.SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
@@ -59,13 +59,13 @@ func init() {
 		if !player.CanWalk() {
 			return
 		}
-		startX := p.ReadShort()
-		startY := p.ReadShort()
-		numWaypoints := (len(p.Payload) - 4) / 2
+		startX := p.ReadUint16()
+		startY := p.ReadUint16()
+		numWaypoints := p.Available() / 2
 		var waypointsX, waypointsY []int
 		for i := 0; i < numWaypoints; i++ {
-			waypointsX = append(waypointsX, int(p.ReadSByte()))
-			waypointsY = append(waypointsY, int(p.ReadSByte()))
+			waypointsX = append(waypointsX, int(p.ReadInt8()))
+			waypointsY = append(waypointsY, int(p.ReadInt8()))
 		}
 		player.ResetAll()
 		player.SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
@@ -77,7 +77,7 @@ func init() {
 		if !player.CanWalk() {
 			return
 		}
-		playerID := p.ReadShort()
+		playerID := p.ReadUint16()
 		affectedClient, ok := world.Players.FromIndex(playerID)
 		if !ok {
 			player.Message("@que@Could not find the player you're looking for.")
@@ -108,10 +108,10 @@ func init() {
 		})
 	})
 	AddHandler("appearancerequest", func(player *world.Player, p *net.Packet) {
-		playerCount := p.ReadShort()
+		playerCount := p.ReadUint16()
 		for i := 0; i < playerCount; i++ {
-			serverIndex := p.ReadShort()
-			appearanceTicket := p.ReadShort()
+			serverIndex := p.ReadUint16()
+			appearanceTicket := p.ReadUint16()
 			player.AppearanceLock.Lock()
 			if ticket, ok := player.KnownAppearances[serverIndex]; !ok || ticket != appearanceTicket {
 				if c1, ok := world.Players.FromIndex(serverIndex); ok {

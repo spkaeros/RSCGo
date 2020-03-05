@@ -20,7 +20,7 @@ func init() {
 	//requiredLevels contains prayer level requirements for each prayer in order from prayer 0 to prayer 13
 	requiredLevels := []int{1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40}
 	AddHandler("prayeron", func(player *world.Player, p *net.Packet) {
-		idx := p.ReadByte()
+		idx := p.ReadUint8()
 		if idx < 0 || idx > 13 {
 			log.Suspicious.Printf("%v turned on a prayer that doesn't exist: %d\n", player, idx)
 			return
@@ -33,7 +33,7 @@ func init() {
 		player.SendPrayers()
 	})
 	AddHandler("prayeroff", func(player *world.Player, p *net.Packet) {
-		idx := p.ReadByte()
+		idx := p.ReadUint8()
 		if idx < 0 || idx > 13 {
 			log.Suspicious.Printf("%v turned off a prayer that doesn't exist: %d\n", player, idx)
 			return

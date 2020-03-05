@@ -20,8 +20,8 @@ import (
 func init() {
 	AddHandler("shopbuy", func(player *world.Player, p *net.Packet) {
 		if player.HasState(world.MSShopping) {
-			id := p.ReadShort()
-			price := p.ReadInt()
+			id := p.ReadUint16()
+			price := p.ReadUint32()
 
 			shop := player.CurrentShop()
 			if shop == nil {
@@ -63,8 +63,8 @@ func init() {
 	})
 	AddHandler("shopsell", func(player *world.Player, p *net.Packet) {
 		if player.HasState(world.MSShopping) {
-			id := p.ReadShort()
-			price := p.ReadInt()
+			id := p.ReadUint16()
+			price := p.ReadUint32()
 
 			shop := player.CurrentShop()
 			if shop == nil {

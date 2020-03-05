@@ -65,9 +65,9 @@ func ModalParse(s string) []string {
 		if escaped {
 			escaped = false
 		}
-//		if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '@' {
-			cur += string(c)
-//		}
+		//		if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '@' {
+		cur += string(c)
+		//		}
 	}
 	if len(cur) > 0 {
 		out = append(out, cur)

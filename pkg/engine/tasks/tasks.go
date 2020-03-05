@@ -14,33 +14,26 @@ import (
 )
 
 //Task is a single func that takes no args and returns a bool to indicate whether or not it
-// should be removed from the set.
+// should be removed from the set it belongs to upon completion
 type Task func() bool
-
-//taskSet is a non-concurrent collection type that maps Tasks to their identifying names.
-// This is not intended for direct usage, but to be composed with concurrent locking primitives,
-// and such, to create useful types for concurrent storing and retrieval of Task closures.
-// See TaskList for an example of such a type.
-type taskSet map[string]Task
 
 //TaskList is a concurrency-safe list of Task closures mapped to simple string identifiers.
 // The main purpose for this is to provide the ability to schedule functions to run on the
 // game engines thread, to synchronize certain sensitive events.
 // It is guarded by a sync.RWMutex.
 type TaskList struct {
-	taskSet
+	taskSet map[string]Task
 	sync.RWMutex
 }
 
-//TickerList A pointer to a TaskList collection to provide concurrent access to a list of
-// Task closures that are intended to be ran once per game engine tick.
-// Task closures return either true if they are to be removed immediately after they terminate
-// from this collection, or false if they are to be ran again on the next engine cycle.
-var TickerList = &TaskList{
-	taskSet: make(taskSet),
+//Tickers A collection of Tasks that are intended to be ran once per game engine tick.
+// Tasks should contractually return either true if they are to be removed after execution completes,
+// or false if they are to be ran again on the next engine cycle.
+var Tickers = &TaskList{
+	taskSet: make(map[string]Task),
 }
 
-//Range run fn(name,Task) for each Task in the receiving lists set.
+//Range runs fn(name,Task) for each Task in the list.
 func (t *TaskList) Range(fn func(string, Task)) {
 	t.RLock()
 	for name, task := range t.taskSet {
@@ -49,70 +42,68 @@ func (t *TaskList) Range(fn func(string, Task)) {
 	t.RUnlock()
 }
 
-//RunSynchronous will run every task in the receiver task list one by one in a mostly
-// unpredictable order.  Upon completion, the tasks that have returned true will be removed
-// from the set and the calling function will resume its execution.
+//RunSynchronous will execute every task in the list sequentially, one at a time.  The order in which they run is
+// basically unpredictable.  Upon completion, the tasks that have returned true will be removed from the set, then
+// the calling function will resume execution.
 func (t *TaskList) RunSynchronous() {
-	var removed []string
+	var removeList []string
 	t.Range(func(name string, task Task) {
 		if task() {
-			removed = append(removed, name)
+			removeList = append(removeList, name)
 		}
 	})
-	for _, taskName := range removed {
+	for _, taskName := range removeList {
 		t.Remove(taskName)
 	}
 }
 
-//RunAsynchronous will attempt to run every task in the receiver task list concurrently, in an
-// unpredictable order.  Upon completion, it waits for all tasks to finish execution,
-// and then removes any tasks that had returned true.
+//RunAsynchronous will attempt to run every task in the list at the same time, but not necessarily in parallel
+// (it depends on the hardware available, more cores means more parallelism), and then waits for them to complete.
+// No guarantees are offered on what order the tasks will execute, only that they will all be executed.
+// Upon completion of all tasks, it will remove any tasks that had returned true, then the caller will resume execution.
 // TODO: Probably some form of pooling?
 func (t *TaskList) RunAsynchronous() {
-	var removed []string
-	var wg sync.WaitGroup
-	wg.Add(t.Count())
+	var removeList []string
+	var executionList sync.WaitGroup
+	executionList.Add(t.Count())
 	t.Range(func(name string, task Task) {
-		//start := time.Now()
-		defer wg.Done()
+		// start := time.Now()
+		defer executionList.Done()
 		go func() {
-
 			if task() {
-				removed = append(removed, name)
+				removeList = append(removeList, name)
 			}
 		}()
-		//log.Info.Printf("tickTask--%s; finished executing in %v", name, time.Since(start))
+		// log.Info.Printf("tickTask--%s; finished executing in %v", name, time.Since(start))
 	})
-	wg.Wait()
-	for _, taskName := range removed {
+	executionList.Wait()
+	for _, taskName := range removeList {
 		t.Remove(taskName)
 	}
 }
 
-//Count returns the total number of tasks currently in the receiving lists set.
+//Count returns the total number of tasks currently in this list.
 func (t *TaskList) Count() int {
 	t.RLock()
 	defer t.RUnlock()
 	return len(t.taskSet)
 }
 
-//Add adds a task to the receiving task list, mapped to the given string.
+//Add will add a mapping of the Task fn to the provided name, in this list.
 func (t *TaskList) Add(name string, fn Task) {
 	t.Lock()
 	defer t.Unlock()
 	t.taskSet[name] = fn
 }
 
-//Get takes a task name as input, returns the task assigned to the given name as output.
-// Returns null if there is no task with such a name in the receiving lists set.
+//Get returns the Task that is mapped to the provided name in this list, or null if no such task exists.
 func (t *TaskList) Get(name string) Task {
 	t.RLock()
 	defer t.RUnlock()
 	return t.taskSet[name]
 }
 
-//Remove takes a task name as input and if any task exists with such a name in the
-// receiving lists set, removes it from the set.
+//Remove will remove the task mapped to the provided name from the list, if any such task exists.
 func (t *TaskList) Remove(name string) {
 	t.Lock()
 	defer t.Unlock()

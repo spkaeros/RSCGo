@@ -20,7 +20,7 @@ func init() {
 		if player.Busy() {
 			return
 		}
-		index := p.ReadShort()
+		index := p.ReadUint16()
 		p1, ok := world.Players.FromIndex(index)
 		if !ok {
 			log.Suspicious.Printf("%v attempted to trade a player that does not exist.\n", player.String())
@@ -90,17 +90,17 @@ func init() {
 		defer func() {
 			c1.SendPacket(world.TradeUpdate(player))
 		}()
-		itemCount := int(p.ReadByte())
+		itemCount := int(p.ReadUint8())
 		if itemCount < 0 || itemCount > 12 {
 			log.Suspicious.Printf("%v attempted to offer an invalid amount[%v] of trade items!\n", player.String(), itemCount)
 			return
 		}
-		if len(p.Payload) < 1+(itemCount*6) {
+		if p.Length() < 1+(itemCount*6) {
 			log.Suspicious.Printf("%v attempted to send a trade offer update net without enough data for the offer.\n", player.String())
 			return
 		}
 		for i := 0; i < itemCount; i++ {
-			player.TradeOffer.Add(p.ReadShort(), p.ReadInt())
+			player.TradeOffer.Add(p.ReadUint16(), p.ReadUint32())
 		}
 	})
 	AddHandler("tradedecline", func(player *world.Player, p *net.Packet) {

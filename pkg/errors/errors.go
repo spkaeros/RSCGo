@@ -22,6 +22,7 @@ func (e ArgumentsError) Error() string {
 func NewArgsError(s string) error {
 	return ArgumentsError{msg: s}
 }
+
 //NetError A RSCGo network-related error.
 type NetError struct {
 	msg string

@@ -50,10 +50,10 @@ func init() {
 		handler, ok := world.CommandHandlers[args[0]]
 		if !ok {
 			player.Message("@que@Invalid command.")
-			log.Commands.Printf("%v sent invalid command: /%v\n", player.Username(), string(p.Payload))
+			log.Commands.Printf("%v sent invalid command: /%v\n", player.Username(), string(p.FrameBuffer))
 			return
 		}
-		log.Commands.Printf("%v: /%v\n", player.Username(), string(p.Payload))
+		log.Commands.Printf("%v: /%v\n", player.Username(), string(p.FrameBuffer))
 		handler(player, args[1:])
 	})
 	world.CommandHandlers["memdump"] = func(player *world.Player, args []string) {

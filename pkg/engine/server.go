@@ -141,7 +141,7 @@ func runTickables(p *world.Player) {
 
 //Tick One game engine 'tick'.  This is to handle movement, to synchronize client, to update movement-related state variables... Runs once per 600ms.
 func Tick() {
-	tasks.TickerList.RunSynchronous()
+	tasks.Tickers.RunSynchronous()
 
 	world.Players.Range(func(p *world.Player) {
 		p.UpdateWG.Lock()

@@ -39,9 +39,9 @@ var actions = []string{
 
 func init() {
 	AddHandler("reportabuse", func(player *world.Player, p *net.Packet) {
-		userHash := p.ReadLong()
-		reasonIndex := int(p.ReadByte() - 1)
-		actionIndex := int(p.ReadByte())
+		userHash := p.ReadUint64()
+		reasonIndex := int(p.ReadUint8() - 1)
+		actionIndex := int(p.ReadUint8())
 
 		if reasonIndex < 0 || reasonIndex > len(reasons)-1 {
 			log.Suspicious.Printf("Report had invalid reason:\n[\n\taction:%d ('%s'),\n\tsender:'%s',\n\ttarget:'%s',\n\treason:%d\n];\n", actionIndex, actions[actionIndex], player.Username(), strutil.Base37.Decode(userHash), reasonIndex+1)

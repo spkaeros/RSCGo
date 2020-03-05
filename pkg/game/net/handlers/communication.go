@@ -19,12 +19,12 @@ func init() {
 	AddHandler("chatmsg", func(player *world.Player, p *net.Packet) {
 		for _, p1 := range player.NearbyPlayers() {
 			if !p1.ChatBlocked() || p1.FriendsWith(player.UsernameHash()) {
-				p1.SendPacket(world.PlayerChat(player.Index, string(p.Payload)))
+				p1.SendPacket(world.PlayerChat(player.Index, string(p.FrameBuffer)))
 			}
 		}
 	})
 	AddHandler("addfriend", func(player *world.Player, p *net.Packet) {
-		hash := p.ReadLong()
+		hash := p.ReadUint64()
 		defer func() {
 			player.SendPacket(world.FriendList(player))
 		}()
@@ -43,15 +43,15 @@ func init() {
 		}
 	})
 	AddHandler("privmsg", func(player *world.Player, p *net.Packet) {
-		if c1, ok := world.Players.FromUserHash(p.ReadLong()); ok {
+		if c1, ok := world.Players.FromUserHash(p.ReadUint64()); ok {
 			if !c1.FriendBlocked() || c1.FriendsWith(player.UsernameHash()) {
-				// c1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(strutil.ChatFilter.Unpack(p.Payload[8:]))))
-				c1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(string(p.Payload[8:]))))
+				// c1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(strutil.ChatFilter.Unpack(p.FrameBuffer[8:]))))
+				c1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(string(p.FrameBuffer[8:]))))
 			}
 		}
 	})
 	AddHandler("removefriend", func(player *world.Player, p *net.Packet) {
-		hash := p.ReadLong()
+		hash := p.ReadUint64()
 		defer func() {
 			player.SendPacket(world.FriendList(player))
 		}()
@@ -62,7 +62,7 @@ func init() {
 		player.FriendList.Remove(strutil.Base37.Decode(hash))
 	})
 	AddHandler("addignore", func(player *world.Player, p *net.Packet) {
-		hash := p.ReadLong()
+		hash := p.ReadUint64()
 		defer func() {
 			player.SendPacket(world.IgnoreList(player))
 		}()
@@ -77,7 +77,7 @@ func init() {
 		player.IgnoreList = append(player.IgnoreList, hash)
 	})
 	AddHandler("removeignore", func(player *world.Player, p *net.Packet) {
-		hash := p.ReadLong()
+		hash := p.ReadUint64()
 		defer func() {
 			player.SendPacket(world.IgnoreList(player))
 		}()
@@ -95,7 +95,7 @@ func init() {
 		}
 	})
 	AddHandler("chooseoption", func(player *world.Player, p *net.Packet) {
-		choice := p.ReadByte()
+		choice := p.ReadUint8()
 		if !player.HasState(world.MSOptionMenu) {
 			return
 		}

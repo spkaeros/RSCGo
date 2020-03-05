@@ -11,7 +11,9 @@ package world
 
 import (
 	"fmt"
-
+	`os`
+	
+	`github.com/spkaeros/rscgo/pkg/config`
 	"github.com/spkaeros/rscgo/pkg/jag"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
@@ -42,7 +44,7 @@ var Sectors = make(map[int]*Sector)
 //LoadCollisionData Loads the JAG archive './data/landscape.jag', decodes it, and stores the map sectors it holds in
 // memory for quick access.
 func LoadCollisionData() {
-	archive := jag.New("./data/landscape.jag")
+	archive := jag.New(config.DataDir() + string(os.PathSeparator) + "landscape.jag")
 
 	entryFileCaret := 0
 	metaDataCaret := 0

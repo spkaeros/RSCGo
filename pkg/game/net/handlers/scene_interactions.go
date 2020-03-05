@@ -20,8 +20,8 @@ func init() {
 		if player.Busy() {
 			return
 		}
-		x := p.ReadShort()
-		y := p.ReadShort()
+		x := p.ReadUint16()
+		y := p.ReadUint16()
 		object := world.GetObject(x, y)
 		if object == nil || object.Boundary {
 			log.Suspicious.Printf("Player %v attempted to use a non-existent object at %d,%d\n", player, x, y)
@@ -55,8 +55,8 @@ func init() {
 		if player.Busy() {
 			return
 		}
-		x := p.ReadShort()
-		y := p.ReadShort()
+		x := p.ReadUint16()
+		y := p.ReadUint16()
 		object := world.GetObject(x, y)
 		if object == nil || object.Boundary {
 			log.Suspicious.Printf("Player %v attempted to use a non-existent object at %d,%d\n", player, x, y)
@@ -90,8 +90,8 @@ func init() {
 		if player.Busy() {
 			return
 		}
-		x := p.ReadShort()
-		y := p.ReadShort()
+		x := p.ReadUint16()
+		y := p.ReadUint16()
 		object := world.GetObject(x, y)
 		if object == nil || !object.Boundary {
 			log.Suspicious.Printf("Player %v attempted to use a non-existent boundary at %d,%d\n", player, x, y)
@@ -128,8 +128,8 @@ func init() {
 		if player.Busy() {
 			return
 		}
-		x := p.ReadShort()
-		y := p.ReadShort()
+		x := p.ReadUint16()
+		y := p.ReadUint16()
 		object := world.GetObject(x, y)
 		if object == nil || !object.Boundary {
 			log.Suspicious.Printf("%v attempted to use a non-existent boundary at %d,%d\n", player, x, y)
@@ -163,7 +163,7 @@ func init() {
 		})
 	})
 	AddHandler("talktonpc", func(player *world.Player, p *net.Packet) {
-		idx := p.ReadShort()
+		idx := p.ReadUint16()
 		npc := world.GetNpc(idx)
 		if npc == nil {
 			return
@@ -265,10 +265,10 @@ func init() {
 		})
 	})
 	AddHandler("invonboundary", func(player *world.Player, p *net.Packet) {
-		targetX := p.ReadShort()
-		targetY := p.ReadShort()
-		p.ReadByte() // dir, useful?
-		invIndex := p.ReadShort()
+		targetX := p.ReadUint16()
+		targetY := p.ReadUint16()
+		p.ReadUint8() // dir, useful?
+		invIndex := p.ReadUint16()
 
 		object := world.GetObject(targetX, targetY)
 		if object == nil || !object.Boundary {
@@ -307,8 +307,8 @@ func init() {
 		})
 	})
 	AddHandler("invonplayer", func(player *world.Player, p *net.Packet) {
-		targetIndex := p.ReadShort()
-		invIndex := p.ReadShort()
+		targetIndex := p.ReadUint16()
+		invIndex := p.ReadUint16()
 
 		if targetIndex == player.Index {
 			log.Suspicious.Printf("%s attempted to use an inventory item on themself\n", player.String())
@@ -353,9 +353,9 @@ func init() {
 		})
 	})
 	AddHandler("invonobject", func(player *world.Player, p *net.Packet) {
-		targetX := p.ReadShort()
-		targetY := p.ReadShort()
-		invIndex := p.ReadShort()
+		targetX := p.ReadUint16()
+		targetY := p.ReadUint16()
+		invIndex := p.ReadUint16()
 
 		object := world.GetObject(targetX, targetY)
 		if object == nil || object.Boundary {

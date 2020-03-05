@@ -79,7 +79,7 @@ func (c *client) startNetworking() {
 					return
 				}
 				if !c.player.Connected() && p.Opcode != 32 && p.Opcode != 0 && p.Opcode != 2 && p.Opcode != 220 {
-					log.Warning.Printf("Unauthorized net[opcode:%v,len:%v] rejected from: %v\n", p.Opcode, len(p.Payload), c)
+					log.Warning.Printf("Unauthorized net[opcode:%v,len:%v] rejected from: %v\n", p.Opcode, len(p.FrameBuffer), c)
 					return
 				}
 				incomingPackets <- p
@@ -138,8 +138,8 @@ func (c *client) destroy() {
 func (c *client) handlePacket(p *net.Packet) {
 	handler := handlers.Handler(p.Opcode)
 	if handler == nil {
-		log.Info.Printf("Unhandled Packet: {opcode:%d; length:%d};\n", p.Opcode, len(p.Payload))
-		fmt.Printf("CONTENT: %v\n", p.Payload)
+		log.Info.Printf("Unhandled Packet: {opcode:%d; length:%d};\n", p.Opcode, len(p.FrameBuffer))
+		fmt.Printf("CONTENT: %v\n", p.FrameBuffer)
 		return
 	}
 
@@ -274,6 +274,7 @@ func (c *client) readPacket() (p *net.Packet, err error) {
 		payload = append(payload, header[1])
 	}
 
+	return &net.Packet{Opcode: payload[0], FrameBuffer: payload[1:]}, nil
 	return net.NewPacket(payload[0], payload[1:]), nil
 }
 
@@ -281,20 +282,19 @@ func (c *client) readPacket() (p *net.Packet, err error) {
 // be written as-is.  If this is not a bare net, the net will have the first 3 bytes changed to the
 // appropriate values for the client to parse the length and opcode for this net.
 func (c *client) writePacket(p net.Packet) {
-	if p.Bare {
-		c.Write(p.Payload)
+	if p.HeaderBuffer == nil {
+		c.Write(p.FrameBuffer)
 		return
 	}
-	frameLength := len(p.Payload)
-	header := make([]byte, 2)
-	if frameLength >= 160 {
-		header[0] = byte(frameLength>>8 + 160)
-		header[1] = byte(frameLength)
+	frameLength := len(p.FrameBuffer)
+	if frameLength >= 0xA0 {
+		p.HeaderBuffer[0] = byte(frameLength>>8 + 0xA0)
+		p.HeaderBuffer[1] = byte(frameLength)
 	} else {
-		header[0] = byte(frameLength)
-		header[1] = p.Payload[frameLength-1]
-		p.Payload = p.Payload[:frameLength-1]
+		p.HeaderBuffer[0] = byte(frameLength)
+		frameLength -= 1
+		p.HeaderBuffer[1] = p.FrameBuffer[frameLength]
 	}
-	c.Write(append(header, p.Payload...))
+	c.Write(append(p.HeaderBuffer, p.FrameBuffer[:frameLength]...))
 	return
 }

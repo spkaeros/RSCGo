@@ -184,7 +184,7 @@ func NewGeneralShop(name string) *Shop {
 	shop := &Shop{true, 40, 130, generalStock.Clone(), generalStock.Clone(), name}
 	Shops.Add(name, shop)
 	shopTicker := 0
-	tasks.TickerList.Add("shop-"+name, func() bool {
+	tasks.Tickers.Add("shop-"+name, func() bool {
 		shopTicker++
 		if shopTicker%20 == 0 {
 			changed := false

@@ -17,7 +17,7 @@ import (
 
 func init() {
 	AddHandler("invwield", func(player *world.Player, p *net.Packet) {
-		index := p.ReadShort()
+		index := p.ReadUint16()
 		if index < 0 || index >= 30 {
 			log.Suspicious.Printf("Player[%v] tried to wield an item with invalid index: %d\n", player, index)
 			return
@@ -36,7 +36,7 @@ func init() {
 		}
 	})
 	AddHandler("removeitem", func(player *world.Player, p *net.Packet) {
-		index := p.ReadShort()
+		index := p.ReadUint16()
 		if index < 0 || index >= 30 {
 			log.Suspicious.Printf("Player[%v] tried to wield an item with invalid index: %d\n", player, index)
 			return
@@ -56,10 +56,10 @@ func init() {
 		if player.Busy() {
 			return
 		}
-		x := p.ReadShort()
-		y := p.ReadShort()
-		id := p.ReadShort()
-		p.ReadShort() // Useless, this variable is for what affect we are applying to the ground item, e.g casting, using item with
+		x := p.ReadUint16()
+		y := p.ReadUint16()
+		id := p.ReadUint16()
+		p.ReadUint16() // Useless, this variable is for what affect we are applying to the ground item, e.g casting, using item with
 		if x < 0 || x >= world.MaxX || y < 0 || y >= world.MaxY {
 			log.Suspicious.Printf("%v attempted to pick up an item at an invalid location: [%d,%d]\n", player, x, y)
 			return
@@ -98,7 +98,7 @@ func init() {
 		if player.Busy() {
 			return
 		}
-		index := p.ReadShort()
+		index := p.ReadUint16()
 		item := player.Inventory.Get(index)
 		if item != nil {
 			player.SetDistancedAction(func() bool {
@@ -119,7 +119,7 @@ func init() {
 		if player.Busy() {
 			return
 		}
-		index := p.ReadShort()
+		index := p.ReadUint16()
 		item := player.Inventory.Get(index)
 		if item != nil {
 			player.AddState(world.MSItemAction)

@@ -19,13 +19,13 @@ func init() {
 		// 2 = mouse buttons
 		// 0 = camera angle manual/auto
 		// 3 = soundFX (false=on, wtf)
-		player.SetClientSetting(int(p.ReadByte()), p.ReadBool())
+		player.SetClientSetting(int(p.ReadUint8()), p.ReadBoolean())
 	})
 	AddHandler("privacysettings", func(player *world.Player, p *net.Packet) {
-		chatBlocked := p.ReadBool()
-		friendBlocked := p.ReadBool()
-		tradeBlocked := p.ReadBool()
-		duelBlocked := p.ReadBool()
+		chatBlocked := p.ReadBoolean()
+		friendBlocked := p.ReadBoolean()
+		tradeBlocked := p.ReadBoolean()
+		duelBlocked := p.ReadBoolean()
 		if player.FriendBlocked() && !friendBlocked {
 			// turning off private chat block
 			world.Players.Range(func(c1 *world.Player) {

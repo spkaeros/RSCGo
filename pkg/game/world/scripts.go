@@ -15,10 +15,10 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-	
+
 	"github.com/fsnotify/fsnotify"
 	"github.com/mattn/anko/vm"
-	
+
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 

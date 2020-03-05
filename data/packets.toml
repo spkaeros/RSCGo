@@ -28,7 +28,7 @@ packets = [
 	{ name = 'privmsg', opcode = 218},
 	{ name = 'dropitem', opcode = 246},
 	{ name = 'talktonpc', opcode = 153},
-	{ name = 'pickpocketnpc', opcode = 202},
+	{ name = 'npcaction', opcode = 202},
 	{ name = 'invaction1', opcode = 90},
 	{ name = 'invwield', opcode = 169},
 	{ name = 'tradeupdate', opcode = 46},

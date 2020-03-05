@@ -20,8 +20,8 @@ func init() {
 		if !player.HasState(world.MSBanking) {
 			return
 		}
-		id := p.ReadShort()
-		amount := p.ReadShort()
+		id := p.ReadUint16()
+		amount := p.ReadUint16()
 		if amount < 1 {
 			log.Suspicious.Println("Attempted to deposit less than 1:", player.String())
 			return
@@ -41,9 +41,9 @@ func init() {
 		if !player.HasState(world.MSBanking) {
 			return
 		}
-		id := p.ReadShort()
-		amount := p.ReadShort()
-		//		botCheck := p.ReadInt()
+		id := p.ReadUint16()
+		amount := p.ReadUint16()
+		//		botCheck := p.ReadUint32()
 		idx := player.Bank().GetIndex(id)
 		if idx == -1 {
 			log.Suspicious.Println("Attempted withdraw of item they do not have:", player.String(), id, amount)

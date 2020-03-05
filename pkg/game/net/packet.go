@@ -11,108 +11,119 @@ package net
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
-	"math"
-
-	"github.com/spkaeros/rscgo/pkg/log"
+	
 	"github.com/spkaeros/rscgo/pkg/errors"
+	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 //Packet The definition of a game net.  Generally, these are commands, indexed by their Opcode(0-255), with
-//  a 5000-byte buffer for arguments, stored in Payload.  If the net is bare, raw data is intended to be
+//  a 5000-byte buffer for arguments, stored in FrameBuffer.  If the net is bare, raw data is intended to be
 //  transmitted when writing the net structure to a socket, otherwise we put a 2-byte unsigned short for the
 //  length of the arguments buffer(plus one because the opcode is included in the payload size), and the 1-byte
 //  opcode at the start of the net, as a header for the client to easily parse the information for each frame.
 type Packet struct {
-	Opcode      byte
-	Payload     []byte
-	Bare        bool
-	readIndex   int
-	bitPosition int
-	length      int
+	Opcode       byte
+	FrameBuffer  []byte
+	HeaderBuffer []byte
+	readIndex    int
+	bitIndex     int
+	length       int
 }
 
 //NewPacket Creates a new net instance.
 func NewPacket(opcode byte, payload []byte) *Packet {
-	return &Packet{opcode, payload, false, 0, 0, 0}
+	return &Packet{Opcode: opcode, FrameBuffer: payload, HeaderBuffer: make([]byte, 2)}
 }
 
-//NewOutgoingPacket Creates a new net instance intended for sending formatted data to the client.
-func NewOutgoingPacket(opcode byte) *Packet {
-	return &Packet{opcode, []byte{opcode}, false, 0, 0, 0}
+//NewEmptyPacket Creates a new net instance intended for sending formatted data to the client.
+func NewEmptyPacket(opcode byte) *Packet {
+	return &Packet{Opcode: opcode, FrameBuffer: []byte{opcode}, HeaderBuffer: make([]byte, 2)}
 }
 
-//NewBarePacket Creates a new net instance intended for sending raw data to the client.
-func NewBarePacket(src []byte) *Packet {
-	return &Packet{0, src, true, 0, 0, 0}
+//NewReplyPacket Creates a new net instance intended for sending raw data to the client.
+func NewReplyPacket(src []byte) *Packet {
+	return &Packet{FrameBuffer: src}
 }
 
-func (p *Packet) readVarLengthInt(n int) []uint64 {
+func (p *Packet) readNSizeUints(n int) []uint64 {
 	read := func(numBytes int) uint64 {
 		var val uint64
-		for idx, b := range p.ReadBytes(numBytes) {
+		buf := make([]byte, numBytes)
+		if l := p.Read(buf); l < 0 {
+			return 0
+		}
+		for idx, b := range buf {
 			val |= uint64(b) << uint((numBytes-1-idx) << 3)
 		}
 		return val
 	}
-
-	set := []uint64{}
+	
+	var set []uint64
 	for ; n > 0; n -= 8 {
 		set = append(set, read(int(math.Min(float64(n), 8))))
 	}
 	return set
 }
 
-//ReadLLong Read the next 128-bit integer from the net payload.
-func (p *Packet) ReadLLong() (msb uint64, lsb uint64) {
-	buf := p.readVarLengthInt(16)
+//ReadUint128 Read the next 128-bit integer from the net payload.
+func (p *Packet) ReadUint128() (msb uint64, lsb uint64) {
+	buf := p.readNSizeUints(16)
 	return buf[0], buf[1]
 }
 
-//ReadLong Read the next 64-bit integer from the net payload.
-func (p *Packet) ReadLong() uint64 {
-	return p.readVarLengthInt(8)[0]
+//ReadUint64 Read the next 64-bit integer from the net payload.
+func (p *Packet) ReadUint64() uint64 {
+	return p.readNSizeUints(8)[0]
 }
 
-//ReadInt Read the next 32-bit integer from the net payload.
-func (p *Packet) ReadInt() int {
-	return int(p.readVarLengthInt(4)[0])
+//ReadUint32 Read the next 32-bit integer from the net payload.
+func (p *Packet) ReadUint32() int {
+	return int(p.readNSizeUints(4)[0])
 }
 
-//ReadShort Read the next 16-bit integer from the net payload.
-func (p *Packet) ReadShort() int {
-	return int(p.readVarLengthInt(2)[0])
+//ReadUint16 Read the next 16-bit integer from the net payload.
+func (p *Packet) ReadUint16() int {
+	return int(p.readNSizeUints(2)[0])
 }
 
-func (p *Packet) checkError(err error) bool {
+func checkError(err error) bool {
 	if err != nil {
-		return false
+		log.Warning.Println(err)
+		return true
 	}
-	return true
+	return false
 }
 
-//ReadByte Read the next 8-bit integer from the net payload.
-func (p *Packet) ReadByte() byte {
-	defer p.Skip(1)
-	return p.Payload[p.readIndex] & 0xFF
+//ReadUint8 Read the next 8-bit integer from the net payload.
+func (p *Packet) ReadUint8() byte {
+	defer checkError(p.Skip(1))
+	return p.FrameBuffer[p.readIndex] & 0xFF
 }
 
-//ReadBool Returns true if the next payload byte isn't 0
-func (p *Packet) ReadBool() bool {
-	defer p.Skip(1)
-	return p.Payload[p.readIndex] != 0
+//ReadBoolean Returns true if the next payload byte isn't 0
+func (p *Packet) ReadBoolean() bool {
+	defer checkError(p.Skip(1))
+	return p.FrameBuffer[p.readIndex] != 0
 }
 
-//ReadSByte returns the signed interpretation of the next payload byte.
-func (p *Packet) ReadSByte() int8 {
-	defer p.Skip(1)
-	return int8(p.Payload[p.readIndex])
+//ReadInt8 returns the signed interpretation of the next payload byte.
+func (p *Packet) ReadInt8() int8 {
+	defer checkError(p.Skip(1))
+	return int8(p.FrameBuffer[p.readIndex])
 }
 
-func (p *Packet) ReadBytes(n int) []byte {
-	defer p.Skip(n)
-	return p.Payload[p.readIndex:p.readIndex+n]
+func (p *Packet) Read(buf []byte) int {
+	n := len(buf)
+	if p.Available() < n {
+		log.Warning.Println("PacketBufferError[OutOfBounds:Read] Tried to read too many bytes (" + strconv.Itoa(n) + ") from read buffer (length " + strconv.Itoa(p.Available()) + ")")
+		return -1
+	}
+	defer checkError(p.Skip(n))
+	copy(buf, p.FrameBuffer[p.readIndex:p.readIndex+len(buf)])
+	return len(buf)
 }
 
 func (p *Packet) Rewind(n int) error {
@@ -141,14 +152,20 @@ func (p *Packet) Skip(n int) error {
 
 //ReadStringN Reads the next n bytes from the payload and returns it as a UTF-8 string, regardless of payload contents.
 func (p *Packet) ReadStringN(n int) (val string) {
-	return string(p.ReadBytes(n))
+	buf := make([]byte, n)
+	readLen := p.Read(buf)
+	if readLen < 0 {
+		p.readIndex = p.Length()
+		return  string(p.FrameBuffer[p.readIndex:])
+	}
+	return string(buf)
 }
 
 //ReadString Read the next variable-length C-string from the net payload and return it as a Go-string.
 // This will keep reading data until it reaches a null-byte or a new-line character ( '\0', 0xA, 0, 10 ).
 func (p *Packet) ReadString() string {
 	start := p.readIndex
-	s := string(p.Payload[start:])
+	s := string(p.FrameBuffer[start:])
 	end := strings.IndexByte(s, '\x00')
 	if end < 0 {
 		p.readIndex = p.Length()
@@ -158,103 +175,103 @@ func (p *Packet) ReadString() string {
 	return s[:end]
 }
 
-//AddLong Adds a 64-bit integer to the net payload.
-func (p *Packet) AddLong(l uint64) *Packet {
-	p.Payload = append(p.Payload, byte(l>>56), byte(l>>48), byte(l>>40), byte(l>>32), byte(l>>24), byte(l>>16), byte(l>>8), byte(l))
+//AddUint64 Adds a 64-bit integer to the net payload.
+func (p *Packet) AddUint64(l uint64) *Packet {
+	p.FrameBuffer = append(p.FrameBuffer, byte(l>>56), byte(l>>48), byte(l>>40), byte(l>>32), byte(l>>24), byte(l>>16), byte(l>>8), byte(l))
 	return p
 }
 
-//AddInt Adds a 32-bit integer to the net payload.
-func (p *Packet) AddInt(i uint32) *Packet {
-	p.Payload = append(p.Payload, byte(i>>24), byte(i>>16), byte(i>>8), byte(i))
+//AddUint32 Adds a 32-bit integer to the net payload.
+func (p *Packet) AddUint32(i uint32) *Packet {
+	p.FrameBuffer = append(p.FrameBuffer, byte(i>>24), byte(i>>16), byte(i>>8), byte(i))
 	return p
 }
 
-//AddInt2 Adds a 32-bit integer or an 8-byte integer to the net payload, depending on value.
-func (p *Packet) AddInt2(i uint32) *Packet {
+//AddUint8or32 Adds a 32-bit integer or an 8-byte integer to the net payload, depending on value.
+func (p *Packet) AddUint8or32(i uint32) *Packet {
 	if i < 128 {
-		p.Payload = append(p.Payload, uint8(i))
+		p.FrameBuffer = append(p.FrameBuffer, uint8(i))
 		return p
 	}
-	p.Payload = append(p.Payload, byte((i>>24)+128), byte(i>>16), byte(i>>8), byte(i))
+	p.FrameBuffer = append(p.FrameBuffer, byte((i>>24)+128), byte(i>>16), byte(i>>8), byte(i))
 	return p
 }
 
-func (p *Packet) SetShort(offset int, s uint16) *Packet {
-	if offset >= len(p.Payload) || offset < 0 {
-		log.Warning.Println("Attempted out of bounds Packet.SetShort: ", offset, s)
+func (p *Packet) SetUint16At(offset int, s uint16) *Packet {
+	if offset >= len(p.FrameBuffer) || offset < 0 {
+		log.Warning.Println("Attempted out of bounds Packet.SetUint16At: ", offset, s)
 		return p
 	}
-	p.Payload[offset+1] = byte(s >> 8)
-	p.Payload[offset+2] = byte(s)
+	p.FrameBuffer[offset+1] = byte(s >> 8)
+	p.FrameBuffer[offset+2] = byte(s)
 	return p
 }
 
-//AddShort Adds a 16-bit integer to the net payload.
-func (p *Packet) AddShort(s uint16) *Packet {
-	p.Payload = append(p.Payload, byte(s>>8), byte(s))
+//AddUint16 Adds a 16-bit integer to the net payload.
+func (p *Packet) AddUint16(s uint16) *Packet {
+	p.FrameBuffer = append(p.FrameBuffer, byte(s>>8), byte(s))
 	return p
 }
 
-//AddBool Adds a single byte to the payload, with the value 1 if b is true, and 0 if b is false.
-func (p *Packet) AddBool(b bool) *Packet {
+//AddBoolean Adds a single byte to the payload, with the value 1 if b is true, and 0 if b is false.
+func (p *Packet) AddBoolean(b bool) *Packet {
 	if b {
-		p.Payload = append(p.Payload, 1)
+		p.FrameBuffer = append(p.FrameBuffer, 1)
 		return p
 	}
-	p.Payload = append(p.Payload, 0)
+	p.FrameBuffer = append(p.FrameBuffer, 0)
 	return p
 }
 
-//AddByte Adds an 8-bit integer to the net payload.
-func (p *Packet) AddByte(b uint8) *Packet {
-	p.Payload = append(p.Payload, b)
+//AddUint8 Adds an 8-bit integer to the net payload.
+func (p *Packet) AddUint8(b uint8) *Packet {
+	p.FrameBuffer = append(p.FrameBuffer, b)
 	return p
 }
 
-//AddSByte Adds an 8-bit signed integer to the net payload.
-func (p *Packet) AddSByte(b int8) *Packet {
-	p.Payload = append(p.Payload, uint8(b))
+//AddInt8 Adds an 8-bit signed integer to the net payload.
+func (p *Packet) AddInt8(b int8) *Packet {
+	p.FrameBuffer = append(p.FrameBuffer, uint8(b))
 	return p
 }
 
 //AddBytes Adds byte array to net payload
 func (p *Packet) AddBytes(b []byte) *Packet {
-	p.Payload = append(p.Payload, b...)
+	p.FrameBuffer = append(p.FrameBuffer, b...)
 	return p
 }
 
-//AddBits Packs value into the numBits next bits of the packetbuilders byte buffer.
-func (p *Packet) AddBits(value int, numBits int) *Packet {
-	bitmasks := []int32{0, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff, 0x1ff, 0x3ff, 0x7ff, 0xfff, 0x1fff,
+//AddBitmask Packs value into the numBits next bits of the packetbuilders byte buffer.
+func (p *Packet) AddBitmask(value int, numBits int) *Packet {
+	masks := []int32{0, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff, 0x1ff, 0x3ff, 0x7ff, 0xfff, 0x1fff,
 		0x3fff, 0x7fff, 0xffff, 0x1ffff, 0x3ffff, 0x7ffff, 0xfffff, 0x1fffff, 0x3fffff, 0x7fffff, 0xffffff,
 		0x1ffffff, 0x3ffffff, 0x7ffffff, 0xfffffff, 0x1fffffff, 0x3fffffff, 0x7fffffff, -1}
-	bytePos := (p.bitPosition >> 3) + 1
-	bitOffset := 8 - (p.bitPosition & 7)
-	p.bitPosition += numBits
-	p.length = ((p.bitPosition + 7) / 8) + 1
-	for p.length > len(p.Payload) {
-		p.Payload = append(p.Payload, 0)
+	byteOffset := (p.bitIndex >> 3) + 1
+	bitOffset := 8 - (p.bitIndex & 7)
+	p.bitIndex += numBits
+	length := ((p.bitIndex + 7) / 8) + 1
+	for length > len(p.FrameBuffer) {
+		p.FrameBuffer = append(p.FrameBuffer, 0)
 	}
 	for ; numBits > bitOffset; bitOffset = 8 {
-		p.Payload[bytePos] &= byte(^bitmasks[bitOffset])
-		p.Payload[bytePos] |= byte(value >> uint(numBits-bitOffset&int(bitmasks[bitOffset])))
-		bytePos++
+		p.FrameBuffer[byteOffset] &= byte(^masks[bitOffset])
+		p.FrameBuffer[byteOffset] |= byte(value >>numBits-bitOffset&int(masks[bitOffset]))
+		byteOffset++
 		numBits -= bitOffset
 	}
 	if numBits == bitOffset {
-		p.Payload[bytePos] &= byte(^bitmasks[bitOffset])
-		p.Payload[bytePos] |= byte(value & int(bitmasks[bitOffset]))
+		p.FrameBuffer[byteOffset] &= byte(^masks[bitOffset])
+		p.FrameBuffer[byteOffset] |= byte(value & int(masks[bitOffset]))
 	} else {
-		p.Payload[bytePos] &= byte(^(bitmasks[numBits] << uint(bitOffset-numBits)))
-		p.Payload[bytePos] |= byte((value & int(bitmasks[numBits])) << uint(bitOffset-numBits))
+		p.FrameBuffer[byteOffset] &= byte(^(int(masks[numBits]) <<bitOffset-numBits))
+		p.FrameBuffer[byteOffset] |= byte((value & int(masks[numBits])) <<bitOffset-numBits)
 	}
 
 	return p
 }
 
 func (p *Packet) Length() int {
-	return len(p.Payload)
+	return len(p.FrameBuffer)
 }
 
 func (p *Packet) Available() int {
@@ -266,5 +283,5 @@ func (p *Packet) Capacity() int {
 }
 
 func (p *Packet) String() string {
-	return fmt.Sprintf("Packet{opcode:%d,available:%d,capacity:%d,payload:%v}", p.Opcode, p.Available(), p.Capacity(), p.Payload)
+	return fmt.Sprintf("Packet{opcode:%d,available:%d,capacity:%d,payload:%v}", p.Opcode, p.Available(), p.Capacity(), p.FrameBuffer)
 }

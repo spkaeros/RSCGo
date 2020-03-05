@@ -46,14 +46,14 @@ func init() {
 			// Make sure the player either has never logged in before, or talked to the makeover mage to get here.
 			return
 		}
-		isMale := p.ReadBool()
-		headType := int(p.ReadByte() + 1)
-		bodyType := int(p.ReadByte() + 1)
-		legType := int(p.ReadByte() + 1) // appearance2Colour, seems to be a client const, value seems to remain 2.  ofc, legs never change
-		hairColor := int(p.ReadByte())
-		topColor := int(p.ReadByte())
-		legColor := int(p.ReadByte())
-		skinColor := int(p.ReadByte())
+		isMale := p.ReadBoolean()
+		headType := int(p.ReadUint8() + 1)
+		bodyType := int(p.ReadUint8() + 1)
+		legType := int(p.ReadUint8() + 1) // appearance2Colour, seems to be a client const, value seems to remain 2.  ofc, legs never change
+		hairColor := int(p.ReadUint8())
+		topColor := int(p.ReadUint8())
+		legColor := int(p.ReadUint8())
+		skinColor := int(p.ReadUint8())
 		/*		if !inArray(validHeads, int(headType)) || !inArray(validBodys, int(bodyType)) || !inArray(validBodyLegColors, int(topColor)) ||
 				!inArray(validBodyLegColors, int(legColor)) || !inArray(validHeadColors, int(hairColor))  ||
 				!inArray(validSkinColors, int(skinColor)) || legType != 2 {*/

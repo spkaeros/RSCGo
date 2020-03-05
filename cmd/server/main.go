@@ -95,7 +95,7 @@ func main() {
 	asyncExecute(&awaitLaunchJobs, db.LoadItemLocations)
 	awaitLaunchJobs.Wait()
 	world.RunScripts()
-	
+
 	if config.Verbose() {
 		log.Info.Printf("Loaded %d landscape sectors.\n", len(world.Sectors))
 		log.Info.Printf("Loaded %d packets, %d of which have handlers.\n", handlers.PacketCount(), handlers.HandlerCount())

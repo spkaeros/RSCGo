@@ -20,7 +20,7 @@ import (
 
 func init() {
 	AddHandler("duelreq", func(player *world.Player, p *net.Packet) {
-		index := p.ReadShort()
+		index := p.ReadUint16()
 		if player.Busy() {
 			return
 		}
@@ -97,17 +97,17 @@ func init() {
 		defer func() {
 			target.SendPacket(world.DuelUpdate(player))
 		}()
-		itemCount := int(p.ReadByte())
+		itemCount := int(p.ReadUint8())
 		if itemCount < 0 || itemCount > 8 {
 			log.Suspicious.Printf("%v attempted to offer an invalid amount[%v] of duel items!\n", player.String(), itemCount)
 			return
 		}
-		if len(p.Payload) < 1+(itemCount*6) {
+		if p.Length() < 1+(itemCount*6) {
 			log.Suspicious.Printf("%v attempted to send a duel offer update net without enough data for the offer.\n", player.String())
 			return
 		}
 		for i := 0; i < itemCount; i++ {
-			player.DuelOffer.Add(p.ReadShort(), p.ReadInt())
+			player.DuelOffer.Add(p.ReadUint16(), p.ReadUint32())
 		}
 	})
 	AddHandler("dueloptions", func(player *world.Player, p *net.Packet) {
@@ -139,10 +139,10 @@ func init() {
 		player.ResetDuelAccepted()
 		target.ResetDuelAccepted()
 
-		retreatsAllowed := p.ReadBool()
-		magicAllowed := p.ReadBool()
-		prayerAllowed := p.ReadBool()
-		equipmentAllowed := p.ReadBool()
+		retreatsAllowed := p.ReadBoolean()
+		magicAllowed := p.ReadBoolean()
+		prayerAllowed := p.ReadBoolean()
+		equipmentAllowed := p.ReadBoolean()
 
 		player.TransAttrs.SetVar("duelCanRetreat", !retreatsAllowed)
 		player.TransAttrs.SetVar("duelCanMagic", !magicAllowed)

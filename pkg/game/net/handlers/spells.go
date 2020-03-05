@@ -21,42 +21,42 @@ import (
 
 func init() {
 	AddHandler("spellnpc", func(player *world.Player, p *net.Packet) {
-		targetIndex := p.ReadShort()
+		targetIndex := p.ReadUint16()
 		target := world.GetNpc(targetIndex)
 		if target == nil {
 			return
 		}
-		spellIndex := p.ReadShort()
+		spellIndex := p.ReadUint16()
 		log.Info.Println("cast on npc:", targetIndex, target.ID, spellIndex)
 		dispatchSpellAction(player, spellIndex, target)
 	})
 	AddHandler("spellplayer", func(player *world.Player, p *net.Packet) {
-		targetIndex := p.ReadShort()
+		targetIndex := p.ReadUint16()
 		target, ok := world.Players.FromIndex(targetIndex)
 		if !ok {
 			return
 		}
-		spellIndex := p.ReadShort()
+		spellIndex := p.ReadUint16()
 		log.Info.Println("cast on player:", targetIndex, target.String(), spellIndex)
 		dispatchSpellAction(player, spellIndex, target)
 	})
 	AddHandler("spellself", func(player *world.Player, p *net.Packet) {
-		idx := p.ReadShort()
+		idx := p.ReadUint16()
 
 		log.Info.Println("Cast on self:", idx)
 		dispatchSpellAction(player, idx, nil)
 	})
 	AddHandler("spellinvitem", func(player *world.Player, p *net.Packet) {
-		itemIndex := p.ReadShort()
-		spellIndex := p.ReadShort()
+		itemIndex := p.ReadUint16()
+		spellIndex := p.ReadUint16()
 		log.Info.Println("Cast on invitem:", spellIndex, "on", itemIndex)
 		dispatchSpellAction(player, spellIndex, nil)
 	})
 	AddHandler("spellgrounditem", func(player *world.Player, p *net.Packet) {
-		itemX := p.ReadShort()
-		itemY := p.ReadShort()
-		itemID := p.ReadShort()
-		spellIndex := p.ReadShort()
+		itemX := p.ReadUint16()
+		itemY := p.ReadUint16()
+		itemID := p.ReadUint16()
+		spellIndex := p.ReadUint16()
 		log.Info.Println(itemX, itemY, itemID, "cast on grounditem:", spellIndex, "on", strconv.Itoa(itemID), "at", strconv.Itoa(itemX)+","+strconv.Itoa(itemY))
 		dispatchSpellAction(player, spellIndex, nil)
 	})

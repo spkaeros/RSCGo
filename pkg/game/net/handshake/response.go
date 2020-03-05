@@ -179,7 +179,7 @@ const (
 //ResponseListener This method will block until a response to send to the client is received from our data workers, or if this doesn't occur, 10 seconds after it was called.
 func (r *ResponseListener) ResponseListener() chan ResponseCode {
 	// schedules the channel listener on the game engines thread
-	tasks.TickerList.Add("playerCreating", func() bool {
+	tasks.Tickers.Add("playerCreating", func() bool {
 		defer close(r.listener)
 		select {
 		case code := <-r.listener:

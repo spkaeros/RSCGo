@@ -19,7 +19,7 @@ import (
 
 func init() {
 	AddHandler("attacknpc", func(player *world.Player, p *net.Packet) {
-		npc := world.GetNpc(p.ReadShort())
+		npc := world.GetNpc(p.ReadUint16())
 		if npc == nil {
 			log.Suspicious.Printf("%v tried to attack nil NPC\n", player)
 			return
@@ -46,7 +46,7 @@ func init() {
 		})
 	})
 	AddHandler("attackplayer", func(player *world.Player, p *net.Packet) {
-		affectedPlayer, ok := world.Players.FromIndex(p.ReadShort())
+		affectedPlayer, ok := world.Players.FromIndex(p.ReadUint16())
 		if affectedPlayer == nil || !ok {
 			log.Suspicious.Printf("player[%v] tried to attack nil player\n", player)
 			return
@@ -67,7 +67,7 @@ func init() {
 		})
 	})
 	AddHandler("fightmode", func(player *world.Player, p *net.Packet) {
-		mode := p.ReadByte()
+		mode := p.ReadUint8()
 		if mode < 0 || mode > 3 {
 			log.Suspicious.Printf("Invalid fightmode(%v) selected by %s", mode, player.String())
 			return

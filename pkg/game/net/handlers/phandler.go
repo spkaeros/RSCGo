@@ -45,9 +45,9 @@ func init() {
 	AddHandler("pingreq", func(*world.Player, *net.Packet) {})
 	AddHandler("sessionreq", func(player *world.Player, p *net.Packet) {
 		player.SetConnected(true)
-		p.ReadByte() // UID, useful?
+		p.ReadUint8() // UID, useful?
 		player.SetServerSeed(rand.Uint64())
-		player.SendPacket(net.NewBarePacket(nil).AddLong(player.ServerSeed()))
+		player.SendPacket(net.NewReplyPacket(nil).AddUint64(player.ServerSeed()))
 	})
 }
 

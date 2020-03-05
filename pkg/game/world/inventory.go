@@ -204,7 +204,7 @@ func NewGroundItem(id, amount, x, y int) *GroundItem {
 		},
 	}
 	item.SetVar("visibility", 1)
-	tasks.TickerList.Add("gItem-"+strconv.Itoa(item.Index), func() bool {
+	tasks.Tickers.Add("gItem-"+strconv.Itoa(item.Index), func() bool {
 		item.IncVar("ticker", 1)
 		curTick := item.VarInt("ticker", 0)
 		// Visiblity is scoped to item owner but I guess it doesn't have an owner.

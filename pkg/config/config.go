@@ -54,10 +54,6 @@ func PacketHandlers() string {
 	return TomlConfig.PacketHandlerFile
 }
 
-func RsaKey() string {
-	return TomlConfig.Crypto.RsaKeyFile
-}
-
 func HashLength() int {
 	return TomlConfig.Crypto.HashLength
 }
@@ -94,5 +90,5 @@ func init() {
 	TomlConfig.Crypto.HashSalt = "rscgo./GOLANG!RULES/.1994"
 	TomlConfig.Version = 204
 	TomlConfig.Port = 43594                  // = 43595 for websocket connections
-	TomlConfig.Crypto.RsaKeyFile = "rsa.der" // TODO: Remove all RSA/ISAAC and add TLS to Java client
+	//TomlConfig.Crypto.RsaKeyFile = "rsa.der"
 }
