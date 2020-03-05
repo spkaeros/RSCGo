@@ -8,6 +8,7 @@ var TomlConfig struct {
 	MaxPlayers        int    `toml:"max_players"`
 	PacketHandlerFile string `toml:"packet_handler_table"`
 	Database          struct {
+		PlayerDriver string `toml:"player_driver"`
 		PlayerDB string `toml:"player_db"`
 		WorldDB  string `toml:"world_db"`
 	} `toml:"database"`
@@ -78,9 +79,14 @@ func PlayerDB() string {
 	return TomlConfig.Database.PlayerDB
 }
 
+func PlayerDriver() string {
+	return TomlConfig.Database.PlayerDriver
+}
+
 func init() {
 	TomlConfig.MaxPlayers = 1250
 	TomlConfig.DataDir = "./data/"
+	TomlConfig.Database.PlayerDriver = "sqlite3"
 	TomlConfig.Database.PlayerDB = "players.db"
 	TomlConfig.Database.WorldDB = "world.db"
 	TomlConfig.PacketHandlerFile = "packets.toml"

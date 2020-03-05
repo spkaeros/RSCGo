@@ -10,8 +10,16 @@ max_players = 2048
 packet_handler_table = 'packets.toml'
 
 [database]
-# The SQLite3 database containing player data.
-player_db = "players.db"
+# The SQL database driver to use when connecting to the player saves database.
+# SQLite3
+player_driver = "sqlite3"
+# PostgreSQL
+# player_driver = "postgres"
+# The SQL connection string for the player saves database.
+# SQLite3
+player_db = "file:/./data/players.db"
+# Postgresql
+# player_db = "host=127.0.0.1 port=5432 user=zach password=zebra1 dbname=rscgo sslmode=disable"
 # The SQLite3 database containing game world/entity data.
 world_db = "world.db"
 

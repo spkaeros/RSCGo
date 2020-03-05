@@ -28,15 +28,15 @@ type PlayerService interface {
 	PlayerSave(*world.Player)
 }
 
-//NewPlayerServiceSql Returns a new SqlPlayerService to manage the specified *sql.DB instance.
-// Note: To use this, you must load a database/sql driver.
-func NewPlayerServiceSql(addr string) PlayerService {
-	return newSqlService(sqlOpen("postgres", "host=127.0.0.1 port=5432 user=zach password=zeb!Rscgo!A2019 dbname=rscgo sslmode=disable"))
+//NewPlayerServiceSql Returns a new SqlPlayerService to manage the specified *sql.DB instance, configured against
+// the default players database.
+func NewPlayerServiceSql() PlayerService {
+	return newSqlService(sqlOpen(config.PlayerDriver(), config.PlayerDB()))
 }
 
 //DefaultPlayerService the default player save managing service in use by the game server
 // Currently using an sqlService.
-var DefaultPlayerService = NewPlayerServiceSql(config.PlayerDB())
+var DefaultPlayerService = NewPlayerServiceSql()
 
 //PlayerCreate Creates a new entry in the player SQLite3 database with the specified credentials.
 // Returns true if successful, otherwise returns false.
