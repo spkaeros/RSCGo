@@ -19,5 +19,11 @@
         <property name="enable_load_extension" value="true" />
       </driver-properties>
     </data-source>
+    <data-source source="LOCAL" name="rscgo@localhost" uuid="ca4c696d-0343-4c15-8fe0-635279420e3d">
+      <driver-ref>postgresql</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
+      <jdbc-url>jdbc:postgresql://localhost:5432/rscgo</jdbc-url>
+    </data-source>
   </component>
 </project>

@@ -9,6 +9,7 @@ require (
 	github.com/gobwas/pool v0.2.0 // indirect
 	github.com/gobwas/ws v1.0.2
 	github.com/jessevdk/go-flags v1.4.0
+	github.com/lib/pq v1.3.0
 	github.com/lithammer/fuzzysearch v1.1.0
 	github.com/mattn/anko v0.1.5
 	github.com/mattn/go-sqlite3 v2.0.1+incompatible

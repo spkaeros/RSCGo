@@ -3,11 +3,13 @@ package db
 import (
 	"context"
 	"database/sql"
-
+	
 	"github.com/spkaeros/rscgo/pkg/log"
-
+	
 	// Necessary for sqlite3 driver
 	_ "github.com/mattn/go-sqlite3"
+	// Necessary for postgresql driver
+	_ "github.com/lib/pq"
 )
 
 //sqlOpen Attempts to connect to the specified address as a database/sql database.
@@ -16,6 +18,11 @@ import (
 // upon failure, nil and a meaningful error.
 func sqlOpen(driver, addr string) *sql.DB {
 	database, err := sql.Open(driver, addr) //"file:"+config.DataDir()+addr)
+	if err != nil {
+		log.Error.Println("Couldn't load database (driver: "+driver+", addr: "+addr+"):", err)
+		return nil
+	}
+	err = database.Ping()
 	if err != nil {
 		log.Error.Println("Couldn't load database (driver: "+driver+", addr: "+addr+"):", err)
 		return nil

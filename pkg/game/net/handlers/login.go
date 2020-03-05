@@ -169,7 +169,8 @@ func init() {
 		player.SetConnected(true)
 
 		reply := handshake.NewRegistrationListener(player).ResponseListener()
-		if handshake.RegisterThrottle.Recent(player.CurrentIP(), time.Minute*5) >= 5 {
+		// 2 regs per 60 minutes
+		if handshake.RegisterThrottle.Recent(player.CurrentIP(), time.Minute*60) >= 2 {
 			reply <- handshake.ResponseSpamTimeout
 			return
 		}
@@ -194,6 +195,7 @@ func init() {
 			}
 
 			if dataService.PlayerCreate(username, password) {
+				handshake.RegisterThrottle.Add(player.CurrentIP())
 				log.Info.Printf("New player accepted: [ username='%s'; ip='%s' ]", username, player.CurrentIP())
 				reply <- handshake.ResponseRegisterSuccess
 				return

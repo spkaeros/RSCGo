@@ -31,7 +31,7 @@ type PlayerService interface {
 //NewPlayerServiceSql Returns a new SqlPlayerService to manage the specified *sql.DB instance.
 // Note: To use this, you must load a database/sql driver.
 func NewPlayerServiceSql(addr string) PlayerService {
-	return newSqlService(sqlOpen("sqlite3", "file:"+config.DataDir()+addr))
+	return newSqlService(sqlOpen("postgres", "host=127.0.0.1 port=5432 user=zach password=zebra1 dbname=rscgo sslmode=disable"))
 }
 
 //DefaultPlayerService the default player save managing service in use by the game server
