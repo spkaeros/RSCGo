@@ -12,6 +12,7 @@ package handlers
 import (
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
+	"math"
 )
 
 func init() {
@@ -43,9 +44,9 @@ func init() {
 		}
 		startX := p.ReadUint16()
 		startY := p.ReadUint16()
-		numWaypoints := p.Available() / 2
+		numWaypoints := math.Ceil(float64(p.Length()-5) / 2)
 		var waypointsX, waypointsY []int
-		for i := 0; i < numWaypoints; i++ {
+		for i := float64(0); i < numWaypoints; i++ {
 			waypointsX = append(waypointsX, int(p.ReadInt8()))
 			waypointsY = append(waypointsY, int(p.ReadInt8()))
 		}
@@ -61,9 +62,10 @@ func init() {
 		}
 		startX := p.ReadUint16()
 		startY := p.ReadUint16()
-		numWaypoints := p.Available() / 2
+//		numWaypoints := (p.Length()-5) / 2
+		numWaypoints := math.Ceil(float64(p.Length()-5) / 2)
 		var waypointsX, waypointsY []int
-		for i := 0; i < numWaypoints; i++ {
+		for i := float64(0); i < numWaypoints; i++ {
 			waypointsX = append(waypointsX, int(p.ReadInt8()))
 			waypointsY = append(waypointsY, int(p.ReadInt8()))
 		}

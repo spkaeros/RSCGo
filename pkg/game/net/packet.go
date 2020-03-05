@@ -30,7 +30,6 @@ type Packet struct {
 	HeaderBuffer []byte
 	readIndex    int
 	bitIndex     int
-	length       int
 }
 
 //NewPacket Creates a new net instance.
@@ -52,9 +51,7 @@ func (p *Packet) readNSizeUints(n int) []uint64 {
 	read := func(numBytes int) uint64 {
 		var val uint64
 		buf := make([]byte, numBytes)
-		if l := p.Read(buf); l < 0 {
-			return 0
-		}
+		_ = p.Read(buf)
 		for idx, b := range buf {
 			val |= uint64(b) << uint((numBytes-1-idx) << 3)
 		}
@@ -99,20 +96,20 @@ func checkError(err error) bool {
 
 //ReadUint8 Read the next 8-bit integer from the net payload.
 func (p *Packet) ReadUint8() byte {
-	defer checkError(p.Skip(1))
-	return p.FrameBuffer[p.readIndex] & 0xFF
-}
-
-//ReadBoolean Returns true if the next payload byte isn't 0
-func (p *Packet) ReadBoolean() bool {
-	defer checkError(p.Skip(1))
-	return p.FrameBuffer[p.readIndex] != 0
+	if checkError(p.Skip(1)) {
+		return 0
+	}
+	return p.FrameBuffer[p.readIndex-1] & 0xFF
 }
 
 //ReadInt8 returns the signed interpretation of the next payload byte.
 func (p *Packet) ReadInt8() int8 {
-	defer checkError(p.Skip(1))
-	return int8(p.FrameBuffer[p.readIndex])
+	return int8(p.ReadUint8())
+}
+
+//ReadBoolean Returns true if the next payload byte isn't 0
+func (p *Packet) ReadBoolean() bool {
+	return p.ReadUint8() != 0
 }
 
 func (p *Packet) Read(buf []byte) int {
@@ -121,9 +118,9 @@ func (p *Packet) Read(buf []byte) int {
 		log.Warning.Println("PacketBufferError[OutOfBounds:Read] Tried to read too many bytes (" + strconv.Itoa(n) + ") from read buffer (length " + strconv.Itoa(p.Available()) + ")")
 		return -1
 	}
-	defer checkError(p.Skip(n))
-	copy(buf, p.FrameBuffer[p.readIndex:p.readIndex+len(buf)])
-	return len(buf)
+	copy(buf, p.FrameBuffer[p.readIndex:])
+	p.Skip(n)
+	return n
 }
 
 func (p *Packet) Rewind(n int) error {
@@ -168,7 +165,12 @@ func (p *Packet) ReadString() string {
 	s := string(p.FrameBuffer[start:])
 	end := strings.IndexByte(s, '\x00')
 	if end < 0 {
-		p.readIndex = p.Length()
+		end := strings.IndexByte(s, '\n')
+		if end < 0 {
+			p.readIndex = p.Length()
+			return s
+		}
+		p.readIndex += end
 		return s[:end]
 	}
 	p.readIndex += end
@@ -255,7 +257,7 @@ func (p *Packet) AddBitmask(value int, numBits int) *Packet {
 	}
 	for ; numBits > bitOffset; bitOffset = 8 {
 		p.FrameBuffer[byteOffset] &= byte(^masks[bitOffset])
-		p.FrameBuffer[byteOffset] |= byte(value >>numBits-bitOffset&int(masks[bitOffset]))
+		p.FrameBuffer[byteOffset] |= byte(value >> uint(numBits-bitOffset&int(masks[bitOffset])))
 		byteOffset++
 		numBits -= bitOffset
 	}
@@ -263,8 +265,8 @@ func (p *Packet) AddBitmask(value int, numBits int) *Packet {
 		p.FrameBuffer[byteOffset] &= byte(^masks[bitOffset])
 		p.FrameBuffer[byteOffset] |= byte(value & int(masks[bitOffset]))
 	} else {
-		p.FrameBuffer[byteOffset] &= byte(^(int(masks[numBits]) <<bitOffset-numBits))
-		p.FrameBuffer[byteOffset] |= byte((value & int(masks[numBits])) <<bitOffset-numBits)
+		p.FrameBuffer[byteOffset] &= byte(^(int(masks[numBits]) << uint(bitOffset-numBits)))
+		p.FrameBuffer[byteOffset] |= byte((value & int(masks[numBits])) << uint(bitOffset-numBits))
 	}
 
 	return p

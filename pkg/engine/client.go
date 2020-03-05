@@ -274,7 +274,7 @@ func (c *client) readPacket() (p *net.Packet, err error) {
 		payload = append(payload, header[1])
 	}
 
-	return &net.Packet{Opcode: payload[0], FrameBuffer: payload[1:]}, nil
+//	return &net.Packet{Opcode: payload[0], FrameBuffer: payload[1:]}, nil
 	return net.NewPacket(payload[0], payload[1:]), nil
 }
 

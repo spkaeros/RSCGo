@@ -314,16 +314,16 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 	p.AddBitmask(player.Direction(), 4)
 	p.AddBitmask(player.LocalPlayers.Size(), 8)
 	counter := 0
-	player.RLock()
+//	player.RLock()
+//	counter++
 	//	if player.SyncMask&SyncNeedsPosition != 0 {
-	counter++
 	//		player.ResetTickables = append(player.ResetTickables, func() {
 	//			player.ResetRegionRemoved()
 	//			player.ResetRegionMoved()
 	//			player.ResetSpriteUpdated()
 	//		})
 	//	}
-	player.RUnlock()
+//	player.RUnlock()
 	var removing = NewMobList()
 	player.LocalPlayers.RangePlayers(func(p1 *Player) bool {
 		p1.RLock()
@@ -368,7 +368,7 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		return false
 	})
 	newPlayerCount := 0
-	player.NewPlayers()
+	//player.NewPlayers()
 	for _, p1 := range player.NewPlayers() {
 		if len(player.LocalPlayers.mobSet) >= 255 {
 			break
@@ -408,11 +408,10 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		//			p1.ResetRegionMoved()
 		//			p1.ResetSpriteUpdated()
 		//		})
-		counter++
 	}
-	if counter <= 0 {
-		return nil
-	}
+//	if counter <= 0 {
+//		return nil
+//	}
 	return
 }
 
