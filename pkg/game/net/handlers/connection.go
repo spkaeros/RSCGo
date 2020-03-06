@@ -10,8 +10,6 @@
 package handlers
 
 import (
-	"github.com/spkaeros/rscgo/pkg/crypto"
-	"github.com/spkaeros/rscgo/pkg/db"
 	"github.com/spkaeros/rscgo/pkg/engine/tasks"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
