@@ -1101,7 +1101,7 @@ func (p *Player) CanWalk() bool {
 		// routine waiting for a reply when ResetAll is called before the new path is set.
 		return true
 	}
-	return !p.HasState(MSBatching, MSFighting, MSTrading, MSDueling, MSChangingAppearance, MSSleeping, MSChatting, MSBusy, MSItemAction, MSShopping)
+	return !p.HasState(MSBatching, MSFighting, MSTrading, MSDueling, MSChangingAppearance, MSSleeping, MSChatting, MSBusy, MSShopping)
 }
 
 //PlaySound sends a command to the client to play a sound by its file name.
