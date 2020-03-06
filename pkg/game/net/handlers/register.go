@@ -7,7 +7,7 @@
  *
  */
 
-package handshake
+package handlers
 
 import (
 	`strings`
@@ -17,7 +17,7 @@ import (
 	`github.com/spkaeros/rscgo/pkg/crypto`
 	`github.com/spkaeros/rscgo/pkg/db`
 	`github.com/spkaeros/rscgo/pkg/game/net`
-	`github.com/spkaeros/rscgo/pkg/game/net/handlers`
+	`github.com/spkaeros/rscgo/pkg/game/net/handshake`
 	`github.com/spkaeros/rscgo/pkg/game/world`
 	`github.com/spkaeros/rscgo/pkg/log`
 	`github.com/spkaeros/rscgo/pkg/strutil`
@@ -25,17 +25,17 @@ import (
 
 func init()  {
 	
-	handlers.AddHandler("loginreq", func(player *world.Player, p *net.Packet) {
+	AddHandler("loginreq", func(player *world.Player, p *net.Packet) {
 		player.SetConnected(true)
-		loginReply := NewLoginListener(player).ResponseListener()
-		if LoginThrottle.Recent(player.CurrentIP(), time.Minute*5) >= 5 {
-			loginReply <- ResponseSpamTimeout
+		loginReply := handshake.NewLoginListener(player).ResponseListener()
+		if handshake.LoginThrottle.Recent(player.CurrentIP(), time.Minute*5) >= 5 {
+			loginReply <- handshake.ResponseSpamTimeout
 			return
 		}
 		player.SetReconnecting(p.ReadBoolean())
 		if ver := p.ReadUint16(); ver != config.Version() {
 			log.Info.Printf("Invalid client version attempted to login: %d\n", ver)
-			loginReply <- ResponseUpdated
+			loginReply <- handshake.ResponseUpdated
 			return
 		}
 		var password string
@@ -63,11 +63,11 @@ func init()  {
 		}
 		
 		if world.Players.ContainsHash(player.UsernameHash()) {
-			loginReply <- ResponseLoggedIn
+			loginReply <- handshake.ResponseLoggedIn
 			return
 		}
 		if !world.UpdateTime.IsZero() && time.Until(world.UpdateTime).Seconds() <= 0 {
-			loginReply <- ResponseLoginServerRejection
+			loginReply <- handshake.ResponseLoginServerRejection
 			return
 		}
 		
@@ -75,26 +75,26 @@ func init()  {
 			//dataService is a db.PlayerService that all login-related functions should use to access or change player profile data.
 			var dataService = db.DefaultPlayerService
 			if !dataService.PlayerNameExists(player.Username()) || !dataService.PlayerValidLogin(player.UsernameHash(), crypto.Hash(password)) {
-				loginReply <- ResponseBadPassword
+				loginReply <- handshake.ResponseBadPassword
 				return
 			}
 			if !dataService.PlayerLoad(player) {
-				loginReply <- ResponseDecodeFailure
+				loginReply <- handshake.ResponseDecodeFailure
 				return
 			}
 			
 			if player.Reconnecting() {
-				loginReply <- ResponseReconnected
+				loginReply <- handshake.ResponseReconnected
 				return
 			}
 			
 			switch player.Rank() {
 			case 2:
-				loginReply <- ResponseAdministrator
+				loginReply <- handshake.ResponseAdministrator
 			case 1:
-				loginReply <- ResponseModerator
+				loginReply <- handshake.ResponseModerator
 			default:
-				loginReply <- ResponseLoginSuccess
+				loginReply <- handshake.ResponseLoginSuccess
 			}
 		}()
 	})
