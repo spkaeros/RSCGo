@@ -10,7 +10,6 @@
 ids, world, math, log = import("ids"), import("world"), import("math"), import("log")
 
 func newMissileHandler(power) {
-	log.debug(toFloat(power))
 	return func(player, spell) {
 		player.WalkingRangedAction(spell.target, func() {
 			if !player.CanAttack(spell.target) {
