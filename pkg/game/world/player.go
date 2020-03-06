@@ -1126,6 +1126,11 @@ func (p *Player) SendStatExp(idx int) {
 	p.SendPacket(PlayerExperience(p, idx))
 }
 
+
+func (p *Player) SendCombatPoints() {
+	p.SendPacket(PlayerCombatPoints(p))
+}
+
 //SendStats sends all stat information to this player.
 func (p *Player) SendStats() {
 	p.SendPacket(PlayerStats(p))
@@ -1150,12 +1155,17 @@ func (p *Player) IncCurStat(idx int, lvl int) {
 
 //SetCurStat sets this players current stat at idx to lvl and updates the client about it.
 func (p *Player) IncExp(idx int, amt int) {
-	// TODO: Fatigue
+	if idx <= 3 {
+		p.Attributes.IncVar("combatPoints", amt)
+		p.SendCombatPoints()
+		return
+	}
 	p.Skills().IncExp(idx, amt)
+	// TODO: Fatigue
 	delta := entity.ExperienceToLevel(p.Skills().Experience(idx)) - p.Skills().Maximum(idx)
 	if delta != 0 {
-		p.Message(fmt.Sprintf("@gre@You just advanced %d %v level!", delta, entity.SkillName(idx)))
 		p.PlaySound("advance")
+		p.Message(fmt.Sprintf("@gre@You just advanced %d %v level!", delta, entity.SkillName(idx)))
 		oldCombat := p.Skills().CombatLevel()
 		p.Skills().IncreaseCur(idx, delta)
 		p.Skills().IncreaseMax(idx, delta)

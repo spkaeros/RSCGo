@@ -729,6 +729,10 @@ func PlayerExperience(player *Player, idx int) *net.Packet {
 	return p
 }
 
+func PlayerCombatPoints(player *Player) *net.Packet {
+	return  net.NewEmptyPacket(242).AddUint32(uint32(player.Attributes.VarInt("combatPoints", 0)))
+}
+
 //PlayerStat Builds a net containing player's stat information for skill at idx and returns it.
 func PlayerStat(player *Player, idx int) *net.Packet {
 	p := net.NewEmptyPacket(159)

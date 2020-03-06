@@ -412,7 +412,7 @@ func (i *Inventory) Range(fn func(*Item) bool) int {
 func (i *Inventory) RangeRev(fn func(*Item) bool) int {
 	i.Lock.RLock()
 	defer i.Lock.RUnlock()
-	for idx := len(i.List) - 1; idx > 0; idx-- {
+	for idx := len(i.List) - 1; idx >= 0; idx-- {
 		if !fn(i.List[idx]) {
 			return idx
 		}

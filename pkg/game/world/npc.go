@@ -172,7 +172,7 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 			}
 		}
 	}
-	AddItem(NewGroundItem(20, 1, n.X(), n.Y()))
+	AddItem(NewGroundItem(DefaultDrop, 1, n.X(), n.Y()))
 	if killer, ok := killer.(*Player); ok {
 		killer.DistributeMeleeExp(int(math.Ceil(MeleeExperience(n) / 4.0)))
 	}
