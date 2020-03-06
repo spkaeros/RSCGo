@@ -49,20 +49,21 @@ func (s *sqlService) PlayerCreate(username, password string) bool {
 		return false
 	}
 
-	stmt := tx.QueryRow("INSERT INTO player(username, userhash, password, x, y, group_id) VALUES($1, $2, $3, 220, 445, 0) RETURNING id", username, strutil.Base37.Encode(username), crypto.Hash(password))
-	//if err != nil {
-//		log.Info.Println("SQLiteService Could not insert new player profile information:", err)
-//		return false
-//	}
-//	if !stmt.Next() {
-//		log.Info.Printf("PlayerCreate(): Could not retrieve player database ID:\n%v", err)
-//		return false
-//	}
-	var playerID int
-	err = stmt.Scan(&playerID)
-	if playerID < 0 || err != nil {
-		log.Info.Printf("PlayerCreate(): Could not retrieve player database ID(%d):\n%v", playerID, err)
+	stmt, err := tx.Exec("INSERT INTO player(username, userhash, password, x, y, group_id) VALUES($1, $2, $3, 220, 445, 0)", username, strutil.Base37.Encode(username), crypto.Hash(password))
+	if err != nil {
+		log.Info.Println("SQLiteService Could not insert new player profile information:", err)
 		return false
+	}
+	playerID, err := stmt.LastInsertId()
+	if playerID < 0 || err != nil {
+		// hack for pgsql
+		stmt := tx.QueryRow("INSERT INTO player(username, userhash, password, x, y, group_id) VALUES($1, $2, $3, 220, 445, 0) RETURNING id", username, strutil.Base37.Encode(username), crypto.Hash(password))
+		
+		err := stmt.Scan(&playerID)
+		if err != nil || playerID < 0 {
+			log.Info.Printf("PlayerCreate(): Could not retrieve player database ID(%d):\n%v", playerID, err)
+			return false
+		}
 	}
 	_, err = tx.Exec("INSERT INTO appearance VALUES($1, 2, 8, 14, 0, 1, 2)", playerID)
 	if err != nil {
