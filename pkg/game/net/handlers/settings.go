@@ -10,11 +10,28 @@
 package handlers
 
 import (
+	`github.com/spkaeros/rscgo/pkg/crypto`
+	`github.com/spkaeros/rscgo/pkg/db`
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
+	`github.com/spkaeros/rscgo/pkg/log`
 )
 
 func init() {
+	AddHandler("changepass", func(player *world.Player, p *net.Packet) {
+		oldPassword := p.ReadString()
+		newPassword := p.ReadString()
+		go func() {
+			//dataService is a db.PlayerService that all login-related functions should use to access or change player profile data.
+			var dataService = db.DefaultPlayerService
+			if !dataService.PlayerValidLogin(player.UsernameHash(), crypto.Hash(oldPassword)) {
+				player.Message("The old password you provided does not appear to be valid.  Try again.")
+				return
+			}
+			dataService.PlayerChangePassword(player.UsernameHash(), crypto.Hash(newPassword))
+			player.Message("Successfully updated your password to the new password you have provided.")
+		}()
+	})
 	AddHandler("clientsetting", func(player *world.Player, p *net.Packet) {
 		// 2 = mouse buttons
 		// 0 = camera angle manual/auto
@@ -42,5 +59,21 @@ func init() {
 			})
 		}
 		player.SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, duelBlocked)
+	})
+	AddHandler("cancelpq", func(player *world.Player, p *net.Packet) {
+		// empty net
+	})
+	AddHandler("changepq", func(player *world.Player, p *net.Packet) {
+		player.SendPacket(net.NewEmptyPacket(224))
+	})
+	AddHandler("setpq", func(player *world.Player, p *net.Packet) {
+		var questions []string
+		var answers []uint64
+		for i := 0; i < 5; i++ {
+			length := p.ReadUint8()
+			questions = append(questions, p.ReadStringN(int(length)))
+			answers = append(answers, p.ReadUint64())
+		}
+		log.Info.Println(questions, answers)
 	})
 }

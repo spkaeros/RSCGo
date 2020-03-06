@@ -1,6 +1,11 @@
 package isaac
 
-import "sync"
+import (
+	`crypto/rand`
+	`encoding/binary`
+	`fmt`
+	`sync`
+)
 
 //ISAAC The state of the ISAAC CSPRNG
 type ISAAC struct {
@@ -14,6 +19,24 @@ type ISAAC struct {
 	index      int
 	remainder  []byte
 	Lock       sync.RWMutex
+}
+
+func (r *ISAAC) Seed(seed int64) {
+	var tmpRsl [256]uint64
+	
+	var rsl = make([]uint64, 256)
+	if err := binary.Read(rand.Reader, binary.BigEndian, rsl); err != nil {
+		fmt.Println("ERROR: Could not read ints fully into init slice.", err)
+		return
+	}
+	for i := 0; i < len(tmpRsl); i++ {
+		// Attempt to make the state more randomized before even initializing
+		// ISAAC is said not to have weak states, but this gives me peace of mind in that it randomizes any zero padding
+		k := seed
+		tmpRsl[i] = uint64((0x6c078965*(k^(k>>30)) + int64(i)) & 0xffffffff)
+	}
+	r.randrsl = tmpRsl
+	r.randInit()
 }
 
 func (r *ISAAC) generateNextSet() {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/spkaeros/rscgo/pkg/game/entity"
+	isaac "github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 
@@ -180,7 +181,7 @@ func (m *Mob) Transients() *entity.AttributeList {
 
 //Busy Returns true if this mobs state is anything other than idle. otherwise returns false.
 func (m *Mob) Busy() bool {
-	return m.State() != MSIdle
+	return m.State() != MSIdle && m.State() != MSItemAction
 }
 
 func (m *Mob) IsFighting() bool {
@@ -561,9 +562,10 @@ func (m *Mob) MeleeDamage(target entity.MobileEntity) int {
 		var damage float64
 		for damage > maxDamage || damage < 1 {
 			//damage = rand.ExpFloat64()/(1/(maxDamage))
-			damage = math.Floor((rand.NormFloat64() * (maxDamage / 3)) + (maxDamage / 2))
+			damage = math.Floor((meleeRand.NormFloat64() * (maxDamage / 3)) + (maxDamage / 2))
 		}
 		return int(damage)
 	}
 	return 0
 }
+var meleeRand = rand.New(isaac.IsaacRng)

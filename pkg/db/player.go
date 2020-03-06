@@ -19,7 +19,7 @@ import (
 //PlayerService An interface for manipulating player save data.
 type PlayerService interface {
 	PlayerCreate(string, string) bool
-	PlayerNameTaken(username string) bool
+	PlayerNameExists(username string) bool
 	PlayerHasRecoverys(uint64) bool
 	PlayerValidLogin(uint64, string) bool
 	PlayerChangePassword(uint64, string) bool
@@ -78,8 +78,8 @@ func (s *sqlService) PlayerCreate(username, password string) bool {
 	return true
 }
 
-//PlayerNameTaken Returns true if there is a player with the name 'username' in the player database, otherwise returns false.
-func (s *sqlService) PlayerNameTaken(username string) bool {
+//PlayerNameExists Returns true if there is a player with the name 'username' in the player database, otherwise returns false.
+func (s *sqlService) PlayerNameExists(username string) bool {
 	database := s.connect(context.Background())
 	defer database.Close()
 	stmt, err := database.QueryContext(context.Background(), "SELECT id FROM player WHERE userhash=$1", strutil.Base37.Encode(username))
