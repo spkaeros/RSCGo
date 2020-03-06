@@ -986,6 +986,13 @@ func (p *Player) Initialize() {
 		p.Skills().SetCur(entity.StatHits, 10)
 		p.Skills().SetMax(entity.StatHits, 10)
 		p.Skills().SetExp(entity.StatHits, entity.LevelToExperience(10))
+		
+		p.Bank().Add(546, 96000)
+		p.Bank().Add(373, 96000)
+		
+		p.Inventory.Add(77, 1)
+		p.Inventory.Add(316, 1)
+		
 		p.OpenAppearanceChanger()
 	}
 	if !p.Reconnecting() {
