@@ -438,8 +438,26 @@ func (i *Inventory) Size() int {
 	return len(i.List)
 }
 
+//CanHold returns true if this inventory can hold the specified amount of the item with the specified ID
+func (i *Inventory) CanHold(id, amount int) bool {
+	if i.stackEverything || ItemDefs[id].Stackable {
+		if count := i.CountID(id); count > 0 && math.MaxInt32 - count >= amount {
+			return true
+		}
+	}
+	return i.Size() < i.Capacity
+}
+
 //Add Puts an item into the inventory with the specified id and quantity, and returns its index.
 func (i *Inventory) Add(id int, qty int) int {
+	if qty == 0 {
+		return -1
+	}
+	if !i.CanHold(id, qty) {
+		AddItem(NewGroundItemFor(i.Owner.UsernameHash(), id, qty, i.Owner.X(), i.Owner.Y()))
+		i.Owner.Message("Your inventory is full, the " + ItemDefs[id].Name + " drops to the ground!")
+		return -1
+	}
 	curSize := i.Size()
 	if item := i.GetByID(id); (i.stackEverything || ItemDefs[id].Stackable) && item != nil {
 		if item.Amount+qty >= math.MaxInt32 || item.Amount < 0 {

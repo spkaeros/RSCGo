@@ -112,12 +112,6 @@ func (m *PlayerMap) NextIndex() int {
 	return -1
 }
 
-//BroadcastLogin Broadcasts the login status of player to the whole game.
-func (m *PlayerMap) BroadcastLogin(player *Player, online bool) {
-	m.Range(func(rangedPlayer *Player) {
-	})
-}
-
 //region Represents a 48x48 section of map.  The purpose of this is to keep track of entities in the entire world without having to allocate tiles individually, which would make search algorithms slower and utilizes a great deal of memory.
 type region struct {
 	Players *MobList

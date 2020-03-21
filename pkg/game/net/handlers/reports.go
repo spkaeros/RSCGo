@@ -10,6 +10,7 @@
 package handlers
 
 import (
+	`github.com/spkaeros/rscgo/pkg/db`
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -42,20 +43,34 @@ func init() {
 		userHash := p.ReadUint64()
 		reasonIndex := int(p.ReadUint8() - 1)
 		actionIndex := int(p.ReadUint8())
+		
+		if userHash == player.UsernameHash() {
+			player.Message("You can't report yourself!!")
+			return
+		}
 
+		// validate reason for report
 		if reasonIndex < 0 || reasonIndex > len(reasons)-1 {
 			log.Suspicious.Printf("Report had invalid reason:\n[\n\taction:%d ('%s'),\n\tsender:'%s',\n\ttarget:'%s',\n\treason:%d\n];\n", actionIndex, actions[actionIndex], player.Username(), strutil.Base37.Decode(userHash), reasonIndex+1)
 			log.Info.Printf("Report had invalid reason:\n[\n\taction:%d ('%s'),\n\tsender:'%s',\n\ttarget:'%s',\n\treason:%d\n];\n", actionIndex, actions[actionIndex], player.Username(), strutil.Base37.Decode(userHash), reasonIndex+1)
 			return
 		}
+		// validate action report results in
 		if actionIndex < 0 || actionIndex > len(actions)-1 {
 			log.Suspicious.Printf("Report had invalid action:\n[\n\taction:%d,\n\tsender:'%s',\n\ttarget:'%s',\n\treason:%d ('%s')\n];\n", actionIndex, player.Username(), strutil.Base37.Decode(userHash), reasonIndex+1, reasons[reasonIndex])
 			log.Info.Printf("Report had invalid action:\n[\n\taction:%d,\n\tsender:'%s',\n\ttarget:'%s',\n\treason:%d ('%s')\n];\n", actionIndex, player.Username(), strutil.Base37.Decode(userHash), reasonIndex+1, reasons[reasonIndex])
 			return
 		}
-		log.Info.Printf("Report:\n[\n\taction:%d ('%s'),\n\tsender:'%s',\n\ttarget:'%s',\n\treason:%d ('%s')\n];\n", actionIndex, actions[actionIndex], player.Username(), strutil.Base37.Decode(userHash), reasonIndex+1, reasons[reasonIndex])
+		// validate username provided for report is a real player
+		if !db.DefaultPlayerService.PlayerNameExists(strutil.Base37.Decode(userHash)) {
+			player.Message("Invalid player name.")
+			return
+		}
 
+		log.Info.Printf("Report:\n[\n\taction:%d ('%s'),\n\tsender:'%s',\n\ttarget:'%s',\n\treason:%d ('%s')\n];\n", actionIndex, actions[actionIndex], player.Username(), strutil.Base37.Decode(userHash), reasonIndex+1, reasons[reasonIndex])
 		log.Info.Println(player.Username(), actions[actionIndex], strutil.Base37.Decode(userHash), "for breaking rule", reasonIndex+1, "('"+reasons[reasonIndex]+"')")
+		
 		log.Suspicious.Println(player.Username(), actions[actionIndex], strutil.Base37.Decode(userHash), "for breaking rule", reasonIndex+1, "('"+reasons[reasonIndex]+"')")
+		player.Message("Thank-you, your abuse report has been received.")
 	})
 }

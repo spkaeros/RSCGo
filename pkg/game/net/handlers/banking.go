@@ -55,6 +55,10 @@ func init() {
 			log.Suspicious.Println("Attempted withdraw of items they do not have:", player.String(), id, amount)
 			return
 		}
+		if !player.Inventory.CanHold(id, amount) {
+			player.Message("You don't have room to hold everything!")
+			return
+		}
 		if player.Bank().RemoveByID(id, amount) > -1 {
 			player.Inventory.Add(id, amount)
 			player.SendInventory()

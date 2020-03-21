@@ -44,6 +44,7 @@ func init() {
 	// Just to prevent non-handled net message from spamming up the logs
 	AddHandler("pingreq", func(*world.Player, *net.Packet) {})
 	AddHandler("sessionreq", func(player *world.Player, p *net.Packet) {
+		// TODO: Remove maybe...TLS deprecates the need for it
 		player.SetConnected(true)
 		p.ReadUint8() // UID, useful?
 		player.SetServerSeed(rand.Uint64())
@@ -72,7 +73,7 @@ func Handler(opcode byte) HandlerFunc {
 //AddHandler Adds and assigns the net handler to the net with the specified name.
 func AddHandler(name string, h HandlerFunc) {
 	if _, ok := handlers[name]; ok {
-		log.Warning.Printf("Attempted to bind a handler to net '%v' which is already handled elsewhere.  Ignoring bind.", name)
+		log.Warning.Printf("Attempted to bind a handler to net '%v' which is already handled elsewhere.  Ignoring bind.\n", name)
 		return
 	}
 	handlers[name] = h

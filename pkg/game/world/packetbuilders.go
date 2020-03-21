@@ -314,8 +314,6 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 	p.AddBitmask(player.Direction(), 4)
 	p.AddBitmask(player.LocalPlayers.Size(), 8)
 	counter := 0
-//	player.RLock()
-//	counter++
 	//	if player.SyncMask&SyncNeedsPosition != 0 {
 	//		player.ResetTickables = append(player.ResetTickables, func() {
 	//			player.ResetRegionRemoved()
@@ -323,7 +321,6 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 	//			player.ResetSpriteUpdated()
 	//		})
 	//	}
-//	player.RUnlock()
 	var removing = NewMobList()
 	player.LocalPlayers.RangePlayers(func(p1 *Player) bool {
 		p1.RLock()
@@ -368,7 +365,6 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		return false
 	})
 	newPlayerCount := 0
-	//player.NewPlayers()
 	for _, p1 := range player.NewPlayers() {
 		if len(player.LocalPlayers.mobSet) >= 255 {
 			break
@@ -730,7 +726,9 @@ func PlayerExperience(player *Player, idx int) *net.Packet {
 }
 
 func PlayerCombatPoints(player *Player) *net.Packet {
-	return  net.NewEmptyPacket(242).AddUint32(uint32(player.Attributes.VarInt("combatPoints", 0)))
+	p := net.NewEmptyPacket(242)
+	p.AddUint32(uint32(player.Attributes.VarInt("combatPoints", 0)))
+	return p
 }
 
 //PlayerStat Builds a net containing player's stat information for skill at idx and returns it.

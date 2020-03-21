@@ -60,9 +60,9 @@ func (r *ISAAC) generateNextSet() {
 		// ISAAC64 plus cipher code, with modifications recommended by Jean-Phillipe Aumasson to avoid a discovered bias,
 		// and strengthen the output stream.
 		r.aa += r.mm[(i+128)&0xFF]           // indirection, accumulation
-		y := r.mm[x&1020>>2] + (r.aa ^ r.bb) // indirection, addition, (plus) exlusive-or, (plus) rotation
+		y := r.mm[x&1020>>2] + (r.aa ^ r.bb) // indirection, addition, (plus) exclusive-or, (plus) rotation
 		r.mm[i] = y
-		r.bb = r.aa ^ r.mm[y>>8&1020>>2] + x // indirection, addition, (plus) exlusive-or, (plus) rotation
+		r.bb = r.aa ^ r.mm[y>>8&1020>>2] + x // indirection, addition, (plus) exclusive-or, (plus) rotation
 		r.randrsl[i] = r.bb
 
 		// Original ISAAC cipher code

@@ -338,9 +338,10 @@ func (s *Shop) Clone() *Shop {
 // The formula simply subtracts the shop's base stocked amount of item from item's amount, and multiplies the difference
 // by ShopNormalDeltaRate.
 func (s *Shop) DeltaPercentMod(item *Item) int {
-	return item.DeltaAmount(s.Stock.Get(item.ID)) * ShopNormalDeltaRate
+	return s.Stock.Get(item.ID).DeltaAmount(item) * ShopNormalDeltaRate
 }
 
 func (s *Shop) DeltaPercentModID(id int) int {
-	return (s.Stock.Count(id) - s.Inventory.Count(id)) * ShopNormalDeltaRate
+	return s.Stock.Get(id).DeltaAmount(s.Inventory.Get(id)) * ShopNormalDeltaRate
+	//return (s.Stock.Count(id) - s.Inventory.Count(id)) * ShopNormalDeltaRate
 }

@@ -632,6 +632,8 @@ func (p *Player) EquipItem(item *Item) {
 	p.Equips[def.Position] = def.Sprite
 	p.AppearanceLock.Unlock()
 	p.UpdateAppearance()
+	p.SendEquipBonuses()
+	p.SendInventory()
 }
 
 func (p *Player) UpdateAppearance() {
@@ -667,6 +669,8 @@ func (p *Player) DequipItem(item *Item) {
 	}
 	p.AppearanceLock.Unlock()
 	p.UpdateAppearance()
+	p.SendEquipBonuses()
+	p.SendInventory()
 }
 
 //ResetAll in order, calls ResetFighting, ResetTrade, ResetDistancedAction, ResetFollowing, and CloseOptionMenu.
@@ -966,10 +970,6 @@ func (p *Player) Initialize() {
 	p.UpdateStatus(true)
 	p.SendPacket(FriendList(p))
 	p.SendPacket(IgnoreList(p))
-	p.SendPlane()
-	p.SendEquipBonuses()
-	p.SendInventory()
-	p.SendFatigue()
 	// TODO: Not canonical RSC, but definitely good QoL update...
 	//  p.SendPacket(FightMode(p))
 	p.SendPacket(ClientSettings(p))
@@ -995,6 +995,10 @@ func (p *Player) Initialize() {
 		
 		p.OpenAppearanceChanger()
 	}
+	p.SendEquipBonuses()
+	p.SendInventory()
+	p.SendFatigue()
+	p.SendCombatPoints()
 	if !p.Reconnecting() {
 		p.SendPacket(WelcomeMessage)
 		if timestamp := p.Attributes.VarTime("lastLogin"); !timestamp.IsZero() {
@@ -1002,6 +1006,7 @@ func (p *Player) Initialize() {
 		}
 	}
 	p.SendStats()
+	p.SendPlane()
 	p.Attributes.SetVar("lastLogin", time.Now())
 	for _, fn := range LoginTriggers {
 		fn(p)
@@ -1187,26 +1192,18 @@ func (p *Player) SetMaxStat(idx int, lvl int) {
 
 //AddItem Adds amount of the item with specified id to the players inventory, if possible, and updates the client about it.
 func (p *Player) AddItem(id, amount int) {
-	if !ItemDefs[id].Stackable {
-		for i := 0; i < amount; i++ {
-			if p.Inventory.Size() >= p.Inventory.Capacity {
-				item := NewGroundItemFor(p.UsernameHash(), id, 1, p.X(), p.Y())
-				AddItem(item)
-				p.Message("Your inventory is full, the " + item.Name() + " drops to the ground!")
-			} else {
-				p.Inventory.Add(id, 1)
-			}
-		}
-	} else {
-		if p.Inventory.Size() >= p.Inventory.Capacity {
-			item := NewGroundItemFor(p.UsernameHash(), id, amount, p.X(), p.Y())
-			AddItem(item)
-			p.Message("Your inventory is full, the " + item.Name() + " drops to the ground!")
-		} else {
-			p.Inventory.Add(id, amount)
+	if p.Inventory.CanHold(id, amount) {
+		defer p.SendInventory()
+	}
+	stackSize := 1
+	if ItemDefs[id].Stackable {
+		stackSize = amount
+	}
+	for i := 0; i < amount; i += stackSize {
+		if p.Inventory.Add(id, amount) < 0 {
+			return
 		}
 	}
-	p.SendInventory()
 }
 
 func (p *Player) PrayerActivated(idx int) bool {
@@ -1278,11 +1275,16 @@ func (p *Player) StartCombat(target entity.MobileEntity) {
 	target.SetDirection(LeftFighting)
 	p.Transients().SetVar("fightTarget", target)
 	target.Transients().SetVar("fightTarget", p)
-	curRound := 0
 	curTick := 0
+	attacker := entity.MobileEntity(p)
+	defender := target
+	//var defender entity.MobileEntity = target
 	p.Tickables = append(p.Tickables, func() bool {
-		if p.LongestDeltaCoords(target.X(), target.Y()) > 0 {
-			// Teleports can cause this, and probably a way to fix possible bugs
+		if ptarget, ok := target.(*Player); (ok && !ptarget.Connected()) || !target.HasState(MSFighting) ||
+				!p.HasState(MSFighting) || !p.Connected() || p.LongestDeltaCoords(target.X(), target.Y()) > 0 {
+			// target is a disconnected player, we are disconnected,
+			// one of us is not in a fight, or we are distanced somehow unexpectedly.  Kill tasks.
+			// quickfix for possible bugs I imagined will exist
 			if p.HasState(MSFighting) {
 				p.ResetFighting()
 			}
@@ -1292,58 +1294,21 @@ func (p *Player) StartCombat(target entity.MobileEntity) {
 			return true
 		}
 		curTick++
-		if target.IsPlayer() {
-			if p1 := target.(*Player); !p1.Connected() {
-				if p.HasState(MSFighting) {
-					p.ResetFighting()
-				}
-				if p1.HasState(MSFighting) {
-					p1.ResetFighting()
-				}
-				return true
-			}
-		}
-		if !target.HasState(MSFighting) || !p.HasState(MSFighting) || !p.Connected() {
-			if target.HasState(MSFighting) {
-				target.ResetFighting()
-			}
-			if p.HasState(MSFighting) {
-				p.ResetFighting()
-			}
-			return true
-		}
+		// One round per 2 ticks
 		if curTick%2 == 0 {
+			// TODO: tickables return tick delay count, e.g return 2 will wait 2 ticks and rerun, maybe??
 			return false
 		}
-		var attacker, defender entity.MobileEntity
-		if curRound%2 == 0 {
-			attacker = p
-			defender = target
-		} else {
-			attacker = target
-			defender = p
-		}
-		if _, ok := attacker.(*NPC); ok && p.PrayerActivated(12) {
-			attacker.Transients().IncVar("fightRound", 1)
-			curRound++
+
+		defer func() {
+			attacker, defender = defender, attacker
+		}()
+
+		attacker.Transients().IncVar("fightRound", 1)
+		if p.PrayerActivated(12) && attacker.IsNpc() {
 			return false
 		}
 		nextHit := int(math.Min(float64(defender.Skills().Current(entity.StatHits)), float64(attacker.MeleeDamage(defender))))
-		if attacker.IsPlayer() {
-			if attPlayer := attacker.(*Player); nextHit > 0 {
-				attPlayer.PlaySound("combat1b") // hit
-			} else {
-				attPlayer.PlaySound("combat1a") // miss
-			}
-		}
-		if defender.IsPlayer() {
-			if defPlayer := defender.(*Player); nextHit > 0 {
-				defPlayer.PlaySound("combat1b") // hit
-			} else {
-				defPlayer.PlaySound("combat1a") // miss
-			}
-		}
-		// TODO: combat(2/3)(a/b) 2nd set is armor sound 3rd is ghostly undead sound
 		defender.Skills().DecreaseCur(entity.StatHits, nextHit)
 		if defender.Skills().Current(entity.StatHits) <= 0 {
 			if attacker, ok := attacker.(*Player); ok {
@@ -1352,10 +1317,23 @@ func (p *Player) StartCombat(target entity.MobileEntity) {
 			defender.Killed(attacker)
 			return true
 		}
-
 		defender.Damage(nextHit)
-		attacker.Transients().IncVar("fightRound", 1)
-		curRound++
+
+		sound := "combat"		
+		// TODO: hit sfx (1/2/3) 1 is standard sound 2 is armor sound 3 is ghostly undead sound
+		sound += "1"
+		if nextHit > 0 {
+			sound += "b"
+		} else {
+			sound += "a"
+		}
+		if attacker.IsPlayer() {
+			attacker.(*Player).PlaySound(sound)
+		}
+		if defender.IsPlayer() {
+			defender.(*Player).PlaySound(sound)
+		}
+		
 		return false
 	})
 }

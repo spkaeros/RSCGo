@@ -232,7 +232,7 @@ func loadSector(data []byte) (s *Sector) {
 			diagonalWalls := int(uint32(data[offset+6]&0xFF)<<24 + uint32(data[offset+7]&0xFF)<<16 + uint32(data[offset+8]&0xFF)<<8 + uint32(data[offset+9]&0xFF))
 			if groundOverlay == 250 {
 				// -6 overflows to 250, and is water tile
-				groundOverlay = 2
+				groundOverlay = OverlayWater
 			}
 			if (groundOverlay == 0 && (groundTexture) == 0) || groundOverlay == OverlayWater || groundOverlay == OverlayBlack {
 				blankCount++
