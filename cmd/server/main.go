@@ -45,7 +45,7 @@ func init() {
 	config.TomlConfig.Crypto.HashMemory = 8
 	config.TomlConfig.Crypto.HashSalt = "rscgo./GOLANG!RULES/.1994"
 	config.TomlConfig.Version = 204
-	config.TomlConfig.Port = 43594                  // = 43595 for websocket connections
+	config.TomlConfig.Port = 43594 // = 43595 for websocket connections
 	//TomlConfig.Crypto.RsaKeyFile = "rsa.der"
 
 }
@@ -105,6 +105,7 @@ func main() {
 	//	asyncExecute(&awaitLaunchJobs, script.LoadBoundaryTriggers)
 	//	asyncExecute(&awaitLaunchJobs, script.LoadItemTriggers)
 	awaitLaunchJobs.Wait()
+	asyncExecute(&awaitLaunchJobs, db.LoadEquipmentRequirements)
 	asyncExecute(&awaitLaunchJobs, db.LoadObjectLocations)
 	asyncExecute(&awaitLaunchJobs, db.LoadNpcLocations)
 	asyncExecute(&awaitLaunchJobs, db.LoadItemLocations)
