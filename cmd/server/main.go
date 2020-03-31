@@ -105,7 +105,6 @@ func main() {
 	//	asyncExecute(&awaitLaunchJobs, script.LoadBoundaryTriggers)
 	//	asyncExecute(&awaitLaunchJobs, script.LoadItemTriggers)
 	awaitLaunchJobs.Wait()
-	asyncExecute(&awaitLaunchJobs, db.LoadEquipmentRequirements)
 	asyncExecute(&awaitLaunchJobs, db.LoadObjectLocations)
 	asyncExecute(&awaitLaunchJobs, db.LoadNpcLocations)
 	asyncExecute(&awaitLaunchJobs, db.LoadItemLocations)

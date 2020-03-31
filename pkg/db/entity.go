@@ -115,6 +115,7 @@ func LoadItemDefinitions() {
 		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Command, &nextDef.BasePrice, &nextDef.Stackable, &nextDef.Quest, &nextDef.Members)
 		world.ItemDefs = append(world.ItemDefs, nextDef)
 	}
+	LoadEquipmentRequirements()
 }
 
 //LoadNpcDefinitions Loads game NPC data into memory for quick access.
