@@ -52,7 +52,7 @@ bind.command("item", func(player, args) {
 				player.Message("Could not fuzzysearch a match for " + args[0])
 				return
 			}
-			if len(ids) > 5 {
+			if len(ids) >= 27 {
 				player.Message("Search name too ambiguous: Too many results matched(" + len(ids) + ")")
 				return
 			}

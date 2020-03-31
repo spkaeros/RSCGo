@@ -29,3 +29,17 @@ bind.npc(npcPredicate(55, 83), func(player, npc) {
 		player.OpenShop(shop)
 	}
 })
+
+// varrock
+if !world.hasShop("varrockGeneral") {
+	world.newGeneralShop("varrockGeneral")
+}
+bind.npc(npcPredicate(51, 82), func(player, npc) {
+	shop = world.getShop("varrockGeneral")
+	npc.Chat(player, "Can I help you at all?")
+	switch player.OpenOptionMenu("Yes please, what are you selling?", "No thanks") {
+	case 0:
+		npc.Chat(player, "Take a look")
+		player.OpenShop(shop)
+	}
+})
