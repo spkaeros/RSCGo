@@ -24,7 +24,7 @@ func init() {
 
 		index := p.ReadUint16()
 		if index < 0 || index > player.Inventory.Size() {
-			log.Suspicious.Printf("Player[%v] tried to wield an item with invalid index: %d\n", player, index)
+			log.Suspicious.Printf("Player[%v] tried to wield an item with an out-of-bounds inventory index: %d\n", player, index)
 			return
 		}
 
@@ -38,7 +38,7 @@ func init() {
 	AddHandler("removeitem", func(player *world.Player, p *net.Packet) {
 		index := p.ReadUint16()
 		if index < 0 || index > player.Inventory.Size() {
-			log.Suspicious.Printf("Player[%v] tried to wield an item they do not have: slot=%d\n", player, index)
+			log.Suspicious.Printf("Player[%v] tried to unwield an item with an out-of-bounds inventory index: %d\n", player, index)
 			return
 		}
 
@@ -61,15 +61,9 @@ func init() {
 			return
 		}
 
-		itemLoc := world.NewLocation(x, y)
-		distance := 0
-		if world.IsTileBlocking(x, y, 0x40, false) {
-			// expands range to reach target items on unwalkable locations by 1 tile in any direction
-			distance++
-		}
 		id := p.ReadUint16()
 		if id < 0 || id > len(world.ItemDefs)-1 {
-			log.Suspicious.Printf("%v attempted to pick up an item with an invalid ID: %d\n", player, id)
+			log.Suspicious.Printf("%v attempted to pick up an item with an out-of-bounds ID: %d\n", player, id)
 			return
 		}
 
@@ -80,14 +74,9 @@ func init() {
 				return true
 			}
 
-			if !player.WithinRange(itemLoc, distance) {
-				return false
-			}
-			player.ResetPath()
-
 			item := world.GetItem(x, y, id)
 			if item == nil || !item.VisibleTo(player) {
-				log.Suspicious.Printf("(low-priority) %v attempted to pick up an item that doesn't exist: %d,%d,%d\n", player, id, x, y)
+				log.Suspicious.Printf("%v attempted to pick up an item that doesn't exist: %s@{%d,%d}\n", player, world.ItemDefs[id].Name, x, y)
 				return true
 			}
 
@@ -95,10 +84,20 @@ func init() {
 				player.Message("You do not have room for that item in your inventory.")
 				return true
 			}
+			maxDelta := 0
+			if world.IsTileBlocking(x, y, 0x40, false) {
+				maxDelta++
+			}
+			if delta := player.Delta(item.Location); delta > maxDelta {
+				return player.FinishedPath()
+			} else if delta == 1 && world.IsTileBlocking(player.X(), player.Y(), byte(world.ClipBit(player.DirectionToward(item.Location))), true) {
+				return player.FinishedPath()
+			}
+			player.ResetPath()
 
 			item.Remove()
 			player.Inventory.Add(item.ID, item.Amount)
-			player.SendPacket(world.InventoryItems(player))
+			player.SendInventory()
 			player.PlaySound("takeobject")
 			return true
 		})
@@ -121,11 +120,13 @@ func init() {
 				return true
 			}
 
-			if item := player.Inventory.Get(index); player.Inventory.Remove(index) {
-				world.AddItem(world.NewGroundItemFor(player.UsernameHash(), item.ID, item.Amount, player.X(), player.Y()))
-				player.PlaySound("dropobject")
-				player.SendInventory()
+			item := player.Inventory.Get(index)
+			if !player.Inventory.Remove(index) {
+				return true
 			}
+			world.AddItem(world.NewGroundItemFor(player.UsernameHash(), item.ID, item.Amount, player.X(), player.Y()))
+			player.PlaySound("dropobject")
+			player.SendInventory()
 			return true
 		})
 	})

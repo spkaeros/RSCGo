@@ -133,6 +133,12 @@ func (l *Location) Equals(o interface{}) bool {
 	return false
 }
 
+func (l *Location) Delta(other Location) (delta int) {
+	delta += l.DeltaX(other)
+	delta += l.DeltaY(other)
+	return
+}
+
 //DeltaX Returns the difference between this locations x coord and the other locations x coord
 func (l *Location) DeltaX(other Location) (deltaX int) {
 	ourX := l.X()

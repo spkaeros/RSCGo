@@ -151,6 +151,23 @@ const (
 	// TODO: Add more masks to handle projectiles gracefully,
 )
 
+func ClipBit(direction int) int {
+	var mask int
+	if direction == North || direction == NorthEast || direction == NorthWest {
+		mask |= ClipNorth
+	}
+	if direction == South || direction == SouthEast || direction == SouthWest {
+		mask |= ClipSouth
+	}
+	if direction == East || direction == SouthEast || direction == NorthEast {
+		mask |= ClipEast
+	}
+	if direction == West || direction == SouthWest || direction == NorthWest {
+		mask |= ClipWest
+	}
+	return mask
+}
+
 /*
 var blockedOverlays = [...]int{OverlayWater, OverlayDarkWater, OverlayBlack, OverlayWhite, OverlayLava, OverlayBlack2, OverlayBlack3, OverlayBlack4}
 
