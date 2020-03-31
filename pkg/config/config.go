@@ -9,8 +9,8 @@ var TomlConfig struct {
 	PacketHandlerFile string `toml:"packet_handler_table"`
 	Database          struct {
 		PlayerDriver string `toml:"player_driver"`
-		PlayerDB string `toml:"player_db"`
-		WorldDB  string `toml:"world_db"`
+		PlayerDB     string `toml:"player_db"`
+		WorldDB      string `toml:"world_db"`
 	} `toml:"database"`
 	Crypto struct {
 		RsaKeyFile     string `toml:"rsa_key"`

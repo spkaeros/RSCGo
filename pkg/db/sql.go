@@ -3,9 +3,9 @@ package db
 import (
 	"context"
 	"database/sql"
-	
+
 	"github.com/spkaeros/rscgo/pkg/log"
-	
+
 	// Necessary for sqlite3 driver
 	_ "github.com/mattn/go-sqlite3"
 	// Necessary for postgresql driver

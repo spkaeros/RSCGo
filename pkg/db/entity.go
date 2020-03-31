@@ -44,6 +44,25 @@ func LoadEquipmentDefinitions() {
 	}
 }
 
+func LoadEquipmentRequirements() {
+	database := sqlOpen("sqlite3", "file:"+config.DataDir()+config.WorldDB())
+	defer database.Close()
+	rows, err := database.Query("SELECT id, skillIndex, level FROM item_wieldable_requirements")
+	if err != nil {
+		log.Error.Println("Couldn't load SQLite3 database:", err)
+		return
+	}
+	defer rows.Close()
+	var id, skill, level int
+	for rows.Next() {
+		rows.Scan(&id, &skill, &level)
+		if world.ItemDefs[id].Requirements == nil {
+			world.ItemDefs[id].Requirements = make(map[int]int)
+		}
+		world.ItemDefs[id].Requirements[skill] = level
+	}
+}
+
 //LoadTileDefinitions Loads game tile attribute data into memory for quick access.
 func LoadTileDefinitions() {
 	database := sqlOpen("sqlite3", "file:"+config.DataDir()+config.WorldDB())

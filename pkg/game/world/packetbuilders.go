@@ -405,9 +405,9 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		//			p1.ResetSpriteUpdated()
 		//		})
 	}
-//	if counter <= 0 {
-//		return nil
-//	}
+	//	if counter <= 0 {
+	//		return nil
+	//	}
 	return
 }
 

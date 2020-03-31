@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/spkaeros/rscgo/pkg/engine/tasks"
+	"github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"go.uber.org/atomic"
@@ -16,19 +17,21 @@ import (
 
 //ItemDefinition This represents a single definition for a single item in the game.
 type ItemDefinition struct {
-	ID          int
-	Name        string
-	Description string
-	Command     string
-	BasePrice   int
-	Stackable   bool
-	Quest       bool
-	Members     bool
+	ID           int
+	Name         string
+	Description  string
+	Command      string
+	BasePrice    int
+	Stackable    bool
+	Quest        bool
+	Members      bool
+	Requirements map[int]int
 }
 
 //ItemDefs This holds the defining characteristics for all of the game's items, ordered by ID.
 var ItemDefs []ItemDefinition
 
+//EquipmentDefinition a container for the equipment items in the game
 type EquipmentDefinition struct {
 	ID       int
 	Sprite   int
@@ -43,8 +46,10 @@ type EquipmentDefinition struct {
 	Female   bool
 }
 
+//EquipmentDefs contains all of the equipment related data for the game
 var EquipmentDefs []EquipmentDefinition
 
+//GetEquipmentDefinition returns the associated equipment definition or nil if none.
 func GetEquipmentDefinition(id int) *EquipmentDefinition {
 	for _, e := range EquipmentDefs {
 		if e.ID == id {
@@ -55,6 +60,7 @@ func GetEquipmentDefinition(id int) *EquipmentDefinition {
 	return nil
 }
 
+//DefaultDrop returns the default item ID all mobs should drop on death
 const DefaultDrop = 20
 
 //Item Represents a single item in the game.
@@ -73,6 +79,7 @@ func (i *Item) Name() string {
 	return ItemDefs[i.ID].Name
 }
 
+//Price type alias for item prices
 type Price int
 
 //Price returns the receivers base price
@@ -88,12 +95,12 @@ func (i *Item) DeltaAmount(o *Item) int {
 	return o.Amount - i.Amount
 }
 
-//PriceScaled returns the receivers base price, scaled by percent%.
+//ScalePrice returns the receivers base price, scaled by percent%.
 func (i *Item) ScalePrice(percent int) int {
 	return int(i.Price().Scale(percent))
 }
 
-// Calculates and returns the value for the requested percentage of the receiver price.
+//Scale Calculates and returns the value for the requested percentage of the receiver price.
 //
 // In other words, for sleeping bag with basePrice=30
 //	player.Inventory.GetByID(1263).PriceScaled(100)
@@ -117,6 +124,7 @@ func (p Price) Scale(percent int) Price {
 	return Price(int(math.Max(10, float64(percent)))*int(p)) / 100
 }
 
+//Command Returns the item command, or nil if none
 func (i *Item) Command() string {
 	if i.ID >= len(ItemDefs) || i.ID < 0 {
 		return "nil"
@@ -124,6 +132,7 @@ func (i *Item) Command() string {
 	return ItemDefs[i.ID].Command
 }
 
+//WieldPos Returns the item equip slot, or -1 if none
 func (i *Item) WieldPos() int {
 	if i.ID >= len(ItemDefs) || i.ID < 0 {
 		return -1
@@ -135,6 +144,7 @@ func (i *Item) WieldPos() int {
 	return def.Position
 }
 
+//Stackable Returns true if the item is stackable, false otherwise.
 func (i *Item) Stackable() bool {
 	if i.ID >= len(ItemDefs) || i.ID < 0 {
 		return false
@@ -149,17 +159,17 @@ type GroundItem struct {
 	*Entity
 }
 
-// Ensures unique indexes for ground items.
+//ItemIndexer Ensures unique indexes for ground items.
 //  TODO: Proper indexing
 var ItemIndexer = atomic.NewUint32(0)
 
-// Returns: if this ground item has a player that it belongs to, returns that players username base37 hash.  Otherwise,
+//Owner Returns: if this ground item has a player that it belongs to, returns that players username base37 hash.  Otherwise,
 // returns 0.
 func (i *GroundItem) Owner() uint64 {
 	return i.VarLong("belongsTo", 0)
 }
 
-// This is a special state attribute to indicate who the receiver item is visible to.
+//Visibility This is a special state attribute to indicate who the receiver item is visible to.
 // Value 0 means the item has expired and is no longer visible to anybody.
 //
 // Value 1 means the item is visible to only the Owner of it and game administrators(rank=2), e.g if you kill someone or something,
@@ -175,11 +185,12 @@ func (i *GroundItem) Visibility() int {
 	return i.VarInt("visibility", 0)
 }
 
-// Returns: the time this item was spawned into the game world.
+//SpawnedTime Returns: the time this item was spawned into the game world.
 func (i *GroundItem) SpawnedTime() time.Time {
 	return i.VarTime("spawnTime")
 }
 
+//NewPersistentGroundItem Returns a new ground item that respawns at a set rate after pickup.
 func NewPersistentGroundItem(id, amount, x, y, respawn int) *GroundItem {
 	item := &GroundItem{ID: id, Amount: amount,
 		AttributeList: entity.NewAttributeList(),
@@ -269,11 +280,12 @@ func (i *GroundItem) DeltaAmount(o *Item) int {
 	return o.Amount - i.Amount
 }
 
-//PriceScaled returns the receivers base price, scaled by percent%.
+//ScalePrice returns the receivers base price, scaled by percent%.
 func (i *GroundItem) ScalePrice(percent int) int {
 	return int(i.Price().Scale(percent))
 }
 
+//Command Returns the command for this item, or nil if none.
 func (i *GroundItem) Command() string {
 	if i.ID >= len(ItemDefs) || i.ID < 0 {
 		return "nil"
@@ -281,6 +293,7 @@ func (i *GroundItem) Command() string {
 	return ItemDefs[i.ID].Command
 }
 
+//WieldPos Returns the equip slot for this item, or -1 if none.
 func (i *GroundItem) WieldPos() int {
 	if i.ID >= len(ItemDefs) || i.ID < 0 {
 		return -1
@@ -292,6 +305,7 @@ func (i *GroundItem) WieldPos() int {
 	return def.Position
 }
 
+//Stackable returns true if the items stackable, otherwise returns false.
 func (i *GroundItem) Stackable() bool {
 	if i.ID >= len(ItemDefs) || i.ID < 0 {
 		return false
@@ -358,6 +372,7 @@ func (s itemSorter) Less(i, j int) bool {
 	return !s[i].Stackable() && s[j].Stackable()
 }
 
+//Clone returns a copy of this inventory in a new inventory.
 func (i *Inventory) Clone() *Inventory {
 	var newList []*Item
 	i.Range(func(item *Item) bool {
@@ -398,6 +413,7 @@ func (i *Inventory) DeathDrops(keep int) []*GroundItem {
 	return pile
 }
 
+//Range Calls fn for each item in the inventory list.
 func (i *Inventory) Range(fn func(*Item) bool) int {
 	i.Lock.RLock()
 	defer i.Lock.RUnlock()
@@ -409,6 +425,7 @@ func (i *Inventory) Range(fn func(*Item) bool) int {
 	return -1
 }
 
+//RangeRev Calls fn for each item in the inventory list, in reverse.
 func (i *Inventory) RangeRev(fn func(*Item) bool) int {
 	i.Lock.RLock()
 	defer i.Lock.RUnlock()
@@ -420,6 +437,7 @@ func (i *Inventory) RangeRev(fn func(*Item) bool) int {
 	return -1
 }
 
+//Equipped Returns true if the item with the given ID exists and is wielded in this inventory
 func (i *Inventory) Equipped(id int) bool {
 	i.Lock.RLock()
 	defer i.Lock.RUnlock()
@@ -440,12 +458,21 @@ func (i *Inventory) Size() int {
 
 //CanHold returns true if this inventory can hold the specified amount of the item with the specified ID
 func (i *Inventory) CanHold(id, amount int) bool {
-	if i.stackEverything || ItemDefs[id].Stackable {
-		if count := i.CountID(id); count > 0 && math.MaxInt32 - count >= amount {
-			return true
+	var slotsReq int
+	if ItemDefs[id].Stackable || i.stackEverything {
+		if i.GetByID(id) == nil {
+				slotsReq += 1+(amount/math.MaxInt32)
+		} else {
+			for i.GetByID(id).Amount + amount > math.MaxInt32 {
+				slotsReq++
+				amount -= math.MaxInt32
+			}
 		}
+	} else {
+		slotsReq++
 	}
-	return i.Size() < i.Capacity
+	return i.Size()+slotsReq-1 < i.Capacity
+//	return i.Size() < i.Capacity
 }
 
 //Add Puts an item into the inventory with the specified id and quantity, and returns its index.
@@ -458,22 +485,26 @@ func (i *Inventory) Add(id int, qty int) int {
 		i.Owner.Message("Your inventory is full, the " + ItemDefs[id].Name + " drops to the ground!")
 		return -1
 	}
-	curSize := i.Size()
 	if item := i.GetByID(id); (i.stackEverything || ItemDefs[id].Stackable) && item != nil {
-		if item.Amount+qty >= math.MaxInt32 || item.Amount < 0 {
-			log.Suspicious.Println("Invalid item amount attempted: current:", item.Amount, "adding: ", qty)
-			log.Info.Println("Invalid item amount attempted: current:", item.Amount, "adding: ", qty)
-		} else {
-			item.Amount += qty
+		if item.Amount < 0 {
+			log.Suspicious.Println(errors.NewArgsError("*Inventory.Add(id,amt) Resulting item amount less than zero: " + strconv.FormatUint(uint64(item.Amount+qty), 10)))
 		}
+		for newAmt := item.Amount + qty; newAmt > math.MaxInt32;  {
+			newAmt -= (math.MaxInt32 - item.Amount)
+			item = &Item{ID: id, Amount: newAmt}
+			item.Amount = math.MaxInt32
+			i.Lock.Lock()
+			i.List = append(i.List, item)
+			i.Lock.Unlock()
+			if newAmt <= 0 {
+				return i.Size() - 1
+			}
+		}
+		item.Amount += qty
 		return i.GetIndex(id)
 	}
 
-	if curSize >= i.Capacity {
-		return -1
-	}
-
-	if qty >= math.MaxInt32 || qty < 0 {
+	if qty < 0 {
 		return -1
 	}
 
@@ -481,7 +512,7 @@ func (i *Inventory) Add(id int, qty int) int {
 	i.Lock.Lock()
 	i.List = append(i.List, newItem)
 	i.Lock.Unlock()
-	return curSize
+	return i.Size() - 1
 }
 
 //Remove Removes item at index from this inventory.
@@ -542,12 +573,12 @@ func (i *Inventory) Get(index int) *Item {
 	return i.List[index]
 }
 
-//Get Returns a reference to the item at index if it exists, otherwise returns nil.
+//GetByID Returns a reference to the item at index if it exists, otherwise returns nil.
 func (i *Inventory) GetByID(ID int) *Item {
 	return i.Get(i.GetIndex(ID))
 }
 
-//Get returns the index of the first item with the provided ID.
+//GetIndex returns the index of the first item with the provided ID.
 func (i *Inventory) GetIndex(ID int) int {
 	return i.RangeRev(func(item *Item) bool {
 		if item.ID == ID {
@@ -592,5 +623,5 @@ func (i *Inventory) Clear() {
 }
 
 func (i *Item) String() string {
-	return fmt.Sprintf("[%v, (%v, %v)]", i.ID, i.Amount)
+	return fmt.Sprintf("[%v, (%v, %v)]", i.Index, i.ID, i.Amount)
 }

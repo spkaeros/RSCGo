@@ -1,21 +1,23 @@
 package log
 
 import (
+	"io"
 	"log"
 	"os"
 )
 
 var (
-	//Warning Log interface for warnings.
-	Warning = log.New(os.Stdout, "[WARNING] ", log.Ltime|log.Lshortfile)
 	//Info Log interface for debug information.
+	//Info logs debug information.
 	Info = log.New(os.Stdout, "[INFO] ", log.Ltime|log.Lshortfile)
-	//Error Log interface for errors.
+	//Warning logs warning information.
+	Warning = log.New(os.Stderr, "[WARNING] ", log.Ltime|log.Lshortfile)
+	//Error logs error information.
 	Error = log.New(os.Stderr, "[ERROR] ", log.Ltime|log.Lshortfile)
-	//Commands Log interface for in-game commands.
-	Commands = log.New(os.Stdout, "[COMMAND] ", log.Ltime)
-	//Suspicious Log interface for in-game suspicious behavior.
+	//Suspicious logs suspicious behavior.
 	Suspicious = log.New(os.Stdout, "[SUSPICIOUS] ", log.Ltime)
+	//Commands logs suspicious behavior.
+	Commands = log.New(os.Stdout, "[COMMAND] ", log.Ltime)
 )
 
 func init() {
@@ -25,15 +27,33 @@ func init() {
 		dir = dir[:1]
 	}
 
-	if outFile, err := os.OpenFile(dir+string(os.PathSeparator)+"cmd.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666); err != nil {
-		Error.Println("Could not open commands log file for writing:", err)
+	if outFile, err := os.OpenFile(dir+string(os.PathSeparator)+"out.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666); err == nil {
+		Info.SetOutput(io.MultiWriter(outFile, os.Stdout))
 	} else {
-		Commands.SetOutput(outFile)
+		Error.Println("Could not open debug log file for writing:", err)
 	}
 
-	if outFile, err := os.OpenFile(dir+string(os.PathSeparator)+"cheaters.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666); err != nil {
-		Error.Println("Could not open cheaters log file for writing:", err)
+	if outFile, err := os.OpenFile(dir+string(os.PathSeparator)+"warn.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666); err == nil {
+		Warning.SetOutput(io.MultiWriter(outFile, os.Stderr))
 	} else {
-		Suspicious.SetOutput(outFile)
+		Error.Println("Could not open warning log file for writing:", err)
+	}
+
+	if outFile, err := os.OpenFile(dir+string(os.PathSeparator)+"err.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666); err == nil {
+		Warning.SetOutput(io.MultiWriter(outFile, os.Stderr))
+	} else {
+		Error.Println("Could not open error log file for writing:", err)
+	}
+
+	if outFile, err := os.OpenFile(dir+string(os.PathSeparator)+"cmd.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666); err == nil {
+		Commands.SetOutput(io.MultiWriter(outFile, os.Stdout))
+	} else {
+		Error.Println("Could not open commands log file for writing:", err)
+	}
+
+	if outFile, err := os.OpenFile(dir+string(os.PathSeparator)+"cheaters.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666); err == nil {
+		Suspicious.SetOutput(io.MultiWriter(outFile, os.Stdout))
+	} else {
+		Error.Println("Could not open cheaters log file for writing:", err)
 	}
 }

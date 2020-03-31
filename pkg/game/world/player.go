@@ -190,7 +190,7 @@ func (p *Player) AppearanceTicket() int {
 
 //String returns a string populated with the more identifying features of this player.
 func (p *Player) String() string {
-	return fmt.Sprintf("Player[%d] {'%v'@'%v'}", p.Index, p.Username(), p.CurrentIP())
+	return fmt.Sprintf("'%s'[%d]@'%s'", p.Username(), p.Index, p.CurrentIP())
 }
 
 //SetDistancedAction queues a distanced action to run every game engine tick before path traversal, if action returns true, it will be reset.
@@ -586,6 +586,19 @@ func (p *Player) DistributeMeleeExp(experience int) {
 
 //EquipItem equips an item to this player, and sends inventory and equipment bonuses.
 func (p *Player) EquipItem(item *Item) {
+	reqs := ItemDefs[item.ID].Requirements
+	if reqs != nil {
+		var needed string
+		for skill, lvl := range reqs {
+			if p.Skills().Current(skill) < lvl {
+				needed += strconv.Itoa(lvl) + " " + entity.SkillName(skill) + ", "
+			}
+		}
+		if len(needed) > 0 {
+			p.Message("You must have at least " + needed[:len(needed)-2] + " to wield a " + item.Name())
+			return
+		}
+	}
 	def := GetEquipmentDefinition(item.ID)
 	if def == nil {
 		return
@@ -986,13 +999,13 @@ func (p *Player) Initialize() {
 		p.Skills().SetCur(entity.StatHits, 10)
 		p.Skills().SetMax(entity.StatHits, 10)
 		p.Skills().SetExp(entity.StatHits, entity.LevelToExperience(10))
-		
+
 		p.Bank().Add(546, 96000)
 		p.Bank().Add(373, 96000)
-		
+
 		p.Inventory.Add(77, 1)
 		p.Inventory.Add(316, 1)
-		
+
 		p.OpenAppearanceChanger()
 	}
 	p.SendEquipBonuses()
@@ -1130,7 +1143,6 @@ func (p *Player) SendStat(idx int) {
 func (p *Player) SendStatExp(idx int) {
 	p.SendPacket(PlayerExperience(p, idx))
 }
-
 
 func (p *Player) SendCombatPoints() {
 	p.SendPacket(PlayerCombatPoints(p))
@@ -1281,7 +1293,7 @@ func (p *Player) StartCombat(target entity.MobileEntity) {
 	//var defender entity.MobileEntity = target
 	p.Tickables = append(p.Tickables, func() bool {
 		if ptarget, ok := target.(*Player); (ok && !ptarget.Connected()) || !target.HasState(MSFighting) ||
-				!p.HasState(MSFighting) || !p.Connected() || p.LongestDeltaCoords(target.X(), target.Y()) > 0 {
+			!p.HasState(MSFighting) || !p.Connected() || p.LongestDeltaCoords(target.X(), target.Y()) > 0 {
 			// target is a disconnected player, we are disconnected,
 			// one of us is not in a fight, or we are distanced somehow unexpectedly.  Kill tasks.
 			// quickfix for possible bugs I imagined will exist
@@ -1319,7 +1331,7 @@ func (p *Player) StartCombat(target entity.MobileEntity) {
 		}
 		defender.Damage(nextHit)
 
-		sound := "combat"		
+		sound := "combat"
 		// TODO: hit sfx (1/2/3) 1 is standard sound 2 is armor sound 3 is ghostly undead sound
 		sound += "1"
 		if nextHit > 0 {
@@ -1333,7 +1345,7 @@ func (p *Player) StartCombat(target entity.MobileEntity) {
 		if defender.IsPlayer() {
 			defender.(*Player).PlaySound(sound)
 		}
-		
+
 		return false
 	})
 }

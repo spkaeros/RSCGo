@@ -11,9 +11,9 @@ package world
 
 import (
 	"fmt"
-	`os`
-	
-	`github.com/spkaeros/rscgo/pkg/config`
+	"os"
+
+	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/jag"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"

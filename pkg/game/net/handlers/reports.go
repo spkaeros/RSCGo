@@ -10,7 +10,7 @@
 package handlers
 
 import (
-	`github.com/spkaeros/rscgo/pkg/db`
+	"github.com/spkaeros/rscgo/pkg/db"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -43,7 +43,7 @@ func init() {
 		userHash := p.ReadUint64()
 		reasonIndex := int(p.ReadUint8() - 1)
 		actionIndex := int(p.ReadUint8())
-		
+
 		if userHash == player.UsernameHash() {
 			player.Message("You can't report yourself!!")
 			return
@@ -69,7 +69,7 @@ func init() {
 
 		log.Info.Printf("Report:\n[\n\taction:%d ('%s'),\n\tsender:'%s',\n\ttarget:'%s',\n\treason:%d ('%s')\n];\n", actionIndex, actions[actionIndex], player.Username(), strutil.Base37.Decode(userHash), reasonIndex+1, reasons[reasonIndex])
 		log.Info.Println(player.Username(), actions[actionIndex], strutil.Base37.Decode(userHash), "for breaking rule", reasonIndex+1, "('"+reasons[reasonIndex]+"')")
-		
+
 		log.Suspicious.Println(player.Username(), actions[actionIndex], strutil.Base37.Decode(userHash), "for breaking rule", reasonIndex+1, "('"+reasons[reasonIndex]+"')")
 		player.Message("Thank-you, your abuse report has been received.")
 	})

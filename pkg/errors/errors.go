@@ -1,55 +1,42 @@
 package errors
 
-//DatabaseError A database-related error.
+import "errors"
+
+//RscError An RSCGo generic error type.
+type RscError = error
+
+//NewRscError Returns tag surrounded by brackets and prepended to msg as a new RscError.
+func NewRscError(tag string, msg string) error {
+	return errors.New("[" + tag + "] " + msg)
+}
+
+//DatabaseError An RSCGo error type for database-related errors.
 type DatabaseError struct {
-	msg string
-}
-
-func (e DatabaseError) Error() string {
-	return e.msg
-}
-
-//ArgumentsError A RSCGo network-related error.
-type ArgumentsError struct {
-	msg string
-}
-
-func (e ArgumentsError) Error() string {
-	return e.msg
-}
-
-//NewArgserror Returns a new NetError struct with the specified message.
-func NewArgsError(s string) error {
-	return ArgumentsError{msg: s}
-}
-
-//NetError A RSCGo network-related error.
-type NetError struct {
-	msg string
-}
-
-func (e NetError) Error() string {
-	return e.msg
-}
-
-//NewNetworkError Returns a new NetError struct with the specified message.
-func NewNetworkError(s string) error {
-	return NetError{msg: s}
+	RscError
 }
 
 //NewDatabaseError Returns a new database-related error.
 func NewDatabaseError(s string) error {
-	return DatabaseError{msg: s}
+	return NewRscError("DatabaseError", s)
 }
 
-//ConnClosed Error to return when the connection closes normally.
-var ConnClosed = NewNetworkError("Connection closed.")
+//ArgumentsError An RSCGo error type for function parameter-related errors.
+type ArgumentsError struct {
+	RscError
+}
 
-//ConnTimedOut Error to return when the connection is inactive for 10 seconds.
-var ConnTimedOut = NewNetworkError("Connection timed out.")
+//NewArgsError Returns a new ArgumentError with the specified message appended to the error tag.
+func NewArgsError(s string) error {
+	return NewRscError("InvalidArgument", s)
+}
 
-//ConnDeadline Error to return when the connection's deadline for reading data can not be properly set.
-var ConnDeadline = NewNetworkError("Connection deadline could not be set.")
+//NetError A RSCGo network-related error.
+type NetError struct {
+	RscError
+	Fatal bool
+}
 
-//BufferOverflow Error to return when we accidentally try to read from an empty net.
-var BufferOverflow = NewNetworkError("Attempted to read too much data from net.")
+//NewNetworkError Returns a new database-related error.
+func NewNetworkError(s string, fatal bool) NetError {
+	return NetError{NewRscError("NetworkError", s), fatal}
+}

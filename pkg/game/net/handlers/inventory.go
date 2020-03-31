@@ -27,7 +27,7 @@ func init() {
 			log.Suspicious.Printf("Player[%v] tried to wield an item with invalid index: %d\n", player, index)
 			return
 		}
-		
+
 		item := player.Inventory.Get(index)
 		if item == nil || item.Worn {
 			return
@@ -41,7 +41,7 @@ func init() {
 			log.Suspicious.Printf("Player[%v] tried to wield an item they do not have: slot=%d\n", player, index)
 			return
 		}
-		
+
 		item := player.Inventory.Get(index)
 		if item == nil || !item.Worn {
 			return
@@ -60,7 +60,7 @@ func init() {
 			log.Suspicious.Printf("%v attempted to pick up an item at an invalid location: [%d,%d]\n", player, x, y)
 			return
 		}
-		
+
 		itemLoc := world.NewLocation(x, y)
 		distance := 0
 		if world.IsTileBlocking(x, y, 0x40, false) {
@@ -90,12 +90,12 @@ func init() {
 				log.Suspicious.Printf("(low-priority) %v attempted to pick up an item that doesn't exist: %d,%d,%d\n", player, id, x, y)
 				return true
 			}
-			
+
 			if !player.Inventory.CanHold(item.ID, item.Amount) {
 				player.Message("You do not have room for that item in your inventory.")
 				return true
 			}
-			
+
 			item.Remove()
 			player.Inventory.Add(item.ID, item.Amount)
 			player.SendPacket(world.InventoryItems(player))
@@ -120,7 +120,7 @@ func init() {
 			if player.Inventory.Size() < index {
 				return true
 			}
-			
+
 			if item := player.Inventory.Get(index); player.Inventory.Remove(index) {
 				world.AddItem(world.NewGroundItemFor(player.UsernameHash(), item.ID, item.Amount, player.X(), player.Y()))
 				player.PlaySound("dropobject")

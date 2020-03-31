@@ -62,7 +62,7 @@ func init() {
 		}
 		startX := p.ReadUint16()
 		startY := p.ReadUint16()
-//		numWaypoints := (p.Length()-5) / 2
+		//		numWaypoints := (p.Length()-5) / 2
 		numWaypoints := math.Ceil(float64(p.Length()-5) / 2)
 		var waypointsX, waypointsY []int
 		for i := float64(0); i < numWaypoints; i++ {

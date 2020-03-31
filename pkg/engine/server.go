@@ -17,9 +17,9 @@ import (
 	"os"
 	"reflect"
 	"time"
-	
+
 	"github.com/gobwas/ws"
-	
+
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/engine/tasks"
 	"github.com/spkaeros/rscgo/pkg/game/world"
@@ -27,9 +27,11 @@ import (
 )
 
 var (
+	//Kill a signaling channel for killing the main server
 	Kill = make(chan struct{})
 )
 
+//Bind binds to the TCP port at port, and the websocket port at port+1.
 func Bind(port int) {
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
@@ -90,6 +92,7 @@ func Bind(port int) {
 	}()
 }
 
+//StartConnectionService Binds and listens for new clients on the configured ports
 func StartConnectionService() {
 	Bind(config.Port())   // UNIX sockets
 	Bind(config.WSPort()) // websockets

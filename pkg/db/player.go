@@ -58,7 +58,7 @@ func (s *sqlService) PlayerCreate(username, password string) bool {
 	if playerID < 0 || err != nil {
 		// hack for pgsql
 		stmt := tx.QueryRow("INSERT INTO player(username, userhash, password, x, y, group_id) VALUES($1, $2, $3, 220, 445, 0) RETURNING id", username, strutil.Base37.Encode(username), crypto.Hash(password))
-		
+
 		err := stmt.Scan(&playerID)
 		if err != nil || playerID < 0 {
 			log.Info.Printf("PlayerCreate(): Could not retrieve player database ID(%d):\n%v", playerID, err)

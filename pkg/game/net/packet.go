@@ -14,7 +14,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
-	
+
 	"github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
@@ -53,11 +53,11 @@ func (p *Packet) readNSizeUints(n int) []uint64 {
 		buf := make([]byte, numBytes)
 		_ = p.Read(buf)
 		for idx, b := range buf {
-			val |= uint64(b) << uint((numBytes-1-idx) << 3)
+			val |= uint64(b) << uint((numBytes-1-idx)<<3)
 		}
 		return val
 	}
-	
+
 	var set []uint64
 	for ; n > 0; n -= 8 {
 		set = append(set, read(int(math.Min(float64(n), 8))))
@@ -123,25 +123,27 @@ func (p *Packet) Read(buf []byte) int {
 	return n
 }
 
+//Rewind rewinds the reader index by n bytes
 func (p *Packet) Rewind(n int) error {
 	if n < 0 {
-		return errors.NewArgsError("ArgsError[InvalidValue] Rewinding the buffer by less than 0 bytes is not permitted.  Perhaps you need *Packet.Skip ?")
+		return errors.NewNetworkError("Packet.Skip,BufferOutOfBounds; Rewinding the buffer by less than 0 bytes is not permitted.  Perhaps you need *Packet.Skip ?", false)
 	}
 	if n > p.readIndex {
 		p.readIndex = 0
-		return errors.NewNetworkError("PacketBufferError[OutOfBounds:Rewind] Tried to rewind reader caret (" + strconv.Itoa(p.readIndex) + ") passed the start of the buffer (0)")
+		return errors.NewNetworkError("Packet.Skip,BufferOutOfBounds; Tried to rewind reader caret ("+strconv.Itoa(p.readIndex)+") passed the start of the buffer (0)", false)
 	}
 	p.readIndex -= n
 	return nil
 }
 
+//Skip skips the reader index by n bytes
 func (p *Packet) Skip(n int) error {
 	if n < 0 {
-		return errors.NewArgsError("ArgsError[BadValue] Skipping the buffer by less than 0 bytes is not permitted.  Perhaps you need *Packet.Rewind ?")
+		return errors.NewNetworkError("Packet.Skip,BufferOutOfBounds; Skipping the buffer by less than 0 bytes is not permitted.  Perhaps you need *Packet.Rewind ?", false)
 	}
 	if p.Available() < n {
 		p.readIndex = p.Length()
-		return errors.NewNetworkError("PacketBufferError[OutOfBounds:Skip] Tried to skip reader caret (" + strconv.Itoa(p.readIndex) + ") passed the length of the buffer (" + strconv.Itoa(p.Length()) + ")")
+		return errors.NewNetworkError("Packet.Skip,BufferOutOfBounds; Tried to skip reader caret ("+strconv.Itoa(p.readIndex)+") passed the length of the buffer ("+strconv.Itoa(p.Length())+")", false)
 	}
 	p.readIndex += n
 	return nil
@@ -153,7 +155,7 @@ func (p *Packet) ReadStringN(n int) (val string) {
 	readLen := p.Read(buf)
 	if readLen < 0 {
 		p.readIndex = p.Length()
-		return  string(p.FrameBuffer[p.readIndex:])
+		return string(p.FrameBuffer[p.readIndex:])
 	}
 	return string(buf)
 }
@@ -199,6 +201,7 @@ func (p *Packet) AddUint8or32(i uint32) *Packet {
 	return p
 }
 
+//SetUint16At Rewrites the data at offset to the provided short uint value
 func (p *Packet) SetUint16At(offset int, s uint16) *Packet {
 	if offset >= len(p.FrameBuffer) || offset < 0 {
 		log.Warning.Println("Attempted out of bounds Packet.SetUint16At: ", offset, s)
@@ -272,16 +275,19 @@ func (p *Packet) AddBitmask(value int, numBits int) *Packet {
 	return p
 }
 
+//Length returns length of byte buffer.
 func (p *Packet) Length() int {
 	return len(p.FrameBuffer)
 }
 
+//Available returns available read buffer bytes count.
 func (p *Packet) Available() int {
-	return p.Length()-p.readIndex
+	return p.Length() - p.readIndex
 }
 
+//Capacity returns the byte capacity left for this buffer
 func (p *Packet) Capacity() int {
-	return 5000-p.Length()
+	return 5000 - p.Length()
 }
 
 func (p *Packet) String() string {

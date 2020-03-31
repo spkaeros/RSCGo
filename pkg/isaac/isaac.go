@@ -1,10 +1,10 @@
 package isaac
 
 import (
-	`crypto/rand`
-	`encoding/binary`
-	`fmt`
-	`sync`
+	"crypto/rand"
+	"encoding/binary"
+	"fmt"
+	"sync"
 )
 
 //ISAAC The state of the ISAAC CSPRNG
@@ -23,7 +23,7 @@ type ISAAC struct {
 
 func (r *ISAAC) Seed(seed int64) {
 	var tmpRsl [256]uint64
-	
+
 	var rsl = make([]uint64, 256)
 	if err := binary.Read(rand.Reader, binary.BigEndian, rsl); err != nil {
 		fmt.Println("ERROR: Could not read ints fully into init slice.", err)

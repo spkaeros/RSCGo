@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/spkaeros/rscgo/pkg/game/entity"
-	isaac "github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/log"
+	isaac "github.com/spkaeros/rscgo/pkg/rand"
 )
 
 type MobState = int
@@ -438,6 +438,15 @@ func (m *Mob) SetArmourPoints(i int) {
 	m.TransAttrs.SetVar("armour_points", i)
 }
 
+func (m *Mob) IncArmourPoints(i int) {
+	points := m.TransAttrs.VarInt("armour_points", 1)
+	if points == 1 {
+		m.TransAttrs.SetVar("armour_points", i)
+	} else {
+		m.TransAttrs.IncVar("armour_points", i)
+	}
+}
+
 //PowerPoints Returns the players power points.
 func (m *Mob) PowerPoints() int {
 	return m.TransAttrs.VarInt("power_points", 1)
@@ -448,9 +457,27 @@ func (m *Mob) SetPowerPoints(i int) {
 	m.TransAttrs.SetVar("power_points", i)
 }
 
+func (m *Mob) IncPowerPoints(i int) {
+	points := m.TransAttrs.VarInt("power_points", 1)
+	if points == 1 {
+		m.TransAttrs.SetVar("power_points", i)
+	} else {
+		m.TransAttrs.IncVar("power_points", i)
+	}
+}
+
 //AimPoints Returns the players aim points
 func (m *Mob) AimPoints() int {
 	return m.TransAttrs.VarInt("aim_points", 1)
+}
+
+func (m *Mob) IncAimPoints(i int) {
+	points := m.TransAttrs.VarInt("aim_points", 1)
+	if points == 1 {
+		m.TransAttrs.SetVar("aim_points", i)
+	} else {
+		m.TransAttrs.IncVar("aim_points", i)
+	}
 }
 
 //SetAimPoints Sets the players aim points to i.
@@ -463,9 +490,27 @@ func (m *Mob) MagicPoints() int {
 	return m.TransAttrs.VarInt("magic_points", 1)
 }
 
+func (m *Mob) IncMagicPoints(i int) {
+	points := m.TransAttrs.VarInt("magic_points", 1)
+	if points == 1 {
+		m.TransAttrs.SetVar("magic_points", i)
+	} else {
+		m.TransAttrs.IncVar("magic_points", i)
+	}
+}
+
 //SetMagicPoints Sets the players magic points to i
 func (m *Mob) SetMagicPoints(i int) {
 	m.TransAttrs.SetVar("magic_points", i)
+}
+
+func (m *Mob) IncPrayerPoints(i int) {
+	points := m.TransAttrs.VarInt("prayer_points", 1)
+	if points == 1 {
+		m.TransAttrs.SetVar("prayer_points", i)
+	} else {
+		m.TransAttrs.IncVar("prayer_points", i)
+	}
 }
 
 //PrayerPoints Returns the players prayer points
@@ -481,6 +526,15 @@ func (m *Mob) SetPrayerPoints(i int) {
 //RangedPoints Returns the players ranged points.
 func (m *Mob) RangedPoints() int {
 	return m.TransAttrs.VarInt("ranged_points", 1)
+}
+
+func (m *Mob) IncRangedPoints(i int) {
+	points := m.TransAttrs.VarInt("ranged_points", 1)
+	if points == 1 {
+		m.TransAttrs.SetVar("ranged_points", i)
+	} else {
+		m.TransAttrs.IncVar("ranged_points", i)
+	}
 }
 
 //SetRangedPoints Sets the players ranged points tp i.
@@ -568,4 +622,5 @@ func (m *Mob) MeleeDamage(target entity.MobileEntity) int {
 	}
 	return 0
 }
+
 var meleeRand = rand.New(isaac.IsaacRng)

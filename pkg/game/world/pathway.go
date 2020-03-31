@@ -12,14 +12,14 @@ type Pathway struct {
 // simple algorithm: if curX < destX then increase, if curX > destX then decrease, same for y, until equal.
 // TODO: No clipping is attempted yet, and no path waypoints are generated to avoid obstacles yet.  Gotta do it
 func NewPathwayToCoords(destX, destY int) *Pathway {
-	return &Pathway{StartX:destX, StartY:destY}
+	return &Pathway{StartX: destX, StartY: destY}
 }
 
 //NewPathwayToLocation returns a new Pathway pointing to the specified location.  Will attempt traversal to l via a
 // simple algorithm: if curX < destX then increase, if curX > destX then decrease, same for y, until equal.
 // TODO: No clipping is attempted yet, and no path waypoints are generated to avoid obstacles yet.  Gotta do it
 func NewPathwayToLocation(l Location) *Pathway {
-	return &Pathway{StartX:l.X(), StartY:l.Y()}
+	return &Pathway{StartX: l.X(), StartY: l.Y()}
 }
 
 //NewPathway returns a new Pathway with the specified variables.  destX and destY are a straight line, and waypoints define turns from that point.

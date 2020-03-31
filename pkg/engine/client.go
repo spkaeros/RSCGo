@@ -36,7 +36,7 @@ type client struct {
 	readWriter *bufio.ReadWriter
 	wsReader   io.Reader
 	wsHeader   ws.Header
-	wsLength   int64
+	readIndex  int
 }
 
 //startNetworking Starts up 3 new goroutines; one for reading incoming data from the socket, one for writing outgoing data to the socket, and one for client state updates and parsing plus handling incoming world.  When the client kill signal is sent through the kill channel, the state update and net handling goroutine will wait for both the reader and writer goroutines to complete their operations before unregistering the client.
@@ -69,17 +69,16 @@ func (c *client) startNetworking() {
 			default:
 				p, err := c.readPacket()
 				if err != nil {
-					if err, ok := err.(errors.NetError); ok && err.Error() != "Connection closed." && err.Error() != "Connection timed out." {
-						if err.Error() != "SHORT_DATA" {
-							log.Warning.Printf("Rejected Packet from: %s\n", c.player.String())
-							log.Warning.Println(err)
-						}
-						continue
+					if err, ok := err.(errors.NetError); ok && err.Fatal {
+						return
 					}
-					return
+
+					log.Warning.Printf("Rejected Packet from: %s", c.player.String())
+					log.Warning.Println(err)
+					continue
 				}
 				if !c.player.Connected() && p.Opcode != 32 && p.Opcode != 0 && p.Opcode != 2 && p.Opcode != 220 {
-					log.Warning.Printf("Unauthorized net[opcode:%v,len:%v] rejected from: %v\n", p.Opcode, len(p.FrameBuffer), c)
+					log.Warning.Printf("Unauthorized packet[opcode:%v,len:%v] rejected from: %v\n", p.Opcode, len(p.FrameBuffer), c)
 					return
 				}
 				incomingPackets <- p
@@ -121,7 +120,7 @@ func (c *client) destroy() {
 			if player, ok := world.Players.FromIndex(c.player.Index); c.player.Index == -1 || (ok && player != c.player) || !ok {
 				log.Warning.Printf("Unregistered: Unauthenticated connection ('%v'@'%v')\n", c.player.Username(), c.player.CurrentIP())
 				if ok {
-					log.Warning.Printf("Unauthenticated player being destroyed had index %d and there is a player that is assigned that index already! (%v)\n", c.player, player)
+					log.Suspicious.Printf("Unauthenticated player being destroyed had index %d and there is a player that is assigned that index already! (%v)\n", c.player.Index, player)
 				}
 				return
 			}
@@ -181,46 +180,45 @@ func (c *client) Read(dst []byte) (int, error) {
 	// set the read deadline for the socket to 10 seconds from now.
 	err := c.socket.SetReadDeadline(time.Now().Add(time.Second * 10))
 	if err != nil {
-		return -1, errors.ConnDeadline
+		return -1, errors.NewNetworkError("Connection closed", true)
 	}
 
 	if c.wsReader != nil {
-		if c.wsHeader.Length <= c.wsLength {
+		if c.wsHeader.Length <= int64(c.readIndex) {
+			// reset buffer read index and create the next reader
+			c.readIndex = 0
 			c.wsHeader, c.wsReader, err = wsutil.NextReader(c.readWriter.Reader, ws.StateServerSide)
 			if err != nil {
 				if err == io.EOF || err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
-					return -1, errors.ConnClosed
+					return -1, errors.NewNetworkError("Connection closed", true)
 				} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
-					return -1, errors.ConnTimedOut
+					return -1, errors.NewNetworkError("Connection timeout", true)
 				} else {
 					log.Warning.Println("Problem creating reader for next websocket frame:", err)
 				}
-
-				c.player.Destroy()
 				return -1, err
 			}
-			// reset current read index
-			c.wsLength = 0
 		}
 		n, err := c.wsReader.Read(dst)
+
 		if err != nil {
 			if err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
-				return -1, errors.ConnClosed
+				return -1, errors.NewNetworkError("Connection closed", true)
 			} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
-				return -1, errors.ConnTimedOut
+				return -1, errors.NewNetworkError("Connection timeout", true)
 			} else if err == io.EOF {
 				if !c.wsHeader.Fin {
-					return -1, errors.ConnClosed
+					return -1, errors.NewNetworkError("Connection closed", true)
 				}
-				// EOF on fin means end of frame
-				c.wsLength += int64(n)
+				// EOF on fin means end of frame not file
+				c.readIndex += n
 				return n, nil
 			} else {
 				log.Warning.Println(err)
 			}
 			return -1, err
 		}
-		c.wsLength += int64(n)
+		c.readIndex += n
 		return n, nil
 	}
 
@@ -228,9 +226,9 @@ func (c *client) Read(dst []byte) (int, error) {
 	if err != nil {
 		log.Info.Println(err)
 		if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
-			return -1, errors.ConnClosed
+			return -1, errors.NewNetworkError("Connection closed", true)
 		} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
-			return -1, errors.ConnTimedOut
+			return -1, errors.NewNetworkError("Connection timeout", true)
 		}
 		return -1, err
 	}
@@ -245,7 +243,7 @@ func (c *client) readPacket() (p *net.Packet, err error) {
 		return nil, err
 	}
 	if l < 2 {
-		return nil, errors.NewNetworkError("SHORT_DATA")
+		return nil, errors.NewNetworkError("SHORT_DATA", false)
 	}
 	length := int(header[0]) - 1
 	bigLength := length >= 160
@@ -253,10 +251,10 @@ func (c *client) readPacket() (p *net.Packet, err error) {
 		length = (length-160)<<8 + int(header[1])
 	}
 
-	if length+2 >= 5000 || length+2 < 2 {
-		log.Suspicious.Printf("Invalid net length from [%v]: %d\n", c, length)
+	if length >= 4998 || length < 0 {
+		log.Suspicious.Printf("Invalid packet length from [%v]: %d\n", c, length)
 		log.Warning.Printf("Packet from [%v] length out of bounds; got %d, expected between 0 and 5000\n", c, length)
-		return nil, errors.NewNetworkError("Packet length out of bounds; must be between 0 and 5000.")
+		return nil, errors.NewNetworkError("Packet length out of bounds; must be between 0 and 5000.", false)
 	}
 
 	payload := make([]byte, length)
@@ -265,16 +263,15 @@ func (c *client) readPacket() (p *net.Packet, err error) {
 		if l, err := c.Read(payload); err != nil {
 			return nil, err
 		} else if l < length {
-			return nil, errors.NewNetworkError("SHORT_DATA")
+			return nil, errors.NewNetworkError("SHORT_DATA", false)
 		}
 	}
 
 	if !bigLength {
-		// If the length in the net header used 1 byte, the 2nd byte in the header is the final byte of frame data
+		// If the length in the header used 1 byte, the 2nd byte in the header is the final byte of frame data
 		payload = append(payload, header[1])
 	}
 
-//	return &net.Packet{Opcode: payload[0], FrameBuffer: payload[1:]}, nil
 	return net.NewPacket(payload[0], payload[1:]), nil
 }
 
@@ -292,7 +289,7 @@ func (c *client) writePacket(p net.Packet) {
 		p.HeaderBuffer[1] = byte(frameLength)
 	} else {
 		p.HeaderBuffer[0] = byte(frameLength)
-		frameLength -= 1
+		frameLength--
 		p.HeaderBuffer[1] = p.FrameBuffer[frameLength]
 	}
 	c.Write(append(p.HeaderBuffer, p.FrameBuffer[:frameLength]...))
