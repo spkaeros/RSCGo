@@ -9,6 +9,7 @@ var TomlConfig struct {
 	PacketHandlerFile string `toml:"packet_handler_table"`
 	Database          struct {
 		PlayerDriver string `toml:"player_driver"`
+		WorldDriver  string `toml:"world_driver"`
 		PlayerDB     string `toml:"player_db"`
 		WorldDB      string `toml:"world_db"`
 	} `toml:"database"`
@@ -81,4 +82,8 @@ func PlayerDB() string {
 
 func PlayerDriver() string {
 	return TomlConfig.Database.PlayerDriver
+}
+
+func WorldDriver() string {
+	return TomlConfig.Database.WorldDriver
 }

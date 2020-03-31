@@ -10,9 +10,9 @@ import (
 
 //LoadObjectDefinitions Loads game object data into memory for quick access.
 func LoadObjectDefinitions() {
-	database := sqlOpen("sqlite3", "file:"+config.DataDir()+config.WorldDB())
+	database := newSqlService(config.WorldDriver()).sqlOpen(config.WorldDB())
 	defer database.Close()
-	rows, err := database.Query("SELECT id, name, description, command_one, command_two, type, width, height, ground_item_var FROM `game_objects`")
+	rows, err := database.Query("SELECT id, name, description, command_one, command_two, type, width, height, ground_item_var FROM game_objects")
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
 		return
@@ -29,9 +29,9 @@ func LoadObjectDefinitions() {
 }
 
 func LoadEquipmentDefinitions() {
-	database := sqlOpen("sqlite3", "file:"+config.DataDir()+config.WorldDB())
+	database := newSqlService(config.WorldDriver()).sqlOpen(config.WorldDB())
 	defer database.Close()
-	rows, err := database.Query("SELECT id, sprite, type, armour_points, magic_points, prayer_points, range_points, weapon_aim_points, weapon_power_points, pos, femaleOnly FROM `item_wieldable`")
+	rows, err := database.Query("SELECT id, sprite, type, armour_points, magic_points, prayer_points, range_points, weapon_aim_points, weapon_power_points, pos, femaleOnly FROM item_wieldable")
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
 		return
@@ -45,7 +45,7 @@ func LoadEquipmentDefinitions() {
 }
 
 func LoadEquipmentRequirements() {
-	database := sqlOpen("sqlite3", "file:"+config.DataDir()+config.WorldDB())
+	database := newSqlService(config.WorldDriver()).sqlOpen(config.WorldDB())
 	defer database.Close()
 	rows, err := database.Query("SELECT id, skillIndex, level FROM item_wieldable_requirements")
 	if err != nil {
@@ -65,9 +65,9 @@ func LoadEquipmentRequirements() {
 
 //LoadTileDefinitions Loads game tile attribute data into memory for quick access.
 func LoadTileDefinitions() {
-	database := sqlOpen("sqlite3", "file:"+config.DataDir()+config.WorldDB())
+	database := newSqlService(config.WorldDriver()).sqlOpen(config.WorldDB())
 	defer database.Close()
-	rows, err := database.Query("SELECT colour, unknown, objectType unknown FROM `tiles`")
+	rows, err := database.Query("SELECT colour, unknown, objectType FROM tiles")
 	defer rows.Close()
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
@@ -82,9 +82,9 @@ func LoadTileDefinitions() {
 
 //LoadBoundaryDefinitions Loads game boundary object data into memory for quick access.
 func LoadBoundaryDefinitions() {
-	database := sqlOpen("sqlite3", "file:"+config.DataDir()+config.WorldDB())
+	database := newSqlService(config.WorldDriver()).sqlOpen(config.WorldDB())
 	defer database.Close()
-	rows, err := database.Query("SELECT id, name, description, command_one, command_two, door_type, unknown FROM `doors` ORDER BY id")
+	rows, err := database.Query("SELECT id, name, description, command_one, command_two, door_type, unknown FROM doors ORDER BY id")
 	defer rows.Close()
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
@@ -102,9 +102,9 @@ func LoadBoundaryDefinitions() {
 
 //LoadItemDefinitions Loads game item data into memory for quick access.
 func LoadItemDefinitions() {
-	database := sqlOpen("sqlite3", "file:"+config.DataDir()+config.WorldDB())
+	database := newSqlService(config.WorldDriver()).sqlOpen(config.WorldDB())
 	defer database.Close()
-	rows, err := database.Query("SELECT id, name, description, command, base_price, stackable, special, members FROM `items` ORDER BY id")
+	rows, err := database.Query("SELECT id, name, description, command, base_price, stackable, special, members FROM items ORDER BY id")
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
 		return
@@ -120,9 +120,9 @@ func LoadItemDefinitions() {
 
 //LoadNpcDefinitions Loads game NPC data into memory for quick access.
 func LoadNpcDefinitions() {
-	database := sqlOpen("sqlite3", "file:"+config.DataDir()+config.WorldDB())
+	database := newSqlService(config.WorldDriver()).sqlOpen(config.WorldDB())
 	defer database.Close()
-	rows, err := database.Query("SELECT id, name, description, command, hits, attack, strength, defense, attackable FROM `npcs` ORDER BY id")
+	rows, err := database.Query("SELECT id, name, description, command, hits, attack, strength, defense, attackable FROM npcs ORDER BY id")
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
 		return
@@ -137,9 +137,9 @@ func LoadNpcDefinitions() {
 
 //LoadObjectLocations Loads the game objects into memory from the SQLite3 database.
 func LoadObjectLocations() {
-	database := sqlOpen("sqlite3", "file:"+config.DataDir()+config.WorldDB())
+	database := newSqlService(config.WorldDriver()).sqlOpen(config.WorldDB())
 	defer database.Close()
-	rows, err := database.Query("SELECT `id`, `direction`, `boundary`, `x`, `y` FROM `game_object_locations`")
+	rows, err := database.Query("SELECT id, direction, boundary, x, y FROM game_object_locations")
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
 		return
@@ -157,9 +157,9 @@ func LoadObjectLocations() {
 
 //LoadNpcLocations Loads the games NPCs into memory from the SQLite3 database.
 func LoadNpcLocations() {
-	database := sqlOpen("sqlite3", "file:"+config.DataDir()+config.WorldDB())
+	database := newSqlService(config.WorldDriver()).sqlOpen(config.WorldDB())
 	defer database.Close()
-	rows, err := database.Query("SELECT `id`, `startX`, `minX`, `maxX`, `startY`, `minY`, `maxY` FROM `npc_locations`")
+	rows, err := database.Query("SELECT id, startX, minX, maxX, startY, minY, maxY FROM npc_locations")
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
 		return
@@ -174,9 +174,9 @@ func LoadNpcLocations() {
 
 //LoadItemLocations Loads the games ground items into memory from the SQLite3 database.
 func LoadItemLocations() {
-	database := sqlOpen("sqlite3", "file:"+config.DataDir()+config.WorldDB())
+	database := newSqlService(config.WorldDriver()).sqlOpen(config.WorldDB())
 	defer database.Close()
-	rows, err := database.Query("SELECT `id`, `amount`, `x`, `y`, `respawn` FROM `item_locations`")
+	rows, err := database.Query("SELECT id, amount, x, y, respawn FROM item_locations")
 	if err != nil {
 		log.Error.Println("Couldn't load SQLite3 database:", err)
 		return
@@ -191,7 +191,7 @@ func LoadItemLocations() {
 
 //SaveObjectLocations Clears world.db game object locations and repopulates it with the current game locations.
 func SaveObjectLocations() int {
-	database := sqlOpen("sqlite3", "file:"+config.DataDir()+config.WorldDB())
+	database := newSqlService(config.WorldDriver()).sqlOpen(config.WorldDB())
 	defer database.Close()
 	tx, err := database.Begin()
 	if err != nil {

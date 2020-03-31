@@ -31,7 +31,9 @@ type PlayerService interface {
 //NewPlayerServiceSql Returns a new SqlPlayerService to manage the specified *sql.DB instance, configured against
 // the default players database.
 func NewPlayerServiceSql() PlayerService {
-	return newSqlService(sqlOpen(config.PlayerDriver(), config.PlayerDB()))
+	s := newSqlService(config.PlayerDriver())
+	s.sqlOpen(config.PlayerDB())
+	return s
 }
 
 //DefaultPlayerService the default player save managing service in use by the game server
@@ -49,18 +51,25 @@ func (s *sqlService) PlayerCreate(username, password string) bool {
 		return false
 	}
 
-	stmt, err := tx.Exec("INSERT INTO player(username, userhash, password, x, y, group_id) VALUES($1, $2, $3, 220, 445, 0)", username, strutil.Base37.Encode(username), crypto.Hash(password))
-	if err != nil {
-		log.Info.Println("SQLiteService Could not insert new player profile information:", err)
-		return false
-	}
-	playerID, err := stmt.LastInsertId()
-	if playerID < 0 || err != nil {
-		// hack for pgsql
-		stmt := tx.QueryRow("INSERT INTO player(username, userhash, password, x, y, group_id) VALUES($1, $2, $3, 220, 445, 0) RETURNING id", username, strutil.Base37.Encode(username), crypto.Hash(password))
-
-		err := stmt.Scan(&playerID)
+	var playerID int
+	if s.Driver != "postgres" {
+		stmt, err := tx.Exec("INSERT INTO player(username, userhash, password, x, y, group_id) VALUES($1, $2, $3, 220, 445, 0)", username, strutil.Base37.Encode(username), crypto.Hash(password))
+		if err != nil {
+			log.Info.Println("SQLiteService Could not insert new player profile information:", err)
+			return false
+		}
+		pID, err := stmt.LastInsertId()
 		if err != nil || playerID < 0 {
+			tx.Rollback()
+			log.Info.Printf("PlayerCreate(): Could not retrieve player database ID(%d):\n%v", playerID, err)
+			return false
+		}
+		playerID = int(pID)
+	} else {
+		stmt := tx.QueryRow("INSERT INTO player(username, userhash, password, x, y, group_id) VALUES($1, $2, $3, 220, 445, 0) RETURNING id", username, strutil.Base37.Encode(username), crypto.Hash(password))
+		err = stmt.Scan(&playerID)
+		if err != nil || playerID < 0 {
+			tx.Rollback()
 			log.Info.Printf("PlayerCreate(): Could not retrieve player database ID(%d):\n%v", playerID, err)
 			return false
 		}
