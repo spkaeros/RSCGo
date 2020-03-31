@@ -2,44 +2,38 @@ bind = import("bind")
 world = import("world")
 ids = import("ids")
 
-// edgeville
-if !world.hasShop("edgevilleGeneral") {
-	world.newGeneralShop("edgevilleGeneral")
+stores = {"edgeville": [185, 186], "lumbridge": [55, 83], "varrock": [51, 82]}
+
+func generalStore(player, npc, town) {
+	npc.Chat(player, "Can I help you at all?")
+	if player.OpenOptionMenu("Yes please, what are you selling?", "No thanks") == 0 {
+		npc.Chat(player, "Take a look")
+		player.OpenShop(world.getShop(town + "_general"))
+	}
 }
+
+for town, npcs in stores {
+	if !world.hasShop(town + "_general") {
+		world.newGeneralShop(town + "_general")
+	}
+
+	for npc in npcs {
+		bind.npc(npcPredicate(npc), func(player, npc) {
+			generalStore(player, npc, town)
+		})
+	}
+}
+
+/*
 bind.npc(npcPredicate(185, 186), func(player, npc) {
-	shop = world.getShop("edgevilleGeneral")
-	npc.Chat(player, "Can I help you at all?")
-	switch player.OpenOptionMenu("Yes please, what are you selling?", "No thanks") {
-	case 0:
-		npc.Chat(player, "Take a look")
-		player.OpenShop(shop)
-	}
+	generalStore(player, npc, "edgeville")
 })
 
-// lumbridge
-if !world.hasShop("lumbridgeGeneral") {
-	world.newGeneralShop("lumbridgeGeneral")
-}
 bind.npc(npcPredicate(55, 83), func(player, npc) {
-	shop = world.getShop("lumbridgeGeneral")
-	npc.Chat(player, "Can I help you at all?")
-	switch player.OpenOptionMenu("Yes please, what are you selling?", "No thanks") {
-	case 0:
-		npc.Chat(player, "Take a look")
-		player.OpenShop(shop)
-	}
+	generalStore(player, npc, "lumbridge")
 })
 
-// varrock
-if !world.hasShop("varrockGeneral") {
-	world.newGeneralShop("varrockGeneral")
-}
 bind.npc(npcPredicate(51, 82), func(player, npc) {
-	shop = world.getShop("varrockGeneral")
-	npc.Chat(player, "Can I help you at all?")
-	switch player.OpenOptionMenu("Yes please, what are you selling?", "No thanks") {
-	case 0:
-		npc.Chat(player, "Take a look")
-		player.OpenShop(shop)
-	}
+	generalStore(player, npc, "varrockGeneral")
 })
+*/
