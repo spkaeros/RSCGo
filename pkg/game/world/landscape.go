@@ -74,8 +74,8 @@ type BoundaryDefinition struct {
 	Name        string
 	Commands    []string
 	Description string
-	Unknown     int
-	Traversable int
+	Unknown     bool
+	Traversable bool
 }
 
 const (
@@ -259,24 +259,24 @@ func loadSector(data []byte) (s *Sector) {
 			if groundOverlay > 0 && TileDefs[groundOverlay-1].Blocked != 0 {
 				s.Tiles[tileIdx].CollisionMask |= ClipFullBlock
 			}
-			if verticalWalls > 0 && BoundaryDefs[verticalWalls-1].Unknown == 0 && BoundaryDefs[verticalWalls-1].Traversable != 0 {
+			if verticalWalls > 0 && !BoundaryDefs[verticalWalls-1].Unknown && BoundaryDefs[verticalWalls-1].Traversable {
 				s.Tiles[tileIdx].CollisionMask |= ClipNorth
 				if y >= 1 {
 					// -1 is tile x,y-1
 					s.Tiles[x*RegionSize+(y-1)].CollisionMask |= ClipSouth
 				}
 			}
-			if horizontalWalls > 0 && BoundaryDefs[horizontalWalls-1].Unknown == 0 && BoundaryDefs[horizontalWalls-1].Traversable != 0 {
+			if horizontalWalls > 0 && !BoundaryDefs[horizontalWalls-1].Unknown && BoundaryDefs[horizontalWalls-1].Traversable {
 				s.Tiles[tileIdx].CollisionMask |= ClipEast
 				if x >= 1 {
 					// -48 is tile x-1,y
 					s.Tiles[(x-1)*RegionSize+y].CollisionMask |= ClipWest
 				}
 			}
-			if diagonalWalls > 0 && diagonalWalls < 12000 && BoundaryDefs[diagonalWalls-1].Unknown == 0 && BoundaryDefs[diagonalWalls-1].Traversable != 0 {
+			if diagonalWalls > 0 && diagonalWalls < 12000 && !BoundaryDefs[diagonalWalls-1].Unknown && BoundaryDefs[diagonalWalls-1].Traversable {
 				s.Tiles[tileIdx].CollisionMask |= ClipDiag2
 			}
-			if diagonalWalls >= 12000 && diagonalWalls < 24000 && BoundaryDefs[diagonalWalls-12001].Unknown == 0 && BoundaryDefs[diagonalWalls-12001].Traversable != 0 {
+			if diagonalWalls >= 12000 && diagonalWalls < 24000 && !BoundaryDefs[diagonalWalls-12001].Unknown && BoundaryDefs[diagonalWalls-12001].Traversable {
 				s.Tiles[tileIdx].CollisionMask |= ClipDiag1
 			}
 			offset += 10

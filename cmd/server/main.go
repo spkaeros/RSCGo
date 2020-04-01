@@ -38,7 +38,8 @@ func init() {
 	config.TomlConfig.DataDir = "./data/"
 	config.TomlConfig.Database.PlayerDriver = "sqlite3"
 	config.TomlConfig.Database.PlayerDB = "file:./data/players.db"
-	config.TomlConfig.Database.WorldDB = "world.db"
+	config.TomlConfig.Database.WorldDriver = "sqlite3"
+	config.TomlConfig.Database.WorldDB = "file:./data/world.db"
 	config.TomlConfig.PacketHandlerFile = "packets.toml"
 	config.TomlConfig.Crypto.HashComplexity = 15
 	config.TomlConfig.Crypto.HashLength = 32
@@ -79,6 +80,7 @@ func main() {
 		config.TomlConfig.Port = Flags.Port
 	}
 	db.DefaultPlayerService = db.NewPlayerServiceSql()
+	db.ConnectEntityService()
 	log.Info.Println("RSCGo starting up...")
 	log.Info.Println()
 

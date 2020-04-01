@@ -8,7 +8,13 @@ import (
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 
-var DefaultEntityService = newSqlService(config.WorldDriver())
+var DefaultEntityService *sqlService
+
+func ConnectEntityService() {
+	s := newSqlService(config.WorldDriver())
+	s.sqlOpen(config.WorldDB())
+	DefaultEntityService = s
+}
 
 //LoadObjectDefinitions Loads game object data into memory for quick access.
 func LoadObjectDefinitions() {
