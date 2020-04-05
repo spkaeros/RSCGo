@@ -1,14 +1,113 @@
 //Notes:
-//dmg is -1 for any non-missile spells, incl. curses and etc.
 //Spell Definition kinds:
 //0 cast on Self = teleporting, charing godmage, bones to bananas, etc
 //2 cast on mobTarget = missile spells and curse spells, if no dmg defined must be curse
 //3 cast on Enchant jewelery = crafting related, telegrab, low/high alch and superheat??
 //5 cast on Enchant orbs = any of the orb related spells I think.
-//maybe add optional handler func to the actual defs?  Probably not? idk.
 
-ids, world, math, log = import("ids"), import("world"), import("math"), import("log")
+ids, world, time, math, log = import("ids"), import("world"), import("time"), import("math"), import("log")
 
+func newGodspell() {
+	godspells = [
+		{
+			"name": "guthix",
+			"animation": 1142,
+			"cape": 1215,
+			"staff": 1217,
+			"deplete": DEFENSE,
+			"depleteBy": 0.02,
+		},
+		{
+			"name": "saradomin",
+			"animation": 1031,
+			"cape": 1214,
+			"staff": 1218,
+			"deplete": PRAYER,
+			"depleteBy": 1,
+		},
+		{
+			"name": "zamorak",
+			"animation": 1036,
+			"cape": 1213,
+			"staff": 1216,
+			"deplete": MAGIC,
+			"depleteBy": 0.02,
+		},
+	]
+	return func(player, spell) {
+		player.WalkingRangedAction(spell.target, func() {
+			if !player.CanAttack(spell.target) {
+				if player.IsDueling() && player.IsFighting() && spell.target == player.DuelTarget() && !player.Transients().VarBool("duelCanMagic", true) {
+					player.Message("Magic cannot be used during this duel!")
+				}
+				player.ResetPath()
+				return
+			}
+			player.ResetAllExceptDueling()
+
+			godIdx = spell.idx - 33
+			if godIdx < 0 || godIdx - 33 > 2 {
+				log.debugf("Invalid godspell index:got %d\n", spell.idx)
+				return
+			}
+			
+			godspell = godspells[godIdx]
+		
+			cape = player.Inventory.GetByID(godspell.cape)
+			staff = player.Inventory.GetByID(godspell.staff)
+			if staff == nil || !staff.Worn {
+				player.Message("you must wield the staff of " + godspell.name + " to cast this spell")
+				return
+			}
+		
+			if world.getObjectAt(spell.target.X(), spell.target.Y()) == nil {
+				animation = newObject(godspell.animation, North, spell.target.X(), spell.target.Y(), false)
+				world.addObject(animation)
+				go runAfter(tMillis*1280, func() {
+					world.removeObject(animation)
+				})
+			}
+		
+			// TODO: When minigame is finished, add checks for whether in mage arena or not and for total arena casts
+			chargedAt = player.Cache("magic_charge")
+			power = 25
+			if chargedAt.IsZero() || !chargedAt.After(tNow()) {
+				// weaker spell if no recent charge
+				power -= 8 // 18
+			}
+
+			if cape == nil || !cape.Worn {
+				// weaker spell if no matching cape
+				power -= 8 // 10
+			}
+
+			if !spellCast(defs[spell.idx], player) {
+				return
+			}
+
+			depleteBy = toInt(math.Ceil(spell.target.Skills().Current(godspell.deplete) * godspell.depleteBy))
+			minStat = spell.target.Skills().Maximum(godspell.deplete) - toInt(math.Ceil((spell.target.Skills().Current(godspell.deplete) * godspell.depleteBy) * 4))
+			if spell.idx == 34 {
+				depleteBy = 1
+				minStat = 0
+			}
+			fireMissile(player, spell, power)
+
+			newStat = spell.target.Skills().Current(godspell.deplete) - depleteBy
+			if newStat < minStat {
+				player.Message("@que@Your opponent already has weakened " + skillName(godspell.deplete))
+				return
+			}
+			spell.target.Skills().SetCur(godspell.deplete, newStat)
+			targetp = asPlayer(spell.target)
+			if targetp != nil {
+				targetp.Message("Your " + skillName(godspell.deplete) + " has been reduced by the spell!")
+				targetp.SendStat(godspell.deplete)
+			}
+		})
+	}
+	
+}
 func newMissileHandler(power) {
 	return func(player, spell) {
 		player.WalkingRangedAction(spell.target, func() {
@@ -24,43 +123,56 @@ func newMissileHandler(power) {
 				return
 			}
 
-			odds = {}
-			dmg = power
-			rat = 45.0 + toFloat(player.MagicPoints())
-			peak = dmg/100.0*rat
-			dip = peak / 3.0
-
-			cur = 100*(dmg+(3/dmg))
-			for i = 0; i <= dmg; i++ {
-				odds[i] = cur
-				if i < dip || i > peak {
-					cur -= 3*(dmg+1)
-				} else {
-					cur += 3*(dmg+1)
-				}
-			}
-			hit = math.Min(spell.target.Skills().Current(HITPOINTS), weightedChance(odds))
-			spell.target.Skills().DecreaseCur(HITPOINTS, hit)
-			if spell.target.Skills().Current(HITPOINTS) <= 0 {
-				spell.target.Killed(player)
-				return
-			}
-			projectile = newProjectile(player, spell.target, 1)
-			for p in player.NearbyPlayers() {
-				p.SendPacket(projectile)
-			}
-			player.SendPacket(projectile)
-			spell.target.Damage(hit)
+			fireMissile(player, spell, power)
 		})
+	}
+}
+
+func fireMissile(player, spell, dmg) {
+	odds = {}
+	rat = 45.0 + toFloat(player.MagicPoints())
+	peak = dmg/100.0*rat
+	dip = peak / 3.0
+
+	cur = 100*(dmg+(3/dmg))
+	for i = 0; i <= dmg; i++ {
+		odds[i] = cur
+		if i < dip || i > peak {
+			cur -= 3*(dmg+1)
+		} else {
+			cur += 3*(dmg+1)
+		}
+	}
+	hit = math.Min(spell.target.Skills().Current(HITPOINTS), weightedChance(odds))
+	spell.target.Skills().DecreaseCur(HITPOINTS, hit)
+	if spell.target.Skills().Current(HITPOINTS) <= 0 {
+		spell.target.Killed(player)
+		return
+	}
+	projectile = newProjectile(player, spell.target, 1)
+	for p in player.NearbyPlayers() {
+		p.SendPacket(projectile)
+	}
+	player.SendPacket(projectile)
+	spell.target.Damage(hit)
+	targetp = asPlayer(spell.target)
+	if targetp != nil {
+		targetp.Message("Warning! " + player.Username() + " is shooting at you!")
 	}
 }
 
 func newTeleportHandler(x, y) {
 	return func(player, spell) {
-	    if !spellCast(defs[spell.idx], player) {
-	        return
-	    }
-	    world.teleport(player, x, y, true)
+		if player.Wilderness() >= 20 {
+			player.Message("A mysterious force blocks your teleport spell!")
+			player.Message("You can't use teleport after level 20 wilderness")
+			return
+		}
+		if !spellCast(defs[spell.idx], player) {
+			return
+		}
+
+		world.teleport(player, x, y, true)
 	}
 }
 
@@ -113,7 +225,6 @@ defs = [
 		"name": "Wind strike",
 		"desc": "A strength 1 missile attack",
 		"kind": 2,
-		"dmg": 1,
 		"handler": newMissileHandler(1),
 		"runes": {
 			33: 1,
@@ -125,7 +236,6 @@ defs = [
 		"name": "Confuse",
 		"desc": "Reduces your opponents attack by 5%",
 		"kind": 2,
-		"dmg": -1,
 		"runes": {
 			32: 3,
 			34: 2,
@@ -137,7 +247,6 @@ defs = [
 		"name": "Water strike",
 		"desc": "A strength 2 missile attack",
 		"kind": 2,
-		"dmg": 2,
 		"handler": newMissileHandler(2),
 		"runes": {
 			32: 1,
@@ -150,7 +259,6 @@ defs = [
 		"name": "Enchant lvl-1 amulet",
 		"desc": "For use on sapphire amulets",
 		"kind": 3,
-		"dmg": -1,
 		"runes": {
 			32: 1,
 			46: 1,
@@ -161,7 +269,6 @@ defs = [
 		"name": "Earth strike",
 		"desc": "A strength 3 missile attack",
 		"kind": 2,
-		"dmg": 3,
 		"handler": newMissileHandler(3),
 		"runes": {
 			34: 2,
@@ -174,7 +281,6 @@ defs = [
 		"name": "Weaken",
 		"desc": "Reduces your opponents strength by 5%",
 		"kind": 2,
-		"dmg": -1,
 		"runes": {
 			32: 3,
 			34: 2,
@@ -186,7 +292,6 @@ defs = [
 		"name": "Fire strike",
 		"desc": "A strength 4 missile attack",
 		"kind": 2,
-		"dmg": 4,
 		"handler": newMissileHandler(4),
 		"runes": {
 			31: 3,
@@ -199,7 +304,6 @@ defs = [
 		"name": "Bones to bananas",
 		"desc": "Changes all held bones into bananas!",
 		"kind": 0,
-		"dmg": -1,
 		"handler": func(player, spell) {
 			amt = player.Inventory.CountID(ids.BONES)
 			if amt <= 0 {
@@ -227,7 +331,6 @@ defs = [
 		"name": "Wind bolt",
 		"desc": "A strength 5 missile attack",
 		"kind": 2,
-		"dmg": 5,
 		"handler": newMissileHandler(5),
 		"runes": {
 			33: 2,
@@ -239,7 +342,6 @@ defs = [
 		"name": "Curse",
 		"desc": "Reduces your opponents defense by 5%",
 		"kind": 2,
-		"dmg": -1,
 		"runes": {
 			32: 2,
 			34: 3,
@@ -251,7 +353,6 @@ defs = [
 		"name": "Low level alchemy",
 		"desc": "Converts an item into gold",
 		"kind": 3,
-		"dmg": -1,
 		"runes": {
 			31: 3,
 			40: 1,
@@ -262,7 +363,6 @@ defs = [
 		"name": "Water bolt",
 		"desc": "A strength 6 missile attack",
 		"kind": 2,
-		"dmg": 6,
 		"handler": newMissileHandler(6),
 		"runes": {
 			32: 2,
@@ -275,7 +375,6 @@ defs = [
 		"name": "Varrock teleport",
 		"desc": "Teleports you to Varrock",
 		"kind": 0,
-		"dmg": -1,
 		"handler": newTeleportHandler(120, 504),
 		"runes": {
 			31: 1,
@@ -288,7 +387,6 @@ defs = [
 		"name": "Enchant lvl-2 amulet",
 		"desc": "For use on emerald amulets",
 		"kind": 3,
-		"dmg": -1,
 		"runes": {
 			33: 3,
 			46: 1,
@@ -299,7 +397,6 @@ defs = [
 		"name": "Earth bolt",
 		"desc": "A strength 7 missile attack",
 		"kind": 2,
-		"dmg": 7,
 		"handler": newMissileHandler(7),
 		"runes": {
 			34: 3,
@@ -312,7 +409,6 @@ defs = [
 		"name": "Lumbridge teleport",
 		"desc": "Teleports you to Lumbridge",
 		"kind": 0,
-		"dmg": -1,
 		"handler": newTeleportHandler(120, 648),
 		"runes": {
 			34: 1,
@@ -325,7 +421,6 @@ defs = [
 		"name": "Telekinetic grab",
 		"desc": "Take an item you can see but can't reach",
 		"kind": 3,
-		"dmg": -1,
 		"runes": {
 			33: 1,
 			42: 1,
@@ -336,7 +431,6 @@ defs = [
 		"name": "Fire bolt",
 		"desc": "A strength 8 missile attack",
 		"kind": 2,
-		"dmg": 8,
 		"handler": newMissileHandler(8),
 		"runes": {
 			31: 4,
@@ -349,7 +443,6 @@ defs = [
 		"name": "Falador teleport",
 		"desc": "Teleports you to Falador",
 		"kind": 0,
-		"dmg": -1,
 		"handler": newTeleportHandler(312, 552),
 		"runes": {
 			32: 1,
@@ -362,7 +455,6 @@ defs = [
 		"name": "Crumble undead",
 		"desc": "Hits skeleton, ghosts & zombies hard!",
 		"kind": 2,
-		"dmg": -1,
 		"runes": {
 			34: 2,
 			33: 2,
@@ -374,7 +466,6 @@ defs = [
 		"name": "Wind blast",
 		"desc": "A strength 9 missile attack",
 		"kind": 2,
-		"dmg": 9,
 		"handler": newMissileHandler(9),
 		"runes": {
 			33: 3,
@@ -386,7 +477,6 @@ defs = [
 		"name": "Superheat item",
 		"desc": "Smelt 1 ore without a furnace",
 		"kind": 3,
-		"dmg": -1,
 		"runes": {
 			31: 4,
 			40: 1,
@@ -397,7 +487,6 @@ defs = [
 		"name": "Camelot teleport",
 		"desc": "Teleports you to Camelot",
 		"kind": 0,
-		"dmg": -1,
 		"handler": newTeleportHandler(465, 456),
 		"runes": {
 			33: 5,
@@ -409,7 +498,6 @@ defs = [
 		"name": "Water blast",
 		"desc": "A strength 10 missile attack",
 		"kind": 2,
-		"dmg": 10,
 		"handler": newMissileHandler(10),
 		"runes": {
 			32: 3,
@@ -422,7 +510,6 @@ defs = [
 		"name": "Enchant lvl-3 amulet",
 		"desc": "For use on ruby amulets",
 		"kind": 3,
-		"dmg": -1,
 		"runes": {
 			31: 5,
 			46: 1,
@@ -433,7 +520,6 @@ defs = [
 		"name": "Iban blast",
 		"desc": "A strength 25 missile attack!",
 		"kind": 2,
-		"dmg": -1,
 		"runes": {
 			31: 5,
 			38: 1,
@@ -444,7 +530,6 @@ defs = [
 		"name": "Ardougne teleport",
 		"desc": "Teleports you to Ardougne",
 		"kind": 0,
-		"dmg": -1,
 		"handler": func(player, spell) {
 			if !spellCast(defs[spell.idx], player) {
 				return
@@ -464,7 +549,6 @@ defs = [
 		"name": "Earth blast",
 		"desc": "A strength 11 missile attack",
 		"kind": 2,
-		"dmg": 11,
 		"handler": newMissileHandler(11),
 		"runes": {
 			34: 4,
@@ -477,7 +561,6 @@ defs = [
 		"name": "High level alchemy",
 		"desc": "Convert an item into more gold",
 		"kind": 3,
-		"dmg": -1,
 		"runes": {
 			31: 5,
 			40: 1,
@@ -488,7 +571,6 @@ defs = [
 		"name": "Charge Water Orb",
 		"desc": "Needs to be cast on a water obelisk",
 		"kind": 5,
-		"dmg": -1,
 		"runes": {
 			32: 30,
 			46: 3,
@@ -500,7 +582,6 @@ defs = [
 		"name": "Enchant lvl-4 amulet",
 		"desc": "For use on diamond amulets",
 		"kind": 3,
-		"dmg": -1,
 		"runes": {
 			34: 10,
 			46: 1,
@@ -511,7 +592,6 @@ defs = [
 		"name": "Watchtower teleport",
 		"desc": "Teleports you to the watchtower",
 		"kind": 0,
-		"dmg": -1,
 		"handler": func(player, spell) {
 			if !spellCast(defs[spell.idx], player) {
 				return
@@ -531,7 +611,6 @@ defs = [
 		"name": "Fire blast",
 		"desc": "A strength 12 missile attack",
 		"kind": 2,
-		"dmg": 12,
 		"handler": newMissileHandler(12),
 		"runes": {
 			31: 5,
@@ -544,7 +623,7 @@ defs = [
 		"name": "Claws of Guthix",
 		"desc": "Summons the power of Guthix",
 		"kind": 2,
-		"dmg": -1,
+		"handler": newGodspell(),
 		"runes": {
 			31: 1,
 			33: 4,
@@ -556,7 +635,7 @@ defs = [
 		"name": "Saradomin strike",
 		"desc": "Summons the power of Saradomin",
 		"kind": 2,
-		"dmg": -1,
+		"handler": newGodspell(),
 		"runes": {
 			31: 2,
 			33: 4,
@@ -568,7 +647,7 @@ defs = [
 		"name": "Flames of Zamorak",
 		"desc": "Summons the power of Zamorak",
 		"kind": 2,
-		"dmg": -1,
+		"handler": newGodspell(),
 		"runes": {
 			31: 4,
 			33: 1,
@@ -580,7 +659,6 @@ defs = [
 		"name": "Charge earth Orb",
 		"desc": "Needs to be cast on an earth obelisk",
 		"kind": 5,
-		"dmg": -1,
 		"runes": {
 			34: 30,
 			46: 3,
@@ -592,7 +670,6 @@ defs = [
 		"name": "Wind wave",
 		"desc": "A strength 13 missile attack",
 		"kind": 2,
-		"dmg": 13,
 		"handler": newMissileHandler(13),
 		"runes": {
 			33: 5,
@@ -604,7 +681,6 @@ defs = [
 		"name": "Charge Fire Orb",
 		"desc": "Needs to be cast on a fire obelisk",
 		"kind": 5,
-		"dmg": -1,
 		"runes": {
 			31: 30,
 			46: 3,
@@ -616,7 +692,6 @@ defs = [
 		"name": "Water wave",
 		"desc": "A strength 14 missile attack",
 		"kind": 2,
-		"dmg": 14,
 		"handler": newMissileHandler(14),
 		"runes": {
 			32: 7,
@@ -629,7 +704,6 @@ defs = [
 		"name": "Charge air Orb",
 		"desc": "Needs to be cast on an air obelisk",
 		"kind": 5,
-		"dmg": -1,
 		"runes": {
 			33: 30,
 			46: 3,
@@ -641,7 +715,6 @@ defs = [
 		"name": "Vulnerability",
 		"desc": "Reduces your opponents defense by 10%",
 		"kind": 2,
-		"dmg": -1,
 		"runes": {
 			34: 5,
 			32: 5,
@@ -653,7 +726,6 @@ defs = [
 		"name": "Enchant lvl-5 amulet",
 		"desc": "For use on dragonstone amulets",
 		"kind": 3,
-		"dmg": -1,
 		"runes": {
 			32: 15,
 			34: 15,
@@ -665,7 +737,6 @@ defs = [
 		"name": "Earth wave",
 		"desc": "A strength 15 missile attack",
 		"kind": 2,
-		"dmg": 15,
 		"handler": newMissileHandler(15),
 		"runes": {
 			34: 7,
@@ -678,7 +749,6 @@ defs = [
 		"name": "Enfeeble",
 		"desc": "Reduces your opponents strength by 10%",
 		"kind": 2,
-		"dmg": -1,
 		"runes": {
 			34: 8,
 			32: 8,
@@ -690,7 +760,6 @@ defs = [
 		"name": "Fire wave",
 		"desc": "A strength 16 missile attack",
 		"kind": 2,
-		"dmg": 16,
 		"handler": newMissileHandler(16),
 		"runes": {
 			31: 7,
@@ -703,7 +772,6 @@ defs = [
 		"name": "Stun",
 		"desc": "Reduces your opponents attack by 10%",
 		"kind": 2,
-		"dmg": -1,
 		"runes": {
 			34: 12,
 			32: 12,
@@ -715,7 +783,23 @@ defs = [
 		"name": "Charge",
 		"desc": "Increase your mage arena spells damage",
 		"kind": 0,
-		"dmg": -1,
+		"handler": func(player, spell) {
+			if world.getObjectAt(player.X(), player.Y()) != nil {
+				player.Message("You can't charge power here, please move to a different area")
+				return
+			}
+			if !spellCast(defs[spell.idx], player) {
+				return
+			}
+
+			player.Message("@gre@You feel charged with magic power")
+			player.Attributes.SetVar("magic_charge", time.Now().Add(6*tMinute))
+			animation = newObject(1147, North, player.X(), player.Y(), false)
+			world.addObject(animation)
+			go runAfter(tMillis*1280, func() {
+				world.removeObject(animation)
+			})
+		},
 		"runes": {
 			31: 3,
 			33: 3,

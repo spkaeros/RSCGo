@@ -430,6 +430,20 @@ func ScriptEnv() *env.Env {
 			return false
 		}
 	})
+	e.Define("asPlayer", func(m entity.MobileEntity) *Player {
+		if m.IsPlayer() {
+			return m.(*Player)
+		}
+		
+		return nil
+	})
+	e.Define("asNpc", func(m entity.MobileEntity) *NPC {
+		if m.IsNpc() {
+			return m.(*NPC)
+		}
+		
+		return nil
+	})
 	e = core.Import(e)
 	return e
 }

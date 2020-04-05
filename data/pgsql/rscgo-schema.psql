@@ -1,0 +1,522 @@
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 12.2 (Debian 12.2-1)
+-- Dumped by pg_dump version 12.2 (Debian 12.2-1)
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: appearance; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.appearance (
+    playerid integer,
+    haircolour integer,
+    topcolour integer,
+    trousercolour integer,
+    skincolour integer,
+    head integer,
+    body integer
+);
+
+
+ALTER TABLE public.appearance OWNER TO zach;
+
+--
+-- Name: bank; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.bank (
+    playerid integer,
+    itemid integer,
+    amount bigint
+);
+
+
+ALTER TABLE public.bank OWNER TO zach;
+
+--
+-- Name: config; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.config (
+    name text,
+    value text
+);
+
+
+ALTER TABLE public.config OWNER TO zach;
+
+--
+-- Name: contacts; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.contacts (
+    playerid integer,
+    playerhash bigint,
+    type text
+);
+
+
+ALTER TABLE public.contacts OWNER TO zach;
+
+--
+-- Name: doors; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.doors (
+    id bigint NOT NULL,
+    name text,
+    description text,
+    command_one text,
+    command_two text,
+    height bigint,
+    color1 bigint,
+    color2 bigint,
+    solid bigint,
+    door bigint
+);
+
+
+ALTER TABLE public.doors OWNER TO zach;
+
+--
+-- Name: game_object_locations; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.game_object_locations (
+    id text,
+    x text,
+    y text,
+    direction text,
+    boundary text
+);
+
+
+ALTER TABLE public.game_object_locations OWNER TO zach;
+
+--
+-- Name: game_objects; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.game_objects (
+    id bigint NOT NULL,
+    name text,
+    description text,
+    command_one text,
+    command_two text,
+    type bigint,
+    width bigint,
+    height bigint,
+    ground_item_var bigint
+);
+
+
+ALTER TABLE public.game_objects OWNER TO zach;
+
+--
+-- Name: id; Type: SEQUENCE; Schema: public; Owner: zach
+--
+
+CREATE SEQUENCE public.id
+    START WITH 98
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.id OWNER TO zach;
+
+--
+-- Name: inventory; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.inventory (
+    playerid integer,
+    itemid integer,
+    amount bigint,
+    wielded boolean
+);
+
+
+ALTER TABLE public.inventory OWNER TO zach;
+
+--
+-- Name: item_locations; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.item_locations (
+    id bigint,
+    x bigint,
+    y bigint,
+    amount bigint,
+    respawn bigint
+);
+
+
+ALTER TABLE public.item_locations OWNER TO zach;
+
+--
+-- Name: item_wieldable; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.item_wieldable (
+    id bigint NOT NULL,
+    sprite bigint,
+    type bigint,
+    armour_points bigint,
+    magic_points bigint,
+    prayer_points bigint,
+    range_points bigint,
+    weapon_aim_points bigint,
+    weapon_power_points bigint,
+    pos bigint,
+    femaleonly boolean
+);
+
+
+ALTER TABLE public.item_wieldable OWNER TO zach;
+
+--
+-- Name: item_wieldable_requirements; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.item_wieldable_requirements (
+    id bigint,
+    skillindex bigint,
+    level bigint
+);
+
+
+ALTER TABLE public.item_wieldable_requirements OWNER TO zach;
+
+--
+-- Name: items; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.items (
+    id bigint NOT NULL,
+    name text,
+    description text,
+    command text,
+    base_price bigint,
+    stackable boolean,
+    special boolean,
+    members boolean
+);
+
+
+ALTER TABLE public.items OWNER TO zach;
+
+--
+-- Name: npc_drops; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.npc_drops (
+    npcid bigint,
+    itemid bigint,
+    minamount bigint,
+    maxamount bigint,
+    probability double precision
+);
+
+
+ALTER TABLE public.npc_drops OWNER TO zach;
+
+--
+-- Name: npc_locations; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.npc_locations (
+    id text,
+    startx text,
+    minx text,
+    maxx text,
+    starty text,
+    miny text,
+    maxy text
+);
+
+
+ALTER TABLE public.npc_locations OWNER TO zach;
+
+--
+-- Name: npcs; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.npcs (
+    id bigint NOT NULL,
+    name text,
+    description text,
+    command text,
+    hits bigint,
+    attack bigint,
+    strength bigint,
+    defense bigint,
+    attackable boolean
+);
+
+
+ALTER TABLE public.npcs OWNER TO zach;
+
+--
+-- Name: player; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.player (
+    id integer DEFAULT nextval('public.id'::regclass) NOT NULL,
+    username text,
+    userhash bigint,
+    password text,
+    x integer,
+    y integer,
+    group_id integer
+);
+
+
+ALTER TABLE public.player OWNER TO zach;
+
+--
+-- Name: player_attr; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.player_attr (
+    player_id integer,
+    name text,
+    value text
+);
+
+
+ALTER TABLE public.player_attr OWNER TO zach;
+
+--
+-- Name: prayers; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.prayers (
+    id bigint NOT NULL,
+    name text,
+    description text,
+    required_level bigint,
+    drain_rate bigint
+);
+
+
+ALTER TABLE public.prayers OWNER TO zach;
+
+--
+-- Name: recovery_questions; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.recovery_questions (
+    userhash integer,
+    question1 text,
+    question2 text,
+    question3 text,
+    question4 text,
+    question5 text,
+    answer1 text,
+    answer2 text,
+    answer3 text,
+    answer4 text,
+    answer5 text
+);
+
+
+ALTER TABLE public.recovery_questions OWNER TO zach;
+
+--
+-- Name: shop_items; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.shop_items (
+    storeid bigint,
+    itemid bigint,
+    amount bigint
+);
+
+
+ALTER TABLE public.shop_items OWNER TO zach;
+
+--
+-- Name: shops; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.shops (
+    id bigint NOT NULL,
+    name text,
+    general boolean
+);
+
+
+ALTER TABLE public.shops OWNER TO zach;
+
+--
+-- Name: spell_aggressive_level; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.spell_aggressive_level (
+    id bigint NOT NULL,
+    spell bigint
+);
+
+
+ALTER TABLE public.spell_aggressive_level OWNER TO zach;
+
+--
+-- Name: spell_runes; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.spell_runes (
+    spellid bigint,
+    itemid bigint,
+    amount bigint
+);
+
+
+ALTER TABLE public.spell_runes OWNER TO zach;
+
+--
+-- Name: spells; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.spells (
+    id bigint NOT NULL,
+    name text,
+    description text,
+    required_level bigint,
+    rune_amount bigint,
+    type bigint,
+    experience bigint
+);
+
+
+ALTER TABLE public.spells OWNER TO zach;
+
+--
+-- Name: stats; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.stats (
+    playerid integer,
+    num integer,
+    cur integer,
+    exp integer
+);
+
+
+ALTER TABLE public.stats OWNER TO zach;
+
+--
+-- Name: tiles; Type: TABLE; Schema: public; Owner: zach
+--
+
+CREATE TABLE public.tiles (
+    colour bigint,
+    unknown bigint,
+    objecttype bigint
+);
+
+
+ALTER TABLE public.tiles OWNER TO zach;
+
+--
+-- Name: doors idx_16481_doors_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+--
+
+ALTER TABLE ONLY public.doors
+    ADD CONSTRAINT idx_16481_doors_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: game_objects idx_16487_game_objects_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+--
+
+ALTER TABLE ONLY public.game_objects
+    ADD CONSTRAINT idx_16487_game_objects_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: npcs idx_16493_npcs_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+--
+
+ALTER TABLE ONLY public.npcs
+    ADD CONSTRAINT idx_16493_npcs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: prayers idx_16502_prayers_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+--
+
+ALTER TABLE ONLY public.prayers
+    ADD CONSTRAINT idx_16502_prayers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: items idx_16508_items_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+--
+
+ALTER TABLE ONLY public.items
+    ADD CONSTRAINT idx_16508_items_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: spells idx_16514_spells_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+--
+
+ALTER TABLE ONLY public.spells
+    ADD CONSTRAINT idx_16514_spells_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: item_wieldable idx_16526_item_wieldable_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+--
+
+ALTER TABLE ONLY public.item_wieldable
+    ADD CONSTRAINT idx_16526_item_wieldable_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: spell_aggressive_level idx_16532_spell_aggressive_level_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+--
+
+ALTER TABLE ONLY public.spell_aggressive_level
+    ADD CONSTRAINT idx_16532_spell_aggressive_level_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: shops idx_16535_shops_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+--
+
+ALTER TABLE ONLY public.shops
+    ADD CONSTRAINT idx_16535_shops_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: player player_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+--
+
+ALTER TABLE ONLY public.player
+    ADD CONSTRAINT player_pkey PRIMARY KEY (id);
+
+
+--
+-- PostgreSQL database dump complete
+--
+
