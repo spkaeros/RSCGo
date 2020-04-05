@@ -34,7 +34,7 @@ type bufferSet struct {
 func bindGameProcManager() {
 	var stdout io.Reader
 	var stdoutClients = bufferSet{buffers: make(map[uint64]chan []byte)}
-	var backBuffer = make([][]byte, 0, 1000)
+	var backBuffer = make([][]byte, 0, 100)
 	var ServerCmd *exec.Cmd
 	var done = make(chan struct{})
 
@@ -89,8 +89,8 @@ func bindGameProcManager() {
 					return
 				}
 				backBuffer = append(backBuffer, line)
-				if len(backBuffer) == 1000 {
-					backBuffer = backBuffer[100:]
+				if len(backBuffer) == 100 {
+					backBuffer = backBuffer[10:]
 				}
 				fmt.Printf("[GAME] %s", line)
 				stdoutClients.RLock()
