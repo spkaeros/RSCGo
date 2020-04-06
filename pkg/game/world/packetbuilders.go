@@ -278,16 +278,9 @@ func NPCPositions(player *Player) (p *net.Packet) {
 		newCount++
 		player.LocalNPCs.Add(n)
 		p.AddBitmask(n.Index, 12)
-		offsetX := n.X() - player.X()
-		if offsetX < 0 {
-			offsetX += 32
-		}
-		offsetY := n.Y() - player.Y()
-		if offsetY < 0 {
-			offsetY += 32
-		}
-		p.AddBitmask(offsetX, 5)
-		p.AddBitmask(offsetY, 5)
+		// bitwise trick avoids branching to do a manual addition, and maintains binary compatibility with the original protocol
+		p.AddBitmask((n.X() - player.X()) & 0x1F, 5)
+		p.AddBitmask((n.Y() - player.Y()) & 0x1F, 5)
 		p.AddBitmask(n.Direction(), 4)
 		p.AddBitmask(n.ID, 10)
 		counter++
@@ -380,17 +373,11 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 			}
 		}
 		newPlayerCount++
+
 		p.AddBitmask(p1.Index, 11)
-		offsetX := p1.X() - player.X()
-		if offsetX < 0 {
-			offsetX += 32
-		}
-		offsetY := p1.Y() - player.Y()
-		if offsetY < 0 {
-			offsetY += 32
-		}
-		p.AddBitmask(offsetX, 5)
-		p.AddBitmask(offsetY, 5)
+		// bitwise trick avoids branching to do a manual addition, and maintains binary compatibility with the original protocol
+		p.AddBitmask((p1.X() - player.X()) & 0x1F, 5)
+		p.AddBitmask((p1.Y() - player.Y()) & 0x1F, 5)
 		p.AddBitmask(p1.Direction(), 4)
 		player.AppearanceLock.RLock()
 		if ticket, ok := player.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket() {
@@ -441,22 +428,17 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	}
 	p.AddUint16(uint16(len(appearanceList))) // Update size
 	for _, player := range appearanceList {
-		ourPlayer.AppearanceLock.Lock()
-		ourPlayer.KnownAppearances[player.Index] = player.AppearanceTicket()
-		ourPlayer.AppearanceLock.Unlock()
 		p.AddUint16(uint16(player.Index))
 		p.AddUint8(5) // player appearances
 		p.AddUint16(uint16(player.AppearanceTicket()))
 		p.AddUint64(player.UsernameHash())
 		p.AddUint8(12) // length of sprites.  Anything less than 12 will get padded with 0s
-		//		p.AddUint8(uint8(player.Appearance.Head))
-		//		p.AddUint8(uint8(player.Appearance.Body))
-		//		p.AddUint8(uint8(player.Appearance.Legs))
-		ourPlayer.AppearanceLock.RLock()
+		ourPlayer.AppearanceLock.Lock()
+		ourPlayer.KnownAppearances[player.Index] = player.AppearanceTicket()
 		for i := 0; i < 12; i++ {
 			p.AddUint8(uint8(player.Equips[i]))
 		}
-		ourPlayer.AppearanceLock.RUnlock()
+		ourPlayer.AppearanceLock.Unlock()
 		p.AddUint8(uint8(player.Appearance.HeadColor))
 		p.AddUint8(uint8(player.Appearance.BodyColor))
 		p.AddUint8(uint8(player.Appearance.LegsColor))
@@ -472,16 +454,14 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 func ClearDistantChunks(player *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(211)
 	chunks, ok := player.TransAttrs.Var("distantChunks")
-	cleaned := 0
 	if ok {
+		if len(chunks.([]Location)) <= 0 {
+			return nil
+		}
 		for _, chunk := range chunks.([]Location) {
 			p.AddUint16(uint16(chunk.X() - player.X()))
 			p.AddUint16(uint16(chunk.Y() - player.Y()))
-			cleaned++
 		}
-	}
-	if cleaned == 0 {
-		return nil
 	}
 	player.TransAttrs.UnsetVar("distantChunks")
 	return
@@ -936,9 +916,10 @@ func LoginBox(inactiveDays int, lastIP string) (p *net.Packet) {
 	p = net.NewEmptyPacket(182)
 	p.AddUint32(uint32(strutil.IPToInteger(lastIP))) // IP
 	p.AddUint16(uint16(inactiveDays))                // Last logged in
-	p.AddUint8(0)                                    // recovery questions set days, 200 = unset, 201 = set
+	// TODO: Recoverys
+	p.AddUint8(201)                                    // recovery questions set days, 200 = unset, 201 = set
+	// TODO: Message center
 	p.AddUint16(1)                                   // Unread messages, number minus one, 0 does not render anything
-	p.AddBytes([]byte(lastIP))
 	return p
 }
 

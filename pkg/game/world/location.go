@@ -230,27 +230,23 @@ func (l *Location) PlaneY(up bool) int {
 			newPlane = curPlane - 1
 		}
 	}
-	return (newPlane * 944) + (l.Y() % 944)
+	return newPlane * 944 + l.Y() % 944
 }
-
 //NextTileToward Returns the next tile toward the final destination of this pathway from currentLocation
-func (l Location) NextTileToward(other Location) Location {
-	destX, destY := other.X(), other.Y()
-	currentX, currentY := l.X(), l.Y()
-	destination := NewLocation(currentX, currentY)
-	switch {
-	case currentX > destX:
-		destination.x.Dec()
-	case currentX < destX:
-		destination.x.Inc()
+func (l Location) NextTileToward(dst Location) Location {
+	nextStep := l.Clone()
+	if delta := l.X() - dst.X(); delta < 0 {
+		nextStep.x.Inc()
+	} else if delta > 0 {
+		nextStep.x.Dec()
 	}
-	switch {
-	case currentY > destY:
-		destination.y.Dec()
-	case currentY < destY:
-		destination.y.Inc()
+	
+	if delta := l.Y() - dst.Y(); delta < 0 {
+		nextStep.y.Inc()
+	} else if delta > 0 {
+		nextStep.y.Dec()
 	}
-	return destination
+	return nextStep
 }
 
 //ParseDirection Tries to parse the direction indicated in s.  If it can not match any direction, returns the zero-value for direction: north.

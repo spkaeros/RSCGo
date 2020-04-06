@@ -48,11 +48,14 @@ func LoadCollisionData() {
 
 	entryFileCaret := 0
 	metaDataCaret := 0
+	var lastSector *Sector
+	// Sectors begin at: offsetX=48, offsetY=96
 	for i := 0; i < archive.FileCount; i++ {
 		id := int(uint32(archive.MetaData[metaDataCaret]&0xFF)<<24 | uint32(archive.MetaData[metaDataCaret+1]&0xFF)<<16 | uint32(archive.MetaData[metaDataCaret+2]&0xFF)<<8 | uint32(archive.MetaData[metaDataCaret+3]&0xFF))
 		startCaret := entryFileCaret
 		entryFileCaret += int(uint32(archive.MetaData[metaDataCaret+7]&0xFF)<<16 | uint32(archive.MetaData[metaDataCaret+8]&0xFF)<<8 | uint32(archive.MetaData[metaDataCaret+9]&0xFF))
-		Sectors[id] = loadSector(archive.FileData[startCaret:entryFileCaret])
+		Sectors[id] = loadSector(lastSector, archive.FileData[startCaret:entryFileCaret])
+		lastSector = Sectors[id]
 		metaDataCaret += 10
 	}
 }
@@ -149,6 +152,8 @@ const (
 	//ClipFullBlock Bitmask to represent an object blocking an entire tile.
 	ClipFullBlock = 1 << 7
 	// TODO: Add more masks to handle projectiles gracefully,
+	ClipDiagSeNw = ClipDiag2
+	ClipDiagSwNe = ClipDiag1
 )
 
 func ClipBit(direction int) int {
@@ -229,7 +234,7 @@ func CollisionData(x, y int) TileData {
 }
 
 //loadSector Parses raw data into data structures that make up a 48x48 map sector.
-func loadSector(data []byte) (s *Sector) {
+func loadSector(lastSector *Sector, data []byte) (s *Sector) {
 	// If we were given less than the length of a decompressed, raw map sector
 	if len(data) < 23040 {
 		log.Warning.Printf("Too short sector data: %d\n", len(data))
@@ -259,6 +264,7 @@ func loadSector(data []byte) (s *Sector) {
 			if groundOverlay > 0 && TileDefs[groundOverlay-1].Blocked != 0 {
 				s.Tiles[tileIdx].CollisionMask |= ClipFullBlock
 			}
+			// vertical that blocks N<->S
 			if verticalWalls > 0 && !BoundaryDefs[verticalWalls-1].Unknown && BoundaryDefs[verticalWalls-1].Traversable {
 				s.Tiles[tileIdx].CollisionMask |= ClipNorth
 				if y >= 1 {
@@ -266,16 +272,22 @@ func loadSector(data []byte) (s *Sector) {
 					s.Tiles[x*RegionSize+(y-1)].CollisionMask |= ClipSouth
 				}
 			}
+			// horizontal that blocks E<->W
 			if horizontalWalls > 0 && !BoundaryDefs[horizontalWalls-1].Unknown && BoundaryDefs[horizontalWalls-1].Traversable {
 				s.Tiles[tileIdx].CollisionMask |= ClipEast
 				if x >= 1 {
 					// -48 is tile x-1,y
 					s.Tiles[(x-1)*RegionSize+y].CollisionMask |= ClipWest
+				} else if x == 0 && lastSector != nil {
+					// TODO: Verify working
+					lastSector.Tiles[47*RegionSize+y].CollisionMask |= ClipEast
 				}
 			}
+			// diagonal that blocks: SE<->NW (/)
 			if diagonalWalls > 0 && diagonalWalls < 12000 && !BoundaryDefs[diagonalWalls-1].Unknown && BoundaryDefs[diagonalWalls-1].Traversable {
 				s.Tiles[tileIdx].CollisionMask |= ClipDiag2
 			}
+			// diagonal that blocks: SW<->NE (\)
 			if diagonalWalls >= 12000 && diagonalWalls < 24000 && !BoundaryDefs[diagonalWalls-12001].Unknown && BoundaryDefs[diagonalWalls-12001].Traversable {
 				s.Tiles[tileIdx].CollisionMask |= ClipDiag1
 			}

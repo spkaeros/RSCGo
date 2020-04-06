@@ -204,148 +204,34 @@ func (n *NPC) TraversePath() {
 	if n.TransAttrs.VarInt("pathLength", 0) <= 0 {
 		return
 	}
-
+	
 	for tries := 0; tries < 10; tries++ {
-		dst := NewLocation(n.X(), n.Y())
 		if Chance(25) {
 			n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
 		}
-		switch n.TransAttrs.VarInt("pathDir", North) {
-		case North:
-			if IsTileBlocking(dst.X(), dst.Y()-1, ClipSouth, false) ||
-				dst.X() > n.Boundaries[1].X() || dst.Y()-1 > n.Boundaries[1].Y() ||
-				dst.X() < n.Boundaries[0].X() || dst.Y()-1 < n.Boundaries[0].Y() {
-				n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
-				continue
-			}
-			dst.y.Dec()
-		case South:
-			if IsTileBlocking(dst.X(), dst.Y()+1, ClipNorth, false) ||
-				dst.X() > n.Boundaries[1].X() || dst.Y()+1 > n.Boundaries[1].Y() ||
-				dst.X() < n.Boundaries[0].X() || dst.Y()+1 < n.Boundaries[0].Y() {
-				n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
-				continue
-			}
-			dst.y.Inc()
-		case East:
-			if IsTileBlocking(dst.X()-1, dst.Y(), ClipWest, false) ||
-				dst.X()-1 > n.Boundaries[1].X() || dst.Y() > n.Boundaries[1].Y() ||
-				dst.X()-1 < n.Boundaries[0].X() || dst.Y() < n.Boundaries[0].Y() {
-				n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
-				continue
-			}
-			dst.x.Dec()
-		case West:
-			if IsTileBlocking(dst.X()+1, dst.Y(), ClipEast, false) ||
-				dst.X()+1 > n.Boundaries[1].X() || dst.Y() > n.Boundaries[1].Y() ||
-				dst.X()+1 < n.Boundaries[0].X() || dst.Y() < n.Boundaries[0].Y() {
-				n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
-				continue
-			}
+		
+		dst := n.Location.Clone()
+		dir := n.TransAttrs.VarInt("pathDir", North);
+		if dir == West || dir == SouthWest || dir == NorthWest {
 			dst.x.Inc()
-		case NorthEast:
-			if IsTileBlocking(dst.X()-1, dst.Y()-1, ClipSouth|ClipWest, false) ||
-				IsTileBlocking(dst.X(), dst.Y()-1, ClipSouth, false) ||
-				IsTileBlocking(dst.X()-1, dst.Y(), ClipWest, false) ||
-				dst.X()-1 > n.Boundaries[1].X() || dst.Y()-1 > n.Boundaries[1].Y() ||
-				dst.X()-1 < n.Boundaries[0].X() || dst.Y()-1 < n.Boundaries[0].Y() {
-				n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
-				continue
-			}
-			dst.y.Dec()
+		} else if dir == East || dir == SouthEast || dir == NorthEast {
 			dst.x.Dec()
-		case SouthEast:
-			if IsTileBlocking(dst.X()-1, dst.Y()+1, ClipNorth|ClipWest, false) ||
-				IsTileBlocking(dst.X(), dst.Y()+1, ClipNorth, false) ||
-				IsTileBlocking(dst.X()-1, dst.Y(), ClipWest, false) ||
-				dst.X()-1 > n.Boundaries[1].X() || dst.Y()+1 > n.Boundaries[1].Y() ||
-				dst.X()-1 < n.Boundaries[0].X() || dst.Y()+1 < n.Boundaries[0].Y() {
-				n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
-				continue
-			}
-			dst.y.Inc()
-			dst.x.Dec()
-		case NorthWest:
-			if IsTileBlocking(dst.X()+1, dst.Y()-1, ClipSouth|ClipEast, false) ||
-				IsTileBlocking(dst.X(), dst.Y()-1, ClipSouth, false) ||
-				IsTileBlocking(dst.X()+1, dst.Y(), ClipEast, false) ||
-				dst.X()+1 > n.Boundaries[1].X() || dst.Y()-1 > n.Boundaries[1].Y() ||
-				dst.X()+1 < n.Boundaries[0].X() || dst.Y()-1 < n.Boundaries[0].Y() {
-				n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
-				continue
-			}
+		}
+		if dir == North || dir == NorthWest || dir == NorthEast {
 			dst.y.Dec()
-			dst.x.Inc()
-		case SouthWest:
-			if IsTileBlocking(dst.X()+1, dst.Y()+1, ClipNorth|ClipEast, false) ||
-				IsTileBlocking(dst.X(), dst.Y()+1, ClipNorth, false) ||
-				IsTileBlocking(dst.X()+1, dst.Y(), ClipEast, false) ||
-				dst.X()+1 > n.Boundaries[1].X() || dst.Y()+1 > n.Boundaries[1].Y() ||
-				dst.X()+1 < n.Boundaries[0].X() || dst.Y()+1 < n.Boundaries[0].Y() {
-				n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
-				continue
-			}
+		} else if dir == South || dir == SouthWest || dir == SouthEast {
 			dst.y.Inc()
-			dst.x.Inc()
 		}
-
-		x, y := n.X(), n.Y()
-		next := NewLocation(x, y)
-		xBlocked, yBlocked := false, false
-		newXBlocked, newYBlocked := false, false
-		if y > dst.Y() {
-			yBlocked = IsTileBlocking(x, y, ClipNorth, true)
-			newYBlocked = IsTileBlocking(x, y-1, ClipSouth, false)
-			if !newYBlocked {
-				next.y.Dec()
-			}
-		} else if y < dst.Y() {
-			yBlocked = IsTileBlocking(x, y, ClipSouth, true)
-			newYBlocked = IsTileBlocking(x, y+1, ClipNorth, false)
-			if !newYBlocked {
-				next.y.Inc()
-			}
-		}
-		if x > dst.X() {
-			xBlocked = IsTileBlocking(x, next.Y(), ClipEast, true)
-			newXBlocked = IsTileBlocking(x-1, next.Y(), ClipWest, false)
-			if !newXBlocked {
-				next.x.Dec()
-			}
-		} else if x < dst.X() {
-			xBlocked = IsTileBlocking(x, next.Y(), ClipWest, true)
-			newXBlocked = IsTileBlocking(x+1, next.Y(), ClipEast, false)
-			if !newXBlocked {
-				next.x.Inc()
-			}
-		}
-
-		if (xBlocked && yBlocked) || (xBlocked && y == dst.Y()) || (yBlocked && x == dst.X()) {
-			return
-		}
-		if (newXBlocked && newYBlocked) || (newXBlocked && x != next.X() && y == next.Y()) || (newYBlocked && y != next.Y() && x == next.X()) {
-			return
-		}
-
-		if next.X() > x {
-			newXBlocked = IsTileBlocking(next.X(), next.Y(), ClipEast, false)
-		} else if next.X() < x {
-			newXBlocked = IsTileBlocking(next.X(), next.Y(), ClipWest, false)
-		}
-
-		if next.Y() > y {
-			newYBlocked = IsTileBlocking(next.X(), next.Y(), ClipNorth, false)
-		} else if next.Y() < y {
-			newYBlocked = IsTileBlocking(next.X(), next.Y(), ClipSouth, false)
-		}
-
-		if (newXBlocked && newYBlocked) || (newXBlocked && y == next.Y()) || (newYBlocked && x == next.X()) {
-			return
+		
+		if !n.Reachable(dst.X(), dst.Y()) ||
+				dst.X() < n.Boundaries[0].X() || dst.X() > n.Boundaries[1].X() ||
+				dst.Y() < n.Boundaries[0].Y() || dst.Y() > n.Boundaries[1].Y(){
+			n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
+			continue
 		}
 
 		n.TransAttrs.DecVar("pathLength", 1)
-
-		n.SetLocation(next, false)
+		n.SetLocation(dst, false)
 		break
 	}
 }

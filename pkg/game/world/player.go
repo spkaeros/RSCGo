@@ -162,7 +162,7 @@ func (p *Player) CanAttack(target entity.MobileEntity) bool {
 		return false
 	}
 	if delta > targetWild {
-		p.Message(p1.Username() + "is not in high enough wilderness for you to attack!")
+		p.Message(p1.Username() + " is not in high enough wilderness for you to attack!")
 		return false
 	}
 	return true
@@ -306,36 +306,16 @@ func (p *Player) CanReachMob(target entity.MobileEntity) bool {
 		p.ResetPath()
 		return false
 	}
-	p.TransAttrs.SetVar("triedReach", p.TransAttrs.VarInt("triedReach", 0)+1)
+	p.TransAttrs.IncVar("triedReach", 1)
 
 	for steps := 0; steps < 21; steps++ {
 		if pathX == target.X() && pathY == target.Y() {
 			p.TransAttrs.UnsetVar("triedReach")
-			return true
+			break
 		}
 
-		if pathY > target.Y() {
-			pathY--
-			if IsTileBlocking(pathX, pathY, ClipSouth, false) {
-				return false
-			}
-		} else if pathY < target.Y() {
-			pathY++
-			if IsTileBlocking(pathX, pathY, ClipNorth, false) {
-				return false
-			}
-		}
-
-		if pathX > target.X() {
-			pathX--
-			if IsTileBlocking(pathX, pathY, ClipWest, false) {
-				return false
-			}
-		} else if pathX < target.X() {
-			pathX++
-			if IsTileBlocking(pathX, pathY, ClipEast, false) {
-				return false
-			}
+		if !p.Reachable(pathX, pathY) {
+			return false
 		}
 	}
 	p.TransAttrs.UnsetVar("triedReach")
@@ -436,38 +416,7 @@ func (p *Player) ResetFollowing() {
 //NextTo returns true if we can walk a straight line to target without colliding with any walls or objects,
 // otherwise returns false.
 func (p *Player) NextTo(target Location) bool {
-	if p.X() > target.X() {
-		if IsTileBlocking(p.X(), p.Y(), ClipEast, true) {
-			return false
-		}
-		if IsTileBlocking(target.X(), target.Y(), ClipWest, false) {
-			return false
-		}
-	} else if p.X() < target.X() {
-		if IsTileBlocking(p.X(), p.Y(), ClipWest, true) {
-			return false
-		}
-		if IsTileBlocking(target.X(), target.Y(), ClipEast, false) {
-			return false
-		}
-	}
-	if p.Y() > target.Y() {
-		if IsTileBlocking(p.X(), p.Y(), ClipNorth, true) {
-			return false
-		}
-		if IsTileBlocking(target.X(), target.Y(), ClipSouth, false) {
-			return false
-		}
-	} else if p.Y() < target.Y() {
-		if IsTileBlocking(p.X(), p.Y(), ClipSouth, true) {
-			return false
-		}
-		if IsTileBlocking(target.X(), target.Y(), ClipNorth, false) {
-			return false
-		}
-	}
-
-	return true
+	return p.Reachable(target.X(), target.Y())
 }
 
 func (p *Player) NextToCoords(x, y int) bool {
@@ -483,68 +432,54 @@ func (p *Player) TraversePath() {
 	if p.AtLocation(path.nextTile()) {
 		path.CurrentWaypoint++
 	}
+	dst := p.NextTileToward(path.nextTile())
+	
 	if p.FinishedPath() {
 		p.ResetPath()
 		return
 	}
-	dst := path.nextTile()
-	x, y := p.X(), p.Y()
-	next := NewLocation(x, y)
-	xBlocked, yBlocked := false, false
-	newXBlocked, newYBlocked := false, false
-	if y > dst.Y() {
-		yBlocked = IsTileBlocking(x, y, ClipNorth, true)
-		newYBlocked = IsTileBlocking(x, y-1, ClipSouth, false)
-		if !newYBlocked {
-			next.y.Dec()
-		}
-	} else if y < dst.Y() {
-		yBlocked = IsTileBlocking(x, y, ClipSouth, true)
-		newYBlocked = IsTileBlocking(x, y+1, ClipNorth, false)
-		if !newYBlocked {
-			next.y.Inc()
-		}
-	}
-	if x > dst.X() {
-		xBlocked = IsTileBlocking(x, next.Y(), ClipEast, true)
-		newXBlocked = IsTileBlocking(x-1, next.Y(), ClipWest, false)
-		if !newXBlocked {
-			next.x.Dec()
-		}
-	} else if x < dst.X() {
-		xBlocked = IsTileBlocking(x, next.Y(), ClipWest, true)
-		newXBlocked = IsTileBlocking(x+1, next.Y(), ClipEast, false)
-		if !newXBlocked {
-			next.x.Inc()
-		}
-	}
 
-	if (xBlocked && yBlocked) || (xBlocked && y == dst.Y()) || (yBlocked && x == dst.X()) {
-		p.ResetPath()
-		return
-	}
-	if (newXBlocked && newYBlocked) || (newXBlocked && x != next.X() && y == next.Y()) || (newYBlocked && y != next.Y() && x == next.X()) {
+	if !p.Reachable(dst.X(), dst.Y()) {
 		p.ResetPath()
 		return
 	}
 
-	if next.X() > x {
-		newXBlocked = IsTileBlocking(next.X(), next.Y(), ClipEast, false)
-	} else if next.X() < x {
-		newXBlocked = IsTileBlocking(next.X(), next.Y(), ClipWest, false)
+	p.SetLocation(dst, false)
+}
+
+func (l Location) Reachable(x, y int) bool {
+	dst := NewLocation(x, y)
+	if l.LongestDelta(dst) > 1 {
+		dst = l.NextTileToward(dst)
 	}
-	if next.Y() > y {
-		newYBlocked = IsTileBlocking(next.X(), next.Y(), ClipNorth, false)
-	} else if next.Y() < y {
-		newYBlocked = IsTileBlocking(next.X(), next.Y(), ClipSouth, false)
+	bitmask := byte(ClipBit(l.DirectionToward(dst)))
+	dstmask := byte(ClipBit(dst.DirectionToward(l)))
+	// check mask of our tile and dst tile
+	if IsTileBlocking(l.X(), l.Y(), bitmask, true) || IsTileBlocking(dst.X(), dst.Y(), dstmask, false) {
+		return false
 	}
 
-	if (newXBlocked && newYBlocked) || (newXBlocked && y == next.Y()) || (newYBlocked && x == next.X()) {
-		p.ResetPath()
-		return
+	// does the walk tile affect both X and Y coord at same time
+	//	if bitmask&(ClipNorth|ClipSouth))|dstmask&(ClipNorth|ClipSouth) != 0 &&
+	//			bitmask&(ClipNorth|ClipSouth))|dstmask&(ClipEast|ClipWest) != 0 {
+	if dst.X() != l.X() && dst.Y() != l.Y() {
+		// check masks diagonally
+		var vmask, hmask byte
+		if dst.X() > l.X() {
+			vmask |= ClipSouth
+		} else {
+			vmask |= ClipNorth
+		}
+		if dst.Y() > l.Y() {
+			hmask |= ClipEast
+		} else {
+			hmask |= ClipWest
+		}
+		if IsTileBlocking(l.X(), dst.Y(), vmask, false) && IsTileBlocking(dst.X(), l.Y(), hmask, false) {
+			return false
+		}
 	}
-
-	p.SetLocation(next, false)
+	return true
 }
 
 //UpdateRegion if this player is currently in a region, removes it from that region, and adds it to the region at x,y
@@ -1266,10 +1201,10 @@ func (p *Player) SetSkulled(val bool) {
 	}
 	p.UpdateAppearance()
 }
-
+ 
 func (p *Player) ResetFighting() {
-	defer p.Mob.ResetFighting()
-	p.ResetDuel()
+       defer p.Mob.ResetFighting()
+       p.ResetDuel()
 }
 
 func (p *Player) StartCombat(target entity.MobileEntity) {
@@ -1297,18 +1232,16 @@ func (p *Player) StartCombat(target entity.MobileEntity) {
 			// target is a disconnected player, we are disconnected,
 			// one of us is not in a fight, or we are distanced somehow unexpectedly.  Kill tasks.
 			// quickfix for possible bugs I imagined will exist
-			if p.HasState(MSFighting) {
-				p.ResetFighting()
-			}
-			if target.HasState(MSFighting) {
-				target.ResetFighting()
-			}
+			p.ResetFighting()
+			target.ResetFighting()
 			return true
 		}
-		curTick++
+
 		// One round per 2 ticks
+		curTick++
 		if curTick%2 == 0 {
 			// TODO: tickables return tick delay count, e.g return 2 will wait 2 ticks and rerun, maybe??
+			// would get ridda this per-tickable counter var paradigm
 			return false
 		}
 
@@ -1355,9 +1288,13 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 	p.Transients().SetVar("deathTime", time.Now())
 	p.PlaySound("death")
 	p.SendPacket(Death)
+	for i := 0; i < 14; i++ {
+		p.PrayerOff(i)
+	}
 	for i := 0; i < 18; i++ {
 		p.Skills().SetCur(i, p.Skills().Maximum(i))
 	}
+	p.SendPrayers()
 	p.SendStats()
 	p.SetDirection(North)
 
@@ -1397,18 +1334,14 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 			}
 			AddItem(v)
 		} else {
-			log.Warning.Printf("Death item failed during removal: %v,%v owner:%v, killer:%v!\n", v.ID, v.Amount, p, killer)
 			log.Suspicious.Printf("Death item failed during removal: %v,%v owner:%v, killer:%v!\n", v.ID, v.Amount, p, killer)
 		}
 	}
-	for i := 0; i < 14; i++ {
-		p.PrayerOff(i)
-	}
-	p.SendPrayers()
 
+	p.SendEquipBonuses()
 	p.ResetFighting()
 	p.SetSkulled(false)
-	p.SendEquipBonuses()
+	
 	plane := p.Plane()
 	p.SetLocation(SpawnPoint, true)
 	if p.Plane() != plane {
@@ -1466,7 +1399,7 @@ func (p *Player) CurrentShop() *Shop {
 
 //OpenBank opens a shop screen for the player and sets the appropriate state variables.
 func (p *Player) OpenShop(shop *Shop) {
-	if p.IsFighting() || p.IsTrading() || p.HasState(MSShopping) {
+	if p.IsFighting() || p.IsTrading() || p.IsDueling() || p.HasState(MSShopping) || p.HasState(MSBanking) {
 		return
 	}
 	p.AddState(MSShopping)
@@ -1486,7 +1419,7 @@ func (p *Player) CloseShop() {
 
 //OpenBank opens a bank screen for the player and sets the appropriate state variables.
 func (p *Player) OpenBank() {
-	if p.IsFighting() || p.IsTrading() || p.HasState(MSBanking) {
+	if p.IsFighting() || p.IsTrading() || p.IsDueling() || p.HasState(MSShopping) || p.HasState(MSBanking) {
 		return
 	}
 	p.AddState(MSBanking)
