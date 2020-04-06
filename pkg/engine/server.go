@@ -135,11 +135,11 @@ func runTickables(p *world.Player) {
 		}
 	}
 	for _, idx := range toRemove {
-		if idx == len(toRemove)-1 {
-			p.Tickables = p.Tickables[:idx]
-			continue
+		p.Tickables[idx] = nil
+		p.Tickables = p.Tickables[:idx]
+		if idx < len(p.Tickables)-1 {
+			p.Tickables = append(p.Tickables[idx+1:])
 		}
-		p.Tickables = append(p.Tickables[:idx], p.Tickables[idx+1:])
 	}
 }
 
