@@ -18,7 +18,7 @@ import (
 
 //PlayerService An interface for manipulating player save data.
 type PlayerService interface {
-	PlayerCreate(string, string) bool
+	PlayerCreate(string, string, string) bool
 	PlayerNameExists(username string) bool
 	PlayerHasRecoverys(uint64) bool
 	PlayerValidLogin(uint64, string) bool
@@ -42,7 +42,7 @@ var DefaultPlayerService PlayerService
 
 //PlayerCreate Creates a new entry in the player SQLite3 database with the specified credentials.
 // Returns true if successful, otherwise returns false.
-func (s *sqlService) PlayerCreate(username, password string) bool {
+func (s *sqlService) PlayerCreate(username, password, ip string) bool {
 	db := s.connect(context.Background())
 	defer db.Close()
 	tx, err := db.BeginTx(context.Background(), nil)
@@ -74,7 +74,13 @@ func (s *sqlService) PlayerCreate(username, password string) bool {
 			return false
 		}
 	}
+	
 	_, err = tx.Exec("INSERT INTO appearance VALUES($1, 2, 8, 14, 0, 1, 2)", playerID)
+	if err != nil {
+		log.Info.Println("PlayerCreate(): Could not insert new player profile information:", err)
+		return false
+	}
+	_, err = tx.Exec("INSERT INTO player_attr VALUES($1, 'lastIP', $2)", playerID, "s" + ip)
 	if err != nil {
 		log.Info.Println("PlayerCreate(): Could not insert new player profile information:", err)
 		return false

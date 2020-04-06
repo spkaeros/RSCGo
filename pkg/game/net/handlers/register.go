@@ -52,7 +52,7 @@ func init() {
 				return
 			}
 
-			if dataService.PlayerCreate(username, password) {
+			if dataService.PlayerCreate(username, password, player.CurrentIP()) {
 				log.Info.Printf("New player accepted: [ username='%s'; ip='%s' ]", username, player.CurrentIP())
 				reply <- handshake.ResponseRegisterSuccess
 				return

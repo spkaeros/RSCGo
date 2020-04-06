@@ -94,7 +94,7 @@ func newGodspell() {
 			fireMissile(player, spell, power)
 
 			newStat = spell.target.Skills().Current(godspell.deplete) - depleteBy
-			if newStat < minStat {
+			if spell.target.IsPlayer() && newStat < minStat {
 				player.Message("@que@Your opponent already has weakened " + skillName(godspell.deplete))
 				return
 			}
