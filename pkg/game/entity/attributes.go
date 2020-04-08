@@ -177,7 +177,7 @@ func (a *AttributeList) VarString(name string, zero string) string {
 		if s, ok := s.(string); ok {
 			return s
 		} else {
-			log.Error.Printf("AttributeList[Type Error]: Expected string, got %T\n", v)
+			log.Error.Printf("AttributeList[Type Error]: Expected string, got %T\n", s)
 		}
 	}
 	return zero
