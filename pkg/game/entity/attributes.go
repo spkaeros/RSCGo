@@ -174,7 +174,9 @@ func (a *AttributeList) VarChecked(name string) interface{} {
 //VarString checks if there is a string attribute assigned to the specified name, and returns it.
 // Otherwise, returns zero.
 func (a *AttributeList) VarString(name string, zero string) string {
-	if s := a.VarChecked(name).(fmt.Stringer); s != nil {
+	if s := a.VarChecked(name).(string); len(s) >= 1 {
+	
+	} else if s := a.VarChecked(name).(fmt.Stringer); s != nil {
 		return "" + s.String()
 	} else {
 		log.Error.Printf("AttributeList[Type Error]: Expected string, got %T\n", s)
