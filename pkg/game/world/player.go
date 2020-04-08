@@ -284,7 +284,7 @@ func (p *Player) WalkingArrivalAction(target entity.MobileEntity, dist int, acti
 					return true
 				}
 
-				p.UnsetVar("triedReach")
+//				p.UnsetVar("triedReach")
 				return false
 			}
 			action()

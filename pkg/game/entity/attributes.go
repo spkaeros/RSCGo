@@ -248,8 +248,10 @@ func (a *AttributeList) CheckMask(name string, mask int) bool {
 //VarMob checks if there is a entity.MobileEntity attribute assigned to the specified name, and returns it.
 // Otherwise, returns nil.
 func (a *AttributeList) VarEntity(name string) Entity {
-	if e, ok := a.VarChecked(name).(Entity); ok && e.Type()&(TypeMob|TypeEntity)!=0 {
-		return e
+	if e := a.VarChecked(name); e != nil {
+		if e, ok := e.(Entity); ok && e.Type()&(TypeMob|TypeEntity)!=0 {
+			return e
+		}
 	}
 	
 	return nil
