@@ -175,8 +175,6 @@ func (a *AttributeList) VarChecked(name string) interface{} {
 func (a *AttributeList) VarString(name string, zero string) string {
 	if i, ok := a.VarChecked(name).(string); ok {
 		return i
-	} else if !ok {
-		log.Error.Printf("AttributeList[Type Error]: Expected string, got %T\n", i)
 	}
 	return zero
 }
