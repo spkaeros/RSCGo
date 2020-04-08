@@ -201,14 +201,6 @@ func (a *AttributeList) VarInt(name string, zero int) int {
 // If it doesn't exist, or is another type, it Will set it to whatever the mask value is.
 // NOTE: mask parameter should be the index of the bit from the right most bit that you want to activate.
 func (a *AttributeList) StoreMask(name string, mask int) {
-	if i, ok := a.VarChecked(name).(int); ok {
-		a.SetVar(name, i | mask)
-		return
-	} else if !ok {
-		log.Error.Printf("AttributeList[Type Error]: Expected int, got %T\n", i)
-		return
-	}
-	
 	a.SetVar(name, a.VarInt(name, 0)|mask)
 }
 
