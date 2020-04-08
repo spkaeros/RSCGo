@@ -10,6 +10,7 @@
 package entity
 
 import (
+	`fmt`
 	"sync"
 	"time"
 	
@@ -173,12 +174,10 @@ func (a *AttributeList) VarChecked(name string) interface{} {
 //VarString checks if there is a string attribute assigned to the specified name, and returns it.
 // Otherwise, returns zero.
 func (a *AttributeList) VarString(name string, zero string) string {
-	if s := a.VarChecked(name); s != nil {
-		if s, ok := s.(string); ok {
-			return s
-		} else {
-			log.Error.Printf("AttributeList[Type Error]: Expected string, got %T\n", s)
-		}
+	if s := a.VarChecked(name).(fmt.Stringer); s != nil {
+		return "" + s.String()
+	} else {
+		log.Error.Printf("AttributeList[Type Error]: Expected string, got %T\n", s)
 	}
 	return zero
 }
