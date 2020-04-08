@@ -296,8 +296,10 @@ func (a *AttributeList) VarBool(name string, zero bool) bool {
 //VarTime checks if there is a time.Time attribute assigned to the specified name, and returns it.
 // Otherwise, returns time.Time{}
 func (a *AttributeList) VarTime(name string) time.Time {
-	if t, ok := a.VarChecked(name).(time.Time); ok {
-		return t
+	if t := a.VarChecked(name); t != nil {
+		if t, ok := t.(time.Time); ok {
+			return t
+		}
 	}
 	return time.Time{}
 }
