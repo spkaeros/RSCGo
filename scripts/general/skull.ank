@@ -20,7 +20,7 @@ bind.command("skulled", func(player, args) {
 bind.onLogin(func(player) {
 	player.Tickables += func() {
 		if player.Skulled() {
-			player.Attributes.DecVar("skullTime", 1)
+			player.Attributes.Dec("skullTime", 1)
 
 			// If this was the last tick for the timer, send appearance updates out and unset the timer
 			if !player.Skulled() {

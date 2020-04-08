@@ -37,7 +37,7 @@ func newGodspell() {
 	return func(player, spell) {
 		player.WalkingRangedAction(spell.target, func() {
 			if !player.CanAttack(spell.target) {
-				if player.IsDueling() && player.IsFighting() && spell.target == player.DuelTarget() && !player.Transients().VarBool("duelCanMagic", true) {
+				if player.IsDueling() && player.IsFighting() && spell.target == player.DuelTarget() && !player.AttributeList.VarBool("duelCanMagic", true) {
 					player.Message("Magic cannot be used during this duel!")
 				}
 				player.ResetPath()
@@ -112,7 +112,7 @@ func newMissileHandler(power) {
 	return func(player, spell) {
 		player.WalkingRangedAction(spell.target, func() {
 			if !player.CanAttack(spell.target) {
-				if player.IsDueling() && player.IsFighting() && spell.target == player.DuelTarget() && !player.Transients().VarBool("duelCanMagic", true) {
+				if player.IsDueling() && player.IsFighting() && spell.target == player.DuelTarget() && !player.AttributeList.VarBool("duelCanMagic", true) {
 					player.Message("Magic cannot be used during this duel!")
 				}
 				player.ResetPath()
@@ -178,7 +178,7 @@ func newTeleportHandler(x, y) {
 
 func spellCast(s, player) {
 	player.ResetPath()
-	lastCast = player.Transients().VarTime("lastSpell")
+	lastCast = player.AttributeList.VarTime("lastSpell")
 	if !lastCast.IsZero() && lastCast.After(tNow()) {
 		player.Message("@que@You need to wait " + toInt(import("time").Until(lastCast).Seconds()) + " seconds before you can cast another spell")
 		return false
@@ -194,12 +194,12 @@ func spellCast(s, player) {
 		return false
 	}
 	if lvDelta < 10-math.Min(math.Max((player.MagicPoints()-5)/5, 0), 5) && rand(0, (lvDelta+2)*2) == 0 {
-		player.Transients().SetVar("lastSpell", tNow().Add(tMillis*20000))
+		player.AttributeList.SetVar("lastSpell", tNow().Add(tMillis*20000))
 		player.PlaySound("spellfail")
 		player.Message("The spell fails! You may try again in 20 seconds")
 		return false
 	}
-	player.Transients().SetVar("lastSpell", tNow().Add(tMillis * 1280))
+	player.AttributeList.SetVar("lastSpell", tNow().Add(tMillis * 1280))
     player.PlaySound("spellok")
     player.Message("Cast spell successfully")
 	return true

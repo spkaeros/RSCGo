@@ -6,7 +6,7 @@ bind.onLogin(func(player) {
 	curTick = 0
 	player.Tickables += func() {
 		curTick++
-		if time.Since(player.Transients().VarTime("deathTime")) <= time.Second*5 {
+		if time.Since(player.AttributeList.VarTime("deathTime")) <= time.Second*5 {
 			// Hack to fix bug in client death screen that freezes client if no new player position packets arrive after
 			// the timer runs out.  Timer for it is 250, and decreases at a rate of 50 per sec, e.g 5 secs
 			player.ResetTickables += func() {
