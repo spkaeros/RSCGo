@@ -127,12 +127,14 @@ func (s *SkillTable) Experience(idx int) int {
 	return s.experience[idx]
 }
 
-func (s *SkillTable) String() string {
-	s := "skills("
+func (s *SkillTable) String() (s1 string) {
+	s1 += "{"
 	for i := 0; i < len(SkillNames); i++ {
-		s += (strconv.Itoa(s.Current(i)) + "/" + strconv.Itoa(s.Maximum(i)) + "(" + strconv.Itoa(s.Experience(i)) + "),")
+		s1 += strconv.Itoa(s.Current(i))
+		s1 += "/" + strconv.Itoa(s.Maximum(i))
+		s1 += " (" + strconv.Itoa(s.Experience(i)) + "),"
 	}
-	return s + ")"
+	return s1 + "}"
 }
 
 
