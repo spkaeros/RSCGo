@@ -129,7 +129,7 @@ func (s *SkillTable) Experience(idx int) int {
 
 func (s *SkillTable) String() (s1 string) {
 	s1 += "{"
-	for i := 0; i < len(SkillNames)-1; i++ {
+	for i := 0; i < 17; i++ {
 		s1 += strconv.Itoa(s.Current(i))
 		s1 += "/" + strconv.Itoa(s.Maximum(i))
 		s1 += " (" + strconv.Itoa(s.Experience(i)) + "),"
