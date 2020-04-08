@@ -16,7 +16,7 @@ type MobState = int
 //MSIdle The default MobState, means doing nothing.
 const (
 	//MSIdle The default MobState, means doing nothing.
-	MSIdle MobState = iota
+	MSIdle MobState = 1<<iota
 	//MSBanking The mob is banking.
 	MSBanking
 	//MSChatting The mob is chatting with a NPC
