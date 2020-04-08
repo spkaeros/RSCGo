@@ -48,14 +48,12 @@ func LoadCollisionData() {
 
 	entryFileCaret := 0
 	metaDataCaret := 0
-	var lastSector *Sector
 	// Sectors begin at: offsetX=48, offsetY=96
 	for i := 0; i < archive.FileCount; i++ {
 		id := int(uint32(archive.MetaData[metaDataCaret]&0xFF)<<24 | uint32(archive.MetaData[metaDataCaret+1]&0xFF)<<16 | uint32(archive.MetaData[metaDataCaret+2]&0xFF)<<8 | uint32(archive.MetaData[metaDataCaret+3]&0xFF))
 		startCaret := entryFileCaret
 		entryFileCaret += int(uint32(archive.MetaData[metaDataCaret+7]&0xFF)<<16 | uint32(archive.MetaData[metaDataCaret+8]&0xFF)<<8 | uint32(archive.MetaData[metaDataCaret+9]&0xFF))
-		Sectors[id] = loadSector(lastSector, archive.FileData[startCaret:entryFileCaret])
-		lastSector = Sectors[id]
+		Sectors[id] = loadSector(archive.FileData[startCaret:entryFileCaret])
 		metaDataCaret += 10
 	}
 }
@@ -234,7 +232,7 @@ func CollisionData(x, y int) TileData {
 }
 
 //loadSector Parses raw data into data structures that make up a 48x48 map sector.
-func loadSector(lastSector *Sector, data []byte) (s *Sector) {
+func loadSector(data []byte) (s *Sector) {
 	// If we were given less than the length of a decompressed, raw map sector
 	if len(data) < 23040 {
 		log.Warning.Printf("Too short sector data: %d\n", len(data))
@@ -260,14 +258,6 @@ func loadSector(lastSector *Sector, data []byte) (s *Sector) {
 				blankCount++
 			}
 			tileIdx := x*RegionSize + y
-			idxNorth := x*RegionSize+(y-1)
-			idxEast := (x-1)*RegionSize+y
-			if idxNorth < 0 {
-				idxNorth += 2304
-			}
-			if idxEast < 0 {
-				idxEast += 2304
-			}
 			//			s.Tiles[tileIdx].GroundOverlay = groundOverlay
 			if groundOverlay > 0 && TileDefs[groundOverlay-1].Blocked != 0 {
 				s.Tiles[tileIdx].CollisionMask |= ClipFullBlock
@@ -280,8 +270,8 @@ func loadSector(lastSector *Sector, data []byte) (s *Sector) {
 				if y > 0 {
 					// -1 is tile x,y-1
 					s.Tiles[x*RegionSize+y-1].CollisionMask |= ClipSouth
-				} else if lastSector != nil {
-					lastSector.Tiles[RegionSize*RegionSize+(y-1)].CollisionMask |= ClipSouth
+	//			} else if lastSector != nil {
+	//				lastSector.Tiles[RegionSize*RegionSize+(y-1)].CollisionMask |= ClipSouth
 				}
 			}
 			// horizontal that blocks E<->W (|)
@@ -292,9 +282,9 @@ func loadSector(lastSector *Sector, data []byte) (s *Sector) {
 				if x > 0 {
 					// -48 is tile x-1,y
 					s.Tiles[(x-1)*RegionSize+y].CollisionMask |= ClipWest
-				} else {
+	//			} else {
 					// TODO: Verify working
-					lastSector.Tiles[(RegionSize-1)*RegionSize+y].CollisionMask |= ClipWest
+//					lastSector.Tiles[(RegionSize-1)*RegionSize+y].CollisionMask |= ClipWest
 				}
 			}
 			// diags disable the entire tile.
