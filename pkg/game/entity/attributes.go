@@ -256,7 +256,7 @@ func (a *AttributeList) VarEntity(name string) Entity {
 //VarMob checks if there is a entity.MobileEntity attribute assigned to the specified name, and returns it.
 // Otherwise, returns nil.
 func (a *AttributeList) VarMob(name string) MobileEntity {
-	if e := a.VarEntity(name).(MobileEntity); (e.Type()&TypeMob) != 0 {
+	if e := a.VarEntity(name); e != nil && (e.Type()&TypeMob) != 0 {
 		return e.(MobileEntity)
 	}
 	
