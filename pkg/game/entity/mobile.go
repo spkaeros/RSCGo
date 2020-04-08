@@ -60,4 +60,5 @@ type MobileEntity interface {
 	PrayerModifiers() [3]float64
 	Skills() *SkillTable
 	Transients() *AttributeList
+	TargetMob() MobileEntity
 }

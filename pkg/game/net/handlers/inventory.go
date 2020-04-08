@@ -17,7 +17,7 @@ import (
 
 func init() {
 	AddHandler("invwield", func(player *world.Player, p *net.Packet) {
-		if player.IsDueling() && player.IsFighting() && !player.TransAttrs.VarBool("duelCanEquip", true) {
+		if player.IsDueling() && player.IsFighting() && !player.VarBool("duelCanEquip", true) {
 			player.Message("You can not use equipment in this duel")
 			return
 		}

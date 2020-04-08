@@ -141,18 +141,30 @@ func (l *MobList) RangeNpcs(action func(*NPC) bool) int {
 //Mob Represents a mobile entity within the game world.
 type Mob struct {
 	*Entity
-	TransAttrs     *entity.AttributeList
+	*entity.AttributeList
 	SyncMask       int
 	ResetTickables []func()
 	sync.RWMutex
+}
+
+func (m *Mob) TargetMob() entity.MobileEntity {
+	return m.VarMob("targetMob")
+}
+
+func (m *Mob) TargetNpc() *NPC {
+	return m.VarNpc("targetMob").(*NPC)
+}
+
+func (m *Mob) TargetPlayer() *Player {
+	return m.VarNpc("targetMob").(*Player)
 }
 
 func (p *Player) IsPlayer() bool {
 	return true
 }
 
-func (p *Player) Type() entity.EntityType {
-	return -1
+func (p *Player) Type() entity.Type {
+	return entity.TypePlayer
 }
 
 func (p *Player) ServerIndex() int {
@@ -167,6 +179,10 @@ func (p *Player) IsNpc() bool {
 	return false
 }
 
+func (n *NPC) Type() entity.Type {
+	return entity.TypeNpc
+}
+
 func (n *NPC) IsPlayer() bool {
 	return false
 }
@@ -176,7 +192,7 @@ func (n *NPC) IsNpc() bool {
 }
 
 func (m *Mob) Transients() *entity.AttributeList {
-	return m.TransAttrs
+	return m.AttributeList
 }
 
 //Busy Returns true if this mobs state is anything other than idle. otherwise returns false.
@@ -189,45 +205,45 @@ func (m *Mob) IsFighting() bool {
 }
 
 func (m *Mob) FightTarget() entity.MobileEntity {
-	return m.TransAttrs.VarMob("fightTarget")
+	return m.VarMob("fightTarget")
 }
 
 func (m *Mob) SetFightTarget(m2 entity.MobileEntity) {
-	m.TransAttrs.SetVar("fightTarget", m2)
+	m.SetVar("fightTarget", m2)
 }
 
 func (m *Mob) FightRound() int {
-	return m.TransAttrs.VarInt("fightRound", 0)
+	return m.VarInt("fightRound", 0)
 }
 
 func (m *Mob) SetFightRound(i int) {
-	m.TransAttrs.SetVar("fightRound", i)
+	m.SetVar("fightRound", i)
 }
 
 func (m *Mob) LastRetreat() time.Time {
-	return m.TransAttrs.VarTime("lastRetreat")
+	return m.VarTime("lastRetreat")
 }
 
 func (m *Mob) LastFight() time.Time {
-	return m.TransAttrs.VarTime("lastFight")
+	return m.VarTime("lastFight")
 }
 
 func (m *Mob) UpdateLastRetreat() {
-	m.TransAttrs.SetVar("lastRetreat", time.Now())
+	m.SetVar("lastRetreat", time.Now())
 }
 
 func (m *Mob) UpdateLastFight() {
-	m.TransAttrs.SetVar("lastFight", time.Now())
+	m.SetVar("lastFight", time.Now())
 }
 
 //Direction Returns the mobs direction.
 func (m *Mob) Direction() int {
-	return m.TransAttrs.VarInt("direction", North)
+	return m.VarInt("direction", North)
 }
 
 //SetDirection Sets the mobs direction.
 func (m *Mob) SetDirection(direction int) {
-	m.TransAttrs.SetVar("direction", direction)
+	m.SetVar("direction", direction)
 	m.SetSpriteUpdated()
 }
 
@@ -284,7 +300,7 @@ func (m *Mob) ResetSpriteUpdated() {
 
 //SetPath Sets the mob's current pathway to path.  If path is nil, effectively resets the mobs path.
 func (m *Mob) SetPath(path *Pathway) {
-	m.TransAttrs.SetVar("path", path)
+	m.SetVar("path", path)
 }
 
 func (m *Mob) WalkTo(end Location) {
@@ -294,7 +310,7 @@ func (m *Mob) WalkTo(end Location) {
 
 //Path returns the path that this mob is trying to traverse.
 func (m *Mob) Path() *Pathway {
-	v, ok := m.TransAttrs.Var("path")
+	v, ok := m.Var("path")
 	if ok {
 		return v.(*Pathway)
 	}
@@ -303,15 +319,15 @@ func (m *Mob) Path() *Pathway {
 
 //ResetPath Sets the mobs path to nil, to stop the traversal of the path instantly
 func (m *Mob) ResetPath() {
-	m.TransAttrs.UnsetVar("path")
-	m.TransAttrs.UnsetVar("pathLength")
+	m.UnsetVar("path")
+	m.UnsetVar("pathLength")
 }
 
 //FinishedPath Returns true if the mobs path is nil, the paths current waypoint exceeds the number of waypoints available, or the next tile in the path is not a valid location, implying that we have reached our destination.
 func (m *Mob) FinishedPath() bool {
 	path := m.Path()
 	if path == nil {
-		return m.TransAttrs.VarInt("pathLength", 0) <= 0
+		return m.VarInt("pathLength", 0) <= 0
 	}
 	return path.CurrentWaypoint >= path.countWaypoints() || !path.nextTileFrom(m.Location).IsValid()
 }
@@ -362,7 +378,7 @@ func (n *NPC) Teleport(x, y int) {
 }
 
 func (m *Mob) State() int {
-	return m.TransAttrs.VarInt("state", MSIdle)
+	return m.VarInt("state", MSIdle)
 }
 
 //HasState Returns true if the mob has any of these states
@@ -395,7 +411,7 @@ func (m *Mob) RemoveState(state int) {
 
 //ResetFighting Resets melee fight related variables
 func (m *Mob) ResetFighting() {
-	target := m.TransAttrs.VarMob("fightTarget")
+	target := m.VarMob("fightTarget")
 	if target != nil && target.IsFighting() {
 		target.Transients().UnsetVar("fightTarget")
 		target.Transients().UnsetVar("fightRound")
@@ -407,8 +423,8 @@ func (m *Mob) ResetFighting() {
 		target.UpdateLastFight()
 	}
 	if m.IsFighting() {
-		m.TransAttrs.UnsetVar("fightTarget")
-		m.TransAttrs.UnsetVar("fightRound")
+		m.UnsetVar("fightTarget")
+		m.UnsetVar("fightRound")
 		m.SetDirection(North)
 		m.RemoveState(MSFighting)
 		if m.HasState(MSDueling) {
@@ -420,160 +436,160 @@ func (m *Mob) ResetFighting() {
 
 //FightMode Returns the players current fight mode.
 func (m *Mob) FightMode() int {
-	return m.TransAttrs.VarInt("fight_mode", 0)
+	return m.VarInt("fight_mode", 0)
 }
 
 //SetFightMode Sets the players fightmode to i.  0=all,1=attack,2=defense,3=strength
 func (m *Mob) SetFightMode(i int) {
-	m.TransAttrs.SetVar("fight_mode", i)
+	m.SetVar("fight_mode", i)
 }
 
 //ArmourPoints Returns the players armour points.
 func (m *Mob) ArmourPoints() int {
-	return m.TransAttrs.VarInt("armour_points", 1)
+	return m.VarInt("armour_points", 1)
 }
 
 //SetArmourPoints Sets the players armour points to i.
 func (m *Mob) SetArmourPoints(i int) {
-	m.TransAttrs.SetVar("armour_points", i)
+	m.SetVar("armour_points", i)
 }
 
 func (m *Mob) IncArmourPoints(i int) {
-	points := m.TransAttrs.VarInt("armour_points", 1)
+	points := m.VarInt("armour_points", 1)
 	if points == 1 {
-		m.TransAttrs.SetVar("armour_points", i)
+		m.SetVar("armour_points", i)
 	} else {
-		m.TransAttrs.IncVar("armour_points", i)
+		m.Inc("armour_points", i)
 	}
 }
 
 //PowerPoints Returns the players power points.
 func (m *Mob) PowerPoints() int {
-	return m.TransAttrs.VarInt("power_points", 1)
+	return m.VarInt("power_points", 1)
 }
 
 //SetPowerPoints Sets the players power points to i
 func (m *Mob) SetPowerPoints(i int) {
-	m.TransAttrs.SetVar("power_points", i)
+	m.SetVar("power_points", i)
 }
 
 func (m *Mob) IncPowerPoints(i int) {
-	points := m.TransAttrs.VarInt("power_points", 1)
+	points := m.VarInt("power_points", 1)
 	if points == 1 {
-		m.TransAttrs.SetVar("power_points", i)
+		m.SetVar("power_points", i)
 	} else {
-		m.TransAttrs.IncVar("power_points", i)
+		m.Inc("power_points", i)
 	}
 }
 
 //AimPoints Returns the players aim points
 func (m *Mob) AimPoints() int {
-	return m.TransAttrs.VarInt("aim_points", 1)
+	return m.VarInt("aim_points", 1)
 }
 
 func (m *Mob) IncAimPoints(i int) {
-	points := m.TransAttrs.VarInt("aim_points", 1)
+	points := m.VarInt("aim_points", 1)
 	if points == 1 {
-		m.TransAttrs.SetVar("aim_points", i)
+		m.SetVar("aim_points", i)
 	} else {
-		m.TransAttrs.IncVar("aim_points", i)
+		m.Inc("aim_points", i)
 	}
 }
 
 //SetAimPoints Sets the players aim points to i.
 func (m *Mob) SetAimPoints(i int) {
-	m.TransAttrs.SetVar("aim_points", i)
+	m.SetVar("aim_points", i)
 }
 
 //MagicPoints Returns the players magic points
 func (m *Mob) MagicPoints() int {
-	return m.TransAttrs.VarInt("magic_points", 1)
+	return m.VarInt("magic_points", 1)
 }
 
 func (m *Mob) IncMagicPoints(i int) {
-	points := m.TransAttrs.VarInt("magic_points", 1)
+	points := m.VarInt("magic_points", 1)
 	if points == 1 {
-		m.TransAttrs.SetVar("magic_points", i)
+		m.SetVar("magic_points", i)
 	} else {
-		m.TransAttrs.IncVar("magic_points", i)
+		m.Inc("magic_points", i)
 	}
 }
 
 //SetMagicPoints Sets the players magic points to i
 func (m *Mob) SetMagicPoints(i int) {
-	m.TransAttrs.SetVar("magic_points", i)
+	m.SetVar("magic_points", i)
 }
 
 func (m *Mob) IncPrayerPoints(i int) {
-	points := m.TransAttrs.VarInt("prayer_points", 1)
+	points := m.VarInt("prayer_points", 1)
 	if points == 1 {
-		m.TransAttrs.SetVar("prayer_points", i)
+		m.SetVar("prayer_points", i)
 	} else {
-		m.TransAttrs.IncVar("prayer_points", i)
+		m.Inc("prayer_points", i)
 	}
 }
 
 //PrayerPoints Returns the players prayer points
 func (m *Mob) PrayerPoints() int {
-	return m.TransAttrs.VarInt("prayer_points", 1)
+	return m.VarInt("prayer_points", 1)
 }
 
 //SetPrayerPoints Sets the players prayer points to i
 func (m *Mob) SetPrayerPoints(i int) {
-	m.TransAttrs.SetVar("prayer_points", i)
+	m.SetVar("prayer_points", i)
 }
 
 //RangedPoints Returns the players ranged points.
 func (m *Mob) RangedPoints() int {
-	return m.TransAttrs.VarInt("ranged_points", 1)
+	return m.VarInt("ranged_points", 1)
 }
 
 func (m *Mob) IncRangedPoints(i int) {
-	points := m.TransAttrs.VarInt("ranged_points", 1)
+	points := m.VarInt("ranged_points", 1)
 	if points == 1 {
-		m.TransAttrs.SetVar("ranged_points", i)
+		m.SetVar("ranged_points", i)
 	} else {
-		m.TransAttrs.IncVar("ranged_points", i)
+		m.Inc("ranged_points", i)
 	}
 }
 
 //SetRangedPoints Sets the players ranged points tp i.
 func (m *Mob) SetRangedPoints(i int) {
-	m.TransAttrs.SetVar("ranged_points", i)
+	m.SetVar("ranged_points", i)
 }
 
 func (m *Mob) Skills() *entity.SkillTable {
-	return m.TransAttrs.VarSkills("skills")
+	return m.VarChecked("skills").(*entity.SkillTable)
 }
 
 func (m *Mob) PrayerModifiers() [3]float64 {
 	var modifiers = [...]float64{1.0, 1.0, 1.0}
 
-	if m.TransAttrs.VarBool("prayer0", false) {
+	if m.VarBool("prayer0", false) {
 		modifiers[1] += .05
 	}
-	if m.TransAttrs.VarBool("prayer1", false) {
+	if m.VarBool("prayer1", false) {
 		modifiers[2] += .05
 	}
-	if m.TransAttrs.VarBool("prayer2", false) {
+	if m.VarBool("prayer2", false) {
 		modifiers[0] += .05
 	}
-	if m.TransAttrs.VarBool("prayer3", false) {
+	if m.VarBool("prayer3", false) {
 		modifiers[1] += .1
 	}
-	if m.TransAttrs.VarBool("prayer4", false) {
+	if m.VarBool("prayer4", false) {
 		modifiers[2] += .1
 	}
-	if m.TransAttrs.VarBool("prayer5", false) {
+	if m.VarBool("prayer5", false) {
 		modifiers[0] += .1
 	}
-	if m.TransAttrs.VarBool("prayer9", false) {
+	if m.VarBool("prayer9", false) {
 		modifiers[1] += .15
 	}
-	if m.TransAttrs.VarBool("prayer10", false) {
+	if m.VarBool("prayer10", false) {
 		modifiers[2] += .15
 	}
-	if m.TransAttrs.VarBool("prayer11", false) {
+	if m.VarBool("prayer11", false) {
 		modifiers[0] += .15
 	}
 

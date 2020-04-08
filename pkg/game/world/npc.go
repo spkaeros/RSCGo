@@ -52,7 +52,7 @@ type NPC struct {
 
 //NewNpc Creates a new NPC and returns a reference to it
 func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
-	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: NewLocation(startX, startY)}, TransAttrs: entity.NewAttributeList()}}
+	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: NewLocation(startX, startY)}, AttributeList: entity.NewAttributeList()}}
 	n.Transients().SetVar("skills", &entity.SkillTable{})
 	n.Boundaries[0] = NewLocation(minX, minY)
 	n.Boundaries[1] = NewLocation(maxX, maxY)
@@ -95,11 +95,11 @@ func UpdateNPCPositions() {
 		if n.Busy() || n.IsFighting() || n.Equals(DeathPoint) {
 			continue
 		}
-		if n.TransAttrs.VarTime("nextMove").Before(time.Now()) {
+		if n.VarTime("nextMove").Before(time.Now()) {
 			for _, r := range surroundingRegions(n.X(), n.Y()) {
 				if r.Players.Size() > 0 {
-					n.TransAttrs.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
-					n.TransAttrs.SetVar("pathLength", rand.Int31N(5, 15))
+					n.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
+					n.SetVar("pathLength", rand.Int31N(5, 15))
 					break
 				}
 			}
@@ -147,10 +147,6 @@ type NpcBlockingTrigger struct {
 
 //NpcDeathTriggers List of script callbacks to run when you kill an NPC
 var NpcDeathTriggers []NpcBlockingTrigger
-
-func (n *NPC) Type() entity.EntityType {
-	return entity.TypeNpc
-}
 
 func (n *NPC) Damage(dmg int) {
 	for _, r := range surroundingRegions(n.X(), n.Y()) {
@@ -201,17 +197,17 @@ func (n *NPC) TraversePath() {
 			return
 		}*/
 	//dst := path.nextTile()
-	if n.TransAttrs.VarInt("pathLength", 0) <= 0 {
+	if n.VarInt("pathLength", 0) <= 0 {
 		return
 	}
 	
 	for tries := 0; tries < 10; tries++ {
 		if Chance(25) {
-			n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
+			n.SetVar("pathDir", int(rand.Uint8n(8)))
 		}
 		
 		dst := n.Location.Clone()
-		dir := n.TransAttrs.VarInt("pathDir", North);
+		dir := n.VarInt("pathDir", North);
 		if dir == West || dir == SouthWest || dir == NorthWest {
 			dst.x.Inc()
 		} else if dir == East || dir == SouthEast || dir == NorthEast {
@@ -226,11 +222,11 @@ func (n *NPC) TraversePath() {
 		if !n.Reachable(dst.X(), dst.Y()) ||
 				dst.X() < n.Boundaries[0].X() || dst.X() > n.Boundaries[1].X() ||
 				dst.Y() < n.Boundaries[0].Y() || dst.Y() > n.Boundaries[1].Y(){
-			n.TransAttrs.SetVar("pathDir", int(rand.Uint8n(8)))
+			n.SetVar("pathDir", int(rand.Uint8n(8)))
 			continue
 		}
 
-		n.TransAttrs.DecVar("pathLength", 1)
+		n.Dec("pathLength", 1)
 		n.SetLocation(dst, false)
 		break
 	}

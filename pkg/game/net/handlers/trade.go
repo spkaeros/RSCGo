@@ -76,7 +76,7 @@ func init() {
 			c1.SendPacket(world.TradeClose)
 			return
 		}
-		if (c1.TransAttrs.VarBool("trade1accept", false) || c1.TransAttrs.VarBool("trade2accept", false)) && (player.TransAttrs.VarBool("trade1accept", false) || player.TransAttrs.VarBool("trade2accept", false)) {
+		if (c1.VarBool("trade1accept", false) || c1.VarBool("trade2accept", false)) && (player.VarBool("trade1accept", false) || player.VarBool("trade2accept", false)) {
 			log.Suspicious.Printf("Players{ %v;2:%v } involved in trade, player 1 attempted to alter offer after both players accepted!\n", player.String(), c1.String())
 			player.ResetTrade()
 			c1.ResetTrade()
@@ -84,8 +84,8 @@ func init() {
 			c1.SendPacket(world.TradeClose)
 			return
 		}
-		player.TransAttrs.UnsetVar("trade1accept")
-		c1.TransAttrs.UnsetVar("trade1accept")
+		player.UnsetVar("trade1accept")
+		c1.UnsetVar("trade1accept")
 		player.TradeOffer.Clear()
 		defer func() {
 			c1.SendPacket(world.TradeUpdate(player))
@@ -147,8 +147,8 @@ func init() {
 			c1.SendPacket(world.TradeClose)
 			return
 		}
-		player.TransAttrs.SetVar("trade1accept", true)
-		if c1.TransAttrs.VarBool("trade1accept", false) {
+		player.SetVar("trade1accept", true)
+		if c1.VarBool("trade1accept", false) {
 			player.SendPacket(world.TradeConfirmationOpen(player, c1))
 			c1.SendPacket(world.TradeConfirmationOpen(c1, player))
 		} else {
@@ -156,7 +156,7 @@ func init() {
 		}
 	})
 	AddHandler("tradeconfirmaccept", func(player *world.Player, p *net.Packet) {
-		if !player.IsTrading() || !player.TransAttrs.VarBool("trade1accept", false) {
+		if !player.IsTrading() || !player.VarBool("trade1accept", false) {
 			log.Suspicious.Printf("%v attempted to accept a trade confirmation it was not in!\n", player.String())
 			player.ResetTrade()
 			player.SendPacket(world.TradeClose)
@@ -169,7 +169,7 @@ func init() {
 			player.SendPacket(world.TradeClose)
 			return
 		}
-		if !target.IsTrading() || target.TradeTarget() != player.Index || player.TradeTarget() != target.Index || !target.TransAttrs.VarBool("trade1accept", false) {
+		if !target.IsTrading() || target.TradeTarget() != player.Index || player.TradeTarget() != target.Index || !target.VarBool("trade1accept", false) {
 			log.Suspicious.Printf("Players{ 1:%v; 2:%v } involved in trade with apparently bad trade variables!\n", player.String(), target.String())
 			player.ResetTrade()
 			target.ResetTrade()
@@ -177,8 +177,8 @@ func init() {
 			target.SendPacket(world.TradeClose)
 			return
 		}
-		player.TransAttrs.SetVar("trade2accept", true)
-		if target.TransAttrs.VarBool("trade2accept", false) {
+		player.SetVar("trade2accept", true)
+		if target.VarBool("trade2accept", false) {
 			neededSlots := target.TradeOffer.Size()
 			availSlots := player.Inventory.Capacity - player.Inventory.Size() + player.TradeOffer.Size()
 			theirNeededSlots := player.TradeOffer.Size()

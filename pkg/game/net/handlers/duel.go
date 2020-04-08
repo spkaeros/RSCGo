@@ -83,7 +83,7 @@ func init() {
 			log.Suspicious.Println(player, "attempted modifying duel state (with", target, ") during the duels fight!!")
 			return
 		}
-		if (target.TransAttrs.VarBool("duel1accept", false) || target.TransAttrs.VarBool("duel2accept", false)) && (player.TransAttrs.VarBool("duel1accept", false) || player.TransAttrs.VarBool("duel2accept", false)) {
+		if (target.VarBool("duel1accept", false) || target.VarBool("duel2accept", false)) && (player.VarBool("duel1accept", false) || player.VarBool("duel2accept", false)) {
 			log.Suspicious.Printf("Players{ %v;2:%v } involved in duel, player 1 attempted to alter offer after both players accepted!\n", player.String(), target.String())
 			player.ResetDuel()
 			player.SendPacket(world.DuelClose)
@@ -144,15 +144,15 @@ func init() {
 		prayerAllowed := p.ReadBoolean()
 		equipmentAllowed := p.ReadBoolean()
 
-		player.TransAttrs.SetVar("duelCanRetreat", !retreatsAllowed)
-		player.TransAttrs.SetVar("duelCanMagic", !magicAllowed)
-		player.TransAttrs.SetVar("duelCanPrayer", !prayerAllowed)
-		player.TransAttrs.SetVar("duelCanEquip", !equipmentAllowed)
+		player.SetVar("duelCanRetreat", !retreatsAllowed)
+		player.SetVar("duelCanMagic", !magicAllowed)
+		player.SetVar("duelCanPrayer", !prayerAllowed)
+		player.SetVar("duelCanEquip", !equipmentAllowed)
 
-		target.TransAttrs.SetVar("duelCanRetreat", !retreatsAllowed)
-		target.TransAttrs.SetVar("duelCanMagic", !magicAllowed)
-		target.TransAttrs.SetVar("duelCanPrayer", !prayerAllowed)
-		target.TransAttrs.SetVar("duelCanEquip", !equipmentAllowed)
+		target.SetVar("duelCanRetreat", !retreatsAllowed)
+		target.SetVar("duelCanMagic", !magicAllowed)
+		target.SetVar("duelCanPrayer", !prayerAllowed)
+		target.SetVar("duelCanEquip", !equipmentAllowed)
 		player.SendPacket(world.DuelOptions(player))
 		target.SendPacket(world.DuelOptions(target))
 	})
@@ -213,7 +213,7 @@ func init() {
 			return
 		}
 		player.SetDuel1Accepted()
-		if target.TransAttrs.VarBool("duel1accept", false) {
+		if target.VarBool("duel1accept", false) {
 			player.SendPacket(world.DuelConfirmationOpen(player, target))
 			target.SendPacket(world.DuelConfirmationOpen(target, player))
 		} else {
@@ -221,7 +221,7 @@ func init() {
 		}
 	})
 	AddHandler("duelconfirmaccept", func(player *world.Player, p *net.Packet) {
-		if !player.IsDueling() || !player.TransAttrs.VarBool("duel1accept", false) {
+		if !player.IsDueling() || !player.VarBool("duel1accept", false) {
 			log.Suspicious.Printf("%v attempted to accept a duel confirmation it was not in!\n", player.String())
 			player.ResetDuel()
 			player.SendPacket(world.DuelClose)
@@ -234,7 +234,7 @@ func init() {
 			player.SendPacket(world.DuelClose)
 			return
 		}
-		if !target.IsDueling() || target.DuelTarget() != player || !target.TransAttrs.VarBool("duel1accept", false) {
+		if !target.IsDueling() || target.DuelTarget() != player || !target.VarBool("duel1accept", false) {
 			log.Suspicious.Printf("Players{ 1:%v; 2:%v } involved in duel with apparently bad state!\n", player.String(), target.String())
 			player.ResetDuel()
 			player.SendPacket(world.DuelClose)
@@ -247,17 +247,17 @@ func init() {
 			return
 		}
 		player.SetDuel2Accepted()
-		if target.TransAttrs.VarBool("duel2accept", false) {
+		if target.VarBool("duel2accept", false) {
 			player.ResetDuelAccepted()
 			target.ResetDuelAccepted()
-			if !player.TransAttrs.VarBool("duelCanPrayer", true) {
+			if !player.VarBool("duelCanPrayer", true) {
 				for i := 0; i < 14; i++ {
 					player.PrayerOff(i)
 				}
 				player.SendPrayers()
 				player.Message("You cannot use prayer in this duel!")
 			}
-			if !player.TransAttrs.VarBool("duelCanEquip", true) {
+			if !player.VarBool("duelCanEquip", true) {
 				player.Inventory.Range(func(item *world.Item) bool {
 					if item.Worn {
 						player.DequipItem(item)
@@ -266,14 +266,14 @@ func init() {
 				})
 				player.SendInventory()
 			}
-			if !target.TransAttrs.VarBool("duelCanPrayer", true) {
+			if !target.VarBool("duelCanPrayer", true) {
 				for i := 0; i < 14; i++ {
 					target.PrayerOff(i)
 				}
 				target.SendPrayers()
 				target.Message("You cannot use prayer in this duel!")
 			}
-			if !target.TransAttrs.VarBool("duelCanEquip", true) {
+			if !target.VarBool("duelCanEquip", true) {
 				target.Inventory.Range(func(item *world.Item) bool {
 					if item.Worn {
 						target.DequipItem(item)

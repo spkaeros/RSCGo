@@ -32,7 +32,7 @@ func (l *entityList) NearbyPlayers(p *Player) []*Player {
 	defer l.lock.RUnlock()
 	var players []*Player
 	for _, v := range l.set {
-		if v, ok := v.(*Player); ok && v.Index != p.Index && p.LongestDelta(v.Location) < p.TransAttrs.VarInt("viewRadius", 16) {
+		if v, ok := v.(*Player); ok && v.Index != p.Index && p.LongestDelta(v.Location) < p.VarInt("viewRadius", 16) {
 			players = append(players, v)
 		}
 	}
@@ -46,7 +46,7 @@ func (l *entityList) NearbyNpcs(p *Player) []*NPC {
 	defer l.lock.RUnlock()
 	var npcs []*NPC
 	for _, v := range l.set {
-		if v, ok := v.(*NPC); ok && p.LongestDelta(v.Location) < p.TransAttrs.VarInt("viewRadius", 16) {
+		if v, ok := v.(*NPC); ok && p.LongestDelta(v.Location) < p.VarInt("viewRadius", 16) {
 			npcs = append(npcs, v)
 		}
 	}
@@ -60,7 +60,7 @@ func (l *entityList) NearbyObjects(p *Player) []*Object {
 	defer l.lock.RUnlock()
 	var objects []*Object
 	for _, o1 := range l.set {
-		if o1, ok := o1.(*Object); ok && p.LongestDelta(o1.Location) < p.TransAttrs.VarInt("viewRadius", 16)+5 {
+		if o1, ok := o1.(*Object); ok && p.LongestDelta(o1.Location) < p.VarInt("viewRadius", 16)+5 {
 			objects = append(objects, o1)
 		}
 	}
@@ -74,7 +74,7 @@ func (l *entityList) NearbyItems(p *Player) []*GroundItem {
 	defer l.lock.RUnlock()
 	var items []*GroundItem
 	for _, i := range l.set {
-		if i, ok := i.(*GroundItem); ok && i.VisibleTo(p) && p.WithinRange(i.Location, p.TransAttrs.VarInt("viewRadius", 16)) {
+		if i, ok := i.(*GroundItem); ok && i.VisibleTo(p) && p.WithinRange(i.Location, p.VarInt("viewRadius", 16)) {
 			items = append(items, i)
 		}
 	}

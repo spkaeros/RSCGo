@@ -128,11 +128,11 @@ type Player struct {
 }
 
 func (p *Player) UsernameHash() uint64 {
-	return p.TransAttrs.VarLong("username", strutil.Base37.Encode("nil"))
+	return p.VarLong("username", strutil.Base37.Encode("nil"))
 }
 
 func (p *Player) Bank() *Inventory {
-	i, ok := p.TransAttrs.Var("bank")
+	i, ok := p.Var("bank")
 	if ok {
 		return i.(*Inventory)
 	}
@@ -144,7 +144,7 @@ func (p *Player) CanAttack(target entity.MobileEntity) bool {
 		return NpcDefs[target.(*NPC).ID].Attackable
 	}
 	if p.IsDueling() && p.IsFighting() {
-		return p.DuelTarget() == target && p.TransAttrs.VarBool("duelCanMagic", true)
+		return p.DuelTarget() == target && p.VarBool("duelCanMagic", true)
 	}
 	p1 := target.(*Player)
 	ourWild := p.Wilderness()
@@ -169,23 +169,23 @@ func (p *Player) CanAttack(target entity.MobileEntity) bool {
 }
 
 func (p *Player) Username() string {
-	return strutil.Base37.Decode(p.TransAttrs.VarLong("username", strutil.Base37.Encode("NIL")))
+	return strutil.Base37.Decode(p.VarLong("username", strutil.Base37.Encode("NIL")))
 }
 
 func (p *Player) CurrentIP() string {
-	return p.TransAttrs.VarString("currentIP", "0.0.0.0")
+	return p.VarString("currentIP", "0.0.0.0")
 }
 
 func (p *Player) Rank() int {
-	return p.TransAttrs.VarInt("rank", 0)
+	return p.VarInt("rank", 0)
 }
 
 func (p *Player) DatabaseID() int {
-	return p.TransAttrs.VarInt("dbID", -1)
+	return p.VarInt("dbID", -1)
 }
 
 func (p *Player) AppearanceTicket() int {
-	return p.TransAttrs.VarInt("appearanceTicket", 0)
+	return p.VarInt("appearanceTicket", 0)
 }
 
 //String returns a string populated with the more identifying features of this player.
@@ -271,20 +271,20 @@ func (p *Player) WalkingArrivalAction(target entity.MobileEntity, dist int, acti
 		}
 		if target == nil ||
 			(p.Busy() && !p.IsFighting() && !p.IsDueling()) ||
-			(p.IsFighting() && p.IsDueling() && (!p.TransAttrs.VarBool("duelCanMagic", true) || target != p.DuelTarget())) {
+			(p.IsFighting() && p.IsDueling() && (!p.VarBool("duelCanMagic", true) || target != p.DuelTarget())) {
 			p.ResetPath()
 			return true
 		}
 
 		if p.WithinRange(NewLocation(target.X(), target.Y()), dist) {
 			if !p.CanReachMob(target) {
-				if p.TransAttrs.VarInt("triedReach", 0) >= 5 {
-					p.TransAttrs.UnsetVar("triedReach")
+				if p.VarInt("triedReach", 0) >= 5 {
+					p.UnsetVar("triedReach")
 					p.ResetPath()
 					return true
 				}
 
-				p.TransAttrs.UnsetVar("triedReach")
+				p.UnsetVar("triedReach")
 				return false
 			}
 			action()
@@ -301,16 +301,16 @@ func (p *Player) CanReachMob(target entity.MobileEntity) bool {
 	pathX := p.X()
 	pathY := p.Y()
 
-	if p.TransAttrs.VarInt("triedReach", 0) >= 5 {
+	if p.VarInt("triedReach", 0) >= 5 {
 		// Tried reaching one mob >=5 times without single success, abort early.
 		p.ResetPath()
 		return false
 	}
-	p.TransAttrs.IncVar("triedReach", 1)
+	p.Inc("triedReach", 1)
 
 	for steps := 0; steps < 21; steps++ {
 		if pathX == target.X() && pathY == target.Y() {
-			p.TransAttrs.UnsetVar("triedReach")
+			p.UnsetVar("triedReach")
 			break
 		}
 
@@ -318,7 +318,7 @@ func (p *Player) CanReachMob(target entity.MobileEntity) bool {
 			return false
 		}
 	}
-	p.TransAttrs.UnsetVar("triedReach")
+	p.UnsetVar("triedReach")
 
 	return pathX == target.X() && pathY == target.Y()
 }
@@ -358,32 +358,32 @@ func (p *Player) IsFollowing() bool {
 
 //ServerSeed returns the seed for the ISAAC cipher provided by the game for this player, if set, otherwise returns 0
 func (p *Player) ServerSeed() uint64 {
-	return p.TransAttrs.VarLong("server_seed", 0)
+	return p.VarLong("server_seed", 0)
 }
 
 //SetServerSeed sets the player's stored game seed to seed for later comparison to ensure we decrypted the login block properly and the player received the proper seed.
 func (p *Player) SetServerSeed(seed uint64) {
-	p.TransAttrs.SetVar("server_seed", seed)
+	p.SetVar("server_seed", seed)
 }
 
 //Reconnecting returns true if the player is reconnecting, false otherwise.
 func (p *Player) Reconnecting() bool {
-	return p.TransAttrs.VarBool("reconnecting", false)
+	return p.VarBool("reconnecting", false)
 }
 
 //SetReconnecting sets the player's reconnection status to flag.
 func (p *Player) SetReconnecting(flag bool) {
-	p.TransAttrs.SetVar("reconnecting", flag)
+	p.SetVar("reconnecting", flag)
 }
 
 //Connected returns true if the player is connected, false otherwise.
 func (p *Player) Connected() bool {
-	return p.TransAttrs.VarBool("connected", false)
+	return p.VarBool("connected", false)
 }
 
 //SetConnected sets the player's connected status to flag.
 func (p *Player) SetConnected(flag bool) {
-	p.TransAttrs.SetVar("connected", flag)
+	p.SetVar("connected", flag)
 }
 
 //FirstLogin returns true if this player has never logged in before, otherwise false.
@@ -398,18 +398,18 @@ func (p *Player) SetFirstLogin(flag bool) {
 
 //StartFollowing sets the transient attribute for storing the radius with which we want to stay near our target
 func (p *Player) StartFollowing(radius int) {
-	p.TransAttrs.SetVar("followrad", radius)
+	p.SetVar("followrad", radius)
 }
 
 //FollowRadius returns the radius within which we should follow whatever mob we are following, or -1 if we aren't following anyone.
 func (p *Player) FollowRadius() int {
-	return p.TransAttrs.VarInt("followrad", -1)
+	return p.VarInt("followrad", -1)
 }
 
 //ResetFollowing resets the transient attribute for storing the radius within which we want to stay to our target mob
 // and resets our path.
 func (p *Player) ResetFollowing() {
-	p.TransAttrs.UnsetVar("followrad")
+	p.UnsetVar("followrad")
 	p.ResetPath()
 }
 
@@ -492,10 +492,6 @@ func (p *Player) UpdateRegion(x, y int) {
 		}
 		newArea.Players.Add(p)
 	}
-}
-
-func Type() entity.EntityType {
-	return entity.TypePlayer
 }
 
 //DistributeMeleeExp This is a helper method to distribute experience amongst the players melee stats according to
@@ -586,7 +582,7 @@ func (p *Player) EquipItem(item *Item) {
 
 func (p *Player) UpdateAppearance() {
 	p.SetAppearanceChanged()
-	p.TransAttrs.SetVar("appearanceTicket", p.AppearanceTicket()+1)
+	p.SetVar("appearanceTicket", p.AppearanceTicket()+1)
 }
 
 //DequipItem removes an item from this players equips, and sends inventory and equipment bonuses.
@@ -745,7 +741,7 @@ func (p *Player) NewNPCs() (npcs []*NPC) {
 
 //SetTradeTarget Sets the variable for the index of the player we are trying to trade
 func (p *Player) SetTradeTarget(index int) {
-	p.TransAttrs.SetVar("tradetarget", index)
+	p.SetVar("tradetarget", index)
 }
 
 //IsTrading returns true if this player is in a trade, otherwise returns false.
@@ -756,9 +752,9 @@ func (p *Player) IsTrading() bool {
 //ResetTrade resets trade-related variables.
 func (p *Player) ResetTrade() {
 	if p.IsTrading() {
-		p.TransAttrs.UnsetVar("tradetarget")
-		p.TransAttrs.UnsetVar("trade1accept")
-		p.TransAttrs.UnsetVar("trade2accept")
+		p.UnsetVar("tradetarget")
+		p.UnsetVar("trade1accept")
+		p.UnsetVar("trade2accept")
 		p.TradeOffer.Clear()
 		p.RemoveState(MSTrading)
 	}
@@ -766,7 +762,7 @@ func (p *Player) ResetTrade() {
 
 //TradeTarget returns the game index of the player we are trying to trade with, or -1 if we have not made a trade request.
 func (p *Player) TradeTarget() int {
-	return p.TransAttrs.VarInt("tradetarget", -1)
+	return p.VarInt("tradetarget", -1)
 }
 
 //CombatDelta returns the difference between our combat level and the other mobs combat level
@@ -780,10 +776,10 @@ func (p *Player) ResetDuel() {
 		p.ResetDuelTarget()
 		p.ResetDuelAccepted()
 		p.DuelOffer.Clear()
-		p.TransAttrs.UnsetVar("duelCanRetreat")
-		p.TransAttrs.UnsetVar("duelCanMagic")
-		p.TransAttrs.UnsetVar("duelCanPrayer")
-		p.TransAttrs.UnsetVar("duelCanEquip")
+		p.UnsetVar("duelCanRetreat")
+		p.UnsetVar("duelCanMagic")
+		p.UnsetVar("duelCanPrayer")
+		p.UnsetVar("duelCanEquip")
 		p.RemoveState(MSDueling)
 	}
 }
@@ -795,33 +791,33 @@ func (p *Player) IsDueling() bool {
 
 //SetDuelTarget Sets p1 as the receivers dueling target.
 func (p *Player) SetDuelTarget(p1 *Player) {
-	p.TransAttrs.SetVar("duelTarget", p1)
+	p.SetVar("duelTarget", p1)
 }
 
 //ResetDuelTarget Removes receivers duel target, if any.
 func (p *Player) ResetDuelTarget() {
-	p.TransAttrs.UnsetVar("duelTarget")
+	p.UnsetVar("duelTarget")
 }
 
 //ResetDuelAccepted Resets receivers duel negotiation settings to indicate that neither screens are accepted.
 func (p *Player) ResetDuelAccepted() {
-	p.TransAttrs.UnsetVar("duel1accept")
-	p.TransAttrs.UnsetVar("duel2accept")
+	p.UnsetVar("duel1accept")
+	p.UnsetVar("duel2accept")
 }
 
 //SetDuel1Accepted Sets receivers duel negotiation settings to indicate that the first screen is accepted.
 func (p *Player) SetDuel1Accepted() {
-	p.TransAttrs.SetVar("duel1accept", true)
+	p.SetVar("duel1accept", true)
 }
 
 //SetDuel2Accepted Sets receivers duel negotiation settings to indicate that the second screen is accepted.
 func (p *Player) SetDuel2Accepted() {
-	p.TransAttrs.SetVar("duel2accept", true)
+	p.SetVar("duel2accept", true)
 }
 
 //DuelTarget Returns the player that the receiver is targeting to duel with, or if none, returns nil
 func (p *Player) DuelTarget() *Player {
-	v, ok := p.TransAttrs.VarMob("duelTarget").(*Player)
+	v, ok := p.VarMob("duelTarget").(*Player)
 	if ok {
 		return v
 	}
@@ -963,7 +959,7 @@ func (p *Player) Initialize() {
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer(index int, ip string) *Player {
-	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Lumbridge.Clone()}, TransAttrs: entity.NewAttributeList()},
+	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Lumbridge.Clone()}, AttributeList: entity.NewAttributeList()},
 		Attributes: entity.NewAttributeList(), LocalPlayers: NewMobList(), LocalNPCs: NewMobList(), LocalObjects: &entityList{},
 		Appearance: DefaultAppearance(), FriendList: &FriendsList{friendSet: make(friendSet)}, KnownAppearances: make(map[int]int),
 		Inventory: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, DuelOffer: &Inventory{Capacity: 8},
@@ -1108,7 +1104,7 @@ func (p *Player) IncCurStat(idx int, lvl int) {
 //SetCurStat sets this players current stat at idx to lvl and updates the client about it.
 func (p *Player) IncExp(idx int, amt int) {
 	if idx <= 3 {
-		p.Attributes.IncVar("combatPoints", amt)
+		p.Attributes.Inc("combatPoints", amt)
 		p.SendCombatPoints()
 		return
 	}
@@ -1154,11 +1150,11 @@ func (p *Player) AddItem(id, amount int) {
 }
 
 func (p *Player) PrayerActivated(idx int) bool {
-	return p.TransAttrs.VarBool("prayer"+strconv.Itoa(idx), false)
+	return p.VarBool("prayer"+strconv.Itoa(idx), false)
 }
 
 func (p *Player) PrayerOn(idx int) {
-	if p.IsDueling() && !p.TransAttrs.VarBool("duelCanPrayer", true) {
+	if p.IsDueling() && !p.VarBool("duelCanPrayer", true) {
 		p.Message("You cannot use prayer in this duel!")
 		p.SendPrayers()
 		return
@@ -1178,11 +1174,11 @@ func (p *Player) PrayerOn(idx int) {
 		p.PrayerOff(5)
 		p.PrayerOff(11)
 	}
-	p.TransAttrs.SetVar("prayer"+strconv.Itoa(idx), true)
+	p.SetVar("prayer"+strconv.Itoa(idx), true)
 }
 
 func (p *Player) PrayerOff(idx int) {
-	p.TransAttrs.SetVar("prayer"+strconv.Itoa(idx), false)
+	p.SetVar("prayer"+strconv.Itoa(idx), false)
 }
 
 func (p *Player) SendPrayers() {
@@ -1249,7 +1245,7 @@ func (p *Player) StartCombat(target entity.MobileEntity) {
 			attacker, defender = defender, attacker
 		}()
 
-		attacker.Transients().IncVar("fightRound", 1)
+		attacker.Transients().Inc("fightRound", 1)
 		if p.PrayerActivated(12) && attacker.IsNpc() {
 			return false
 		}
@@ -1388,7 +1384,7 @@ func (p *Player) SetStat(idx, lvl int) {
 }
 
 func (p *Player) CurrentShop() *Shop {
-	s, ok := p.TransAttrs.Var("shop")
+	s, ok := p.Var("shop")
 	if ok {
 		if s, ok := s.(*Shop); ok && s != nil {
 			return s

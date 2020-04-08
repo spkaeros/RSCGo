@@ -158,7 +158,7 @@ func SleepWord(player *Player) *net.Packet {
 
 func SleepFatigue(player *Player) *net.Packet {
 	p := net.NewEmptyPacket(244)
-	p.AddUint16(uint16(player.TransAttrs.VarInt("sleepFatigue", 0)))
+	p.AddUint16(uint16(player.VarInt("sleepFatigue", 0)))
 	return p
 }
 
@@ -234,7 +234,7 @@ func NPCPositions(player *Player) (p *net.Packet) {
 	player.LocalNPCs.RangeNpcs(func(n *NPC) bool {
 		counter++
 		n.RLock()
-		if !player.WithinRange(player.Location, player.TransAttrs.VarInt("viewRadius", 16)) || n.SyncMask&SyncRemoved == SyncRemoved || n.Location.Equals(DeathPoint) {
+		if !player.WithinRange(player.Location, player.VarInt("viewRadius", 16)) || n.SyncMask&SyncRemoved == SyncRemoved || n.Location.Equals(DeathPoint) {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(1, 1)
 			p.AddBitmask(3, 2)
@@ -266,13 +266,13 @@ func NPCPositions(player *Player) (p *net.Packet) {
 			break
 		}
 		if newCount >= 25 {
-			if player.TransAttrs.VarInt("viewRadius", 16) > 1 {
-				player.TransAttrs.DecVar("viewRadius", 1)
+			if player.VarInt("viewRadius", 16) > 1 {
+				player.Dec("viewRadius", 1)
 			}
 			break
 		} else {
-			if player.TransAttrs.VarInt("viewRadius", 16) < 16 {
-				player.TransAttrs.IncVar("viewRadius", 1)
+			if player.VarInt("viewRadius", 16) < 16 {
+				player.Inc("viewRadius", 1)
 			}
 		}
 		newCount++
@@ -318,7 +318,7 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 	player.LocalPlayers.RangePlayers(func(p1 *Player) bool {
 		p1.RLock()
 		counter++
-		if p1.LongestDelta(player.Location) >= player.TransAttrs.VarInt("viewRadius", 16) || p1.SyncMask&SyncRemoved == SyncRemoved {
+		if p1.LongestDelta(player.Location) >= player.VarInt("viewRadius", 16) || p1.SyncMask&SyncRemoved == SyncRemoved {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(1, 1)
 			p.AddBitmask(3, 2)
@@ -363,13 +363,13 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 			break
 		}
 		if newPlayerCount >= 25 {
-			if player.TransAttrs.VarInt("viewRadius", 16) > 1 {
-				player.TransAttrs.DecVar("viewRadius", 1)
+			if player.VarInt("viewRadius", 16) > 1 {
+				player.Dec("viewRadius", 1)
 			}
 			break
 		} else {
-			if player.TransAttrs.VarInt("viewRadius", 16) < 16 {
-				player.TransAttrs.IncVar("viewRadius", 1)
+			if player.VarInt("viewRadius", 16) < 16 {
+				player.Inc("viewRadius", 1)
 			}
 		}
 		newPlayerCount++
@@ -453,7 +453,7 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 // a removal of all stationary entities within an 8x8 chunk of tiles surrounding the cached location.
 func ClearDistantChunks(player *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(211)
-	chunks, ok := player.TransAttrs.Var("distantChunks")
+	chunks, ok := player.Var("distantChunks")
 	if ok {
 		if len(chunks.([]Location)) <= 0 {
 			return nil
@@ -463,7 +463,7 @@ func ClearDistantChunks(player *Player) (p *net.Packet) {
 			p.AddUint16(uint16(chunk.Y() - player.Y()))
 		}
 	}
-	player.TransAttrs.UnsetVar("distantChunks")
+	player.UnsetVar("distantChunks")
 	return
 }
 
@@ -478,12 +478,12 @@ func ObjectLocations(player *Player) (p *net.Packet) {
 			if o.Boundary {
 				continue
 			}
-			if !player.WithinRange(o.Location, player.TransAttrs.VarInt("viewRadius", 16)+5) || GetObject(o.X(), o.Y()) != o {
+			if !player.WithinRange(o.Location, player.VarInt("viewRadius", 16)+5) || GetObject(o.X(), o.Y()) != o {
 				if !player.WithinRange(o.Location, 128) {
-					if chunks, ok := player.TransAttrs.Var("distantChunks"); ok {
-						player.TransAttrs.SetVar("distantChunks", append(chunks.([]Location), o.Location.Clone()))
+					if chunks, ok := player.Var("distantChunks"); ok {
+						player.SetVar("distantChunks", append(chunks.([]Location), o.Location.Clone()))
 					} else {
-						player.TransAttrs.SetVar("distantChunks", []Location{o.Location.Clone()})
+						player.SetVar("distantChunks", []Location{o.Location.Clone()})
 					}
 					removing.Add(o)
 					continue
@@ -526,12 +526,12 @@ func BoundaryLocations(player *Player) (p *net.Packet) {
 			if !o.Boundary {
 				continue
 			}
-			if !player.WithinRange(o.Location, player.TransAttrs.VarInt("viewRadius", 16)+5) || GetObject(o.X(), o.Y()) != o {
+			if !player.WithinRange(o.Location, player.VarInt("viewRadius", 16)+5) || GetObject(o.X(), o.Y()) != o {
 				if !player.WithinRange(o.Location, 128) {
-					if chunks, ok := player.TransAttrs.Var("distantChunks"); ok {
-						player.TransAttrs.SetVar("distantChunks", append(chunks.([]Location), o.Location.Clone()))
+					if chunks, ok := player.Var("distantChunks"); ok {
+						player.SetVar("distantChunks", append(chunks.([]Location), o.Location.Clone()))
 					} else {
-						player.TransAttrs.SetVar("distantChunks", []Location{o.Location.Clone()})
+						player.SetVar("distantChunks", []Location{o.Location.Clone()})
 					}
 					removing.Add(o)
 					continue
@@ -576,12 +576,12 @@ func ItemLocations(player *Player) (p *net.Packet) {
 	for _, i := range player.LocalItems.set {
 		if i, ok := i.(*GroundItem); ok {
 			x, y := i.X(), i.Y()
-			if !player.WithinRange(i.Location, player.TransAttrs.VarInt("viewRadius", 16)) {
+			if !player.WithinRange(i.Location, player.VarInt("viewRadius", 16)) {
 				if !player.WithinRange(i.Location, 128) {
-					if chunks, ok := player.TransAttrs.Var("distantChunks"); ok {
-						player.TransAttrs.SetVar("distantChunks", append(chunks.([]Location), i.Location.Clone()))
+					if chunks, ok := player.Var("distantChunks"); ok {
+						player.SetVar("distantChunks", append(chunks.([]Location), i.Location.Clone()))
 					} else {
-						player.TransAttrs.SetVar("distantChunks", []Location{i.Location.Clone()})
+						player.SetVar("distantChunks", []Location{i.Location.Clone()})
 					}
 					removing.Add(i)
 					continue
@@ -779,10 +779,10 @@ func DuelTargetAccept(accepted bool) *net.Packet {
 //DuelOptions Builds a net to update duel fight options
 func DuelOptions(player *Player) *net.Packet {
 	p := net.NewEmptyPacket(30)
-	p.AddBoolean(!player.TransAttrs.VarBool("duelCanRetreat", true))
-	p.AddBoolean(!player.TransAttrs.VarBool("duelCanMagic", true))
-	p.AddBoolean(!player.TransAttrs.VarBool("duelCanPrayer", true))
-	p.AddBoolean(!player.TransAttrs.VarBool("duelCanEquip", true))
+	p.AddBoolean(!player.VarBool("duelCanRetreat", true))
+	p.AddBoolean(!player.VarBool("duelCanMagic", true))
+	p.AddBoolean(!player.VarBool("duelCanPrayer", true))
+	p.AddBoolean(!player.VarBool("duelCanEquip", true))
 	return p
 }
 
@@ -805,10 +805,10 @@ func DuelConfirmationOpen(player, other *Player) *net.Packet {
 		return true
 	})
 
-	p.AddBoolean(!player.TransAttrs.VarBool("duelCanRetreat", true))
-	p.AddBoolean(!player.TransAttrs.VarBool("duelCanMagic", true))
-	p.AddBoolean(!player.TransAttrs.VarBool("duelCanPrayer", true))
-	p.AddBoolean(!player.TransAttrs.VarBool("duelCanEquip", true))
+	p.AddBoolean(!player.VarBool("duelCanRetreat", true))
+	p.AddBoolean(!player.VarBool("duelCanMagic", true))
+	p.AddBoolean(!player.VarBool("duelCanPrayer", true))
+	p.AddBoolean(!player.VarBool("duelCanEquip", true))
 
 	return p
 }
