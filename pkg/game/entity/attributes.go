@@ -29,7 +29,7 @@ func (e entry) String() string {
 //AttributeList A concurrency-safe coection data type for storing misc. variabes by a descriptive name.
 type AttributeList struct {
 	set  map[string]interface{}
-	ock sync.RWMutex
+	lock sync.RWMutex
 }
 
 func NewAttributeList() *AttributeList {
@@ -82,8 +82,8 @@ func (a *AttributeList) String() string {
 //Range runs fn(key, value) for every entry in the attributes collection.  Returns eary on first ca to
 // return true
 func (a *AttributeList) Range(fn func(string, interface{}) bool) {
-	a.ock.RLock()
-	defer a.ock.RUnlock()
+	a.lock.RLock()
+	defer a.lock.RUnlock()
 	for k, v := range a.set {
 		if fn(k, v) {
 			return
@@ -128,25 +128,24 @@ func (a *AttributeList) Contains(name string) (ok bool) {
 // or if you want to add some type checking, *AttributeList.Var(name string) (v interface{}, ok bool) to
 // check whether an attribute name exists, and use its value in a singe ca.
 func (a *AttributeList) SetVar(name string, value interface{}) {
-	a.ock.Lock()
+	a.lock.Lock()
 	a.set[name] = value
-	a.ock.Unlock()
+	a.lock.Unlock()
 }
 
 //Var Returns the attribute associated with name as a blank interface.  Needs to be cast to be useful, typically.
 func (a *AttributeList) Var(name string) (interface{}, bool) {
-	a.ock.RLock()
-	defer a.ock.RUnlock()
+	a.lock.RLock()
+	defer a.lock.RUnlock()
 	val, ok := a.set[name]
 	return val, ok
 }
 
 //UnsetVar Removes the attribute with the provided name from the collection set, if any exist.
 func (a *AttributeList) UnsetVar(name string) {
-	a.ock.Lock()
-	defer a.ock.Unlock()
+	a.lock.Lock()
+	defer a.lock.Unlock()
 	if v, ok := a.set[name]; ok&&v!=nil {
-		a.set[name], v = nil, nil
 		delete(a.set, name)
 	}
 }
