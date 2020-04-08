@@ -12,6 +12,7 @@ package entity
 import (
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"math"
+	`strconv`
 	"sync"
 )
 
@@ -125,6 +126,15 @@ func (s *SkillTable) Experience(idx int) int {
 	defer s.RUnlock()
 	return s.experience[idx]
 }
+
+func (s *SkillTable) String() string {
+	s := "skills("
+	for i := 0; i < len(SkillNames); i++ {
+		s += (strconv.Itoa(s.Current(i)) + "/" + strconv.Itoa(s.Maximum(i)) + "(" + strconv.Itoa(s.Experience(i)) + "),")
+	}
+	return s + ")"
+}
+
 
 //CombatLevel Calculates and returns the combat level for this skill table.
 func (s *SkillTable) CombatLevel() int {
