@@ -75,10 +75,10 @@ var BoundaryDefs []BoundaryDefinition
 type BoundaryDefinition struct {
 	ID          int
 	Name        string
-	Commands    []string
+	Commands    [2]string
 	Description string
-	Unknown     bool
-	Traversable bool
+	Dynamic     bool
+	Solid       bool
 }
 
 const (
@@ -260,36 +260,52 @@ func loadSector(lastSector *Sector, data []byte) (s *Sector) {
 				blankCount++
 			}
 			tileIdx := x*RegionSize + y
+			idxNorth := x*RegionSize+(y-1)
+			idxEast := (x-1)*RegionSize+y
+			if idxNorth < 0 {
+				idxNorth += 2304
+			}
+			if idxEast < 0 {
+				idxEast += 2304
+			}
 			//			s.Tiles[tileIdx].GroundOverlay = groundOverlay
 			if groundOverlay > 0 && TileDefs[groundOverlay-1].Blocked != 0 {
 				s.Tiles[tileIdx].CollisionMask |= ClipFullBlock
 			}
-			// vertical that blocks N<->S
-			if verticalWalls > 0 && !BoundaryDefs[verticalWalls-1].Unknown && BoundaryDefs[verticalWalls-1].Traversable {
-				s.Tiles[tileIdx].CollisionMask |= ClipNorth
-				if y >= 1 {
+			// vertical that blocks N<->S (_ or ‾)
+			if verticalWalls > 0 && !BoundaryDefs[verticalWalls-1].Dynamic && BoundaryDefs[verticalWalls-1].Solid {
+				// ClipNorth blocks `‾`
+				s.Tiles[x*RegionSize+y].CollisionMask |= ClipNorth
+				// ClipSouth blocks `_`
+				if y > 0 {
 					// -1 is tile x,y-1
-					s.Tiles[x*RegionSize+(y-1)].CollisionMask |= ClipSouth
+					s.Tiles[x*RegionSize+y-1].CollisionMask |= ClipSouth
+				} else if lastSector != nil {
+					lastSector.Tiles[RegionSize*RegionSize+(y-1)].CollisionMask |= ClipSouth
 				}
 			}
-			// horizontal that blocks E<->W
-			if horizontalWalls > 0 && !BoundaryDefs[horizontalWalls-1].Unknown && BoundaryDefs[horizontalWalls-1].Traversable {
+			// horizontal that blocks E<->W (|)
+			if horizontalWalls > 0 && !BoundaryDefs[horizontalWalls-1].Dynamic && BoundaryDefs[horizontalWalls-1].Solid {
+				// ClipEast blocks ` |`
 				s.Tiles[tileIdx].CollisionMask |= ClipEast
-				if x >= 1 {
+				// ClipWest blocks `| `
+				if x > 0 {
 					// -48 is tile x-1,y
 					s.Tiles[(x-1)*RegionSize+y].CollisionMask |= ClipWest
-				} else if x == 0 && lastSector != nil {
+				} else {
 					// TODO: Verify working
-					lastSector.Tiles[47*RegionSize+y].CollisionMask |= ClipEast
+					lastSector.Tiles[(RegionSize-1)*RegionSize+y].CollisionMask |= ClipWest
 				}
 			}
-			// diagonal that blocks: SE<->NW (/)
-			if diagonalWalls > 0 && diagonalWalls < 12000 && !BoundaryDefs[diagonalWalls-1].Unknown && BoundaryDefs[diagonalWalls-1].Traversable {
-				s.Tiles[tileIdx].CollisionMask |= ClipDiag2
+			// diags disable the entire tile.
+			// TODO: Affect adjacent tiles in an intelligent way to determine which are solid and which are not
+			// diagonal that blocks: SE<->NW (/ aka |‾ or _|)
+			if diagonalWalls > 0 && diagonalWalls < 12000 && !BoundaryDefs[diagonalWalls-1].Dynamic && BoundaryDefs[diagonalWalls-1].Solid {
+				s.Tiles[tileIdx].CollisionMask |= ClipDiagSeNw
 			}
-			// diagonal that blocks: SW<->NE (\)
-			if diagonalWalls >= 12000 && diagonalWalls < 24000 && !BoundaryDefs[diagonalWalls-12001].Unknown && BoundaryDefs[diagonalWalls-12001].Traversable {
-				s.Tiles[tileIdx].CollisionMask |= ClipDiag1
+			// diagonal that blocks: SW<->NE (\ aka ‾| or |_)
+			if diagonalWalls >= 12000 && diagonalWalls < 24000 && !BoundaryDefs[diagonalWalls-12001].Dynamic && BoundaryDefs[diagonalWalls-12001].Solid {
+				s.Tiles[tileIdx].CollisionMask |= ClipDiagSwNe
 			}
 			offset += 10
 		}

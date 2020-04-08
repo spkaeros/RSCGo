@@ -10,11 +10,11 @@ import (
 type ObjectDefinition struct {
 	ID            int
 	Name          string
-	Commands      []string
+	Commands      [2]string
 	Description   string
 	Type          int
 	Width, Height int
-	Length        int
+	ModelHeight   int
 }
 
 //ObjectDefs This holds the defining characteristics for all of the game's scene objects, ordered by ID.

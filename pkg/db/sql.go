@@ -16,18 +16,18 @@ import (
 // Returns: upon success, a connected *sql.DB instance accessing the specified SQL
 // database, and nil
 // upon failure, nil and a meaningful error.
-func (db *sqlService) sqlOpen(addr string) *sql.DB {
-	database, err := sql.Open(db.Driver, addr) //"file:"+config.DataDir()+addr)
+func (s *sqlService) sqlOpen(addr string) *sql.DB {
+	database, err := sql.Open(s.Driver, addr) //"file:"+config.DataDir()+addr)
 	if err != nil {
-		log.Error.Println("Couldn't load database (driver: "+db.Driver+", addr: "+addr+"):", err)
+		log.Error.Println("Couldn't load database (driver: "+s.Driver+", addr: "+addr+"):", err)
 		return nil
 	}
 	err = database.Ping()
 	if err != nil {
-		log.Error.Println("Couldn't load database (driver: "+db.Driver+", addr: "+addr+"):", err)
+		log.Error.Println("Couldn't load database (driver: "+s.Driver+", addr: "+addr+"):", err)
 		return nil
 	}
-	db.database = database
+	s.database = database
 	return database
 }
 
@@ -36,6 +36,7 @@ func (db *sqlService) sqlOpen(addr string) *sql.DB {
 type sqlService struct {
 	database *sql.DB
 	Driver string
+	context context.Context
 }
 
 //newSqlService returns a new sqlService instance attached to the provided *sql.DB

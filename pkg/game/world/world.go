@@ -239,7 +239,7 @@ func AddObject(o *Object) {
 		}
 	} else {
 		def := BoundaryDefs[o.ID]
-		if !def.Traversable {
+		if !def.Solid {
 			return
 		}
 		x, y := o.X(), o.Y()
@@ -314,7 +314,7 @@ func RemoveObject(o *Object) {
 		}
 	} else {
 		def := BoundaryDefs[o.ID]
-		if !def.Traversable {
+		if !def.Solid {
 			return
 		}
 		x, y := o.X(), o.Y()

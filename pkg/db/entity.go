@@ -1,12 +1,20 @@
 package db
 
 import (
-	"strings"
+	`context`
 
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
+
+type EntityService interface {
+	Objects() []world.ObjectDefinition
+	Boundarys() []world.BoundaryDefinition
+	Tiles() []world.TileDefinition
+	Items() []world.ItemDefinition
+	Npcs() []world.NpcDefinition
+}
 
 var DefaultEntityService *sqlService
 
@@ -16,130 +24,162 @@ func ConnectEntityService() {
 	DefaultEntityService = s
 }
 
-//LoadObjectDefinitions Loads game object data into memory for quick access.
-func LoadObjectDefinitions() {
-	database := DefaultEntityService.sqlOpen(config.WorldDB())
-	defer database.Close()
-	rows, err := database.Query("SELECT id, name, description, command_one, command_two, type, width, height, ground_item_var FROM game_objects")
+//Objects attempts to load all the scenary object definitions from the SQL service
+func (s *sqlService) Objects() (objects []world.ObjectDefinition) {
+	s.context = context.Background()
+	db := s.connect(s.context)
+	defer db.Close()
+	rows, err := db.QueryContext(s.context, "SELECT id, name, description, LOWER(command_one), LOWER(command_two), type, width, height, modelHeight FROM game_objects ORDER BY id")
 	if err != nil {
-		log.Error.Println("Couldn't load SQLite3 database:", err)
+		log.Error.Println("Couldn't load entity definitions from sqlService:", err)
 		return
 	}
 	defer rows.Close()
+	
 	for rows.Next() {
-		nextDef := world.ObjectDefinition{Commands: make([]string, 2)}
-		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.Type, &nextDef.Width, &nextDef.Height, &nextDef.Length)
-		for i, c := range nextDef.Commands {
-			nextDef.Commands[i] = strings.ToLower(c)
-		}
-		world.ObjectDefs = append(world.ObjectDefs, nextDef)
+		nextDef := world.ObjectDefinition{}
+		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.Type, &nextDef.Width, &nextDef.Height, &nextDef.ModelHeight)
+		objects = append(objects, nextDef)
 	}
+	
+	return
+}
+
+//Boundarys attempts to load all the boundary game object definitions from the SQL service
+func (s *sqlService) Boundarys() (boundarys []world.BoundaryDefinition) {
+	s.context = context.Background()
+	db := s.connect(s.context)
+	defer db.Close()
+	rows, err := db.QueryContext(s.context, "SELECT id, name, description, LOWER(command_one), LOWER(command_two), solid, door FROM boundarys ORDER BY id")
+	if err != nil {
+		log.Error.Println("Couldn't load entity definitions from sqlService:", err)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		nextDef := world.BoundaryDefinition{}
+		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.Solid, &nextDef.Dynamic)
+		boundarys = append(boundarys, nextDef)
+	}
+	
+	return
+}
+
+//Tiles attempts to load all the tile overlay definitions from the SQL service
+func (s *sqlService) Tiles() (overlays []world.TileDefinition) {
+	s.context = context.Background()
+	db := s.connect(s.context)
+	defer db.Close()
+	rows, err := db.QueryContext(s.context, "SELECT colour, unknown, objectType FROM tiles")
+	if err != nil {
+		log.Error.Println("Couldn't load entity definitions from sqlService:", err)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		nextDef := world.TileDefinition{}
+		rows.Scan(&nextDef.Color, &nextDef.Visible, &nextDef.Blocked)
+		overlays = append(overlays, nextDef)
+	}
+	
+	return
+}
+
+//Items attempts to load all the item definitions from the SQL service
+func (s *sqlService) Items() (items []world.ItemDefinition) {
+	s.context = context.Background()
+	db := s.connect(s.context)
+	defer db.Close()
+	rows, err := db.QueryContext(s.context, "SELECT id, name, description, command, base_price, stackable, special, members FROM items ORDER BY id")
+	if err != nil {
+		log.Error.Println("Couldn't load entity definitions from sqlService:", err)
+		return
+	}
+	defer rows.Close()
+	
+	for rows.Next() {
+		nextDef := world.ItemDefinition{}
+		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Command, &nextDef.BasePrice, &nextDef.Stackable, &nextDef.Quest, &nextDef.Members)
+		items = append(items, nextDef)
+	}
+	rows.Close()
+	
+	rows, err = db.QueryContext(s.context, "SELECT id, skillIndex, level FROM item_wieldable_requirements")
+	if err != nil {
+		log.Error.Println("Couldn't load entity information from sql database:", err)
+		return
+	}
+	var id, skill, level int
+	for rows.Next() {
+		rows.Scan(&id, &skill, &level)
+		if items[id].Requirements == nil {
+			items[id].Requirements = make(map[int]int)
+		}
+		items[id].Requirements[skill] = level
+	}
+	rows.Close()
+	
+	rows, err = db.QueryContext(s.context, "SELECT id, sprite, type, armour_points, magic_points, prayer_points, range_points, weapon_aim_points, weapon_power_points, pos, femaleOnly FROM item_wieldable")
+	if err != nil {
+		log.Error.Println("Couldn't load entity information from sql database:", err)
+		return
+	}
+	// TODO: Integrate into ItemDefinition
+	for rows.Next() {
+		nextDef := world.EquipmentDefinition{}
+		rows.Scan(&nextDef.ID, &nextDef.Sprite, &nextDef.Type, &nextDef.Armour, &nextDef.Magic, &nextDef.Prayer, &nextDef.Ranged, &nextDef.Aim, &nextDef.Power, &nextDef.Position, &nextDef.Female)
+		world.EquipmentDefs = append(world.EquipmentDefs, nextDef)
+	}
+
+	return
+}
+
+//Npcs attempts to load all the npc definitions from the SQL service
+func (s *sqlService) Npcs() (npcs []world.NpcDefinition) {
+	s.context = context.Background()
+	db := s.connect(s.context)
+	defer db.Close()
+	rows, err := db.QueryContext(s.context, "SELECT id, name, description, command, hits, attack, strength, defense, attackable FROM npcs ORDER BY id")
+	if err != nil {
+		log.Error.Println("Couldn't load entity definitions from sqlService:", err)
+		return
+	}
+	defer rows.Close()
+	
+	for rows.Next() {
+		nextDef := world.NpcDefinition{}
+		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Command, &nextDef.Hits, &nextDef.Attack, &nextDef.Strength, &nextDef.Defense, &nextDef.Attackable)
+		npcs = append(npcs, nextDef)
+	}
+	
+	return
+}
+
+//LoadObjectDefinitions Loads game object data into memory for quick access.
+func LoadObjectDefinitions() {
+	world.ObjectDefs = DefaultEntityService.Objects()
 }
 
 //LoadTileDefinitions Loads game tile attribute data into memory for quick access.
 func LoadTileDefinitions() {
-	database := DefaultEntityService.sqlOpen(config.WorldDB())
-	defer database.Close()
-	rows, err := database.Query("SELECT colour, unknown, objectType FROM tiles")
-	defer rows.Close()
-	if err != nil {
-		log.Error.Println("Couldn't load SQLite3 database:", err)
-		return
-	}
-	for rows.Next() {
-		nextDef := world.TileDefinition{}
-		rows.Scan(&nextDef.Color, &nextDef.Visible, &nextDef.Blocked)
-		world.TileDefs = append(world.TileDefs, nextDef)
-	}
+	world.TileDefs = DefaultEntityService.Tiles()
 }
 
 //LoadBoundaryDefinitions Loads game boundary object data into memory for quick access.
 func LoadBoundaryDefinitions() {
-	database := DefaultEntityService.sqlOpen(config.WorldDB())
-	defer database.Close()
-	rows, err := database.Query("SELECT id, name, description, command_one, command_two, solid, door FROM doors ORDER BY id")
-	defer rows.Close()
-	if err != nil {
-		log.Error.Println("Couldn't load SQLite3 database:", err)
-		return
-	}
-	for rows.Next() {
-		nextDef := world.BoundaryDefinition{Commands: make([]string, 2)}
-		for i, c := range nextDef.Commands {
-			nextDef.Commands[i] = strings.ToLower(c)
-		}
-		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.Traversable, &nextDef.Unknown)
-		world.BoundaryDefs = append(world.BoundaryDefs, nextDef)
-	}
+	world.BoundaryDefs = DefaultEntityService.Boundarys()
 }
 
 //LoadItemDefinitions Loads game item data into memory for quick access.
 func LoadItemDefinitions() {
-	loadEquipment := func() {
-		database := DefaultEntityService.sqlOpen(config.WorldDB())
-		defer database.Close()
-		rows, err := database.Query("SELECT id, sprite, type, armour_points, magic_points, prayer_points, range_points, weapon_aim_points, weapon_power_points, pos, femaleOnly FROM item_wieldable")
-		if err != nil {
-			log.Error.Println("Couldn't load SQLite3 database:", err)
-			return
-		}
-		defer rows.Close()
-		for rows.Next() {
-			nextDef := world.EquipmentDefinition{}
-			rows.Scan(&nextDef.ID, &nextDef.Sprite, &nextDef.Type, &nextDef.Armour, &nextDef.Magic, &nextDef.Prayer, &nextDef.Ranged, &nextDef.Aim, &nextDef.Power, &nextDef.Position, &nextDef.Female)
-			world.EquipmentDefs = append(world.EquipmentDefs, nextDef)
-		}
-	}
-	loadRequirements := func() {
-		database := DefaultEntityService.sqlOpen(config.WorldDB())
-		defer database.Close()
-		rows, err := database.Query("SELECT id, skillIndex, level FROM item_wieldable_requirements")
-		if err != nil {
-			log.Error.Println("Couldn't load SQLite3 database:", err)
-			return
-		}
-		defer rows.Close()
-		var id, skill, level int
-		for rows.Next() {
-			rows.Scan(&id, &skill, &level)
-			if world.ItemDefs[id].Requirements == nil {
-				world.ItemDefs[id].Requirements = make(map[int]int)
-			}
-			world.ItemDefs[id].Requirements[skill] = level
-		}
-	}
-	database := DefaultEntityService.sqlOpen(config.WorldDB())
-	defer database.Close()
-	rows, err := database.Query("SELECT id, name, description, command, base_price, stackable, special, members FROM items ORDER BY id")
-	if err != nil {
-		log.Error.Println("Couldn't load SQLite3 database:", err)
-		return
-	}
-	defer rows.Close()
-	for rows.Next() {
-		nextDef := world.ItemDefinition{}
-		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Command, &nextDef.BasePrice, &nextDef.Stackable, &nextDef.Quest, &nextDef.Members)
-		world.ItemDefs = append(world.ItemDefs, nextDef)
-	}
-	loadRequirements()
-	loadEquipment()
+	world.ItemDefs = DefaultEntityService.Items()
 }
 
 //LoadNpcDefinitions Loads game NPC data into memory for quick access.
 func LoadNpcDefinitions() {
-	database := DefaultEntityService.sqlOpen(config.WorldDB())
-	defer database.Close()
-	rows, err := database.Query("SELECT id, name, description, command, hits, attack, strength, defense, attackable FROM npcs ORDER BY id")
-	if err != nil {
-		log.Error.Println("Couldn't load SQLite3 database:", err)
-		return
-	}
-	defer rows.Close()
-	for rows.Next() {
-		nextDef := world.NpcDefinition{}
-		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Command, &nextDef.Hits, &nextDef.Attack, &nextDef.Strength, &nextDef.Defense, &nextDef.Attackable)
-		world.NpcDefs = append(world.NpcDefs, nextDef)
-	}
+	world.NpcDefs = DefaultEntityService.Npcs()
 }
 
 //LoadObjectLocations Loads the game objects into memory from the SQLite3 database.
