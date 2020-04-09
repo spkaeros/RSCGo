@@ -147,8 +147,9 @@ func init() {
 		//equipmentAllowed := p.ReadBoolean()
 
 		for i := 0; i < p.Length(); i++ {
-			player.SetDuelRule(i, !p.ReadBoolean())
-			target.SetDuelRule(i, !p.ReadBoolean())
+			flag := !p.ReadBoolean()
+			player.SetDuelRule(i, flag)
+			target.SetDuelRule(i, flag)
 		}
 		//player.SetVar("duelCanRetreat", !retreatsAllowed)
 		//player.SetVar("duelCanMagic", !magicAllowed)

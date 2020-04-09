@@ -115,6 +115,10 @@ type Player struct {
 	Inventory        *Inventory
 	TradeOffer       *Inventory
 	DuelOffer        *Inventory
+	Duel             struct {
+		rules []string
+		
+	}
 	DistancedAction  func() bool
 	ActionLock       sync.RWMutex
 	OutgoingPackets  chan *net.Packet
