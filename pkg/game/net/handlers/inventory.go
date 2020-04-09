@@ -17,7 +17,7 @@ import (
 
 func init() {
 	AddHandler("invwield", func(player *world.Player, p *net.Packet) {
-		if player.IsDueling() && player.IsFighting() && !player.VarBool("duelCanEquip", true) {
+		if player.IsDueling() && player.IsFighting() && !player.DuelEquipment() {
 			player.Message("You can not use equipment in this duel")
 			return
 		}
@@ -79,11 +79,12 @@ func init() {
 				log.Suspicious.Printf("%v attempted to pick up an item that doesn't exist: %s@{%d,%d}\n", player, world.ItemDefs[id].Name, x, y)
 				return true
 			}
-
+			
 			if !player.Inventory.CanHold(item.ID, item.Amount) {
 				player.Message("You do not have room for that item in your inventory.")
 				return true
 			}
+			
 			maxDelta := 0
 			if world.IsTileBlocking(x, y, 0x40, false) {
 				maxDelta++
@@ -91,8 +92,8 @@ func init() {
 			if delta := player.Delta(item.Location); delta > maxDelta || delta == 1 && !player.Reachable(item.X(), item.Y()) {
 				return player.FinishedPath()
 			}
+			
 			player.ResetPath()
-
 			item.Remove()
 			player.Inventory.Add(item.ID, item.Amount)
 			player.SendInventory()

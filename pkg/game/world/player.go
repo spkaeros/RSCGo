@@ -141,11 +141,10 @@ func (p *Player) Bank() *Inventory {
 
 func (p *Player) CanAttack(target entity.MobileEntity) bool {
 	if target.IsNpc() {
-		target.(*NPC).AttackPoints()
-		return NpcDefs[target.(*NPC).ID].Attackable
+		return target.(*NPC).Attackable()
 	}
 	if p.State()&StateFightingDuel==StateFightingDuel {
-		return p.DuelTarget() == target && p.VarBool("duelCanMagic", true)
+		return p.DuelTarget() == target && p.DuelMagic()
 	}
 	p1 := target.(*Player)
 	ourWild := p.Wilderness()
@@ -469,18 +468,8 @@ func (l Location) Reachable(x, y int) bool {
 		// if so, we must scan for adjacent bitmasks of certain diags('_|', '‾|', '|‾' or '|_')
 		// Since / and \ masks block a whole tile, those masks are auto-checked in the guts of the API
 		// However, this leaves possible holes in x+1,y and x,y+1 at certain angles where we should block
-		var vmask, hmask byte
-		if dst.X() > l.X() {
-			vmask |= ClipSouth
-		} else {
-			vmask |= ClipNorth
-		}
-		if dst.Y() > l.Y() {
-			hmask |= ClipEast
-		} else {
-			hmask |= ClipWest
-		}
-		if IsTileBlocking(l.X(), dst.Y(), vmask, false) && IsTileBlocking(dst.X(), l.Y(), hmask, false) {
+		masks := l.Masks(dst.X(), dst.Y())
+		if IsTileBlocking(l.X(), dst.Y(), masks[0], false) && IsTileBlocking(dst.X(), l.Y(), masks[1], false) {
 			return false
 		}
 	}
@@ -776,19 +765,74 @@ func (p *Player) TradeTarget() int {
 
 //CombatDelta returns the difference between our combat level and the other mobs combat level
 func (p *Player) CombatDelta(other entity.MobileEntity) int {
-	return p.Skills().CombatLevel() - other.Skills().CombatLevel()
+	delta := p.Skills().CombatLevel() - other.Skills().CombatLevel()
+	if delta < 0 {
+		return -delta
+	}
+	return delta
+}
+
+//DuelAccepted returns the status of the specified duel negotiation screens accepted button for this player.
+// Valid screens are 1 and 2.
+func (p *Player) DuelAccepted(screen int) bool {
+	return p.VarBool("duel" + strconv.Itoa(screen) + "accept", false)
+}
+
+//DuelAccepted returns the status of the specified duel negotiation screens accepted button for this player.
+// Valid screens are 1 and 2.
+func (p *Player) SetDuelAccepted(screen int, b bool) {
+	if screen == 2 && !p.VarBool("duel1accept", false) {
+		log.Suspicious.Println("Attempt to set duel2accept before duel1accept:", p.String())
+		return
+	}
+	duelAttr := "duel" + strconv.Itoa(screen) + "accept"
+	if !b && p.Contains(duelAttr) {
+		p.UnsetVar(duelAttr)
+	}
+	p.SetVar(duelAttr, true)
+}
+
+//SetDuelRule sets the duel rule associated with the specified index to b.
+// Valid rule indices are 0 through 3.
+func (p *Player) SetDuelRule(index int, b bool) {
+	rules := [4]string{"duelCanRetreat", "duelCanMagic", "duelCanPrayer", "duelCanEquip"}
+	if p.Contains(rules[index]) && !b {
+		p.UnsetVar(rules[index])
+		return
+	}
+	p.SetVar(rules[index], true)
+}
+
+//DuelRule returns the rule associated with the specified index provided.
+// Valid rule indices are 0 through 3.
+func (p *Player) duelRule(index int) bool {
+	return !p.VarBool([4]string{"duelCanRetreat", "duelCanMagic", "duelCanPrayer", "duelCanEquip"}[index], false)
+}
+
+func (p *Player) DuelRetreating() bool {
+	return p.duelRule(0)
+}
+
+func (p *Player) DuelMagic() bool {
+	return p.duelRule(1)
+}
+
+func (p *Player) DuelPrayer() bool {
+	return p.duelRule(2)
+}
+
+func (p *Player) DuelEquipment() bool {
+	return p.duelRule(3)
 }
 
 //ResetDuel resets duel-related variables.
 func (p *Player) ResetDuel() {
+	//if target := p.DuelTarget(); target != nil && target.IsDueling()
 	if p.IsDueling() {
-		p.ResetDuelTarget()
 		p.ResetDuelAccepted()
+		p.ResetDuelRules()
 		p.DuelOffer.Clear()
-		p.UnsetVar("duelCanRetreat")
-		p.UnsetVar("duelCanMagic")
-		p.UnsetVar("duelCanPrayer")
-		p.UnsetVar("duelCanEquip")
+		p.ResetDuelTarget()
 		p.RemoveState(StateDueling)
 	}
 }
@@ -810,8 +854,14 @@ func (p *Player) ResetDuelTarget() {
 
 //ResetDuelAccepted Resets receivers duel negotiation settings to indicate that neither screens are accepted.
 func (p *Player) ResetDuelAccepted() {
-	p.UnsetVar("duel1accept")
-	p.UnsetVar("duel2accept")
+	p.SetDuelAccepted(1, false)
+	p.SetDuelAccepted(2, false)
+}
+
+func (p *Player) ResetDuelRules() {
+	for i := 0; i < 4; i++ {
+		p.SetDuelRule(i, false)
+	}
 }
 
 //SetDuel1Accepted Sets receivers duel negotiation settings to indicate that the first screen is accepted.
@@ -826,11 +876,7 @@ func (p *Player) SetDuel2Accepted() {
 
 //DuelTarget Returns the player that the receiver is targeting to duel with, or if none, returns nil
 func (p *Player) DuelTarget() *Player {
-	v, ok := p.VarMob("duelTarget").(*Player)
-	if ok {
-		return v
-	}
-	return nil
+	return p.VarPlayer("duelTarget").(*Player)
 }
 
 //SendPacket sends a net to the client.
@@ -971,10 +1017,10 @@ func NewPlayer(index int, ip string) *Player {
 		Appearance: DefaultAppearance(), FriendList: &FriendsList{friendSet: make(friendSet)}, KnownAppearances: make(map[int]int),
 		Inventory: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, DuelOffer: &Inventory{Capacity: 8},
 		LocalItems: &entityList{}, OutgoingPackets: make(chan *net.Packet, 20), KillC: make(chan struct{})}
-	p.Transients().SetVar("skills", &entity.SkillTable{})
-	p.Transients().SetVar("bank", &Inventory{Capacity: 48 * 4, stackEverything: true})
-	p.Transients().SetVar("viewRadius", 16)
-	p.Transients().SetVar("currentIP", ip)
+	p.SetVar("currentIP", ip)
+	p.SetVar("viewRadius", 16)
+	p.SetVar("skills", &entity.SkillTable{})
+	p.SetVar("bank", &Inventory{Capacity: 48 * 4, stackEverything: true})
 
 	p.Equips[0] = p.Appearance.Head
 	p.Equips[1] = p.Appearance.Body

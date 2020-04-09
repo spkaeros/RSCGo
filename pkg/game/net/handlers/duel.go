@@ -20,10 +20,10 @@ import (
 
 func init() {
 	AddHandler("duelreq", func(player *world.Player, p *net.Packet) {
-		index := p.ReadUint16()
 		if player.Busy() {
 			return
 		}
+		index := p.ReadUint16()
 		target, ok := world.Players.FromIndex(index)
 		if !ok {
 			log.Suspicious.Printf("%v attempted to duel a player that does not exist.\n", player.String())
@@ -83,7 +83,7 @@ func init() {
 			log.Suspicious.Println(player, "attempted modifying duel state (with", target, ") during the duels fight!!")
 			return
 		}
-		if (target.VarBool("duel1accept", false) || target.VarBool("duel2accept", false)) && (player.VarBool("duel1accept", false) || player.VarBool("duel2accept", false)) {
+		if (target.DuelAccepted(1) || target.DuelAccepted(2)) && (player.DuelAccepted(1) || player.DuelAccepted(2)) {
 			log.Suspicious.Printf("Players{ %v;2:%v } involved in duel, player 1 attempted to alter offer after both players accepted!\n", player.String(), target.String())
 			player.ResetDuel()
 			player.SendPacket(world.DuelClose)
@@ -93,6 +93,7 @@ func init() {
 		}
 		player.ResetDuelAccepted()
 		target.ResetDuelAccepted()
+		
 		player.DuelOffer.Clear()
 		defer func() {
 			target.SendPacket(world.DuelUpdate(player))
@@ -103,7 +104,8 @@ func init() {
 			return
 		}
 		if p.Length() < 1+(itemCount*6) {
-			log.Suspicious.Printf("%v attempted to send a duel offer update net without enough data for the offer.\n", player.String())
+			log.Suspicious.Printf("%v attempted to send a duel offer update without enough data for the offer.\n", player.String())
+			log.Suspicious.Println(p.FrameBuffer)
 			return
 		}
 		for i := 0; i < itemCount; i++ {
@@ -148,12 +150,12 @@ func init() {
 		player.SetVar("duelCanMagic", !magicAllowed)
 		player.SetVar("duelCanPrayer", !prayerAllowed)
 		player.SetVar("duelCanEquip", !equipmentAllowed)
-
+		player.SendPacket(world.DuelOptions(player))
+		
 		target.SetVar("duelCanRetreat", !retreatsAllowed)
 		target.SetVar("duelCanMagic", !magicAllowed)
 		target.SetVar("duelCanPrayer", !prayerAllowed)
 		target.SetVar("duelCanEquip", !equipmentAllowed)
-		player.SendPacket(world.DuelOptions(player))
 		target.SendPacket(world.DuelOptions(target))
 	})
 	AddHandler("dueldecline", func(player *world.Player, p *net.Packet) {
@@ -212,8 +214,8 @@ func init() {
 			log.Suspicious.Println(player, "attempted modifying duel state (with", target, ") during the duels fight!!")
 			return
 		}
-		player.SetDuel1Accepted()
-		if target.VarBool("duel1accept", false) {
+		player.SetDuelAccepted(1, true)
+		if target.DuelAccepted(1) {
 			player.SendPacket(world.DuelConfirmationOpen(player, target))
 			target.SendPacket(world.DuelConfirmationOpen(target, player))
 		} else {
@@ -246,8 +248,8 @@ func init() {
 			log.Suspicious.Println(player, "attempted modifying duel state (with", target, ") during the duels fight!!")
 			return
 		}
-		player.SetDuel2Accepted()
-		if target.VarBool("duel2accept", false) {
+		player.SetDuelAccepted(2, true)
+		if target.DuelAccepted(2) {
 			player.ResetDuelAccepted()
 			target.ResetDuelAccepted()
 			if !player.VarBool("duelCanPrayer", true) {

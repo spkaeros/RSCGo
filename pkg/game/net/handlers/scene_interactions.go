@@ -236,7 +236,7 @@ func init() {
 		bounds := object.Boundaries()
 		player.SetDistancedAction(func() bool {
 			if player.Busy() || world.GetObject(object.X(), object.Y()) != object {
-				// If somehow we became busy, the object changed before arriving, we do nothing.
+				// If somehow we became busy, or the object changed before arriving, we do nothing.
 				return true
 			}
 			if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {

@@ -20,14 +20,31 @@ import (
 func init() {
 	AddHandler("attacknpc", func(player *world.Player, p *net.Packet) {
 		npc := world.GetNpc(p.ReadUint16())
-		if npc == nil {
+		if npc == nil || !npc.Attackable() {
 			log.Suspicious.Printf("%v tried to attack nil NPC\n", player)
+			player.Message("The character does not appear interested in fighting")
+			player.ResetPath()
+			return
+		}
+		if npc.IsFighting() {
+			player.Message("Your opponent is busy!")
+			player.ResetPath()
 			return
 		}
 		if player.IsFighting() {
+			player.Message("You're already fighting!")
+			player.ResetPath()
 			return
 		}
 		player.WalkingArrivalAction(npc, 1, func() {
+			if npc.IsFighting() {
+				player.Message("Your opponent is busy!")
+				return
+			}
+			if player.IsFighting() {
+				player.Message("You're already fighting!")
+				return
+			}
 			if player.Busy() && !player.IsFighting() && !player.IsDueling() || !player.CanAttack(npc) {
 				return
 			}
