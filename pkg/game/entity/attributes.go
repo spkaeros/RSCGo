@@ -51,22 +51,22 @@ func (a *AttributeList) Values() (values []interface{}) {
 	return
 }
 
-func (a *AttributeList) Entries() (entries entrySet) {
+func (a *AttributeList) Entries() (entries EntrySet) {
 	a.ForEach(func(k string, v interface{}) {
 		entries = append(entries, entry{k, v})
 	})
 	return
 }
 
-type entrySet []entry
+type EntrySet []entry
 
 //Size Size of receiver entry set.
-func (e entrySet) Size() int {
+func (e EntrySet) Size() int {
 	return len(e)-1
 }
 
 //String Stringifies the receiver entry set.
-func (e entrySet) String() string {
+func (e EntrySet) String() string {
 	s := "[\n"
 	for _, v := range e {
 		s += "name:" + v.String() + ",value:"
@@ -160,7 +160,8 @@ func (a *AttributeList) Var(name string) (interface{}, bool) {
 func (a *AttributeList) UnsetVar(name string) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
-	if v, ok := a.set[name]; ok&&v!=nil {
+	if _, ok := a.set[name]; ok {
+		a.set[name] = nil
 		delete(a.set, name)
 	}
 }

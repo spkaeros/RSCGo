@@ -1432,13 +1432,10 @@ func (p *Player) SetStat(idx, lvl int) {
 }
 
 func (p *Player) CurrentShop() *Shop {
-	s, ok := p.Var("shop")
-	if ok {
-		if s, ok := s.(*Shop); ok && s != nil {
-			return s
-		}
+	if !p.Contains("shop") {
+		return nil
 	}
-	return nil
+	return p.VarChecked("shop").(*Shop)
 }
 
 //OpenBank opens a shop screen for the player and sets the appropriate state variables.
@@ -1501,11 +1498,10 @@ func (p *Player) RemoveCache(name string) {
 }
 
 func (p *Player) Cache(name string) interface{} {
-	v, ok := p.Attributes.Var(name)
-	if ok {
-		return v
+	if !p.Attributes.Contains(name) {
+		return nil
 	}
-	return int64(0)
+	return p.Attributes.VarChecked(name)
 }
 
 func (p *Player) OpenSleepScreen() {

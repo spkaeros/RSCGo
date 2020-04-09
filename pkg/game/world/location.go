@@ -56,10 +56,16 @@ func (l Location) Clone() Location {
 }
 
 func (l Location) X() int {
+	if l.x == nil {
+		return -1
+	}
 	return int(l.x.Load())
 }
 
 func (l Location) Y() int {
+	if l.y == nil {
+		return -1
+	}
 	return int(l.y.Load())
 }
 
