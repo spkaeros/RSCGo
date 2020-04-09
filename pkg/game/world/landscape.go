@@ -229,7 +229,7 @@ func sectorFromCoords(x, y int) *Sector {
 		return s
 	}
 	// Default to returning a blank sector filled with zero-value tiles.
-	return &Sector{}
+	return &Sector{Tiles: make([]TileData, 2304)}
 }
 
 func (s *Sector) tile(x, y int) TileData {
