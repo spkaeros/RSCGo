@@ -198,7 +198,7 @@ func AddObject(o *Object) {
 		// type 1 is used when the object fully blocks the tile(s) that it sits on.  Marks tile as fully blocked.
 		// type 2 is used when the object mimics a boundary, e.g for gates and the like.
 		// type 3 is used when the object mimics an opened door-type boundary, e.g opened gates and the like.
-		if scenary.CollisionType%3 != 0{
+		if scenary.CollisionType%3 == 0{
 			return
 		}
 		width := scenary.Height
@@ -223,8 +223,7 @@ func AddObject(o *Object) {
 				}
 				
 				// Type 2 (directional blocking, e.g gates etc) if we made it here
-				switch o.Direction {
-				case byte(North):
+				if o.Direction == byte(North) {
 					// Block the tiles east side
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipEast
 					// ensure that the neighbors index is valid
@@ -232,19 +231,19 @@ func AddObject(o *Object) {
 						// then block the eastern neighbors west side
 						sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask |= ClipWest
 					}
-				case byte(West):
+				} else if o.Direction == byte(West) {
 					// Block the tiles south side
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipSouth
 					// then block the southern neighbors north side
 					sectorFromCoords(x, y+1).Tiles[areaX*RegionSize+areaY+1].CollisionMask |= ClipNorth
-				case byte(South):
+				} else if o.Direction == byte(South) {
 					// Block the tiles west side
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipWest
 					// then block the western neighbors east side
-					if areaX, areaY := (2304+x+1) % RegionSize, (1776+y-(944*((y+100)/944))) % RegionSize;(areaX+1)*RegionSize+areaY > 2304 {
+					if areaX, areaY := (2304+x+1)%RegionSize, (1776+y-(944*((y+100)/944)))%RegionSize; (areaX+1)*RegionSize+areaY > 2304 {
 						sectorFromCoords(x+1, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipEast
 					}
-				case byte(East):
+				} else if o.Direction == byte(East) {
 					// Block the tiles north side
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipNorth
 					// ensure that the neighbors index is valid
