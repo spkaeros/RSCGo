@@ -173,12 +173,12 @@ func (a *AttributeList) VarChecked(name string) interface{} {
 //VarString checks if there is a string attribute assigned to the specified name, and returns it.
 // Otherwise, returns zero.
 func (a *AttributeList) VarString(name string, zero string) string {
-	if s := a.VarChecked(name).(string); len(s) >= 1 {
+	if s, ok := a.VarChecked(name).(string); ok && len(s) > 0 {
 		return "" + s
-	} else if s := a.VarChecked(name).(fmt.Stringer); s != nil {
+	} else if s, ok := a.VarChecked(name).(fmt.Stringer); ok && s != nil {
 		return "" + s.String()
 	} else {
-		log.Error.Printf("AttributeList[CollisionType Error]: Expected string, got %T\n", s)
+		log.Error.Printf("AttributeList[Type Error]: Expected string, got %T\n", s)
 	}
 	return zero
 }
@@ -191,7 +191,7 @@ func (a *AttributeList) VarInt(name string, zero int) int {
 			return i
 		}
 	} else if ok {
-		log.Error.Printf("AttributeList[CollisionType Error]: Expected int, got %T\n", v)
+		log.Error.Printf("AttributeList[Type Error]: Expected int, got %T\n", v)
 		return zero
 	}
 	return zero
@@ -260,14 +260,14 @@ func (a *AttributeList) VarMob(name string) MobileEntity {
 }
 
 func (a *AttributeList) VarNpc(name string) MobileEntity {
-	if m := a.VarMob(name); m.Type()&TypeNpc!=0 && m.IsNpc() {
+	if m := a.VarMob(name); m != nil && m.Type()&TypeNpc!=0 && m.IsNpc() {
 		return m
 	}
 	return nil
 }
 
 func (a *AttributeList) VarPlayer(name string) MobileEntity {
-	if m := a.VarMob(name); m.Type()&TypePlayer!=0 && m.IsPlayer() {
+	if m := a.VarMob(name); m != nil && m.Type()&TypePlayer!=0 && m.IsPlayer() {
 		return m
 	}
 	return nil
