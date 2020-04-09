@@ -797,7 +797,7 @@ func (p *Player) SetDuelAccepted(screen int, b bool) {
 // Valid rule indices are 0 through 3.
 func (p *Player) SetDuelRule(index int, b bool) {
 	rules := [4]string{"duelCanRetreat", "duelCanMagic", "duelCanPrayer", "duelCanEquip"}
-	p.SetVar(rules[index], b)
+	p.SetVar(rules[index], !b)
 }
 
 //DuelRule returns the rule associated with the specified index provided.
