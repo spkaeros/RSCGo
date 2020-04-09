@@ -77,6 +77,8 @@ func (e entrySet) String() string {
 			s += v.Value.(fmt.Stringer).String() + ";\n"
 		case int:
 			s += strconv.Itoa(v.Value.(int)) + ";\n"
+		case bool:
+			s += strconv.FormatBool(v.Value.(bool)) + ";\n"
 		case int64:
 			s += strconv.FormatInt(v.Value.(int64), 10) + ";\n"
 		case float64:
