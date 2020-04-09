@@ -876,7 +876,10 @@ func (p *Player) SetDuel2Accepted() {
 
 //DuelTarget Returns the player that the receiver is targeting to duel with, or if none, returns nil
 func (p *Player) DuelTarget() *Player {
-	return p.VarPlayer("duelTarget").(*Player)
+	if p1, ok := p.VarPlayer("duelTarget").(*Player); ok {
+		return p1
+	}
+	return nil
 }
 
 //SendPacket sends a net to the client.
