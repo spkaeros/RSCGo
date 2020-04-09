@@ -209,8 +209,8 @@ func (m *Mob) Busy() bool {
 }
 
 func (m *Mob) BusyInput() bool {
-	return m.State()&StateWaitEvent!=StateChatChoosing || m.State()&StateWaitEvent==StateItemChoosing ||
-		m.State()&StateWaitEvent == StateObjectChoosing
+	return m.State()&StateWaitEvent==StateChatChoosing || m.State()&StateWaitEvent==StateItemChoosing ||
+		m.State()&StateWaitEvent == StateObjectChoosing || m.State() == StateIdle
 //	return m.State() != StateIdle && m.State() != MSItemAction
 }
 

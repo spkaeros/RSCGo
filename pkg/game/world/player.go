@@ -1065,7 +1065,7 @@ func (p *Player) CanWalk() bool {
 		// routine waiting for a reply when ResetAll is called before the new path is set.
 		return true
 	}
-	return !p.HasState(StateBusy)
+	return !p.HasState(MSBatching, StateFighting, StateTrading, StateDueling, StateChangingLooks, StateSleeping, StateChatting, StateBusy, StateShopping)
 }
 
 //PlaySound sends a command to the client to play a sound by its file name.
