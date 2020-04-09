@@ -174,7 +174,7 @@ func (a *AttributeList) VarChecked(name string) interface{} {
 // Otherwise, returns zero.
 func (a *AttributeList) VarString(name string, zero string) string {
 	if s := a.VarChecked(name).(string); len(s) >= 1 {
-	
+		return "" + s
 	} else if s := a.VarChecked(name).(fmt.Stringer); s != nil {
 		return "" + s.String()
 	} else {

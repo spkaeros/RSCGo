@@ -256,11 +256,11 @@ func (p *Player) UpdateStatus(status bool) {
 // with a straight line of sight, e.g no intersecting boundaries, large objects, walls, etc.
 // Runs everything on game engine ticks, retries until catastrophic failure or success.
 func (p *Player) WalkingRangedAction(t entity.MobileEntity, fn func()) {
-	if t == nil || p.State()&StateFightingDuel == 0 || (p.State()&StateFightingDuel == StateFightingDuel &&
-			(!p.VarBool("duelCanMagic", true) || t != p.DuelTarget())) {
-		p.ResetPath()
-		return
-	}
+	//if t == nil || p.State()&StateFightingDuel == 0 || (p.State()&StateFightingDuel == StateFightingDuel &&
+	//		(!p.VarBool("duelCanMagic", true) || t != p.DuelTarget())) {
+	//	p.ResetPath()
+	//	return
+	//}
 	p.WalkingArrivalAction(t, 5, fn)
 }
 
@@ -922,8 +922,8 @@ func (p *Player) Initialize() {
 	//  p.SendPacket(FightMode(p))
 	p.SendPacket(ClientSettings(p))
 	p.SendPacket(PrivacySettings(p))
-	if p.FirstLogin() {
-		p.SetFirstLogin(false)
+	timestamp := p.Attributes.VarTime("lastLogin")
+	if timestamp.IsZero() {
 		for i := 0; i < 18; i++ {
 			if i != 3 {
 				p.Skills().SetCur(i, 1)
@@ -943,16 +943,14 @@ func (p *Player) Initialize() {
 
 		p.OpenAppearanceChanger()
 	}
+	if !p.Reconnecting() {
+		p.SendPacket(WelcomeMessage)
+		p.SendPacket(LoginBox(int(time.Since(timestamp).Hours()/24), p.Attributes.VarString("lastIP", "0.0.0.0")))
+	}
 	p.SendEquipBonuses()
 	p.SendInventory()
 	p.SendFatigue()
 	p.SendCombatPoints()
-	if !p.Reconnecting() {
-		p.SendPacket(WelcomeMessage)
-		if timestamp := p.Attributes.VarTime("lastLogin"); !timestamp.IsZero() {
-			p.SendPacket(LoginBox(int(time.Since(timestamp).Hours()/24), p.Attributes.VarString("lastIP", "0.0.0.0")))
-		}
-	}
 	p.SendStats()
 	p.SendPlane()
 	p.Attributes.SetVar("lastLogin", time.Now())
@@ -1111,11 +1109,12 @@ func (p *Player) IncCurStat(idx int, lvl int) {
 
 //SetCurStat sets this players current stat at idx to lvl and updates the client about it.
 func (p *Player) IncExp(idx int, amt int) {
-	if idx <= 3 {
-		p.Attributes.Inc("combatPoints", amt)
-		p.SendCombatPoints()
-		return
-	}
+	//if idx <= 3 {
+	//	p.Attributes.Inc("combatPoints", amt)
+	//	p.SendCombatPoints()
+	//	return
+	//}
+	amt *= 20
 	p.Skills().IncExp(idx, amt)
 	// TODO: Fatigue
 	delta := entity.ExperienceToLevel(p.Skills().Experience(idx)) - p.Skills().Maximum(idx)
