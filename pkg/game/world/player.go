@@ -803,7 +803,7 @@ func (p *Player) SetDuelRule(index int, b bool) {
 //DuelRule returns the rule associated with the specified index provided.
 // Valid rule indices are 0 through 3.
 func (p *Player) duelRule(index int) bool {
-	return !p.VarBool([4]string{"duelCanRetreat", "duelCanMagic", "duelCanPrayer", "duelCanEquip"}[index], true)
+	return p.VarBool([4]string{"duelCanRetreat", "duelCanMagic", "duelCanPrayer", "duelCanEquip"}[index], true)
 }
 
 func (p *Player) DuelRetreating() bool {
