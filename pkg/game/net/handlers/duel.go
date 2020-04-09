@@ -147,7 +147,7 @@ func init() {
 		//equipmentAllowed := p.ReadBoolean()
 
 		for i := 0; i < p.Length(); i++ {
-			flag := !p.ReadBoolean()
+			flag := p.ReadBoolean()
 			player.SetDuelRule(i, flag)
 			target.SetDuelRule(i, flag)
 		}
