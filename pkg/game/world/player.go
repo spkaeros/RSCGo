@@ -786,17 +786,11 @@ func (p *Player) DuelAccepted(screen int) bool {
 // Valid screens are 1 and 2.
 func (p *Player) SetDuelAccepted(screen int, b bool) {
 	duelAttr := "duel" + strconv.Itoa(screen) + "accept"
-	if !b {
-		p.UnsetVar(duelAttr)
-	}
 	if screen == 2 && !p.DuelAccepted(1) {
 		log.Suspicious.Println("Attempt to set duel2accept before duel1accept:", p.String())
 		return
 	}
-	if p.DuelAccepted(screen) != b {
-		p.UnsetVar(duelAttr)
-	}
-	p.SetVar(duelAttr, true)
+	p.SetVar(duelAttr, b)
 }
 
 //SetDuelRule sets the duel rule associated with the specified index to b.
@@ -861,6 +855,9 @@ func (p *Player) ResetDuelTarget() {
 
 //ResetDuelAccepted Resets receivers duel negotiation settings to indicate that neither screens are accepted.
 func (p *Player) ResetDuelAccepted() {
+	for i := 0; i < 2; i++ {
+		p.SetDuelAccepted(1, false)
+	}
 	p.SetDuelAccepted(1, false)
 	p.SetDuelAccepted(2, false)
 }
