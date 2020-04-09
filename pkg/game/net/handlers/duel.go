@@ -83,7 +83,7 @@ func init() {
 			log.Suspicious.Println(player, "attempted modifying duel state (with", target, ") during the duels fight!!")
 			return
 		}
-		if (target.DuelAccepted(1) || target.DuelAccepted(2)) && (player.DuelAccepted(1) || player.DuelAccepted(2)) {
+		if target.DuelAccepted(1) && player.DuelAccepted(1) || target.DuelAccepted(2) && player.DuelAccepted(2) {
 			log.Suspicious.Printf("Players{ %v;2:%v } involved in duel, player 1 attempted to alter offer after both players accepted!\n", player.String(), target.String())
 			player.ResetDuel()
 			player.SendPacket(world.DuelClose)
