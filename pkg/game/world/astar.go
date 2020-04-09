@@ -125,7 +125,7 @@ func (p *Pathfinder) compare(active, other *pNode) {
 }
 
 func (p *Pathfinder) MakePath() *Pathway {
-	if p.end.Reachable()IsTileBlocking(p.end.X(), p.end.Y(), ClipDiag1|ClipDiag2|ClipFullBlock, false) {
+	if IsTileBlocking(p.end.X(), p.end.Y(), 0, false) {
 		return NewPathwayToLocation(p.end)
 	}
 	for p.open.Len() > 0 {

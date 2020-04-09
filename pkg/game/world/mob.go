@@ -146,6 +146,17 @@ func (l *MobList) RangeNpcs(action func(*NPC) bool) int {
 	})
 }
 
+func (l *MobList) Get(idx int) entity.MobileEntity {
+	l.RLock()
+	defer l.RUnlock()
+	for _, v := range l.mobSet {
+		if v.ServerIndex() == idx {
+			return v
+		}
+	}
+	return nil
+}
+
 //Mob Represents a mobile entity within the game world.
 type Mob struct {
 	*Entity

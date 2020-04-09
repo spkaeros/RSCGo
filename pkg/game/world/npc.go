@@ -38,9 +38,9 @@ var NpcDefs []NpcDefinition
 //NpcCounter Counts the number of total NPCs within the world.
 var NpcCounter = atomic.NewUint32(0)
 //Npcs A collection of every NPC in the game, sorted by index
-var Npcs []*NPC
+//var Npcs []*NPC
 var npcsLock sync.RWMutex
-var NpcsNew = NewMobList()
+var Npcs = NewMobList()
 
 //NPC Represents a single non-playable character within the game world.
 type NPC struct {
@@ -66,7 +66,7 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 		n.Skills().SetMax(2, NpcDefs[id].Strength)
 		n.Skills().SetMax(3, NpcDefs[id].Hits)
 	}
-	NpcsNew.Add(n)
+	Npcs.Add(n)
 	return n
 }
 
@@ -94,7 +94,7 @@ func (n *NPC) Command() string {
 //UpdateNPCPositions Loops through the global NPC entityList and, if they are by a player, updates their path to a new path every so often,
 // within their boundaries, and traverses each NPC along said path if necessary.
 func UpdateNPCPositions() {
-	NpcsNew.RangeNpcs(func(n *NPC) bool {
+	Npcs.RangeNpcs(func(n *NPC) bool {
 		if n.Busy() || n.IsFighting() || n.Equals(DeathPoint) {
 			return false
 		}
@@ -111,6 +111,7 @@ func UpdateNPCPositions() {
 		
 		}
 		n.TraversePath()
+		return false
 	})
 	//npcsLock.RLock()
 	//for _, n := range Npcs {
@@ -144,18 +145,13 @@ func (n *NPC) UpdateRegion(x, y int) {
 
 //ResetNpcUpdateFlags Resets the synchronization update flags for all NPCs in the game world.
 func ResetNpcUpdateFlags() {
-	npcsLock.RLock()
-	for _, n := range Npcs {
-		//		for _, fn := range n.ResetTickables {
-		//			fn()
-		//		}
-		//		n.ResetTickables = n.ResetTickables[:0]
+	Npcs.RangeNpcs(func (n *NPC) bool {
 		n.ResetRegionRemoved()
 		n.ResetRegionMoved()
 		n.ResetSpriteUpdated()
 		n.ResetAppearanceChanged()
-	}
-	npcsLock.RUnlock()
+		return false
+	})
 }
 
 //NpcActionPredicate callback to a function defined in the Anko scripts loaded at runtime, to be run when certain

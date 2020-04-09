@@ -449,7 +449,7 @@ func (p *Player) TraversePath() {
 }
 
 func (l Location) Blocked() bool {
-
+	return false
 }
 
 func (l Location) Reachable(x, y int) bool {

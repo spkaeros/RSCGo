@@ -3,6 +3,7 @@ package world
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"sync"
 	"time"
 
@@ -211,6 +212,10 @@ func AddObject(o *Object) {
 			for y := o.Y(); y < o.Y()+height; y++ {
 				areaX := (2304 + x) % RegionSize
 				areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
+				if len(sectorFromCoords(x, y).Tiles) <= 0 {
+					log.Warning.Println("ERROR: Sector with no tiles at:" + strconv.Itoa(x) + "," + strconv.Itoa(y) + " ("+strconv.Itoa(areaX)+","+strconv.Itoa(areaY)+"\n")
+					return
+				}
 				if scenary.CollisionType == 1 {
 					// Blocks the whole tile.  Can not walk on it from any direction
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipFullBlock
@@ -223,7 +228,7 @@ func AddObject(o *Object) {
 					// Block the tiles east side
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipEast
 					// ensure that the neighbors index is valid
-					if areaX > 0 || areaY >= RegionSize {
+					if len(sectorFromCoords(x-1, y).Tiles) > 0 && (areaX > 0 || areaY >= RegionSize) {
 						// then block the eastern neighbors west side
 						sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask |= ClipWest
 					}
@@ -236,12 +241,14 @@ func AddObject(o *Object) {
 					// Block the tiles west side
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipWest
 					// then block the western neighbors east side
-					sectorFromCoords(x+1, y).Tiles[(areaX+1)*RegionSize+areaY].CollisionMask |= ClipEast
+					if areaX, areaY := (2304+x+1) % RegionSize, (1776+y-(944*((y+100)/944))) % RegionSize;(areaX+1)*RegionSize+areaY > 2304 {
+						sectorFromCoords(x+1, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipEast
+					}
 				case byte(East):
 					// Block the tiles north side
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipNorth
 					// ensure that the neighbors index is valid
-					if areaX+areaY > 0 {
+					if len(sectorFromCoords(x, y-1).Tiles) > 0 && areaX+areaY > 0 {
 						// then block the eastern neighbors west side
 						sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1].CollisionMask |= ClipSouth
 					}
@@ -258,6 +265,10 @@ func AddObject(o *Object) {
 		x, y := o.X(), o.Y()
 		areaX := (2304 + x) % RegionSize
 		areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
+		if len(sectorFromCoords(x, y).Tiles) <= 0 {
+			log.Warning.Println("ERROR: Sector with no tiles at:" + strconv.Itoa(x) + "," + strconv.Itoa(y) + " ("+strconv.Itoa(areaX)+","+strconv.Itoa(areaY)+"\n")
+			return
+		}
 		if o.Direction == 0 {
 			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipNorth
 			if areaX+areaY > 0 {
@@ -401,11 +412,7 @@ func GetObject(x, y int) *Object {
 
 //GetNpc Returns the NPC with the specified game index.
 func GetNpc(index int) *NPC {
-	if index > len(Npcs)-1 {
-		log.Info.Printf("Index out of bounds in call to GetNpc.  Length:%d, Requested:%d\n", len(Npcs), index)
-		return nil
-	}
-	return Npcs[index]
+	return Npcs.Get(index).(*NPC)
 }
 
 //NpcNearest looks for the NPC with the given ID, that is the closest to the given coordinates
