@@ -81,8 +81,6 @@ func (e entrySet) String() string {
 			s += strconv.FormatInt(v.Value.(int64), 10) + ";\n"
 		case float64:
 			s += strconv.FormatFloat(v.Value.(float64), 'E', -1, 64) + ";\n"
-		case float32:
-			s += strconv.FormatFloat(v.Value.(float32), 'E', -1, 32) + ";\n"
 		}
 	}
 	s += "\n]\n"
