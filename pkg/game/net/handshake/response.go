@@ -174,6 +174,7 @@ const (
 const (
 	ResponseRegisterSuccess ResponseCode = 2 + iota
 	ResponseUsernameTaken
+	ResponseShortInput
 )
 
 //ResponseListener This method will block until a response to send to the client is received from our data workers, or if this doesn't occur, 10 seconds after it was called.

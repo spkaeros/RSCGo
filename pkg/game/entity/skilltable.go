@@ -139,17 +139,17 @@ func (s *SkillTable) String() (s1 string) {
 
 
 //CombatLevel Calculates and returns the combat level for this skill table.
+// Melee stats are .25 combat levels per skill level
+// Pray and magic are .125 combat levels per skill level
+// Ranged is .375 combat levels per skill level
+// Ranged has more impact here because its a single skill, where the other skills had partners
+// they tacked on a half-melee-level step per ranged level to compensate (.25+.125=.375)
 func (s *SkillTable) CombatLevel() int {
 	s.RLock()
 	defer s.RUnlock()
-	// Melee stats are .25 combat levels per skill level
 	strengthAvg := float64(s.maximum[StatAttack] + s.maximum[StatStrength])*.25
 	defenseAvg := float64(s.maximum[StatDefense] + s.maximum[StatHits])*.25
-	// Pray and magic are .125 combat levels per skill level
 	magicAvg := float64(s.maximum[StatPrayer] + s.maximum[StatMagic])*.125
-	// Ranged is .375 per skill level
-	// Ranged has more impact here because its a single skill, where the other skills had partners
-	// they tacked on a half-melee-level step per ranged level to compensate (.25+.125=.375)
 	rangedAvg := float64(s.maximum[4])*.375
 	return int(defenseAvg + magicAvg +math.Max(strengthAvg, rangedAvg))
 }

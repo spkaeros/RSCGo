@@ -11,12 +11,12 @@ package world
 
 import (
 	"math"
-	"sync"
 	"time"
-
+	
+	"go.uber.org/atomic"
+	
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/rand"
-	"go.uber.org/atomic"
 )
 
 //NpcDefinition This represents a single definition for a single NPC in the game.
@@ -39,7 +39,6 @@ var NpcDefs []NpcDefinition
 var NpcCounter = atomic.NewUint32(0)
 //Npcs A collection of every NPC in the game, sorted by index
 //var Npcs []*NPC
-var npcsLock sync.RWMutex
 var Npcs = NewMobList()
 
 //NPC Represents a single non-playable character within the game world.
@@ -52,7 +51,7 @@ type NPC struct {
 
 //NewNpc Creates a new NPC and returns a reference to it
 func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
-	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: int(NpcCounter.Swap(NpcCounter.Load() + 1)), Location: NewLocation(startX, startY)}, AttributeList: entity.NewAttributeList()}}
+	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: Npcs.Size(), Location: NewLocation(startX, startY)}, AttributeList: entity.NewAttributeList()}}
 	n.Transients().SetVar("skills", &entity.SkillTable{})
 	n.Boundaries[0] = NewLocation(minX, minY)
 	n.Boundaries[1] = NewLocation(maxX, maxY)
@@ -61,11 +60,13 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 		n.Skills().SetCur(1, NpcDefs[id].Defense)
 		n.Skills().SetCur(2, NpcDefs[id].Strength)
 		n.Skills().SetCur(3, NpcDefs[id].Hits)
+		
 		n.Skills().SetMax(0, NpcDefs[id].Attack)
 		n.Skills().SetMax(1, NpcDefs[id].Defense)
 		n.Skills().SetMax(2, NpcDefs[id].Strength)
 		n.Skills().SetMax(3, NpcDefs[id].Hits)
 	}
+	n.StartPoint = n.Location.Clone()
 	Npcs.Add(n)
 	return n
 }
@@ -98,19 +99,15 @@ func UpdateNPCPositions() {
 		if n.Busy() || n.IsFighting() || n.Equals(DeathPoint) {
 			return false
 		}
-		if time.Now().After(n.VarTime("nextMove")) {
-			for _, r := range surroundingRegions(n.X(), n.Y()) {
-				if r.Players.Size() > 0 {
-					n.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(10, 20))))
-					n.SetVar("pathLength", rand.Int31N(5, 15))
-					break
-				}
-			}
+
+		if moveTime := n.VarTime("nextMove"); moveTime.IsZero() || time.Now().After(moveTime) {
+			n.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(10, 20))))
+			n.SetVar("pathLength", rand.Int31N(5, 15))
 		}
-		if n.Contains("pathLength") {
-		
+
+		if n.VarInt("pathLength", 0) > 0 {
+			n.TraversePath()
 		}
-		n.TraversePath()
 		return false
 	})
 	//npcsLock.RLock()
@@ -197,7 +194,7 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 	}
 	AddItem(NewGroundItem(DefaultDrop, 1, n.X(), n.Y()))
 	if killer, ok := killer.(*Player); ok {
-		killer.DistributeMeleeExp(int(math.Ceil(MeleeExperience(n) / 4.0)))
+		killer.DistributeMeleeExp(int(math.Ceil(n.MeleeExperience(true)/ 4.0)))
 	}
 	n.Skills().SetCur(entity.StatHits, n.Skills().Maximum(entity.StatHits))
 	n.SetLocation(DeathPoint, true)
@@ -212,18 +209,6 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 
 //TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
 func (n *NPC) TraversePath() {
-	/*	path := n.Path()
-		if path == nil {
-			return
-		}
-		if n.AtLocation(path.nextTile()) {
-			path.CurrentWaypoint++
-		}
-		if n.FinishedPath() {
-			n.ResetPath()
-			return
-		}*/
-	//dst := path.nextTile()
 	if n.VarInt("pathLength", 0) <= 0 {
 		return
 	}
@@ -248,7 +233,7 @@ func (n *NPC) TraversePath() {
 		
 		if !n.Reachable(dst.X(), dst.Y()) ||
 				dst.X() < n.Boundaries[0].X() || dst.X() > n.Boundaries[1].X() ||
-				dst.Y() < n.Boundaries[0].Y() || dst.Y() > n.Boundaries[1].Y(){
+				dst.Y() < n.Boundaries[0].Y() || dst.Y() > n.Boundaries[1].Y() {
 			n.SetVar("pathDir", int(rand.Uint8n(8)))
 			continue
 		}
