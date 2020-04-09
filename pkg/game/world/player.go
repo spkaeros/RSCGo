@@ -785,11 +785,14 @@ func (p *Player) DuelAccepted(screen int) bool {
 //DuelAccepted returns the status of the specified duel negotiation screens accepted button for this player.
 // Valid screens are 1 and 2.
 func (p *Player) SetDuelAccepted(screen int, b bool) {
+	duelAttr := "duel" + strconv.Itoa(screen) + "accept"
+	if !b {
+		p.UnsetVar(duelAttr)
+	}
 	if screen == 2 && !p.DuelAccepted(1) {
 		log.Suspicious.Println("Attempt to set duel2accept before duel1accept:", p.String())
 		return
 	}
-	duelAttr := "duel" + strconv.Itoa(screen) + "accept"
 	if p.DuelAccepted(screen) != b {
 		p.UnsetVar(duelAttr)
 	}

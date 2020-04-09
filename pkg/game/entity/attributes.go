@@ -11,6 +11,7 @@ package entity
 
 import (
 	`fmt`
+	`strconv`
 	"sync"
 	"time"
 	
@@ -68,9 +69,23 @@ func (e entrySet) Size() int {
 func (e entrySet) String() string {
 	s := "[\n"
 	for _, v := range e {
-		s += "name:" + v.String() + ",value:" + v.Value.(string) + ";\n"
+		s += "name:" + v.String() + ",value:"
+		switch v.Value.(type) {
+		case string:
+			s += v.Value.(string) + ";\n"
+		case fmt.Stringer:
+			s += v.Value.(fmt.Stringer).String() + ";\n"
+		case int:
+			s += strconv.Itoa(v.Value.(int)) + ";\n"
+		case int64:
+			s += strconv.FormatInt(v.Value.(int64), 10) + ";\n"
+		case float64:
+			s += strconv.FormatFloat(v.Value.(float64), 'E', -1, 64) + ";\n"
+		case float32:
+			s += strconv.FormatFloat(v.Value.(float32), 'E', -1, 32) + ";\n"
+		}
 	}
-	s += "\n]"
+	s += "\n]\n"
 	return s
 }
 
