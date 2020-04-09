@@ -51,18 +51,24 @@ func init() {
 			log.Suspicious.Printf("player[%v] tried to attack nil player\n", player)
 			return
 		}
-		if player.IsFighting() {
-			return
-		}
 		player.WalkingArrivalAction(affectedPlayer, 2, func() {
 			if player.Busy() || !player.CanAttack(affectedPlayer) {
 				return
 			}
+			if affectedPlayer.IsFighting() {
+				player.Message("Your opponent is busy!")
+				return
+			}
+			if player.IsFighting() {
+				player.Message("You're already fighting!")
+				return
+			}
 			player.ResetPath()
-			if time.Since(affectedPlayer.VarTime("lastRetreat")) <= time.Second*3 || affectedPlayer.IsFighting() {
+			if time.Since(affectedPlayer.VarTime("lastRetreat")) <= time.Second*3 {
 				return
 			}
 			affectedPlayer.ResetPath()
+			affectedPlayer.Message("You are under attack!")
 			player.StartCombat(affectedPlayer)
 		})
 	})

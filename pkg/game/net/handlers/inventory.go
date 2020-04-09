@@ -88,9 +88,7 @@ func init() {
 			if world.IsTileBlocking(x, y, 0x40, false) {
 				maxDelta++
 			}
-			if delta := player.Delta(item.Location); delta > maxDelta {
-				return player.FinishedPath()
-			} else if delta == 1 && world.IsTileBlocking(player.X(), player.Y(), byte(world.ClipBit(player.DirectionToward(item.Location))), true) {
+			if delta := player.Delta(item.Location); delta > maxDelta || delta == 1 && !player.Reachable(item.X(), item.Y()) {
 				return player.FinishedPath()
 			}
 			player.ResetPath()

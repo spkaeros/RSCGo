@@ -142,13 +142,13 @@ func AddPlayer(p *Player) {
 //RemovePlayer SetRegionRemoved a player from the region.
 func RemovePlayer(p *Player) {
 	//	p.UpdateStatus(false)
+	getRegion(p.X(), p.Y()).Players.Remove(p)
+	Players.Remove(p)
 	Players.Range(func(player *Player) {
 		if player.FriendList.contains(p.Username()) {
 			player.SendPacket(FriendUpdate(p.UsernameHash(), !p.FriendBlocked()))
 		}
 	})
-	getRegion(p.X(), p.Y()).Players.Remove(p)
-	Players.Remove(p)
 	p.SetRegionRemoved()
 }
 
@@ -192,76 +192,86 @@ func RemoveItem(i *GroundItem) {
 func AddObject(o *Object) {
 	getRegion(o.X(), o.Y()).Objects.Add(o)
 	if !o.Boundary {
-		def := ObjectDefs[o.ID]
-		if def.Type != 1 && def.Type != 2 {
+		scenary := ObjectDefs[o.ID]
+		// type 0 is used when the object causes no collisions of any sort.
+		// type 1 is used when the object fully blocks the tile(s) that it sits on.  Marks tile as fully blocked.
+		// type 2 is used when the object mimics a boundary, e.g for gates and the like.
+		// type 3 is used when the object mimics an opened door-type boundary, e.g opened gates and the like.
+		if scenary.CollisionType%3 != 0{
 			return
 		}
-		var width, height int
-		if o.Direction == 0 || o.Direction == 4 {
-			width = def.Width
-			height = def.Height
-		} else {
-			width = def.Height
-			height = def.Width
+		width := scenary.Height
+		height := scenary.Width
+		//if o.Direction == 0 || o.Direction == 4 {
+		if o.Direction%4 == 0 {
+			width = scenary.Width
+			height = scenary.Height
 		}
-		for xOffset := 0; xOffset < width; xOffset++ {
-			for yOffset := 0; yOffset < height; yOffset++ {
-				x, y := o.X()+xOffset, o.Y()+yOffset
+		for x := o.X(); x < o.X()+width; x++ {
+			for y := o.Y(); y < o.Y()+height; y++ {
 				areaX := (2304 + x) % RegionSize
 				areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
-				if sectorFromCoords(x, y) == nil {
-					return
-				}
-				if def.Type == 1 {
+				if scenary.CollisionType == 1 {
+					// Blocks the whole tile.  Can not walk on it from any direction
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipFullBlock
-				} else if o.Direction == 0 {
+					continue
+				}
+				
+				// Type 2 (directional blocking, e.g gates etc) if we made it here
+				switch o.Direction {
+				case byte(North):
+					// Block the tiles east side
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipEast
-					if sectorFromCoords(x-1, y) != nil && (areaX > 0 || areaY >= 48) {
+					// ensure that the neighbors index is valid
+					if areaX > 0 || areaY >= RegionSize {
+						// then block the eastern neighbors west side
 						sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask |= ClipWest
 					}
-				} else if o.Direction == 2 {
+				case byte(West):
+					// Block the tiles south side
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipSouth
-					if sectorFromCoords(x, y+1) != nil {
-						sectorFromCoords(x, y+1).Tiles[areaX*RegionSize+areaY+1].CollisionMask |= ClipNorth
-					}
-				} else if o.Direction == 4 {
+					// then block the southern neighbors north side
+					sectorFromCoords(x, y+1).Tiles[areaX*RegionSize+areaY+1].CollisionMask |= ClipNorth
+				case byte(South):
+					// Block the tiles west side
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipWest
-					if sectorFromCoords(x+1, y) != nil {
-						sectorFromCoords(x+1, y).Tiles[(areaX+1)*RegionSize+areaY].CollisionMask |= ClipEast
-					}
-				} else if o.Direction == 6 {
+					// then block the western neighbors east side
+					sectorFromCoords(x+1, y).Tiles[(areaX+1)*RegionSize+areaY].CollisionMask |= ClipEast
+				case byte(East):
+					// Block the tiles north side
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipNorth
-					if sectorFromCoords(x, y-1) != nil {
+					// ensure that the neighbors index is valid
+					if areaX+areaY > 0 {
+						// then block the eastern neighbors west side
 						sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1].CollisionMask |= ClipSouth
 					}
 				}
+				
 			}
 		}
 	} else {
-		def := BoundaryDefs[o.ID]
-		if !def.Solid {
+		boundary := BoundaryDefs[o.ID]
+		if !boundary.Solid {
+			// Doorframes and some other stuff collide with nothing.
 			return
 		}
 		x, y := o.X(), o.Y()
 		areaX := (2304 + x) % RegionSize
 		areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
-		if sectorFromCoords(x, y) == nil {
-			return
-		}
 		if o.Direction == 0 {
 			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipNorth
-			if sectorFromCoords(x, y-1) != nil {
+			if areaX+areaY > 0 {
 				sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1].CollisionMask |= ClipSouth
 			}
 		} else if o.Direction == 1 {
 			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipEast
-			if sectorFromCoords(x-1, y) != nil && (areaX > 0 || areaY >= 48) {
+			if areaX > 0 || areaY >= 48 {
 				sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask |= ClipWest
 			}
 		} else if o.Direction == 2 {
-			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipDiag1
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipSwNe
 		} else if o.Direction == 3 {
-			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipDiag2
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipSeNw
 		}
 	}
 }
@@ -270,24 +280,30 @@ func AddObject(o *Object) {
 func RemoveObject(o *Object) {
 	getRegion(o.X(), o.Y()).Objects.Remove(o)
 	if !o.Boundary {
-		def := ObjectDefs[o.ID]
-		if def.Type != 1 && def.Type != 2 {
+		scenary := ObjectDefs[o.ID]
+		// type 0 is used when the object causes no collisions of any sort.
+		// type 1 is used when the object fully blocks the tile(s) that it sits on.  Marks tile as fully blocked.
+		// type 2 is used when the object mimics a boundary, e.g for gates and the like.
+		// type 3 is used when the object mimics an opened door-type boundary, e.g opened gates and the like.
+		if scenary.CollisionType%3 == 0 {
 			return
 		}
-		var width, height int
-		if o.Direction == 0 || o.Direction == 4 {
-			width = def.Width
-			height = def.Height
-		} else {
-			width = def.Height
-			height = def.Width
+		width := scenary.Height
+		height := scenary.Width
+		
+		//if o.Direction == byte(North) || o.Direction == byte(South) {
+		if o.Direction%4 == 0 {
+			// reverse measurements for directions 0(North) and 4(South), as scenary measurements
+			// are oriented vertically by default
+			width = scenary.Width
+			height = scenary.Height
 		}
-		for xOffset := 0; xOffset < width; xOffset++ {
-			for yOffset := 0; yOffset < height; yOffset++ {
-				x, y := o.X()+xOffset, o.Y()+yOffset
+		for x := o.X(); x < o.X()+width; x++ {
+			for y := o.Y(); y < o.Y()+height; y++ {
 				areaX := (2304 + x) % RegionSize
 				areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
-				if def.Type == 1 {
+				if scenary.CollisionType == 1 {
+					// This indicates a solid object.  Impassable and blocks the whole tile.
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= ^ClipFullBlock
 				} else if o.Direction == 0 {
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= ^ClipEast
@@ -313,27 +329,29 @@ func RemoveObject(o *Object) {
 			}
 		}
 	} else {
-		def := BoundaryDefs[o.ID]
-		if !def.Solid {
+		// Wall or door location
+		boundary := BoundaryDefs[o.ID]
+		if !boundary.Solid {
 			return
 		}
+
 		x, y := o.X(), o.Y()
 		areaX := (2304 + x) % RegionSize
 		areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
-		if o.Direction == 0 {
+		if o.Direction == 0 { // Vertical wall ('| ',' |') North<->South
 			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= ^ClipNorth
-			if sectorFromCoords(x, y-1) != nil {
+			if areaX + areaY > 0 {
 				sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1].CollisionMask &= ^ClipSouth
 			}
-		} else if o.Direction == 1 {
+		} else if o.Direction == 1 { // Horizontal wall ('__','‾‾') East<->West
 			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= ^ClipEast
-			if sectorFromCoords(x-1, y) != nil {
+			if areaX > 0 || areaY >= 48 {
 				sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask &= ^ClipWest
 			}
-		} else if o.Direction == 2 {
-			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= ^ClipDiag1
-		} else if o.Direction == 3 {
-			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= ^ClipDiag2
+		} else if o.Direction == 2 { // Diagonal wall ('\','‾|','|_') Southwest<->Northeast
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= ^ClipSwNe
+		} else if o.Direction == 3 { // Diagonal wall ('/','|‾','_|') Southeast<->Northwest
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= ^ClipSeNw
 		}
 	}
 }

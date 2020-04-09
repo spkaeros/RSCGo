@@ -40,7 +40,7 @@ func bindGameProcManager() {
 
 	//muxCtx.Handle("/game/control.ws", pageHandler("Game Server Control", controlPage))
 	muxCtx.HandleFunc("/game/launch.ws", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Content-CollisionType", "text/plain")
 		if ServerCmd != nil && (ServerCmd.ProcessState == nil || !ServerCmd.ProcessState.Exited()) {
 			writeContent(w, []byte("killing old instances...\n"))
 			_ = procexec.Command("pkill", "-9", "game").Run()
@@ -111,7 +111,7 @@ func bindGameProcManager() {
 			}
 			return err
 		}
-		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Content-CollisionType", "text/plain")
 		if ServerCmd == nil || ServerCmd.Process == nil || (ServerCmd.ProcessState != nil && ServerCmd.ProcessState.Exited()) {
 			if err := pkill(); err != nil {
 				writeContent(w, []byte("Error:['"+err.Error()+"]''; could not stop game server.  Is it running?"))

@@ -141,9 +141,10 @@ func (p *Player) Bank() *Inventory {
 
 func (p *Player) CanAttack(target entity.MobileEntity) bool {
 	if target.IsNpc() {
+		target.(*NPC).AttackPoints()
 		return NpcDefs[target.(*NPC).ID].Attackable
 	}
-	if p.IsDueling() && p.IsFighting() {
+	if p.State()&StateFightingDuel==StateFightingDuel {
 		return p.DuelTarget() == target && p.VarBool("duelCanMagic", true)
 	}
 	p1 := target.(*Player)
@@ -447,6 +448,10 @@ func (p *Player) TraversePath() {
 	p.SetLocation(dst, false)
 }
 
+func (l Location) Blocked() bool {
+
+}
+
 func (l Location) Reachable(x, y int) bool {
 	dst := NewLocation(x, y)
 	if l.LongestDelta(dst) > 1 {
@@ -459,11 +464,11 @@ func (l Location) Reachable(x, y int) bool {
 		return false
 	}
 
-	// does the walk tile affect both X and Y coord at same time
-	//	if bitmask&(ClipNorth|ClipSouth))|dstmask&(ClipNorth|ClipSouth) != 0 &&
-	//			bitmask&(ClipNorth|ClipSouth))|dstmask&(ClipEast|ClipWest) != 0 {
+	// does the next step toward our goal affect both X and Y coords?
 	if dst.X() != l.X() && dst.Y() != l.Y() {
-		// check masks diagonally
+		// if so, we must scan for adjacent bitmasks of certain diags('_|', '‾|', '|‾' or '|_')
+		// Since / and \ masks block a whole tile, those masks are auto-checked in the guts of the API
+		// However, this leaves possible holes in x+1,y and x,y+1 at certain angles where we should block
 		var vmask, hmask byte
 		if dst.X() > l.X() {
 			vmask |= ClipSouth
@@ -851,7 +856,7 @@ func (p *Player) Destroy() {
 func (p *Player) AtObject(object *Object) bool {
 	x, y := p.X(), p.Y()
 	bounds := object.Boundaries()
-	if ObjectDefs[object.ID].Type == 2 || ObjectDefs[object.ID].Type == 3 {
+	if ObjectDefs[object.ID].CollisionType == 2 || ObjectDefs[object.ID].CollisionType == 3 {
 		return (p.NextTo(bounds[0]) || p.NextTo(bounds[1])) && (x >= bounds[0].X() && x <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y())
 	}
 

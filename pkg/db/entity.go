@@ -38,7 +38,7 @@ func (s *sqlService) Objects() (objects []world.ObjectDefinition) {
 	
 	for rows.Next() {
 		nextDef := world.ObjectDefinition{}
-		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.Type, &nextDef.Width, &nextDef.Height, &nextDef.ModelHeight)
+		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.CollisionType, &nextDef.Width, &nextDef.Height, &nextDef.ModelHeight)
 		objects = append(objects, nextDef)
 	}
 	

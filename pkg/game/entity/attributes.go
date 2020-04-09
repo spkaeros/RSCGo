@@ -152,14 +152,14 @@ func (a *AttributeList) UnsetVar(name string) {
 
 //Inc If there is an integer attribute with the provided name, it Will increase it by deta. Otherwise, wi
 // overwrite `name` var to the int `deta`
-func (a *AttributeList) Inc(name string, deta int) {
-	a.SetVar(name, a.VarInt(name, 0) + deta)
+func (a *AttributeList) Inc(name string, delta int) {
+	a.SetVar(name, a.VarInt(name, 0)+delta)
 }
 
 //Dec If there is an integer attribute with the provided name, it Will decrease it by deta. Otherwise, wi
 // overwrite `name` var to the int `deta`
-func (a *AttributeList) Dec(name string, deta int) {
-	a.SetVar(name, a.VarInt(name, 0) + deta)
+func (a *AttributeList) Dec(name string, delta int) {
+	a.SetVar(name, a.VarInt(name, 0)-delta)
 }
 
 //VarChecked Checks if an attribute with a given name exists and is non-nil.
@@ -178,7 +178,7 @@ func (a *AttributeList) VarString(name string, zero string) string {
 	} else if s := a.VarChecked(name).(fmt.Stringer); s != nil {
 		return "" + s.String()
 	} else {
-		log.Error.Printf("AttributeList[Type Error]: Expected string, got %T\n", s)
+		log.Error.Printf("AttributeList[CollisionType Error]: Expected string, got %T\n", s)
 	}
 	return zero
 }
@@ -191,7 +191,7 @@ func (a *AttributeList) VarInt(name string, zero int) int {
 			return i
 		}
 	} else if ok {
-		log.Error.Printf("AttributeList[Type Error]: Expected int, got %T\n", v)
+		log.Error.Printf("AttributeList[CollisionType Error]: Expected int, got %T\n", v)
 		return zero
 	}
 	return zero

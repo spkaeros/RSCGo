@@ -37,10 +37,10 @@ var NpcDefs []NpcDefinition
 
 //NpcCounter Counts the number of total NPCs within the world.
 var NpcCounter = atomic.NewUint32(0)
-
 //Npcs A collection of every NPC in the game, sorted by index
 var Npcs []*NPC
 var npcsLock sync.RWMutex
+var NpcsNew = NewMobList()
 
 //NPC Represents a single non-playable character within the game world.
 type NPC struct {
@@ -56,7 +56,6 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 	n.Transients().SetVar("skills", &entity.SkillTable{})
 	n.Boundaries[0] = NewLocation(minX, minY)
 	n.Boundaries[1] = NewLocation(maxX, maxY)
-	n.StartPoint = NewLocation(startX, startY)
 	if id < 794 {
 		n.Skills().SetCur(0, NpcDefs[id].Attack)
 		n.Skills().SetCur(1, NpcDefs[id].Defense)
@@ -67,46 +66,69 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 		n.Skills().SetMax(2, NpcDefs[id].Strength)
 		n.Skills().SetMax(3, NpcDefs[id].Hits)
 	}
-	npcsLock.Lock()
-	Npcs = append(Npcs, n)
-	npcsLock.Unlock()
+	NpcsNew.Add(n)
 	return n
 }
 
-func (n *NPC) Name() string {
-	if n.ID > 793 || n.ID < 0 {
-		return "nil"
+func (n *NPC) Attackable() bool {
+	if n.ID <= len(NpcDefs)-1 {
+		return NpcDefs[n.ID].Attackable
 	}
-	return NpcDefs[n.ID].Name
+	return false
+}
+
+func (n *NPC) Name() string {
+	if n.ID <= len(NpcDefs)-1 {
+		return NpcDefs[n.ID].Name
+	}
+	return "nil"
 }
 
 func (n *NPC) Command() string {
-	if n.ID > 793 || n.ID < 0 {
-		return "nil"
+	if n.ID <= len(NpcDefs)-1 {
+		return NpcDefs[n.ID].Command
 	}
-	return NpcDefs[n.ID].Command
+	return "nil"
 }
 
 //UpdateNPCPositions Loops through the global NPC entityList and, if they are by a player, updates their path to a new path every so often,
 // within their boundaries, and traverses each NPC along said path if necessary.
 func UpdateNPCPositions() {
-	npcsLock.RLock()
-	for _, n := range Npcs {
+	NpcsNew.RangeNpcs(func(n *NPC) bool {
 		if n.Busy() || n.IsFighting() || n.Equals(DeathPoint) {
-			continue
+			return false
 		}
-		if n.VarTime("nextMove").Before(time.Now()) {
+		if time.Now().After(n.VarTime("nextMove")) {
 			for _, r := range surroundingRegions(n.X(), n.Y()) {
 				if r.Players.Size() > 0 {
-					n.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(5, 15))))
+					n.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(10, 20))))
 					n.SetVar("pathLength", rand.Int31N(5, 15))
 					break
 				}
 			}
 		}
+		if n.Contains("pathLength") {
+		
+		}
 		n.TraversePath()
-	}
-	npcsLock.RUnlock()
+	})
+	//npcsLock.RLock()
+	//for _, n := range Npcs {
+	//	if n.Busy() || n.IsFighting() || n.Equals(DeathPoint) {
+	//		continue
+	//	}
+	//	if n.VarTime("nextMove").Before(time.Now()) {
+	//		for _, r := range surroundingRegions(n.X(), n.Y()) {
+	//			if r.Players.Size() > 0 {
+	//				n.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(10, 20))))
+	//				n.SetVar("pathLength", rand.Int31N(5, 15))
+	//				break
+	//			}
+	//		}
+	//	}
+	//	n.TraversePath()
+	//}
+	//npcsLock.RUnlock()
 }
 
 func (n *NPC) UpdateRegion(x, y int) {
@@ -158,6 +180,15 @@ func (n *NPC) Damage(dmg int) {
 			return false
 		})
 	}
+}
+
+//MeleeExperience returns how much combat experience to award for killing an opponent with melee.
+func (n *NPC) MeleeExperience(up bool) float64 {
+	e := float64((n.Skills().CombatLevel()*2.0)+10.0) * 1.5
+	if up {
+		return math.Ceil(e)
+	}
+	return math.Floor(e)
 }
 
 func (n *NPC) Killed(killer entity.MobileEntity) {

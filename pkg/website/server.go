@@ -83,7 +83,7 @@ func render(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-CollisionType", "text/html; charset=utf-8")
 	err := tmpl.ExecuteTemplate(w, "layout", Information)
 	if err != nil {
 		w.WriteHeader(500)

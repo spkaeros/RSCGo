@@ -327,7 +327,7 @@ func init() {
 				// If somehow we became busy, the object changed before arriving, we do nothing.
 				return true
 			}
-			if world.ObjectDefs[object.ID].Type == 2 || world.ObjectDefs[object.ID].Type == 3 {
+			if world.ObjectDefs[object.ID].CollisionType == 2 || world.ObjectDefs[object.ID].CollisionType == 3 {
 				if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
 					player.ResetPath()
 					player.AddState(world.MSBatching)

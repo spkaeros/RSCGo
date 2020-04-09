@@ -135,23 +135,21 @@ const (
 
 const (
 	//ClipNorth Bitmask to represent a wall to the north.
-	ClipNorth = 1
+	ClipNorth = 1 << iota
 	//ClipEast Bitmask to represent a wall to the west.
-	ClipEast = 1 << 1
+	ClipEast
 	//ClipSouth Bitmask to represent a wall to the south.
-	ClipSouth = 1 << 2
+	ClipSouth
 	//ClipWest Bitmask to represent a wall to the east.
-	ClipWest          = 1 << 3
-	ClipCanProjectile = 1 << 4
+	ClipWest
+	ClipCanProjectile
 	//ClipDiag1 Bitmask to represent a diagonal wall.
-	ClipDiag1 = 1 << 5
+	ClipSwNe
 	//ClipDiag2 Bitmask to represent a diagonal wall facing the opposite way.
-	ClipDiag2 = 1 << 6
+	ClipSeNw
 	//ClipFullBlock Bitmask to represent an object blocking an entire tile.
-	ClipFullBlock = 1 << 7
-	// TODO: Add more masks to handle projectiles gracefully,
-	ClipDiagSeNw = ClipDiag2
-	ClipDiagSwNe = ClipDiag1
+	ClipFullBlock
+	// TODO: handle projectiles properly, after I define what properly means in this context
 )
 
 func ClipBit(direction int) int {
@@ -169,6 +167,30 @@ func ClipBit(direction int) int {
 		mask |= ClipWest
 	}
 	return mask
+}
+
+//Masks returns appropriate collision bitmasks to check for obstacles on when traversing from this location
+// toward the given x,y coordinates.
+// Returns: [2]byte {verticalMasks, horizontalMasks}
+func (l Location) Masks(x, y int) (masks [2]byte) {
+	if x > l.X() {
+		masks[0] |= ClipSouth
+	} else {
+		masks[0] |= ClipNorth
+	}
+	if y > l.Y() {
+		masks[1] |= ClipEast
+	} else {
+		masks[1] |= ClipWest
+	}
+	// diags and solid objects are checked for automatically in the functions that you'd use this with, so
+	return
+}
+
+//
+func (l Location) Mask(toward Location) byte {
+	masks := l.Masks(toward.X(), toward.Y())
+	return masks[0] | masks[1]
 }
 
 /*
@@ -191,20 +213,9 @@ func (t TileData) blocked(bit byte, current bool) bool {
 	if t.CollisionMask&int16(bit) != 0 {
 		return true
 	}
-	// Diag
-	if !current && (t.CollisionMask&ClipDiag1) != 0 {
-		return true
-	}
-	// oppososite diag
-	if !current && (t.CollisionMask&ClipDiag2) != 0 {
-		return true
-	}
-	// tile entirely blocked
-	if !current && (t.CollisionMask&ClipFullBlock) != 0 {
-		return true
-	}
-	// if it's not a traversable ground type
-	return false
+	// Diagonal walls (/, \) and impassable scenary objects (|=|) both effectively disable the occupied location
+	// TODO: Is overlay clipping finished?
+	return !current && (t.CollisionMask & (ClipSwNe | ClipSeNw | ClipFullBlock)) != 0
 }
 
 func sectorName(x, y int) string {
@@ -214,7 +225,11 @@ func sectorName(x, y int) string {
 }
 
 func sectorFromCoords(x, y int) *Sector {
-	return Sectors[strutil.JagHash(sectorName(x, y))]
+	if s, ok := Sectors[strutil.JagHash(sectorName(x, y))]; ok && s != nil {
+		return s
+	}
+	// Default to returning a blank sector filled with zero-value tiles.
+	return &Sector{}
 }
 
 func (s *Sector) tile(x, y int) TileData {
@@ -224,11 +239,11 @@ func (s *Sector) tile(x, y int) TileData {
 }
 
 func CollisionData(x, y int) TileData {
-	sector := sectorFromCoords(x, y)
-	if sector == nil {
-		return TileData{CollisionMask: ClipFullBlock}
-	}
-	return sector.tile(x, y)
+	//sector := sectorFromCoords(x, y)
+	//if sector == nil {
+	//	return TileData{CollisionMask: ClipFullBlock}
+	//}
+	return sectorFromCoords(x, y).tile(x, y)
 }
 
 //loadSector Parses raw data into data structures that make up a 48x48 map sector.
@@ -287,15 +302,14 @@ func loadSector(data []byte) (s *Sector) {
 //					lastSector.Tiles[(RegionSize-1)*RegionSize+y].CollisionMask |= ClipWest
 				}
 			}
-			// diags disable the entire tile.
 			// TODO: Affect adjacent tiles in an intelligent way to determine which are solid and which are not
 			// diagonal that blocks: SE<->NW (/ aka |‾ or _|)
 			if diagonalWalls > 0 && diagonalWalls < 12000 && !BoundaryDefs[diagonalWalls-1].Dynamic && BoundaryDefs[diagonalWalls-1].Solid {
-				s.Tiles[tileIdx].CollisionMask |= ClipDiagSeNw
+				s.Tiles[tileIdx].CollisionMask |= ClipSeNw
 			}
 			// diagonal that blocks: SW<->NE (\ aka ‾| or |_)
 			if diagonalWalls >= 12000 && diagonalWalls < 24000 && !BoundaryDefs[diagonalWalls-12001].Dynamic && BoundaryDefs[diagonalWalls-12001].Solid {
-				s.Tiles[tileIdx].CollisionMask |= ClipDiagSwNe
+				s.Tiles[tileIdx].CollisionMask |= ClipSwNe
 			}
 			offset += 10
 		}

@@ -12,7 +12,7 @@ type ObjectDefinition struct {
 	Name          string
 	Commands      [2]string
 	Description   string
-	Type          int
+	CollisionType int
 	Width, Height int
 	ModelHeight   int
 }
@@ -121,7 +121,7 @@ func (o *Object) Boundaries() [2]Location {
 		maxX = width + o.X() - 1
 		maxY = height + o.Y() - 1
 
-		if ObjectDefs[o.ID].Type == 2 || ObjectDefs[o.ID].Type == 3 {
+		if ObjectDefs[o.ID].CollisionType == 2 || ObjectDefs[o.ID].CollisionType == 3 {
 			if dir == 0 {
 				width++
 				minX--
