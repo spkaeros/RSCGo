@@ -235,6 +235,9 @@ func sectorFromCoords(x, y int) *Sector {
 func (s *Sector) tile(x, y int) TileData {
 	areaX := (2304 + x) % RegionSize
 	areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
+	if len(s.Tiles) <= 0 {
+		return TileData{}
+	}
 	return s.Tiles[areaX*RegionSize+areaY]
 }
 
