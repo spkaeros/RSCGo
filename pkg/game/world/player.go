@@ -790,7 +790,7 @@ func (p *Player) SetDuelAccepted(screen int, b bool) {
 		return
 	}
 	duelAttr := "duel" + strconv.Itoa(screen) + "accept"
-	if !b && p.Contains(duelAttr) {
+	if p.DuelAccepted(screen) != b {
 		p.UnsetVar(duelAttr)
 	}
 	p.SetVar(duelAttr, true)
