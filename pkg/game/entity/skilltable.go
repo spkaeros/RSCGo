@@ -142,28 +142,26 @@ func (s *SkillTable) String() (s1 string) {
 func (s *SkillTable) CombatLevel() int {
 	s.RLock()
 	defer s.RUnlock()
-	aggressiveTotal := float32(s.maximum[0] + s.maximum[2])
-	defensiveTotal := float32(s.maximum[1] + s.maximum[3])
-	spiritualTotal := float32((s.maximum[5] + s.maximum[6]) / 8)
-	ranged := float32(s.maximum[4])
-	if aggressiveTotal < ranged*1.5 {
-		return int((defensiveTotal / 4) + (ranged * 0.375) + spiritualTotal)
-	}
-	return int((aggressiveTotal / 4) + (defensiveTotal / 4) + spiritualTotal)
+	// Melee stats are .25 combat levels per skill level
+	strengthAvg := float64(s.maximum[StatAttack] + s.maximum[StatStrength])*.25
+	defenseAvg := float64(s.maximum[StatDefense] + s.maximum[StatHits])*.25
+	// Pray and magic are .125 combat levels per skill level
+	magicAvg := float64(s.maximum[StatPrayer] + s.maximum[StatMagic])*.125
+	// Ranged is .375 per skill level
+	// Ranged has more impact here because its a single skill, where the other skills had partners
+	// they tacked on a half-melee-level step per ranged level to compensate (.25+.125=.375)
+	rangedAvg := float64(s.maximum[4])*.375
+	return int(defenseAvg + magicAvg +math.Max(strengthAvg, rangedAvg))
 }
 
-//SkillNames Maps skill names to their indexes.
-var SkillNames = map[string]int{
-	"attack": StatAttack, "defense": StatDefense, "strength": StatStrength, "hits": StatHits, "hitpoints": StatHits, "hp": StatHits,
-	"ranged": StatRanged, "prayer": StatPrayer, "magic": StatMagic, "cooking": StatCooking, "woodcutting": StatWoodcutting,
-	"fletching": StatFletching, "fishing": StatFishing, "firemaking": StatFiremaking, "crafting": StatCrafting, "smithing": StatSmithing,
-	"mining": StatMining, "herblaw": StatHerblaw, "agility": StatAgility, "thieving": StatThieving,
-}
+var skillNames = [...]string{ "attack", "defense", "strength", "hits", "ranged", "prayer", "magic", "cooking",
+	"woodcutting", "fletching", "fishing", "firemaking", "crafting", "smithing", "mining", "herblaw", "agility",
+	"thieving" }
 
 //SkillName Returns the skill name for the provided skill index, if any.
 // Otherwise returns string("nil")
 func SkillName(id int) string {
-	for name, idx := range SkillNames {
+	for idx, name := range skillNames {
 		if idx == id {
 			return name
 		}
@@ -172,16 +170,21 @@ func SkillName(id int) string {
 	return "nil"
 }
 
-//SkillIndex Tries to parse the skill indicated in s.  If it is out of skill bounds, returns -1.
+//SkillIndex Returns the skill index for the skill with the closest matching name, or -1 if there was
+// no close match found.
 func SkillIndex(s string) int {
-	for name, idx := range SkillNames {
-		if fuzzy.Match(s, name) {
-			return idx
+	bestRank := -1
+	bestMatchIdx := -1
+	for idx, name := range skillNames {
+		rank := fuzzy.RankMatchNormalizedFold(s, name)
+		if rank > bestRank {
+			bestRank, bestMatchIdx = rank, idx
 		}
 	}
-	return -1
+	return bestMatchIdx
 }
 
+// TODO: Configuration value for max level
 var experienceLevels [104]float64
 
 func init() {
