@@ -96,7 +96,7 @@ func (c *client) startNetworking() {
 			select {
 			case p := <-incomingPackets:
 				if p == nil {
-					log.Warning.Println("Tried processing nil net!")
+					log.Warning.Println("Tried processing nil packet!")
 					continue
 				}
 				c.handlePacket(p)
@@ -200,26 +200,19 @@ func (c *client) Read(dst []byte) (int, error) {
 			}
 		}
 		n, err := c.wsReader.Read(dst)
-
-		if err != nil {
-			if err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
-				return -1, errors.NewNetworkError("Connection closed", true)
-			} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
-				return -1, errors.NewNetworkError("Connection timeout", true)
-			} else if err == io.EOF {
-				if !c.wsHeader.Fin {
-					return -1, errors.NewNetworkError("Connection closed", true)
-				}
-				// EOF on fin means end of frame not file
-				c.readIndex += n
-				return n, nil
-			} else {
-				log.Warning.Println(err)
-			}
-			return -1, err
+		if err == io.EOF && c.wsHeader.Fin || err == nil {
+			c.readIndex += n
+			return n, nil
 		}
-		c.readIndex += n
-		return n, nil
+		if err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") ||
+				strings.Contains(err.Error(), "use of closed") || err == io.EOF && !c.wsHeader.Fin {
+			return -1, errors.NewNetworkError("Connection closed", true)
+		}
+		if e, ok := err.(stdnet.Error); ok && e.Timeout() {
+			return -1, errors.NewNetworkError("Connection timeout", true)
+		}
+		log.Warning.Println(err)
+		return -1, err
 	}
 
 	n, err := c.readWriter.Read(dst)

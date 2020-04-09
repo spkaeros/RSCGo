@@ -1096,12 +1096,6 @@ func (p *Player) CloseOptionMenu() {
 //CanWalk returns true if this player is in a state that allows walking.
 func (p *Player) CanWalk() bool {
 	if p.BusyInput() {
-		log.Info.Printf("playerState=%d\n",p.State())
-		return true
-	}
-	if p.HasState(StateMenu) && (p.HasState(StateChatting) || p.HasState(MSItemAction)) {
-		// If player tries to walk but is in an option menu, they clearly have closed the menu, so we will kill the
-		// routine waiting for a reply when ResetAll is called before the new path is set.
 		return true
 	}
 	return !p.HasState(MSBatching, StateFighting, StateTrading, StateDueling, StateChangingLooks, StateSleeping, StateChatting, StateBusy, StateShopping)

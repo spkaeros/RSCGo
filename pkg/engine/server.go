@@ -12,14 +12,14 @@ package engine
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"net"
 	"os"
 	"reflect"
+	`strconv`
 	"time"
-
+	
 	"github.com/gobwas/ws"
-
+	
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/engine/tasks"
 	"github.com/spkaeros/rscgo/pkg/game/world"
@@ -33,7 +33,7 @@ var (
 
 //Bind binds to the TCP port at port, and the websocket port at port+1.
 func Bind(port int) {
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	listener, err := net.Listen("tcp", ":" + strconv.Itoa(port))
 	if err != nil {
 		log.Error.Printf("Can't bind to specified port: %d\n", port)
 		log.Error.Println(err)
