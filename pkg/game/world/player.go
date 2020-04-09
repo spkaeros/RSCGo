@@ -781,7 +781,7 @@ func (p *Player) DuelAccepted(screen int) bool {
 //DuelAccepted returns the status of the specified duel negotiation screens accepted button for this player.
 // Valid screens are 1 and 2.
 func (p *Player) SetDuelAccepted(screen int, b bool) {
-	if screen == 2 && !p.VarBool("duel1accept", false) {
+	if screen == 2 && !p.DuelAccepted(1) {
 		log.Suspicious.Println("Attempt to set duel2accept before duel1accept:", p.String())
 		return
 	}
@@ -796,17 +796,17 @@ func (p *Player) SetDuelAccepted(screen int, b bool) {
 // Valid rule indices are 0 through 3.
 func (p *Player) SetDuelRule(index int, b bool) {
 	rules := [4]string{"duelCanRetreat", "duelCanMagic", "duelCanPrayer", "duelCanEquip"}
-	if p.Contains(rules[index]) && !b {
+	if p.Contains(rules[index]) && b {
 		p.UnsetVar(rules[index])
 		return
 	}
-	p.SetVar(rules[index], true)
+	p.SetVar(rules[index], false)
 }
 
 //DuelRule returns the rule associated with the specified index provided.
 // Valid rule indices are 0 through 3.
 func (p *Player) duelRule(index int) bool {
-	return !p.VarBool([4]string{"duelCanRetreat", "duelCanMagic", "duelCanPrayer", "duelCanEquip"}[index], false)
+	return !p.VarBool([4]string{"duelCanRetreat", "duelCanMagic", "duelCanPrayer", "duelCanEquip"}[index], true)
 }
 
 func (p *Player) DuelRetreating() bool {
@@ -862,16 +862,6 @@ func (p *Player) ResetDuelRules() {
 	for i := 0; i < 4; i++ {
 		p.SetDuelRule(i, false)
 	}
-}
-
-//SetDuel1Accepted Sets receivers duel negotiation settings to indicate that the first screen is accepted.
-func (p *Player) SetDuel1Accepted() {
-	p.SetVar("duel1accept", true)
-}
-
-//SetDuel2Accepted Sets receivers duel negotiation settings to indicate that the second screen is accepted.
-func (p *Player) SetDuel2Accepted() {
-	p.SetVar("duel2accept", true)
 }
 
 //DuelTarget Returns the player that the receiver is targeting to duel with, or if none, returns nil
@@ -1215,7 +1205,7 @@ func (p *Player) PrayerActivated(idx int) bool {
 }
 
 func (p *Player) PrayerOn(idx int) {
-	if p.IsDueling() && !p.VarBool("duelCanPrayer", true) {
+	if p.IsDueling() && !p.DuelPrayer() {
 		p.Message("You cannot use prayer in this duel!")
 		p.SendPrayers()
 		return

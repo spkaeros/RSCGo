@@ -23,8 +23,7 @@ func init() {
 				player.ResetFighting()
 				return
 			}
-			if player.State()&world.StateFightingDuel==world.StateFightingDuel &&
-				!player.VarBool("duelCanRetreat", true) {
+			if player.IsDueling() && player.IsFighting() && player.DuelRetreating() {
 				player.Message("You cannot retreat during this duel!")
 				return
 			}

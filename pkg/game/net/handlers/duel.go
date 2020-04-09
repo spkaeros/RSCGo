@@ -141,21 +141,25 @@ func init() {
 		player.ResetDuelAccepted()
 		target.ResetDuelAccepted()
 
-		retreatsAllowed := p.ReadBoolean()
-		magicAllowed := p.ReadBoolean()
-		prayerAllowed := p.ReadBoolean()
-		equipmentAllowed := p.ReadBoolean()
+		//retreatsAllowed := p.ReadBoolean()
+		//magicAllowed := p.ReadBoolean()
+		//prayerAllowed := p.ReadBoolean()
+		//equipmentAllowed := p.ReadBoolean()
 
-		player.SetVar("duelCanRetreat", !retreatsAllowed)
-		player.SetVar("duelCanMagic", !magicAllowed)
-		player.SetVar("duelCanPrayer", !prayerAllowed)
-		player.SetVar("duelCanEquip", !equipmentAllowed)
+		for i := 0; i < p.Length(); i++ {
+			player.SetDuelRule(i, !p.ReadBoolean())
+			target.SetDuelRule(i, !p.ReadBoolean())
+		}
+		//player.SetVar("duelCanRetreat", !retreatsAllowed)
+		//player.SetVar("duelCanMagic", !magicAllowed)
+		//player.SetVar("duelCanPrayer", !prayerAllowed)
+		//player.SetVar("duelCanEquip", !equipmentAllowed)
 		player.SendPacket(world.DuelOptions(player))
 		
-		target.SetVar("duelCanRetreat", !retreatsAllowed)
-		target.SetVar("duelCanMagic", !magicAllowed)
-		target.SetVar("duelCanPrayer", !prayerAllowed)
-		target.SetVar("duelCanEquip", !equipmentAllowed)
+		//target.SetVar("duelCanRetreat", !retreatsAllowed)
+		//target.SetVar("duelCanMagic", !magicAllowed)
+		//target.SetVar("duelCanPrayer", !prayerAllowed)
+		//target.SetVar("duelCanEquip", !equipmentAllowed)
 		target.SendPacket(world.DuelOptions(target))
 	})
 	AddHandler("dueldecline", func(player *world.Player, p *net.Packet) {
@@ -223,7 +227,7 @@ func init() {
 		}
 	})
 	AddHandler("duelconfirmaccept", func(player *world.Player, p *net.Packet) {
-		if !player.IsDueling() || !player.VarBool("duel1accept", false) {
+		if !player.IsDueling() || !player.DuelAccepted(1) {
 			log.Suspicious.Printf("%v attempted to accept a duel confirmation it was not in!\n", player.String())
 			player.ResetDuel()
 			player.SendPacket(world.DuelClose)
@@ -236,7 +240,7 @@ func init() {
 			player.SendPacket(world.DuelClose)
 			return
 		}
-		if !target.IsDueling() || target.DuelTarget() != player || !target.VarBool("duel1accept", false) {
+		if !target.IsDueling() || target.DuelTarget() != player || !target.DuelAccepted(1) {
 			log.Suspicious.Printf("Players{ 1:%v; 2:%v } involved in duel with apparently bad state!\n", player.String(), target.String())
 			player.ResetDuel()
 			player.SendPacket(world.DuelClose)
