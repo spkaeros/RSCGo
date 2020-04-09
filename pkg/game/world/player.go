@@ -786,7 +786,7 @@ func (p *Player) DuelAccepted(screen int) bool {
 // Valid screens are 1 and 2.
 func (p *Player) SetDuelAccepted(screen int, b bool) {
 	duelAttr := "duel" + strconv.Itoa(screen) + "accept"
-	if screen == 2 && !p.DuelAccepted(1) {
+	if b && screen == 2 && !p.DuelAccepted(1) {
 		log.Suspicious.Println("Attempt to set duel2accept before duel1accept:", p.String())
 		return
 	}
@@ -797,11 +797,7 @@ func (p *Player) SetDuelAccepted(screen int, b bool) {
 // Valid rule indices are 0 through 3.
 func (p *Player) SetDuelRule(index int, b bool) {
 	rules := [4]string{"duelCanRetreat", "duelCanMagic", "duelCanPrayer", "duelCanEquip"}
-	if p.Contains(rules[index]) && b {
-		p.UnsetVar(rules[index])
-		return
-	}
-	p.SetVar(rules[index], false)
+	p.SetVar(rules[index], b)
 }
 
 //DuelRule returns the rule associated with the specified index provided.
