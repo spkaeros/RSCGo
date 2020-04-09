@@ -96,7 +96,7 @@ func init() {
 	})
 	AddHandler("chooseoption", func(player *world.Player, p *net.Packet) {
 		choice := p.ReadUint8()
-		if !player.HasState(world.MSOptionMenu) {
+		if player.VarInt("state", 0)&world.StateChatChoosing&^world.MSItemAction == 0 {
 			return
 		}
 		if choice < 0 {

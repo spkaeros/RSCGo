@@ -256,6 +256,11 @@ func (p *Player) UpdateStatus(status bool) {
 // with a straight line of sight, e.g no intersecting boundaries, large objects, walls, etc.
 // Runs everything on game engine ticks, retries until catastrophic failure or success.
 func (p *Player) WalkingRangedAction(t entity.MobileEntity, fn func()) {
+	if t == nil || p.State()&StateFightingDuel == 0 || (p.State()&StateFightingDuel == StateFightingDuel &&
+			(!p.VarBool("duelCanMagic", true) || t != p.DuelTarget())) {
+		p.ResetPath()
+		return
+	}
 	p.WalkingArrivalAction(t, 5, fn)
 }
 
@@ -269,24 +274,12 @@ func (p *Player) WalkingArrivalAction(target entity.MobileEntity, dist int, acti
 			p.ResetPath()
 			return true
 		}
-		if target == nil ||
-			(p.Busy() && !p.IsFighting() && !p.IsDueling()) ||
-			(p.IsFighting() && p.IsDueling() && (!p.VarBool("duelCanMagic", true) || target != p.DuelTarget())) {
-			p.ResetPath()
-			return true
-		}
-
 		if p.WithinRange(NewLocation(target.X(), target.Y()), dist) {
+			// make sure we can shoot them without obstacles
 			if !p.CanReachMob(target) {
-				if p.VarInt("triedReach", 0) >= 5 {
-					p.UnsetVar("triedReach")
-					p.ResetPath()
-					return true
-				}
-
-//				p.UnsetVar("triedReach")
 				return false
 			}
+			// shoot them
 			action()
 			return true
 		}
@@ -298,29 +291,36 @@ func (p *Player) WalkingArrivalAction(target entity.MobileEntity, dist int, acti
 //CanReachMob Check if we can reach a mob traversing the most direct tiles toward them, e.g straight lines.
 // Used to check ranged combat attacks, or trade requests, basically anything needing local interactions.
 func (p *Player) CanReachMob(target entity.MobileEntity) bool {
-	pathX := p.X()
-	pathY := p.Y()
-
 	if p.VarInt("triedReach", 0) >= 5 {
 		// Tried reaching one mob >=5 times without single success, abort early.
 		p.ResetPath()
 		return false
 	}
 	p.Inc("triedReach", 1)
-
-	for steps := 0; steps < 21; steps++ {
+	
+	pathX := p.X()
+	pathY := p.Y()
+	for steps := 0; steps < p.VarInt("viewRadius", 16)+5 && p.Reachable(pathX, pathY); steps++ {
+		// check deltas
 		if pathX == target.X() && pathY == target.Y() {
 			p.UnsetVar("triedReach")
-			break
+			return true
 		}
-
-		if !p.Reachable(pathX, pathY) {
-			return false
+		
+		// Update coords toward target in a straight line
+		if pathX<target.X() {
+			pathX++
+		} else if pathX>target.X() {
+			pathX--
+		}
+		
+		if pathY<target.Y() {
+			pathY++
+		} else if pathY>target.Y() {
+			pathY--
 		}
 	}
-	p.UnsetVar("triedReach")
-
-	return pathX == target.X() && pathY == target.Y()
+	return false
 }
 
 //SetPrivacySettings sets privacy settings to specified values.
@@ -746,7 +746,11 @@ func (p *Player) SetTradeTarget(index int) {
 
 //IsTrading returns true if this player is in a trade, otherwise returns false.
 func (p *Player) IsTrading() bool {
-	return p.HasState(MSTrading)
+	return p.HasState(StateTrading)
+}
+
+func (p *Player) IsPanelOpened() bool {
+	return p.HasState(StatePanelActive)
 }
 
 //ResetTrade resets trade-related variables.
@@ -756,7 +760,7 @@ func (p *Player) ResetTrade() {
 		p.UnsetVar("trade1accept")
 		p.UnsetVar("trade2accept")
 		p.TradeOffer.Clear()
-		p.RemoveState(MSTrading)
+		p.RemoveState(StateTrading)
 	}
 }
 
@@ -780,13 +784,13 @@ func (p *Player) ResetDuel() {
 		p.UnsetVar("duelCanMagic")
 		p.UnsetVar("duelCanPrayer")
 		p.UnsetVar("duelCanEquip")
-		p.RemoveState(MSDueling)
+		p.RemoveState(StateDueling)
 	}
 }
 
 //IsDueling returns true if this player is negotiating a duel, otherwise returns false.
 func (p *Player) IsDueling() bool {
-	return p.HasState(MSDueling)
+	return p.HasState(StateDueling)
 }
 
 //SetDuelTarget Sets p1 as the receivers dueling target.
@@ -986,7 +990,7 @@ func (p *Player) OpenAppearanceChanger() {
 	if p.IsFighting() || p.IsTrading() {
 		return
 	}
-	p.AddState(MSChangingAppearance)
+	p.AddState(StateChangingLooks)
 	p.SendPacket(OpenChangeAppearance)
 }
 
@@ -1009,31 +1013,31 @@ func (p *Player) Chat(msgs ...string) {
 //OpenOptionMenu opens an option menu with the provided options, and returns the reply index, or -1 upon timeout..
 func (p *Player) OpenOptionMenu(options ...string) int {
 	// Can get option menu during most states, even fighting, but not trading, or if we're already in a menu...
-	if p.IsTrading() || p.HasState(MSOptionMenu) {
+	if p.IsPanelOpened() || p.HasState(StateMenu) {
 		return -1
 	}
 	p.ReplyMenuC = make(chan int8)
-	p.AddState(MSOptionMenu)
+	p.AddState(StateMenu)
 	p.SendPacket(OptionMenuOpen(options...))
 
 	select {
 	case reply := <-p.ReplyMenuC:
-		if !p.HasState(MSOptionMenu) {
+		if !p.HasState(StateMenu) {
 			return -1
 		}
-		p.RemoveState(MSOptionMenu)
+		p.RemoveState(StateMenu)
 		close(p.ReplyMenuC)
 		if reply < 0 || int(reply) > len(options)-1 {
 			return -1
 		}
 
-		if p.HasState(MSChatting) {
+		if p.HasState(StateChatting) {
 			p.Chat(options[reply])
 		}
 		return int(reply)
 	case <-time.After(time.Second * 60):
-		if p.HasState(MSOptionMenu) {
-			p.RemoveState(MSOptionMenu)
+		if p.HasState(StateMenu) {
+			p.RemoveState(StateMenu)
 			close(p.ReplyMenuC)
 			p.SendPacket(OptionMenuClose)
 		}
@@ -1043,8 +1047,8 @@ func (p *Player) OpenOptionMenu(options ...string) int {
 
 //CloseOptionMenu closes any open option menus.
 func (p *Player) CloseOptionMenu() {
-	if p.HasState(MSOptionMenu) {
-		p.RemoveState(MSOptionMenu)
+	if p.HasState(StateMenu) {
+		p.RemoveState(StateMenu)
 		close(p.ReplyMenuC)
 		p.SendPacket(OptionMenuClose)
 	}
@@ -1052,12 +1056,16 @@ func (p *Player) CloseOptionMenu() {
 
 //CanWalk returns true if this player is in a state that allows walking.
 func (p *Player) CanWalk() bool {
-	if p.HasState(MSOptionMenu) && (p.HasState(MSChatting) || p.HasState(MSItemAction)) {
+	if p.BusyInput() {
+		log.Info.Printf("playerState=%d\n",p.State())
+		return true
+	}
+	if p.HasState(StateMenu) && (p.HasState(StateChatting) || p.HasState(MSItemAction)) {
 		// If player tries to walk but is in an option menu, they clearly have closed the menu, so we will kill the
 		// routine waiting for a reply when ResetAll is called before the new path is set.
 		return true
 	}
-	return !p.HasState(MSBatching, MSFighting, MSTrading, MSDueling, MSChangingAppearance, MSSleeping, MSChatting, MSBusy, MSShopping)
+	return !p.HasState(StateBusy)
 }
 
 //PlaySound sends a command to the client to play a sound by its file name.
@@ -1212,8 +1220,8 @@ func (p *Player) StartCombat(target entity.MobileEntity) {
 	}
 	target.SetRegionRemoved()
 	p.Teleport(target.X(), target.Y())
-	p.AddState(MSFighting)
-	target.AddState(MSFighting)
+	p.AddState(StateFighting)
+	target.AddState(StateFighting)
 	p.SetDirection(RightFighting)
 	target.SetDirection(LeftFighting)
 	p.Transients().SetVar("fightTarget", target)
@@ -1223,8 +1231,8 @@ func (p *Player) StartCombat(target entity.MobileEntity) {
 	defender := target
 	//var defender entity.MobileEntity = target
 	p.Tickables = append(p.Tickables, func() bool {
-		if ptarget, ok := target.(*Player); (ok && !ptarget.Connected()) || !target.HasState(MSFighting) ||
-			!p.HasState(MSFighting) || !p.Connected() || p.LongestDeltaCoords(target.X(), target.Y()) > 0 {
+		if ptarget, ok := target.(*Player); (ok && !ptarget.Connected()) || !target.HasState(StateFighting) ||
+			!p.HasState(StateFighting) || !p.Connected() || p.LongestDeltaCoords(target.X(), target.Y()) > 0 {
 			// target is a disconnected player, we are disconnected,
 			// one of us is not in a fight, or we are distanced somehow unexpectedly.  Kill tasks.
 			// quickfix for possible bugs I imagined will exist
@@ -1395,39 +1403,39 @@ func (p *Player) CurrentShop() *Shop {
 
 //OpenBank opens a shop screen for the player and sets the appropriate state variables.
 func (p *Player) OpenShop(shop *Shop) {
-	if p.IsFighting() || p.IsTrading() || p.IsDueling() || p.HasState(MSShopping) || p.HasState(MSBanking) {
+	if p.IsFighting() || p.IsTrading() || p.IsDueling() || p.HasState(StateShopping) || p.HasState(StateBanking) {
 		return
 	}
-	p.AddState(MSShopping)
+	p.AddState(StateShopping)
 	p.Transients().SetVar("shop", shop)
 	p.SendPacket(ShopOpen(shop))
 }
 
 //CloseBank closes the bank screen for this player and sets the appropriate state variables
 func (p *Player) CloseShop() {
-	if !p.HasState(MSShopping) {
+	if !p.HasState(StateShopping) {
 		return
 	}
-	p.RemoveState(MSShopping)
+	p.RemoveState(StateShopping)
 	p.Transients().UnsetVar("shop")
 	p.SendPacket(ShopClose)
 }
 
 //OpenBank opens a bank screen for the player and sets the appropriate state variables.
 func (p *Player) OpenBank() {
-	if p.IsFighting() || p.IsTrading() || p.IsDueling() || p.HasState(MSShopping) || p.HasState(MSBanking) {
+	if p.IsFighting() || p.IsTrading() || p.IsDueling() || p.HasState(StateShopping) || p.HasState(StateBanking) {
 		return
 	}
-	p.AddState(MSBanking)
+	p.AddState(StateBanking)
 	p.SendPacket(BankOpen(p))
 }
 
 //CloseBank closes the bank screen for this player and sets the appropriate state variables
 func (p *Player) CloseBank() {
-	if !p.HasState(MSBanking) {
+	if !p.HasState(StateBanking) {
 		return
 	}
-	p.RemoveState(MSBanking)
+	p.RemoveState(StateBanking)
 	p.SendPacket(BankClose)
 }
 
@@ -1461,6 +1469,6 @@ func (p *Player) Cache(name string) interface{} {
 }
 
 func (p *Player) OpenSleepScreen() {
-	p.AddState(MSSleeping)
+	p.AddState(StateSleeping)
 	p.SendPacket(SleepWord(p))
 }

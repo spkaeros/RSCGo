@@ -49,11 +49,11 @@ func init() {
 		if player.Busy() || target.Busy() {
 			return
 		}
-		player.AddState(world.MSDueling)
+		player.AddState(world.StateDueling)
 		player.ResetPath()
 		player.SendPacket(world.DuelOpen(target.Index))
 
-		target.AddState(world.MSDueling)
+		target.AddState(world.StateDueling)
 		target.ResetPath()
 		target.SendPacket(world.DuelOpen(player.Index))
 	})

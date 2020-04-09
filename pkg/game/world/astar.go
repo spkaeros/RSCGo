@@ -110,7 +110,7 @@ func (p *Pathfinder) compare(active, other *pNode) {
 	if !other.open || gCost < other.gCost {
 		other.gCost = gCost
 		if other.hCost == 0 {
-			other.hCost = hCost(other, p.end)*4
+			other.hCost = hCost(other, p.end)*3
 		}
 		other.nCost = other.gCost + other.hCost
 		other.parent = active

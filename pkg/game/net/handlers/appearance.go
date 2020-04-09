@@ -42,7 +42,7 @@ func inArray(a []int, i int) bool {
 
 func init() {
 	AddHandler("changeappearance", func(player *world.Player, p *net.Packet) {
-		if !player.HasState(world.MSChangingAppearance) {
+		if !player.HasState(world.StateChangingLooks) {
 			// Make sure the player either has never logged in before, or talked to the makeover mage to get here.
 			return
 		}
@@ -91,6 +91,6 @@ func init() {
 			player.UpdateAppearance()
 		}
 		player.AppearanceLock.Unlock()
-		player.RemoveState(world.MSChangingAppearance)
+		player.RemoveState(world.StateChangingLooks)
 	})
 }

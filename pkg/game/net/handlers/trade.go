@@ -42,11 +42,11 @@ func init() {
 			if player.Busy() || p1.Busy() {
 				return
 			}
-			player.AddState(world.MSTrading)
+			player.AddState(world.StateTrading)
 			player.ResetPath()
 			player.SendPacket(world.TradeOpen(p1.Index))
 
-			p1.AddState(world.MSTrading)
+			p1.AddState(world.StateTrading)
 			p1.ResetPath()
 			p1.SendPacket(world.TradeOpen(player.Index))
 		} else {

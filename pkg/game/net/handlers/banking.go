@@ -17,7 +17,7 @@ import (
 
 func init() {
 	AddHandler("depositbank", func(player *world.Player, p *net.Packet) {
-		if !player.HasState(world.MSBanking) {
+		if !player.HasState(world.StateBanking) {
 			return
 		}
 		id := p.ReadUint16()
@@ -38,7 +38,7 @@ func init() {
 		}
 	})
 	AddHandler("withdrawbank", func(player *world.Player, p *net.Packet) {
-		if !player.HasState(world.MSBanking) {
+		if !player.HasState(world.StateBanking) {
 			return
 		}
 		id := p.ReadUint16()
@@ -66,7 +66,7 @@ func init() {
 		}
 	})
 	AddHandler("closebank", func(player *world.Player, p *net.Packet) {
-		if !player.HasState(world.MSBanking) {
+		if !player.HasState(world.StateBanking) {
 			return
 		}
 		player.CloseBank()

@@ -30,11 +30,11 @@ func init() {
 		player.SetDistancedAction(func() bool {
 			if player.AtObject(object) {
 				player.ResetPath()
-				player.AddState(world.MSBusy)
+				player.AddState(world.MSBatching)
 
 				go func() {
 					defer func() {
-						player.RemoveState(world.MSBusy)
+						player.RemoveState(world.MSBatching)
 					}()
 
 					for _, trigger := range world.ObjectTriggers {
@@ -65,11 +65,11 @@ func init() {
 		player.SetDistancedAction(func() bool {
 			if player.AtObject(object) {
 				player.ResetPath()
-				player.AddState(world.MSBusy)
+				player.AddState(world.MSBatching)
 
 				go func() {
 					defer func() {
-						player.RemoveState(world.MSBusy)
+						player.RemoveState(world.MSBatching)
 					}()
 
 					for _, trigger := range world.ObjectTriggers {
@@ -105,10 +105,10 @@ func init() {
 					// If somehow we became busy, the object changed before arriving, we do nothing.
 					return true
 				}
-				player.AddState(world.MSBusy)
+				player.AddState(world.MSBatching)
 				go func() {
 					defer func() {
-						player.RemoveState(world.MSBusy)
+						player.RemoveState(world.MSBatching)
 					}()
 
 					for _, trigger := range world.BoundaryTriggers {
@@ -143,10 +143,10 @@ func init() {
 					// If somehow we became busy, the object changed before arriving, we do nothing.
 					return true
 				}
-				player.AddState(world.MSBusy)
+				player.AddState(world.MSBatching)
 				go func() {
 					defer func() {
-						player.RemoveState(world.MSBusy)
+						player.RemoveState(world.MSBatching)
 					}()
 
 					for _, trigger := range world.BoundaryTriggers {
@@ -190,55 +190,8 @@ func init() {
 								if offX == 0 && offY == 0 {
 									continue
 								}
-								newLoc := world.NewLocation(player.X()+offX, player.Y()+offY)
-								switch player.DirectionTo(newLoc.X(), newLoc.Y()) {
-								case world.North:
-									if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipSouth, false) {
-										continue
-									}
-								case world.South:
-									if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipNorth, false) {
-										continue
-									}
-								case world.East:
-									if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipWest, false) {
-										continue
-									}
-								case world.West:
-									if world.IsTileBlocking(newLoc.X(), newLoc.Y(), world.ClipEast, false) {
-										continue
-									}
-								case world.NorthWest:
-									if world.IsTileBlocking(player.X(), player.Y()-1, world.ClipSouth, false) {
-										continue
-									}
-									if world.IsTileBlocking(player.X()+1, player.Y(), world.ClipEast, false) {
-										continue
-									}
-								case world.NorthEast:
-									if world.IsTileBlocking(player.X(), player.Y()-1, world.ClipSouth, false) {
-										continue
-									}
-									if world.IsTileBlocking(player.X()-1, player.Y(), world.ClipWest, false) {
-										continue
-									}
-								case world.SouthWest:
-									if world.IsTileBlocking(player.X(), player.Y()+1, world.ClipNorth, false) {
-										continue
-									}
-									if world.IsTileBlocking(player.X()+1, player.Y(), world.ClipEast, false) {
-										continue
-									}
-								case world.SouthEast:
-									if world.IsTileBlocking(player.X(), player.Y()+1, world.ClipNorth, false) {
-										continue
-									}
-									if world.IsTileBlocking(player.X()-1, player.Y(), world.ClipWest, false) {
-										continue
-									}
-								}
-								if player.NextTo(newLoc) {
-									npc.SetLocation(newLoc, true)
+								if npc.Reachable(npc.X()+offX,npc.Y()+offY) {
+									npc.SetLocation(world.NewLocation(npc.X()+offX, npc.Y()+offY), true)
 									break outer
 								}
 							}
@@ -251,11 +204,11 @@ func init() {
 					}
 					go func() {
 						defer func() {
-							player.RemoveState(world.MSChatting)
-							npc.RemoveState(world.MSChatting)
+							player.RemoveState(world.StateChatting)
+							npc.RemoveState(world.StateChatting)
 						}()
-						player.AddState(world.MSChatting)
-						npc.AddState(world.MSChatting)
+						player.AddState(world.StateChatting)
+						npc.AddState(world.StateChatting)
 						triggerDef.Action(player, npc)
 					}()
 					return
@@ -288,10 +241,10 @@ func init() {
 			}
 			if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
 				player.ResetPath()
-				player.AddState(world.MSBusy)
+				player.AddState(world.MSBatching)
 				go func() {
 					defer func() {
-						player.RemoveState(world.MSBusy)
+						player.RemoveState(world.MSBatching)
 					}()
 					for _, fn := range world.InvOnBoundaryTriggers {
 						if fn(player, object, invItem) {
@@ -331,12 +284,12 @@ func init() {
 			}
 			if player.WithinRange(target.Location, 1) && player.NextTo(target.Location) {
 				player.ResetPath()
-				player.AddState(world.MSBusy)
-				target.AddState(world.MSBusy)
+				player.AddState(world.MSBatching)
+				target.AddState(world.MSBatching)
 				go func() {
 					defer func() {
-						player.RemoveState(world.MSBusy)
-						target.RemoveState(world.MSBusy)
+						player.RemoveState(world.MSBatching)
+						target.RemoveState(world.MSBatching)
 					}()
 					for _, trigger := range world.InvOnPlayerTriggers {
 						if trigger.Check(invItem) {
@@ -377,10 +330,10 @@ func init() {
 			if world.ObjectDefs[object.ID].Type == 2 || world.ObjectDefs[object.ID].Type == 3 {
 				if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
 					player.ResetPath()
-					player.AddState(world.MSBusy)
+					player.AddState(world.MSBatching)
 					go func() {
 						defer func() {
-							player.RemoveState(world.MSBusy)
+							player.RemoveState(world.MSBatching)
 						}()
 						for _, fn := range world.InvOnObjectTriggers {
 							if fn(player, object, invItem) {
@@ -396,10 +349,10 @@ func init() {
 			}
 			if player.AtObject(object) {
 				player.ResetPath()
-				player.AddState(world.MSBusy)
+				player.AddState(world.MSBatching)
 				go func() {
 					defer func() {
-						player.RemoveState(world.MSBusy)
+						player.RemoveState(world.MSBatching)
 					}()
 					for _, fn := range world.InvOnObjectTriggers {
 						if fn(player, object, invItem) {

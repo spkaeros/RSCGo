@@ -13,42 +13,50 @@ import (
 
 type MobState = int
 
-//MSIdle The default MobState, means doing nothing.
+//StateIdle The default MobState, means doing nothing.
 const (
-	//MSIdle The default MobState, means doing nothing.
-	MSIdle MobState = 1<<iota
-	//MSBanking The mob is banking.
-	MSBanking
-	//MSChatting The mob is chatting with a NPC
-	MSChatting
-	//MSOptionMenu The mob is in an option menu.  The option menu handling routines will remove this state as soon
+	//StateIdle The default MobState, means doing nothing.
+	StateIdle MobState = 0
+	//StateChatting The mob is chatting with another mob.
+	StateChatting = 1 << iota
+	//StateFighting The mob is fighting.
+	StateFighting
+	//StateBanking The mob is banking.
+	StateBanking
+	//StateMenu The mob is in an option menu.  The option menu handling routines will remove this state as soon
 	// as they end, so if this is activated, there is an option menu waiting for a reply.
-	MSOptionMenu
-	//MSTrading The mob is negotiating a trade.
-	MSTrading
-	//MSDueling The mob is negotiating a duel.
-	MSDueling
-	//MSFighting The mob is fighting.
-	MSFighting
+	StateMenu
+	//StateTrading The mob is negotiating a trade.
+	StateTrading
+	//StateDueling The mob is negotiating a duel.
+	StateDueling
 	//MSBatching The mob is performing a skill that repeats itself an arbitrary number of times.
 	MSBatching
-	//MSSleeping The mob is using a bed or sleeping bag, and trying to solve a CAPTCHA
-	MSSleeping
-	//MSBusy Generic busy state
-	MSBusy
-	//MSChangingAppearance Indicates that the mob in this state is in the player aooearance changing screen
-	MSChangingAppearance
-	//MSShopping Indicates that the mob in this state is using a shop interface
-	MSShopping
+	//StateSleeping The mob is using a bed or sleeping bag, and trying to solve a CAPTCHA
+	StateSleeping
+	//StateChangingLooks Indicates that the mob in this state is in the player aooearance changing screen
+	StateChangingLooks
+	//StateShopping Indicates that the mob in this state is using a shop interface
+	StateShopping
 	//MSItemAction Indicates that the mob in this state is doing an inventory action
 	MSItemAction
+	
+	StateFightingDuel    = StateDueling|StateFighting
+	StateChatChoosing    = StateMenu|StateChatting
+	StateItemChoosing    = StateMenu|MSItemAction
+	StateObjectChoosing  = StateMenu|MSBatching
+
+	StatePanelActive     = StateBanking | StateShopping | StateChangingLooks | StateSleeping | StateTrading | StateDueling
+	
+	StateBusy      = StatePanelActive | StateChatting | MSItemAction | MSBatching
+	StateWaitEvent = StateMenu|StateChatting|MSItemAction|MSBatching
 )
 
 const (
-	SyncSprite     = 1
-	SyncMoved      = 1 << 1
-	SyncRemoved    = 1 << 2
-	SyncAppearance = 1 << 3
+	SyncSprite     = 1<<iota
+	SyncMoved
+	SyncRemoved
+	SyncAppearance
 
 	SyncNeedsPosition = SyncRemoved | SyncMoved | SyncSprite
 )
@@ -197,11 +205,17 @@ func (m *Mob) Transients() *entity.AttributeList {
 
 //Busy Returns true if this mobs state is anything other than idle. otherwise returns false.
 func (m *Mob) Busy() bool {
-	return m.State() != MSIdle && m.State() != MSItemAction
+	return m.State()&StateBusy!=0
+}
+
+func (m *Mob) BusyInput() bool {
+	return m.State()&StateWaitEvent!=StateChatChoosing || m.State()&StateWaitEvent==StateItemChoosing ||
+		m.State()&StateWaitEvent == StateObjectChoosing
+//	return m.State() != StateIdle && m.State() != MSItemAction
 }
 
 func (m *Mob) IsFighting() bool {
-	return m.HasState(MSFighting)
+	return m.HasState(StateFighting)
 }
 
 func (m *Mob) FightTarget() entity.MobileEntity {
@@ -378,7 +392,7 @@ func (n *NPC) Teleport(x, y int) {
 }
 
 func (m *Mob) State() int {
-	return m.VarInt("state", MSIdle)
+	return m.VarInt("state", StateIdle)
 }
 
 //HasState Returns true if the mob has any of these states
@@ -387,8 +401,8 @@ func (m *Mob) HasState(state ...int) bool {
 }
 
 func (m *Mob) AddState(state int) {
-	if state == MSIdle {
-		m.Transients().SetVar("state", MSIdle)
+	if state == StateIdle {
+		m.Transients().SetVar("state", StateIdle)
 		return
 	}
 	if m.HasState(state) {
@@ -399,7 +413,7 @@ func (m *Mob) AddState(state int) {
 }
 
 func (m *Mob) RemoveState(state int) {
-	if state == MSIdle {
+	if state == StateIdle {
 		return
 	}
 	if !m.HasState(state) {
@@ -416,9 +430,9 @@ func (m *Mob) ResetFighting() {
 		target.Transients().UnsetVar("fightTarget")
 		target.Transients().UnsetVar("fightRound")
 		target.SetDirection(North)
-		target.RemoveState(MSFighting)
-		if target.HasState(MSDueling) {
-			target.RemoveState(MSDueling)
+		target.RemoveState(StateFighting)
+		if target.HasState(StateDueling) {
+			target.RemoveState(StateDueling)
 		}
 		target.UpdateLastFight()
 	}
@@ -426,9 +440,9 @@ func (m *Mob) ResetFighting() {
 		m.UnsetVar("fightTarget")
 		m.UnsetVar("fightRound")
 		m.SetDirection(North)
-		m.RemoveState(MSFighting)
-		if m.HasState(MSDueling) {
-			m.RemoveState(MSDueling)
+		m.RemoveState(StateFighting)
+		if m.HasState(StateDueling) {
+			m.RemoveState(StateDueling)
 		}
 		m.UpdateLastFight()
 	}

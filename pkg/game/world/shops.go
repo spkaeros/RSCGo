@@ -216,7 +216,7 @@ func NewGeneralShop(name string) *Shop {
 			// currently using this shop an update of it.
 			if changed {
 				Players.Range(func(player *Player) {
-					if player.HasState(MSShopping) && player.CurrentShop() == shop {
+					if player.HasState(StateShopping) && player.CurrentShop() == shop {
 						player.SendPacket(ShopOpen(shop))
 					}
 				})
