@@ -855,9 +855,6 @@ func (p *Player) ResetDuelTarget() {
 
 //ResetDuelAccepted Resets receivers duel negotiation settings to indicate that neither screens are accepted.
 func (p *Player) ResetDuelAccepted() {
-	for i := 0; i < 2; i++ {
-		p.SetDuelAccepted(1, false)
-	}
 	p.SetDuelAccepted(1, false)
 	p.SetDuelAccepted(2, false)
 }
