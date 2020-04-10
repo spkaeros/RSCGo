@@ -22,43 +22,46 @@ func init() {
 		if player.HasState(world.StateShopping) {
 			id := p.ReadUint16()
 			price := p.ReadUint32()
-
+			
 			shop := player.CurrentShop()
-			if shop == nil {
+			if shop == nil || player.State()&world.StateShopping != world.StateShopping {
 				log.Suspicious.Println(player, "tried purchasing from a shop but is not apparently accessing any shops.")
 				return
 			}
-
 			if shop.Inventory.Count(id) < 1 {
-				log.Suspicious.Println(player, "tried buying item["+strconv.Itoa(id)+"] for ["+strconv.Itoa(price)+"gp] but the ("+shop.Name+") shop is out of that item.")
-				// TODO: og rsc msg here
-				player.Message("There is no more of those in stock right now")
+				player.Message("The shop has ran out of stock")
 				return
 			}
-
-			item := shop.Inventory.Get(id)
-			realPrice := int(item.Price().Scale(shop.BaseSalePercent + shop.DeltaPercentMod(item)))
+			realPrice := int(shop.Inventory.Get(id).Price().Scale(shop.BaseSalePercent + shop.DeltaPercentModID(id)))
 			if price != realPrice {
 				log.Suspicious.Println(player, "tried buying item["+strconv.Itoa(id)+"] for ["+strconv.Itoa(price)+"gp] but actual price is currently ["+strconv.Itoa(realPrice)+"gp]")
 				return
 			}
-			if player.Inventory.RemoveByID(10, price) > -1 {
-				player.AddItem(id, 1)
-				if shop.Stock.Count(id) == 0 {
-					if item.Amount == 1 {
-						shop.Inventory.Remove(item)
-					} else {
-						item.Amount--
-					}
-				} else {
-					item.Amount--
-				}
-				world.Players.Range(func(player *world.Player) {
-					if shop == player.CurrentShop() {
-						player.SendPacket(world.ShopOpen(shop))
-					}
-				})
+
+			if !player.Inventory.CanHold(id, 1) && player.Inventory.CountID(10) != price {
+				// If the player has exactly price count of coins, the item will take the slot of the coins
+				player.Message("You can't hold the objects you are trying to buy!")
+				return
 			}
+			if player.Inventory.CountID(10) < price || player.Inventory.RemoveByID(10, price) == -1 {
+				player.Message("You don't have enough coins")
+				return
+			}
+			
+			player.AddItem(id, 1)
+			// TODO: Can't I simplify this to one API call?
+//			if shop.Stock.Count(id) == 0 && shop.Inventory.Count(id) == 1 {
+				// if the item is not regularly owned by the shop and there is no more
+//				shop.Inventory.RemoveID(id)
+//			} else {
+				// if the shop regularly owns the item
+//				shop.Inventory.Get(id).Amount--
+//			}
+			shop.Remove(id, 1)
+			shop.Players.RangePlayers(func(player *world.Player) bool {
+				player.SendPacket(world.ShopOpen(shop))
+				return false
+			})
 		}
 	})
 	AddHandler("shopsell", func(player *world.Player, p *net.Packet) {
@@ -87,10 +90,11 @@ func init() {
 			if player.Inventory.RemoveByID(id, 1) > -1 {
 				player.AddItem(10, price)
 				shop.Inventory.Add(&world.Item{ID: id, Amount: 1})
-				world.Players.Range(func(player *world.Player) {
+				shop.Players.RangePlayers(func(player *world.Player) bool {
 					if shop == player.CurrentShop() {
 						player.SendPacket(world.ShopOpen(shop))
 					}
+					return false
 				})
 			}
 		}

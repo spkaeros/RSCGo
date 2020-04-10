@@ -1438,6 +1438,7 @@ func (p *Player) OpenShop(shop *Shop) {
 		return
 	}
 	p.AddState(StateShopping)
+	shop.Players.Add(p)
 	p.Transients().SetVar("shop", shop)
 	p.SendPacket(ShopOpen(shop))
 }
@@ -1448,6 +1449,7 @@ func (p *Player) CloseShop() {
 		return
 	}
 	p.RemoveState(StateShopping)
+	p.CurrentShop().Players.Remove(p)
 	p.Transients().UnsetVar("shop")
 	p.SendPacket(ShopClose)
 }
