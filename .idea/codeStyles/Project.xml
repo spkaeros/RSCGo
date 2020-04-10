@@ -13,6 +13,11 @@
       <option name="GROUP_STDLIB_IMPORTS" value="true" />
       <option name="GROUP_CURRENT_PROJECT_IMPORTS" value="true" />
     </GoCodeStyleSettings>
+    <codeStyleSettings language="JavaScript">
+      <indentOptions>
+        <option name="USE_TAB_CHARACTER" value="true" />
+      </indentOptions>
+    </codeStyleSettings>
     <codeStyleSettings language="go">
       <indentOptions>
         <option name="CONTINUATION_INDENT_SIZE" value="8" />
