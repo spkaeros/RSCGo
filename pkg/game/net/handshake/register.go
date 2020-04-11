@@ -7,7 +7,7 @@
  *
  */
 
-package handlers
+package handshake
 
 import (
 	"strings"
@@ -16,24 +16,24 @@ import (
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/db"
 	"github.com/spkaeros/rscgo/pkg/game/net"
-	"github.com/spkaeros/rscgo/pkg/game/net/handshake"
+	`github.com/spkaeros/rscgo/pkg/game/net/handlers`
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 func init() {
-	AddHandler("newplayer", func(player *world.Player, p *net.Packet) {
+	handlers.AddHandler("newplayer", func(player *world.Player, p *net.Packet) {
 		player.SetConnected(true)
 
-		reply := handshake.NewRegistrationListener(player).ResponseListener()
-		if handshake.RegisterThrottle.Recent(player.CurrentIP(), time.Minute*5) >= 5 {
-			reply <- handshake.ResponseSpamTimeout
+		reply := NewRegistrationListener(player).ResponseListener()
+		if RegisterThrottle.Recent(player.CurrentIP(), time.Minute*5) >= 5 {
+			reply <- ResponseSpamTimeout
 			return
 		}
 		if version := p.ReadUint16(); version != config.Version() {
 			log.Info.Printf("New player denied: [ Reason:'Wrong client version'; ip='%s'; version=%d ]\n", player.CurrentIP(), version)
-			reply <- handshake.ResponseUpdated
+			reply <- ResponseUpdated
 			return
 		}
 		username := strutil.Base37.Decode(p.ReadUint64())
@@ -41,20 +41,20 @@ func init() {
 		player.Transients().SetVar("username", username)
 		if userLen, passLen := len(username), len(password); userLen < 2 || userLen > 12 || passLen < 5 || passLen > 20 {
 			log.Suspicious.Printf("New player request contained invalid lengths: %v username=%v; password:'%v'\n", player.CurrentIP(), username, password)
-			reply <- handshake.ResponseShortInput
+			reply <- ResponseShortInput
 			return
 		}
 		go func() {
 			dataService := db.DefaultPlayerService
 			if dataService.PlayerNameExists(username) {
 				log.Info.Printf("New player denied: [ Reason:'Username is taken'; username='%s'; ip='%s' ]\n", username, player.CurrentIP())
-				reply <- handshake.ResponseUsernameTaken
+				reply <- ResponseUsernameTaken
 				return
 			}
 
 			if dataService.PlayerCreate(username, password, player.CurrentIP()) {
 				log.Info.Printf("New player accepted: [ username='%s'; ip='%s' ]", username, player.CurrentIP())
-				reply <- handshake.ResponseRegisterSuccess
+				reply <- ResponseRegisterSuccess
 				return
 			}
 			log.Info.Printf("New player denied: [ Reason:'unknown; probably database related.  Debug required'; username='%s'; ip='%s' ]\n", username, player.CurrentIP())

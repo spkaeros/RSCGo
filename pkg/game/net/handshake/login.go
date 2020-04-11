@@ -7,7 +7,7 @@
  *
  */
 
-package handlers
+package handshake
 
 import (
 	"strings"
@@ -17,24 +17,24 @@ import (
 	"github.com/spkaeros/rscgo/pkg/crypto"
 	"github.com/spkaeros/rscgo/pkg/db"
 	"github.com/spkaeros/rscgo/pkg/game/net"
-	"github.com/spkaeros/rscgo/pkg/game/net/handshake"
+	`github.com/spkaeros/rscgo/pkg/game/net/handlers`
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 func init() {
-	AddHandler("loginreq", func(player *world.Player, p *net.Packet) {
+	handlers.AddHandler("loginreq", func(player *world.Player, p *net.Packet) {
 		player.SetConnected(true)
-		loginReply := handshake.NewLoginListener(player).ResponseListener()
-		if handshake.LoginThrottle.Recent(player.CurrentIP(), time.Minute*5) >= 5 {
-			loginReply <- handshake.ResponseSpamTimeout
+		loginReply := NewLoginListener(player).ResponseListener()
+		if LoginThrottle.Recent(player.CurrentIP(), time.Minute*5) >= 5 {
+			loginReply <- ResponseSpamTimeout
 			return
 		}
 		player.SetReconnecting(p.ReadBoolean())
 		if ver := p.ReadUint16(); ver != config.Version() {
 			log.Info.Printf("Invalid client version attempted to login: %d\n", ver)
-			loginReply <- handshake.ResponseUpdated
+			loginReply <- ResponseUpdated
 			return
 		}
 		var password string
@@ -62,11 +62,11 @@ func init() {
 		}
 
 		if world.Players.ContainsHash(player.UsernameHash()) {
-			loginReply <- handshake.ResponseLoggedIn
+			loginReply <- ResponseLoggedIn
 			return
 		}
 		if !world.UpdateTime.IsZero() && time.Until(world.UpdateTime).Seconds() <= 0 {
-			loginReply <- handshake.ResponseLoginServerRejection
+			loginReply <- ResponseLoginServerRejection
 			return
 		}
 
@@ -74,30 +74,30 @@ func init() {
 			//dataService is a db.PlayerService that all login-related functions should use to access or change player profile data.
 			var dataService = db.DefaultPlayerService
 			if !dataService.PlayerNameExists(player.Username()) || !dataService.PlayerValidLogin(player.UsernameHash(), crypto.Hash(password)) {
-				loginReply <- handshake.ResponseBadPassword
+				loginReply <- ResponseBadPassword
 				return
 			}
 			if !dataService.PlayerLoad(player) {
-				loginReply <- handshake.ResponseDecodeFailure
+				loginReply <- ResponseDecodeFailure
 				return
 			}
 
 			if player.Reconnecting() {
-				loginReply <- handshake.ResponseReconnected
+				loginReply <- ResponseReconnected
 				return
 			}
 
 			switch player.Rank() {
 			case 2:
-				loginReply <- handshake.ResponseAdministrator
+				loginReply <- ResponseAdministrator
 			case 1:
-				loginReply <- handshake.ResponseModerator
+				loginReply <- ResponseModerator
 			default:
-				loginReply <- handshake.ResponseLoginSuccess
+				loginReply <- ResponseLoginSuccess
 			}
 		}()
 	})
-	AddHandler("forgotpass", func(player *world.Player, p *net.Packet) {
+	handlers.AddHandler("forgotpass", func(player *world.Player, p *net.Packet) {
 		// TODO: These non-login handlers must be isolated and rewrote
 		go func() {
 			//dataService is a db.PlayerService that all login-related functions should use to access or change player profile data.
