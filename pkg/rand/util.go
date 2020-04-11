@@ -1,23 +1,17 @@
 package rand
 
 import (
-	"crypto/rand"
-	"encoding/binary"
-	"fmt"
 	rand2 "math/rand"
-
+	`time`
+	
 	"github.com/spkaeros/rscgo/pkg/isaac"
 )
 
 var IsaacRng *isaac.ISAAC
 
 func init() {
-	var rsl = make([]uint64, 256)
-	if err := binary.Read(rand.Reader, binary.BigEndian, rsl); err != nil {
-		fmt.Println("ERROR: Could not read ints fully into init slice.", err)
-	}
-	IsaacRng = isaac.New(rsl)
-	rand2.Seed(int64(rsl[IsaacRng.Uint8()]))
+	IsaacRng = isaac.New(uint64(time.Now().UnixNano()))
+	rand2.Seed(int64(IsaacRng.Uint8()))
 }
 
 //Uint8 Gets a single random byte of data from the PRNG
