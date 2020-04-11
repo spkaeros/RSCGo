@@ -295,20 +295,25 @@ func (p *Player) WalkingArrivalAction(target entity.MobileEntity, dist int, acti
 //CanReachMob Check if we can reach a mob traversing the most direct tiles toward them, e.g straight lines.
 // Used to check ranged combat attacks, or trade requests, basically anything needing local interactions.
 func (p *Player) CanReachMob(target entity.MobileEntity) bool {
-	if p.VarInt("triedReach", 0) >= 5 {
+	if p.FinishedPath() && p.VarInt("triedReach", 0) >= 5 {
 		// Tried reaching one mob >=5 times without single success, abort early.
 		p.ResetPath()
+		p.UnsetVar("triedReach")
 		return false
 	}
 	p.Inc("triedReach", 1)
+		
 	
 	pathX := p.X()
 	pathY := p.Y()
-	for steps := 0; steps < p.VarInt("viewRadius", 16)+5 && p.Reachable(pathX, pathY); steps++ {
+	for steps := 0; steps < p.VarInt("viewRadius", 16)+5; steps++ {
 		// check deltas
 		if pathX == target.X() && pathY == target.Y() {
 			p.UnsetVar("triedReach")
 			return true
+		}
+		if !p.Reachable(pathX, pathY) {
+			return false
 		}
 		
 		// Update coords toward target in a straight line

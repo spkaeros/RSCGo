@@ -267,7 +267,7 @@ func loadSector(data []byte) (s *Sector) {
 			//			roofTexture := data[offset+3] & 0xFF
 			horizontalWalls := data[offset+4] & 0xFF
 			verticalWalls := data[offset+5] & 0xFF
-			diagonalWalls := int(uint32(data[offset+6]&0xFF)<<24 + uint32(data[offset+7]&0xFF)<<16 + uint32(data[offset+8]&0xFF)<<8 + uint32(data[offset+9]&0xFF))
+			diagonalWalls := int(uint32(data[offset+6]&0xFF)<<24 | uint32(data[offset+7]&0xFF)<<16 | uint32(data[offset+8]&0xFF)<<8 | uint32(data[offset+9]&0xFF))
 			if groundOverlay == 250 {
 				// -6 overflows to 250, and is water tile
 				groundOverlay = OverlayWater
@@ -276,44 +276,38 @@ func loadSector(data []byte) (s *Sector) {
 				blankCount++
 			}
 			tileIdx := x*RegionSize + y
-			//			s.Tiles[tileIdx].GroundOverlay = groundOverlay
 			if groundOverlay > 0 && TileDefs[groundOverlay-1].Blocked != 0 {
 				s.Tiles[tileIdx].CollisionMask |= ClipFullBlock
 			}
-			// vertical that blocks N<->S (_ or ‾)
-			if verticalWalls > 0 && !BoundaryDefs[verticalWalls-1].Dynamic && BoundaryDefs[verticalWalls-1].Solid {
-				// ClipNorth blocks `‾`
-				s.Tiles[x*RegionSize+y].CollisionMask |= ClipNorth
-				// ClipSouth blocks `_`
-				if y > 0 {
-					// -1 is tile x,y-1
-					s.Tiles[x*RegionSize+y-1].CollisionMask |= ClipSouth
-	//			} else if lastSector != nil {
-	//				lastSector.Tiles[RegionSize*RegionSize+(y-1)].CollisionMask |= ClipSouth
-				}
+			walls := [] []int {
+				[]int{ int(verticalWalls)-1, ClipNorth, y },
+				[]int{ int(horizontalWalls)-1, ClipEast,x },
 			}
-			// horizontal that blocks E<->W (|)
-			if horizontalWalls > 0 && !BoundaryDefs[horizontalWalls-1].Dynamic && BoundaryDefs[horizontalWalls-1].Solid {
-				// ClipEast blocks ` |`
-				s.Tiles[tileIdx].CollisionMask |= ClipEast
-				// ClipWest blocks `| `
-				if x > 0 {
-					// -48 is tile x-1,y
-					s.Tiles[(x-1)*RegionSize+y].CollisionMask |= ClipWest
-	//			} else {
-					// TODO: Verify working
-//					lastSector.Tiles[(RegionSize-1)*RegionSize+y].CollisionMask |= ClipWest
+			for i := 0; i < 2; i++ {
+				if walls[i][0] < 0 {
+					continue
+				}
+				if wall := BoundaryDefs[walls[i][0]]; !wall.Dynamic && wall.Solid {
+					s.Tiles[x*RegionSize+y].CollisionMask |= int16(walls[i][1])
+					if walls[i][2] > 0 {
+						s.Tiles[(x-i)*RegionSize+((y-1)+i)].CollisionMask |= int16(walls[i][1]<<2)
+					}
 				}
 			}
 			// TODO: Affect adjacent tiles in an intelligent way to determine which are solid and which are not
-			// diagonal that blocks: SE<->NW (/ aka |‾ or _|)
-			if diagonalWalls > 0 && diagonalWalls < 12000 && !BoundaryDefs[diagonalWalls-1].Dynamic && BoundaryDefs[diagonalWalls-1].Solid {
-				s.Tiles[tileIdx].CollisionMask |= ClipSeNw
+			if diagonalWalls > 0 {
+				// diagonal that blocks: SE<->NW (/ aka |‾ or _|)
+				if diagonalWalls < 12000 {
+					if wall := BoundaryDefs[diagonalWalls-1]; !wall.Dynamic && wall.Solid {
+						s.Tiles[tileIdx].CollisionMask |= ClipSeNw
+					}
+				} else if diagonalWalls < 24000 {
+					if wall := BoundaryDefs[diagonalWalls-12001]; !wall.Dynamic && wall.Solid {
+						s.Tiles[tileIdx].CollisionMask |= ClipSwNe
+					}
+				}
 			}
-			// diagonal that blocks: SW<->NE (\ aka ‾| or |_)
-			if diagonalWalls >= 12000 && diagonalWalls < 24000 && !BoundaryDefs[diagonalWalls-12001].Dynamic && BoundaryDefs[diagonalWalls-12001].Solid {
-				s.Tiles[tileIdx].CollisionMask |= ClipSwNe
-			}
+
 			offset += 10
 		}
 	}
