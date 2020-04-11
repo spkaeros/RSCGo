@@ -1,76 +1,95 @@
 package isaac
 
 import (
-	"crypto/rand"
-	"encoding/binary"
-	"fmt"
 	"sync"
+	
+	"github.com/spkaeros/rscgo/pkg/log"
 )
 
-//ISAAC The state of the ISAAC CSPRNG
+// MixMask is used to shave off the first 2 LSB from certain values during result generation
+const MixMask = 0xFF<<3
+
+//ISAAC The state representation of the ISAAC CSPRNG
 type ISAAC struct {
 	// external results
 	randrsl [256]uint64
 	randcnt uint64
 
 	// internal state
-	mm         [256]uint64
-	aa, bb, cc uint64
+	state         [256]uint64
+	acc1, acc2, counter uint64
 	index      int
 	remainder  []byte
 	Lock       sync.RWMutex
 }
 
 func (r *ISAAC) Seed(seed int64) {
-	var tmpRsl [256]uint64
-
-	var rsl = make([]uint64, 256)
-	if err := binary.Read(rand.Reader, binary.BigEndian, rsl); err != nil {
-		fmt.Println("ERROR: Could not read ints fully into init slice.", err)
-		return
-	}
-	for i := 0; i < len(tmpRsl); i++ {
-		// Attempt to make the state more randomized before even initializing
-		// ISAAC is said not to have weak states, but this gives me peace of mind in that it randomizes any zero padding
-		k := seed
-		tmpRsl[i] = uint64((0x6c078965*(k^(k>>30)) + int64(i)) & 0xffffffff)
-	}
-	r.randrsl = tmpRsl
+	// this call attempt to shake up the initial state a bit.  Algorithm based off of Mersenne Twister's init
+	// Not sure if it's of any benefit at all, as ISAAC even when initialized to all zeros is non-uniform 
+	r.randrsl = padSeed(uint64(seed))
 	r.randInit()
 }
 
+// ISAAC64+ result shaker, with modifications recommended by Jean-Phillipe Aumasson to avoid some bias,
+// to strengthen the output stream.  Replaces an addition with a xor, adds another xor, and
+func (r *ISAAC) shake(i int, mixed, prevState uint64) {
+	r.acc1 = mixed+r.state[(i+128)&0xFF]
+	// accumulators XOR op changed from ADD op in ISAAC64
+	r.state[i] = (r.acc1 ^ r.acc2) + r.state[prevState&MixMask>>3]
+	// XOR op was added to result assignment in ISAAC64
+	r.acc2 = prevState + (r.acc1 ^ r.state[r.state[i]>>8&MixMask>>3])
+	r.randrsl[i] = r.acc2
+}
+
 func (r *ISAAC) generateNextSet() {
-	r.cc++       // count
-	r.bb += r.cc // accumulation
+	// count
+	r.counter++
+	// accumulate
+	r.acc2 += r.counter
 
 	for i := 0; i < 256; i++ {
-		x := r.mm[i]
-		// shift
-		switch i % 4 {
-		case 0:
-			// complement supposedly causes poor states to become randomized quicker by inducing an avalanche effect.
-			r.aa = ^(r.aa ^ r.aa<<21)
-		case 1:
-			r.aa ^= r.aa >> 5
-		case 2:
-			r.aa ^= r.aa << 12
-		case 3:
-			r.aa ^= r.aa >> 33
-		}
 		// ISAAC64 plus cipher code, with modifications recommended by Jean-Phillipe Aumasson to avoid a discovered bias,
 		// and strengthen the output stream.
-		r.aa += r.mm[(i+128)&0xFF]           // indirection, accumulation
-		y := r.mm[x&1020>>2] + (r.aa ^ r.bb) // indirection, addition, (plus) exclusive-or, (plus) rotation
-		r.mm[i] = y
-		r.bb = r.aa ^ r.mm[y>>8&1020>>2] + x // indirection, addition, (plus) exclusive-or, (plus) rotation
-		r.randrsl[i] = r.bb
+		r.shake(i, ^(r.acc1^r.acc1<<21), r.state[i])
+		i += 1
+		r.shake(i, r.acc1^r.acc1>>5, r.state[i])
+		i += 1
+		r.shake(i, r.acc1^r.acc1<<12, r.state[i])
+		i += 1
+		r.shake(i, r.acc1^r.acc1<<33, r.state[i])
+/*		switch i % 4 {
+		case 0:
+			r.acc1 = ^(r.acc1 ^ r.acc1<<21)
+		case 1:
+			r.acc1 = r.acc1 ^ r.acc1>>5
+		case 2:
+			r.acc1 = r.acc1 ^ r.acc1<<12
+		case 3:
+			r.acc1 = r.acc1 ^ r.acc1>>33
+		}
+*/
+		// y := r.state[r.state[i]&1020>>2] + (r.acc1 ^ r.acc2) // indirection, addition, (plus) exclusive-or, (plus) rotation
+
+		// indirect to the opposite half of state and accumulate
+//		r.acc1 += r.state[(i+128)&0xFF]
+		
+		// store previous state[i] to use in the accumulator
+		// use previous value to indirect some state, then
+		// add that up with the accumulators to get our next state[i]
+//		r.state[i] = (r.acc1 ^ r.acc2) + r.state[prevState&MixMask]
+
+		// shave off the first 10 LSB of state[i] and use it to indirectly grab some state,
+		// then xor that with the accumulator to grab the next result
+		// also store it in a var to help scramble the upcoming results
+//		r.acc2 = prevState + (r.acc1 ^ r.state[r.state[i]>>8&MixMask])
+//		r.randrsl[i] = r.acc2
 
 		// Original ISAAC cipher code
-		/*		r.aa += r.mm[(i+128)&0xFF]           // indirection, accumulation
-				y := r.mm[(x>>2)&0xFF] + r.aa + r.bb // indirection, addition, shifts
-				r.mm[i] = y
-				r.bb = r.mm[(y>>10)&0xFF] + x // indirection, addition, shifts
-				r.randrsl[i] = r.bb*/
+		/*		r.acc1 += r.state[(i+128)&0xFF]           // indirection, accumulation
+				y := r.state[(x>>2)&0xFF] + r.acc1 + r.acc2 // indirection, addition, shifts
+				r.state[i] = y
+				r.acc2 = r.state[(y>>10)&0xFF] + x // indirection, addition, shifts
+				r.randrsl[i] = r.acc2*/
 	}
 }
 
@@ -97,19 +116,19 @@ func (r *ISAAC) randInit() {
 		mix()
 	}
 	messify := func(ia2 [256]uint64) {
-		for i := 0; i < 256; i += 8 { // fill mm[] with messy stuff
+		for i := 0; i < 256; i += 8 { // fill state[] with messy stuff
 			for i1, v := range ia2[i : i+8] {
 				ia[i1] += v
 			}
 			mix()
 			for i1, v := range ia {
-				r.mm[i+i1] = v
+				r.state[i+i1] = v
 			}
 		}
 	}
 	r.Lock.Lock()
 	messify(r.randrsl)
-	messify(r.mm)
+	messify(r.state)
 
 	r.generateNextSet() /* fill in the first set of results */
 	r.randcnt = 0       /* reset the counter for the first set of results */
@@ -269,19 +288,30 @@ func (r *ISAAC) NextBytes(n int) []byte {
 	return buf
 }
 
+// padSeed returns a 256-entry uint64 array filled with values that have been mutated to provide a better initial state.
+// Initial padding algorithm copied out of an implementation of the Mersenne twister.
+func padSeed(key ...uint64) (seed [256]uint64) {
+	if len(key) > 256 {
+		log.Warning.Println("Problem initializing ISAAC64+ PRNG seed: Provided key too long; only 256 values will be used.")
+	} else if len(key) == 0 {
+		log.Warning.Println("Problem initializing ISAAC64+ PRNG seed: Provided key too short; you should provide at least one seed value to randomize the output.")
+		key[0] = 0xDEADBEEF
+	}
+
+	for i := range seed {
+		if i == 0 {
+			seed[i] = key[0]
+			continue
+		}
+		// Commented out bitwise AND because we use 64 bits.  This is fine, right?
+		seed[i] = (0x6c078965 * (seed[i-1] ^ (seed[i-1] >> 30)) + uint64(i)) // & 0xffffffff
+	}
+	return 
+}
+
 //New Returns a new ISAAC CSPRNG instance.
 func New(key []uint64) *ISAAC {
-	var tmpRsl [256]uint64
-	for i := 0; i < len(key); i++ {
-		tmpRsl[i] = key[i]
-	}
-	for i := len(key); i < len(tmpRsl); i++ {
-		// Attempt to make the state more randomized before even initializing
-		// ISAAC is said not to have weak states, but this gives me peace of mind in that it randomizes any zero padding
-		k := tmpRsl[i-len(key)]
-		tmpRsl[i] = (0x6c078965*(k^(k>>30)) + uint64(i)) & 0xffffffff
-	}
-	stream := &ISAAC{randrsl: tmpRsl}
+	stream := &ISAAC{randrsl: padSeed(key...)}
 	stream.randInit()
 	return stream
 }
