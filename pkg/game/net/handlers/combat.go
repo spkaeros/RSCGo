@@ -26,26 +26,29 @@ func init() {
 			player.ResetPath()
 			return
 		}
-		if npc.IsFighting() {
-			player.Message("Your opponent is busy!")
-			player.ResetPath()
-			return
-		}
 		if player.IsFighting() {
 			player.Message("You're already fighting!")
 			player.ResetPath()
 			return
 		}
+		if npc.IsFighting() {
+			player.Message("Your opponent is busy!")
+			player.ResetPath()
+			return
+		}
+		if player.Busy() {
+			return
+		}
 		player.WalkingArrivalAction(npc, 1, func() {
-			if npc.IsFighting() {
-				player.Message("Your opponent is busy!")
-				return
-			}
 			if player.IsFighting() {
 				player.Message("You're already fighting!")
 				return
 			}
-			if player.Busy() && !player.IsFighting() && !player.IsDueling() || !player.CanAttack(npc) {
+			if npc.IsFighting() {
+				player.Message("Your opponent is busy!")
+				return
+			}
+			if player.Busy() {
 				return
 			}
 			player.ResetPath()
@@ -68,16 +71,27 @@ func init() {
 			log.Suspicious.Printf("player[%v] tried to attack nil player\n", player)
 			return
 		}
+		if player.IsFighting() {
+			player.Message("You're already fighting!")
+			return
+		}
+		if affectedPlayer.IsFighting() {
+			player.Message("Your opponent is busy!")
+			return
+		}
+		if player.Busy() {
+			return
+		}
 		player.WalkingArrivalAction(affectedPlayer, 2, func() {
-			if player.Busy() || !player.CanAttack(affectedPlayer) {
+			if player.IsFighting() {
+				player.Message("You're already fighting!")
 				return
 			}
 			if affectedPlayer.IsFighting() {
 				player.Message("Your opponent is busy!")
 				return
 			}
-			if player.IsFighting() {
-				player.Message("You're already fighting!")
+			if player.Busy() || !player.CanAttack(affectedPlayer) {
 				return
 			}
 			player.ResetPath()

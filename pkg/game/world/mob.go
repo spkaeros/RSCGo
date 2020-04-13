@@ -171,7 +171,10 @@ func (m *Mob) TargetMob() entity.MobileEntity {
 }
 
 func (m *Mob) TargetNpc() *NPC {
-	return m.VarNpc("targetMob").(*NPC)
+	if n, ok := m.TargetMob().(*NPC); ok {
+		return n
+	}
+	return nil
 }
 
 func (m *Mob) TargetPlayer() *Player {

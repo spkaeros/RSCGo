@@ -32,7 +32,7 @@ func (p *Pathfinder) neighbors(n *pNode) []*pNode {
 			}
 			neighborX, neighborY := x+deltaX, y+deltaY
 			neighborHash := neighborX<<13|neighborY
-			if n.loc.Reachable(neighborX, neighborY) {
+			if n.loc.ReachableCoords(neighborX, neighborY) {
 				if neighbor := p.nodes[neighborHash];
 						neighbor == nil {
 					p.nodes[neighborHash] = &pNode{loc: NewLocation(neighborX, neighborY)}

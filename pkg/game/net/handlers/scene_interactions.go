@@ -163,6 +163,9 @@ func init() {
 		})
 	})
 	AddHandler("talktonpc", func(player *world.Player, p *net.Packet) {
+		if player.Busy() {
+			return
+		}
 		idx := p.ReadUint16()
 		npc := world.GetNpc(idx)
 		if npc == nil {
@@ -190,7 +193,7 @@ func init() {
 								if offX == 0 && offY == 0 {
 									continue
 								}
-								if npc.Reachable(npc.X()+offX,npc.Y()+offY) {
+								if npc.ReachableCoords(npc.X()+offX,npc.Y()+offY) {
 									npc.SetLocation(world.NewLocation(npc.X()+offX, npc.Y()+offY), true)
 									break outer
 								}
@@ -203,7 +206,9 @@ func init() {
 						npc.SetDirection(npc.DirectionTo(player.X(), player.Y()))
 					}
 					go func() {
+						player.SetVar("targetMob", npc)
 						defer func() {
+							player.UnsetVar("targetMob")
 							player.RemoveState(world.StateChatting)
 							npc.RemoveState(world.StateChatting)
 						}()
@@ -218,6 +223,9 @@ func init() {
 		})
 	})
 	AddHandler("invonboundary", func(player *world.Player, p *net.Packet) {
+		if player.Busy() {
+			return
+		}
 		targetX := p.ReadUint16()
 		targetY := p.ReadUint16()
 		p.ReadUint8() // dir, useful?
@@ -260,6 +268,9 @@ func init() {
 		})
 	})
 	AddHandler("invonplayer", func(player *world.Player, p *net.Packet) {
+		if player.Busy() {
+			return
+		}
 		targetIndex := p.ReadUint16()
 		invIndex := p.ReadUint16()
 
@@ -306,6 +317,9 @@ func init() {
 		})
 	})
 	AddHandler("invonobject", func(player *world.Player, p *net.Packet) {
+		if player.Busy() {
+			return
+		}
 		targetX := p.ReadUint16()
 		targetY := p.ReadUint16()
 		invIndex := p.ReadUint16()

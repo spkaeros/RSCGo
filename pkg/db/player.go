@@ -85,6 +85,27 @@ func (s *sqlService) PlayerCreate(username, password, ip string) bool {
 		log.Info.Println("PlayerCreate(): Could not insert new player profile information:", err)
 		return false
 	}
+	_, err = tx.Exec("INSERT INTO stats (playerid, num, cur, exp) VALUES ($1, 0, 1, 0), ($1, 1, 1, 0), " +
+			"($1, 2, 1, 0), ($1, 3, 10, 1156), ($1, 4, 1, 0), ($1, 5, 1, 0), ($1, 6, 1, 0), ($1, 7, 1, 0), ($1, 8, 1, 0), " +
+			"($1, 9, 1, 0), ($1, 10, 1, 0), ($1, 11, 1, 0), ($1, 12, 1, 0), ($1, 13, 1, 0), ($1, 14, 1, 0), ($1, 15, 1, 0), " +
+			"($1, 16, 1, 0), ($1, 17, 1, 0)", playerID)
+	if err != nil {
+		log.Info.Println("PlayerCreate(): Could not insert new player profile information:", err)
+		return false
+	}
+	_, err = tx.Exec("INSERT INTO bank (playerid, itemid, amount) VALUES ($1, 546, 96000), ($1, 373, 96000)", playerID)
+	if err != nil {
+		log.Info.Println("PlayerCreate(): Could not insert new player profile information:", err)
+		return false
+	}
+	// 12 inv slots remaining
+	_, err = tx.Exec("INSERT INTO inventory (playerid, itemid, amount) VALUES ($1, 1263, 1), ($1, 77, 1), ($1, 71, 1), " + 
+			"($1, 6, 1), ($1, 7, 1), ($1, 8, 1), ($1, 9, 1), ($1, 316, 1), ($1, 198, 1), ($1, 185, 1), ($1, 184, 1), " + 
+			"($1, 187, 1), ($1, 35, 100), ($1, 33, 100), ($1, 36, 100), ($1, 188, 1), ($1, 189, 1), ($1, 11, 100)", playerID)
+	if err != nil {
+		log.Info.Println("PlayerCreate(): Could not insert new player profile information:", err)
+		return false
+	}
 	if err := tx.Commit(); err != nil {
 		log.Warning.Println("PlayerCreate(): Error committing transaction for new player:", err)
 		return false

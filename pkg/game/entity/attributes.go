@@ -237,20 +237,14 @@ func (a *AttributeList) HasMasks(name string, masks ...int) bool {
 // If it doesn't exist, or is another type, it Will set it to 0.
 // NOTE: mask parameter should be the index of the bit from the right most bit that you want to deactivate.
 func (a *AttributeList) RemoveMask(name string, mask int) {
-	if i := a.VarInt(name, 0); i&^mask!=0 {
-		a.SetVar(name, i&^mask)
-	}
-	a.UnsetVar(name)
+	a.SetVar(name, a.VarInt(name, 0) ^ mask)
 }
 
 //CheckMask checks if there is an int attribute assigned to the specified name, and returns true if mask is set on it.
 // Otherwise, returns false.
 // NOTE: mask parameter should be the index of the bit from the right most bit that you want to check.
 func (a *AttributeList) CheckMask(name string, mask int) bool {
-	if a.VarInt(name, 0)&mask != 0 {
-		return true
-	}
-	return false
+	return a.VarInt(name, 0)&mask != 0
 }
 
 //VarMob checks if there is a entity.MobileEntity attribute assigned to the specified name, and returns it.

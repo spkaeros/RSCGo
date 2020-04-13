@@ -10,6 +10,7 @@
 package handlers
 
 import (
+	"time"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -65,11 +66,11 @@ func init() {
 		log.Info.Printf("(headType:%v, bodyType:%v, legType:%v, hairColor:%v, topColor:%v, legColor:%v, skinColor:%v, gender:%v)\n", headType, bodyType, legType, hairColor, topColor, legColor, skinColor, isMale)
 		if !isMale {
 			if bodyType != femaleBody {
-				log.Info.Println("Correcting invalid net data: female asked for male body type; setting to female body type, from", player)
+				log.Suspicious.Println("Correcting invalid packet data: female asked for male body type; setting to female body type, packet from", player)
 				bodyType = femaleBody
 			}
 			if headType == beardHead {
-				log.Info.Println("Correcting invalid net data: female asked for male head type; setting to female head type, from", player)
+				log.Suspicious.Println("Correcting invalid packet data: female asked for male head type; setting to female head type, packet from", player)
 				headType = metalHead
 			}
 		}
@@ -92,5 +93,10 @@ func init() {
 		}
 		player.AppearanceLock.Unlock()
 		player.RemoveState(world.StateChangingLooks)
+		if !player.Attributes.Contains("madeAvatar") {
+			player.SendPacket(world.WelcomeMessage)
+			player.Attributes.SetVar("madeAvatar", time.Now())
+			player.Attributes.SetVar("lastLogin", time.Now())
+		}
 	})
 }
