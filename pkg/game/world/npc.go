@@ -231,9 +231,7 @@ func (n *NPC) TraversePath() {
 			dst.y.Inc()
 		}
 		
-		if !n.Reachable(dst.X(), dst.Y()) ||
-				dst.X() < n.Boundaries[0].X() || dst.X() > n.Boundaries[1].X() ||
-				dst.Y() < n.Boundaries[0].Y() || dst.Y() > n.Boundaries[1].Y() {
+		if !n.Reachable(dst) || !dst.WithinArea(n.Boundaries) {
 			n.SetVar("pathDir", int(rand.Uint8n(8)))
 			continue
 		}

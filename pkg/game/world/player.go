@@ -306,14 +306,14 @@ func (p *Player) CanReachMob(target entity.MobileEntity) bool {
 	
 	pathX := p.X()
 	pathY := p.Y()
-	for steps := 0; steps < p.VarInt("viewRadius", 16)+5; steps++ {
+	for steps := 0; steps < 256; steps++ {
+		if !p.ReachableCoords(pathX, pathY) {
+			return false
+		}
 		// check deltas
 		if pathX == target.X() && pathY == target.Y() {
 			p.UnsetVar("triedReach")
 			return true
-		}
-		if !p.Reachable(pathX, pathY) {
-			return false
 		}
 		
 		// Update coords toward target in a straight line
@@ -425,7 +425,7 @@ func (p *Player) ResetFollowing() {
 //NextTo returns true if we can walk a straight line to target without colliding with any walls or objects,
 // otherwise returns false.
 func (p *Player) NextTo(target Location) bool {
-	return p.Reachable(target.X(), target.Y())
+	return p.Reachable(target)
 }
 
 func (p *Player) NextToCoords(x, y int) bool {
@@ -448,7 +448,7 @@ func (p *Player) TraversePath() {
 		return
 	}
 
-	if !p.Reachable(dst.X(), dst.Y()) {
+	if !p.Reachable(dst) {
 		p.ResetPath()
 		return
 	}
@@ -460,27 +460,70 @@ func (l Location) Blocked() bool {
 	return false
 }
 
-func (l Location) Reachable(x, y int) bool {
-	dst := NewLocation(x, y)
-	if l.LongestDelta(dst) > 1 {
-		dst = l.NextTileToward(dst)
-	}
-	bitmask := byte(ClipBit(l.DirectionToward(dst)))
-	dstmask := byte(ClipBit(dst.DirectionToward(l)))
-	// check mask of our tile and dst tile
-	if IsTileBlocking(l.X(), l.Y(), bitmask, true) || IsTileBlocking(dst.X(), dst.Y(), dstmask, false) {
-		return false
-	}
+//Targetable returns true if you are able to see the other location from the receiever location without hitting
+// any obstacles, and you are within range.  Otherwise returns false.
+func (l Location) Targetable(other Location) bool {
+	return l.WithinRange(other, 5) && l.Reachable(other)
+}
 
-	// does the next step toward our goal affect both X and Y coords?
-	if dst.X() != l.X() && dst.Y() != l.Y() {
-		// if so, we must scan for adjacent bitmasks of certain diags('_|', '‾|', '|‾' or '|_')
-		// Since / and \ masks block a whole tile, those masks are auto-checked in the guts of the API
-		// However, this leaves possible holes in x+1,y and x,y+1 at certain angles where we should block
-		masks := l.Masks(dst.X(), dst.Y())
-		if IsTileBlocking(l.X(), dst.Y(), masks[0], false) && IsTileBlocking(dst.X(), l.Y(), masks[1], false) {
+func (l Location) Reachable(other Location) bool {
+	return l.ReachableCoords(other.X(), other.Y())
+}
+
+func (l Location) ReachableCoords(x, y int) bool {
+	check := func(l, dst Location) bool {
+		bitmask := byte(ClipBit(l.DirectionToward(dst)))
+		dstmask := byte(ClipBit(dst.DirectionToward(l)))
+		// check mask of our tile and dst tile
+		if IsTileBlocking(l.X(), l.Y(), bitmask, true) || IsTileBlocking(dst.X(), dst.Y(), dstmask, false) {
 			return false
 		}
+	
+		// does the next step toward our goal affect both X and Y coords?
+		if dst.X() != l.X() && dst.Y() != l.Y() {
+			// if so, we must scan for adjacent bitmasks of certain diags('_|', '‾|', '|‾' or '|_')
+			// Since / and \ masks block a whole tile, those masks are auto-checked in the guts of the API
+			// However, this leaves possible holes in x+1,y and x,y+1 at certain angles where we should block
+			masks := l.Masks(dst.X(), dst.Y())
+			if IsTileBlocking(l.X(), dst.Y(), masks[0], false) && IsTileBlocking(dst.X(), l.Y(), masks[1], false) {
+				return false
+			}
+			if IsTileBlocking(dst.X(), dst.Y(), masks[0]|masks[1], false) {
+				return false
+			}
+		}
+		return true
+	}
+	dst := l.Clone()
+	start := dst.Clone()
+
+	for dst.X() > x {
+		dst.x.Dec()
+		if !check(start, dst) {
+			return false
+		}
+		start = dst.Clone()
+	}
+	for dst.X() < x {
+		dst.x.Inc()
+		if !check(start, dst) {
+			return false
+		}
+		start = dst.Clone()
+	}
+	for dst.Y() > y {
+		dst.y.Dec()
+		if !check(start, dst) {
+			return false
+		}
+		start = dst.Clone()
+	}
+	for dst.Y() < y {
+		dst.y.Inc()
+		if !check(start, dst) {
+			return false
+		}
+		start = dst.Clone()
 	}
 	return true
 }
@@ -886,8 +929,9 @@ func (p *Player) SendPacket(packet *net.Packet) {
 func (p *Player) Destroy() {
 	p.killer.Do(func() {
 		if p.Connected() {
-			p.SendPacket(Logout)
+			p.UpdateStatus(false)
 			p.ResetAll()
+			p.SendPacket(Logout)
 		}
 		p.Inventory.Owner = nil
 		close(p.KillC)
@@ -895,13 +939,21 @@ func (p *Player) Destroy() {
 }
 
 func (p *Player) AtObject(object *Object) bool {
-	x, y := p.X(), p.Y()
 	bounds := object.Boundaries()
 	if ObjectDefs[object.ID].CollisionType == 2 || ObjectDefs[object.ID].CollisionType == 3 {
-		return (p.NextTo(bounds[0]) || p.NextTo(bounds[1])) && (x >= bounds[0].X() && x <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y())
+		// door types
+		return (p.Reachable(bounds[0]) || p.Reachable(bounds[1])) && p.WithinArea(bounds)
 	}
 
+// TODO: Maybe replace this with the following:
+//	return (p.Reachable(bounds[0]), bounds[1]) || p.Reachable(bounds[1])) || (p.FinishedPath() && p.CanReachDiag(bounds))
+//	return p.Reachable(bounds[0]) || p.Reachable(bounds[1]) && p.WithinArea(bounds) p.CanReach(bounds) ||  (p.FinishedPath() && p.CanReachDiag(bounds))
+
 	return p.CanReach(bounds) || (p.FinishedPath() && p.CanReachDiag(bounds))
+}
+
+func (l Location) WithinArea(area [2]Location) bool {
+	return l.X() >= area[0].X() && l.X() <= area[1].X() && l.Y() >= area[0].Y() && l.Y() <= area[1].Y()
 }
 
 func (p *Player) CanReach(bounds [2]Location) bool {
@@ -930,6 +982,7 @@ func (p *Player) CanReach(bounds [2]Location) bool {
 }
 
 func (p *Player) CanReachDiag(bounds [2]Location) bool {
+/*
 	x, y := p.X(), p.Y()
 	if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y-1 >= bounds[0].Y() && y-1 <= bounds[1].Y() &&
 		(CollisionData(x-1, y-1).CollisionMask&ClipSouth|ClipWest) == 0 {
@@ -948,7 +1001,74 @@ func (p *Player) CanReachDiag(bounds [2]Location) bool {
 		return true
 	}
 
+	low, high := p.Masks(bounds[0].X(), bounds[0].Y()), p.Masks(bounds[1].X(), bounds[1].Y())
+	mixedNS, mixedEW := p.Masks(bounds[0].X(), bounds[1].Y()), p.Masks(bounds[1].X(), bounds[0].Y())
+*/
+/*
+	tile := p.Location.Clone()
+	lowX, lowY := p.X() - bounds[0].X(), p.Y() - bounds[0].Y()
+	highX, highY := p.X() - bounds[1].X(), p.Y() - bounds[1].Y()
+	masks := byte(0)
+	if (lowX == 0 || highX == 0) && (lowY == 0 || highY == 0  {
+		if lowX < 0 {
+			masks |= ClipWest
+		}
+		if lowY < 0 {
+			masks |= 
+		}
+	}
+	if lowX >= 1 && highX <= -1 {
+		masks |= ClipWest
+		tile.x.Dec()
+	} else if lowX <= -1  && highX >= 1 {
+		masks |= ClipEast
+		tile.x.Inc()
+	}
+	if lowY >= 1 {
+		masks |= ClipSouth
+		tile.y.Dec()
+	} else if lowY <= -1 {
+		masks |= ClipNorth
+		tile.y.Inc()
+	}
+	return CollisionData&masks != 0
+*/
+	// Northeast target
+	if p.X()-1 >= bounds[0].X() && p.X()-1 <= bounds[1].X() && p.Y()-1 >= bounds[0].Y() && p.Y()-1 <= bounds[1].Y() {
+		return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipSouth|ClipWest) == 0
+	}
+	// Northwest target
+	if p.X()+1 >= bounds[0].X() && p.X()+1 <= bounds[1].X() && p.Y()-1 >= bounds[0].Y() && p.Y()-1 <= bounds[1].Y() {
+		return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipSouth|ClipEast) == 0
+	}
+	// Southeast target
+	if p.X()-1 >= bounds[0].X() && p.X()-1 <= bounds[1].X() && p.Y()+1 >= bounds[0].Y() && p.Y()+1 <= bounds[1].Y() {
+		return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipNorth|ClipWest) == 0
+	}
+	// Southwest target
+	if p.X()+1 >= bounds[0].X() && p.X()+1 <= bounds[1].X() && p.Y()+1 >= bounds[0].Y() && p.Y()+1 <= bounds[1].Y() {
+		return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipNorth|ClipEast) == 0
+	}
 	return false
+/*
+	// Southeast target
+	if lowX >= 1 && lowY <= -1 {
+		return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipNorth|ClipWest) == 0
+	}
+	// Southwest target
+	if lowX <= -1 && lowY <= -1 {
+		return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipNorth|ClipEast)
+	}
+	// Northeast target
+	if lowX >= 1 && lowY >= 1 {
+		return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipSouth|ClipWest) == 0
+	}
+	// Northwest target
+	if lowX <= -1 && lowY >= 1 {
+		return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipSouth|ClipEast)
+	}
+	return CollisionData(tile.X(), tile.Y()).CollisionMask&() == 0
+*/
 }
 
 func (p *Player) SendFatigue() {
@@ -958,48 +1078,31 @@ func (p *Player) SendFatigue() {
 //Initialize informs the client of all of the various attributes of this player, and starts the stat normalization
 // routine.
 func (p *Player) Initialize() {
+	p.SetVar("initTime", time.Now())
 	p.SetAppearanceChanged()
 	p.SetSpriteUpdated()
 	AddPlayer(p)
-	p.UpdateStatus(true)
 	p.SendPacket(FriendList(p))
 	p.SendPacket(IgnoreList(p))
 	// TODO: Not canonical RSC, but definitely good QoL update...
 	//  p.SendPacket(FightMode(p))
 	p.SendPacket(ClientSettings(p))
 	p.SendPacket(PrivacySettings(p))
-	timestamp := p.Attributes.VarTime("lastLogin")
-	if timestamp.IsZero() {
-		for i := 0; i < 18; i++ {
-			if i != 3 {
-				p.Skills().SetCur(i, 1)
-				p.Skills().SetMax(i, 1)
-				p.Skills().SetExp(i, 0)
-			}
-		}
-		p.Skills().SetCur(entity.StatHits, 10)
-		p.Skills().SetMax(entity.StatHits, 10)
-		p.Skills().SetExp(entity.StatHits, entity.LevelToExperience(10))
-
-		p.Bank().Add(546, 96000)
-		p.Bank().Add(373, 96000)
-
-		p.Inventory.Add(77, 1)
-		p.Inventory.Add(316, 1)
-
-		p.OpenAppearanceChanger()
-	}
-	if !p.Reconnecting() {
-		p.SendPacket(WelcomeMessage)
-		p.SendPacket(LoginBox(int(time.Since(timestamp).Hours()/24), p.Attributes.VarString("lastIP", "0.0.0.0")))
-	}
 	p.SendEquipBonuses()
 	p.SendInventory()
 	p.SendFatigue()
 	p.SendCombatPoints()
 	p.SendStats()
 	p.SendPlane()
-	p.Attributes.SetVar("lastLogin", time.Now())
+	if !p.Attributes.Contains("madeAvatar") {
+		p.OpenAppearanceChanger()
+	} else {
+		if !p.Reconnecting() {
+			p.SendPacket(LoginBox(int(time.Since(p.Attributes.VarTime("lastLogin")).Hours()/24), p.Attributes.VarString("lastIP", "0.0.0.0")))
+			p.SendPacket(WelcomeMessage)
+		}
+		p.Attributes.SetVar("lastLogin", time.Now())
+	}
 	for _, fn := range LoginTriggers {
 		fn(p)
 	}
@@ -1047,10 +1150,8 @@ func (p *Player) Chat(msgs ...string) {
 		}
 		p.SendPacket(PlayerMessage(p, msg))
 
-		//		if i < len(msgs)-1 {
-		time.Sleep(time.Millisecond * 1920)
 		// TODO: is 3 ticks right?
-		//		}
+		time.Sleep(time.Millisecond * 1920)
 	}
 }
 
@@ -1072,10 +1173,11 @@ func (p *Player) OpenOptionMenu(options ...string) int {
 		p.RemoveState(StateMenu)
 		close(p.ReplyMenuC)
 		if reply < 0 || int(reply) > len(options)-1 {
+			log.Info.Println(reply)
 			return -1
 		}
 
-		if p.HasState(StateChatting) {
+		if p.TargetNpc() != nil && p.HasState(StateChatting) {
 			p.Chat(options[reply])
 		}
 		return int(reply)

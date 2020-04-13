@@ -24,6 +24,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/engine/tasks"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
+	_ "github.com/spkaeros/rscgo/pkg/game/net/handshake"
 )
 
 var (

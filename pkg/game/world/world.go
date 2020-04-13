@@ -411,7 +411,11 @@ func GetObject(x, y int) *Object {
 
 //GetNpc Returns the NPC with the specified game index.
 func GetNpc(index int) *NPC {
-	return Npcs.Get(index).(*NPC)
+	m := Npcs.Get(index)
+	if m == nil {
+		return nil
+	}
+	return m.(*NPC)
 }
 
 //NpcNearest looks for the NPC with the given ID, that is the closest to the given coordinates
