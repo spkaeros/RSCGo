@@ -10,10 +10,11 @@
 package entity
 
 import (
-	"github.com/lithammer/fuzzysearch/fuzzy"
 	"math"
 	`strconv`
 	"sync"
+	
+	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 
 const (
@@ -185,14 +186,15 @@ func SkillIndex(s string) int {
 }
 
 // TODO: Configuration value for max level
-var experienceLevels [104]float64
+var experienceLevels [104]uint64
 
 func init() {
-	accumulativeExp := 0.0
+	accumulativeExp := uint64(0)
 	for lvl := 0; lvl < len(experienceLevels)-1; lvl++ {
-		curLvl := float64(lvl + 1)
-		accumulativeExp += math.Ceil(curLvl + (300 * math.Pow(2, curLvl/7)))
-		experienceLevels[lvl] = accumulativeExp
+		curLvl := uint64(lvl + 1)
+		accumulativeExp += uint64(math.Ceil(float64(curLvl) + (300.0 * math.Pow(2, float64(curLvl/7)))))
+		// mask off final 2 bits
+		experienceLevels[lvl] = accumulativeExp & 0xFFFFFFFFFFFFFFFC
 	}
 }
 
@@ -202,7 +204,7 @@ func LevelToExperience(lvl int) int {
 	if index < 0 || index > len(experienceLevels)-1 {
 		return 0
 	}
-	return int(experienceLevels[index] / 4)
+	return int(experienceLevels[index] >> 2 & 0xFFFFFFFFFFFFFFFC)
 }
 
 //ExperienceToLevel Finds the maximum level for the provided experience amount.
@@ -215,3 +217,6 @@ func ExperienceToLevel(exp int) int {
 
 	return len(experienceLevels) - 1
 }
+
+	// obase=10; ibase=16; 7FFFFFFFFFFFFFFC 9223372036854775804
+	// obase=10; ibase=16; FFFFFFFFFFFFFFFC 18446744073709551612

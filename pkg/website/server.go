@@ -57,9 +57,10 @@ func writeContent(w http.ResponseWriter, content []byte) bool {
 
 var templates = make(map[string]*template.Template)
 
+/*
 // Load templates on program initialisation
 func init() {
-	layouts, err := filepath.Glob("website/*/*.html")
+	layouts, err := filepath.Glob("website/* /*.html")
 	if err != nil {
 		log.Error.Fatal(err)
 	}
@@ -73,21 +74,44 @@ func init() {
 		templates[layout[8:]] = template.Must(template.ParseFiles("website/layouts/layout.html", layout))
 	}
 }
+*/
 
 func render(w http.ResponseWriter, r *http.Request) {
-	name := strings.ReplaceAll(filepath.Clean(r.URL.Path[1:]), ".ws", ".html")
+	name := strings.ReplaceAll(filepath.Clean(r.URL.Path), ".ws", ".html")
+	file := filepath.Join("website", name)
+	
+	// check template files cache
 	tmpl, ok := templates[name]
 	if !ok {
-		w.WriteHeader(404)
-		writeContent(w, []byte("404 file not found"))
-		return
+		// Return a 404 if the template doesn't exist or the request is for a directory
+		info, err := os.Stat(file)
+		if (err != nil && os.IsNotExist(err)) || info.IsDir() {
+			log.Warning.Printf("Website page: '%s' could not be served as HTML: (File exists:%b; File is directory:%b)\n", file, os.IsNotExist(err), !os.IsNotExist(err))
+			log.Error.Println(err)
+			http.NotFound(w, r)
+			return
+		}
+
+		tmpl, err = template.ParseFiles(filepath.Join("website/layouts", "layout.html"), file)
+		if err != nil {
+			// Log the detailed error
+			log.Error.Println(err.Error())
+			// Return a generic "Internal Server Error" message
+			http.Error(w, http.StatusText(500), 500)
+			return
+		}
+
+		// Cache the template in RAM for future requests to the same URL.
+		// This results in faster execution times, after the very first request to a templated URL
+		templates[name] = tmpl
 	}
 
-	w.Header().Set("Content-CollisionType", "text/html; charset=utf-8")
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	err := tmpl.ExecuteTemplate(w, "layout", Information)
 	if err != nil {
-		w.WriteHeader(500)
-		writeContent(w, []byte("Internal Server Error"))
+		log.Error.Println(err.Error())
+		http.Error(w, http.StatusText(500), 500)
 	}
 }
 
@@ -98,6 +122,8 @@ func render(w http.ResponseWriter, r *http.Request) {
 func Start() {
 	muxCtx.HandleFunc("/", render)
 	muxCtx.HandleFunc("/game/", render)
+	muxCtx.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./data/client"))))
+	muxCtx.Handle("/data204/", http.StripPrefix("/data/client/cache/", http.FileServer(http.Dir("./data/client/cache"))))
 	bindGameProcManager()
 	err := http.ListenAndServe(":8080", muxCtx)
 	if err != nil {
