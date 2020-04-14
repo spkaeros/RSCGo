@@ -51,7 +51,7 @@ func init() {
 		player.PlaySound("click")
 	})
 	AddHandler("takeitem", func(player *world.Player, p *net.Packet) {
-		if player.Busy() {
+		if player.Busy() || player.IsFighting() {
 			return
 		}
 		x := p.ReadUint16()
@@ -102,7 +102,7 @@ func init() {
 		})
 	})
 	AddHandler("dropitem", func(player *world.Player, p *net.Packet) {
-		if player.Busy() {
+		if player.Busy() || player.IsFighting() {
 			return
 		}
 		index := p.ReadUint16()
@@ -132,7 +132,7 @@ func init() {
 	AddHandler("invaction1", func(player *world.Player, p *net.Packet) {
 		index := p.ReadUint16()
 		item := player.Inventory.Get(index)
-		if item == nil || player.Busy() {
+		if item == nil || player.Busy() || player.IsFighting() {
 			return
 		}
 		player.AddState(world.MSItemAction)

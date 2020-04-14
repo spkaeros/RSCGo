@@ -34,9 +34,11 @@ type client struct {
 	socket     stdnet.Conn
 	destroyer  sync.Once
 	readWriter *bufio.ReadWriter
-	wsReader   io.Reader
-	wsHeader   ws.Header
-	readIndex  int
+	websocket  bool
+	reader   io.Reader
+	readSize  int
+	readLimit  int
+	frameFin  bool
 }
 
 //startNetworking Starts up 3 new goroutines; one for reading incoming data from the socket, one for writing outgoing data to the socket, and one for client state updates and parsing plus handling incoming world.  When the client kill signal is sent through the kill channel, the state update and net handling goroutine will wait for both the reader and writer goroutines to complete their operations before unregistering the client.
@@ -149,10 +151,8 @@ func (c *client) handlePacket(p *net.Packet) {
 func newClient(socket stdnet.Conn, ws2 bool) *client {
 	c := &client{socket: socket}
 	c.player = world.NewPlayer(-1, strings.Split(socket.RemoteAddr().String(), ":")[0])
+	c.websocket = ws2
 	c.readWriter = bufio.NewReadWriter(bufio.NewReader(socket), bufio.NewWriter(socket))
-	if ws2 {
-		c.wsHeader, c.wsReader, _ = wsutil.NextReader(socket, ws.StateServerSide)
-	}
 	c.startNetworking()
 	return c
 }
@@ -161,7 +161,7 @@ func newClient(socket stdnet.Conn, ws2 bool) *client {
 func (c *client) Write(src []byte) int {
 	var err error
 	var dataLen int
-	if c.wsReader != nil {
+	if c.websocket {
 		err = wsutil.WriteServerBinary(c.socket, src)
 		dataLen = len(src)
 	} else {
@@ -183,11 +183,14 @@ func (c *client) Read(dst []byte) (int, error) {
 		return -1, errors.NewNetworkError("Connection closed", true)
 	}
 
-	if c.wsReader != nil {
-		if c.wsHeader.Length <= int64(c.readIndex) {
+	if c.websocket {
+		if c.readLimit <= c.readSize  {
 			// reset buffer read index and create the next reader
-			c.readIndex = 0
-			c.wsHeader, c.wsReader, err = wsutil.NextReader(c.readWriter.Reader, ws.StateServerSide)
+			header, reader, err := wsutil.NextReader(c.readWriter, ws.StateServerSide)
+			c.readSize = 0
+			c.readLimit = int(header.Length)
+			c.frameFin = header.Fin
+			c.reader = reader
 			if err != nil {
 				if err == io.EOF || err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
 					return -1, errors.NewNetworkError("Connection closed", true)
@@ -199,13 +202,14 @@ func (c *client) Read(dst []byte) (int, error) {
 				return -1, err
 			}
 		}
-		n, err := c.wsReader.Read(dst)
-		if err == io.EOF && c.wsHeader.Fin || err == nil {
-			c.readIndex += n
+		
+		n, err := c.reader.Read(dst)
+		c.readSize += n
+		if err == io.EOF && c.frameFin || err == nil {
 			return n, nil
 		}
 		if err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") ||
-				strings.Contains(err.Error(), "use of closed") || err == io.EOF && !c.wsHeader.Fin {
+				strings.Contains(err.Error(), "use of closed") || err == io.EOF && !c.frameFin {
 			return -1, errors.NewNetworkError("Connection closed", true)
 		}
 		if e, ok := err.(stdnet.Error); ok && e.Timeout() {

@@ -82,12 +82,13 @@ const (
 	//ResponseLoginSuccess is sent when we have successfully validated and started to load the player profile
 	// that was requested.  Generally, once a handshake receives this response, the handshake is over and the
 	// client will want more data about the characters identity and the world where it is currently at.
+	// Network protocols <= 204 rely on this.  See ResponseLoginAcceptBit for protocols > 204
 	ResponseLoginSuccess ResponseCode = iota
 	//ResponseReconnected is sent after a brief connectivity problem; indicates that the client should skip
 	// certain character-specific cleanup routines since the current variables it's got are good still.
 	ResponseReconnected
-	//ResponsePlaceholder1 Not in use currently.
-	ResponsePlaceholder1
+	//ResponseRegisterSuccess Sent when a new player was created and saved successfully.
+	ResponseRegisterSuccess
 	//ResponseBadPassword is sent when the username or password supplied weren't valid.
 	// This is a safe and very generic response that informs the client the username and password
 	// they had provided in the handshake could not be validated with our records.
@@ -130,8 +131,8 @@ const (
 	//ResponsePernBan is sent when the player profile requested was found, but is banned from logging in,
 	// and apparently will never be unbanned.
 	ResponsePermBan
-	//ResponsePlaceholder2 Placeholder for new responses.
-	ResponsePlaceholder2
+	//ResponseLoggedIn2 Registration response check reads this as the same thing that LoggedIn says.  Unsure why its here
+	ResponseLoggedIn2
 	//ResponseWorldFull is sent when the world is completely out of player slots.
 	// This requires a lot of players to happen.
 	ResponseWorldFull
@@ -146,8 +147,8 @@ const (
 	//ResponseSuspectedStolenLocked is sent when there's strong reason to believe the account has been stolen
 	// and as such was disabled pending resolution via help from human customer support.
 	ResponseSuspectedStolenLocked
-	//ResponsePlaceholder3 Placeholder for new responses.
-	ResponsePlaceholder3
+	//ResponseBadInputLength Either username or password length was out of bounds.
+	ResponseBadInputLength
 	//ResponseMismatchedLogin is sent probably when the player data is accessed via a separate data service,
 	// and that service has some sort of conflicting data to what this server has.
 	ResponseMismatchedLogin
@@ -158,23 +159,20 @@ const (
 	//ResponseSuspectedStolen is sent when there's strong reason to believe the account is being targeted
 	// to be stolen and as such was disabled pending a change of password.  This is a less worrisome message.
 	ResponseSuspectedStolen
-	//ResponsePlaceholder4 Placeholder for new responses.
-	ResponsePlaceholder4
+	//ResponsePlaceholder Placeholder for new responses.
+	ResponsePlaceholder
 	//ResponseModerator Used to indicate to the client that the character it wants to load is a player moderator
 	ResponseModerator
 	//ResponseAdministrator Used to indicate to the client that the character it wants to load is a stadd member/admin/owner.
 	ResponseAdministrator
+	//ResponseLoginAcceptBit bitmask to use for valid login response.  the network protocol of revisions > 204 rely on this.
+	ResponseLoginAcceptBit = 1<<6
+	ResponseUsernameTaken = ResponseBadPassword
 )
 
 const (
 	LoginCode ResponseType = iota
 	RegisterCode
-)
-
-const (
-	ResponseRegisterSuccess ResponseCode = 2 + iota
-	ResponseUsernameTaken
-	ResponseShortInput
 )
 
 //ResponseListener This method will block until a response to send to the client is received from our data workers, or if this doesn't occur, 10 seconds after it was called.

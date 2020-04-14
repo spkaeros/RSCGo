@@ -1399,6 +1399,14 @@ func (p *Player) StartCombat(target entity.MobileEntity) {
 			return false
 		}
 		nextHit := int(math.Min(float64(defender.Skills().Current(entity.StatHits)), float64(attacker.MeleeDamage(defender))))
+		if defenderNpc, ok := defender.(*NPC); ok && attacker.IsPlayer() {
+			userHash := attacker.(*Player).UsernameHash()
+			if dmg, ok := defenderNpc.damageDeltas[userHash]; ok {
+				defenderNpc.damageDeltas[userHash] = dmg+nextHit
+			} else {
+				defenderNpc.damageDeltas[userHash] = nextHit
+			}
+		}
 		defender.Skills().DecreaseCur(entity.StatHits, nextHit)
 		if defender.Skills().Current(entity.StatHits) <= 0 {
 			if attacker, ok := attacker.(*Player); ok {

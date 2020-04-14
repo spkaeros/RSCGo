@@ -186,13 +186,15 @@ func SkillIndex(s string) int {
 }
 
 // TODO: Configuration value for max level
-var experienceLevels [104]uint64
+var experienceLevels [105]uint64
 
 func init() {
 	accumulativeExp := uint64(0)
-	for lvl := 0; lvl < len(experienceLevels)-1; lvl++ {
-		curLvl := uint64(lvl + 1)
-		accumulativeExp += uint64(math.Ceil(float64(curLvl) + (300.0 * math.Pow(2, float64(curLvl/7)))))
+	for lvl := 0; lvl < len(experienceLevels); lvl++ {
+		curLvl := float64(lvl + 1)
+		exp := curLvl + 300 * math.Pow(2, curLvl/7)
+		accumulativeExp += uint64(exp)
+
 		// mask off final 2 bits
 		experienceLevels[lvl] = accumulativeExp & 0xFFFFFFFFFFFFFFFC
 	}
@@ -200,23 +202,26 @@ func init() {
 
 //LevelToExperience Finds the experience required for the specified level
 func LevelToExperience(lvl int) int {
-	index := lvl - 2
-	if index < 0 || index > len(experienceLevels)-1 {
+	if lvl < 2 {
 		return 0
 	}
-	return int(experienceLevels[index] >> 2 & 0xFFFFFFFFFFFFFFFC)
+	if lvl >  len(experienceLevels)-2 {
+		return int(experienceLevels[len(experienceLevels)-1]/4)
+	}
+	
+	return int(experienceLevels[lvl-2]/4)
 }
 
 //ExperienceToLevel Finds the maximum level for the provided experience amount.
 func ExperienceToLevel(exp int) int {
-	for lvl := 0; lvl < len(experienceLevels)-1; lvl++ {
-		if exp < int(experienceLevels[lvl]/4) {
-			return lvl + 1
+	for lvl := 1; lvl < len(experienceLevels)-1; lvl++ {
+		if exp < int(experienceLevels[lvl-1]/4) {
+			return lvl
 		}
 	}
 
-	return len(experienceLevels) - 1
+	return len(experienceLevels)-1
 }
 
-	// obase=10; ibase=16; 7FFFFFFFFFFFFFFC 9223372036854775804
-	// obase=10; ibase=16; FFFFFFFFFFFFFFFC 18446744073709551612
+// obase=10; ibase=16; 7FFFFFFFFFFFFFFC 9223372036854775804
+// obase=10; ibase=16; FFFFFFFFFFFFFFFC 18446744073709551612

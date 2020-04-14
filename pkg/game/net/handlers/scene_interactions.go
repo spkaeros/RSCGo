@@ -17,7 +17,7 @@ import (
 
 func init() {
 	AddHandler("objectaction", func(player *world.Player, p *net.Packet) {
-		if player.Busy() {
+		if player.Busy() || player.IsFighting() {
 			return
 		}
 		x := p.ReadUint16()
@@ -52,7 +52,7 @@ func init() {
 		})
 	})
 	AddHandler("objectaction2", func(player *world.Player, p *net.Packet) {
-		if player.Busy() {
+		if player.Busy() || player.IsFighting() {
 			return
 		}
 		x := p.ReadUint16()
@@ -87,7 +87,7 @@ func init() {
 		})
 	})
 	AddHandler("boundaryaction2", func(player *world.Player, p *net.Packet) {
-		if player.Busy() {
+		if player.Busy() || player.IsFighting() {
 			return
 		}
 		x := p.ReadUint16()
@@ -125,7 +125,7 @@ func init() {
 		})
 	})
 	AddHandler("boundaryaction", func(player *world.Player, p *net.Packet) {
-		if player.Busy() {
+		if player.Busy() || player.IsFighting() {
 			return
 		}
 		x := p.ReadUint16()
@@ -163,7 +163,7 @@ func init() {
 		})
 	})
 	AddHandler("talktonpc", func(player *world.Player, p *net.Packet) {
-		if player.Busy() {
+		if player.Busy() || player.IsFighting() {
 			return
 		}
 		idx := p.ReadUint16()
@@ -223,7 +223,7 @@ func init() {
 		})
 	})
 	AddHandler("invonboundary", func(player *world.Player, p *net.Packet) {
-		if player.Busy() {
+		if player.Busy() || player.IsFighting() {
 			return
 		}
 		targetX := p.ReadUint16()
@@ -268,7 +268,7 @@ func init() {
 		})
 	})
 	AddHandler("invonplayer", func(player *world.Player, p *net.Packet) {
-		if player.Busy() {
+		if player.Busy() || player.IsFighting() {
 			return
 		}
 		targetIndex := p.ReadUint16()
@@ -317,7 +317,7 @@ func init() {
 		})
 	})
 	AddHandler("invonobject", func(player *world.Player, p *net.Packet) {
-		if player.Busy() {
+		if player.Busy() || player.IsFighting() {
 			return
 		}
 		targetX := p.ReadUint16()

@@ -27,7 +27,7 @@ func init() {
 		player.SetConnected(true)
 
 		reply := NewRegistrationListener(player).ResponseListener()
-		if RegisterThrottle.Recent(player.CurrentIP(), time.Minute*5) >= 5 {
+		if RegisterThrottle.Recent(player.CurrentIP(), time.Hour) >= 2 {
 			reply <- ResponseSpamTimeout
 			return
 		}
@@ -41,7 +41,7 @@ func init() {
 		player.Transients().SetVar("username", username)
 		if userLen, passLen := len(username), len(password); userLen < 2 || userLen > 12 || passLen < 5 || passLen > 20 {
 			log.Suspicious.Printf("New player request contained invalid lengths: %v username=%v; password:'%v'\n", player.CurrentIP(), username, password)
-			reply <- ResponseShortInput
+			reply <- ResponseBadInputLength
 			return
 		}
 		go func() {

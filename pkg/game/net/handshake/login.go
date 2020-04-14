@@ -27,6 +27,10 @@ func init() {
 	handlers.AddHandler("loginreq", func(player *world.Player, p *net.Packet) {
 		player.SetConnected(true)
 		loginReply := NewLoginListener(player).ResponseListener()
+		if world.Players.Size() >= config.MaxPlayers() {
+			loginReply <- ResponseWorldFull
+			return
+		}
 		if LoginThrottle.Recent(player.CurrentIP(), time.Minute*5) >= 5 {
 			loginReply <- ResponseSpamTimeout
 			return

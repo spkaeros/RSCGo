@@ -17,6 +17,7 @@ import (
 	
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/rand"
+	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 //NpcDefinition This represents a single definition for a single NPC in the game.
@@ -47,14 +48,20 @@ type NPC struct {
 	ID         int
 	Boundaries [2]Location
 	StartPoint Location
+	damageDeltas map[uint64]int
 }
 
 //NewNpc Creates a new NPC and returns a reference to it
 func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
-	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: Npcs.Size(), Location: NewLocation(startX, startY)}, AttributeList: entity.NewAttributeList()}}
-	n.Transients().SetVar("skills", &entity.SkillTable{})
-	n.Boundaries[0] = NewLocation(minX, minY)
-	n.Boundaries[1] = NewLocation(maxX, maxY)
+	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: Npcs.Size(), Location: NewLocation(startX, startY)}, AttributeList: entity.NewAttributeList()},
+			damageDeltas: make(map[uint64]int), Boundaries: [2]Location{ NewLocation(minX, minY), NewLocation(maxX, maxY) } }
+	Npcs.Add(n)
+	n.SetVar("skills", &entity.SkillTable{})
+	n.SetVar("startPoint", n.Location.Clone())
+	for i := 0; i < 18; i++ {
+		n.Skills().SetCur(i, 1)
+		n.Skills().SetMax(i, 1)
+	}
 	if id < 794 {
 		n.Skills().SetCur(0, NpcDefs[id].Attack)
 		n.Skills().SetCur(1, NpcDefs[id].Defense)
@@ -65,9 +72,8 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 		n.Skills().SetMax(1, NpcDefs[id].Defense)
 		n.Skills().SetMax(2, NpcDefs[id].Strength)
 		n.Skills().SetMax(3, NpcDefs[id].Hits)
+
 	}
-	n.StartPoint = n.Location.Clone()
-	Npcs.Add(n)
 	return n
 }
 
@@ -99,34 +105,20 @@ func UpdateNPCPositions() {
 		if n.Busy() || n.IsFighting() || n.Equals(DeathPoint) {
 			return false
 		}
-
-		if moveTime := n.VarTime("nextMove"); moveTime.IsZero() || time.Now().After(moveTime) {
-			n.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(10, 20))))
-			n.SetVar("pathLength", rand.Int31N(5, 15))
-		}
-
-		if n.VarInt("pathLength", 0) > 0 {
+		moveTime := n.VarTime("moveTime")
+		if n.VarInt("pathLength", 0) == 0 && (moveTime.IsZero() || time.Now().After(moveTime)) {
+			// schedule when to start wandering again
+			n.SetVar("moveTime", time.Now().Add(time.Second*time.Duration(rand.Int31N(10, 15))))
+			// set how many steps we should wander for before taking a break
+			if n.VarInt("pathLength", 0) == 0 {
+				n.SetVar("pathLength", rand.Int31N(5, 15))
+			}
+		} else {
+			// wander aimlessly until we run out of scheduled steps 
 			n.TraversePath()
 		}
 		return false
 	})
-	//npcsLock.RLock()
-	//for _, n := range Npcs {
-	//	if n.Busy() || n.IsFighting() || n.Equals(DeathPoint) {
-	//		continue
-	//	}
-	//	if n.VarTime("nextMove").Before(time.Now()) {
-	//		for _, r := range surroundingRegions(n.X(), n.Y()) {
-	//			if r.Players.Size() > 0 {
-	//				n.SetVar("nextMove", time.Now().Add(time.Second*time.Duration(rand.Int31N(10, 20))))
-	//				n.SetVar("pathLength", rand.Int31N(5, 15))
-	//				break
-	//			}
-	//		}
-	//	}
-	//	n.TraversePath()
-	//}
-	//npcsLock.RUnlock()
 }
 
 func (n *NPC) UpdateRegion(x, y int) {
@@ -192,17 +184,46 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 			}
 		}
 	}
-	AddItem(NewGroundItem(DefaultDrop, 1, n.X(), n.Y()))
-	if killer, ok := killer.(*Player); ok {
-		killer.DistributeMeleeExp(int(math.Ceil(n.MeleeExperience(true)/ 4.0)))
+	var totalDamage int
+	// first pass is to find the total so we can split up the exp properly
+	// this is because the total is not guaranteed to match max hitpoints since
+	// the NPC can heal after damage has been dealt, among other things
+	for _, damage := range n.damageDeltas {
+		totalDamage += damage
+	}
+	var dropPlayer *Player
+	var mostDamage int
+	totalExp := int(n.MeleeExperience(true)) & 0xFFFFFFFFC
+	for usernameHash, damage := range n.damageDeltas {
+		player, ok := Players.FromUserHash(usernameHash)
+		log.Info.Println(usernameHash,damage)
+		if ok {
+			exp := float64(totalExp)/float64(totalDamage)
+			log.Info.Println("Rewarding xp", int(exp)*damage, "to player", player)
+			player.DistributeMeleeExp(int(exp)*damage / 4)
+		}
+		if damage > mostDamage || dropPlayer == nil {
+			if ok {
+				dropPlayer = player
+			}
+			mostDamage = damage
+		}
+	}
+	n.damageDeltas = make(map[uint64]int)
+	if dropPlayer != nil {
+		log.Info.Println(dropPlayer, "got drop")
+		AddItem(NewGroundItemFor(dropPlayer.UsernameHash(), DefaultDrop, 1, n.X(), n.Y()))
+	} else {
+		AddItem(NewGroundItem(DefaultDrop, 1, n.X(), n.Y()))
 	}
 	n.Skills().SetCur(entity.StatHits, n.Skills().Maximum(entity.StatHits))
 	n.SetLocation(DeathPoint, true)
 	killer.ResetFighting()
 	n.ResetFighting()
 	go func() {
+		// TODO: npc definition entry for respawn time
 		time.Sleep(time.Second * 10)
-		n.SetLocation(n.StartPoint, true)
+		n.SetLocation(n.VarChecked("startPoint").(Location), true)
 	}()
 	return
 }

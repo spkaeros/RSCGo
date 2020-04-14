@@ -17,8 +17,10 @@ import (
 	"reflect"
 	`strconv`
 	"time"
+	"encoding/binary"
 	
 	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 	
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/engine/tasks"
@@ -50,7 +52,6 @@ func Bind(port int) {
 			WriteBufferSize: 5000,
 		}
 
-		certChain, certErr := tls.LoadX509KeyPair("./data/ssl/fullchain.pem", "./data/ssl/privkey.pem")
 
 		defer func() {
 			err := listener.Close()
@@ -58,6 +59,8 @@ func Bind(port int) {
 				log.Error.Println("Could not close game socket listener:", err)
 			}
 		}()
+
+		certChain, certErr := tls.LoadX509KeyPair("./data/ssl/fullchain.pem", "./data/ssl/privkey.pem")
 
 		for {
 			socket, err := listener.Accept()
@@ -68,27 +71,36 @@ func Bind(port int) {
 				continue
 			}
 			if port == config.WSPort() {
-				// Fall back to accepting non-SSL WS connections in the event that we could not read the cert files
 				if certErr == nil {
-					// set up socket to use TLS if we have certs that successfully loaded
+					// set up socket to use TLS if we have certs that we can load
 					socket = tls.Server(socket, &tls.Config{Certificates: []tls.Certificate{certChain}, InsecureSkipVerify: true})
 				}
-				// Regardless of whether we use SSL or not for this WS connection, the rest of our WS code doesn't care at all
 				if _, err := wsUpgrader.Upgrade(socket); err != nil {
-					log.Info.Println("Error upgrading websocket connection:", err)
+					log.Error.Println("Encountered a problem upgrading the websocket:", err)
 					continue
 				}
-			}
-			if world.Players.Size() >= config.MaxPlayers() {
-				if n, err := socket.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 14}); err != nil || n != 9 {
-					if config.Verbosity > 0 {
-						log.Error.Println("Could not send world is full response to rejected client:", err)
-					}
+//				ws.WriteFrame(socket, ws.NewFrame(data))
+				wsUpgrader.OnRequest = func(uri []byte) error {
+					go func() {
+						if string(uri) == "/" {
+						} else if len(uri) >= 10 && string(uri[:10]) == "/game-api/" {
+							rtype := string(uri[10:])
+							if rtype == "online" {
+								log.Info.Println("online count req by", socket)
+								data := make([]byte, 2)
+								binary.BigEndian.PutUint16(data, uint16(world.Players.Size()))
+								wsutil.WriteServerBinary(socket, data)
+								socket.Close()
+								return
+							}
+						}
+					}()
+					return nil
 				}
-				continue
+				newClient(socket, true)
+			} else if port == config.Port() {
+				newClient(socket, false)
 			}
-
-			newClient(socket, port == config.WSPort())
 		}
 	}()
 }
