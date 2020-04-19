@@ -1,0 +1,36 @@
+# The directory that holds any subsequent files mentioned.
+data_directory = './data/'
+# The version number of the latest client release.
+version = 204
+# TCP/IP port number to listen for incoming connections on.
+port = 43594
+# Maximum number of players that this server can support.
+max_players = 2048
+# The TOML file containing incoming packet definitions.
+packet_handler_table = 'packets.toml'
+
+[database]
+# SQLite3
+# The SQL database drivers
+player_driver = "sqlite3"
+world_driver = "sqlite3"
+# The SQL connection strings
+player_db = "file:./data/players.db"
+world_db = "file:./data/world.db"
+# PostgreSQL
+# The SQL database drivers
+#player_driver = 'postgres'
+#world_driver = 'postgres'
+# The SQL connection strings
+#player_db = 'host=127.0.0.1 port=5432 user=zach password=zeb!Rscgo!A2019 dbname=rscgo sslmode=disable'
+#world_db = 'host=127.0.0.1 port=5432 user=zach password=zeb!Rscgo!A2019 dbname=rscgo sslmode=disable'
+
+[crypto]
+# Length of hash output
+hash_length = 32
+# How many passes to do over the memory
+hash_complexity = 15
+# How much memory to use, in MiB
+hash_memory = 8
+# Salt to make hash output unique
+hash_salt = 'rscgo./GOLANG!RULES/.1994'
