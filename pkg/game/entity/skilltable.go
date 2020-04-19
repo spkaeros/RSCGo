@@ -148,14 +148,14 @@ func (s *SkillTable) String() (s1 string) {
 func (s *SkillTable) CombatLevel() int {
 	s.RLock()
 	defer s.RUnlock()
-	strengthAvg := float64(s.maximum[StatAttack] + s.maximum[StatStrength])*.25
-	defenseAvg := float64(s.maximum[StatDefense] + s.maximum[StatHits])*.25
-	magicAvg := float64(s.maximum[StatPrayer] + s.maximum[StatMagic])*.125
-	rangedAvg := float64(s.maximum[4])*.375
-	return int(defenseAvg + magicAvg +math.Max(strengthAvg, rangedAvg))
+	strengthAvg := (float64(s.maximum[StatAttack] + s.maximum[StatStrength])*.25)
+	defenseAvg := (float64(s.maximum[StatDefense] + s.maximum[StatHits])*.25)
+	magicAvg := (float64(s.maximum[StatPrayer] + s.maximum[StatMagic])*.125)
+	rangedAvg := (float64(s.maximum[4])*.375)
+	return int(math.Floor(defenseAvg + magicAvg + math.Max(strengthAvg, rangedAvg)))
 }
 
-var skillNames = [...]string{ "attack", "defense", "strength", "hits", "ranged", "prayer", "magic", "cooking",
+var skillNames = []string{ "attack", "defense", "strength", "hits", "ranged", "prayer", "magic", "cooking",
 	"woodcutting", "fletching", "fishing", "firemaking", "crafting", "smithing", "mining", "herblaw", "agility",
 	"thieving" }
 
@@ -174,15 +174,11 @@ func SkillName(id int) string {
 //SkillIndex Returns the skill index for the skill with the closest matching name, or -1 if there was
 // no close match found.
 func SkillIndex(s string) int {
-	bestRank := -1
-	bestMatchIdx := -1
-	for idx, name := range skillNames {
-		rank := fuzzy.RankMatchNormalizedFold(s, name)
-		if rank > bestRank {
-			bestRank, bestMatchIdx = rank, idx
-		}
+	matches := fuzzy.RankFindNormalizedFold(s, skillNames)
+	if len(matches) == 0 {
+		return -1
 	}
-	return bestMatchIdx
+	return matches[0].OriginalIndex
 }
 
 // TODO: Configuration value for max level

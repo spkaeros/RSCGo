@@ -323,9 +323,9 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(3, 2)
 			removing.Add(p1)
-			player.AppearanceLock.Lock()
-			delete(player.KnownAppearances, p1.Index)
-			player.AppearanceLock.Unlock()
+//			player.AppearanceLock.Lock()
+//			delete(player.KnownAppearances, p1.Index)
+//			player.AppearanceLock.Unlock()
 			//				p1.ResetTickables = append(p1.ResetTickables, func() {
 			//					p1.ResetRegionRemoved()
 			//p1.ResetRegionMoved()
@@ -379,14 +379,15 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		p.AddBitmask((p1.X() - player.X()) & 0x1F, 5)
 		p.AddBitmask((p1.Y() - player.Y()) & 0x1F, 5)
 		p.AddBitmask(p1.Direction(), 4)
+		player.LocalPlayers.Add(p1)
 		player.AppearanceLock.RLock()
-		if ticket, ok := player.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket() {
-			p.AddBitmask(0, 1)
-		} else {
+		if ticket, ok := player.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance)!=0 {
 			p.AddBitmask(1, 1)
+			player.AppearanceReq = append(player.AppearanceReq, p1)
+		} else {
+			p.AddBitmask(0, 1)
 		}
 		player.AppearanceLock.RUnlock()
-		player.LocalPlayers.Add(p1)
 		//		p1.ResetTickables = append(p1.ResetTickables, func() {
 		//			p1.ResetRegionMoved()
 		//			p1.ResetSpriteUpdated()
@@ -404,9 +405,9 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	var appearanceList []*Player
 	ourPlayer.RLock()
 	if ourPlayer.SyncMask&SyncAppearance == SyncAppearance {
-		ourPlayer.ResetTickables = append(ourPlayer.ResetTickables, func() {
-			ourPlayer.ResetAppearanceChanged()
-		})
+//		ourPlayer.ResetTickables = append(ourPlayer.ResetTickables, func() {
+//			ourPlayer.ResetAppearanceChanged()
+//		})
 		appearanceList = append(appearanceList, ourPlayer)
 	}
 	ourPlayer.RUnlock()
@@ -417,7 +418,8 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	ourPlayer.AppearanceLock.Unlock()
 	ourPlayer.LocalPlayers.Range(func(p1 entity.MobileEntity) bool {
 		ourPlayer.AppearanceLock.RLock()
-		if ticket, ok := ourPlayer.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.(*Player).AppearanceTicket() {
+		if ticket, ok := ourPlayer.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.(*Player).AppearanceTicket() ||
+				p1.(*Player).SyncMask&(SyncRemoved|SyncAppearance)!=0 {
 			appearanceList = append(appearanceList, p1.(*Player))
 		}
 		ourPlayer.AppearanceLock.RUnlock()

@@ -295,15 +295,13 @@ func loadSector(data []byte) (s *Sector) {
 				}
 			}
 			// TODO: Affect adjacent tiles in an intelligent way to determine which are solid and which are not
-			if diagonalWalls > 0 {
-				// diagonal that blocks: SE<->NW (/ aka |‾ or _|)
-				if diagonalWalls < 12000 {
-					if wall := BoundaryDefs[diagonalWalls-1]; !wall.Dynamic && wall.Solid {
-						s.Tiles[tileIdx].CollisionMask |= ClipSeNw
-					}
-				} else if diagonalWalls < 24000 {
-					if wall := BoundaryDefs[diagonalWalls-12001]; !wall.Dynamic && wall.Solid {
+			if diagonalWalls < 24000 && diagonalWalls > 0 {
+				if wall := BoundaryDefs[diagonalWalls%12001]; !wall.Dynamic && wall.Solid {
+					if diagonalWalls > 12000 {
 						s.Tiles[tileIdx].CollisionMask |= ClipSwNe
+					} else {
+						// diagonal that blocks: SE<->NW (/ aka |‾ or _|)
+						s.Tiles[tileIdx].CollisionMask |= ClipSeNw
 					}
 				}
 			}

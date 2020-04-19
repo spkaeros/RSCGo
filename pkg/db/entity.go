@@ -141,7 +141,7 @@ func (s *sqlService) Npcs() (npcs []world.NpcDefinition) {
 	s.context = context.Background()
 	db := s.connect(s.context)
 	defer db.Close()
-	rows, err := db.QueryContext(s.context, "SELECT id, name, description, command, hits, attack, strength, defense, attackable FROM npcs ORDER BY id")
+	rows, err := db.QueryContext(s.context, "SELECT id, name, description, command, hits, attack, strength, defense, hostility FROM npcs ORDER BY id")
 	if err != nil {
 		log.Error.Println("Couldn't load entity definitions from sqlService:", err)
 		return
@@ -150,7 +150,7 @@ func (s *sqlService) Npcs() (npcs []world.NpcDefinition) {
 	
 	for rows.Next() {
 		nextDef := world.NpcDefinition{}
-		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Command, &nextDef.Hits, &nextDef.Attack, &nextDef.Strength, &nextDef.Defense, &nextDef.Attackable)
+		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Command, &nextDef.Hits, &nextDef.Attack, &nextDef.Strength, &nextDef.Defense, &nextDef.Hostility)
 		npcs = append(npcs, nextDef)
 	}
 	

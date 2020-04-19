@@ -30,6 +30,22 @@ const (
 	LowerBound = RegionSize / 2
 )
 
+//OrderedDirections This is an array containing all of the directions a mob can walk in, ordered by path finder precedent.
+var OrderedDirections = [...]int { 2, 6, 0, 4, 3, 5, 1, 7 }
+func (l Location) Step(direction int) Location {
+	loc := l.Clone()
+	if direction == 0 || direction == 1 || direction == 7 {
+		loc.y.Dec()
+	} else if direction == 4 || direction == 5 || direction == 3 {
+		loc.y.Inc()
+	}
+	if direction == 1 || direction == 2 || direction == 3 {
+		loc.x.Inc()
+	} else if direction == 5 || direction == 6 || direction == 7 {
+		loc.x.Dec()
+	}
+	return loc
+}
 //UpdateTime a point in time in the future to log all active players out and shut down the game for updates.
 // Before the command is issued to set this time, it is initialized to time.Time{} zero value.
 var UpdateTime time.Time

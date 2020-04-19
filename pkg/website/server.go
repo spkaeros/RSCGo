@@ -123,7 +123,6 @@ func Start() {
 	muxCtx.HandleFunc("/", render)
 	muxCtx.HandleFunc("/game/", render)
 	muxCtx.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./data/client"))))
-	muxCtx.Handle("/data204/", http.StripPrefix("/data/client/cache/", http.FileServer(http.Dir("./data/client/cache"))))
 	bindGameProcManager()
 	err := http.ListenAndServe(":8080", muxCtx)
 	if err != nil {

@@ -187,16 +187,11 @@ func init() {
 				if triggerDef.Check(npc) {
 					npc.ResetPath()
 					if player.Location.Equals(npc.Location) {
-					outer:
-						for offX := -1; offX <= 1; offX++ {
-							for offY := -1; offY <= 1; offY++ {
-								if offX == 0 && offY == 0 {
-									continue
-								}
-								if npc.ReachableCoords(npc.X()+offX,npc.Y()+offY) {
-									npc.SetLocation(world.NewLocation(npc.X()+offX, npc.Y()+offY), true)
-									break outer
-								}
+						for _, direction := range world.OrderedDirections {
+							neighbor := npc.Step(direction)
+							if npc.Reachable(neighbor) {
+								npc.SetLocation(neighbor, true)
+								break
 							}
 						}
 					}

@@ -167,13 +167,10 @@ func (p *Packet) ReadString() string {
 	s := string(p.FrameBuffer[start:])
 	end := strings.IndexByte(s, '\x00')
 	if end < 0 {
-		end := strings.IndexByte(s, '\n')
+		end = strings.IndexByte(s, '\n')
 		if end < 0 {
-			p.readIndex = p.Length()
-			return s
+			end = p.Length()
 		}
-		p.readIndex += end
-		return s[:end]
 	}
 	p.readIndex += end
 	return s[:end]

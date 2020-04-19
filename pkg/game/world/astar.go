@@ -22,31 +22,34 @@ type pNode struct {
 	open, closed        bool
 }
 
-func (p *Pathfinder) neighbors(n *pNode) []*pNode {
-	x, y := n.loc.X(), n.loc.Y()
-	var neighbors []*pNode
-	for deltaX := -1; deltaX <= 1; deltaX++ {
-		for deltaY := -1; deltaY <= 1; deltaY++ {
-			if deltaX|deltaY == 0 {
-				continue
-			}
-			neighborX, neighborY := x+deltaX, y+deltaY
-			neighborHash := neighborX<<13|neighborY
-			if n.loc.ReachableCoords(neighborX, neighborY) {
-				if neighbor := p.nodes[neighborHash];
-						neighbor == nil {
-					p.nodes[neighborHash] = &pNode{loc: NewLocation(neighborX, neighborY)}
-				}
-				neighbors = append(neighbors, p.nodes[neighborHash])
-			}
+func (p *Pathfinder) neighbors(n *pNode) (neighbors []*pNode) {
+//	for deltaX := -1; deltaX <= 1; deltaX++ {
+	for _, direction := range OrderedDirections {
+		node := &pNode{loc: n.loc.Step(direction)}
+		if !n.loc.Reachable(node.loc) {
+			continue
 		}
+		if p.nodes.hasNode(node) {
+			continue
+		}
+		neighbors = append(neighbors, node)
 	}
+//			p.visited = append(p.visited, node)
+//		for deltaY := -1; deltaY <= 1; deltaY++ {
+//			if deltaX|deltaY == 0 {
+//				continue
+//			}
+//			if !p.start.WithinRange(node.loc, 20) {
+//				continue
+//			}
+//		}
+		
 	return neighbors
 }
 
 type Pathfinder struct {
-	nodes map[int]*pNode
-	open  queue
+	nodes queue
+	visited queue
 	start Location
 	end   Location
 }
@@ -84,29 +87,42 @@ func (q *queue) Pop() interface{} {
 	return node
 }
 
+func (q queue) hasNode(n *pNode) bool {
+	for _, n1 := range q {
+		if n.loc.X() == n1.loc.X() && n.loc.Y() == n1.loc.Y() {
+			return true
+		}
+	}
+	return false
+}
+
 //NewPathfinder Returns a new A* pathfinder instance to derive an optimal path from start to end.
 func NewPathfinder(start, end Location) *Pathfinder {
-	p := &Pathfinder{start: start, end: end, nodes: make(map[int]*pNode), open: make(queue, 1)}
-	p.open[0] = &pNode{loc: start, open: true}
-	p.nodes[start.X()<<13|start.Y()] = p.open[0]
-	p.nodes[end.X()<<13|end.Y()] = &pNode{loc: end}
-	heap.Init(&p.open)
+	p := &Pathfinder{start: start, end: end, nodes: queue{&pNode{loc: start, open: true}}}
+	heap.Init(&p.nodes)
 	return p
 }
 
-func gCost(parent, neighbor *pNode) float64 {
-	if parent.loc.LongestDelta(neighbor.loc) == 0 {
-		return parent.gCost + 1
+func (n *pNode) gCostTo(neighbor *pNode) float64 {
+//	deltaX := parent.loc.X() - neighbor.loc.X()
+//	deltaY := parent.loc.Y() - neighbor.loc.Y()
+//	toNext := (math.Sqrt(float64(deltaX*deltaX) + float64(deltaY*deltaY)))
+//	return toNext * (math.Sqrt2 - 1.0)
+	stepPrice := 1.0
+	if n.loc.DeltaX(neighbor.loc) + n.loc.DeltaY(neighbor.loc) > 1 {
+		stepPrice = math.Sqrt2
 	}
-	return parent.gCost + math.Sqrt2
+	return n.gCost + stepPrice
+//	return parent.gCost + ((math.Sqrt2 - 1.0) * float64(neighbor.loc.DeltaX(end)+neighbor.loc.DeltaY(end)))
+//	return parent.gCost + math.Sqrt(float64(neighbor.loc.DeltaX(parent.loc)) + float64(neighbor.loc.DeltaY(parent.loc)))
 }
 
 func hCost(neighbor *pNode, end Location) float64 {
-	return (math.Sqrt2 - 1.0) * float64(neighbor.loc.DeltaX(end)+neighbor.loc.DeltaY(end))
+	return math.Sqrt(float64(neighbor.loc.DeltaX(end)*neighbor.loc.DeltaX(end)) + float64(neighbor.loc.DeltaY(end)*neighbor.loc.DeltaY(end)))
 }
 
 func (p *Pathfinder) compare(active, other *pNode) {
-	gCost := gCost(active, other)
+	gCost := active.gCostTo(other)
 	if !other.open || gCost < other.gCost {
 		other.gCost = gCost
 		if other.hCost == 0 {
@@ -117,9 +133,9 @@ func (p *Pathfinder) compare(active, other *pNode) {
 
 		if !other.open {
 			other.open = true
-			heap.Push(&p.open, other)
+			heap.Push(&p.nodes, other)
 		} else {
-			heap.Fix(&p.open, other.index)
+			heap.Fix(&p.nodes, other.index)
 		}
 	}
 }
@@ -128,23 +144,29 @@ func (p *Pathfinder) MakePath() *Pathway {
 	if IsTileBlocking(p.end.X(), p.end.Y(), 0, false) {
 		return NewPathwayToLocation(p.end)
 	}
-	for p.open.Len() > 0 {
-		active := heap.Pop(&p.open).(*pNode)
+	for p.nodes.Len() > 0 {
+//		active := p.nodes[0]
+//		p.nodes = p.nodes[1:]
+		active := heap.Pop(&p.nodes).(*pNode)
 		active.closed = true
 		position := active.loc
 		if position.Equals(p.end) {
-			break
-		}
-		for _, neighbor := range p.neighbors(active) {
-			if neighbor.closed {
-				continue
+			path := &Pathway{StartX: 0, StartY: 0}
+			for !p.start.Equals(position) {
+				path.addFirstWaypoint(position.X(), position.Y())
+				active = active.parent
+				position = active.loc
 			}
-			p.compare(active, neighbor)
+			return path
+		}
+		neighbors := p.neighbors(active)
+		for _, neighbor := range neighbors {
+			if !neighbor.closed {
+				p.compare(active, neighbor)
+			}
 		}
 	}
-
-	path := &Pathway{StartX: 0, StartY: 0}
-
+/*
 	active := p.nodes[p.end.X()<<13|p.end.Y()]
 	if active != nil && active.parent != nil {
 		position := active.loc
@@ -154,5 +176,6 @@ func (p *Pathfinder) MakePath() *Pathway {
 			position = active.loc
 		}
 	}
-	return path
+*/
+	return nil
 }

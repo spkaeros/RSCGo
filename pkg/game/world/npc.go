@@ -30,7 +30,7 @@ type NpcDefinition struct {
 	Attack      int
 	Strength    int
 	Defense     int
-	Attackable  bool
+	Hostility   int
 }
 
 //NpcDefs This holds the defining characteristics for all of the game's NPCs, ordered by ID.
@@ -77,25 +77,45 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 	return n
 }
 
+// Returns true if this NPCs definition has the attackable hostility bit set.
 func (n *NPC) Attackable() bool {
-	if n.ID <= len(NpcDefs)-1 {
-		return NpcDefs[n.ID].Attackable
+	if n.ID > len(NpcDefs)-1 {
+		return false
 	}
-	return false
+
+	return NpcDefs[n.ID].Hostility&1 == 1
+}
+
+// Returns true if this NPCs definition has the retreat near death hostility bit set.
+func (n *NPC) Retreats() bool {
+	if n.ID > len(NpcDefs)-1 {
+		return false
+	}
+
+	return NpcDefs[n.ID].Hostility&2 == 2
+}
+
+// Returns true if this NPCs definition has the aggressive hostility bit set.
+func (n *NPC) Aggressive() bool {
+	if n.ID > len(NpcDefs)-1 {
+		return false
+	}
+
+	return NpcDefs[n.ID].Hostility&4 == 4
 }
 
 func (n *NPC) Name() string {
-	if n.ID <= len(NpcDefs)-1 {
-		return NpcDefs[n.ID].Name
+	if n.ID > len(NpcDefs)-1 {
+		return "nil"
 	}
-	return "nil"
+	return NpcDefs[n.ID].Name
 }
 
 func (n *NPC) Command() string {
-	if n.ID <= len(NpcDefs)-1 {
-		return NpcDefs[n.ID].Command
+	if n.ID > len(NpcDefs)-1 {
+		return "nil"
 	}
-	return "nil"
+	return NpcDefs[n.ID].Command
 }
 
 //UpdateNPCPositions Loops through the global NPC entityList and, if they are by a player, updates their path to a new path every so often,
@@ -167,6 +187,15 @@ func (n *NPC) Damage(dmg int) {
 	}
 }
 
+func (n *NPC) DamageMelee(atk *Player, dmg int) {
+	n.Damage(dmg)
+	if delta, ok := n.damageDeltas[atk.UsernameHash()]; ok {
+		n.damageDeltas[atk.UsernameHash()] = delta+dmg
+		return
+	}
+	n.damageDeltas[atk.UsernameHash()] = dmg
+}
+
 //MeleeExperience returns how much combat experience to award for killing an opponent with melee.
 func (n *NPC) MeleeExperience(up bool) float64 {
 	e := float64((n.Skills().CombatLevel()*2.0)+10.0) * 1.5
@@ -174,6 +203,21 @@ func (n *NPC) MeleeExperience(up bool) float64 {
 		return math.Ceil(e)
 	}
 	return math.Floor(e)
+}
+
+// Loops through the list of players that had dealt damage to this NPC, and
+// adds up all the damage that was dealt by an active player, to help fairly distribute
+// all of the NPCs EXP reward to all of the players that helped kill it, proprortional
+// to how much they helped.
+// Returns: the total number of hitpoints depleted by player melee damage.
+func(n *NPC) TotalDamage() (total int) {
+	for userHash, dmg:= range n.damageDeltas {
+		if Players.ContainsHash(userHash) {
+			total += dmg
+		}
+	}
+	
+	return
 }
 
 func (n *NPC) Killed(killer entity.MobileEntity) {
@@ -184,22 +228,18 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 			}
 		}
 	}
-	var totalDamage int
 	// first pass is to find the total so we can split up the exp properly
 	// this is because the total is not guaranteed to match max hitpoints since
 	// the NPC can heal after damage has been dealt, among other things
-	for _, damage := range n.damageDeltas {
-		totalDamage += damage
-	}
 	var dropPlayer *Player
 	var mostDamage int
+	totalDamage := n.TotalDamage()
 	totalExp := int(n.MeleeExperience(true)) & 0xFFFFFFFFC
 	for usernameHash, damage := range n.damageDeltas {
 		player, ok := Players.FromUserHash(usernameHash)
 		log.Info.Println(usernameHash,damage)
 		if ok {
 			exp := float64(totalExp)/float64(totalDamage)
-			log.Info.Println("Rewarding xp", int(exp)*damage, "to player", player)
 			player.DistributeMeleeExp(int(exp)*damage / 4)
 		}
 		if damage > mostDamage || dropPlayer == nil {
@@ -211,7 +251,6 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 	}
 	n.damageDeltas = make(map[uint64]int)
 	if dropPlayer != nil {
-		log.Info.Println(dropPlayer, "got drop")
 		AddItem(NewGroundItemFor(dropPlayer.UsernameHash(), DefaultDrop, 1, n.X(), n.Y()))
 	} else {
 		AddItem(NewGroundItem(DefaultDrop, 1, n.X(), n.Y()))
