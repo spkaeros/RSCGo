@@ -287,8 +287,10 @@ func (p *Player) WalkingArrivalAction(target entity.MobileEntity, dist int, acti
 			action()
 			return true
 		}
-		p.WalkTo(NewLocation(target.X(), target.Y()))
-		return false
+//		if !p.WalkTo(NewLocation(target.X(), target.Y())) {
+///			return true
+//		}
+		return !p.WalkTo(NewLocation(target.X(), target.Y()))
 	})
 }
 

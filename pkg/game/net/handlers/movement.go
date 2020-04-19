@@ -104,7 +104,10 @@ func init() {
 				player.ResetPath()
 			} else if !player.WithinRange(affectedClient.Location, player.FollowRadius()) {
 				// We're not moving, but our target is moving away, so we must try to get closer
-				player.SetPath(world.MakePath(player.Location, affectedClient.Location))
+				if !player.WalkTo(affectedClient.Location) {
+					return true
+				}
+//				player.SetPath(world.MakePath(player.Location, affectedClient.Location))
 			}
 			return false
 		})

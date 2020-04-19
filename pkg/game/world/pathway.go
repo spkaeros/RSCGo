@@ -25,8 +25,11 @@ func NewPathway(destX, destY int, waypointsX, waypointsY []int) *Pathway {
 	return &Pathway{StartX: destX, StartY: destY, WaypointsX: waypointsX, WaypointsY: waypointsY, CurrentWaypoint: -1}
 }
 
-func MakePath(start, end Location) *Pathway {
-	return NewPathfinder(start, end).MakePath()
+// Returns an optimal path from start location to end location as decided by way of the AStar pathfinding algorithm.
+// If a path isn't found within a certain constrained number of steps, the algorithm returns nil to free up the CPU.
+func MakePath(start, end Location) (*Pathway, bool) {
+	path := NewPathfinder(start, end).MakePath()
+	return path, path != nil
 }
 
 //countWaypoints Returns the length of the largest waypoint slice within this path.

@@ -22,36 +22,12 @@ type pNode struct {
 	open, closed        bool
 }
 
-func (p *Pathfinder) neighbors(n *pNode) (neighbors []*pNode) {
-//	for deltaX := -1; deltaX <= 1; deltaX++ {
-	for _, direction := range OrderedDirections {
-		node := &pNode{loc: n.loc.Step(direction)}
-		if !n.loc.Reachable(node.loc) {
-			continue
-		}
-		if p.nodes.hasNode(node) {
-			continue
-		}
-		neighbors = append(neighbors, node)
+func (n *pNode) gCostFrom(neighbor *pNode) float64 {
+	stepPrice := 1.0
+	if n.loc.DeltaX(neighbor.loc) + n.loc.DeltaY(neighbor.loc) > 1 {
+		stepPrice = math.Sqrt2
 	}
-//			p.visited = append(p.visited, node)
-//		for deltaY := -1; deltaY <= 1; deltaY++ {
-//			if deltaX|deltaY == 0 {
-//				continue
-//			}
-//			if !p.start.WithinRange(node.loc, 20) {
-//				continue
-//			}
-//		}
-		
-	return neighbors
-}
-
-type Pathfinder struct {
-	nodes queue
-	visited queue
-	start Location
-	end   Location
+	return n.gCost + stepPrice
 }
 
 type queue []*pNode
@@ -87,95 +63,95 @@ func (q *queue) Pop() interface{} {
 	return node
 }
 
-func (q queue) hasNode(n *pNode) bool {
-	for _, n1 := range q {
-		if n.loc.X() == n1.loc.X() && n.loc.Y() == n1.loc.Y() {
-			return true
-		}
-	}
-	return false
+type Pathfinder struct {
+	queue
+	activeTiles map[int]*pNode
+	last Location
+	start Location
+	end   Location
+}
+
+// This produces a unique hash for each tile possible within the current game world; in this sense, it is a perfect hashing algorithm.
+// If the world ever expands a great deal, this may need to change to accomodate larger values.
+func (l Location) Hash() int {
+	return (l.X() << 14) | l.Y()
 }
 
 //NewPathfinder Returns a new A* pathfinder instance to derive an optimal path from start to end.
 func NewPathfinder(start, end Location) *Pathfinder {
-	p := &Pathfinder{start: start, end: end, nodes: queue{&pNode{loc: start, open: true}}}
-	heap.Init(&p.nodes)
+	startNode := &pNode{loc: start, open: true}
+	p := &Pathfinder{start: start, end: end, queue: queue{startNode}, activeTiles: map[int]*pNode { start.Hash(): startNode, end.Hash(): &pNode{loc: end} }}
+//	activeTiles[start.Hash()] = p.queue[0]
+//	activeTiles[end.Hash()] = &pNode{loc: end}
+	heap.Init(&p.queue)
 	return p
 }
 
-func (n *pNode) gCostTo(neighbor *pNode) float64 {
-//	deltaX := parent.loc.X() - neighbor.loc.X()
-//	deltaY := parent.loc.Y() - neighbor.loc.Y()
-//	toNext := (math.Sqrt(float64(deltaX*deltaX) + float64(deltaY*deltaY)))
-//	return toNext * (math.Sqrt2 - 1.0)
-	stepPrice := 1.0
-	if n.loc.DeltaX(neighbor.loc) + n.loc.DeltaY(neighbor.loc) > 1 {
-		stepPrice = math.Sqrt2
+func (p *Pathfinder) node(l Location) *pNode {
+	hash := (l.X()<<16)|l.Y()
+	if v, ok := p.activeTiles[hash]; !ok || v == nil {
+		p.activeTiles[hash] = &pNode{loc: l}
 	}
-	return n.gCost + stepPrice
-//	return parent.gCost + ((math.Sqrt2 - 1.0) * float64(neighbor.loc.DeltaX(end)+neighbor.loc.DeltaY(end)))
-//	return parent.gCost + math.Sqrt(float64(neighbor.loc.DeltaX(parent.loc)) + float64(neighbor.loc.DeltaY(parent.loc)))
-}
-
-func hCost(neighbor *pNode, end Location) float64 {
-	return math.Sqrt(float64(neighbor.loc.DeltaX(end)*neighbor.loc.DeltaX(end)) + float64(neighbor.loc.DeltaY(end)*neighbor.loc.DeltaY(end)))
-}
-
-func (p *Pathfinder) compare(active, other *pNode) {
-	gCost := active.gCostTo(other)
-	if !other.open || gCost < other.gCost {
-		other.gCost = gCost
-		if other.hCost == 0 {
-			other.hCost = hCost(other, p.end)*3
-		}
-		other.nCost = other.gCost + other.hCost
-		other.parent = active
-
-		if !other.open {
-			other.open = true
-			heap.Push(&p.nodes, other)
-		} else {
-			heap.Fix(&p.nodes, other.index)
-		}
-	}
+	return p.activeTiles[hash]
 }
 
 func (p *Pathfinder) MakePath() *Pathway {
 	if IsTileBlocking(p.end.X(), p.end.Y(), 0, false) {
 		return NewPathwayToLocation(p.end)
 	}
-	for p.nodes.Len() > 0 {
-//		active := p.nodes[0]
-//		p.nodes = p.nodes[1:]
-		active := heap.Pop(&p.nodes).(*pNode)
+	defer func() {
+		for _, v := range p.activeTiles {
+			v.index = 0
+			v.hCost, v.gCost, v.nCost = 0, 0, 0
+		}
+	}()
+	for p.queue.Len() > 0 {
+		active := heap.Pop(&p.queue).(*pNode)
 		active.closed = true
-		position := active.loc
-		if position.Equals(p.end) {
+		makePath := func(active *pNode) *Pathway {
 			path := &Pathway{StartX: 0, StartY: 0}
-			for !p.start.Equals(position) {
-				path.addFirstWaypoint(position.X(), position.Y())
+			for !active.parent.loc.Equals(p.start) {
+				path.addFirstWaypoint(active.loc.X(), active.loc.Y())
 				active = active.parent
-				position = active.loc
 			}
 			return path
 		}
-		neighbors := p.neighbors(active)
-		for _, neighbor := range neighbors {
-			if !neighbor.closed {
-				p.compare(active, neighbor)
+		position := active.loc
+		if p.last.LongestDelta(active.loc) == 0 || p.queue.Len() > 512 {
+			// DoS prevention measures; astar will run forever if you let it
+//			return makePath(active)
+			return nil
+		}
+		if position.Equals(p.end) {
+			// We made it!
+			return makePath(active)
+		}
+		p.last = active.loc
+
+		// OrderedDirections is ordered as orthogonal then diagonals.
+		// Direction precedent: E,W,N,S,SW,SE,NW,NE
+		for _, direction := range OrderedDirections {
+//			node := &pNode{loc: active.loc.Step(direction), open: false, closed: false}
+			neighbor := p.node(active.loc.Step(direction))
+			if !active.loc.Reachable(neighbor.loc) {
+				continue
+			}
+			gCost := active.gCostFrom(neighbor)
+			if !neighbor.open || gCost < neighbor.gCost {
+				if neighbor.hCost == 0 {
+					neighbor.hCost = neighbor.loc.EuclideanDistance(p.end)
+				}
+				neighbor.gCost = gCost
+				neighbor.nCost = gCost + neighbor.hCost
+				neighbor.parent = active
+				if !neighbor.open || neighbor.closed {
+					neighbor.open = true
+					heap.Push(&p.queue, neighbor)
+					continue
+				}
+				heap.Fix(&p.queue, neighbor.index)
 			}
 		}
 	}
-/*
-	active := p.nodes[p.end.X()<<13|p.end.Y()]
-	if active != nil && active.parent != nil {
-		position := active.loc
-		for !p.start.Equals(position) {
-			path.addFirstWaypoint(position.X(), position.Y())
-			active = active.parent
-			position = active.loc
-		}
-	}
-*/
 	return nil
 }

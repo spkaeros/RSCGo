@@ -331,9 +331,10 @@ func (m *Mob) SetPath(path *Pathway) {
 	m.SetVar("path", path)
 }
 
-func (m *Mob) WalkTo(end Location) {
-	path := MakePath(m.Location, end)
+func (m *Mob) WalkTo(end Location) bool {
+	path, ok := MakePath(m.Location, end)
 	m.SetPath(path)
+	return ok
 }
 
 //Path returns the path that this mob is trying to traverse.

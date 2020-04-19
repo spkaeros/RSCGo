@@ -2,6 +2,7 @@ package world
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"go.uber.org/atomic"
@@ -186,6 +187,12 @@ func (l *Location) LongestDeltaCoords(x, y int) int {
 		return deltaX
 	}
 	return deltaY
+}
+
+func (l Location) EuclideanDistance(loc Location) float64 {
+	dX := l.DeltaX(loc)
+	dY := l.DeltaY(loc)
+	return math.Sqrt(float64(dX*dX) + float64(dY*dY))
 }
 
 //WithinRange Returns true if the other location is within radius tiles of the receiver location, otherwise false.

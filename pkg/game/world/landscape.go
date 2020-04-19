@@ -296,7 +296,11 @@ func loadSector(data []byte) (s *Sector) {
 			}
 			// TODO: Affect adjacent tiles in an intelligent way to determine which are solid and which are not
 			if diagonalWalls < 24000 && diagonalWalls > 0 {
-				if wall := BoundaryDefs[diagonalWalls%12001]; !wall.Dynamic && wall.Solid {
+				if diagonalWalls > 12000 {
+					diagonalWalls -= 12000
+				}
+				diagonalWalls -= 1
+				if wall := BoundaryDefs[diagonalWalls]; !wall.Dynamic && wall.Solid {
 					if diagonalWalls > 12000 {
 						s.Tiles[tileIdx].CollisionMask |= ClipSwNe
 					} else {
