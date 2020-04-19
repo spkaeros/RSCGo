@@ -273,7 +273,7 @@ func (c *client) readPacket() (p *net.Packet, err error) {
 }
 
 //writePacket This is a method to send a net to the client.  If this is a bare net, the net payload will
-// be written as-is.  If this is not a bare net, the net will have the first 3 bytes changed to the
+// be written as-is.  If this is not a bare packet, the packet will have the first 3 bytes changed to the
 // appropriate values for the client to parse the length and opcode for this net.
 func (c *client) writePacket(p net.Packet) {
 	if p.HeaderBuffer == nil {

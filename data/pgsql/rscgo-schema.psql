@@ -16,12 +16,10 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
-SET default_tablespace = '';
-
 SET default_table_access_method = heap;
 
 --
--- Name: appearance; Type: TABLE; Schema: public; Owner: zach
+-- Name: appearance; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.appearance (
@@ -35,10 +33,8 @@ CREATE TABLE public.appearance (
 );
 
 
-ALTER TABLE public.appearance OWNER TO zach;
-
 --
--- Name: bank; Type: TABLE; Schema: public; Owner: zach
+-- Name: bank; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.bank (
@@ -48,38 +44,11 @@ CREATE TABLE public.bank (
 );
 
 
-ALTER TABLE public.bank OWNER TO zach;
-
 --
--- Name: config; Type: TABLE; Schema: public; Owner: zach
+-- Name: boundarys; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.config (
-    name text,
-    value text
-);
-
-
-ALTER TABLE public.config OWNER TO zach;
-
---
--- Name: contacts; Type: TABLE; Schema: public; Owner: zach
---
-
-CREATE TABLE public.contacts (
-    playerid integer,
-    playerhash bigint,
-    type text
-);
-
-
-ALTER TABLE public.contacts OWNER TO zach;
-
---
--- Name: doors; Type: TABLE; Schema: public; Owner: zach
---
-
-CREATE TABLE public.doors (
+CREATE TABLE public.boundarys (
     id bigint NOT NULL,
     name text,
     description text,
@@ -93,10 +62,29 @@ CREATE TABLE public.doors (
 );
 
 
-ALTER TABLE public.doors OWNER TO zach;
+--
+-- Name: config; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.config (
+    name text,
+    value text
+);
+
 
 --
--- Name: game_object_locations; Type: TABLE; Schema: public; Owner: zach
+-- Name: contacts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.contacts (
+    playerid integer,
+    playerhash bigint,
+    type text
+);
+
+
+--
+-- Name: game_object_locations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.game_object_locations (
@@ -108,10 +96,8 @@ CREATE TABLE public.game_object_locations (
 );
 
 
-ALTER TABLE public.game_object_locations OWNER TO zach;
-
 --
--- Name: game_objects; Type: TABLE; Schema: public; Owner: zach
+-- Name: game_objects; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.game_objects (
@@ -123,14 +109,12 @@ CREATE TABLE public.game_objects (
     type bigint,
     width bigint,
     height bigint,
-    ground_item_var bigint
+    modelheight bigint
 );
 
 
-ALTER TABLE public.game_objects OWNER TO zach;
-
 --
--- Name: id; Type: SEQUENCE; Schema: public; Owner: zach
+-- Name: id; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.id
@@ -141,10 +125,8 @@ CREATE SEQUENCE public.id
     CACHE 1;
 
 
-ALTER TABLE public.id OWNER TO zach;
-
 --
--- Name: inventory; Type: TABLE; Schema: public; Owner: zach
+-- Name: inventory; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.inventory (
@@ -155,10 +137,8 @@ CREATE TABLE public.inventory (
 );
 
 
-ALTER TABLE public.inventory OWNER TO zach;
-
 --
--- Name: item_locations; Type: TABLE; Schema: public; Owner: zach
+-- Name: item_locations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.item_locations (
@@ -170,10 +150,8 @@ CREATE TABLE public.item_locations (
 );
 
 
-ALTER TABLE public.item_locations OWNER TO zach;
-
 --
--- Name: item_wieldable; Type: TABLE; Schema: public; Owner: zach
+-- Name: item_wieldable; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.item_wieldable (
@@ -191,10 +169,8 @@ CREATE TABLE public.item_wieldable (
 );
 
 
-ALTER TABLE public.item_wieldable OWNER TO zach;
-
 --
--- Name: item_wieldable_requirements; Type: TABLE; Schema: public; Owner: zach
+-- Name: item_wieldable_requirements; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.item_wieldable_requirements (
@@ -204,10 +180,8 @@ CREATE TABLE public.item_wieldable_requirements (
 );
 
 
-ALTER TABLE public.item_wieldable_requirements OWNER TO zach;
-
 --
--- Name: items; Type: TABLE; Schema: public; Owner: zach
+-- Name: items; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.items (
@@ -222,10 +196,8 @@ CREATE TABLE public.items (
 );
 
 
-ALTER TABLE public.items OWNER TO zach;
-
 --
--- Name: npc_drops; Type: TABLE; Schema: public; Owner: zach
+-- Name: npc_drops; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.npc_drops (
@@ -237,10 +209,8 @@ CREATE TABLE public.npc_drops (
 );
 
 
-ALTER TABLE public.npc_drops OWNER TO zach;
-
 --
--- Name: npc_locations; Type: TABLE; Schema: public; Owner: zach
+-- Name: npc_locations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.npc_locations (
@@ -254,10 +224,8 @@ CREATE TABLE public.npc_locations (
 );
 
 
-ALTER TABLE public.npc_locations OWNER TO zach;
-
 --
--- Name: npcs; Type: TABLE; Schema: public; Owner: zach
+-- Name: npcs; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.npcs (
@@ -269,14 +237,12 @@ CREATE TABLE public.npcs (
     attack bigint,
     strength bigint,
     defense bigint,
-    attackable boolean
+    hostility integer DEFAULT 0
 );
 
 
-ALTER TABLE public.npcs OWNER TO zach;
-
 --
--- Name: player; Type: TABLE; Schema: public; Owner: zach
+-- Name: player; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.player (
@@ -290,10 +256,8 @@ CREATE TABLE public.player (
 );
 
 
-ALTER TABLE public.player OWNER TO zach;
-
 --
--- Name: player_attr; Type: TABLE; Schema: public; Owner: zach
+-- Name: player_attr; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.player_attr (
@@ -303,10 +267,8 @@ CREATE TABLE public.player_attr (
 );
 
 
-ALTER TABLE public.player_attr OWNER TO zach;
-
 --
--- Name: prayers; Type: TABLE; Schema: public; Owner: zach
+-- Name: prayers; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.prayers (
@@ -318,10 +280,8 @@ CREATE TABLE public.prayers (
 );
 
 
-ALTER TABLE public.prayers OWNER TO zach;
-
 --
--- Name: recovery_questions; Type: TABLE; Schema: public; Owner: zach
+-- Name: recovery_questions; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.recovery_questions (
@@ -339,10 +299,8 @@ CREATE TABLE public.recovery_questions (
 );
 
 
-ALTER TABLE public.recovery_questions OWNER TO zach;
-
 --
--- Name: shop_items; Type: TABLE; Schema: public; Owner: zach
+-- Name: shop_items; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.shop_items (
@@ -352,10 +310,8 @@ CREATE TABLE public.shop_items (
 );
 
 
-ALTER TABLE public.shop_items OWNER TO zach;
-
 --
--- Name: shops; Type: TABLE; Schema: public; Owner: zach
+-- Name: shops; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.shops (
@@ -365,10 +321,8 @@ CREATE TABLE public.shops (
 );
 
 
-ALTER TABLE public.shops OWNER TO zach;
-
 --
--- Name: spell_aggressive_level; Type: TABLE; Schema: public; Owner: zach
+-- Name: spell_aggressive_level; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.spell_aggressive_level (
@@ -377,10 +331,8 @@ CREATE TABLE public.spell_aggressive_level (
 );
 
 
-ALTER TABLE public.spell_aggressive_level OWNER TO zach;
-
 --
--- Name: spell_runes; Type: TABLE; Schema: public; Owner: zach
+-- Name: spell_runes; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.spell_runes (
@@ -390,10 +342,8 @@ CREATE TABLE public.spell_runes (
 );
 
 
-ALTER TABLE public.spell_runes OWNER TO zach;
-
 --
--- Name: spells; Type: TABLE; Schema: public; Owner: zach
+-- Name: spells; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.spells (
@@ -407,10 +357,8 @@ CREATE TABLE public.spells (
 );
 
 
-ALTER TABLE public.spells OWNER TO zach;
-
 --
--- Name: stats; Type: TABLE; Schema: public; Owner: zach
+-- Name: stats; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.stats (
@@ -421,10 +369,8 @@ CREATE TABLE public.stats (
 );
 
 
-ALTER TABLE public.stats OWNER TO zach;
-
 --
--- Name: tiles; Type: TABLE; Schema: public; Owner: zach
+-- Name: tiles; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.tiles (
@@ -434,18 +380,16 @@ CREATE TABLE public.tiles (
 );
 
 
-ALTER TABLE public.tiles OWNER TO zach;
-
 --
--- Name: doors idx_16481_doors_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+-- Name: boundarys idx_16481_doors_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.doors
+ALTER TABLE ONLY public.boundarys
     ADD CONSTRAINT idx_16481_doors_pkey PRIMARY KEY (id);
 
 
 --
--- Name: game_objects idx_16487_game_objects_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+-- Name: game_objects idx_16487_game_objects_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.game_objects
@@ -453,7 +397,7 @@ ALTER TABLE ONLY public.game_objects
 
 
 --
--- Name: npcs idx_16493_npcs_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+-- Name: npcs idx_16493_npcs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.npcs
@@ -461,7 +405,7 @@ ALTER TABLE ONLY public.npcs
 
 
 --
--- Name: prayers idx_16502_prayers_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+-- Name: prayers idx_16502_prayers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.prayers
@@ -469,7 +413,7 @@ ALTER TABLE ONLY public.prayers
 
 
 --
--- Name: items idx_16508_items_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+-- Name: items idx_16508_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.items
@@ -477,7 +421,7 @@ ALTER TABLE ONLY public.items
 
 
 --
--- Name: spells idx_16514_spells_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+-- Name: spells idx_16514_spells_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.spells
@@ -485,7 +429,7 @@ ALTER TABLE ONLY public.spells
 
 
 --
--- Name: item_wieldable idx_16526_item_wieldable_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+-- Name: item_wieldable idx_16526_item_wieldable_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.item_wieldable
@@ -493,7 +437,7 @@ ALTER TABLE ONLY public.item_wieldable
 
 
 --
--- Name: spell_aggressive_level idx_16532_spell_aggressive_level_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+-- Name: spell_aggressive_level idx_16532_spell_aggressive_level_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.spell_aggressive_level
@@ -501,7 +445,7 @@ ALTER TABLE ONLY public.spell_aggressive_level
 
 
 --
--- Name: shops idx_16535_shops_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+-- Name: shops idx_16535_shops_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.shops
@@ -509,7 +453,7 @@ ALTER TABLE ONLY public.shops
 
 
 --
--- Name: player player_pkey; Type: CONSTRAINT; Schema: public; Owner: zach
+-- Name: player player_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.player

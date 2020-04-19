@@ -214,7 +214,7 @@ func Tick() {
 	world.ResetNpcUpdateFlags()
 }
 
-//StartGameEngine Launches a goroutine to handle updating the state of the game every 600ms in a synchronized fashion.  This is known as a single game engine 'pulse'.
+//StartGameEngine Launches a goroutine to handle updating the state of the game every 640ms in a synchronized fashion.  This is known as a single game engine 'pulse'.
 func StartGameEngine() {
 	go func() {
 		ticker := time.NewTicker(640 * time.Millisecond)

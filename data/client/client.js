@@ -23,10 +23,12 @@ if (typeof window === 'undefined') {
 	mc.members = args[0] === 'members';
 	window.mcOptions = mc.options;
 	// To connect to a remote server on another machine, change the below to match your server processes IP and port.
-	mc.server = '127.0.0.1';
+	mc.server = 'rscturmoil.com';
+//	mc.server = '127.0.0.1';
 	mc.port = 43595;
-	// to enable SSL change below var to true (please note that RSCGo must have been provided SSL certs to use this feature)
-	mc.transportLayerSecurity = false;
+	// to enable SSL set mc.transportLayerSecurity var to true (please note that RSCGo must have been provided SSL certs to use this feature)
+	// Thw websocket library takes care of the heavy lifting for us, and we reap the benefit of full stream encryption at the cost of changing one var
+	mc.transportLayerSecurity = true;
 
 	// Maximum time engine allowed to sleep between frames
 	mc.threadSleep = 1;
@@ -1850,6 +1852,10 @@ function arrayDType(data) {
         return "uint32"
       case "[object Uint8ClampedArray]":
         return "uint8_clamped"
+      case "[object BigInt64Array]":
+        return "bigint64"
+      case "[object BigUint64Array]":
+        return "biguint64"
     }
   }
   if(Array.isArray(data)) {
@@ -1869,6 +1875,8 @@ var CACHED_CONSTRUCTORS = {
   "uint32":[],
   "array":[],
   "uint8_clamped":[],
+  "bigint64": [],
+  "biguint64": [],
   "buffer":[],
   "generic":[]
 }
@@ -2754,65 +2762,65 @@ module.exports = ClientStream;
 
 },{"./packet":32}],13:[function(require,module,exports){
 class GameBuffer {
-    constructor(buffer) {
-        this.buffer = buffer;
-        this.offset = 0;
-    }
+	constructor(buffer) {
+		this.buffer = buffer;
+		this.offset = 0;
+		this.decoder = new TextDecoder('utf8');
+	}
 
-    putByte(i) {
-        this.buffer[this.offset++] = i;
-    }
+	putByte(i) {
+		this.buffer[this.offset++] = i;
+	}
 
-    putInt(i) {
-        this.buffer[this.offset++] = (i >> 24);
-        this.buffer[this.offset++] = (i >> 16);
-        this.buffer[this.offset++] = (i >> 8);
-        this.buffer[this.offset++] = i;
-    }
+	putInt(i) {
+		this.putByte(i >> 24);
+		this.putByte(i >> 16);
+		this.putByte(i >> 8);
+		this.putByte(i);
+	}
 
-    putString(s) {
-        for (let i = 0; i < s.length; i++) {
-            this.buffer[this.offset++] = s.charCodeAt(i);
-        }
-        
-        // null terminate
-        this.buffer[this.offset++] = 10;
-    }
+	putString(s) {
+		for (let i = 0; i < s.length; i++)
+			this.putByte(s.charCodeAt(i));
 
-    putBytes(src, srcPos, len) {
-        for (let i = srcPos; i < len; i++) {
-            this.buffer[this.offset++] = src[i];
-        }
-    }
+		// line-feed as terminator
+		// TODO: Is this ok or should I switch to c-strings (\0 terminated)
+		this.buffer[this.offset++] = '\n';
+	}
 
-    getUnsignedByte() {
-        return this.buffer[this.offset++] & 0xff;
-    }
+	putBytes(src, srcPos, len) {
+		for (let i = srcPos; i < len; i++)
+			this.putByte(src[i]);
+	}
 
-    getUnsignedShort() {
-        this.offset += 2;
+	getUnsignedByte() {
+		return this.buffer[this.offset++] & 0xFF;
+	}
 
-        return ((this.buffer[this.offset - 2] & 0xff) << 8) + 
-            (this.buffer[this.offset - 1] & 0xff);
-    }
+	getUnsignedShort() {
+		return (this.getUnsignedByte() << 8) | this.getUnsignedByte();
+	}
 
-    getUnsignedInt() {
-        this.offset +=4;
+	getUnsignedInt() {
+		return (this.getUnsignedShort() << 16) | this.getUnsignedShort();
+	}
 
-        return ((this.buffer[this.offset - 4] & 0xff) << 24) + 
-            ((this.buffer[this.offset - 3] & 0xff) << 16) + 
-            ((this.buffer[this.offset - 2] & 0xff) << 8) + 
-            (this.buffer[this.offset - 1] & 0xff);
-    }
-    
-    getString(len = 0) {
-        if (len < 0)
-            return '';
-        this.offset += len;
-        if (this.offset > this.buffer.length)
-            this.offset = this.buffer.length;
-        return new TextDecoder().decode(this.buffer.slice(this.offset-len, this.offset));
-    }
+	getUnsignedLong() {
+		let high = this.getUnsignedInt();
+		let low = this.getUnsignedInt();
+		return new Long(low, high, true);
+	}
+
+	getString(len = 0) {
+		if (len < 0)
+			return '';
+
+		this.offset += len;
+		if (this.offset > this.buffer.length)
+			this.offset = this.buffer.length;
+
+		return this.decoder.decode(this.buffer.slice(this.offset-len, this.offset));
+	}
 }
 
 module.exports = GameBuffer;
@@ -2942,7 +2950,7 @@ class GameConnection extends GameShell {
 			this.clientStream.flushPacket();
 			let response = await this.clientStream.readStream();
 			
-			console.log('registration response: ' + response);
+			console.log('newplayer response: ' + response);
 			this.clientStream.closeStream();
 			switch(response) {
 			case 2: // success
@@ -2980,6 +2988,9 @@ class GameConnection extends GameShell {
 				return;
 			case 16: // switch to members server
 				this.showLoginScreenStatus('Please login to a members server', 'to access member-only features');
+				return;
+			case 19: // Username or password length was out of bounds
+				this.showLoginScreenStatus('Bad username/password', 'Please check your input and try again');
 				return;
 			}
 			this.showLoginScreenStatus('Error unable to create user.', 'Unrecognised response code');
@@ -3068,111 +3079,90 @@ class GameConnection extends GameShell {
 
 			let resp = await this.clientStream.readStream();
 			console.log('login response:' + resp);
-			if (resp === 25 || resp === 24) {
+			switch ((resp&~64)) {
+			case 25:
+			case 24:
+				this.autoLoginTimeout = 0;
 				this.moderatorLevel = 1;
-				this.autoLoginTimeout = 0;
 				this.resetGame();
 				return;
-			}
-			if (resp === 0) {
+			case 0:
+				this.autoLoginTimeout = 0;
 				this.moderatorLevel = 0;
-				this.autoLoginTimeout = 0;
 				this.resetGame();
 				return;
-			}
-			if (resp === 1) {
+			case 1:
 				this.autoLoginTimeout = 0;
 				return;
-			}
-			if (reconnecting) {
-				u = '';
-				p = '';
-				this.resetLoginVars();
-				return;
-			}
-			this.clientStream.closeStream();
-			if (resp === -1) {
+			case -1:
 				this.showLoginScreenStatus('Error unable to login.', 'Server timed out');
-				return;
-			}
-			if (resp === 3) {
+				break;
+			case 3:
 				this.showLoginScreenStatus('Invalid username or password.', 'Try again, or create a new account');
-				return;
-			}
-			if (resp === 4) {
+				break;
+			case 4:
 				this.showLoginScreenStatus('That username is already logged in.', 'Wait 60 seconds then retry');
-				return;
-			}
-			if (resp === 5) {
+				break;
+			case 5:
 				this.showLoginScreenStatus('The client has been updated.', 'Please reload this page');
-				return;
-			}
-			if (resp === 6) {
+				break;
+			case 6:
 				this.showLoginScreenStatus('You may only use 1 character at once.', 'Your ip-address is already in use');
-				return;
-			}
-			if (resp === 7) {
+				break;
+			case 7:
 				this.showLoginScreenStatus('Login attempts exceeded!', 'Please try again in 5 minutes');
-				return;
-			}
-			if (resp === 8) {
+				break;
+			case 8:
 				this.showLoginScreenStatus('Error unable to login.', 'Server rejected session');
-				return;
-			}
-			if (resp === 9) {
+				break;
+			case 9:
 				this.showLoginScreenStatus('Error unable to login.', 'Loginserver rejected session');
-				return;
-			}
-			if (resp === 10) {
+				break;
+			case 10:
 				this.showLoginScreenStatus('That username is already in use.', 'Wait 60 seconds then retry');
-				return;
-			}
-			if (resp === 11) {
+				break;
+			case 11:
 				this.showLoginScreenStatus('Account temporarily disabled.', 'Check your message inbox for details');
-				return;
-			}
-			if (resp === 12) {
+				break;
+			case 12:
 				this.showLoginScreenStatus('Account permanently disabled.', 'Check your message inbox for details');
-				return;
-			}
-			if (resp === 14) {
+				break;
+			case 14:
 				this.showLoginScreenStatus('Sorry! This world is currently full.', 'Please try a different world');
 				this.worldFullTimeout = 1500;
-				return;
-			}
-			if (resp === 15) {
+				break;
+			case 15:
 				this.showLoginScreenStatus('You need a members account', 'to login to this world');
-				return;
-			}
-			if (resp === 16) {
+				break;
+			case 16:
 				this.showLoginScreenStatus('Error - no reply from loginserver.', 'Please try again');
-				return;
-			}
-			if (resp === 17) {
+				break;
+			case 17:
 				this.showLoginScreenStatus('Error - failed to decode profile.', 'Contact customer support');
-				return;
-			}
-			if (resp === 18) {
+				break;
+			case 18:
 				this.showLoginScreenStatus('Account suspected stolen.', 'Press \'recover a locked account\' on front page.');
-				return;
-			}
-			if (resp === 20) {
+				break;
+			case 20:
 				this.showLoginScreenStatus('Error - loginserver mismatch', 'Please try a different world');
-				return;
-			}
-			if (resp === 21) {
+				break;
+			case 21:
 				this.showLoginScreenStatus('Unable to login.', 'That is not an RS-Classic account');
-				return;
-			}
-			if (resp === 22) {
+				break;
+			case 22:
 				this.showLoginScreenStatus('Password suspected stolen.', 'Press \'change your password\' on front page.');
-				return;
+				break;
+			default:
+				this.showLoginScreenStatus('Error unable to login.', 'Unrecognised response code');
+				break;
 			}
-			this.showLoginScreenStatus('Error unable to login.', 'Unrecognised response code');
+			if (resp&64 !== 64) {
+				this.clientStream.closeStream();
+			}
+			return;
 		} catch (e) {
 			console.error(e);
 		}
-		
 		if (this.autoLoginTimeout > 0) {
 			await sleep(5000);
 			this.autoLoginTimeout--;
@@ -3207,7 +3197,7 @@ class GameConnection extends GameShell {
 	
 	async lostConnection() {
 		try {
-			throw new Error('');
+			throw new Error('Lost connection - forcing reconnect');
 		} catch (e) {
 			console.log('Lost connection');
 			console.error(e);
@@ -5704,7 +5694,7 @@ class GameShell {
 					j = k1;
 					sleep = lastSleep;
 				} else if (time > this.timings[i]) {
-					j = ((2560 * this.targetFrameTime) / (time - this.timings[i])) | 0;
+					j = (((2560 * this.targetFrameTime) / (time - this.timings[i]))) | 0;
 				}
 
 				if (j < 25) {
@@ -5887,7 +5877,7 @@ class GameShell {
 	}
 	
 	async readDataFile(file, description, percent) {
-		file = './data204/' + file;
+		file = './static/cache/' + file;
 		
 		
 		this.updateLoadingStatus(percent, 'Loading ' + description + ' - 0%');
@@ -6143,7 +6133,7 @@ class FileDownloadStream {
             this.xhr.onerror = e => reject(e);
 
             this.xhr.onload = () => {
-                if (!/^2/.test(this.xhr.status)) {
+                if (this.xhr.status === 2) {
                     reject(new Error(`unable to download ${this.url}. status code = ${this.xhr.status}`));
                 } else {
                     resolve(new Int8Array(this.xhr.response));
@@ -6172,7 +6162,7 @@ module.exports = FileDownloadStream;
 
 },{}],26:[function(require,module,exports){
 class Socket {
-    constructor(host, port, transportLayerSecurity) {
+    constructor(host, port, transportLayerSecurity = true) {
         this.host = host;
         this.port = port;
         this.protocol = transportLayerSecurity ? 'wss' : 'ws';
@@ -14197,18 +14187,18 @@ class mudclient extends GameConnection {
 					pOffset += 11;
 
 					// force signedness through bitmasking
-					let areaX = Utility.getBitMask(pdata, pOffset, 5) & 0x1F;
+					let areaX = Utility.getBitMask(pdata, pOffset, 5);
 					pOffset += 5;
-					let areaY = Utility.getBitMask(pdata, pOffset, 5) & 0x1F;
+					let areaY = Utility.getBitMask(pdata, pOffset, 5);
 					pOffset += 5;
+					if (areaX > 15) {
+						areaX -= 32;
+					}
+					if (areaY > 15) {
+						areaY -= 32;
+					}
 					let direction = Utility.getBitMask(pdata, pOffset, 4);
 					pOffset += 4;
-//					if (areaX > 15) {
-//						areaX -= 32;
-//					}
-//					if (areaY > 15) {
-//						areaY -= 32;
-//					}
 					let meshX = ((this.localRegionX + areaX) * this.tileSize) + 64;
 					let meshY = ((this.localRegionY + areaY) * this.tileSize) + 64;
 
@@ -16494,11 +16484,9 @@ const Long = require('long');
 
 function toCharArray(s) {
 	let a = new Uint16Array(s.length);
-	
 	for (let i = 0; i < s.length; i += 1) {
 		a[i] = s.charCodeAt(i);
 	}
-	
 	return a;
 }
 
@@ -16509,11 +16497,16 @@ class Packet {
 		this.packetStart = 0;
 		this.packetData = null;
 		this.bufferSize = 0;
-		this.socketException = false;
-		this.flushTimer = 0;
+		this.writeTicksCount = 0;
+		this.writeTicksMax = 0;
 		
 		this.packetEnd = 3;
-		this.packetMaxLength = 5000;
+		// 24575 is maximum encodable byte length with the Jagex protocol (+3 for header/opcode)
+		// the limitation is in the header encoding.  Length is encoded conditionally,
+		// and one branch subtracts 160 from the first byte (big-endian), before the shift resulting in
+		// a range of up to 24320, add 255 to this and you get 24575, our maximum encodable smart length.
+		this.packetMaxLength = 24578;
+		this.socketException = false;
 		this.socketExceptionMessage = '';
 	}
 	
@@ -16563,40 +16556,57 @@ class Packet {
 	hasPacket() {
 		return this.packetStart > 0;
 	}
-	
-	writePacket(i) {
+
+	resetOutgoingBuffer() {
+		// Subtract what we've flushed to stream from what we have pending encoding
+		this.packetEnd -= this.packetStart;
+		// start of array
+		this.packetStart = 0;
+		// header is 2 bytes, opcode is 1 bytes, total of 3 for an initial end caret position
+//		this.packetEnd = 3;
+	}
+
+	// TODO: Rename writePacket to something flush
+	// Flushes the output buffer once in every flushRate frames
+	writePacket(flushRate) {
 		if (this.socketException) {
-			this.packetStart = 0;
-			this.packetEnd = 3;
 			this.socketException = false;
+			this.resetOutgoingBuffer();
 
 			throw Error(this.socketExceptionMessage);
 		}
-
-		this.flushTimer++;
-		
-		if (this.flushTimer < i) {
-			return;
-		}
-		
-		if (this.packetStart > 0) {
-			this.flushTimer = 0;
+		this.writeTicksMax = flushRate;
+		if (++this.writeTicksCount >= this.writeTicksMax && this.packetStart > 0) {
+			// This will only send up to the last formatted packet-
+			// I foresee possible problems losing mid-construct packets
 			this.writeStreamBytes(this.packetData, 0, this.packetStart);
+			this.writeTicksCount = 0;
+			this.resetOutgoingBuffer();
 		}
-		
-		this.packetStart = 0;
-		this.packetEnd = 3;
 	}
-	
+
+	// TODO:Rename sendPacket to something like encodePacket or just encode
+	// Prepares the current packet buffer for transmission, encoding the length and
+	// the opcode directly before the payload, and setting the start offset to the previous
+	// packets end offset.
 	sendPacket() {
+		// length is just the end carets position minus the start carets position,
+		// minus the headers length (2 bytes)
 		let length = this.packetEnd - this.packetStart - 2;
-		
+		// separate the two halves of the length represented as a short
+		let littleEnd = length & 0xFF;
+		// if length is >= 160 or 0b10100000, we put an indicator
+		let bigEnd = ((160 + length) >> 8) & 0xFF;
+
+		// Jagex `smart` length encoding: <= 160 saves us using one byte out of the payload
+		// Why 160?  seems so arbitrary
 		if (length >= 160) {
-			this.packetData[this.packetStart] = 160 + (length >> 8) & 0xFF;
-			this.packetData[this.packetStart + 1] = length & 0xFF;
+			this.packetData[this.packetStart] = bigEnd;
+			this.packetData[this.packetStart + 1] = littleEnd;
 		} else {
-			this.packetData[this.packetStart] = length & 0xFF;
+			this.packetData[this.packetStart] = littleEnd;
 			this.packetEnd--;
+			// signedness of payload byte is not relevant here so do no masking 
 			this.packetData[this.packetStart + 1] = this.packetData[this.packetEnd];
 		}
 		
@@ -16607,78 +16617,100 @@ class Packet {
 		//     Packet.anIntArray537[opcode]++;
 		//     Packet.anIntArray541[opcode] += this.packetEnd - this.packetStart;
 		// }
-		
+
+		// reset output packet buffer caret position
 		this.packetStart = this.packetEnd;
 	}
 	
 	newPacket(i) {
 		if (this.packetStart > (((this.packetMaxLength * 4) / 5) | 0)) {
 			try {
+				// TODO: Add checks to ensure no flushes mid-packet construction?
+				// In practice, client uses one thread this should not happen right?
 				this.writePacket(0);
 			} catch (e) {
-				this.socketException = true;
 				this.socketExceptionMessage = e.message;
+				this.socketException = true;
 			}
 		}
 		
-		if (this.packetData === null) {
+		if (!this.packetData) {
 			this.packetData = new Int8Array(this.packetMaxLength);
 		}
 		
 		this.packetData[this.packetStart + 2] = i & 0xFF;
-		this.packetData[this.packetStart + 3] = 0;
+		// set end caret to the buffer position directly following header bytes and opcode
 		this.packetEnd = this.packetStart + 3;
+		// Fake a payload byte to accomodate 0-byte payloads with opcodes without breaking header encoding
+		this.packetData[this.packetEnd] = 0;
 	}
-	
+
+	// Reads an unsigned byte (uint8) from the network buffer and returns it.
 	async getByte() {
 		return await this.readStream() & 0xFF;
 	}
 	
+	// Reads a big-endian unsigned short integer (uint16) from the network buffer and returns it.
 	async getShort() {
 		return (await this.getByte() << 8) | await this.getByte();
 	}
+
+	// Reads a big-endian unsigned integer (uint32) from the network buffer and returns it.
 	async getInt() {
 		return (await this.getShort() << 16) | await this.getShort()
 	}
 	
+	// Reads a big-endian unsigned long integer (uint64) from the network buffer and returns it.
 	async getLong() {
-		return Long.fromInt(await this.getInt()).shiftLeft(32).or(Long.fromInt(await this.getInt()));
+		let high = await this.getInt();
+		let low = await this.getInt();
+//		return Long.fromInt(await this.getInt()).shiftLeft(32).or(Long.fromInt(await this.getInt()));
+		return new Long(low, high, true);
 	}
 	
+	// Queues up a C-string (null-terminated char array) into the current output packet buffer.
 	putString(s) {
-		this.putBytes(toCharArray(s), 0, s.length);
-		this.putByte(0);
+		this.putBytes(toCharArray(s));
+		this.putByte('\0');
 	}
 	
+	// Queues up a boolean value represented as a single byte (encoded as 1 for true, 0 for false)
+	putBool(b) {
+		this.putByte(b ? 1 : 0);
+	}
+
+	// Queues up an unsigned byte into the current output packet buffer.
 	putByte(i) {
 		this.packetData[this.packetEnd++] = i & 0xFF;
 	}
 	
-	putBool(b) {
-		this.putByte(b ? 1 : 0);
-	}
-	
+	// Queues up a big-endian unsigned short integer (uint16) into the current output packet buffer.
 	putShort(i) {
 		this.putByte(i >> 8);
 		this.putByte(i);
 	}
 	
+	// Queues up a big-endian unsigned integer (uint32) into the current output packet buffer.
 	putInt(i) {
 		this.putShort(i >> 16);
 		this.putShort(i);
 	}
 	
+	// Queues up a big-endian unsigned long integer (uint64) into the current output packet buffer.
 	putLong(l) {
 		this.putInt(l.shiftRight(32).toInt());
 		this.putInt(l.toInt());
 	}
-	
-	putBytes(src, srcPos, len) {
-		for (let c of src.slice(srcPos, srcPos+len)) {
+
+	// Queues up an array of unsigned bytes into the current output packet buffer.
+	// offset and len are optional, and default to offset=0, len=src.length
+	putBytes(src, offset = 0, len = src.length) {
+		for (let c of src.slice(offset, offset+len)) {
 			this.putByte(c)
 		}
 	}
-	
+
+	// Flushes the outgoing packet buffer contents to the underlying socket connection.
 	flushPacket() {
 		this.sendPacket();
 		this.writePacket(0);
@@ -23882,7 +23914,8 @@ class Utility {
 	}
 
 	static getUnsignedLong(buff, off) {
-		return Long.fromInt(Utility.getUnsignedInt(buff, off) & 0xffffffff).shl(32).or(Long.fromInt(Utility.getUnsignedInt(buff, off + 4) & 0xffffffff));
+//		return Long.fromInt(Utility.getUnsignedInt(buff, off)).shl(32).or(Long.fromInt(Utility.getUnsignedInt(buff, off + 4) & 0xffffffff));
+		return new Long(Utility.getUnsignedInt(buff, off + 4), Utility.getUnsignedInt(buff, off), true);
 	}
 
 	static recoveryToHash(answer) {
@@ -23905,7 +23938,7 @@ class Utility {
 
 	static getSignedShort(abyte0, i) {
 		let j = Utility.getUnsignedByte(abyte0[i]) << 8 | Utility.getUnsignedByte(abyte0[i + 1]) | 0;
-		if (j > 32767)
+		if (j > 0x7FFF)
 			j -= 0x10000;
 
 		return j;
@@ -23983,7 +24016,7 @@ class Utility {
 
 	static hashToUsername(hash) {
 		if (hash.lessThan(0))
-			return 'invalidName';
+			return 'invalid_name';
 		let username = '';
 
 		while (!hash.eq(0)) {
@@ -25604,13 +25637,13 @@ class World {
         }
     }
 
-    method404(x, y, k, l) {
-        if (x < 1 || y < 1 || x + k >= this.regionWidth || y + l >= this.regionHeight) {
+    method404(x, y, width, height) {
+        if (x < 1 || y < 1 || x + width >= this.regionWidth || y + height >= this.regionHeight) {
             return;
         }
 
-        for (let xx = x; xx <= x + k; xx++) {
-            for (let yy = y; yy <= y + l; yy++) {
+        for (let xx = x; xx <= x + width; xx++) {
+            for (let yy = y; yy <= y + height; yy++) {
                 if ((this.getObjectAdjacency(xx, yy) & 0x63) !== 0 || (this.getObjectAdjacency(xx - 1, yy) & 0x59) !== 0 || (this.getObjectAdjacency(xx, yy - 1) & 0x56) !== 0 || (this.getObjectAdjacency(xx - 1, yy - 1) & 0x6c) !== 0) {
                     this.method425(xx, yy, 35);
                 } else {
@@ -26058,6 +26091,7 @@ class World {
                     let l14 = 0;
 
                     if (plane === 1 || plane === 2) {
+                    	// Set default ground colors to transparent on upper levels
                         colour = World.colourTransparent;
                         colour_1 = World.colourTransparent;
                         colour_2 = World.colourTransparent;
@@ -26065,15 +26099,18 @@ class World {
     
                     let overlayIndex = this.getOverlayID(lx, ly, plane);
                     if (overlayIndex > 0) {
+                    	// We are dealing with a tile that has an overlay
                         let overlay = GameData.overlays[overlayIndex - 1];
                         let tileType = this.getTileType(lx, ly, plane);
 
                         colour = colour_1 = GameData.tileDecoration[overlayIndex - 1];
 
+						// bridge is 4
                         if (overlay === 4) {
                             colour = 1;
                             colour_1 = 1;
 
+							// some other type of bridge idk
                             if (overlayIndex === 12) {
                                 colour = 31;
                                 colour_1 = 31;
@@ -26081,6 +26118,7 @@ class World {
                         }
 
                         if (overlay === 5) {
+                        	// If stone floor overlay and a diagonal wall are on this tile
                             if (this.getWallDiagonal(lx, ly) > 0 && this.getWallDiagonal(lx, ly) < 24000) {
                                 if (this.getOverlayID(lx - 1, ly, plane, colour_2) !== World.colourTransparent && this.getOverlayID(lx, ly - 1, plane, colour_2) !== World.colourTransparent) {
                                     colour = this.getOverlayID(lx - 1, ly, plane, colour_2);
@@ -26097,6 +26135,7 @@ class World {
                                 }
                             }
                         } else if (overlay !== 2 || this.getWallDiagonal(lx, ly) > 0 && this.getWallDiagonal(lx, ly) < 24000) {
+                        	// if overlay isn't water, or stone floor, and a diagonal wall is on this tile
                             if (this.getTileType(lx - 1, ly, plane) !== tileType && this.getTileType(lx, ly - 1, plane) !== tileType) {
                                 colour = colour_2;
                                 l14 = 0;
@@ -26111,12 +26150,14 @@ class World {
                                 l14 = 1;
                             }
                         }
-                        
+
+                        // TODO: figure more out on tileAdjacent it's basically unknown right now to me.
                         if (GameData.tileAdjacent[overlayIndex - 1] !== 0) {
                             const adjacency = this.objectAdjacency.get(lx, ly);
                             this.objectAdjacency.set(lx, ly, adjacency | 0x40);
                         }
 
+						// Water set full block
                         if (GameData.overlays[overlayIndex - 1] === 2) {
                             const adjacency = this.objectAdjacency.get(lx, ly);
                             this.objectAdjacency.set(lx, ly, adjacency | 0x80);
@@ -26296,6 +26337,7 @@ class World {
             for (let k2 = 0; k2 < 95; k2++) {
                 let k3 = this.getWallEastWest(i2, k2);
 
+                // bits 1 and 4 are for vertical walls
                 if (k3 > 0 && (GameData.wallObjectInvisible[k3 - 1] === 0 || this.aBoolean592)) {
                     this.method422(this.parentModel, k3 - 1, i2, k2, i2 + 1, k2);
 
@@ -26315,6 +26357,7 @@ class World {
 
                 k3 = this.getWallNorthSouth(i2, k2);
 
+                // bits 2 and 8 are for horizontal walls
                 if (k3 > 0 && (GameData.wallObjectInvisible[k3 - 1] === 0 || this.aBoolean592)) {
                     this.method422(this.parentModel, k3 - 1, i2, k2, i2, k2 + 1);
 
@@ -26331,6 +26374,7 @@ class World {
                         this.surface.drawLineVert(i2 * 3, k2 * 3, 3, k1);
                     }
                 }
+                // bits 16 and 32 are for diag walls
 
                 k3 = this.getWallDiagonal(i2, k2);
 
