@@ -21,7 +21,7 @@ func init() {
 			return
 		}
 		id := p.ReadUint16()
-		amount := p.ReadUint16()
+		amount := p.ReadUint32()
 		if amount < 1 {
 			log.Suspicious.Println("Attempted to deposit less than 1:", player.String())
 			return
@@ -42,7 +42,7 @@ func init() {
 			return
 		}
 		id := p.ReadUint16()
-		amount := p.ReadUint16()
+		amount := p.ReadUint32()
 		//		botCheck := p.ReadUint32()
 		idx := player.Bank().GetIndex(id)
 		if idx == -1 {
