@@ -410,9 +410,9 @@ func init() {
 		}
 		return s
 	}
-*/
 	fmt.Println(Base37.Decode(418444))
 	fmt.Println(Base37.Encode(Base37.Decode(418444)))
 	fmt.Println(Base16.String(418444))
 	fmt.Println(Base16.Int(Base16.String(418444)))
+*/
 }
