@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/mattn/anko/vm"
-	"github.com/spkaeros/rscgo/pkg/db"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -42,18 +41,19 @@ func init() {
 		os.Exit(1)
 	}
 	AddHandler("command", func(player *world.Player, p *net.Packet) {
-		args := strutil.ModalParse(p.ReadString())
+		raw := string(p.FrameBuffer[:len(p.FrameBuffer)-2])
+		args := strutil.ParseArgs(raw)
 		if len(args) <= 0 {
 			// prevent `::` freezing player
 			return
 		}
+		log.Commands.Printf("%v: ::%v\n", player.Username(), raw)
 		handler, ok := world.CommandHandlers[args[0]]
 		if !ok {
-			player.Message("@que@Invalid command.")
-			log.Commands.Printf("%v sent invalid command: /%v\n", player.Username(), string(p.FrameBuffer))
+			player.Message("@que@Command not found.  Please double check your spelling, and try again.")
+			log.Commands.Printf("%v sent invalid command: ::%v\n", player.Username(), args[0])
 			return
 		}
-		log.Commands.Printf("%v: /%v\n", player.Username(), string(p.FrameBuffer))
 		handler(player, args[1:])
 	})
 	world.CommandHandlers["memdump"] = func(player *world.Player, args []string) {
@@ -107,6 +107,7 @@ func init() {
 			player.Message("Invalid args.  Usage: /pprof <start|stop>")
 		}
 	}
+	/*
 	world.CommandHandlers["saveobjects"] = func(player *world.Player, args []string) {
 		go func() {
 			if count := db.SaveObjectLocations(); count > 0 {
@@ -135,11 +136,14 @@ func init() {
 
 		world.AddNpc(world.NewNpc(id, x, y, x-5, x+5, y-5, y+5))
 	}
+	*/
 	world.CommandHandlers["run"] = func(player *world.Player, args []string) {
 		line := strings.Join(args, " ")
 		env := world.ScriptEnv()
+		env.Define("p", player)
+		env.Define("target", player.TargetMob())
 		env.Define("player", player)
-		ret, err := vm.Execute(env, nil, "bind = import(\"bind\")\nworld = import(\"world\")\n"+line)
+		ret, err := vm.Execute(env, nil, "bind = import(\"bind\")\nworld = import(\"world\")\nlog = import(\"log\")\nids = import(\"ids\")\n\n"+line)
 		if err != nil {
 			player.Message("Error: " + err.Error())
 			log.Info.Println("Anko Error: " + err.Error())
