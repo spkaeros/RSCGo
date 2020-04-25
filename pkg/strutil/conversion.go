@@ -2,6 +2,7 @@ package strutil
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"unicode"
@@ -25,6 +26,10 @@ func IPToInteger(s string) (ip int) {
 	return ip
 }
 
+func IPToHexidecimal(s string) string {
+	return Base16.String(uint64(IPToInteger(s)))
+}
+
 func JagHash(s string) int {
 	ident := 0
 	s = strings.ToUpper(s)
@@ -34,8 +39,8 @@ func JagHash(s string) int {
 	return ident
 }
 
-//ModalParse Neat command argument parsing function with support for single-quotes, ported from Java
-func ModalParse(s string) []string {
+//ParseArgs Neat command argument parsing function with support for single-quotes, ported from Java
+func ParseArgs(s string) []string {
 	var cur string
 	escaped := false
 	quoted := false
@@ -134,9 +139,29 @@ var Base37 struct {
 	Decode func(uint64) string
 }
 
+var Base16 struct {
+	//Int returns an integer representation of the provided base-16 string
+	Int func(string) uint64
+	//String returns the base-16 string representation of the provided hexidecimal integer
+	String func(uint64) string
+}
+
+var Base2 struct {
+	//Int returns an integer representation of the provided base-2 string
+	Int func(string) uint64
+	//String returns the base-2 string representation of the provided hexidecimal integer
+	String func(uint64) string
+}
+
+var BaseConversion struct {
+	//Int returns an integer representation of the provided string using the provided base.
+	Int func(int, string) uint64
+	//String returns a string encoding of the provided integer using the provided base.
+	String func(int, uint64) string
+}
+
 func init() {
-	// Presumably this charset is optimized to be in order of most-used in the English language.
-	// Not sure how Jagex came up with this arrangement, along with their interesting bit-packing methods involved here
+	// Presumably this charset is optimized to be in order of most-used in the English language, as I think I've encountered this character array before elsewhere and that was its stated design
 	charset := []rune{' ', 'e', 't', 'a', 'o', 'i', 'h', 'n', 's', 'r', 'd', 'l', 'u', 'm', 'w', 'c', 'y', 'f', 'g', 'p', 'b', 'v', 'k', 'x', 'j', 'q', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ' ', '!', '?', '.', ',', ':', ';', '(', ')', '-', '&', '*', '\\', '\'', '@', '#', '+', '=', '\243', '$', '%', '"', '[', ']'}
 	getCharCode := func(c rune) int {
 		for i, cs := range charset {
@@ -165,11 +190,11 @@ func init() {
 					buf = append(buf, byte(code))
 				}
 			} else if code < 13 {
-				buf = append(buf, byte((cachedValue<<4)+code))
+				buf = append(buf, byte((cachedValue<<4)|code)) // little end
 				cachedValue = -1
 			} else {
-				buf = append(buf, byte((cachedValue<<4)+(code>>4)))
-				cachedValue = code & 0xF // LegsColor 4 bits
+				buf = append(buf, byte((cachedValue<<4)|(code>>4)))
+				cachedValue = code & 0xF // big end
 			}
 		}
 		if cachedValue != -1 {
@@ -196,7 +221,7 @@ func init() {
 					cachedValue = int(lowerHalf)
 				}
 			} else {
-				buf = append(buf, charset[byte(cachedValue<<4)+lowerHalf-195])
+				buf = append(buf, charset[byte(cachedValue<<4)|lowerHalf-195])
 				cachedValue = -1
 			}
 
@@ -207,7 +232,7 @@ func init() {
 					cachedValue = int(upperHalf)
 				}
 			} else {
-				buf = append(buf, charset[byte(cachedValue<<4)+upperHalf-195])
+				buf = append(buf, charset[byte(cachedValue<<4)|upperHalf-195])
 				cachedValue = -1
 			}
 		}
@@ -267,32 +292,127 @@ func init() {
 				l += 27 + uint64(c) - 48
 			}
 			if l >= MaxBase37 {
-				return 0xDEADBEEF
+				return MaxBase37
 			}
 		}
 		return l
 	}
-	Base37.Decode = func(l uint64) string {
-		if l < 0 || l >= MaxBase37 {
+
+	Base37.Decode = func(i uint64) string {
+		if i < 0 || i >= math.MaxUint64 {
 			return "invalid_name"
 		}
 		var s string
-		for l != 0 {
-			i := l % 37
-			l /= 37
-			if i == 0 {
+		for i != 0 {
+			remainder := i % 37
+			i /= 37
+			if remainder == 0 {
 				s = " " + s
-			} else if i < 27 {
-				if l%37 == 0 {
-					s = string(i+64) + s
+			} else if remainder < 27 {
+				if i%37 == 0 {
+					s = string(remainder+64) + s
 				} else {
-					s = string(i+96) + s
+					s = string(remainder+96) + s
 				}
 			} else {
-				s = string(i+21) + s
+				s = string(remainder+21) + s
 			}
 		}
 
 		return s
 	}
+
+	Base16.Int = func(s string) uint64 {
+		if s[0] == '0' && s[1] == 'x' {
+			s = s[2:]
+		}
+		return BaseConversion.Int(16, s)
+	}
+
+	Base16.String = func(i uint64) string {
+		return "0x" + BaseConversion.String(16, i)
+	}
+
+	Base2.Int = func(s string) uint64 {
+		if s[0] == '0' && s[1] == 'b' {
+			s = s[2:]
+		}
+		return BaseConversion.Int(2, s)
+	}
+
+	Base2.String = func(i uint64) string {
+		return "0b" + BaseConversion.String(2, i)
+	}
+	
+	BaseConversion.Int = func(base int, s string) (l uint64) {
+		for _, c := range s {
+			l *= uint64(base)
+			if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' {
+				l += uint64(c-'A'+10)
+			} else if c >= '0' && c <= '9' {
+				l += uint64(c-'0')
+			}
+		}
+		
+		return
+	}
+
+	BaseConversion.String = func(base int, i uint64) (s string) {
+		if i < 0 {
+			return "invalid_integer_to_string (enc failure)"
+		}
+		for i != 0 {
+			remainder := i%uint64(base)
+			i /= uint64(base)
+			if remainder >= 10 {
+				s = string(remainder + 'A'-10) + s
+			} else {
+				s = string(remainder + '0') + s
+			}
+		}
+		return s
+	}
+/*
+	BaseConversion.Encode = func(base int, s string) (l uint64) {
+		for _, c := range s {
+			l *= uint64(base)
+			if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' {
+				l += uint64(c-'a'+1)
+			} else if c >= '0' && c <= '9' {
+				l += uint64(c-'0'+27)
+			}
+		}
+		
+		return
+	}
+
+	BaseConversion.Decode = func(base int, i uint64) (s string) {
+		if i < 0 {
+			return "invalid_integer_to_string (enc failure)"
+		}
+		upper := true
+		for i != 0 {
+			remainder := i%uint64(base)
+			i /= uint64(base)
+			if remainder >= 11 {
+				if upper {
+					s = string(remainder + 'a'-1) + s
+					upper = false
+				} else {
+					s = string(remainder + 'A'-1) + s
+				}
+			} else if remainder > 0 {
+				s = string(remainder + '0' - 27) + s
+			} else {
+				s = string(' ') + s
+				upper = true
+			}
+		}
+		return s
+	}
+*/
+	fmt.Println(Base37.Decode(418444))
+	fmt.Println(Base37.Encode(Base37.Decode(418444)))
+	fmt.Println(Base16.String(418444))
+	fmt.Println(Base16.Int(Base16.String(418444)))
 }
