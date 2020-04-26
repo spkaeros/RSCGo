@@ -17,10 +17,8 @@ import (
 	"reflect"
 	`strconv`
 	"time"
-	"encoding/binary"
 	
 	"github.com/gobwas/ws"
-	"github.com/gobwas/ws/wsutil"
 	
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/engine/tasks"
@@ -79,28 +77,8 @@ func Bind(port int) {
 					log.Error.Println("Encountered a problem upgrading the websocket:", err)
 					continue
 				}
-//				ws.WriteFrame(socket, ws.NewFrame(data))
-				wsUpgrader.OnRequest = func(uri []byte) error {
-					go func() {
-						if string(uri) == "/" {
-						} else if len(uri) >= 10 && string(uri[:10]) == "/game-api/" {
-							rtype := string(uri[10:])
-							if rtype == "online" {
-								log.Info.Println("online count req by", socket)
-								data := make([]byte, 2)
-								binary.BigEndian.PutUint16(data, uint16(world.Players.Size()))
-								wsutil.WriteServerBinary(socket, data)
-								socket.Close()
-								return
-							}
-						}
-					}()
-					return nil
-				}
-				newClient(socket, true)
-			} else if port == config.Port() {
-				newClient(socket, false)
 			}
+			newClient(socket, port == config.WSPort())
 		}
 	}()
 }

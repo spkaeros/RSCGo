@@ -290,3 +290,7 @@ func (p *Packet) Capacity() int {
 func (p *Packet) String() string {
 	return fmt.Sprintf("Packet{opcode:%d,available:%d,capacity:%d,payload:%v}", p.Opcode, p.Available(), p.Capacity(), p.FrameBuffer)
 }
+
+func (p *Packet) ReadIndex() int {
+	return p.readIndex
+}
