@@ -123,6 +123,10 @@ func (p *Packet) Read(buf []byte) int {
 	return n
 }
 
+func (p *Packet) Flip() {
+	p.readIndex = 0
+}
+
 //Rewind rewinds the reader index by n bytes
 func (p *Packet) Rewind(n int) error {
 	if n < 0 {
