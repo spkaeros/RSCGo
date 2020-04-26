@@ -41,6 +41,15 @@ func init() {
 			loginReply <- ResponseUpdated
 			return
 		}
+		rsaSize := p.ReadUint16()
+//		data := make([]byte, rsaSize)
+		data := crypto.DecryptRSA(p.FrameBuffer[p.ReadIndex():p.ReadIndex()+rsaSize])
+		p.Skip(rsaSize)
+		p.FrameBuffer = p.FrameBuffer[p.ReadIndex():]
+		p.Flip()
+		log.Info.Println("RSA-Data:", data)
+		log.Info.Println("FrameBuffer:", p.FrameBuffer)
+
 		var password string
 
 		// On the legacy protocol the following block was 42 bytes long, now it is 10-30
