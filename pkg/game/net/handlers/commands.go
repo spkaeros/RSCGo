@@ -41,7 +41,7 @@ func init() {
 		os.Exit(1)
 	}
 	AddHandler("command", func(player *world.Player, p *net.Packet) {
-		raw := string(p.FrameBuffer[:len(p.FrameBuffer)-2])
+		raw := string(p.FrameBuffer[:len(p.FrameBuffer)-1])
 		args := strutil.ParseArgs(raw)
 		if len(args) <= 0 {
 			// prevent `::` freezing player

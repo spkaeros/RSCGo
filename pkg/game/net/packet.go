@@ -169,15 +169,15 @@ func (p *Packet) ReadStringN(n int) (val string) {
 func (p *Packet) ReadString() string {
 	start := p.readIndex
 	s := string(p.FrameBuffer[start:])
-	end := strings.IndexByte(s, '\x00')
+	end := strings.IndexByte(s, 0)+1
 	if end < 0 {
-		end = strings.IndexByte(s, '\n')
+		end = strings.IndexByte(s, '\n')+1
 		if end < 0 {
 			end = p.Length()
 		}
 	}
 	p.readIndex += end
-	return s[:end]
+	return s[:end-1]
 }
 
 //AddUint64 Adds a 64-bit integer to the net payload.
