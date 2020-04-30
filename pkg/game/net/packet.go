@@ -177,6 +177,9 @@ func (p *Packet) ReadString() string {
 		}
 	}
 	p.readIndex += end
+	if end <= 0 {
+		return s
+	}
 	return s[:end-1]
 }
 
