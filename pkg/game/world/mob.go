@@ -166,6 +166,12 @@ type Mob struct {
 	sync.RWMutex
 }
 
+//ExperienceReward returns the total rewarded experience upon killing a mob.
+func (m *Mob) ExperienceReward() int {
+	meleeTotal := (m.Skills().Current(entity.StatStrength)+m.Skills().Current(entity.StatAttack)+m.Skills().Current(entity.StatDefense))*2
+	return (int(math.Floor(float64(m.Skills().Current(entity.StatHits)+meleeTotal)/7))*2) + 20
+}
+
 func (m *Mob) TargetMob() entity.MobileEntity {
 	return m.VarMob("targetMob")
 }
