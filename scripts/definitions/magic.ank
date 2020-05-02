@@ -71,7 +71,7 @@ func newGodspell() {
 			// TODO: When minigame is finished, add checks for whether in mage arena or not and for total arena casts
 			chargedAt = player.Cache("magic_charge")
 			power = 25
-			if chargedAt.IsZero() || !chargedAt.After(tNow()) {
+			if chargedAt == nil || chargedAt.IsZero() || !chargedAt.After(tNow()) {
 				// weaker spell if no recent charge
 				power -= 8 // 18
 			}
