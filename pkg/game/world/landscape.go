@@ -276,10 +276,7 @@ func loadSector(data []byte) (s *Sector) {
 				blankCount++
 			}
 			tileIdx := x*RegionSize + y
-//			if s.Tiles[tileIdx] == nil {
-//				continue
-//			}
-			if groundOverlay > 0 && len(TileDefs) <= int(groundOverlay-1) && TileDefs[groundOverlay-1].Blocked != 0 {
+			if groundOverlay > 0 && int(groundOverlay) < len(TileDefs && TileDefs[groundOverlay-1].Blocked != 0 {
 				s.Tiles[tileIdx].CollisionMask |= ClipFullBlock
 			}
 			walls := [] []int {
