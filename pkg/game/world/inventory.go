@@ -489,10 +489,15 @@ func (i *Inventory) Add(id int, qty int) int {
 		if item.Amount < 0 {
 			log.Suspicious.Println(errors.NewArgsError("*Inventory.Add(id,amt) Resulting item amount less than zero: " + strconv.FormatUint(uint64(item.Amount+qty), 10)))
 		}
-		for newAmt := item.Amount + qty; newAmt > math.MaxInt32;  {
-			newAmt -= (math.MaxInt32 - item.Amount)
-			item = &Item{ID: id, Amount: newAmt}
+		if item.Amount + qty > math.MaxInt32 {
 			item.Amount = math.MaxInt32
+			return i.GetIndex(id)
+		}
+/*
+			amt := math.MaxInt32 - item.Amount
+			item.Amount = math.MaxInt32
+			item = &Item{ID: id, Amount: amt%math.MaxInt32}
+			newAmt -= amt%math.MaxInt32
 			i.Lock.Lock()
 			i.List = append(i.List, item)
 			i.Lock.Unlock()
@@ -500,7 +505,7 @@ func (i *Inventory) Add(id int, qty int) int {
 				return i.Size() - 1
 			}
 		}
-		item.Amount += qty
+*/		item.Amount += qty
 		return i.GetIndex(id)
 	}
 
