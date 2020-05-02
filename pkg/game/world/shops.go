@@ -323,7 +323,7 @@ func (s *ShopItems) Get(id int) *Item {
 //
 // Returns: true if this shop items collection has any items with the provided ID, otherwise returns false.
 func (s *ShopItems) Contains(id int) bool {
-	return s.Count(id) > 0
+	return s.Get(id) != nil
 }
 
 // Ensures safe access when requesting the current count of a specific item by ID in this shops inventory.
