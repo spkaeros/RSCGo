@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spkaeros/rscgo/pkg/crypto"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 
 	"github.com/spkaeros/rscgo/pkg/config"
@@ -53,7 +52,7 @@ func (s *sqlService) PlayerCreate(username, password, ip string) bool {
 
 	var playerID int
 	if s.Driver != "postgres" {
-		stmt, err := tx.Exec("INSERT INTO player(username, userhash, password, x, y, group_id) VALUES($1, $2, $3, 220, 445, 0)", username, strutil.Base37.Encode(username), crypto.Hash(password))
+		stmt, err := tx.Exec("INSERT INTO player(username, userhash, password, x, y, group_id) VALUES($1, $2, $3, 220, 445, 0)", username, strutil.Base37.Encode(username), password)
 		if err != nil {
 			log.Info.Println("SQLiteService Could not insert new player profile information:", err)
 			return false
@@ -66,7 +65,7 @@ func (s *sqlService) PlayerCreate(username, password, ip string) bool {
 		}
 		playerID = int(pID)
 	} else {
-		stmt := tx.QueryRow("INSERT INTO player(username, userhash, password, x, y, group_id) VALUES($1, $2, $3, 220, 445, 0) RETURNING id", username, strutil.Base37.Encode(username), crypto.Hash(password))
+		stmt := tx.QueryRow("INSERT INTO player(username, userhash, password, x, y, group_id) VALUES($1, $2, $3, 220, 445, 0) RETURNING id", username, strutil.Base37.Encode(username), password)
 		err = stmt.Scan(&playerID)
 		if err != nil || playerID < 0 {
 			tx.Rollback()

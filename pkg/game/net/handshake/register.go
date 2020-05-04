@@ -10,10 +10,12 @@
 package handshake
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spkaeros/rscgo/pkg/config"
+	"github.com/spkaeros/rscgo/pkg/crypto"
 	"github.com/spkaeros/rscgo/pkg/db"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	`github.com/spkaeros/rscgo/pkg/game/net/handlers`
@@ -27,38 +29,39 @@ func init() {
 		player.SetConnected(true)
 
 		reply := NewRegistrationListener(player).ResponseListener()
+		username := "nil"
+		sendReply := func(code ResponseCode, reason string) {
+			log.Info.Printf("New player denied: [ Reason:'%s'; username='%s'; ip='%s'; response=%d; ]\n", reason, username, player.CurrentIP(), code)
+			reply <- ResponseCode(code)
+		}
 		if RegisterThrottle.Recent(player.CurrentIP(), time.Hour) >= 2 {
-			reply <- ResponseSpamTimeout
+			sendReply(ResponseSpamTimeout, "Recently registered too many other characters")
 			return
 		}
 		if version := p.ReadUint16(); version != config.Version() {
-			log.Info.Printf("New player denied: [ Reason:'Wrong client version'; ip='%s'; version=%d ]\n", player.CurrentIP(), version)
-			reply <- ResponseUpdated
+			sendReply(ResponseUpdated, "Client version (" + strconv.Itoa(version) + ") out of date")
 			return
 		}
-		username := strutil.Base37.Decode(p.ReadUint64())
+		username = strutil.Base37.Decode(p.ReadUint64())
 		password := strings.TrimSpace(p.ReadString())
 		player.Transients().SetVar("username", username)
 		if userLen, passLen := len(username), len(password); userLen < 2 || userLen > 12 || passLen < 5 || passLen > 20 {
-			log.Suspicious.Printf("New player request contained invalid lengths: %v username=%v; password:'%v'\n", player.CurrentIP(), username, password)
-			reply <- ResponseBadInputLength
+			sendReply(ResponseBadInputLength, "Password and/or username too long and/or too short.")
 			return
 		}
 		go func() {
 			dataService := db.DefaultPlayerService
 			if dataService.PlayerNameExists(username) {
-				log.Info.Printf("New player denied: [ Reason:'Username is taken'; username='%s'; ip='%s' ]\n", username, player.CurrentIP())
-				reply <- ResponseUsernameTaken
+				sendReply(ResponseUsernameTaken, "Username is taken")
 				return
 			}
 
-			if dataService.PlayerCreate(username, password, player.CurrentIP()) {
-				log.Info.Printf("New player accepted: [ username='%s'; ip='%s' ]", username, player.CurrentIP())
-				reply <- ResponseRegisterSuccess
+			if !dataService.PlayerCreate(username, crypto.Hash(password), player.CurrentIP()) {
+				sendReply(-1, "Unknown issue during PlayerCreate call")
 				return
 			}
-			log.Info.Printf("New player denied: [ Reason:'unknown; probably database related.  Debug required'; username='%s'; ip='%s' ]\n", username, player.CurrentIP())
-			reply <- -1
+			log.Info.Printf("New player created: [ username='%s'; ip='%s' ]", username, player.CurrentIP())
+			reply <- ResponseRegisterSuccess
 		}()
 	})
 }

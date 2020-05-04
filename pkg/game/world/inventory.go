@@ -551,7 +551,7 @@ func (i *Inventory) RemoveByID(id, amt int) int {
 		return -1
 	}
 	index := i.GetIndex(id)
-	if i.stackEverything || ItemDefs[id].Stackable {
+	if  i.stackEverything || ItemDefs[id].Stackable {
 		if i.Get(index).Amount == amt {
 			i.Remove(index)
 		} else {

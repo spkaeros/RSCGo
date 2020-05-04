@@ -50,7 +50,6 @@ func init() {
 			return
 		}
 		item := player.Bank().Get(idx)
-		cnt := item.Amount - amount
 		if item == nil || item.Amount < amount {
 			log.Suspicious.Println("Attempted withdraw of items they do not have:", player.String(), id, amount)
 			return
@@ -59,10 +58,30 @@ func init() {
 			player.Message("You don't have room to hold everything!")
 			return
 		}
+		if !item.Stackable() {
+			for i := 0; i < amount; i++ {
+				if !player.Inventory.CanHold(id, 1) || player.Bank().RemoveByID(id, 1) < 0 {
+					break
+				}
+				player.Inventory.Add(id, 1)
+			}
+			player.SendInventory()
+			
+			if player.Bank().CountID(id) > 0 {
+				player.SendPacket(world.BankUpdateItem(idx, id, item.Amount))
+			} else {
+				player.SendPacket(world.BankUpdateItem(idx, id, 0))
+			}
+			return
+		}
 		if player.Bank().RemoveByID(id, amount) > -1 {
 			player.Inventory.Add(id, amount)
 			player.SendInventory()
-			player.SendPacket(world.BankUpdateItem(idx, id, cnt))
+			if player.Bank().CountID(id) > 0 {
+				player.SendPacket(world.BankUpdateItem(idx, id, item.Amount))
+			} else {
+				player.SendPacket(world.BankUpdateItem(idx, id, 0))
+			}
 		}
 	})
 	AddHandler("closebank", func(player *world.Player, p *net.Packet) {

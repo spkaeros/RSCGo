@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
@@ -15,6 +16,7 @@ import (
 	"io"
 	stdnet "net"
 	"strings"
+	"strconv"
 	"sync"
 	"time"
 
@@ -36,6 +38,9 @@ type client struct {
 	readWriter *bufio.ReadWriter
 	websocket  bool
 	reader   io.Reader
+	header []byte
+	payload []byte
+	writeCaret  int
 	readSize  int
 	readLimit  int
 	frameFin  bool
@@ -75,11 +80,9 @@ func (c *client) startNetworking() {
 						return
 					}
 
-					log.Warning.Printf("Rejected Packet from: %s", c.player.String())
-					log.Warning.Println(err)
 					continue
 				}
-				if !c.player.Connected() && p.Opcode != 32 && p.Opcode != 0 && p.Opcode != 2 && p.Opcode != 220 {
+				if !c.player.Connected() && p.Opcode != 32 && p.Opcode != 0 && p.Opcode != 2 {
 					log.Warning.Printf("Unauthorized packet[opcode:%v,len:%v] rejected from: %v\n", p.Opcode, len(p.FrameBuffer), c)
 					return
 				}
@@ -162,10 +165,12 @@ func (c *client) Write(src []byte) int {
 	var err error
 	var dataLen int
 	if c.websocket {
-		err = wsutil.WriteServerBinary(c.socket, src)
+		err = wsutil.WriteServerBinary(c.readWriter, src)
+		c.readWriter.Flush()
 		dataLen = len(src)
 	} else {
-		dataLen, err = c.socket.Write(src)
+		dataLen, err = c.readWriter.Write(src)
+		c.readWriter.Flush()
 	}
 	if err != nil {
 		log.Error.Println("Problem writing to websocket client:", err)
@@ -183,43 +188,26 @@ func (c *client) Read(dst []byte) (int, error) {
 		return -1, errors.NewNetworkError("Connection closed", true)
 	}
 
-	if c.websocket {
-		if c.readLimit <= c.readSize  {
-			// reset buffer read index and create the next reader
-			header, reader, err := wsutil.NextReader(c.readWriter, ws.StateServerSide)
-			c.readSize = 0
-			c.readLimit = int(header.Length)
-			c.frameFin = header.Fin
-			c.reader = reader
-			if err != nil {
-				if err == io.EOF || err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
-					return -1, errors.NewNetworkError("Connection closed", true)
-				} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
-					return -1, errors.NewNetworkError("Connection timeout", true)
-				} else {
-					log.Warning.Println("Problem creating reader for next websocket frame:", err)
-				}
-				return -1, err
+	if c.websocket && c.readSize >= c.readLimit {
+		// reset buffer read index and create the next reader
+		header, reader, err := wsutil.NextReader(c.socket, ws.StateServerSide)
+		c.readLimit = int(header.Length)
+		c.readSize = 0
+//		c.frameFin = header.Fin
+		c.readWriter.Reader = bufio.NewReader(reader)
+		if err != nil {
+			if err == io.EOF || err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
+				return -1, errors.NewNetworkError("Connection closed", true)
+			} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
+				return -1, errors.NewNetworkError("Connection timeout", true)
+			} else {
+				log.Warning.Println("Problem creating reader for next websocket frame:", err)
 			}
+			return -1, err
 		}
-		
-		n, err := c.reader.Read(dst)
-		c.readSize += n
-		if err == io.EOF && c.frameFin || err == nil {
-			return n, nil
-		}
-		if err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") ||
-				strings.Contains(err.Error(), "use of closed") || err == io.EOF && !c.frameFin {
-			return -1, errors.NewNetworkError("Connection closed", true)
-		}
-		if e, ok := err.(stdnet.Error); ok && e.Timeout() {
-			return -1, errors.NewNetworkError("Connection timeout", true)
-		}
-		log.Warning.Println(err)
-		return -1, err
 	}
-
 	n, err := c.readWriter.Read(dst)
+	c.readSize += n
 	if err != nil {
 		log.Info.Println(err)
 		if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
@@ -232,20 +220,26 @@ func (c *client) Read(dst []byte) (int, error) {
 	return n, nil
 }
 
+//	return -1, errors.NewNetworkError("Unknown packet problem", false)
+//}
+
 //readPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode of the next net frame the client is sending us.
 func (c *client) readPacket() (p *net.Packet, err error) {
 	header := make([]byte, 2)
-	l, err := c.Read(header)
-	if err != nil {
-		return nil, err
+	for writeCaret := 0; writeCaret < 2; {
+		l, err := c.Read(header[writeCaret:])
+		if err != nil {
+			return nil, err
+		}
+		writeCaret += l
 	}
-	if l < 2 {
-		return nil, errors.NewNetworkError("SHORT_DATA", false)
-	}
-	length := int(header[0]) - 1
-	bigLength := length >= 160
-	if bigLength {
-		length = (length-160)<<8 + int(header[1])
+	length := int(header[0] & 0xFF)
+	header = header[1:]
+	if length >= 160 {
+		length = ((length-160)<<8) | int(header[0] & 0xFF)
+		header = header[1:]
+	} else {
+		length -= 1
 	}
 
 	if length >= 4998 || length < 0 {
@@ -255,18 +249,19 @@ func (c *client) readPacket() (p *net.Packet, err error) {
 	}
 
 	payload := make([]byte, length)
-
 	if length > 0 {
-		if l, err := c.Read(payload); err != nil {
-			return nil, err
-		} else if l < length {
-			return nil, errors.NewNetworkError("SHORT_DATA", false)
+		for writeCaret := 0; writeCaret < length;  {
+			l, err := c.Read(payload[writeCaret:])
+			if err != nil {
+				return nil, errors.NewNetworkError("Unknown packet problem for player " + c.player.Username() + " packet[" + strconv.Itoa(int(header[0])) + "] = " + string(c.payload), false)
+			}
+			writeCaret += l
 		}
 	}
 
-	if !bigLength {
+	if len(header) > 0 {
 		// If the length in the header used 1 byte, the 2nd byte in the header is the final byte of frame data
-		payload = append(payload, header[1])
+		payload = append(payload, header[0])
 	}
 
 	return net.NewPacket(payload[0], payload[1:]), nil
