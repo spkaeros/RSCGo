@@ -68,10 +68,7 @@ func ParseArgs(s string) []string {
 		if escaped {
 			escaped = false
 		}
-		//		if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '@' {
-//		cur += string(c)
 		str.WriteRune(c)
-		//		}
 	}
 	
 	if str.Len() > 0 {
@@ -238,36 +235,33 @@ func init() {
 		return string(buf)
 	}
 	ChatFilter.Format = func(msg string) string {
-		buf := []rune(msg)
 		builder := &strings.Builder{}
 		startingSentence := true
 		for i, c := range msg {
-			if c == '@' {
-				if i == 4 && msg[i-4] == '@' {
+			if unicode.IsGraphic(c) {
+				if c == '@' {
+					if i == 4 && msg[i-4] == '@' {
+						startingSentence = true
+					} else if i == 0 && msg[i+4] == '@' {
+						startingSentence = false
+					} else {
+						c = ' '
+					}
+				} else if unicode.IsPunct(c) {
 					startingSentence = true
-				} else if i == 0 && msg[i+4] == '@' {
-					startingSentence = false
-				} else {
-					buf[i] = ' '
 				}
-			} else if unicode.IsPunct(c) || unicode.IsSymbol(c) || unicode.IsSpace(c) {
-				if !unicode.IsSpace(c) {
-					startingSentence = true
-				}
-				buf[i] = ' '
-			} else if unicode.IsLetter(c) {
 				startingSentence = false
 				if startingSentence {
-					builder.WriteRune(unicode.ToUpper(c))
+					c = unicode.ToUpper(c)
 				} else {
-					builder.WriteRune(unicode.ToLower(c))
+					c = unicode.ToLower(c)
 				}
-			} else if unicode.IsGraphic(c) {
+				
 				builder.WriteRune(c)
 			}
 		}
 
-		return string(buf)
+		return builder.String()
 	}
 	Base37.Encode = func(s string) uint64 {
 		s = strings.ToLower(s)
