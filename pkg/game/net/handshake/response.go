@@ -78,6 +78,19 @@ func (r ResponseCode) IsValid() bool {
 	return false
 }
 
+//IsEarlyOpcode is used to determine whether or not the opcode provided is an authorization handshake packet or not.
+// Returns true if the opcode is an auth packet, otherwise returns false.
+func EarlyOperation(opcode int) bool {
+	// session PRNG seed request, login request, new-player request
+	var EarlyOperations = [...]int { 32, 0, 2 }
+	for _, i := range EarlyOperations {
+		if i == opcode {
+			return true
+		}
+	}
+	return false
+}
+
 const (
 	//ResponseLoginSuccess is sent when we have successfully validated and started to load the player profile
 	// that was requested.  Generally, once a handshake receives this response, the handshake is over and the

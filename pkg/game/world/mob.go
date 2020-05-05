@@ -8,7 +8,8 @@ import (
 
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/log"
-	isaac "github.com/spkaeros/rscgo/pkg/rand"
+	"github.com/spkaeros/rscgo/pkg/isaac"
+	irand "github.com/spkaeros/rscgo/pkg/rand"
 )
 
 type MobState = int
@@ -450,7 +451,7 @@ func (m *Mob) ResetFighting() {
 	if target != nil && target.IsFighting() {
 		target.Transients().UnsetVar("fightTarget")
 		target.Transients().UnsetVar("fightRound")
-		target.SetDirection(North)
+		target.SetDirection(NorthWest)
 		target.RemoveState(StateFighting)
 		if target.HasState(StateDueling) {
 			target.RemoveState(StateDueling)
@@ -460,7 +461,7 @@ func (m *Mob) ResetFighting() {
 	if m.IsFighting() {
 		m.UnsetVar("fightTarget")
 		m.UnsetVar("fightRound")
-		m.SetDirection(North)
+		m.SetDirection(NorthWest)
 		m.RemoveState(StateFighting)
 		if m.HasState(StateDueling) {
 			m.RemoveState(StateDueling)
@@ -599,7 +600,31 @@ func (m *Mob) Skills() *entity.SkillTable {
 
 func (m *Mob) PrayerModifiers() [3]float64 {
 	var modifiers = [...]float64{1.0, 1.0, 1.0}
+/*
 
+	mods := []float64 { 1.05, 1.10, 1.15 }
+
+	defenseMods := []int { 0, 3, 9 }
+	strengthMods := []int { 1, 4, 10 }
+	attackMods := []int { 2, 5, 11 }
+	for idx, prayer := range defenseMods {
+		if m.VarBool("prayer" + strconv.Itoa(prayer), false) {
+			modifiers[entity.StatDefense] = mods[idx]
+		}
+	}
+
+	for idx, prayer := range strengthMods {
+		if m.VarBool("prayer" + strconv.Itoa(prayer), false) {
+			modifiers[entity.StatStrength] = mods[idx]
+		}
+	}
+
+	for idx, prayer := range attackMods {
+		if m.VarBool("prayer" + strconv.Itoa(prayer), false) {
+			modifiers[entity.StatAttack] = mods[idx]
+		}
+	}
+*/
 	if m.VarBool("prayer0", false) {
 		modifiers[1] += .05
 	}
@@ -627,7 +652,6 @@ func (m *Mob) PrayerModifiers() [3]float64 {
 	if m.VarBool("prayer11", false) {
 		modifiers[0] += .15
 	}
-
 	return modifiers
 }
 
@@ -636,6 +660,12 @@ func (m *Mob) StyleBonus(stat int) int {
 	if mode == 0 {
 		return 1
 	}
+//	if mode == (stat+1)%3+1 {
+//		return 3
+//	}
+//	modes := []int { entity.StatStrength, entity.StatAttack, entity.StatDefense }
+//	if mode == 0 {
+//		return 1
 	if (mode == 1 && stat == entity.StatStrength) || (mode == 2 && stat == entity.StatAttack) || (mode == 3 && stat == entity.StatDefense) {
 		return 3
 	}
@@ -659,19 +689,50 @@ func (m *Mob) DefensePoints() float64 {
 	//	return (float64(m.Skills().Current(StatDefense)) * m.PrayerModifiers()[StatDefense]) + float64(m.StyleBonus(StatDefense)+m.ArmourPoints())
 }
 
-//MeleeDamage Calculates and returns a melee damage from the receiver mob onto the target mob.
-func (m *Mob) MeleeDamage(target entity.MobileEntity) int {
-	//log.Info.Println((m.AttackPoints() / (target.DefensePoints() * 4)) * 100)
-	if BoundedChance(m.AttackPoints()/(target.DefensePoints()*4)*100, 0.0, 82.0) {
-		maxDamage := m.MaxMeleeDamage()
-		var damage float64
-		for damage > maxDamage || damage < 1 {
-			//damage = rand.ExpFloat64()/(1/(maxDamage))
-			damage = math.Floor((meleeRand.NormFloat64() * (maxDamage / 3)) + (maxDamage / 2))
-		}
-		return int(damage)
+func (m *Mob) CombatRng() *rand.Rand {
+	rng, ok := m.VarChecked("isaacRng").(*rand.Rand)
+	if !ok || rng == nil {
+		rng = rand.New(isaac.New(meleeRand.Uint64()))
+		m.SetVar("isaacRng", rng)
 	}
+	return rng
+}
+
+//MagicDamage Calculates and returns a combat spells damage from the 
+// receiver mob cast unto the target MobileEntity.  This basically wraps a statistically
+// random percentage check around a call to GenerateHit.
+func (m *Mob) MagicDamage(target entity.MobileEntity, maximum int) int {
+	// TODO: Tweak the defense/armor hit/miss formula to better match RSC--or at least verify this is somewhat close?
+	if BoundedChance(float64(m.MagicPoints())/(target.DefensePoints()*4)*100, 0.0, 82.0) {
+		return m.GenerateHit(maximum)
+	}
+	
 	return 0
 }
 
-var meleeRand = rand.New(isaac.IsaacRng)
+//GenerateHit returns a normally distributed random number from this mobs PRNG instance,
+// between 1 and max, inclusive.  This is widely believed to be how Jagex generated damage hits,
+// and it feels accurate while playing.
+func (m *Mob) GenerateHit(max int) int {
+	var damage float64
+	for damage > float64(max) || damage < 1 {
+		damage = math.Floor((m.CombatRng().NormFloat64() * float64(max/3)) + float64(max/2))
+	}
+	
+	return int(damage)
+}
+
+//MeleeDamage Calculates and returns a melee damage from the receiver mob onto the target mob.
+// This basically wraps a statistically random percentage check around a call to GenerateHit.
+// Generally believed to be a near-perfect approximation of canonical Jagex RSClassic melee damage formula.
+// Kenix mentioned running monte-carlo sims when coming up with it, so presumably this formula matched up
+// statistically fairly well to the real game.  I can not say for sure as I didn't do these things myself, though.
+func (m *Mob) MeleeDamage(target entity.MobileEntity) int {
+	if BoundedChance(m.AttackPoints()/(target.DefensePoints()*4)*100, 0.0, 82.0) {
+		return m.GenerateHit(int(m.MaxMeleeDamage()))
+	}
+	
+	return 0
+}
+
+var meleeRand = rand.New(irand.IsaacRng)

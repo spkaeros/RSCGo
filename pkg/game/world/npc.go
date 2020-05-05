@@ -13,11 +13,8 @@ import (
 	"math"
 	"time"
 	
-	"go.uber.org/atomic"
-	
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/rand"
-	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 //NpcDefinition This represents a single definition for a single NPC in the game.
@@ -36,8 +33,6 @@ type NpcDefinition struct {
 //NpcDefs This holds the defining characteristics for all of the game's NPCs, ordered by ID.
 var NpcDefs []NpcDefinition
 
-//NpcCounter Counts the number of total NPCs within the world.
-var NpcCounter = atomic.NewUint32(0)
 //Npcs A collection of every NPC in the game, sorted by index
 //var Npcs []*NPC
 var Npcs = NewMobList()
@@ -234,10 +229,10 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 	var dropPlayer *Player
 	var mostDamage int
 	totalDamage := n.TotalDamage()
-	totalExp := int(n.MeleeExperience(true)) & 0xFFFFFFFFC
+	totalExp := n.ExperienceReward() & 0xFFFFFFFFC
 	for usernameHash, damage := range n.damageDeltas {
 		player, ok := Players.FromUserHash(usernameHash)
-		log.Info.Println(usernameHash,damage)
+//		log.Info.Println(usernameHash,damage)
 		if ok {
 			exp := float64(totalExp)/float64(totalDamage)
 			player.DistributeMeleeExp(int(exp)*damage / 4)
