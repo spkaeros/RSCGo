@@ -229,7 +229,7 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 	var dropPlayer *Player
 	var mostDamage int
 	totalDamage := n.TotalDamage()
-	totalExp := n.ExperienceReward() & 0xFFFFFFFFC
+	totalExp := n.ExperienceReward() & 0xFFFFFFC
 	for usernameHash, damage := range n.damageDeltas {
 		player, ok := Players.FromUserHash(usernameHash)
 //		log.Info.Println(usernameHash,damage)
