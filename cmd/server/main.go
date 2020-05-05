@@ -119,7 +119,7 @@ func main() {
 		log.Info.Printf("Loaded %d NPC definitions.\n", len(world.NpcDefs))
 		log.Info.Printf("Loaded %d object definitions.\n", len(world.ObjectDefs))
 		log.Info.Printf("Loaded %d boundary definitions.\n", len(world.BoundaryDefs))
-		log.Info.Printf("Loaded %d NPCs.\n", world.NpcCounter.Load())
+		log.Info.Printf("Loaded %d NPCs.\n", world.Npcs.Size())
 		log.Info.Printf("Loaded %d ground items.\n", world.ItemIndexer.Load())
 		log.Info.Printf("Loaded %d objects and boundaries.\n", world.ObjectCounter.Load())
 		log.Info.Printf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill] loaded\n", len(world.ItemTriggers), len(world.ObjectTriggers), len(world.BoundaryTriggers), len(world.NpcTriggers), len(world.InvOnBoundaryTriggers), len(world.InvOnObjectTriggers), len(world.NpcAtkTriggers), len(world.NpcDeathTriggers))
