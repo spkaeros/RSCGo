@@ -41,7 +41,7 @@ func JagHash(s string) int {
 
 //ParseArgs Neat command argument parsing function with support for single-quotes, ported from Java
 func ParseArgs(s string) []string {
-	var cur string
+	str := strings.Builder{}
 	escaped := false
 	quoted := false
 	var out []string
@@ -51,33 +51,32 @@ func ParseArgs(s string) []string {
 			continue
 		}
 		if c == '\'' && !escaped {
-			if quoted {
-				if len(cur) > 0 {
-					out = append(out, cur)
-				}
-				cur = ""
+			if quoted && str.Len() > 0 {
+				out = append(out, str.String())
+				str.Reset()
 			}
 			quoted = !quoted
 			continue
 		}
 		if c == ' ' && !escaped && !quoted {
-			if len(cur) > 0 {
-				out = append(out, cur)
+			if str.Len() > 0 {
+				out = append(out, str.String())
+				str.Reset()
 			}
-			cur = ""
 			continue
 		}
 		if escaped {
 			escaped = false
 		}
 		//		if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '@' {
-		cur += string(c)
+//		cur += string(c)
+		str.WriteRune(c)
 		//		}
 	}
-	if len(cur) > 0 {
-		out = append(out, cur)
+	
+	if str.Len() > 0 {
+		out = append(out, str.String())
 	}
-
 	return out
 }
 
@@ -240,27 +239,31 @@ func init() {
 	}
 	ChatFilter.Format = func(msg string) string {
 		buf := []rune(msg)
-		flag := true
+		builder := &strings.Builder{}
+		startingSentence := true
 		for i, c := range msg {
 			if c == '@' {
 				if i == 4 && msg[i-4] == '@' {
-					flag = true
+					startingSentence = true
 				} else if i == 0 && msg[i+4] == '@' {
-					flag = false
+					startingSentence = false
 				} else {
 					buf[i] = ' '
 				}
-			} else if c == '%' {
-				buf[i] = ' '
-			} else if c == '.' || c == '!' || c == ':' {
-				flag = true
-			} else {
-				flag = false
-				if flag {
-					buf[i] = unicode.ToUpper(c)
-				} else {
-					buf[i] = unicode.ToLower(c)
+			} else if unicode.IsPunct(c) || unicode.IsSymbol(c) || unicode.IsSpace(c) {
+				if !unicode.IsSpace(c) {
+					startingSentence = true
 				}
+				buf[i] = ' '
+			} else if unicode.IsLetter(c) {
+				startingSentence = false
+				if startingSentence {
+					builder.WriteRune(unicode.ToUpper(c))
+				} else {
+					builder.WriteRune(unicode.ToLower(c))
+				}
+			} else if unicode.IsGraphic(c) {
+				builder.WriteRune(c)
 			}
 		}
 
