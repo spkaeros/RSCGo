@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
@@ -26,6 +25,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/net/handlers"
+	"github.com/spkaeros/rscgo/pkg/game/net/handshake"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
@@ -37,13 +37,9 @@ type client struct {
 	destroyer  sync.Once
 	readWriter *bufio.ReadWriter
 	websocket  bool
-	reader   io.Reader
-	header []byte
-	payload []byte
-	writeCaret  int
 	readSize  int
 	readLimit  int
-	frameFin  bool
+	frameFin bool
 }
 
 //startNetworking Starts up 3 new goroutines; one for reading incoming data from the socket, one for writing outgoing data to the socket, and one for client state updates and parsing plus handling incoming world.  When the client kill signal is sent through the kill channel, the state update and net handling goroutine will wait for both the reader and writer goroutines to complete their operations before unregistering the client.
@@ -70,11 +66,103 @@ func (c *client) startNetworking() {
 	go func() {
 		defer awaitDeath.Done()
 		defer c.player.Destroy()
+		read := func(c *client, data []byte) int {
+			written := 0; 
+			for written < len(data) {
+				err := c.socket.SetReadDeadline(time.Now().Add(time.Second * time.Duration(15)))
+				if err != nil {
+					return -1
+				}
+				if c.websocket && (c.readSize >= c.readLimit) {
+					// reset buffer read index and create the next reader
+					header, reader, err := wsutil.NextReader(c.socket, ws.StateServerSide)
+					c.readLimit = int(header.Length)
+					c.readSize = 0
+					c.frameFin = header.Fin
+					if err != nil {
+						if err == io.EOF || err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
+							return -1
+						} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
+							return -1
+						}
+						log.Warning.Println("Problem creating reader for next websocket frame:", err)
+					}
+					c.readWriter.Reader = bufio.NewReader(reader)
+				}
+				n, err := c.readWriter.Read(data[written:])
+				c.readSize += n
+				if err != nil {
+					if err == io.EOF {
+						if !c.frameFin {
+//							log.Info.Println(err)
+							continue
+						}
+					}
+					if err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
+						return -1
+					} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
+						return -1
+					}
+					continue
+				}
+				written += n
+			}
+//			log.Info.Printf("data[%d]:%v\n", written, data)
+			return written
+		}
 		awaitDeath.Add(1)
 		for {
 			select {
 			default:
-				p, err := c.readPacket()
+				header := make([]byte, 2)
+				if read(c, header) < 2 {
+					continue
+				}
+//				for cur := 0; cur < 2; cur += read(c, header[cur:]) {
+//					if cur < 2 {
+//						log.Info.Printf("Small header:%v\n", header)
+//					}
+//				}
+				frameSize := int(header[0] & 0xFF)
+				if frameSize >= 160 {
+					frameSize = ((frameSize-160)<<8) | int(header[1] & 0xFF)
+				} else {
+					frameSize -= 1
+				}
+			
+				// Upper bound is an approximation of the max size of the clientside outgoing data buffer
+				if frameSize >= 23768 || frameSize < 0 {
+					log.Suspicious.Printf("Invalid packet length from [%v]: %d\n", c, frameSize)
+					continue
+				}
+				localData := make([]byte, frameSize)
+				if frameSize > 0 {
+					if read(c, localData) == -1 {
+						continue
+					}
+/*
+					for cur := 0; cur < 2; cur += read(c, header[cur:]) {
+						if cur < 0 {
+							continue
+						}
+						log.Info.Printf("Small header:%v\n", header)
+					}
+*/
+//					localData := make([]byte, frameSize)
+//					for cur := 0; cur < 2; cur += read(c, localData[cur:]) {
+//						log.Info.Printf("Small payload:%v\n", localData)
+//					}
+				}
+				if frameSize < 160 {
+					localData = append(localData, header[1])
+				}
+				if !c.player.Connected() && !handshake.EarlyOperation(int(localData[0])) {
+					log.Warning.Printf("Unauthorized packet[opcode:%v,size:%v (expected:%v)] rejected from: %v\n", localData[0], len(localData), frameSize, c)
+					continue
+				}
+				incomingPackets <- net.NewPacket(localData[0], localData[1:])
+
+/*				p, err := c.readPacket()
 				if err != nil {
 					if err, ok := err.(errors.NetError); ok && err.Fatal {
 						return
@@ -82,11 +170,16 @@ func (c *client) startNetworking() {
 
 					continue
 				}
+				if p == nil {
+					continue
+				}
 				if !c.player.Connected() && p.Opcode != 32 && p.Opcode != 0 && p.Opcode != 2 {
 					log.Warning.Printf("Unauthorized packet[opcode:%v,len:%v] rejected from: %v\n", p.Opcode, len(p.FrameBuffer), c)
 					return
 				}
+				
 				incomingPackets <- p
+				*/
 			case <-c.player.KillC:
 				return
 			}
@@ -188,24 +281,6 @@ func (c *client) Read(dst []byte) (int, error) {
 		return -1, errors.NewNetworkError("Connection closed", true)
 	}
 
-	if c.websocket && c.readSize >= c.readLimit {
-		// reset buffer read index and create the next reader
-		header, reader, err := wsutil.NextReader(c.socket, ws.StateServerSide)
-		c.readLimit = int(header.Length)
-		c.readSize = 0
-//		c.frameFin = header.Fin
-		c.readWriter.Reader = bufio.NewReader(reader)
-		if err != nil {
-			if err == io.EOF || err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
-				return -1, errors.NewNetworkError("Connection closed", true)
-			} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
-				return -1, errors.NewNetworkError("Connection timeout", true)
-			} else {
-				log.Warning.Println("Problem creating reader for next websocket frame:", err)
-			}
-			return -1, err
-		}
-	}
 	n, err := c.readWriter.Read(dst)
 	c.readSize += n
 	if err != nil {
@@ -253,12 +328,11 @@ func (c *client) readPacket() (p *net.Packet, err error) {
 		for writeCaret := 0; writeCaret < length;  {
 			l, err := c.Read(payload[writeCaret:])
 			if err != nil {
-				return nil, errors.NewNetworkError("Unknown packet problem for player " + c.player.Username() + " packet[" + strconv.Itoa(int(header[0])) + "] = " + string(c.payload), false)
+				return nil, errors.NewNetworkError("Unknown packet problem for player " + c.player.Username() + " packet[" + strconv.Itoa(int(header[0])) + "] = " + string(payload), false)
 			}
 			writeCaret += l
 		}
-	}
-
+	}    
 	if len(header) > 0 {
 		// If the length in the header used 1 byte, the 2nd byte in the header is the final byte of frame data
 		payload = append(payload, header[0])

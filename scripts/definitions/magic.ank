@@ -14,7 +14,7 @@ func newGodspell() {
 			"animation": 1142,
 			"cape": 1215,
 			"staff": 1217,
-			"deplete": DEFENSE,
+			"depleteStat": DEFENSE,
 			"depleteBy": 0.02,
 		},
 		{
@@ -22,7 +22,7 @@ func newGodspell() {
 			"animation": 1031,
 			"cape": 1214,
 			"staff": 1218,
-			"deplete": PRAYER,
+			"depleteStat": PRAYER,
 			"depleteBy": 1,
 		},
 		{
@@ -30,7 +30,7 @@ func newGodspell() {
 			"animation": 1036,
 			"cape": 1213,
 			"staff": 1216,
-			"deplete": MAGIC,
+			"depleteStat": MAGIC,
 			"depleteBy": 0.02,
 		},
 	]
@@ -60,6 +60,23 @@ func newGodspell() {
 				return
 			}
 		
+			// TODO: When minigame is finished, add checks for whether in mage arena or not and for total arena casts
+			chargedAt = player.Cache("magic_charge")
+			power = 25
+			if chargedAt == nil || chargedAt.IsZero() || !chargedAt.After(tNow()) {
+				// weaker spell if no recent charge
+				power -= 8 // 25 down to 18
+			}
+
+			if cape == nil || !cape.Worn {
+				// weaker spell if no matching cape
+				power -= 8 // 25 or 18 down to 18 or 10
+			}
+
+			if !spellCast(defs[spell.idx], player) {
+				return
+			}
+		
 			if world.getObjectAt(spell.target.X(), spell.target.Y()) == nil {
 				animation = newObject(godspell.animation, North, spell.target.X(), spell.target.Y(), false)
 				world.addObject(animation)
@@ -67,42 +84,25 @@ func newGodspell() {
 					world.removeObject(animation)
 				})
 			}
-		
-			// TODO: When minigame is finished, add checks for whether in mage arena or not and for total arena casts
-			chargedAt = player.Cache("magic_charge")
-			power = 25
-			if chargedAt == nil || chargedAt.IsZero() || !chargedAt.After(tNow()) {
-				// weaker spell if no recent charge
-				power -= 8 // 18
-			}
 
-			if cape == nil || !cape.Worn {
-				// weaker spell if no matching cape
-				power -= 8 // 10
-			}
+			fireMissile(player, spell, power)
 
-			if !spellCast(defs[spell.idx], player) {
-				return
-			}
-
-			depleteBy = toInt(math.Ceil(spell.target.Skills().Current(godspell.deplete) * godspell.depleteBy))
-			minStat = spell.target.Skills().Maximum(godspell.deplete) - toInt(math.Ceil((spell.target.Skills().Current(godspell.deplete) * godspell.depleteBy) * 4))
+			depleteBy = toInt(math.Ceil(spell.target.Skills().Current(godspell.depleteStat) * godspell.depleteBy))
+			minStat = spell.target.Skills().Maximum(godspell.depleteStat) - toInt(math.Ceil((spell.target.Skills().Current(godspell.depleteStat) * godspell.depleteBy) * 4))
 			if spell.idx == 34 {
 				depleteBy = 1
 				minStat = 0
 			}
-			fireMissile(player, spell, power)
-
-			newStat = spell.target.Skills().Current(godspell.deplete) - depleteBy
+			newStat = spell.target.Skills().Current(godspell.depleteStat) - depleteBy
 			if spell.target.IsPlayer() && newStat < minStat {
-				player.Message("@que@Your opponent already has weakened " + skillName(godspell.deplete))
+				player.Message("@que@Your opponent already has weakened " + skillName(godspell.depleteStat))
 				return
 			}
-			spell.target.Skills().SetCur(godspell.deplete, newStat)
+			spell.target.Skills().SetCur(godspell.depleteStat, newStat)
 			targetp = asPlayer(spell.target)
 			if targetp != nil {
-				targetp.Message("Your " + skillName(godspell.deplete) + " has been reduced by the spell!")
-				targetp.SendStat(godspell.deplete)
+				targetp.Message("Your " + skillName(godspell.depleteStat) + " has been reduced by the spell!")
+				targetp.SendStat(godspell.depleteStat)
 			}
 		})
 	}
@@ -128,7 +128,48 @@ func newMissileHandler(power) {
 	}
 }
 
+func newWeakenHandler(depleteStat, depletePercent) {
+	return func(player, spell) {
+		player.WalkingRangedAction(spell.target, func() {
+			if !player.CanAttack(spell.target) {
+				if player.IsDueling() && player.IsFighting() && spell.target == player.DuelTarget() && !player.AttributeList.VarBool("duelCanMagic", true) {
+					player.Message("Magic cannot be used during this duel!")
+				}
+				player.ResetPath()
+				return
+			}
+			player.ResetAllExceptDueling()
+			if !spellCast(defs[spell.idx], player) {
+				return
+			}
+			depleteBy = toInt(math.Ceil(spell.target.Skills().Current(depleteStat) * depletePercent))
+			minStat = spell.target.Skills().Maximum(depleteStat) - toInt(math.Ceil((spell.target.Skills().Current(depleteStat) * depletePercent)))
+			if spell.idx == 34 {
+				depleteBy = 1
+				minStat = 0
+			}
+			newStat = spell.target.Skills().Current(depleteStat) - depleteBy
+			if spell.target.IsPlayer() && newStat < minStat {
+				player.Message("@que@Your opponent already has weakened " + skillName(depleteStat))
+				return
+			}
+			projectile = newProjectile(player, spell.target, 1)
+			for p in player.NearbyPlayers() {
+				p.SendPacket(projectile)
+			}
+			player.SendPacket(projectile)
+			spell.target.Skills().SetCur(depleteStat, newStat)
+			targetp = asPlayer(spell.target)
+			if targetp != nil {
+				targetp.Message("You have been weakened")
+				targetp.SendStat(depleteStat)
+			}
+		})
+	}
+}
+
 func fireMissile(player, spell, dmg) {
+/*
 	odds = {}
 	rat = 45.0 + toFloat(player.MagicPoints())
 	peak = dmg/100.0*rat
@@ -144,6 +185,8 @@ func fireMissile(player, spell, dmg) {
 		}
 	}
 	hit = math.Min(spell.target.Skills().Current(HITPOINTS), weightedChance(odds))
+*/
+	hit = player.MagicDamage(spell.target, dmg)
 	spell.target.Skills().DecreaseCur(HITPOINTS, hit)
 	if spell.target.Skills().Current(HITPOINTS) <= 0 {
 		spell.target.Killed(player)
@@ -236,6 +279,7 @@ defs = [
 		"name": "Confuse",
 		"desc": "Reduces your opponents attack by 5%",
 		"kind": 2,
+		"handler": newWeakenHandler(ATTACK, 0.05),
 		"runes": {
 			32: 3,
 			34: 2,
@@ -280,6 +324,7 @@ defs = [
 		"level": 11,
 		"name": "Weaken",
 		"desc": "Reduces your opponents strength by 5%",
+		"handler": newWeakenHandler(STRENGTH, 0.05),
 		"kind": 2,
 		"runes": {
 			32: 3,
@@ -341,6 +386,7 @@ defs = [
 		"level": 19,
 		"name": "Curse",
 		"desc": "Reduces your opponents defense by 5%",
+		"handler": newWeakenHandler(DEFENSE, 0.05),
 		"kind": 2,
 		"runes": {
 			32: 2,
@@ -714,6 +760,7 @@ defs = [
 		"level": 66,
 		"name": "Vulnerability",
 		"desc": "Reduces your opponents defense by 10%",
+		"handler": newWeakenHandler(DEFENSE, 0.1),
 		"kind": 2,
 		"runes": {
 			34: 5,
@@ -748,6 +795,7 @@ defs = [
 		"level": 73,
 		"name": "Enfeeble",
 		"desc": "Reduces your opponents strength by 10%",
+		"handler": newWeakenHandler(STRENGTH, 0.1),
 		"kind": 2,
 		"runes": {
 			34: 8,
@@ -771,6 +819,7 @@ defs = [
 		"level": 80,
 		"name": "Stun",
 		"desc": "Reduces your opponents attack by 10%",
+		"handler": newWeakenHandler(ATTACK, 0.1),
 		"kind": 2,
 		"runes": {
 			34: 12,
