@@ -921,7 +921,7 @@ func (p *Player) DuelTarget() *Player {
 
 //SendPacket sends a net to the client.
 func (p *Player) SendPacket(packet *net.Packet) {
-	if p == nil || !p.Connected() {
+	if p == nil || (packet.Opcode != 0 && !p.Connected()) {
 		return
 	}
 	p.OutgoingPackets <- packet
