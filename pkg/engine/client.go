@@ -11,18 +11,15 @@ package engine
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	stdnet "net"
 	"strings"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/spkaeros/rscgo/pkg/db"
-	"github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/net/handlers"
 	"github.com/spkaeros/rscgo/pkg/game/net/handshake"
@@ -118,11 +115,6 @@ func (c *client) startNetworking() {
 				if read(c, header) < 2 {
 					continue
 				}
-//				for cur := 0; cur < 2; cur += read(c, header[cur:]) {
-//					if cur < 2 {
-//						log.Info.Printf("Small header:%v\n", header)
-//					}
-//				}
 				frameSize := int(header[0] & 0xFF)
 				if frameSize >= 160 {
 					frameSize = ((frameSize-160)<<8) | int(header[1] & 0xFF)
@@ -140,18 +132,6 @@ func (c *client) startNetworking() {
 					if read(c, localData) == -1 {
 						continue
 					}
-/*
-					for cur := 0; cur < 2; cur += read(c, header[cur:]) {
-						if cur < 0 {
-							continue
-						}
-						log.Info.Printf("Small header:%v\n", header)
-					}
-*/
-//					localData := make([]byte, frameSize)
-//					for cur := 0; cur < 2; cur += read(c, localData[cur:]) {
-//						log.Info.Printf("Small payload:%v\n", localData)
-//					}
 				}
 				if frameSize < 160 {
 					localData = append(localData, header[1])
@@ -162,24 +142,6 @@ func (c *client) startNetworking() {
 				}
 				incomingPackets <- net.NewPacket(localData[0], localData[1:])
 
-/*				p, err := c.readPacket()
-				if err != nil {
-					if err, ok := err.(errors.NetError); ok && err.Fatal {
-						return
-					}
-
-					continue
-				}
-				if p == nil {
-					continue
-				}
-				if !c.player.Connected() && p.Opcode != 32 && p.Opcode != 0 && p.Opcode != 2 {
-					log.Warning.Printf("Unauthorized packet[opcode:%v,len:%v] rejected from: %v\n", p.Opcode, len(p.FrameBuffer), c)
-					return
-				}
-				
-				incomingPackets <- p
-				*/
 			case <-c.player.KillC:
 				return
 			}
@@ -235,8 +197,7 @@ func (c *client) destroy() {
 func (c *client) handlePacket(p *net.Packet) {
 	handler := handlers.Handler(p.Opcode)
 	if handler == nil {
-		log.Info.Printf("Unhandled Packet: {opcode:%d; length:%d};\n", p.Opcode, len(p.FrameBuffer))
-		fmt.Printf("CONTENT: %v\n", p.FrameBuffer)
+		log.Info.Printf("Unhandled Packet: {opcode:%d; length:%d; payload:%v};\n", p.Opcode, len(p.FrameBuffer), p.FrameBuffer)
 		return
 	}
 
@@ -266,98 +227,30 @@ func (c *client) Write(src []byte) int {
 		c.readWriter.Flush()
 	}
 	if err != nil {
-		log.Error.Println("Problem writing to websocket client:", err)
+		log.Error.Println("Problem occurred writing data to a client:", err)
 		c.player.Destroy()
 		return -1
 	}
 	return dataLen
 }
-
-//Read Reads data off of the client's socket into 'dst'.  Returns length read into dst upon success.  Otherwise, returns -1 with a meaningful error message.
-func (c *client) Read(dst []byte) (int, error) {
-	// set the read deadline for the socket to 10 seconds from now.
-	err := c.socket.SetReadDeadline(time.Now().Add(time.Second * 10))
-	if err != nil {
-		return -1, errors.NewNetworkError("Connection closed", true)
-	}
-
-	n, err := c.readWriter.Read(dst)
-	c.readSize += n
-	if err != nil {
-		log.Info.Println(err)
-		if err == io.EOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
-			return -1, errors.NewNetworkError("Connection closed", true)
-		} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
-			return -1, errors.NewNetworkError("Connection timeout", true)
-		}
-		return -1, err
-	}
-	return n, nil
-}
-
-//	return -1, errors.NewNetworkError("Unknown packet problem", false)
-//}
-
-//readPacket Attempts to read and parse the next 3 bytes of incoming data for the 16-bit length and 8-bit opcode of the next net frame the client is sending us.
-func (c *client) readPacket() (p *net.Packet, err error) {
-	header := make([]byte, 2)
-	for writeCaret := 0; writeCaret < 2; {
-		l, err := c.Read(header[writeCaret:])
-		if err != nil {
-			return nil, err
-		}
-		writeCaret += l
-	}
-	length := int(header[0] & 0xFF)
-	header = header[1:]
-	if length >= 160 {
-		length = ((length-160)<<8) | int(header[0] & 0xFF)
-		header = header[1:]
-	} else {
-		length -= 1
-	}
-
-	if length >= 4998 || length < 0 {
-		log.Suspicious.Printf("Invalid packet length from [%v]: %d\n", c, length)
-		log.Warning.Printf("Packet from [%v] length out of bounds; got %d, expected between 0 and 5000\n", c, length)
-		return nil, errors.NewNetworkError("Packet length out of bounds; must be between 0 and 5000.", false)
-	}
-
-	payload := make([]byte, length)
-	if length > 0 {
-		for writeCaret := 0; writeCaret < length;  {
-			l, err := c.Read(payload[writeCaret:])
-			if err != nil {
-				return nil, errors.NewNetworkError("Unknown packet problem for player " + c.player.Username() + " packet[" + strconv.Itoa(int(header[0])) + "] = " + string(payload), false)
-			}
-			writeCaret += l
-		}
-	}    
-	if len(header) > 0 {
-		// If the length in the header used 1 byte, the 2nd byte in the header is the final byte of frame data
-		payload = append(payload, header[0])
-	}
-
-	return net.NewPacket(payload[0], payload[1:]), nil
-}
-
 //writePacket This is a method to send a net to the client.  If this is a bare net, the net payload will
 // be written as-is.  If this is not a bare packet, the packet will have the first 3 bytes changed to the
 // appropriate values for the client to parse the length and opcode for this net.
 func (c *client) writePacket(p net.Packet) {
-	if p.HeaderBuffer == nil {
+	if p.Opcode == 0 {
 		c.Write(p.FrameBuffer)
 		return
 	}
 	frameLength := len(p.FrameBuffer)
-	if frameLength >= 0xA0 {
-		p.HeaderBuffer[0] = byte(frameLength>>8 + 0xA0)
-		p.HeaderBuffer[1] = byte(frameLength)
+	header := []byte{0, 0}
+	if frameLength >= 160 {
+		header[0] = byte(frameLength>>8 + 160)
+		header[1] = byte(frameLength)
 	} else {
-		p.HeaderBuffer[0] = byte(frameLength)
+		header[0] = byte(frameLength)
 		frameLength--
-		p.HeaderBuffer[1] = p.FrameBuffer[frameLength]
+		header[1] = p.FrameBuffer[frameLength]
 	}
-	c.Write(append(p.HeaderBuffer, p.FrameBuffer[:frameLength]...))
+	c.Write(append(header, p.FrameBuffer[:frameLength]...))
 	return
 }

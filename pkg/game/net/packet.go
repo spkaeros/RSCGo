@@ -27,19 +27,18 @@ import (
 type Packet struct {
 	Opcode       byte
 	FrameBuffer  []byte
-	HeaderBuffer []byte
 	readIndex    int
 	bitIndex     int
 }
 
 //NewPacket Creates a new net instance.
 func NewPacket(opcode byte, payload []byte) *Packet {
-	return &Packet{Opcode: opcode, FrameBuffer: payload, HeaderBuffer: make([]byte, 2)}
+	return &Packet{Opcode: opcode, FrameBuffer: payload}
 }
 
 //NewEmptyPacket Creates a new net instance intended for sending formatted data to the client.
 func NewEmptyPacket(opcode byte) *Packet {
-	return &Packet{Opcode: opcode, FrameBuffer: []byte{opcode}, HeaderBuffer: make([]byte, 2)}
+	return &Packet{Opcode: opcode, FrameBuffer: []byte{opcode}}
 }
 
 //NewReplyPacket Creates a new net instance intended for sending raw data to the client.
@@ -167,20 +166,18 @@ func (p *Packet) ReadStringN(n int) (val string) {
 //ReadString Read the next variable-length C-string from the net payload and return it as a Go-string.
 // This will keep reading data until it reaches a null-byte or a new-line character ( '\0', 0xA, 0, 10 ).
 func (p *Packet) ReadString() string {
-	start := p.readIndex
-	s := string(p.FrameBuffer[start:])
-	end := strings.IndexByte(s, 0)+1
-	if end < 0 {
-		end = strings.IndexByte(s, '\n')+1
-		if end < 0 {
-			end = p.Length()
+	// String termination chars in order of precedence: NULL(\0), LineFeed (\n), and space(' ')
+	availableData := string(p.FrameBuffer[p.readIndex:])
+	for _, separator := range []byte {0, 10} {
+		end := strings.IndexByte(availableData, separator)
+		if end <= 0 {
+			continue
 		}
+		p.Skip(end+1)
+		return availableData[:end]
 	}
-	p.readIndex += end
-	if end <= 0 {
-		return s
-	}
-	return s[:end-1]
+	p.Skip(len(availableData))
+	return availableData
 }
 
 //AddUint64 Adds a 64-bit integer to the net payload.

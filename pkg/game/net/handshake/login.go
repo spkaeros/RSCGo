@@ -27,8 +27,8 @@ import (
 func init() {
 	handlers.AddHandler("loginreq", func(player *world.Player, p *net.Packet) {
 		player.SetConnected(true)
-		loginReply := NewLoginListener(player).ResponseListener()
 		
+		loginReply := NewLoginListener(player).ResponseListener()
 		if !world.UpdateTime.IsZero() {
 			loginReply <- ResponseLoginServerRejection
 			return
@@ -74,7 +74,6 @@ func init() {
 
 		player.Transients().SetVar("username", strutil.Base37.Encode(strings.TrimSpace(decryptedP.ReadString())))
 		password := strings.TrimSpace(decryptedP.ReadString())
-
 //		xteaSize := p.ReadUint16()
 //		data = make([]byte, xteaSize)
 //		xteaRead := p.Read(data)
@@ -94,15 +93,15 @@ func init() {
 //		out := make([]byte, xteaSize)
 //		c.Decrypt(out, data)
 //		p = net.NewPacket(0, crypto.DecryptXTEA(xteaSize, data, append(ourSeeds, theirSeeds...)...))
-//		log.Info.Println(p, decryptedP)
+//		log.Info.Println(password)
 //		player.Transients().SetVar("username", strutil.Base37.Encode(strings.TrimSpace(p.ReadString())))
 
-		if world.Players.ContainsHash(player.UsernameHash()) {
-			loginReply <- ResponseLoggedIn
-			return
-		}
 
 		go func() {
+			if world.Players.ContainsHash(player.UsernameHash()) {
+				loginReply <- ResponseLoggedIn
+				return
+			}
 			//dataService is a db.PlayerService that all login-related functions should use to access or change player profile data.
 			var dataService = db.DefaultPlayerService
 			if !dataService.PlayerNameExists(player.Username()) || !dataService.PlayerValidLogin(player.UsernameHash(), crypto.Hash(password)) {
