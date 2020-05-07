@@ -60,12 +60,13 @@ func init() {
 
 var Debugf = Info.Printf
 var Debug = Info.Println
+var Debugln = Info.Println
 
-var Warningf = Warning.Printf
-//var Warning = Warning.Println
+var Warnf = Warning.Printf
+var Warn = Warning.Println
 
 var Errorf = Error.Printf
-//var Error = Error.Println
+var Fatal = Error.Println
 
 var Cheatf = Suspicious.Printf
 var Cheat = Suspicious.Println
