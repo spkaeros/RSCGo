@@ -12,6 +12,7 @@ package world
 import (
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/jag"
@@ -40,6 +41,7 @@ type Sector struct {
 
 //Sectors A map to store landscape sectors by their hashed file name.
 var Sectors = make(map[int]*Sector)
+var SectorsLock sync.RWMutex
 
 //LoadCollisionData Loads the JAG archive './data/landscape.jag', decodes it, and stores the map sectors it holds in
 // memory for quick access.
@@ -53,7 +55,9 @@ func LoadCollisionData() {
 		id := int(uint32(archive.MetaData[metaDataCaret]&0xFF)<<24 | uint32(archive.MetaData[metaDataCaret+1]&0xFF)<<16 | uint32(archive.MetaData[metaDataCaret+2]&0xFF)<<8 | uint32(archive.MetaData[metaDataCaret+3]&0xFF))
 		startCaret := entryFileCaret
 		entryFileCaret += int(uint32(archive.MetaData[metaDataCaret+7]&0xFF)<<16 | uint32(archive.MetaData[metaDataCaret+8]&0xFF)<<8 | uint32(archive.MetaData[metaDataCaret+9]&0xFF))
+		SectorsLock.Lock()
 		Sectors[id] = loadSector(archive.FileData[startCaret:entryFileCaret])
+		SectorsLock.Unlock()
 		metaDataCaret += 10
 	}
 }
@@ -225,6 +229,8 @@ func sectorName(x, y int) string {
 }
 
 func sectorFromCoords(x, y int) *Sector {
+	SectorsLock.RLock()
+	defer SectorsLock.RUnlock()
 	if s, ok := Sectors[strutil.JagHash(sectorName(x, y))]; ok && s != nil {
 		return s
 	}
