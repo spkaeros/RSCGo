@@ -26,7 +26,7 @@ import (
 
 func init() {
 	handlers.AddHandler("loginreq", func(player *world.Player, p *net.Packet) {
-		loginReply := NewLoginListener(player).ResponseListener()
+		loginReply := NewLoginListener(player).attachPlayer(player)
 		if !world.UpdateTime.IsZero() {
 			loginReply <- response{ResponseLoginServerRejection, "System update in progress"}
 			return
@@ -35,7 +35,7 @@ func init() {
 			loginReply <- response{ResponseWorldFull, "Out of usable player slots"}
 			return
 		}
-		if LoginThrottle.Recent(player.CurrentIP(), time.Minute*5) >= 5 {
+		if loginThrottle.Recent(player.CurrentIP(), time.Minute*5) >= 5 {
 			loginReply <- response{ResponseSpamTimeout, "Too many recent invalid login attempts (5 in 5 minutes)"}
 			return
 		}

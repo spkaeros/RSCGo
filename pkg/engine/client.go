@@ -29,7 +29,7 @@ import (
 
 //client Represents a single connecting client.
 type client struct {
-	player     *world.Player
+	*world.Player
 	socket     stdnet.Conn
 	destroyer  sync.Once
 	readWriter *bufio.ReadWriter
@@ -46,23 +46,23 @@ func (c *client) startNetworking() {
 
 	go func() {
 		defer awaitDeath.Done()
-		defer c.player.Destroy()
+		defer c.Destroy()
 		awaitDeath.Add(1)
 		for {
 			select {
-			case p := <-c.player.OutgoingPackets:
+			case p := <-c.OutgoingPackets:
 				if p == nil {
 					return
 				}
 				c.writePacket(*p)
-			case <-c.player.KillC:
+			case <-c.KillC:
 				return
 			}
 		}
 	}()
 	go func() {
 		defer awaitDeath.Done()
-		defer c.player.Destroy()
+		defer c.Destroy()
 		read := func(c *client, data []byte) int {
 			written := 0; 
 			for written < len(data) {
@@ -82,7 +82,7 @@ func (c *client) startNetworking() {
 						} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
 							return -1
 						}
-						log.Warning.Println("Problem creating reader for next websocket frame:", err)
+						log.Warn("Problem creating reader for next websocket frame:", err)
 					}
 					c.readWriter.Reader = bufio.NewReader(reader)
 				}
@@ -91,7 +91,6 @@ func (c *client) startNetworking() {
 				if err != nil {
 					if err == io.EOF {
 						if !c.frameFin {
-//							log.Info.Println(err)
 							continue
 						}
 					}
@@ -104,7 +103,6 @@ func (c *client) startNetworking() {
 				}
 				written += n
 			}
-//			log.Info.Printf("data[%d]:%v\n", written, data)
 			return written
 		}
 		awaitDeath.Add(1)
@@ -124,7 +122,7 @@ func (c *client) startNetworking() {
 			
 				// Upper bound is an approximation of the max size of the clientside outgoing data buffer
 				if frameSize >= 23768 || frameSize < 0 {
-					log.Suspicious.Printf("Invalid packet length from [%v]: %d\n", c, frameSize)
+					log.Cheatf("Invalid packet length from [%v]: %d\n", c, frameSize)
 					continue
 				}
 				localData := make([]byte, frameSize)
@@ -136,13 +134,13 @@ func (c *client) startNetworking() {
 				if frameSize < 160 {
 					localData = append(localData, header[1])
 				}
-				if !c.player.Connected() && !handshake.EarlyOperation(int(localData[0])) {
-					log.Warning.Printf("Unauthorized packet[opcode:%v,size:%v (expected:%v)] rejected from: %v\n", localData[0], len(localData), frameSize, c)
+				if !c.Connected() && !handshake.EarlyOperation(int(localData[0])) {
+					log.Warnf("Unauthorized packet[opcode:%v,size:%v (expected:%v)] rejected from: %v\n", localData[0], len(localData), frameSize, c)
 					continue
 				}
 				incomingPackets <- net.NewPacket(localData[0], localData[1:])
 
-			case <-c.player.KillC:
+			case <-c.KillC:
 				return
 			}
 		}
@@ -151,16 +149,16 @@ func (c *client) startNetworking() {
 		defer c.destroy()
 		defer close(incomingPackets)
 		defer awaitDeath.Wait()
-		defer c.player.Destroy()
+		defer c.Destroy()
 		for {
 			select {
 			case p := <-incomingPackets:
 				if p == nil {
-					log.Warning.Println("Tried processing nil packet!")
+					log.Warn("Tried processing nil packet!")
 					continue
 				}
 				c.handlePacket(p)
-			case <-c.player.KillC:
+			case <-c.KillC:
 				return
 			}
 		}
@@ -171,24 +169,23 @@ func (c *client) startNetworking() {
 func (c *client) destroy() {
 	c.destroyer.Do(func() {
 		go func() {
-			c.player.UpdateWG.RLock()
-			c.player.SetConnected(false)
+//			c.UpdateWG.RLock()
+			log.Debug("Unregistering:'" + c.Username() + "'@'" + c.CurrentIP() + "'")
+			c.Attributes.SetVar("lastIP", c.CurrentIP())
 			if err := c.socket.Close(); err != nil {
-				log.Error.Println("Couldn't close socket:", err)
+				log.Warn("Couldn't close socket:", err)
 			}
-			close(c.player.OutgoingPackets)
-			if player, ok := world.Players.FromIndex(c.player.Index); c.player.Index == -1 || (ok && player != c.player) || !ok {
-				log.Warning.Printf("Unregistered: Unauthenticated connection ('%v'@'%v')\n", c.player.Username(), c.player.CurrentIP())
+			world.RemovePlayer(c.Player)
+			c.SetConnected(false)
+			close(c.OutgoingPackets)
+			if player, ok := world.Players.FromIndex(c.Index); ok && player != c.Player || !ok || !c.Connected() {
 				if ok {
-					log.Suspicious.Printf("Unauthenticated player being destroyed had index %d and there is a player that is assigned that index already! (%v)\n", c.player.Index, player)
+					log.Cheatf("Unauthenticated player being destroyed had index %d and there is a player that is assigned that index already! (%v)\n", c.Index, player)
 				}
 				return
 			}
-			c.player.Attributes.SetVar("lastIP", c.player.CurrentIP())
-			world.RemovePlayer(c.player)
-			db.DefaultPlayerService.PlayerSave(c.player)
-			log.Info.Printf("Unregistered: %v\n", c.player.String())
-			c.player.UpdateWG.RUnlock()
+			db.DefaultPlayerService.PlayerSave(c.Player)
+//			c.UpdateWG.RUnlock()
 		}()
 	})
 }
@@ -197,20 +194,18 @@ func (c *client) destroy() {
 func (c *client) handlePacket(p *net.Packet) {
 	handler := handlers.Handler(p.Opcode)
 	if handler == nil {
-		log.Info.Printf("Unhandled Packet: {opcode:%d; length:%d; payload:%v};\n", p.Opcode, len(p.FrameBuffer), p.FrameBuffer)
+		log.Debugf("Packet{\n\topcode:%d;\n\tlength:%d;\n\tpayload:%v\n};\n", p.Opcode, len(p.FrameBuffer), p.FrameBuffer)
 		return
 	}
 
-	handler(c.player, p)
+	handler(c.Player, p)
 }
 
 //newClient Creates a new instance of a client, launches goroutines to handle I/O for it, and returns a reference to it.
-func newClient(socket stdnet.Conn, ws2 bool) *client {
-	c := &client{socket: socket}
-	c.player = world.NewPlayer(-1, strings.Split(socket.RemoteAddr().String(), ":")[0])
-	c.websocket = ws2
-	c.readWriter = bufio.NewReadWriter(bufio.NewReader(socket), bufio.NewWriter(socket))
-	c.startNetworking()
+func newClient(socket stdnet.Conn, ws bool) *client {
+	c := &client{socket: socket, Player: world.NewPlayer(-1, strings.Split(socket.RemoteAddr().String(), ":")[0]),
+			websocket: ws, readWriter: bufio.NewReadWriter(bufio.NewReader(socket), bufio.NewWriter(socket))}
+	defer c.startNetworking()
 	return c
 }
 
@@ -228,7 +223,7 @@ func (c *client) Write(src []byte) int {
 	}
 	if err != nil {
 		log.Error.Println("Problem occurred writing data to a client:", err)
-		c.player.Destroy()
+		c.Destroy()
 		return -1
 	}
 	return dataLen

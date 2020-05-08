@@ -25,8 +25,8 @@ import (
 
 func init() {
 	handlers.AddHandler("newplayer", func(player *world.Player, p *net.Packet) {
-		reply := NewRegistrationListener(player).ResponseListener()
-		if RegisterThrottle.Recent(player.CurrentIP(), time.Hour) >= 2 {
+		reply := NewRegistrationListener(player).attachPlayer(player)
+		if registerThrottle.Recent(player.CurrentIP(), time.Hour) >= 2 {
 			reply <- response{ResponseSpamTimeout, "Recently registered too many other characters"}
 			return
 		}

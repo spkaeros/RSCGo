@@ -64,11 +64,11 @@ func (t *TaskList) RunSynchronous() {
 // TODO: Probably some form of pooling?
 func (t *TaskList) RunAsynchronous() {
 	var removeList []string
-	var executionList sync.WaitGroup
-	executionList.Add(t.Count())
+	var runningTasks sync.WaitGroup
+	runningTasks.Add(t.Count())
 	t.Range(func(name string, task Task) {
 		// start := time.Now()
-		defer executionList.Done()
+		defer runningTasks.Done()
 		go func() {
 			if task() {
 				removeList = append(removeList, name)
@@ -76,7 +76,7 @@ func (t *TaskList) RunAsynchronous() {
 		}()
 		// log.Info.Printf("tickTask--%s; finished executing in %v", name, time.Since(start))
 	})
-	executionList.Wait()
+	runningTasks.Wait()
 	for _, taskName := range removeList {
 		t.Remove(taskName)
 	}
