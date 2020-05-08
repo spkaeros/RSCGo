@@ -20,48 +20,39 @@ import (
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	`github.com/spkaeros/rscgo/pkg/game/net/handlers`
 	"github.com/spkaeros/rscgo/pkg/game/world"
-	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 func init() {
 	handlers.AddHandler("newplayer", func(player *world.Player, p *net.Packet) {
-		player.SetConnected(true)
-
-		reply := NewRegistrationListener(player).ResponseListener()
-		username := "nil"
-		sendReply := func(code ResponseCode, reason string) {
-			log.Info.Printf("New player denied: [ Reason:'%s'; username='%s'; ip='%s'; response=%d; ]\n", reason, username, player.CurrentIP(), code)
-			reply <- ResponseCode(code)
-		}
-		if RegisterThrottle.Recent(player.CurrentIP(), time.Hour) >= 2 {
-			sendReply(ResponseSpamTimeout, "Recently registered too many other characters")
+		reply := NewRegistrationListener(player).attachPlayer(player)
+		if registerThrottle.Recent(player.CurrentIP(), time.Hour) >= 2 {
+			reply <- response{ResponseSpamTimeout, "Recently registered too many other characters"}
 			return
 		}
 		if version := p.ReadUint16(); version != config.Version() {
-			sendReply(ResponseUpdated, "Client version (" + strconv.Itoa(version) + ") out of date")
+			reply <- response{ResponseUpdated, "Invalid client version (" + strconv.Itoa(version) + ")"}
 			return
 		}
-		username = strutil.Base37.Decode(p.ReadUint64())
+		username := strutil.Base37.Decode(p.ReadUint64())
 		password := strings.TrimSpace(p.ReadString())
 		player.Transients().SetVar("username", username)
-		if userLen, passLen := len(username), len(password); userLen < 2 || userLen > 12 || passLen < 5 || passLen > 20 {
-			sendReply(ResponseBadInputLength, "Password and/or username too long and/or too short.")
-			return
-		}
 		go func() {
+			if userLen, passLen := len(username), len(password); userLen < 2 || userLen > 12 || passLen < 5 || passLen > 20 {
+				reply <- response{ResponseBadInputLength, "Password and/or username too long and/or too short."}
+				return
+			}
 			dataService := db.DefaultPlayerService
 			if dataService.PlayerNameExists(username) {
-				sendReply(ResponseUsernameTaken, "Username is taken")
+				reply <- response{ResponseUsernameTaken, "Username is taken by another player already."}
 				return
 			}
 
 			if !dataService.PlayerCreate(username, crypto.Hash(password), player.CurrentIP()) {
-				sendReply(-1, "Unknown issue during PlayerCreate call")
+				reply <- response{-1, ""}
 				return
 			}
-			log.Info.Printf("New player created: [ username='%s'; ip='%s' ]", username, player.CurrentIP())
-			reply <- ResponseRegisterSuccess
+			reply <- response{ResponseRegisterSuccess, ""}
 		}()
 	})
 }

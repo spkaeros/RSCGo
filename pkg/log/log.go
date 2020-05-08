@@ -57,3 +57,16 @@ func init() {
 		Error.Println("Could not open cheaters log file for writing:", err)
 	}
 }
+
+var Debugf = Info.Printf
+var Debug = Info.Println
+var Debugln = Info.Println
+
+var Warnf = Warning.Printf
+var Warn = Warning.Println
+
+var Errorf = Error.Printf
+var Fatal = Error.Println
+
+var Cheatf = Suspicious.Printf
+var Cheat = Suspicious.Println

@@ -16,6 +16,13 @@ import (
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 
+// thin wrapper around Anko spell handling subroutines.
+// Utilizing the scripting environments runtime we can gain cool benefits, e.g 
+// fully dynamic spell dispatching, since the scripts and their env are all loaded at runtime.
+// This also means that it is easier to shoot oneself in the foot (without realizing it, at times).
+// For this reason, the API for scripts to use is implemented in stable fast Go, while scripts using said API
+// can get away with suffering a minor performance decrease without causing any issues to the game.
+
 func init() {
 	AddHandler("spellnpc", func(player *world.Player, p *net.Packet) {
 		targetIndex := p.ReadUint16()

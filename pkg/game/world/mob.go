@@ -3,6 +3,7 @@ package world
 import (
 	"math"
 	"math/rand"
+	"strconv"
 	"sync"
 	"time"
 
@@ -600,7 +601,7 @@ func (m *Mob) Skills() *entity.SkillTable {
 
 func (m *Mob) PrayerModifiers() [3]float64 {
 	var modifiers = [...]float64{1.0, 1.0, 1.0}
-/*
+
 
 	mods := []float64 { 1.05, 1.10, 1.15 }
 
@@ -624,8 +625,7 @@ func (m *Mob) PrayerModifiers() [3]float64 {
 			modifiers[entity.StatAttack] = mods[idx]
 		}
 	}
-*/
-	if m.VarBool("prayer0", false) {
+/*	if m.VarBool("prayer0", false) {
 		modifiers[1] += .05
 	}
 	if m.VarBool("prayer1", false) {
@@ -651,7 +651,7 @@ func (m *Mob) PrayerModifiers() [3]float64 {
 	}
 	if m.VarBool("prayer11", false) {
 		modifiers[0] += .15
-	}
+	}*/
 	return modifiers
 }
 
@@ -660,15 +660,15 @@ func (m *Mob) StyleBonus(stat int) int {
 	if mode == 0 {
 		return 1
 	}
-//	if mode == (stat+1)%3+1 {
+	if mode == (stat+1)%3+1 {
+		return 3
+	}
+//	if (mode == 1 && stat == entity.StatStrength) || (mode == 2 && stat == entity.StatAttack) || (mode == 3 && stat == entity.StatDefense) {
 //		return 3
 //	}
 //	modes := []int { entity.StatStrength, entity.StatAttack, entity.StatDefense }
 //	if mode == 0 {
 //		return 1
-	if (mode == 1 && stat == entity.StatStrength) || (mode == 2 && stat == entity.StatAttack) || (mode == 3 && stat == entity.StatDefense) {
-		return 3
-	}
 	return 0
 }
 
@@ -701,7 +701,7 @@ func (m *Mob) CombatRng() *rand.Rand {
 //MagicDamage Calculates and returns a combat spells damage from the 
 // receiver mob cast unto the target MobileEntity.  This basically wraps a statistically
 // random percentage check around a call to GenerateHit.
-func (m *Mob) MagicDamage(target entity.MobileEntity, maximum int) int {
+func (m *Mob) MagicDamage(target entity.MobileEntity, maximum float64) int {
 	// TODO: Tweak the defense/armor hit/miss formula to better match RSC--or at least verify this is somewhat close?
 	if BoundedChance(float64(m.MagicPoints())/(target.DefensePoints()*4)*100, 0.0, 82.0) {
 		return m.GenerateHit(maximum)
@@ -713,10 +713,11 @@ func (m *Mob) MagicDamage(target entity.MobileEntity, maximum int) int {
 //GenerateHit returns a normally distributed random number from this mobs PRNG instance,
 // between 1 and max, inclusive.  This is widely believed to be how Jagex generated damage hits,
 // and it feels accurate while playing.
-func (m *Mob) GenerateHit(max int) int {
+func (m *Mob) GenerateHit(max float64) int {
 	var damage float64
-	for damage > float64(max) || damage < 1 {
-		damage = math.Floor((m.CombatRng().NormFloat64() * float64(max/3)) + float64(max/2))
+	for damage > max || damage < 1.0 {
+		log.Debugf("%v of %v\n", damage, max)
+		damage = math.Floor((m.CombatRng().NormFloat64() * (max/3)) + (max/2))
 	}
 	
 	return int(damage)
@@ -729,7 +730,7 @@ func (m *Mob) GenerateHit(max int) int {
 // statistically fairly well to the real game.  I can not say for sure as I didn't do these things myself, though.
 func (m *Mob) MeleeDamage(target entity.MobileEntity) int {
 	if BoundedChance(m.AttackPoints()/(target.DefensePoints()*4)*100, 0.0, 82.0) {
-		return m.GenerateHit(int(m.MaxMeleeDamage()))
+		return m.GenerateHit(m.MaxMeleeDamage())
 	}
 	
 	return 0

@@ -293,6 +293,10 @@ func loadSector(data []byte) (s *Sector) {
 				if walls[i][0] < 0 {
 					continue
 				}
+				if boundary := walls[i][0]; boundary > len(BoundaryDefs)-1 {
+					log.Debugf("Out of bounds indexing attempted into BoundaryDefs[%d]; while upper bound is currently %d\n", boundary, len(BoundaryDefs)-1)
+					continue
+				}
 				if wall := BoundaryDefs[walls[i][0]]; !wall.Dynamic && wall.Solid {
 					s.Tiles[x*RegionSize+y].CollisionMask |= int16(walls[i][1])
 					if walls[i][2] > 0 {

@@ -9,22 +9,6 @@ max_players = 2048
 # The TOML file containing incoming packet definitions.
 packet_handler_table = 'packets.toml'
 
-[database]
-# SQLite3
-# The SQL database drivers
-#player_driver = "sqlite3"
-#world_driver = "sqlite3"
-# The SQL connection strings
-#player_db = "file:./data/players.db"
-#world_db = "file:./data/world.db"
-# PostgreSQL
-# The SQL database drivers
-player_driver = 'postgres'
-world_driver = 'postgres'
-# The SQL connection strings
-player_db = 'host=127.0.0.1 port=5432 user=zach password=zeb!Rscgo!A2019 dbname=rscgo sslmode=disable'
-world_db = 'host=127.0.0.1 port=5432 user=zach password=zeb!Rscgo!A2019 dbname=rscgo sslmode=disable'
-
 [crypto]
 # Length of hash output
 hash_length = 32
