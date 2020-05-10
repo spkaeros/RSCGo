@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"sync"
 	"time"
 	"math"
 	"strconv"
@@ -39,22 +40,6 @@ func init() {
 	config.TomlConfig.Version = 204
 	config.TomlConfig.Port = 43594 // = 43595 for websocket connections
 
-}
-func startAsync(fns ...func()) {
-//	wg := sync.WaitGroup{}
-//	wg.Add(len(fns))
-//	(*wg1).Add(1)
-//	log.Debug(fns)
-	for _, v := range fns {
-//		go func() {
-//			defer wg.Done()	
-			v()
-//		}()
-	}
-//	(*wg1).Done()
-}
-
-func main() {
 	if _, err := flags.Parse(&Flags); err != nil {
 		os.Exit(100)
 	}
@@ -65,21 +50,38 @@ func main() {
 	if len(Flags.Config) == 0 {
 		Flags.Config = "config.toml"
 	}
+	if _, err := toml.DecodeFile(Flags.Config, &config.TomlConfig); err != nil {
+		log.Warn("Error reading general config file:", err)
+		os.Exit(102)
+	}
+	if _, err := toml.DecodeFile("data/dbio.conf", &config.TomlConfig.Database); err != nil {
+		log.Warn("Error reading database config file:", err)
+		os.Exit(110)
+	}
+	db.ConnectEntityService()
+	db.DefaultPlayerService = db.NewPlayerServiceSql()
+}
+
+func async(fns ...func()) (*sync.WaitGroup) {
+	var wg sync.WaitGroup
+	for _, v := range fns {
+//		wg.Add(1)
+//		go func() {
+//			defer wg.Done()
+			v()
+//		}()
+	}
+//	return &wg
+	return &wg
+}
+
+func main() {
 //	if Flags.UseCipher {
 //		log.Debug("TODO: Figure out why ISAAC cipher sometimes works, yet eventually desynchronizes from client's ISAAC stream.")
 //		log.Debug("This cipher will remain disabled until such time as this issue gets resolved.  Possibly to be replaced by full stream encryption anyways")
 //		Flags.UseCipher = false
 //	}
-	if _, err := toml.DecodeFile("./data/dbio.conf", &config.TomlConfig.Database); err != nil {
-		log.Warn("Error reading database config file:", err)
-		os.Exit(110)
-	}
-	db.DefaultPlayerService = db.NewPlayerServiceSql()
-	db.ConnectEntityService()
-	if _, err := toml.DecodeFile(Flags.Config, &config.TomlConfig); err != nil {
-		log.Warn("Error reading general config file:", err)
-		os.Exit(102)
-	}
+
 	config.Verbosity = int(math.Min(math.Max(float64(len(Flags.Verbose)), 0), 4))
 	if Flags.Port > 0 {
 		config.TomlConfig.Port = Flags.Port
@@ -92,27 +94,32 @@ func main() {
 //	var wg sync.WaitGroup
 //	wg.Add(1)
 //	go func() {
+	(*async(db.LoadTileDefinitions, db.LoadBoundaryDefinitions, db.LoadObjectDefinitions, db.LoadNpcDefinitions, db.LoadItemDefinitions)).Wait()
+	(*async(db.LoadItemLocations, db.LoadNpcLocations, db.LoadObjectLocations)).Wait()
+	(*async(handlers.UnmarshalPackets, world.LoadCollisionData, world.RunScripts)).Wait()
+//	db.LoadObjectLocations()
+//	db.LoadNpcLocations()
+//	db.LoadItemLocations()
+//	handlers.UnmarshalPackets()
+//	world.LoadCollisionData()
+//	world.RunScripts()
+//	world.RunScripts()
+	/*
 		// Running these init functions that are I/O heavy and synchronization between them is never important within
-		db.LoadTileDefinitions()
 		//  their own goroutines should save some initialization time.
+		db.LoadTileDefinitions()
 		db.LoadObjectDefinitions()
 		db.LoadBoundaryDefinitions()
 		db.LoadNpcDefinitions()
 		db.LoadItemDefinitions()
-//		wg.Done()
-//	}()
-//	wg.Wait()
-//	phaseEverything := sync.WaitGroup{}
-	/*phaseInstances := */
-//	(*startAsync(db.LoadObjectLocations, db.LoadItemLocations, handlers.UnmarshalPackets)).Wait()
+
 	db.LoadObjectLocations()
 	db.LoadNpcLocations()
 	db.LoadItemLocations()
 	handlers.UnmarshalPackets()
 	world.LoadCollisionData()
-//	phaseInstances.Wait()
-//	phaseEverything.Wait()
 	world.RunScripts()
+	*/
 	// Entity definitions
 
 	// Entity locations

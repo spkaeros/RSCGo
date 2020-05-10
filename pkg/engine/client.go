@@ -41,7 +41,7 @@ type client struct {
 
 //startNetworking Starts up 3 new goroutines; one for reading incoming data from the socket, one for writing outgoing data to the socket, and one for client state updates and parsing plus handling incoming world.  When the client kill signal is sent through the kill channel, the state update and net handling goroutine will wait for both the reader and writer goroutines to complete their operations before unregistering the client.
 func (c *client) startNetworking() {
-	incomingPackets := make(chan *net.Packet, 20)
+//	incomingPackets := make(chan *net.Packet, 20)
 	awaitDeath := sync.WaitGroup{}
 
 	go func() {
@@ -61,8 +61,8 @@ func (c *client) startNetworking() {
 		}
 	}()
 	go func() {
-		defer awaitDeath.Done()
-		defer c.Destroy()
+		defer c.destroy()
+		defer awaitDeath.Wait()
 		read := func(c *client, data []byte) int {
 			written := 0; 
 			for written < len(data) {
@@ -78,13 +78,15 @@ func (c *client) startNetworking() {
 					c.frameFin = header.Fin
 					if err != nil {
 						if err == io.EOF || err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
+							c.Destroy()
 							return -1
 						} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
+							c.Destroy()
 							return -1
 						}
 						log.Warn("Problem creating reader for next websocket frame:", err)
 					}
-					c.readWriter.Reader = bufio.NewReader(reader)
+					c.readWriter.Reader.Reset(reader)
 				}
 				n, err := c.readWriter.Read(data[written:])
 				c.readSize += n
@@ -95,8 +97,10 @@ func (c *client) startNetworking() {
 						}
 					}
 					if err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
+						c.Destroy()
 						return -1
 					} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
+						c.Destroy()
 						return -1
 					}
 					continue
@@ -105,7 +109,6 @@ func (c *client) startNetworking() {
 			}
 			return written
 		}
-		awaitDeath.Add(1)
 		for {
 			select {
 			default:
@@ -138,14 +141,14 @@ func (c *client) startNetworking() {
 					log.Warnf("Unauthorized packet[opcode:%v,size:%v (expected:%v)] rejected from: %v\n", localData[0], len(localData), frameSize, c)
 					continue
 				}
-				incomingPackets <- net.NewPacket(localData[0], localData[1:])
-
+//				incomingPackets <- net.NewPacket(localData[0], localData[1:])
+				go c.handlePacket(net.NewPacket(localData[0], localData[1:]))
 			case <-c.KillC:
 				return
 			}
 		}
 	}()
-	go func() {
+/*	go func() {
 		defer c.destroy()
 		defer close(incomingPackets)
 		defer awaitDeath.Wait()
@@ -163,6 +166,7 @@ func (c *client) startNetworking() {
 			}
 		}
 	}()
+*/
 }
 
 //destroy Safely tears down a client, saves it to the database, and removes it from game-wide player list.
@@ -170,14 +174,8 @@ func (c *client) destroy() {
 	c.destroyer.Do(func() {
 		go func() {
 //			c.UpdateWG.RLock()
-			log.Debug("Unregistering:'" + c.Username() + "'@'" + c.CurrentIP() + "'")
-			c.Attributes.SetVar("lastIP", c.CurrentIP())
-			if err := c.socket.Close(); err != nil {
-				log.Warn("Couldn't close socket:", err)
-			}
-			world.RemovePlayer(c.Player)
-			c.SetConnected(false)
 			close(c.OutgoingPackets)
+			c.Attributes.SetVar("lastIP", c.CurrentIP())
 			if player, ok := world.Players.FromIndex(c.Index); ok && player != c.Player || !ok || !c.Connected() {
 				if ok {
 					log.Cheatf("Unauthenticated player being destroyed had index %d and there is a player that is assigned that index already! (%v)\n", c.Index, player)
@@ -185,6 +183,12 @@ func (c *client) destroy() {
 				return
 			}
 			db.DefaultPlayerService.PlayerSave(c.Player)
+			c.SetConnected(false)
+			world.RemovePlayer(c.Player)
+			log.Debug("Unregistered:'" + c.Username() + "'@'" + c.CurrentIP() + "'")
+			if err := c.socket.Close(); err != nil {
+				log.Warn("Couldn't close socket:", err)
+			}
 //			c.UpdateWG.RUnlock()
 		}()
 	})
@@ -215,23 +219,24 @@ func (c *client) Write(src []byte) int {
 	var dataLen int
 	if c.websocket {
 		err = wsutil.WriteServerBinary(c.readWriter, src)
-		c.readWriter.Flush()
 		dataLen = len(src)
 	} else {
 		dataLen, err = c.readWriter.Write(src)
-		c.readWriter.Flush()
 	}
 	if err != nil {
 		log.Error.Println("Problem occurred writing data to a client:", err)
 		c.Destroy()
 		return -1
 	}
+	c.readWriter.Flush()
 	return dataLen
 }
+
 //writePacket This is a method to send a net to the client.  If this is a bare net, the net payload will
 // be written as-is.  If this is not a bare packet, the packet will have the first 3 bytes changed to the
 // appropriate values for the client to parse the length and opcode for this net.
 func (c *client) writePacket(p net.Packet) {
+	// zero value implies bare packet or using other terms, unformatted raw data
 	if p.Opcode == 0 {
 		c.Write(p.FrameBuffer)
 		return
