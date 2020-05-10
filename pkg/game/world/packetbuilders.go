@@ -285,6 +285,9 @@ func NPCPositions(player *Player) (p *net.Packet) {
 		p.AddBitmask(n.ID, 10)
 		counter++
 	}
+	if counter <= 0 {
+		return nil
+	}
 	return
 }
 
@@ -307,13 +310,14 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 	p.AddBitmask(player.Direction(), 4)
 	p.AddBitmask(player.LocalPlayers.Size(), 8)
 	counter := 0
-	//	if player.SyncMask&SyncNeedsPosition != 0 {
-	//		player.ResetTickables = append(player.ResetTickables, func() {
-	//			player.ResetRegionRemoved()
-	//			player.ResetRegionMoved()
-	//			player.ResetSpriteUpdated()
-	//		})
-	//	}
+	if player.SyncMask&SyncNeedsPosition != 0 {
+		counter++
+//		player.ResetTickables = append(player.ResetTickables, func() {
+//			player.ResetRegionRemoved()
+//			player.ResetRegionMoved()
+//			player.ResetSpriteUpdated()
+//		})
+	}
 	var removing = NewMobList()
 	player.LocalPlayers.RangePlayers(func(p1 *Player) bool {
 		p1.RLock()
@@ -326,27 +330,27 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 //			player.AppearanceLock.Lock()
 //			delete(player.KnownAppearances, p1.Index)
 //			player.AppearanceLock.Unlock()
-			//				p1.ResetTickables = append(p1.ResetTickables, func() {
-			//					p1.ResetRegionRemoved()
-			//p1.ResetRegionMoved()
-			//p1.ResetSpriteUpdated()
-			//				})
-		} else if p1.SyncMask&SyncMoved == SyncMoved {
+/*			p1.ResetTickables = append(p1.ResetTickables, func() {
+				p1.ResetRegionRemoved()
+				p1.ResetRegionMoved()
+				p1.ResetSpriteUpdated()
+			})
+*/		} else if p1.SyncMask&SyncMoved == SyncMoved {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(0, 1)
 			p.AddBitmask(p1.Direction(), 3)
-			//				p1.ResetTickables = append(p1.ResetTickables, func() {
-			//					p1.ResetRegionMoved()
-			//p1.ResetSpriteUpdated()
-			//				})
-		} else if p1.SyncMask&SyncSprite == SyncSprite {
+/*			p1.ResetTickables = append(p1.ResetTickables, func() {
+				p1.ResetRegionMoved()
+				p1.ResetSpriteUpdated()
+			})
+*/		} else if p1.SyncMask&SyncSprite == SyncSprite {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(1, 1)
 			p.AddBitmask(p1.Direction(), 4)
-			//				p1.ResetTickables = append(p1.ResetTickables, func() {
-			//					p1.ResetSpriteUpdated()
-			//				})
-		} else {
+/*			p1.ResetTickables = append(p1.ResetTickables, func() {
+				p1.ResetSpriteUpdated()
+			})
+*/		} else {
 			p.AddBitmask(0, 1)
 			counter--
 		}
@@ -380,22 +384,22 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		p.AddBitmask((p1.Y() - player.Y()) & 0x1F, 5)
 		p.AddBitmask(p1.Direction(), 4)
 		player.LocalPlayers.Add(p1)
-		player.AppearanceLock.RLock()
-		if ticket, ok := player.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance)!=0 {
-			p.AddBitmask(1, 1)
-			player.AppearanceReq = append(player.AppearanceReq, p1)
-		} else {
+//		player.AppearanceLock.RLock()
+//		if ticket, ok := player.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance)!=0 {
+//			p.AddBitmask(1, 1)
+//			player.AppearanceReq = append(player.AppearanceReq, p1)
+//		} else {
 			p.AddBitmask(0, 1)
-		}
-		player.AppearanceLock.RUnlock()
+//		}
+//		player.AppearanceLock.RUnlock()
 		//		p1.ResetTickables = append(p1.ResetTickables, func() {
 		//			p1.ResetRegionMoved()
 		//			p1.ResetSpriteUpdated()
 		//		})
 	}
-	//	if counter <= 0 {
-	//		return nil
-	//	}
+		if counter <= 0 {
+			return nil
+		}
 	return
 }
 
@@ -921,7 +925,7 @@ func LoginBox(inactiveDays int, lastIP string) (p *net.Packet) {
 	// TODO: Recoverys
 	p.AddUint8(201)                                    // recovery questions set days, 200 = unset, 201 = set
 	// TODO: Message center
-	p.AddUint16(1)                                   // Unread messages, number minus one, 0 does not render anything
+	p.AddUint16(0)                                   // Unread messages, number minus one, 0 does not render anything
 	return p
 }
 

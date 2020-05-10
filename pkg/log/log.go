@@ -70,3 +70,6 @@ var Fatal = Error.Println
 
 var Cheatf = Suspicious.Printf
 var Cheat = Suspicious.Println
+
+var Command = Commands.Println
+var Commandf = Commands.Printf

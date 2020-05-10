@@ -59,6 +59,6 @@ type MobileEntity interface {
 	StyleBonus(int) int
 	PrayerModifiers() [3]float64
 	Skills() *SkillTable
-	Transients() *AttributeList
 	TargetMob() MobileEntity
+	SessionCache() *AttributeList
 }

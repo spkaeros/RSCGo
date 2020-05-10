@@ -11,6 +11,7 @@ package handlers
 
 import (
 	"time"
+	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -60,17 +61,19 @@ func init() {
 				!inArray(validSkinColors, int(skinColor)) || legType != 2 {*/
 		if hairColor >= len(validHeadColors) || !inArray(validHeads, headType) || topColor >= len(validBodyLegColors) ||
 			legColor >= len(validBodyLegColors) || skinColor >= len(validSkinColors) || !inArray(validBodys, bodyType) || legType != 3 || legColor >= len(validBodyLegColors) {
-			log.Info.Printf("Invalid appearance data provided by %v: (headType:%v, bodyType:%v, legType:%v, hairColor:%v, topColor:%v, legColor:%v, skinColor:%v, gender:%v)\n", player.String(), headType, bodyType, legType, hairColor, topColor, legColor, skinColor, isMale)
+			log.Warnf("Invalid appearance data provided by %v: (headType:%v, bodyType:%v, legType:%v, hairColor:%v, topColor:%v, legColor:%v, skinColor:%v, gender:%v)\n", player.String(), headType, bodyType, legType, hairColor, topColor, legColor, skinColor, isMale)
 			return
 		}
-		log.Info.Printf("(headType:%v, bodyType:%v, legType:%v, hairColor:%v, topColor:%v, legColor:%v, skinColor:%v, gender:%v)\n", headType, bodyType, legType, hairColor, topColor, legColor, skinColor, isMale)
+		if config.Verbosity >= 2 {
+			log.Debugf("(headType:%v, bodyType:%v, legType:%v, hairColor:%v, topColor:%v, legColor:%v, skinColor:%v, gender:%v)\n", headType, bodyType, legType, hairColor, topColor, legColor, skinColor, isMale)
+		}
 		if !isMale {
 			if bodyType != femaleBody {
-				log.Suspicious.Println("Correcting invalid packet data: female asked for male body type; setting to female body type, packet from", player)
+				log.Cheat("Correcting invalid packet data: female asked for male body type; setting to female body type, packet from", player)
 				bodyType = femaleBody
 			}
 			if headType == beardHead {
-				log.Suspicious.Println("Correcting invalid packet data: female asked for male head type; setting to female head type, packet from", player)
+				log.Cheat("Correcting invalid packet data: female asked for male head type; setting to female head type, packet from", player)
 				headType = metalHead
 			}
 		}

@@ -128,7 +128,7 @@ type Player struct {
 	KillC            chan struct{}
 	UpdateWG         sync.RWMutex
 	Tickables        []interface{}
-	*Mob
+	Mob
 }
 
 func (p *Player) UsernameHash() uint64 {
@@ -1112,7 +1112,7 @@ func (p *Player) Initialize() {
 
 //NewPlayer Returns a reference to a new player.
 func NewPlayer(index int, ip string) *Player {
-	p := &Player{Mob: &Mob{Entity: &Entity{Index: index, Location: Lumbridge.Clone()}, AttributeList: entity.NewAttributeList()},
+	p := &Player{Mob: Mob{Entity: Entity{Index: index, Location: Lumbridge.Clone()}, AttributeList: *entity.NewAttributeList()},
 		Attributes: entity.NewAttributeList(), LocalPlayers: NewMobList(), LocalNPCs: NewMobList(), LocalObjects: &entityList{},
 		Appearance: DefaultAppearance(), FriendList: &FriendsList{friendSet: make(friendSet)}, KnownAppearances: make(map[int]int),
 		Inventory: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, DuelOffer: &Inventory{Capacity: 8},
@@ -1367,8 +1367,8 @@ func (p *Player) StartCombat(target entity.MobileEntity) {
 	target.AddState(StateFighting)
 	p.SetDirection(RightFighting)
 	target.SetDirection(LeftFighting)
-	p.Transients().SetVar("fightTarget", target)
-	target.Transients().SetVar("fightTarget", p)
+	p.SetVar("fightTarget", target)
+	target.SessionCache().SetVar("fightTarget", p)
 	curTick := 0
 	attacker := entity.MobileEntity(p)
 	defender := target
@@ -1396,7 +1396,7 @@ func (p *Player) StartCombat(target entity.MobileEntity) {
 			attacker, defender = defender, attacker
 		}()
 
-		attacker.Transients().Inc("fightRound", 1)
+		attacker.SessionCache().Inc("fightRound", 1)
 		if p.PrayerActivated(12) && attacker.IsNpc() {
 			return false
 		}
@@ -1440,7 +1440,7 @@ func (p *Player) StartCombat(target entity.MobileEntity) {
 
 //Killed kills this player, dropping all of its items where it stands.
 func (p *Player) Killed(killer entity.MobileEntity) {
-	p.Transients().SetVar("deathTime", time.Now())
+	p.SessionCache().SetVar("deathTime", time.Now())
 	p.PlaySound("death")
 	p.SendPacket(Death)
 	for i := 0; i < 14; i++ {
@@ -1478,14 +1478,14 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 
 	if killer != nil && killer.IsPlayer() {
 		killer := killer.(*Player)
-		killer.DistributeMeleeExp(int(math.Ceil(MeleeExperience(p) / 4.0)))
+		killer.DistributeMeleeExp(p.ExperienceReward() / 4)
 		killer.Message("You have defeated " + p.Username() + "!")
 	}
 	for i, v := range deathItems {
 		// becomes universally visible on NPCs, or temporarily private otherwise
 		if i == 0 || p.Inventory.RemoveByID(v.ID, v.Amount) > -1 {
 			if killer != nil && killer.IsPlayer() {
-				v.SetVar("belongsTo", killer.Transients().VarLong("username", 0))
+				v.SetVar("belongsTo", killer.SessionCache().VarLong("username", 0))
 			}
 			AddItem(v)
 		} else {
@@ -1556,7 +1556,7 @@ func (p *Player) OpenShop(shop *Shop) {
 	}
 	p.AddState(StateShopping)
 	shop.Players.Add(p)
-	p.Transients().SetVar("shop", shop)
+	p.SessionCache().SetVar("shop", shop)
 	p.SendPacket(ShopOpen(shop))
 }
 
@@ -1567,7 +1567,7 @@ func (p *Player) CloseShop() {
 	}
 	p.RemoveState(StateShopping)
 	p.CurrentShop().Players.Remove(p)
-	p.Transients().UnsetVar("shop")
+	p.SessionCache().UnsetVar("shop")
 	p.SendPacket(ShopClose)
 }
 

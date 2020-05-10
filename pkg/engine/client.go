@@ -29,7 +29,7 @@ import (
 
 //client Represents a single connecting client.
 type client struct {
-	*world.Player
+	world.Player
 	socket     stdnet.Conn
 	destroyer  sync.Once
 	readWriter *bufio.ReadWriter
@@ -41,9 +41,8 @@ type client struct {
 
 //startNetworking Starts up 3 new goroutines; one for reading incoming data from the socket, one for writing outgoing data to the socket, and one for client state updates and parsing plus handling incoming world.  When the client kill signal is sent through the kill channel, the state update and net handling goroutine will wait for both the reader and writer goroutines to complete their operations before unregistering the client.
 func (c *client) startNetworking() {
-//	incomingPackets := make(chan *net.Packet, 20)
+	incomingPackets := make(chan *net.Packet, 20)
 	awaitDeath := sync.WaitGroup{}
-
 	go func() {
 		defer awaitDeath.Done()
 		defer c.Destroy()
@@ -54,15 +53,29 @@ func (c *client) startNetworking() {
 				if p == nil {
 					return
 				}
-				c.writePacket(*p)
+				if p.Opcode != 0 {
+					frameLength := len(p.FrameBuffer)
+					header := []byte{0, 0}
+					if frameLength >= 160 {
+						header[0] = byte(frameLength>>8 + 160)
+						header[1] = byte(frameLength)
+					} else {
+						header[0] = byte(frameLength)
+						frameLength--
+						header[1] = p.FrameBuffer[frameLength]
+					}
+					p.FrameBuffer = append(header, p.FrameBuffer[:frameLength]...)
+				}
+				c.Write(p.FrameBuffer)
 			case <-c.KillC:
 				return
 			}
 		}
 	}()
 	go func() {
-		defer c.destroy()
-		defer awaitDeath.Wait()
+		defer awaitDeath.Done()
+		defer c.Destroy()
+		awaitDeath.Add(1)
 		read := func(c *client, data []byte) int {
 			written := 0; 
 			for written < len(data) {
@@ -141,73 +154,68 @@ func (c *client) startNetworking() {
 					log.Warnf("Unauthorized packet[opcode:%v,size:%v (expected:%v)] rejected from: %v\n", localData[0], len(localData), frameSize, c)
 					continue
 				}
-//				incomingPackets <- net.NewPacket(localData[0], localData[1:])
-				go c.handlePacket(net.NewPacket(localData[0], localData[1:]))
+				incomingPackets <- net.NewPacket(localData[0], localData[1:])
+//				go c.handlePacket(net.NewPacket(localData[0], localData[1:]))
 			case <-c.KillC:
 				return
 			}
 		}
 	}()
-/*	go func() {
+	go func() {
 		defer c.destroy()
 		defer close(incomingPackets)
-		defer awaitDeath.Wait()
 		defer c.Destroy()
 		for {
 			select {
 			case p := <-incomingPackets:
 				if p == nil {
-					log.Warn("Tried processing nil packet!")
+					log.Warn(c, "tried processing nil packet:", p)
 					continue
 				}
-				c.handlePacket(p)
+				handler := handlers.Handler(p.Opcode)
+				if handler == nil {
+					log.Debugf("Packet{\n\topcode:%d;\n\tlength:%d;\n\tpayload:%v\n};\n", p.Opcode, len(p.FrameBuffer), p.FrameBuffer)
+					return
+				}
+			
+				go handler(&c.Player, p)
 			case <-c.KillC:
 				return
 			}
 		}
 	}()
-*/
 }
 
 //destroy Safely tears down a client, saves it to the database, and removes it from game-wide player list.
 func (c *client) destroy() {
 	c.destroyer.Do(func() {
-		go func() {
-//			c.UpdateWG.RLock()
-			close(c.OutgoingPackets)
-			c.Attributes.SetVar("lastIP", c.CurrentIP())
-			if player, ok := world.Players.FromIndex(c.Index); ok && player != c.Player || !ok || !c.Connected() {
-				if ok {
-					log.Cheatf("Unauthenticated player being destroyed had index %d and there is a player that is assigned that index already! (%v)\n", c.Index, player)
-				}
-				return
+		if err := c.socket.Close(); err != nil {
+			log.Warn("Couldn't close socket:", err)
+		}
+		c.UpdateWG.Lock()
+		close(c.OutgoingPackets)
+		c.Attributes.SetVar("lastIP", c.CurrentIP())
+		if player, ok := world.Players.FromIndex(c.Index); ok && player.UsernameHash() != c.UsernameHash() || !ok || !c.Connected() {
+			if ok {
+				log.Cheatf("Unauthenticated player being destroyed had index %d and there is a player that is assigned that index already! (%v)\n", c.Index, player)
 			}
-			db.DefaultPlayerService.PlayerSave(c.Player)
-			c.SetConnected(false)
-			world.RemovePlayer(c.Player)
-			log.Debug("Unregistered:'" + c.Username() + "'@'" + c.CurrentIP() + "'")
-			if err := c.socket.Close(); err != nil {
-				log.Warn("Couldn't close socket:", err)
-			}
-//			c.UpdateWG.RUnlock()
-		}()
+			return
+		}
+		c.SetConnected(false)
+		db.DefaultPlayerService.PlayerSave(&c.Player)
+		world.RemovePlayer(&c.Player)
+		log.Debug("Unregistered:'" + c.Username() + "'@'" + c.CurrentIP() + "'")
+		c.UpdateWG.Unlock()
 	})
 }
 
 //handlePacket Finds the mapped handler function for the specified net, and calls it with the specified parameters.
 func (c *client) handlePacket(p *net.Packet) {
-	handler := handlers.Handler(p.Opcode)
-	if handler == nil {
-		log.Debugf("Packet{\n\topcode:%d;\n\tlength:%d;\n\tpayload:%v\n};\n", p.Opcode, len(p.FrameBuffer), p.FrameBuffer)
-		return
-	}
-
-	handler(c.Player, p)
 }
 
 //newClient Creates a new instance of a client, launches goroutines to handle I/O for it, and returns a reference to it.
 func newClient(socket stdnet.Conn, ws bool) *client {
-	c := &client{socket: socket, Player: world.NewPlayer(-1, strings.Split(socket.RemoteAddr().String(), ":")[0]),
+	c := &client{socket: socket, Player: *world.NewPlayer(-1, strings.Split(socket.RemoteAddr().String(), ":")[0]),
 			websocket: ws, readWriter: bufio.NewReadWriter(bufio.NewReader(socket), bufio.NewWriter(socket))}
 	defer c.startNetworking()
 	return c
@@ -237,20 +245,5 @@ func (c *client) Write(src []byte) int {
 // appropriate values for the client to parse the length and opcode for this net.
 func (c *client) writePacket(p net.Packet) {
 	// zero value implies bare packet or using other terms, unformatted raw data
-	if p.Opcode == 0 {
-		c.Write(p.FrameBuffer)
-		return
-	}
-	frameLength := len(p.FrameBuffer)
-	header := []byte{0, 0}
-	if frameLength >= 160 {
-		header[0] = byte(frameLength>>8 + 160)
-		header[1] = byte(frameLength)
-	} else {
-		header[0] = byte(frameLength)
-		frameLength--
-		header[1] = p.FrameBuffer[frameLength]
-	}
-	c.Write(append(header, p.FrameBuffer[:frameLength]...))
 	return
 }

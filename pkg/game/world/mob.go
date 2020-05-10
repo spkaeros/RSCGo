@@ -161,8 +161,8 @@ func (l *MobList) Get(idx int) entity.MobileEntity {
 
 //Mob Represents a mobile entity within the game world.
 type Mob struct {
-	*Entity
-	*entity.AttributeList
+	Entity
+	entity.AttributeList
 	SyncMask       int
 	ResetTickables []func()
 	sync.RWMutex
@@ -219,10 +219,6 @@ func (n *NPC) IsPlayer() bool {
 
 func (n *NPC) IsNpc() bool {
 	return true
-}
-
-func (m *Mob) Transients() *entity.AttributeList {
-	return m.AttributeList
 }
 
 //Busy Returns true if this mobs state is anything other than idle. otherwise returns false.
@@ -414,25 +410,29 @@ func (n *NPC) Teleport(x, y int) {
 	n.SetCoords(x, y, true)
 }
 
+func (m *Mob) SessionCache() *entity.AttributeList {
+	return &m.AttributeList
+}
+
 func (m *Mob) State() int {
 	return m.VarInt("state", StateIdle)
 }
 
 //HasState Returns true if the mob has any of these states
 func (m *Mob) HasState(state ...int) bool {
-	return m.Transients().HasMasks("state", state...)
+	return m.HasMasks("state", state...)
 }
 
 func (m *Mob) AddState(state int) {
 	if state == StateIdle {
-		m.Transients().SetVar("state", StateIdle)
+		m.SetVar("state", StateIdle)
 		return
 	}
 	if m.HasState(state) {
 		log.Warning.Println("Attempted to add a Mobstate that we already have:", state)
 		return
 	}
-	m.Transients().StoreMask("state", state)
+	m.StoreMask("state", state)
 }
 
 func (m *Mob) RemoveState(state int) {
@@ -443,15 +443,15 @@ func (m *Mob) RemoveState(state int) {
 		log.Warning.Println("Attempted to remove a Mobstate that we did not add:", state)
 		return
 	}
-	m.Transients().RemoveMask("state", state)
+	m.RemoveMask("state", state)
 }
 
 //ResetFighting Resets melee fight related variables
 func (m *Mob) ResetFighting() {
 	target := m.VarMob("fightTarget")
 	if target != nil && target.IsFighting() {
-		target.Transients().UnsetVar("fightTarget")
-		target.Transients().UnsetVar("fightRound")
+		target.SessionCache().UnsetVar("fightTarget")
+		target.SessionCache().UnsetVar("fightRound")
 		target.SetDirection(NorthWest)
 		target.RemoveState(StateFighting)
 		if target.HasState(StateDueling) {
@@ -692,7 +692,7 @@ func (m *Mob) DefensePoints() float64 {
 func (m *Mob) CombatRng() *rand.Rand {
 	rng, ok := m.VarChecked("isaacRng").(*rand.Rand)
 	if !ok || rng == nil {
-		rng = rand.New(isaac.New(meleeRand.Uint64()))
+		rng = rand.New(isaac.New(irand.Uint64()))
 		m.SetVar("isaacRng", rng)
 	}
 	return rng
@@ -716,7 +716,6 @@ func (m *Mob) MagicDamage(target entity.MobileEntity, maximum float64) int {
 func (m *Mob) GenerateHit(max float64) int {
 	var damage float64
 	for damage > max || damage < 1.0 {
-		log.Debugf("%v of %v\n", damage, max)
 		damage = math.Floor((m.CombatRng().NormFloat64() * (max/3)) + (max/2))
 	}
 	
@@ -735,5 +734,3 @@ func (m *Mob) MeleeDamage(target entity.MobileEntity) int {
 	
 	return 0
 }
-
-var meleeRand = rand.New(irand.IsaacRng)

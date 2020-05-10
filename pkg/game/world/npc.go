@@ -34,21 +34,20 @@ type NpcDefinition struct {
 var NpcDefs []NpcDefinition
 
 //Npcs A collection of every NPC in the game, sorted by index
-//var Npcs []*NPC
 var Npcs = NewMobList()
 
 //NPC Represents a single non-playable character within the game world.
 type NPC struct {
-	*Mob
+	Mob
 	ID         int
-	Boundaries [2]Location
 	StartPoint Location
+	Boundaries [2]Location
 	damageDeltas map[uint64]int
 }
 
 //NewNpc Creates a new NPC and returns a reference to it
 func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
-	n := &NPC{ID: id, Mob: &Mob{Entity: &Entity{Index: Npcs.Size(), Location: NewLocation(startX, startY)}, AttributeList: entity.NewAttributeList()},
+	n := &NPC{ID: id, Mob: Mob{Entity: Entity{Index: Npcs.Size(), Location: NewLocation(startX, startY)}, AttributeList: *entity.NewAttributeList()},
 			damageDeltas: make(map[uint64]int), Boundaries: [2]Location{ NewLocation(minX, minY), NewLocation(maxX, maxY) } }
 	Npcs.Add(n)
 	n.SetVar("skills", &entity.SkillTable{})
@@ -57,7 +56,7 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 		n.Skills().SetCur(i, 1)
 		n.Skills().SetMax(i, 1)
 	}
-	if id < 794 {
+	if id < len(NpcDefs)-1 {
 		n.Skills().SetCur(0, NpcDefs[id].Attack)
 		n.Skills().SetCur(1, NpcDefs[id].Defense)
 		n.Skills().SetCur(2, NpcDefs[id].Strength)

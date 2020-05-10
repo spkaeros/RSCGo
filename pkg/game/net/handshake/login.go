@@ -70,7 +70,7 @@ func init() {
 			// this was named linkUID by jagex; it identifys a unique user agent I think
 			//p.ReadUint32()
 	
-			player.Transients().SetVar("username", strutil.Base37.Encode(strings.TrimSpace(decryptedP.ReadString())))
+			player.SetVar("username", strutil.Base37.Encode(strings.TrimSpace(decryptedP.ReadString())))
 			password := strings.TrimSpace(decryptedP.ReadString())
 	//		xteaSize := p.ReadUint16()
 	//		data = make([]byte, xteaSize)

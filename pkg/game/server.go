@@ -26,12 +26,22 @@ var Flags struct {
 }
 
 func init() {
+	// Parse CLI arguments
+	if _, err := flags.Parse(&Flags); err != nil {
+		os.Exit(100)
+	}
+	// Bounds check for TCP port
+	if Flags.Port >= 65534 || Flags.Port < 0 {
+		log.Fatal("Invalid port number specified.  Valid port numbers are 1-65533 inclusive.  Got:", Flags.Port)
+		os.Exit(100)
+	}
+	if len(Flags.Config) == 0 {
+		Flags.Config = "config.toml"
+	}
+
+	// Initialize sane defaults as fallback configuration options, if the config.toml file is not found or if some values are left out of it
 	config.TomlConfig.MaxPlayers = 1250
 	config.TomlConfig.DataDir = "./data/"
-	config.TomlConfig.Database.PlayerDriver = "sqlite3"
-	config.TomlConfig.Database.PlayerDB = "file:./data/players.db"
-	config.TomlConfig.Database.WorldDriver = "sqlite3"
-	config.TomlConfig.Database.WorldDB = "file:./data/world.db"
 	config.TomlConfig.PacketHandlerFile = "packets.toml"
 	config.TomlConfig.Crypto.HashComplexity = 15
 	config.TomlConfig.Crypto.HashLength = 32
@@ -40,39 +50,52 @@ func init() {
 	config.TomlConfig.Version = 204
 	config.TomlConfig.Port = 43594 // = 43595 for websocket connections
 
-	if _, err := flags.Parse(&Flags); err != nil {
-		os.Exit(100)
-	}
-	if Flags.Port > 65535 || Flags.Port < 0 {
-		log.Fatal("Invalid port number specified.  Valid port numbers are between 0 and 65535.")
-		os.Exit(101)
-	}
-	if len(Flags.Config) == 0 {
-		Flags.Config = "config.toml"
-	}
 	if _, err := toml.DecodeFile(Flags.Config, &config.TomlConfig); err != nil {
 		log.Warn("Error reading general config file:", err)
-		os.Exit(102)
+		os.Exit(101)
 	}
+
+	// TODO: Default serialization to JSON or BSON maybe?
+	config.TomlConfig.Database.PlayerDriver = "sqlite3"
+	config.TomlConfig.Database.PlayerDB = "file:./data/players.db"
+	// TODO: Default serialization to JSON or BSON maybe?
+	config.TomlConfig.Database.WorldDriver = "sqlite3"
+	config.TomlConfig.Database.WorldDB = "file:./data/world.db"
+
 	if _, err := toml.DecodeFile("data/dbio.conf", &config.TomlConfig.Database); err != nil {
 		log.Warn("Error reading database config file:", err)
-		os.Exit(110)
+		os.Exit(102)
 	}
 	db.ConnectEntityService()
 	db.DefaultPlayerService = db.NewPlayerServiceSql()
 }
 
-func async(fns ...func()) (*sync.WaitGroup) {
-	var wg sync.WaitGroup
-	for _, v := range fns {
-//		wg.Add(1)
-//		go func() {
-//			defer wg.Done()
-			v()
-//		}()
+type asInit struct {
+	sync.WaitGroup
+}
+
+func newRunner() asInit {
+	return asInit{sync.WaitGroup{}}
+}
+
+func (w *asInit) runAll(fn ...func()) {
+	for _, v := range fn {
+		w.run(v)
 	}
-//	return &wg
-	return &wg
+	w.Wait()
+}
+
+func (w *asInit) run(fn func()) {
+	w.Add(1)
+	go func() {
+		defer w.Done()
+		fn()
+	}()
+}
+
+func (w *asInit) executeAll() {
+	w.WaitGroup.Wait()
+	return
 }
 
 func main() {
@@ -89,37 +112,32 @@ func main() {
 	log.Debugln("RSCGo starting up...")
 	log.Debugln()
 
-	start := time.Now()
-
 //	var wg sync.WaitGroup
 //	wg.Add(1)
 //	go func() {
-	(*async(db.LoadTileDefinitions, db.LoadBoundaryDefinitions, db.LoadObjectDefinitions, db.LoadNpcDefinitions, db.LoadItemDefinitions)).Wait()
-	(*async(db.LoadItemLocations, db.LoadNpcLocations, db.LoadObjectLocations)).Wait()
-	(*async(handlers.UnmarshalPackets, world.LoadCollisionData, world.RunScripts)).Wait()
-//	db.LoadObjectLocations()
-//	db.LoadNpcLocations()
-//	db.LoadItemLocations()
-//	handlers.UnmarshalPackets()
-//	world.LoadCollisionData()
-//	world.RunScripts()
-//	world.RunScripts()
-	/*
-		// Running these init functions that are I/O heavy and synchronization between them is never important within
-		//  their own goroutines should save some initialization time.
-		db.LoadTileDefinitions()
-		db.LoadObjectDefinitions()
-		db.LoadBoundaryDefinitions()
-		db.LoadNpcDefinitions()
-		db.LoadItemDefinitions()
-
-	db.LoadObjectLocations()
-	db.LoadNpcLocations()
-	db.LoadItemLocations()
-	handlers.UnmarshalPackets()
-	world.LoadCollisionData()
-	world.RunScripts()
-	*/
+	start := time.Now()
+	runner := newRunner()
+	runner.runAll(handlers.UnmarshalPackets, db.LoadTileDefinitions, db.LoadObjectDefinitions, db.LoadBoundaryDefinitions, db.LoadItemDefinitions, db.LoadNpcDefinitions)
+	runner.executeAll()
+	runner.runAll(db.LoadObjectLocations, db.LoadNpcLocations, db.LoadItemLocations, world.RunScripts, world.LoadCollisionData)
+	runner.executeAll()
+/*	go func() {
+		world.RunScripts()
+		runner.Done()
+	}()
+	go func() {
+		db.LoadObjectLocations()
+		runner.Done()
+	}()
+	go func() {
+		db.LoadItemLocations()
+		runner.Done()
+	}()
+	go func() {
+		db.LoadNpcLocations()
+		runner.Done()
+	}()
+	runner.Wait()*/
 	// Entity definitions
 
 	// Entity locations

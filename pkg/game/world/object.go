@@ -22,10 +22,10 @@ var ObjectDefs []ObjectDefinition
 
 //Object Represents a game object in the world.
 type Object struct {
+	Entity
 	ID        int
 	Direction byte
 	Boundary  bool
-	*Entity
 }
 
 func (o *Object) String() string {
@@ -37,7 +37,7 @@ var ObjectCounter = atomic.NewUint32(0)
 //NewObject Returns a reference to a new instance of a game object.
 func NewObject(id, direction, x, y int, boundary bool) *Object {
 	return &Object{ID: id, Direction: byte(direction), Boundary: boundary,
-		Entity: &Entity{
+		Entity: Entity{
 			Location: NewLocation(x, y),
 			Index:    int(ObjectCounter.Swap(ObjectCounter.Load() + 1)),
 		},

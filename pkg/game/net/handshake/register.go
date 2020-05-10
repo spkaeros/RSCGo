@@ -36,7 +36,7 @@ func init() {
 		}
 		username := strutil.Base37.Decode(p.ReadUint64())
 		password := strings.TrimSpace(p.ReadString())
-		player.Transients().SetVar("username", username)
+		player.SetVar("username", username)
 		go func() {
 			if userLen, passLen := len(username), len(password); userLen < 2 || userLen > 12 || passLen < 5 || passLen > 20 {
 				reply <- response{ResponseBadInputLength, "Password and/or username too long and/or too short."}

@@ -26,6 +26,22 @@ import (
 )
 
 func init() {
+	AddHandler("command", func(player *world.Player, p *net.Packet) {
+		raw := string(p.FrameBuffer[:len(p.FrameBuffer)-1])
+		args := strutil.ParseArgs(raw)
+		// prevent `::` freezing player
+		if len(args) <= 0 {
+			return
+		}
+		handler, ok := world.CommandHandlers[strings.ToLower(args[0])]
+		if !ok {
+			player.Message("@que@Command not found.  Double check your spelling, and try again.")
+			log.Command("%v sent invalid command: ::%v\n", player.Username(), strings.ToLower(args[0]))
+			return
+		}
+		log.Commandf("%v: ::%v\n", player.Username(), raw)
+		handler(player, args[1:])
+	})
 	world.CommandHandlers["shutdown"] = func(player *world.Player, args []string) {
 		var wg sync.WaitGroup
 		world.Players.Range(func(p1 *world.Player) {
@@ -40,22 +56,6 @@ func init() {
 		time.Sleep(1 * time.Second)
 		os.Exit(1)
 	}
-	AddHandler("command", func(player *world.Player, p *net.Packet) {
-		raw := string(p.FrameBuffer[:len(p.FrameBuffer)-1])
-		args := strutil.ParseArgs(raw)
-		if len(args) <= 0 {
-			// prevent `::` freezing player
-			return
-		}
-		log.Commands.Printf("%v: ::%v\n", player.Username(), raw)
-		handler, ok := world.CommandHandlers[args[0]]
-		if !ok {
-			player.Message("@que@Command not found.  Please double check your spelling, and try again.")
-			log.Commands.Printf("%v sent invalid command: ::%v\n", player.Username(), args[0])
-			return
-		}
-		handler(player, args[1:])
-	})
 	world.CommandHandlers["memdump"] = func(player *world.Player, args []string) {
 		file, err := os.Create("rscgo.mprof")
 		if err != nil {
@@ -107,36 +107,6 @@ func init() {
 			player.Message("Invalid args.  Usage: /pprof <start|stop>")
 		}
 	}
-	/*
-	world.CommandHandlers["saveobjects"] = func(player *world.Player, args []string) {
-		go func() {
-			if count := db.SaveObjectLocations(); count > 0 {
-				player.Message("Saved " + strconv.Itoa(count) + " game objects to world.db")
-				log.Commands.Println(player.Username() + " saved " + strconv.Itoa(count) + " game objects to world.db")
-			} else {
-				player.Message("Appears to have been an issue saving game objects to world.db.  Check game logs.")
-				log.Commands.Println(player.Username() + " failed to save game objects; count=" + strconv.Itoa(count))
-			}
-		}()
-	}
-	world.CommandHandlers["npc"] = func(player *world.Player, args []string) {
-		if len(args) < 1 {
-			player.Message("@que@Invalid args.  Usage: /npc <id>")
-			return
-		}
-
-		id, err := strconv.Atoi(args[0])
-		if err != nil || id > 793 || id < 0 {
-			player.Message("@que@Invalid args.  Usage: /npc <id>")
-			return
-		}
-
-		x := player.X()
-		y := player.Y()
-
-		world.AddNpc(world.NewNpc(id, x, y, x-5, x+5, y-5, y+5))
-	}
-	*/
 	world.CommandHandlers["run"] = func(player *world.Player, args []string) {
 		line := strings.Join(args, " ")
 		env := world.ScriptEnv()
@@ -170,6 +140,7 @@ func init() {
 	world.CommandHandlers["reload"] = func(player *world.Player, args []string) {
 		world.Clear()
 		world.RunScripts()
+		player.Message("Reloaded ./scripts/**.ank from working directory.")
 		player.Message(fmt.Sprintf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill]", len(world.ItemTriggers), len(world.ObjectTriggers), len(world.BoundaryTriggers), len(world.NpcTriggers), len(world.InvOnBoundaryTriggers), len(world.InvOnObjectTriggers), len(world.NpcAtkTriggers), len(world.NpcDeathTriggers)))
 		log.Info.Printf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill] loaded\n", len(world.ItemTriggers), len(world.ObjectTriggers), len(world.BoundaryTriggers), len(world.NpcTriggers), len(world.InvOnBoundaryTriggers), len(world.InvOnObjectTriggers), len(world.NpcAtkTriggers), len(world.NpcDeathTriggers))
 	}
