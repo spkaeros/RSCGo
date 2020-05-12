@@ -429,7 +429,7 @@ func (m *Mob) AddState(state int) {
 		return
 	}
 	if m.HasState(state) {
-		log.Warning.Println("Attempted to add a Mobstate that we already have:", state)
+		log.Warn("Attempted to add a Mobstate that we already have:", state)
 		return
 	}
 	m.StoreMask("state", state)
@@ -440,7 +440,7 @@ func (m *Mob) RemoveState(state int) {
 		return
 	}
 	if !m.HasState(state) {
-		log.Warning.Println("Attempted to remove a Mobstate that we did not add:", state)
+		log.Warn("Attempted to remove a Mobstate that we did not add:", state)
 		return
 	}
 	m.RemoveMask("state", state)
@@ -449,16 +449,6 @@ func (m *Mob) RemoveState(state int) {
 //ResetFighting Resets melee fight related variables
 func (m *Mob) ResetFighting() {
 	target := m.VarMob("fightTarget")
-	if target != nil && target.IsFighting() {
-		target.SessionCache().UnsetVar("fightTarget")
-		target.SessionCache().UnsetVar("fightRound")
-		target.SetDirection(NorthWest)
-		target.RemoveState(StateFighting)
-		if target.HasState(StateDueling) {
-			target.RemoveState(StateDueling)
-		}
-		target.UpdateLastFight()
-	}
 	if m.IsFighting() {
 		m.UnsetVar("fightTarget")
 		m.UnsetVar("fightRound")
@@ -468,6 +458,16 @@ func (m *Mob) ResetFighting() {
 			m.RemoveState(StateDueling)
 		}
 		m.UpdateLastFight()
+	}
+	if target != nil && target.IsFighting() {
+		target.SessionCache().UnsetVar("fightTarget")
+		target.SessionCache().UnsetVar("fightRound")
+		target.SetDirection(NorthWest)
+		target.RemoveState(StateFighting)
+		if target.HasState(StateDueling) {
+			target.RemoveState(StateDueling)
+		}
+		target.UpdateLastFight()
 	}
 }
 

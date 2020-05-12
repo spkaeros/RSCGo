@@ -312,13 +312,14 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 	counter := 0
 	if player.SyncMask&SyncNeedsPosition != 0 {
 		counter++
-//		player.ResetTickables = append(player.ResetTickables, func() {
-//			player.ResetRegionRemoved()
-//			player.ResetRegionMoved()
-//			player.ResetSpriteUpdated()
-//		})
+		player.ResetTickables = append(player.ResetTickables, func() {
+			player.ResetRegionRemoved()
+			player.ResetRegionMoved()
+			player.ResetSpriteUpdated()
+		})
 	}
-	var removing = NewMobList()
+//	var removing = NewMobList()
+	var removing []*Player
 	player.LocalPlayers.RangePlayers(func(p1 *Player) bool {
 		p1.RLock()
 		counter++
@@ -326,7 +327,8 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(1, 1)
 			p.AddBitmask(3, 2)
-			removing.Add(p1)
+//			removing.Add(p1)
+			removing = append(removing, p1)
 //			player.AppearanceLock.Lock()
 //			delete(player.KnownAppearances, p1.Index)
 //			player.AppearanceLock.Unlock()
@@ -357,10 +359,9 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		p1.RUnlock()
 		return false
 	})
-	removing.Range(func(m entity.MobileEntity) bool {
-		player.LocalPlayers.Remove(m)
-		return false
-	})
+	for _, p1 := range removing {
+		player.LocalPlayers.Remove(p1)
+	}
 	newPlayerCount := 0
 	for _, p1 := range player.NewPlayers() {
 		if len(player.LocalPlayers.mobSet) >= 255 {
@@ -392,14 +393,14 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 			p.AddBitmask(0, 1)
 //		}
 //		player.AppearanceLock.RUnlock()
-		//		p1.ResetTickables = append(p1.ResetTickables, func() {
-		//			p1.ResetRegionMoved()
-		//			p1.ResetSpriteUpdated()
-		//		})
+//				p1.ResetTickables = append(p1.ResetTickables, func() {
+//					p1.ResetRegionMoved()
+//					p1.ResetSpriteUpdated()
+//				})
 	}
-		if counter <= 0 {
-			return nil
-		}
+	if counter <= 0 {
+		return nil
+	}
 	return
 }
 

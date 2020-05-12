@@ -24,7 +24,7 @@ func init() {
 
 		index := p.ReadUint16()
 		if index < 0 || index > player.Inventory.Size() {
-			log.Suspicious.Printf("Player[%v] tried to wield an item with an out-of-bounds inventory index: %d\n", player, index)
+			log.Cheatf("Player[%v] tried to wield an item with an out-of-bounds inventory index: %d\n", player, index)
 			return
 		}
 
@@ -38,7 +38,7 @@ func init() {
 	AddHandler("removeitem", func(player *world.Player, p *net.Packet) {
 		index := p.ReadUint16()
 		if index < 0 || index > player.Inventory.Size() {
-			log.Suspicious.Printf("Player[%v] tried to unwield an item with an out-of-bounds inventory index: %d\n", player, index)
+			log.Cheatf("Player[%v] tried to unwield an item with an out-of-bounds inventory index: %d\n", player, index)
 			return
 		}
 
@@ -57,26 +57,27 @@ func init() {
 		x := p.ReadUint16()
 		y := p.ReadUint16()
 		if x < 0 || x >= world.MaxX || y < 0 || y >= world.MaxY {
-			log.Suspicious.Printf("%v attempted to pick up an item at an invalid location: [%d,%d]\n", player, x, y)
+			log.Cheatf("%v attempted to pick up an item at an invalid location: [%d,%d]\n", player, x, y)
 			return
 		}
 
 		id := p.ReadUint16()
 		if id < 0 || id > len(world.ItemDefs)-1 {
-			log.Suspicious.Printf("%v attempted to pick up an item with an out-of-bounds ID: %d\n", player, id)
+			log.Cheatf("%v attempted to pick up an item with an out-of-bounds ID: %d\n", player, id)
 			return
 		}
 
 		p.ReadUint16() // Useless? this variable is for what affect we are applying to the ground item, e.g casting, using item with
 
 		player.SetDistancedAction(func() bool {
+			log.Debugf("%d\n", player)
 			if player.Busy() {
 				return true
 			}
 
 			item := world.GetItem(x, y, id)
 			if item == nil || !item.VisibleTo(player) {
-				log.Suspicious.Printf("%v attempted to pick up an item that doesn't exist: %s@{%d,%d}\n", player, world.ItemDefs[id].Name, x, y)
+				log.Cheatf("%v attempted to pick up an item that doesn't exist: %s@{%d,%d}\n", player, world.ItemDefs[id].Name, x, y)
 				return true
 			}
 			

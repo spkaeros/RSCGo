@@ -273,11 +273,11 @@ func (n *NPC) TraversePath() {
 		}
 		
 		dst := n.Location.Clone()
-		dir := n.VarInt("pathDir", North);
-		if dir == West || dir == SouthWest || dir == NorthWest {
-			dst.x.Inc()
-		} else if dir == East || dir == SouthEast || dir == NorthEast {
+		dir := n.VarInt("pathDir", North)
+		if dir == East || dir == SouthEast || dir == NorthEast {
 			dst.x.Dec()
+		} else if dir == West || dir == SouthWest || dir == NorthWest {
+			dst.x.Inc()
 		}
 		if dir == North || dir == NorthWest || dir == NorthEast {
 			dst.y.Dec()

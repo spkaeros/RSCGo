@@ -156,7 +156,7 @@ func (i *Item) Stackable() bool {
 type GroundItem struct {
 	ID, Amount int
 	*entity.AttributeList
-	*Entity
+	Entity
 }
 
 //ItemIndexer Ensures unique indexes for ground items.
@@ -194,7 +194,7 @@ func (i *GroundItem) SpawnedTime() time.Time {
 func NewPersistentGroundItem(id, amount, x, y, respawn int) *GroundItem {
 	item := &GroundItem{ID: id, Amount: amount,
 		AttributeList: entity.NewAttributeList(),
-		Entity: &Entity{
+		Entity: Entity{
 			Location: NewLocation(x, y),
 			Index:    int(ItemIndexer.Swap(ItemIndexer.Load() + 1)),
 		},
@@ -209,7 +209,7 @@ func NewPersistentGroundItem(id, amount, x, y, respawn int) *GroundItem {
 func NewGroundItem(id, amount, x, y int) *GroundItem {
 	item := &GroundItem{ID: id, Amount: amount,
 		AttributeList: entity.NewAttributeList(),
-		Entity: &Entity{
+		Entity: Entity{
 			Location: NewLocation(x, y),
 			Index:    int(ItemIndexer.Swap(ItemIndexer.Load() + 1)),
 		},
@@ -524,7 +524,7 @@ func (i *Inventory) Add(id int, qty int) int {
 func (i *Inventory) Remove(index int) bool {
 	item := i.Get(index)
 	if item == nil {
-		log.Suspicious.Printf("Attempted removing non-existent. item:%v\n", index)
+		log.Cheatf("Attempted removing non-existent. item:%v\n", index)
 		return false
 	}
 	if i.Owner != nil && i.Owner.Connected() {
@@ -534,7 +534,7 @@ func (i *Inventory) Remove(index int) bool {
 	defer i.Lock.Unlock()
 	size := len(i.List)
 	if index >= size {
-		log.Suspicious.Printf("Attempted removing item out of inventory bounds.  index:%d,size:%d,capacity:%d\n", index, size, i.Capacity)
+		log.Cheatf("Attempted removing item out of inventory bounds.  index:%d,size:%d,capacity:%d\n", index, size, i.Capacity)
 		return false
 	}
 	if index >= size-1 {

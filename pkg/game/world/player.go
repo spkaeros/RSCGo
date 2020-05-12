@@ -119,6 +119,7 @@ type Player struct {
 		rules []string
 		
 	}
+	unregistering    bool
 	DistancedAction  func() bool
 	ActionLock       sync.RWMutex
 	OutgoingPackets  chan *net.Packet
@@ -933,11 +934,14 @@ func (p *Player) Destroy() {
 		if p.Connected() {
 			p.UpdateStatus(false)
 			p.ResetAll()
-			p.SendPacket(Logout)
 		}
 		p.Inventory.Owner = nil
-		close(p.KillC)
+		p.unregistering = true
 	})
+}
+
+func (p *Player) Unregistering() bool {
+	return p.unregistering
 }
 
 func (p *Player) AtObject(object *Object) bool {

@@ -46,8 +46,8 @@ func Bind(port int) {
 				// Chrome is picky, won't work without explicit protocol acceptance
 				return true
 			},
-			ReadBufferSize:  5000,
-			WriteBufferSize: 5000,
+			ReadBufferSize:  23768,
+			WriteBufferSize: 23768,
 		}
 
 
@@ -139,7 +139,7 @@ func Tick() {
 	tasks.Tickers.RunSynchronous()
 
 	world.Players.Range(func(p *world.Player) {
-		p.UpdateWG.Lock()
+//		p.UpdateWG.Lock()
 		runTickables(p)
 		if fn := p.DistancedAction; fn != nil {
 			if fn() {
@@ -176,18 +176,24 @@ func Tick() {
 		}
 	})
 
-	//	world.Players.Range(func(p *world.Player) {
-	//		for _, fn := range p.ResetTickables {
-	//			fn()
-	//		}
-	//		p.ResetTickables = p.ResetTickables[:0]
-	//	})
 	world.Players.Range(func(p *world.Player) {
 		p.ResetRegionRemoved()
 		p.ResetRegionMoved()
 		p.ResetSpriteUpdated()
 		p.ResetAppearanceChanged()
-		p.UpdateWG.Unlock()
+//		p.UpdateWG.Unlock()
+	})
+	world.Players.Range(func(p *world.Player) {
+//		for _, fn := range p.ResetTickables {
+//			fn()
+//		}
+//		p.ResetTickables = p.ResetTickables[:0]
+		if p.Unregistering() {
+			if p.Connected() {
+				p.SendPacket(world.Logout)
+			}
+			close(p.KillC)
+		}
 	})
 	world.ResetNpcUpdateFlags()
 }
