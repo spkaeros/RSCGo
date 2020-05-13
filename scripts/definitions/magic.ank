@@ -5,109 +5,108 @@
 //3 cast on Enchant jewelery = crafting related, telegrab, low/high alch and superheat??
 //5 cast on Enchant orbs = any of the orb related spells I think.
 
-ids, world, time, math, log = import("ids"), import("world"), import("time"), import("math"), import("log")
+math = import("math")
+time = import("time")
 
-func newGodspell() {
-	godspells = [
-		{
-			"name": "guthix",
-			"animation": 1142,
-			"cape": 1215,
-			"staff": 1217,
-			"depleteStat": DEFENSE,
-			"depleteBy": 0.02,
-		},
-		{
-			"name": "saradomin",
-			"animation": 1031,
-			"cape": 1214,
-			"staff": 1218,
-			"depleteStat": PRAYER,
-			"depleteBy": 1,
-		},
-		{
-			"name": "zamorak",
-			"animation": 1036,
-			"cape": 1213,
-			"staff": 1216,
-			"depleteStat": MAGIC,
-			"depleteBy": 0.02,
-		},
-	]
-	return func(player, spell) {
-		player.WalkingRangedAction(spell.target, func() {
-			if !player.CanAttack(spell.target) {
-				if player.IsDueling() && player.IsFighting() && spell.target == player.DuelTarget() && !player.AttributeList.VarBool("duelCanMagic", true) {
-					player.Message("Magic cannot be used during this duel!")
-				}
-				player.ResetPath()
-				return
+godspells = [
+	{
+		"name": "guthix",
+		"animation": 1142,
+		"cape": 1215,
+		"staff": 1217,
+		"depleteStat": DEFENSE,
+		"depleteBy": 0.02,
+	},
+	{
+		"name": "saradomin",
+		"animation": 1031,
+		"cape": 1214,
+		"staff": 1218,
+		"depleteStat": PRAYER,
+		"depleteBy": 1,
+	},
+	{
+		"name": "zamorak",
+		"animation": 1036,
+		"cape": 1213,
+		"staff": 1216,
+		"depleteStat": MAGIC,
+		"depleteBy": 0.02,
+	},
+]
+func handleGodSpell(player, spell) {
+	player.WalkingRangedAction(spell.target, func() {
+		if !player.CanAttack(spell.target) {
+			if player.IsDueling() && player.IsFighting() && spell.target == player.DuelTarget() && !player.AttributeList.VarBool("duelCanMagic", true) {
+				player.Message("Magic cannot be used during this duel!")
 			}
-			player.ResetAllExceptDueling()
+			player.ResetPath()
+			return
+		}
+		player.ResetAllExceptDueling()
 
-			godIdx = spell.idx - 33
-			if godIdx < 0 || godIdx - 33 > 2 {
-				log.debugf("Invalid godspell index:got %d\n", spell.idx)
-				return
-			}
-			
-			godspell = godspells[godIdx]
+		godIdx = spell.idx - 33
+		if godIdx < 0 || godIdx - 33 >= len(godspells) {
+			log.debugf("Invalid godspell index:got %d\n", spell.idx)
+			return
+		}
 		
-			cape = player.Inventory.GetByID(godspell.cape)
-			staff = player.Inventory.GetByID(godspell.staff)
-			if staff == nil || !staff.Worn {
-				player.Message("you must wield the staff of " + godspell.name + " to cast this spell")
-				return
-			}
-		
-			// TODO: When minigame is finished, add checks for whether in mage arena or not and for total arena casts
-			chargedAt = player.Cache("magic_charge")
-			power = 25
-			if chargedAt == nil || chargedAt.IsZero() || !chargedAt.After(tNow()) {
-				// weaker spell if no recent charge
-				power -= 8 // 25 down to 18
-			}
-
-			if cape == nil || !cape.Worn {
-				// weaker spell if no matching cape
-				power -= 8 // 25 or 18 down to 18 or 10
-			}
-
-			if !spellCast(defs[spell.idx], player) {
-				return
-			}
-		
-			if world.getObjectAt(spell.target.X(), spell.target.Y()) == nil {
-				animation = newObject(godspell.animation, North, spell.target.X(), spell.target.Y(), false)
-				world.addObject(animation)
-				go runAfter(tMillis*1280, func() {
-					world.removeObject(animation)
-				})
-			}
-
-			fireMissile(player, spell, power)
-
-			depleteBy = toInt(math.Ceil(spell.target.Skills().Current(godspell.depleteStat) * godspell.depleteBy))
-			minStat = spell.target.Skills().Maximum(godspell.depleteStat) - toInt(math.Ceil((spell.target.Skills().Current(godspell.depleteStat) * godspell.depleteBy) * 4))
-			if spell.idx == 34 {
-				depleteBy = 1
-				minStat = 0
-			}
-			newStat = spell.target.Skills().Current(godspell.depleteStat) - depleteBy
-			if spell.target.IsPlayer() && newStat < minStat {
-				player.Message("@que@Your opponent already has weakened " + skillName(godspell.depleteStat))
-				return
-			}
-			spell.target.Skills().SetCur(godspell.depleteStat, newStat)
-			targetp = asPlayer(spell.target)
-			if targetp != nil {
-				targetp.Message("Your " + skillName(godspell.depleteStat) + " has been reduced by the spell!")
-				targetp.SendStat(godspell.depleteStat)
-			}
-		})
-	}
+		godspell = godspells[godIdx]
 	
+		cape = player.Inventory.GetByID(godspell.cape)
+		staff = player.Inventory.GetByID(godspell.staff)
+		if staff == nil || !staff.Worn {
+			player.Message("you must wield the staff of " + godspell.name + " to cast this spell")
+			return
+		}
+	
+		// TODO: When minigame is finished, add checks for whether in mage arena or not and for total arena casts
+		chargedAt = player.Cache("magic_charge")
+		power = 25
+		if chargedAt == nil || chargedAt.IsZero() || !chargedAt.After(tNow()) {
+			// weaker spell if no recent charge
+			power -= 8 // 25 down to 18
+		}
+
+		if cape == nil || !cape.Worn {
+			// weaker spell if no matching cape
+			power -= 8 // 25 or 18 down to 18 or 10
+		}
+
+		if !spellCast(defs[spell.idx], player) {
+			return
+		}
+	
+		if world.getObjectAt(spell.target.X(), spell.target.Y()) == nil {
+			animation = newObject(godspell.animation, North, spell.target.X(), spell.target.Y(), false)
+			world.addObject(animation)
+			go runAfter(tMillis*1280, func() {
+				world.removeObject(animation)
+			})
+		}
+
+		fireMissile(player, spell, power)
+
+		depleteBy = toInt(math.Ceil(spell.target.Skills().Current(godspell.depleteStat) * godspell.depleteBy))
+		minStat = spell.target.Skills().Maximum(godspell.depleteStat) - toInt(math.Ceil((spell.target.Skills().Current(godspell.depleteStat) * godspell.depleteBy) * 4))
+		if spell.idx == 34 {
+			depleteBy = 1
+			minStat = 0
+		}
+		newStat = spell.target.Skills().Current(godspell.depleteStat) - depleteBy
+		if spell.target.IsPlayer() && newStat < minStat {
+			player.Message("@que@Your opponent already has weakened " + skillName(godspell.depleteStat))
+			return
+		}
+		spell.target.Skills().SetCur(godspell.depleteStat, newStat)
+		targetp = asPlayer(spell.target)
+		if targetp != nil {
+			targetp.Message("Your " + skillName(godspell.depleteStat) + " has been reduced by the spell!")
+			targetp.SendStat(godspell.depleteStat)
+		}
+	})
 }
+	
 func newMissileHandler(power) {
 	return func(player, spell) {
 		player.WalkingRangedAction(spell.target, func() {
@@ -170,6 +169,7 @@ func newWeakenHandler(depleteStat, depletePercent) {
 
 func fireMissile(player, spell, dmg) {
 /*
+	// Deprecated this terrible attempt to produce a gaussian bell from reines et al
 	odds = {}
 	rat = 45.0 + toFloat(player.MagicPoints())
 	peak = dmg/100.0*rat
@@ -223,7 +223,7 @@ func spellCast(s, player) {
 	player.ResetPath()
 	lastCast = player.AttributeList.VarTime("lastSpell")
 	if !lastCast.IsZero() && lastCast.After(tNow()) {
-		player.Message("@que@You need to wait " + toInt(import("time").Until(lastCast).Seconds()) + " seconds before you can cast another spell")
+		player.Message("@que@You need to wait " + toInt(time.Until(lastCast).Seconds()) + " seconds before you can cast another spell")
 		return false
 	}
 
@@ -236,6 +236,7 @@ func spellCast(s, player) {
 	if checkAndRemoveRunes(player, s) {
 		return false
 	}
+	// ORSC does the below check in steps, but if clamped with helper funcs we can do it in one check.
 	if lvDelta < 10-math.Min(math.Max((player.MagicPoints()-5)/5, 0), 5) && rand(0, (lvDelta+2)*2) == 0 {
 		player.AttributeList.SetVar("lastSpell", tNow().Add(tMillis*20000))
 		player.PlaySound("spellfail")
@@ -251,7 +252,7 @@ func spellCast(s, player) {
 func checkAndRemoveRunes(player, s) {
 	for id, amt in s.runes {
 		if player.Inventory.CountID(id) < amt {
-			log.cheatf("%v casted spell with not enough runes\n", player)
+			log.cheatf("%v casted spell with not enough runes (shouldn't happen)\n", player)
 			player.Message("You don't have all the reagents you need for this spell")
 			return true
 		}
@@ -669,7 +670,7 @@ defs = [
 		"name": "Claws of Guthix",
 		"desc": "Summons the power of Guthix",
 		"kind": 2,
-		"handler": newGodspell(),
+		"handler": handleGodSpell,
 		"runes": {
 			31: 1,
 			33: 4,
@@ -681,7 +682,7 @@ defs = [
 		"name": "Saradomin strike",
 		"desc": "Summons the power of Saradomin",
 		"kind": 2,
-		"handler": newGodspell(),
+		"handler": handleGodSpell,
 		"runes": {
 			31: 2,
 			33: 4,
@@ -693,7 +694,7 @@ defs = [
 		"name": "Flames of Zamorak",
 		"desc": "Summons the power of Zamorak",
 		"kind": 2,
-		"handler": newGodspell(),
+		"handler": handleGodSpell,
 		"runes": {
 			31: 4,
 			33: 1,
