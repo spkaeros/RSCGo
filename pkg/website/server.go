@@ -79,7 +79,7 @@ func init() {
 func render(w http.ResponseWriter, r *http.Request) {
 	name := strings.ReplaceAll(filepath.Clean(r.URL.Path), ".ws", ".html")
 	file := filepath.Join("website", name)
-	
+
 	// check template files cache
 	tmpl, ok := templates[name]
 	if !ok {
@@ -105,7 +105,6 @@ func render(w http.ResponseWriter, r *http.Request) {
 		// This results in faster execution times, after the very first request to a templated URL
 		templates[name] = tmpl
 	}
-
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	err := tmpl.ExecuteTemplate(w, "layout", Information)

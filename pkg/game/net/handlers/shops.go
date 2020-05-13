@@ -11,7 +11,8 @@ package handlers
 
 import (
 	"strconv"
-
+	
+	`github.com/spkaeros/rscgo/pkg/definitions`
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -22,7 +23,7 @@ func init() {
 		if player.HasState(world.StateShopping) {
 			id := p.ReadUint16()
 			price := p.ReadUint32()
-			
+
 			shop := player.CurrentShop()
 			if shop == nil || player.State()&world.StateShopping != world.StateShopping {
 				log.Suspicious.Println(player, "tried purchasing from a shop but is not apparently accessing any shops.")
@@ -46,7 +47,7 @@ func init() {
 				player.Message("You don't have enough coins")
 				return
 			}
-			
+
 			player.AddItem(id, 1)
 			shop.Remove(id, 1)
 			player.PlaySound("coins")
@@ -72,7 +73,7 @@ func init() {
 				return
 			}
 
-			realPrice := int(world.Price(world.ItemDefs[id].BasePrice).Scale(shop.BasePurchasePercent + shop.DeltaPercentModID(id)))
+			realPrice := int(world.Price(definitions.Item(id).BasePrice).Scale(shop.BasePurchasePercent + shop.DeltaPercentModID(id)))
 			if price != realPrice {
 				log.Suspicious.Println(player, "tried buying item["+strconv.Itoa(id)+"] for ["+strconv.Itoa(price)+"gp] but actual price is currently ["+strconv.Itoa(realPrice)+"gp]")
 				return

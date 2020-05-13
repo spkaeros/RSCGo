@@ -11,9 +11,9 @@ package entity
 
 import (
 	"math"
-	`strconv`
+	"strconv"
 	"sync"
-	
+
 	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 
@@ -138,7 +138,6 @@ func (s *SkillTable) String() (s1 string) {
 	return s1 + "}"
 }
 
-
 //CombatLevel Calculates and returns the combat level for this skill table.
 // Melee stats are .25 combat levels per skill level
 // Pray and magic are .125 combat levels per skill level
@@ -148,16 +147,16 @@ func (s *SkillTable) String() (s1 string) {
 func (s *SkillTable) CombatLevel() int {
 	s.RLock()
 	defer s.RUnlock()
-	strengthAvg := (float64(s.maximum[StatAttack] + s.maximum[StatStrength])*.25)
-	defenseAvg := (float64(s.maximum[StatDefense] + s.maximum[StatHits])*.25)
-	magicAvg := (float64(s.maximum[StatPrayer] + s.maximum[StatMagic])*.125)
-	rangedAvg := (float64(s.maximum[4])*.375)
+	strengthAvg := (float64(s.maximum[StatAttack]+s.maximum[StatStrength]) * .25)
+	defenseAvg := (float64(s.maximum[StatDefense]+s.maximum[StatHits]) * .25)
+	magicAvg := (float64(s.maximum[StatPrayer]+s.maximum[StatMagic]) * .125)
+	rangedAvg := (float64(s.maximum[4]) * .375)
 	return int(math.Floor(defenseAvg + magicAvg + math.Max(strengthAvg, rangedAvg)))
 }
 
-var skillNames = []string{ "attack", "defense", "strength", "hits", "ranged", "prayer", "magic", "cooking",
+var skillNames = []string{"attack", "defense", "strength", "hits", "ranged", "prayer", "magic", "cooking",
 	"woodcutting", "fletching", "fishing", "firemaking", "crafting", "smithing", "mining", "herblaw", "agility",
-	"thieving" }
+	"thieving"}
 
 //SkillName Returns the skill name for the provided skill index, if any.
 // Otherwise returns string("nil")
@@ -188,7 +187,7 @@ func init() {
 	accumulativeExp := uint64(0)
 	for lvl := 0; lvl < len(experienceLevels); lvl++ {
 		curLvl := float64(lvl + 1)
-		exp := curLvl + 300 * math.Pow(2, curLvl/7)
+		exp := curLvl + 300*math.Pow(2, curLvl/7)
 		accumulativeExp += uint64(exp)
 
 		// mask off final 2 bits
@@ -201,11 +200,11 @@ func LevelToExperience(lvl int) int {
 	if lvl < 2 {
 		return 0
 	}
-	if lvl >  len(experienceLevels)-2 {
-		return int(experienceLevels[len(experienceLevels)-1]/4)
+	if lvl > len(experienceLevels)-2 {
+		return int(experienceLevels[len(experienceLevels)-1] / 4)
 	}
-	
-	return int(experienceLevels[lvl-2]/4)
+
+	return int(experienceLevels[lvl-2] / 4)
 }
 
 //ExperienceToLevel Finds the maximum level for the provided experience amount.
@@ -216,7 +215,7 @@ func ExperienceToLevel(exp int) int {
 		}
 	}
 
-	return len(experienceLevels)-1
+	return len(experienceLevels) - 1
 }
 
 // obase=10; ibase=16; 7FFFFFFFFFFFFFFC 9223372036854775804

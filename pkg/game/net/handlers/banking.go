@@ -66,7 +66,7 @@ func init() {
 				player.Inventory.Add(id, 1)
 			}
 			player.SendInventory()
-			
+
 			if player.Bank().CountID(id) > 0 {
 				player.SendPacket(world.BankUpdateItem(idx, id, item.Amount))
 			} else {

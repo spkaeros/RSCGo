@@ -18,6 +18,7 @@ import (
 	"github.com/mattn/anko/core"
 	"github.com/mattn/anko/env"
 	"github.com/mattn/anko/parser"
+	`github.com/spkaeros/rscgo/pkg/definitions`
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/rand"
@@ -35,7 +36,7 @@ func init() {
 		"getPlayer":              reflect.ValueOf(Players.FromIndex),
 		"getPlayerByName":        reflect.ValueOf(Players.FromUserHash),
 		"players":                reflect.ValueOf(Players),
-		"getEquipmentDefinition": reflect.ValueOf(GetEquipmentDefinition),
+		"getEquipmentDefinition": reflect.ValueOf(definitions.Equip),
 		"replaceObject":          reflect.ValueOf(ReplaceObject),
 		"addObject":              reflect.ValueOf(AddObject),
 		"removeObject":           reflect.ValueOf(RemoveObject),
@@ -314,10 +315,10 @@ func ScriptEnv() *env.Env {
 	e.Define("PRAYER_RAPID_RESTORE", 6)
 	e.Define("PRAYER_RAPID_HEAL", 7)
 	e.Define("ZeroTime", time.Time{})
-	e.Define("itemDefs", ItemDefs)
-	e.Define("objectDefs", ObjectDefs)
-	e.Define("boundaryDefs", BoundaryDefs)
-	e.Define("npcDefs", NpcDefs)
+	e.Define("itemDefs", definitions.Items)
+	e.Define("objectDefs", definitions.ScenaryObjects)
+	e.Define("boundaryDefs", definitions.BoundaryObjects)
+	e.Define("npcDefs", definitions.Npcs)
 	e.Define("lvlToExp", entity.LevelToExperience)
 	e.Define("expToLvl", entity.ExperienceToLevel)
 	e.Define("withinWorld", WithinWorld)
@@ -390,7 +391,7 @@ func ScriptEnv() *env.Env {
 
 	e.Define("fuzzyFindItem", func(input string) []map[string]interface{} {
 		var itemList []map[string]interface{}
-		for id, item := range ItemDefs {
+		for id, item := range definitions.Items {
 			if fuzzy.MatchFold(input, item.Name) {
 				itemList = append(itemList, map[string]interface{}{"name": item.Name, "id": id})
 			}
@@ -418,7 +419,7 @@ func ScriptEnv() *env.Env {
 		return func(object *Object, click int) bool {
 			for _, id := range ids {
 				if cmd, ok := id.(string); ok {
-					if ObjectDefs[object.ID].Commands[click] == cmd {
+					if definitions.ScenaryObjects[object.ID].Commands[click] == cmd {
 						return true
 					}
 				} else if id, ok := id.(int64); ok {

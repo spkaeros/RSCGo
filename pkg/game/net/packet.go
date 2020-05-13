@@ -19,29 +19,29 @@ import (
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 
-//Packet The definition of a game net.  Generally, these are commands, indexed by their Opcode(0-255), with
-//  a 5000-byte buffer for arguments, stored in FrameBuffer.  If the net is bare, raw data is intended to be
-//  transmitted when writing the net structure to a socket, otherwise we put a 2-byte unsigned short for the
+//Packet The definition of a game handlers.  Generally, these are commands, indexed by their Opcode(0-255), with
+//  a 5000-byte buffer for arguments, stored in FrameBuffer.  If the handlers is bare, raw data is intended to be
+//  transmitted when writing the handlers structure to a socket, otherwise we put a 2-byte unsigned short for the
 //  length of the arguments buffer(plus one because the opcode is included in the payload size), and the 1-byte
-//  opcode at the start of the net, as a header for the client to easily parse the information for each frame.
+//  opcode at the start of the handlers, as a header for the client to easily parse the information for each frame.
 type Packet struct {
-	Opcode       byte
-	FrameBuffer  []byte
-	readIndex    int
-	bitIndex     int
+	Opcode      byte
+	FrameBuffer []byte
+	readIndex   int
+	bitIndex    int
 }
 
-//NewPacket Creates a new net instance.
+//NewPacket Creates a new handlers instance.
 func NewPacket(opcode byte, payload []byte) *Packet {
 	return &Packet{Opcode: opcode, FrameBuffer: payload}
 }
 
-//NewEmptyPacket Creates a new net instance intended for sending formatted data to the client.
+//NewEmptyPacket Creates a new handlers instance intended for sending formatted data to the client.
 func NewEmptyPacket(opcode byte) *Packet {
 	return &Packet{Opcode: opcode, FrameBuffer: []byte{opcode}}
 }
 
-//NewReplyPacket Creates a new net instance intended for sending raw data to the client.
+//NewReplyPacket Creates a new handlers instance intended for sending raw data to the client.
 func NewReplyPacket(src []byte) *Packet {
 	return &Packet{FrameBuffer: src}
 }
@@ -64,23 +64,23 @@ func (p *Packet) readNSizeUints(n int) []uint64 {
 	return set
 }
 
-//ReadUint128 Read the next 128-bit integer from the net payload.
+//ReadUint128 Read the next 128-bit integer from the handlers payload.
 func (p *Packet) ReadUint128() (msb uint64, lsb uint64) {
 	buf := p.readNSizeUints(16)
 	return buf[0], buf[1]
 }
 
-//ReadUint64 Read the next 64-bit integer from the net payload.
+//ReadUint64 Read the next 64-bit integer from the handlers payload.
 func (p *Packet) ReadUint64() uint64 {
 	return p.readNSizeUints(8)[0]
 }
 
-//ReadUint32 Read the next 32-bit integer from the net payload.
+//ReadUint32 Read the next 32-bit integer from the handlers payload.
 func (p *Packet) ReadUint32() int {
 	return int(p.readNSizeUints(4)[0])
 }
 
-//ReadUint16 Read the next 16-bit integer from the net payload.
+//ReadUint16 Read the next 16-bit integer from the handlers payload.
 func (p *Packet) ReadUint16() int {
 	return int(p.readNSizeUints(2)[0])
 }
@@ -93,7 +93,7 @@ func checkError(err error) bool {
 	return false
 }
 
-//ReadUint8 Read the next 8-bit integer from the net payload.
+//ReadUint8 Read the next 8-bit integer from the handlers payload.
 func (p *Packet) ReadUint8() byte {
 	if checkError(p.Skip(1)) {
 		return 0
@@ -163,36 +163,36 @@ func (p *Packet) ReadStringN(n int) (val string) {
 	return string(buf)
 }
 
-//ReadString Read the next variable-length C-string from the net payload and return it as a Go-string.
+//ReadString Read the next variable-length C-string from the handlers payload and return it as a Go-string.
 // This will keep reading data until it reaches a null-byte or a new-line character ( '\0', 0xA, 0, 10 ).
 func (p *Packet) ReadString() string {
 	// String termination chars in order of precedence: NULL(\0), LineFeed (\n), and space(' ')
 	availableData := string(p.FrameBuffer[p.readIndex:])
-	for _, separator := range []byte {0, 10} {
+	for _, separator := range []byte{0, 10} {
 		end := strings.IndexByte(availableData, separator)
 		if end <= 0 {
 			continue
 		}
-		p.Skip(end+1)
+		p.Skip(end + 1)
 		return availableData[:end]
 	}
 	p.Skip(len(availableData))
 	return availableData
 }
 
-//AddUint64 Adds a 64-bit integer to the net payload.
+//AddUint64 Adds a 64-bit integer to the handlers payload.
 func (p *Packet) AddUint64(l uint64) *Packet {
 	p.FrameBuffer = append(p.FrameBuffer, byte(l>>56), byte(l>>48), byte(l>>40), byte(l>>32), byte(l>>24), byte(l>>16), byte(l>>8), byte(l))
 	return p
 }
 
-//AddUint32 Adds a 32-bit integer to the net payload.
+//AddUint32 Adds a 32-bit integer to the handlers payload.
 func (p *Packet) AddUint32(i uint32) *Packet {
 	p.FrameBuffer = append(p.FrameBuffer, byte(i>>24), byte(i>>16), byte(i>>8), byte(i))
 	return p
 }
 
-//AddUint8or32 Adds a 32-bit integer or an 8-byte integer to the net payload, depending on value.
+//AddUint8or32 Adds a 32-bit integer or an 8-byte integer to the handlers payload, depending on value.
 func (p *Packet) AddUint8or32(i uint32) *Packet {
 	if i < 128 {
 		p.FrameBuffer = append(p.FrameBuffer, uint8(i))
@@ -213,7 +213,7 @@ func (p *Packet) SetUint16At(offset int, s uint16) *Packet {
 	return p
 }
 
-//AddUint16 Adds a 16-bit integer to the net payload.
+//AddUint16 Adds a 16-bit integer to the handlers payload.
 func (p *Packet) AddUint16(s uint16) *Packet {
 	p.FrameBuffer = append(p.FrameBuffer, byte(s>>8), byte(s))
 	return p
@@ -229,19 +229,19 @@ func (p *Packet) AddBoolean(b bool) *Packet {
 	return p
 }
 
-//AddUint8 Adds an 8-bit integer to the net payload.
+//AddUint8 Adds an 8-bit integer to the handlers payload.
 func (p *Packet) AddUint8(b uint8) *Packet {
 	p.FrameBuffer = append(p.FrameBuffer, b)
 	return p
 }
 
-//AddInt8 Adds an 8-bit signed integer to the net payload.
+//AddInt8 Adds an 8-bit signed integer to the handlers payload.
 func (p *Packet) AddInt8(b int8) *Packet {
 	p.FrameBuffer = append(p.FrameBuffer, uint8(b))
 	return p
 }
 
-//AddBytes Adds byte array to net payload
+//AddBytes Adds byte array to handlers payload
 func (p *Packet) AddBytes(b []byte) *Packet {
 	p.FrameBuffer = append(p.FrameBuffer, b...)
 	return p

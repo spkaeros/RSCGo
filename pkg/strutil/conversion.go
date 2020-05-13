@@ -15,7 +15,7 @@ const MaxBase37 = 6582952005840035281
 func IPToInteger(s string) (ip int) {
 	if octets := strings.Split(s, "."); len(octets) > 0 {
 		for index, octet := range octets {
-			numericOctet, err := strconv.Atoi(octet)
+			numericOctet, err := strconv.Atoi(strings.Split(octet, ":")[0])
 			if err != nil {
 				fmt.Println("Error parsing IP address to integer:", err)
 				return -1
@@ -70,7 +70,7 @@ func ParseArgs(s string) []string {
 		}
 		str.WriteRune(c)
 	}
-	
+
 	if str.Len() > 0 {
 		out = append(out, str.String())
 	}
@@ -256,7 +256,7 @@ func init() {
 				} else {
 					c = unicode.ToLower(c)
 				}
-				
+
 				builder.WriteRune(c)
 			}
 		}
@@ -340,17 +340,17 @@ func init() {
 	Base2.String = func(i uint64) string {
 		return "0b" + BaseConversion.String(2, i)
 	}
-	
+
 	BaseConversion.Int = func(base int, s string) (l uint64) {
 		for _, c := range s {
 			l *= uint64(base)
 			if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' {
-				l += uint64(c-'A'+10)
+				l += uint64(c - 'A' + 10)
 			} else if c >= '0' && c <= '9' {
-				l += uint64(c-'0')
+				l += uint64(c - '0')
 			}
 		}
-		
+
 		return
 	}
 
@@ -359,57 +359,57 @@ func init() {
 			return "invalid_integer_to_string (enc failure)"
 		}
 		for i != 0 {
-			remainder := i%uint64(base)
+			remainder := i % uint64(base)
 			i /= uint64(base)
 			if remainder >= 10 {
-				s = string(remainder + 'A'-10) + s
+				s = string(remainder+'A'-10) + s
 			} else {
-				s = string(remainder + '0') + s
+				s = string(remainder+'0') + s
 			}
 		}
 		return s
 	}
-/*
-	BaseConversion.Encode = func(base int, s string) (l uint64) {
-		for _, c := range s {
-			l *= uint64(base)
-			if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' {
-				l += uint64(c-'a'+1)
-			} else if c >= '0' && c <= '9' {
-				l += uint64(c-'0'+27)
-			}
-		}
-		
-		return
-	}
-
-	BaseConversion.Decode = func(base int, i uint64) (s string) {
-		if i < 0 {
-			return "invalid_integer_to_string (enc failure)"
-		}
-		upper := true
-		for i != 0 {
-			remainder := i%uint64(base)
-			i /= uint64(base)
-			if remainder >= 11 {
-				if upper {
-					s = string(remainder + 'a'-1) + s
-					upper = false
-				} else {
-					s = string(remainder + 'A'-1) + s
+	/*
+		BaseConversion.Encode = func(base int, s string) (l uint64) {
+			for _, c := range s {
+				l *= uint64(base)
+				if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' {
+					l += uint64(c-'a'+1)
+				} else if c >= '0' && c <= '9' {
+					l += uint64(c-'0'+27)
 				}
-			} else if remainder > 0 {
-				s = string(remainder + '0' - 27) + s
-			} else {
-				s = string(' ') + s
-				upper = true
 			}
+
+			return
 		}
-		return s
-	}
-	fmt.Println(Base37.Decode(418444))
-	fmt.Println(Base37.Encode(Base37.Decode(418444)))
-	fmt.Println(Base16.String(418444))
-	fmt.Println(Base16.Int(Base16.String(418444)))
-*/
+
+		BaseConversion.Decode = func(base int, i uint64) (s string) {
+			if i < 0 {
+				return "invalid_integer_to_string (enc failure)"
+			}
+			upper := true
+			for i != 0 {
+				remainder := i%uint64(base)
+				i /= uint64(base)
+				if remainder >= 11 {
+					if upper {
+						s = string(remainder + 'a'-1) + s
+						upper = false
+					} else {
+						s = string(remainder + 'A'-1) + s
+					}
+				} else if remainder > 0 {
+					s = string(remainder + '0' - 27) + s
+				} else {
+					s = string(' ') + s
+					upper = true
+				}
+			}
+			return s
+		}
+		fmt.Println(Base37.Decode(418444))
+		fmt.Println(Base37.Encode(Base37.Decode(418444)))
+		fmt.Println(Base16.String(418444))
+		fmt.Println(Base16.Int(Base16.String(418444)))
+	*/
 }

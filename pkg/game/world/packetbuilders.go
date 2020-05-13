@@ -13,6 +13,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/rand"
+	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
@@ -636,7 +637,7 @@ func InventoryItems(player *Player) (p *net.Packet) {
 		} else {
 			p.AddUint16(uint16(item.ID))
 		}
-		if ItemDefs[item.ID].Stackable {
+		if definitions.Items[item.ID].Stackable {
 			p.AddUint8or32(uint32(item.Amount))
 		}
 		return true
@@ -875,7 +876,7 @@ func TradeConfirmationOpen(player, other *Player) *net.Packet {
 }
 
 //Logout Resets client to login welcome screen
-var Logout = net.NewEmptyPacket(4)
+var Logout = net.NewPacket(4, []byte{4})
 
 //WelcomeMessage Welcome to the game on login
 var WelcomeMessage = ServerMessage("Welcome to RuneScape")
@@ -908,9 +909,9 @@ func TeleBubble(offsetX, offsetY int) (p *net.Packet) {
 	return
 }
 
-func SystemUpdate(t int) *net.Packet {
+func SystemUpdate(t int64) *net.Packet {
 	p := net.NewEmptyPacket(52)
-	p.AddUint16(uint16((t * 50) / 32))
+	p.AddUint16(uint16(t/640))
 	return p
 }
 

@@ -10,10 +10,9 @@
 package handshake
 
 import (
-	"strings"
 	"strconv"
+	"strings"
 	"time"
-
 	
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/crypto"
@@ -56,8 +55,8 @@ func init() {
 				return
 			}
 			decryptedP := net.NewPacket(0x0, crypto.DecryptRSA(data))
-	//		decryptedP.Skip(1)
-	
+			//		decryptedP.Skip(1)
+
 			// Note: Classic's encryption scheme consisting of an RSA login block to exchange symmetric cipher keys,
 			// and after that has been communicated, shifting the packet opcodes using the symmetric ciphers output stream,
 			// is deprecated in favor of TLS.  It is simpler and easier to use, while also being an incredibly more secure choice.
@@ -66,35 +65,34 @@ func init() {
 			theirSeeds := []int{int(decryptedP.ReadUint32()), int(decryptedP.ReadUint32())}
 			player.SetVar("ourSeeds", ourSeeds)
 			player.SetVar("theirSeeds", theirSeeds)
-	
+
 			// this was named linkUID by jagex; it identifys a unique user agent I think
 			//p.ReadUint32()
-	
+
 			player.SetVar("username", strutil.Base37.Encode(strings.TrimSpace(decryptedP.ReadString())))
 			password := strings.TrimSpace(decryptedP.ReadString())
-	//		xteaSize := p.ReadUint16()
-	//		data = make([]byte, xteaSize)
-	//		xteaRead := p.Read(data)
-	//		if xteaRead < xteaSize {
-	//			log.Info.Println("Invalid xtea block; the buffer contains:", p.FrameBuffer)
-	//			loginReply <- ResponseLoginServerRejection
-	//			return
-	//		}
-	//		keyBuf := make([]byte, 4*4)
-	//		for i, v := range append(ourSeeds, theirSeeds...) {
-	//			binary.BigEndian.PutUint32(keyBuf[4*i:], v)
-	//		}
-	//		c, err := xtea.NewCipher(keyBuf)
-	//		if err != nil {
-	//			log.Info.Println(err)
-	//		}
-	//		out := make([]byte, xteaSize)
-	//		c.Decrypt(out, data)
-	//		p = net.NewPacket(0, crypto.DecryptXTEA(xteaSize, data, append(ourSeeds, theirSeeds...)...))
-	//		log.Info.Println(password)
-	//		player.Transients().SetVar("username", strutil.Base37.Encode(strings.TrimSpace(p.ReadString())))
-	
-	
+			//		xteaSize := p.ReadUint16()
+			//		data = make([]byte, xteaSize)
+			//		xteaRead := p.Read(data)
+			//		if xteaRead < xteaSize {
+			//			log.Info.Println("Invalid xtea block; the buffer contains:", p.FrameBuffer)
+			//			loginReply <- ResponseLoginServerRejection
+			//			return
+			//		}
+			//		keyBuf := make([]byte, 4*4)
+			//		for i, v := range append(ourSeeds, theirSeeds...) {
+			//			binary.BigEndian.PutUint32(keyBuf[4*i:], v)
+			//		}
+			//		c, err := xtea.NewCipher(keyBuf)
+			//		if err != nil {
+			//			log.Info.Println(err)
+			//		}
+			//		out := make([]byte, xteaSize)
+			//		c.Decrypt(out, data)
+			//		p = net.NewPacket(0, crypto.DecryptXTEA(xteaSize, data, append(ourSeeds, theirSeeds...)...))
+			//		log.Info.Println(password)
+			//		player.Transients().SetVar("username", strutil.Base37.Encode(strings.TrimSpace(p.ReadString())))
+
 			if world.Players.ContainsHash(player.UsernameHash()) {
 				loginReply <- response{ResponseLoggedIn, "Player with same username is already logged in"}
 				return

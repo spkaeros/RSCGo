@@ -10,15 +10,25 @@
 package world
 
 import (
+	"bufio"
 	"fmt"
 	"math"
+	stdnet "net"
 	"strconv"
 	"sync"
 	"time"
+	"strings"
+	"io"
 
+	"github.com/gobwas/ws/wsutil"
+	"github.com/gobwas/ws"
+	"go.uber.org/atomic"
+
+	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/log"
+	"github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
@@ -110,6 +120,7 @@ type Player struct {
 	Appearance       AppearanceTable
 	KnownAppearances map[int]int
 	AppearanceReq    []*Player
+	Socket           stdnet.Conn
 	AppearanceLock   sync.RWMutex
 	Attributes       *entity.AttributeList
 	Inventory        *Inventory
@@ -117,18 +128,20 @@ type Player struct {
 	DuelOffer        *Inventory
 	Duel             struct {
 		rules []string
-		
 	}
-	unregistering    bool
-	DistancedAction  func() bool
-	ActionLock       sync.RWMutex
-	OutgoingPackets  chan *net.Packet
-	ReplyMenuC       chan int8
-	Equips           [12]int
-	killer           sync.Once
-	KillC            chan struct{}
-	UpdateWG         sync.RWMutex
-	Tickables        []interface{}
+	DistancedAction func() bool
+	ActionLock      sync.RWMutex
+	UpdateWG        sync.Mutex
+	OutgoingPackets chan *net.Packet
+	ReplyMenuC      chan int8
+	Equips          [12]int
+	killer          sync.Once
+	Unregistering   *atomic.Bool
+	SigDisconnect   chan struct{}
+	SigKill         chan struct{}
+	Tickables       []interface{}
+	ReadWriter      *bufio.ReadWriter
+	Websocket       bool
 	Mob
 }
 
@@ -148,7 +161,7 @@ func (p *Player) CanAttack(target entity.MobileEntity) bool {
 	if target.IsNpc() {
 		return target.(*NPC).Attackable()
 	}
-	if p.State()&StateFightingDuel==StateFightingDuel {
+	if p.State()&StateFightingDuel == StateFightingDuel {
 		return p.DuelTarget() == target && p.DuelMagic()
 	}
 	p1 := target.(*Player)
@@ -288,9 +301,9 @@ func (p *Player) WalkingArrivalAction(target entity.MobileEntity, dist int, acti
 			action()
 			return true
 		}
-//		if !p.WalkTo(NewLocation(target.X(), target.Y())) {
-///			return true
-//		}
+		//		if !p.WalkTo(NewLocation(target.X(), target.Y())) {
+		///			return true
+		//		}
 		return !p.WalkTo(NewLocation(target.X(), target.Y()))
 	})
 }
@@ -305,8 +318,7 @@ func (p *Player) CanReachMob(target entity.MobileEntity) bool {
 		return false
 	}
 	p.Inc("triedReach", 1)
-		
-	
+
 	pathX := p.X()
 	pathY := p.Y()
 	for steps := 0; steps < 256; steps++ {
@@ -318,17 +330,17 @@ func (p *Player) CanReachMob(target entity.MobileEntity) bool {
 			p.UnsetVar("triedReach")
 			return true
 		}
-		
+
 		// Update coords toward target in a straight line
-		if pathX<target.X() {
+		if pathX < target.X() {
 			pathX++
-		} else if pathX>target.X() {
+		} else if pathX > target.X() {
 			pathX--
 		}
-		
-		if pathY<target.Y() {
+
+		if pathY < target.Y() {
 			pathY++
-		} else if pathY>target.Y() {
+		} else if pathY > target.Y() {
 			pathY--
 		}
 	}
@@ -445,7 +457,7 @@ func (p *Player) TraversePath() {
 		path.CurrentWaypoint++
 	}
 	dst := p.NextTileToward(path.nextTile())
-	
+
 	if p.FinishedPath() {
 		p.ResetPath()
 		return
@@ -481,7 +493,7 @@ func (l Location) ReachableCoords(x, y int) bool {
 		if IsTileBlocking(l.X(), l.Y(), bitmask, true) || IsTileBlocking(dst.X(), dst.Y(), dstmask, false) {
 			return false
 		}
-	
+
 		// does the next step toward our goal affect both X and Y coords?
 		if dst.X() != l.X() && dst.Y() != l.Y() {
 			// if so, we must scan for adjacent bitmasks of certain diags('_|', '‾|', '|‾' or '|_')
@@ -566,7 +578,7 @@ func (p *Player) DistributeMeleeExp(experience int) {
 
 //EquipItem equips an item to this player, and sends inventory and equipment bonuses.
 func (p *Player) EquipItem(item *Item) {
-	reqs := ItemDefs[item.ID].Requirements
+	reqs := definitions.Items[item.ID].Requirements
 	if reqs != nil {
 		var needed string
 		for skill, lvl := range reqs {
@@ -579,7 +591,7 @@ func (p *Player) EquipItem(item *Item) {
 			return
 		}
 	}
-	def := GetEquipmentDefinition(item.ID)
+	def := definitions.Equip(item.ID)
 	if def == nil {
 		return
 	}
@@ -590,7 +602,7 @@ func (p *Player) EquipItem(item *Item) {
 	}
 	p.PlaySound("click")
 	p.Inventory.Range(func(otherItem *Item) bool {
-		otherDef := GetEquipmentDefinition(otherItem.ID)
+		otherDef := definitions.Equip(otherItem.ID)
 		if otherItem == item || !otherItem.Worn || otherDef == nil || def.Type&otherDef.Type == 0 {
 			return true
 		}
@@ -636,7 +648,7 @@ func (p *Player) UpdateAppearance() {
 
 //DequipItem removes an item from this players equips, and sends inventory and equipment bonuses.
 func (p *Player) DequipItem(item *Item) {
-	def := GetEquipmentDefinition(item.ID)
+	def := definitions.Equip(item.ID)
 	if def == nil {
 		return
 	}
@@ -830,7 +842,7 @@ func (p *Player) CombatDelta(other entity.MobileEntity) int {
 //DuelAccepted returns the status of the specified duel negotiation screens accepted button for this player.
 // Valid screens are 1 and 2.
 func (p *Player) DuelAccepted(screen int) bool {
-	return p.VarBool("duel" + strconv.Itoa(screen) + "accept", false)
+	return p.VarBool("duel"+strconv.Itoa(screen)+"accept", false)
 }
 
 //DuelAccepted returns the status of the specified duel negotiation screens accepted button for this player.
@@ -925,35 +937,46 @@ func (p *Player) SendPacket(packet *net.Packet) {
 	if p == nil || (packet.Opcode != 0 && !p.Connected()) {
 		return
 	}
+//	data := []byte { byte(len(packet.FrameBuffer)-1), byte(packet.FrameBuffer[len(packet.FrameBuffer)-1]) }
+//	if data[1] == 0 {
+//		p.Write(packet.FrameBuffer)
+//	} else {
+//		p.Write(append(data, packet.FrameBuffer[:len(packet.FrameBuffer)-1]...))
+//	}
 	p.OutgoingPackets <- packet
+	
 }
 
 //Destroy sends a kill signal to the underlying client to tear down all of the I/O routines and save the player.
 func (p *Player) Destroy() {
 	p.killer.Do(func() {
-		if p.Connected() {
-			p.UpdateStatus(false)
-			p.ResetAll()
+		if !p.Unregistering.Load() && p.Unregistering.CAS(false, true) {
+			if p.Connected() {
+				p.UpdateStatus(false)
+				p.ResetAll()
+				p.SendPacket(Logout)
+			}
+			p.Inventory.Owner = nil
+			close(p.SigKill)
+			p.ResetTickables = append(p.ResetTickables, func() {
+				//			close(p.SigDisconnect)
+			})
 		}
-		p.Inventory.Owner = nil
-		p.unregistering = true
+		//		close(p.SigDisconnect)
+		//		close(p.SigKill)
 	})
-}
-
-func (p *Player) Unregistering() bool {
-	return p.unregistering
 }
 
 func (p *Player) AtObject(object *Object) bool {
 	bounds := object.Boundaries()
-	if ObjectDefs[object.ID].CollisionType == 2 || ObjectDefs[object.ID].CollisionType == 3 {
+	if definitions.ScenaryObjects[object.ID].CollisionType == 2 || definitions.ScenaryObjects[object.ID].CollisionType == 3 {
 		// door types
 		return (p.Reachable(bounds[0]) || p.Reachable(bounds[1])) && p.WithinArea(bounds)
 	}
 
-// TODO: Maybe replace this with the following:
-//	return (p.Reachable(bounds[0]), bounds[1]) || p.Reachable(bounds[1])) || (p.FinishedPath() && p.CanReachDiag(bounds))
-//	return p.Reachable(bounds[0]) || p.Reachable(bounds[1]) && p.WithinArea(bounds) p.CanReach(bounds) ||  (p.FinishedPath() && p.CanReachDiag(bounds))
+	// TODO: Maybe replace this with the following:
+	//	return (p.Reachable(bounds[0]), bounds[1]) || p.Reachable(bounds[1])) || (p.FinishedPath() && p.CanReachDiag(bounds))
+	//	return p.Reachable(bounds[0]) || p.Reachable(bounds[1]) && p.WithinArea(bounds) p.CanReach(bounds) ||  (p.FinishedPath() && p.CanReachDiag(bounds))
 
 	return p.CanReach(bounds) || (p.FinishedPath() && p.CanReachDiag(bounds))
 }
@@ -988,57 +1011,57 @@ func (p *Player) CanReach(bounds [2]Location) bool {
 }
 
 func (p *Player) CanReachDiag(bounds [2]Location) bool {
-/*
-	x, y := p.X(), p.Y()
-	if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y-1 >= bounds[0].Y() && y-1 <= bounds[1].Y() &&
-		(CollisionData(x-1, y-1).CollisionMask&ClipSouth|ClipWest) == 0 {
-		return true
-	}
-	if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y+1 >= bounds[0].Y() && y+1 <= bounds[1].Y() &&
-		(CollisionData(x-1, y+1).CollisionMask&ClipNorth|ClipWest) == 0 {
-		return true
-	}
-	if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y-1 >= bounds[0].Y() && y-1 <= bounds[1].Y() &&
-		(CollisionData(x+1, y-1).CollisionMask&ClipSouth|ClipEast) == 0 {
-		return true
-	}
-	if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y+1 >= bounds[0].Y() && y+1 <= bounds[1].Y() &&
-		(CollisionData(x+1, y+1).CollisionMask&ClipNorth|ClipEast) == 0 {
-		return true
-	}
+	/*
+		x, y := p.X(), p.Y()
+		if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y-1 >= bounds[0].Y() && y-1 <= bounds[1].Y() &&
+			(CollisionData(x-1, y-1).CollisionMask&ClipSouth|ClipWest) == 0 {
+			return true
+		}
+		if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y+1 >= bounds[0].Y() && y+1 <= bounds[1].Y() &&
+			(CollisionData(x-1, y+1).CollisionMask&ClipNorth|ClipWest) == 0 {
+			return true
+		}
+		if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y-1 >= bounds[0].Y() && y-1 <= bounds[1].Y() &&
+			(CollisionData(x+1, y-1).CollisionMask&ClipSouth|ClipEast) == 0 {
+			return true
+		}
+		if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y+1 >= bounds[0].Y() && y+1 <= bounds[1].Y() &&
+			(CollisionData(x+1, y+1).CollisionMask&ClipNorth|ClipEast) == 0 {
+			return true
+		}
 
-	low, high := p.Masks(bounds[0].X(), bounds[0].Y()), p.Masks(bounds[1].X(), bounds[1].Y())
-	mixedNS, mixedEW := p.Masks(bounds[0].X(), bounds[1].Y()), p.Masks(bounds[1].X(), bounds[0].Y())
-*/
-/*
-	tile := p.Location.Clone()
-	lowX, lowY := p.X() - bounds[0].X(), p.Y() - bounds[0].Y()
-	highX, highY := p.X() - bounds[1].X(), p.Y() - bounds[1].Y()
-	masks := byte(0)
-	if (lowX == 0 || highX == 0) && (lowY == 0 || highY == 0  {
-		if lowX < 0 {
+		low, high := p.Masks(bounds[0].X(), bounds[0].Y()), p.Masks(bounds[1].X(), bounds[1].Y())
+		mixedNS, mixedEW := p.Masks(bounds[0].X(), bounds[1].Y()), p.Masks(bounds[1].X(), bounds[0].Y())
+	*/
+	/*
+		tile := p.Location.Clone()
+		lowX, lowY := p.X() - bounds[0].X(), p.Y() - bounds[0].Y()
+		highX, highY := p.X() - bounds[1].X(), p.Y() - bounds[1].Y()
+		masks := byte(0)
+		if (lowX == 0 || highX == 0) && (lowY == 0 || highY == 0  {
+			if lowX < 0 {
+				masks |= ClipWest
+			}
+			if lowY < 0 {
+				masks |=
+			}
+		}
+		if lowX >= 1 && highX <= -1 {
 			masks |= ClipWest
+			tile.x.Dec()
+		} else if lowX <= -1  && highX >= 1 {
+			masks |= ClipEast
+			tile.x.Inc()
 		}
-		if lowY < 0 {
-			masks |= 
+		if lowY >= 1 {
+			masks |= ClipSouth
+			tile.y.Dec()
+		} else if lowY <= -1 {
+			masks |= ClipNorth
+			tile.y.Inc()
 		}
-	}
-	if lowX >= 1 && highX <= -1 {
-		masks |= ClipWest
-		tile.x.Dec()
-	} else if lowX <= -1  && highX >= 1 {
-		masks |= ClipEast
-		tile.x.Inc()
-	}
-	if lowY >= 1 {
-		masks |= ClipSouth
-		tile.y.Dec()
-	} else if lowY <= -1 {
-		masks |= ClipNorth
-		tile.y.Inc()
-	}
-	return CollisionData&masks != 0
-*/
+		return CollisionData&masks != 0
+	*/
 	// Northeast target
 	if p.X()-1 >= bounds[0].X() && p.X()-1 <= bounds[1].X() && p.Y()-1 >= bounds[0].Y() && p.Y()-1 <= bounds[1].Y() {
 		return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipSouth|ClipWest) == 0
@@ -1056,25 +1079,25 @@ func (p *Player) CanReachDiag(bounds [2]Location) bool {
 		return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipNorth|ClipEast) == 0
 	}
 	return false
-/*
-	// Southeast target
-	if lowX >= 1 && lowY <= -1 {
-		return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipNorth|ClipWest) == 0
-	}
-	// Southwest target
-	if lowX <= -1 && lowY <= -1 {
-		return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipNorth|ClipEast)
-	}
-	// Northeast target
-	if lowX >= 1 && lowY >= 1 {
-		return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipSouth|ClipWest) == 0
-	}
-	// Northwest target
-	if lowX <= -1 && lowY >= 1 {
-		return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipSouth|ClipEast)
-	}
-	return CollisionData(tile.X(), tile.Y()).CollisionMask&() == 0
-*/
+	/*
+		// Southeast target
+		if lowX >= 1 && lowY <= -1 {
+			return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipNorth|ClipWest) == 0
+		}
+		// Southwest target
+		if lowX <= -1 && lowY <= -1 {
+			return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipNorth|ClipEast)
+		}
+		// Northeast target
+		if lowX >= 1 && lowY >= 1 {
+			return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipSouth|ClipWest) == 0
+		}
+		// Northwest target
+		if lowX <= -1 && lowY >= 1 {
+			return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipSouth|ClipEast)
+		}
+		return CollisionData(tile.X(), tile.Y()).CollisionMask&() == 0
+	*/
 }
 
 func (p *Player) SendFatigue() {
@@ -1119,8 +1142,8 @@ func NewPlayer(index int, ip string) *Player {
 	p := &Player{Mob: Mob{Entity: Entity{Index: index, Location: Lumbridge.Clone()}, AttributeList: *entity.NewAttributeList()},
 		Attributes: entity.NewAttributeList(), LocalPlayers: NewMobList(), LocalNPCs: NewMobList(), LocalObjects: &entityList{},
 		Appearance: DefaultAppearance(), FriendList: &FriendsList{friendSet: make(friendSet)}, KnownAppearances: make(map[int]int),
-		Inventory: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, DuelOffer: &Inventory{Capacity: 8},
-		LocalItems: &entityList{}, OutgoingPackets: make(chan *net.Packet, 20), KillC: make(chan struct{})}
+		Inventory: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, DuelOffer: &Inventory{Capacity: 8}, Unregistering: atomic.NewBool(false),
+		LocalItems: &entityList{}, OutgoingPackets: make(chan *net.Packet, 20), SigDisconnect: make(chan struct{}), SigKill: make(chan struct{})}
 	p.SetVar("currentIP", ip)
 	p.SetVar("viewRadius", 16)
 	p.SetVar("skills", &entity.SkillTable{})
@@ -1294,7 +1317,7 @@ func (p *Player) AddItem(id, amount int) {
 		defer p.SendInventory()
 	}
 	stackSize := 1
-	if ItemDefs[id].Stackable {
+	if definitions.Items[id].Stackable {
 		stackSize = amount
 	}
 	for i := 0; i < amount; i += stackSize {
@@ -1352,10 +1375,10 @@ func (p *Player) SetSkulled(val bool) {
 	}
 	p.UpdateAppearance()
 }
- 
+
 func (p *Player) ResetFighting() {
-       defer p.Mob.ResetFighting()
-       p.ResetDuel()
+	defer p.Mob.ResetFighting()
+	p.ResetDuel()
 }
 
 func (p *Player) StartCombat(target entity.MobileEntity) {
@@ -1408,7 +1431,7 @@ func (p *Player) StartCombat(target entity.MobileEntity) {
 		if defenderNpc, ok := defender.(*NPC); ok && attacker.IsPlayer() {
 			userHash := attacker.(*Player).UsernameHash()
 			if dmg, ok := defenderNpc.damageDeltas[userHash]; ok {
-				defenderNpc.damageDeltas[userHash] = dmg+nextHit
+				defenderNpc.damageDeltas[userHash] = dmg + nextHit
 			} else {
 				defenderNpc.damageDeltas[userHash] = nextHit
 			}
@@ -1500,7 +1523,7 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 	p.SendEquipBonuses()
 	p.ResetFighting()
 	p.SetSkulled(false)
-	
+
 	plane := p.Plane()
 	p.SetLocation(SpawnPoint, true)
 	if p.Plane() != plane {
@@ -1595,7 +1618,7 @@ func (p *Player) CloseBank() {
 
 //SendUpdateTimer sends a system update countdown timer to the client.
 func (p *Player) SendUpdateTimer() {
-	p.SendPacket(SystemUpdate(int(time.Until(UpdateTime).Seconds())))
+	p.SendPacket(SystemUpdate(time.Until(UpdateTime).Milliseconds()))
 }
 
 func (p *Player) SendMessageBox(msg string, big bool) {
@@ -1624,4 +1647,97 @@ func (p *Player) Cache(name string) interface{} {
 func (p *Player) OpenSleepScreen() {
 	p.AddState(StateSleeping)
 	p.SendPacket(SleepWord(p))
+}
+/*
+func (p *Player) SendPacket(packet *net.Packet) {
+	var err error
+	var dataLen int
+	if strings.HasSuffix(p.Socket.LocalAddr().String(), "43595") {
+		err = wsutil.WriteServerBinary(p.Socket, src)
+		dataLen = len(src)
+	} else {
+		dataLen, err = p.ReadWriter.Write(src)
+	}
+	log.Debug(src, dataLen, err)
+	if err != nil {
+		log.Warn("Problem occurred writing data to a client:", err)
+		p.Destroy()
+		return -1
+	}
+	p.ReadWriter.Flush()
+	return dataLen
+}*/
+
+//Write Writes data to the client's socket from `b`.  Returns the length of the written bytes.
+func (p *Player) Write(src []byte) int {
+	var err error
+	var dataLen int
+	if strings.HasSuffix(p.Socket.LocalAddr().String(), "43595") {
+		err = wsutil.WriteServerBinary(p.Socket, src)
+		dataLen = len(src)
+	} else {
+		dataLen, err = p.ReadWriter.Write(src)
+	}
+//	log.Debug(src, dataLen, err)
+	if err != nil {
+		log.Warn("Problem occurred writing data to a client:", err)
+		p.Destroy()
+		return -1
+	}
+	return dataLen
+}
+
+func (p *Player) readSize() int {
+	return p.VarInt("readSize", 0)
+}
+
+func (p *Player) readLimit() int {
+	return p.VarInt("readLimit", 0)
+}
+
+func (p *Player) headerFin() bool {
+	return p.VarBool("headerFin", false)
+}
+
+func (p *Player) Read(data []byte) (n int, err error) {
+	written := 0
+	for written < len(data) {
+		err := p.Socket.SetReadDeadline(time.Now().Add(time.Second * time.Duration(15)))
+		if err != nil {
+			return -1, errors.NewNetworkError("Deadline reached", true)
+		}
+		if strings.HasSuffix(p.Socket.LocalAddr().String(), "43595") && (p.readSize() >= p.readLimit()) {
+			// reset buffer read index and create the next reader
+			header, reader, err := wsutil.NextReader(p.Socket, ws.StateServerSide)
+			p.SetVar("readLimit", int(header.Length))
+			p.SetVar("readSize", 0)
+			p.SetVar("headerFin", header.Fin)
+			if err != nil {
+				if err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
+					return -1, errors.NewNetworkError("closed conn", false)
+				} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
+					return -1, errors.NewNetworkError("timed out", false)
+				}
+				log.Warn("Problem creating reader for next websocket frame:", err)
+			}
+			p.ReadWriter.Reader.Reset(reader)
+		}
+		n, err := p.ReadWriter.Read(data[written:])
+		p.SetVar("readSize", p.readSize()+n)
+		if err != nil {
+			if err == io.EOF {
+				if !p.headerFin() {
+					continue
+				}
+			}
+			if err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
+				return -1, errors.NewNetworkError("closed conn", false)
+			} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
+				return -1, errors.NewNetworkError("timed out", false)
+			}
+			continue
+		}
+		written += n
+	}
+	return written, nil
 }

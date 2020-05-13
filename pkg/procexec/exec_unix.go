@@ -25,12 +25,12 @@ import (
 func Run(name string, file string, args ...string) *exec.Cmd {
 	s, err := os.Stat(file)
 	if err != nil {
-		log.Warning.Println("Could not stat file:", err)
+		log.Warn("Could not stat file:", err)
 		return nil
 	}
 
 	if !s.Mode().IsRegular() || s.Mode()&0111 == 0 {
-		log.Warning.Println("File at path '" + file + "' is not an executable file!")
+		log.Warn("File at path '" + file + "' is not an executable file!")
 		return nil
 	}
 

@@ -12,10 +12,10 @@ package handlers
 import (
 	"strconv"
 
-	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
+	"github.com/spkaeros/rscgo/pkg/game/net"
 )
 
 func init() {
@@ -93,7 +93,7 @@ func init() {
 		}
 		player.ResetDuelAccepted()
 		target.ResetDuelAccepted()
-		
+
 		player.DuelOffer.Clear()
 		defer func() {
 			target.SendPacket(world.DuelUpdate(player))
@@ -156,7 +156,7 @@ func init() {
 		//player.SetVar("duelCanPrayer", !prayerAllowed)
 		//player.SetVar("duelCanEquip", !equipmentAllowed)
 		player.SendPacket(world.DuelOptions(player))
-		
+
 		//target.SetVar("duelCanRetreat", !retreatsAllowed)
 		//target.SetVar("duelCanMagic", !magicAllowed)
 		//target.SetVar("duelCanPrayer", !prayerAllowed)

@@ -14,15 +14,15 @@ import (
 	"math"
 )
 
-type pNode struct {
-	parent              *pNode
+type tileNode struct {
+	parent              *tileNode
 	loc                 Location
 	hCost, gCost, nCost float64
 	index               int
 	open, closed        bool
 }
 
-func (n *pNode) gCostFrom(neighbor *pNode) float64 {
+func (n *tileNode) gCostFrom(neighbor *tileNode) float64 {
 	stepPrice := 1.0
 	if n.loc.DeltaX(neighbor.loc) + n.loc.DeltaY(neighbor.loc) > 1 {
 		stepPrice = math.Sqrt2
@@ -30,30 +30,30 @@ func (n *pNode) gCostFrom(neighbor *pNode) float64 {
 	return n.gCost + stepPrice
 }
 
-type queue []*pNode
+type tileQueue []*tileNode
 
-func (q queue) Len() int {
+func (q tileQueue) Len() int {
 	return len(q)
 }
 
-func (q queue) Less(i, j int) bool {
+func (q tileQueue) Less(i, j int) bool {
 	return q[i].nCost < q[j].nCost
 }
 
-func (q queue) Swap(i, j int) {
+func (q tileQueue) Swap(i, j int) {
 	q[i], q[j] = q[j], q[i]
 	q[i].index = i
 	q[j].index = j
 }
 
-func (q *queue) Push(x interface{}) {
+func (q *tileQueue) Push(x interface{}) {
 	n := len(*q)
-	node := x.(*pNode)
+	node := x.(*tileNode)
 	node.index = n
 	*q = append(*q, node)
 }
 
-func (q *queue) Pop() interface{} {
+func (q *tileQueue) Pop() interface{} {
 	old := *q
 	n := len(old)
 	node := old[n-1]
@@ -64,8 +64,8 @@ func (q *queue) Pop() interface{} {
 }
 
 type Pathfinder struct {
-	queue
-	activeTiles map[int]*pNode
+	tileQueue
+	activeTiles map[int]*tileNode
 	last Location
 	start Location
 	end   Location
@@ -79,18 +79,16 @@ func (l Location) Hash() int {
 
 //NewPathfinder Returns a new A* pathfinder instance to derive an optimal path from start to end.
 func NewPathfinder(start, end Location) *Pathfinder {
-	startNode := &pNode{loc: start, open: true}
-	p := &Pathfinder{start: start, end: end, queue: queue{startNode}, activeTiles: map[int]*pNode { start.Hash(): startNode, end.Hash(): &pNode{loc: end} }}
-//	activeTiles[start.Hash()] = p.queue[0]
-//	activeTiles[end.Hash()] = &pNode{loc: end}
-	heap.Init(&p.queue)
+	startNode := &tileNode{loc: start, open: true}
+	p := &Pathfinder{start: start, end: end, tileQueue: tileQueue{startNode}, activeTiles: map[int]*tileNode{ start.Hash(): startNode, end.Hash(): {loc: end}}}
+	heap.Init(&p.tileQueue)
 	return p
 }
 
-func (p *Pathfinder) node(l Location) *pNode {
+func (p *Pathfinder) node(l Location) *tileNode {
 	hash := (l.X()<<16)|l.Y()
 	if v, ok := p.activeTiles[hash]; !ok || v == nil {
-		p.activeTiles[hash] = &pNode{loc: l}
+		p.activeTiles[hash] = &tileNode{loc: l}
 	}
 	return p.activeTiles[hash]
 }
@@ -105,10 +103,10 @@ func (p *Pathfinder) MakePath() *Pathway {
 			v.hCost, v.gCost, v.nCost = 0, 0, 0
 		}
 	}()
-	for p.queue.Len() > 0 {
-		active := heap.Pop(&p.queue).(*pNode)
+	for p.tileQueue.Len() > 0 {
+		active := heap.Pop(&p.tileQueue).(*tileNode)
 		active.closed = true
-		makePath := func(active *pNode) *Pathway {
+		makePath := func(active *tileNode) *Pathway {
 			path := &Pathway{StartX: 0, StartY: 0}
 			for !active.parent.loc.Equals(p.start) {
 				path.addFirstWaypoint(active.loc.X(), active.loc.Y())
@@ -117,7 +115,7 @@ func (p *Pathfinder) MakePath() *Pathway {
 			return path
 		}
 		position := active.loc
-		if p.last.LongestDelta(active.loc) == 0 || p.queue.Len() > 512 {
+		if p.last.LongestDelta(active.loc) == 0 /*|| p.tileQueue.Len() > 512*/ {
 			// DoS prevention measures; astar will run forever if you let it
 //			return makePath(active)
 			return nil
@@ -131,7 +129,7 @@ func (p *Pathfinder) MakePath() *Pathway {
 		// OrderedDirections is ordered as orthogonal then diagonals.
 		// Direction precedent: E,W,N,S,SW,SE,NW,NE
 		for _, direction := range OrderedDirections {
-//			node := &pNode{loc: active.loc.Step(direction), open: false, closed: false}
+//			node := &tileNode{loc: active.loc.Step(direction), open: false, closed: false}
 			neighbor := p.node(active.loc.Step(direction))
 			if !active.loc.Reachable(neighbor.loc) {
 				continue
@@ -146,10 +144,10 @@ func (p *Pathfinder) MakePath() *Pathway {
 				neighbor.parent = active
 				if !neighbor.open || neighbor.closed {
 					neighbor.open = true
-					heap.Push(&p.queue, neighbor)
+					heap.Push(&p.tileQueue, neighbor)
 					continue
 				}
-				heap.Fix(&p.queue, neighbor.index)
+				heap.Fix(&p.tileQueue, neighbor.index)
 			}
 		}
 	}

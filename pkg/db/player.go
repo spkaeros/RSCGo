@@ -5,7 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
+	
+	`github.com/spkaeros/rscgo/pkg/definitions`
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 
 	"github.com/spkaeros/rscgo/pkg/config"
@@ -73,21 +74,21 @@ func (s *sqlService) PlayerCreate(username, password, ip string) bool {
 			return false
 		}
 	}
-	
+
 	_, err = tx.Exec("INSERT INTO appearance VALUES($1, 2, 8, 14, 0, 1, 2)", playerID)
 	if err != nil {
 		log.Info.Println("PlayerCreate(): Could not insert new player profile information:", err)
 		return false
 	}
-	_, err = tx.Exec("INSERT INTO player_attr VALUES($1, 'lastIP', $2)", playerID, "s" + ip)
+	_, err = tx.Exec("INSERT INTO player_attr VALUES($1, 'lastIP', $2)", playerID, "s"+ip)
 	if err != nil {
 		log.Info.Println("PlayerCreate(): Could not insert new player profile information:", err)
 		return false
 	}
-	_, err = tx.Exec("INSERT INTO stats (playerid, num, cur, exp) VALUES ($1, 0, 1, 0), ($1, 1, 1, 0), " +
-			"($1, 2, 1, 0), ($1, 3, 10, 1156), ($1, 4, 1, 0), ($1, 5, 1, 0), ($1, 6, 1, 0), ($1, 7, 1, 0), ($1, 8, 1, 0), " +
-			"($1, 9, 1, 0), ($1, 10, 1, 0), ($1, 11, 1, 0), ($1, 12, 1, 0), ($1, 13, 1, 0), ($1, 14, 1, 0), ($1, 15, 1, 0), " +
-			"($1, 16, 1, 0), ($1, 17, 1, 0)", playerID)
+	_, err = tx.Exec("INSERT INTO stats (playerid, num, cur, exp) VALUES ($1, 0, 1, 0), ($1, 1, 1, 0), "+
+		"($1, 2, 1, 0), ($1, 3, 10, 1156), ($1, 4, 1, 0), ($1, 5, 1, 0), ($1, 6, 1, 0), ($1, 7, 1, 0), ($1, 8, 1, 0), "+
+		"($1, 9, 1, 0), ($1, 10, 1, 0), ($1, 11, 1, 0), ($1, 12, 1, 0), ($1, 13, 1, 0), ($1, 14, 1, 0), ($1, 15, 1, 0), "+
+		"($1, 16, 1, 0), ($1, 17, 1, 0)", playerID)
 	if err != nil {
 		log.Info.Println("PlayerCreate(): Could not insert new player profile information:", err)
 		return false
@@ -98,9 +99,9 @@ func (s *sqlService) PlayerCreate(username, password, ip string) bool {
 		return false
 	}
 	// 12 inv slots remaining
-	_, err = tx.Exec("INSERT INTO inventory (playerid, itemid, amount) VALUES ($1, 1263, 1), ($1, 77, 1), ($1, 71, 1), " + 
-			"($1, 6, 1), ($1, 7, 1), ($1, 8, 1), ($1, 9, 1), ($1, 316, 1), ($1, 198, 1), ($1, 185, 1), ($1, 184, 1), " + 
-			"($1, 187, 1), ($1, 35, 100), ($1, 33, 100), ($1, 36, 100), ($1, 188, 1), ($1, 189, 1), ($1, 11, 100)", playerID)
+	_, err = tx.Exec("INSERT INTO inventory (playerid, itemid, amount) VALUES ($1, 1263, 1), ($1, 77, 1), ($1, 71, 1), "+
+		"($1, 6, 1), ($1, 7, 1), ($1, 8, 1), ($1, 9, 1), ($1, 316, 1), ($1, 198, 1), ($1, 185, 1), ($1, 184, 1), "+
+		"($1, 187, 1), ($1, 35, 100), ($1, 33, 100), ($1, 36, 100), ($1, 188, 1), ($1, 189, 1), ($1, 11, 100)", playerID)
 	if err != nil {
 		log.Info.Println("PlayerCreate(): Could not insert new player profile information:", err)
 		return false
@@ -319,7 +320,7 @@ func (s *sqlService) PlayerLoad(player *world.Player) bool {
 			wielded := false
 			rows.Scan(&id, &amt, &wielded)
 			index := player.Inventory.Add(id, amt)
-			if e := world.GetEquipmentDefinition(id); e != nil && wielded {
+			if e := definitions.Equip(id); e != nil && wielded {
 				player.Inventory.Get(index).Worn = true
 				player.Equips[e.Position] = e.Sprite
 				player.SetAimPoints(player.AimPoints() + e.Aim)

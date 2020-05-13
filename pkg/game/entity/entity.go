@@ -19,8 +19,8 @@ const (
 	TypeItem                        // 16
 	TypeGroundItem                  // 32
 
-	TypeMob = TypePlayer|TypeNpc
-	TypeEntity = TypeObject|TypeDoor|TypeItem|TypeGroundItem
+	TypeMob    = TypePlayer | TypeNpc
+	TypeEntity = TypeObject | TypeDoor | TypeItem | TypeGroundItem
 )
 
 type Entity interface {

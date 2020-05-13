@@ -10,19 +10,19 @@
 package handshake
 
 import (
-	"strings"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spkaeros/rscgo/pkg/engine/tasks"
+	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/ipthrottle"
 	"github.com/spkaeros/rscgo/pkg/log"
-	"github.com/spkaeros/rscgo/pkg/game/net"
 )
 
-var loginThrottle = ipthrottle.NewThrottle()
-var registerThrottle = ipthrottle.NewThrottle()
+var loginThrottle = ipThrottle.NewThrottle()
+var registerThrottle = ipThrottle.NewThrottle()
 
 type (
 	//ResponseType A networking handshake response identifier code.
@@ -52,7 +52,7 @@ func (r response) send(requestKind string, p *world.Player) {
 	}
 	name += "'@'" + p.CurrentIP() + "'"
 	log.Debugf("%s{%s}: %s", requestKind, name, r)
-	p.SendPacket(net.NewPacket(0, []byte{ byte(r.ResponseCode) }))
+	p.SendPacket(net.NewPacket(0, []byte{byte(r.ResponseCode)}))
 }
 
 func (r response) String() string {
@@ -79,8 +79,8 @@ func (r response) String() string {
 	msg += " (code:" + strconv.Itoa(int(r.ResponseCode)) + "" + r.description + ")"
 
 	return msg
-//	return kind + ": { Player: '" + name + "'@'" + .CurrentIP() + "' }: Response: " + r.result.reason
-//	return "[" + kind + "] - Response: '" + strconv.Itoa(int(r.result)) + "'"
+	//	return kind + ": { Player: '" + name + "'@'" + .CurrentIP() + "' }: Response: " + r.result.reason
+	//	return "[" + kind + "] - Response: '" + strconv.Itoa(int(r.result)) + "'"
 }
 
 //NewRegistrationListener returns a pointer to a new ResponseListener that is ready to listen for
@@ -97,20 +97,20 @@ func NewLoginListener(p *world.Player) *ResponseListener {
 //IsValid is used to determine whether the ResponseCode is for a successful handshake or not.
 // Returns true if the handshake was a success and the client is now logged in, otherwise returns false.
 func (r ResponseCode) IsValid() bool {
-	for _, i := range [...]ResponseCode { ResponseLoginSuccess, ResponseReconnected, ResponseModerator,
-			ResponseAdministrator, ResponseRegisterSuccess } {
+	for _, i := range [...]ResponseCode{ResponseLoginSuccess, ResponseReconnected, ResponseModerator,
+		ResponseAdministrator, ResponseRegisterSuccess} {
 		if i == r {
 			return true
 		}
 	}
-	return int(r) & 64 == 64
+	return int(r)&64 == 64
 }
 
 //IsEarlyOpcode is used to determine whether or not the opcode provided is an authorization handshake packet or not.
 // Returns true if the opcode is an auth packet, otherwise returns false.
 func EarlyOperation(opcode int) bool {
 	// session PRNG seed request, login request, new-player request
-	for _, i := range [...]int { 32, 0, 2 } {
+	for _, i := range [...]int{32, 0, 2} {
 		if i == opcode {
 			return true
 		}
@@ -205,8 +205,8 @@ const (
 	//ResponseAdministrator Used to indicate to the client that the character it wants to load is a stadd member/admin/owner.
 	ResponseAdministrator
 	//ResponseLoginAcceptBit bitmask to use for valid login response.  the network protocol of revisions > 204 rely on this.
-	ResponseLoginAcceptBit = 1<<6
-	ResponseUsernameTaken = ResponseBadPassword
+	ResponseLoginAcceptBit = 1 << 6
+	ResponseUsernameTaken  = ResponseBadPassword
 )
 
 const (
@@ -237,7 +237,7 @@ func (r *ResponseListener) attachPlayer(p *world.Player) chan response {
 				if res.ResponseCode == ResponseBadPassword {
 					loginThrottle.Add(p.CurrentIP())
 				}
-//				log.Debugf("%s (%s)", r, status)
+				//				log.Debugf("%s (%s)", r, status)
 			case RegisterCode:
 				if registerThrottle.Recent(p.CurrentIP(), time.Hour) >= 2 {
 					res.ResponseCode = ResponseSpamTimeout
@@ -245,7 +245,7 @@ func (r *ResponseListener) attachPlayer(p *world.Player) chan response {
 				res.send("RegisterRequest", p)
 				p.Destroy()
 				// below is to cap registration of new profiles to 2 per hour per IP address
-//				p.SendPacket(world.HandshakeResponse(int(res.ResponseCode)))
+				//				p.SendPacket(world.HandshakeResponse(int(res.ResponseCode)))
 				if res.ResponseCode == ResponseRegisterSuccess {
 					registerThrottle.Add(p.CurrentIP())
 					return true

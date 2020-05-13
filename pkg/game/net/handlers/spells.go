@@ -17,7 +17,7 @@ import (
 )
 
 // thin wrapper around Anko spell handling subroutines.
-// Utilizing the scripting environments runtime we can gain cool benefits, e.g 
+// Utilizing the scripting environments runtime we can gain cool benefits, e.g
 // fully dynamic spell dispatching, since the scripts and their env are all loaded at runtime.
 // This also means that it is easier to shoot oneself in the foot (without realizing it, at times).
 // For this reason, the API for scripts to use is implemented in stable fast Go, while scripts using said API
@@ -31,7 +31,7 @@ func init() {
 			return
 		}
 		spellIndex := p.ReadUint16()
-//		log.Info.Println("cast on npc:", targetIndex, target.ID, spellIndex)
+		//		log.Info.Println("cast on npc:", targetIndex, target.ID, spellIndex)
 		dispatchSpellAction(player, spellIndex, target)
 	})
 	AddHandler("spellplayer", func(player *world.Player, p *net.Packet) {
@@ -41,28 +41,28 @@ func init() {
 			return
 		}
 		spellIndex := p.ReadUint16()
-//		log.Info.Println("cast on player:", targetIndex, target.String(), spellIndex)
+		//		log.Info.Println("cast on player:", targetIndex, target.String(), spellIndex)
 		dispatchSpellAction(player, spellIndex, target)
 	})
 	AddHandler("spellself", func(player *world.Player, p *net.Packet) {
 		idx := p.ReadUint16()
 
-//		log.Info.Println("Cast on self:", idx)
+		//		log.Info.Println("Cast on self:", idx)
 		dispatchSpellAction(player, idx, nil)
 	})
 	AddHandler("spellinvitem", func(player *world.Player, p *net.Packet) {
-		p.Skip(2)// short uint itemIndex
+		p.Skip(2) // short uint itemIndex
 		spellIndex := p.ReadUint16()
-//		log.Info.Println("Cast on invitem:", spellIndex, "on", itemIndex)
+		//		log.Info.Println("Cast on invitem:", spellIndex, "on", itemIndex)
 		dispatchSpellAction(player, spellIndex, nil)
 	})
 	AddHandler("spellgrounditem", func(player *world.Player, p *net.Packet) {
-//		itemX := p.ReadUint16()
-//		itemY := p.ReadUint16()
-//		itemID := p.ReadUint16()
+		//		itemX := p.ReadUint16()
+		//		itemY := p.ReadUint16()
+		//		itemID := p.ReadUint16()
 		p.Skip(6)
 		spellIndex := p.ReadUint16()
-//		log.Info.Println(itemX, itemY, itemID, "cast on grounditem:", spellIndex, "on", strconv.Itoa(itemID), "at", strconv.Itoa(itemX)+","+strconv.Itoa(itemY))
+		//		log.Info.Println(itemX, itemY, itemID, "cast on grounditem:", spellIndex, "on", strconv.Itoa(itemID), "at", strconv.Itoa(itemX)+","+strconv.Itoa(itemY))
 		dispatchSpellAction(player, spellIndex, nil)
 	})
 }

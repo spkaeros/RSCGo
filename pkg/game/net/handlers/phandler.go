@@ -11,37 +11,38 @@ package handlers
 
 import (
 	"github.com/BurntSushi/toml"
+
 	"github.com/spkaeros/rscgo/pkg/config"
-	"github.com/spkaeros/rscgo/pkg/game/net"
+	`github.com/spkaeros/rscgo/pkg/game/net`
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/rand"
 )
 
 //HandlerFunc Represents a func that is to be called whenever a connected client receives
-// a specific incoming net.
+// a specific incoming handlers.
 type HandlerFunc = func(*world.Player, *net.Packet)
 
 //handlers A map with descriptive names for the keys, and functions to run for the value.
 var handlers = make(map[string]HandlerFunc)
 
-//definitions a collection of net definitions.
-var definitions packetList
+//pDefinitions a collection of handlers pDefinitions.
+var pDefinitions packetList
 
-//packetDefinition Definition of a net handler.
+//packetDefinition Definition of a handlers handler.
 type packetDefinition struct {
 	Opcode int    `toml:"opcode"`
 	Name   string `toml:"name"`
 	//	Handler HandlerFunc
 }
 
-//packetList Represents a mapping of descriptive names to net opcodes.
+//packetList Represents a mapping of descriptive names to handlers opcodes.
 type packetList struct {
 	Set []packetDefinition `toml:"packets"`
 }
 
 func init() {
-	// Just to prevent non-handled net message from spamming up the logs
+	// Just to prevent non-handled handlers message from spamming up the logs
 	AddHandler("pingreq", func(*world.Player, *net.Packet) {})
 	AddHandler("sessionreq", func(player *world.Player, p *net.Packet) {
 		// TODO: Remove maybe...TLS deprecates the need for it
@@ -52,17 +53,17 @@ func init() {
 	})
 }
 
-//UnmarshalPackets Loads the net definitions into memory from the configured TOML file
+//UnmarshalPackets Loads the handlers pDefinitions into memory from the configured TOML file
 func UnmarshalPackets() {
-	if _, err := toml.DecodeFile(config.DataDir()+config.PacketHandlers(), &definitions); err != nil {
-		log.Error.Fatalln("Could not open net handler definitions data file:", err)
+	if _, err := toml.DecodeFile(config.DataDir()+config.PacketHandlers(), &pDefinitions); err != nil {
+		log.Error.Fatalln("Could not open handlers handler pDefinitions data file:", err)
 		return
 	}
 }
 
-//Handler Returns the net handler function assigned to this opcode.  If it can't be found, returns nil.
+//Handler Returns the handlers handler function assigned to this opcode.  If it can't be found, returns nil.
 func Handler(opcode byte) HandlerFunc {
-	for _, h := range definitions.Set {
+	for _, h := range pDefinitions.Set {
 		if byte(h.Opcode) == opcode {
 			return handlers[h.Name]
 		}
@@ -70,21 +71,21 @@ func Handler(opcode byte) HandlerFunc {
 	return nil
 }
 
-//AddHandler Adds and assigns the net handler to the net with the specified name.
+//AddHandler Adds and assigns the packethandler to the handlers with the specified name.
 func AddHandler(name string, h HandlerFunc) {
 	if _, ok := handlers[name]; ok {
-		log.Warning.Printf("Attempted to bind a handler to net '%v' which is already handled elsewhere.  Ignoring bind.\n", name)
+		log.Warning.Printf("Attempted to bind a handler to handlers '%v' which is already handled elsewhere.  Ignoring bind.\n", name)
 		return
 	}
 	handlers[name] = h
 }
 
-//PacketCount returns the number of net definitions
+//PacketCount returns the number of handlers pDefinitions
 func PacketCount() int {
-	return len(definitions.Set)
+	return len(pDefinitions.Set)
 }
 
-//HandlerCount returns the number of definitions that are handled
+//HandlerCount returns the number of pDefinitions that are handled
 func HandlerCount() int {
 	return len(handlers)
 }

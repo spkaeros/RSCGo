@@ -10,7 +10,7 @@
 package handlers
 
 import (
-	"github.com/spkaeros/rscgo/pkg/game/net"
+	`github.com/spkaeros/rscgo/pkg/game/net`
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )

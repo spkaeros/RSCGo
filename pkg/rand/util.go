@@ -2,8 +2,8 @@ package rand
 
 import (
 	rand2 "math/rand"
-	`time`
-	
+	"time"
+
 	"github.com/spkaeros/rscgo/pkg/isaac"
 )
 

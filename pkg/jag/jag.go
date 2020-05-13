@@ -12,6 +12,7 @@ package jag
 import (
 	"bytes"
 	"compress/bzip2"
+	"encoding/binary"
 	"io"
 	"io/ioutil"
 	"strings"
@@ -43,24 +44,14 @@ func decoder(data []byte) io.Reader {
 func New(file string) *Archive {
 	fileData, err := ioutil.ReadFile(file)
 	if err != nil {
-		log.Warning.Println("Problem occurred attempting to read the JAG archive:", err)
+		log.Warn("Problem occurred attempting to read the JAG archive:", err)
 		return nil
 	}
 	buf, err := ioutil.ReadAll(decoder(fileData))
 	if err != nil && !strings.HasSuffix(err.Error(), "continuation file") {
-		log.Warning.Println("Problem occurred attempting to decompress the JAG archive:", err)
+		log.Warn("Problem occurred attempting to decompress the JAG archive:", err)
 		return nil
 	}
-	count := readUShort(buf, 2)
+	count := int(binary.BigEndian.Uint16(buf[:]))
 	return &Archive{count, buf[2 : count*10+2], buf[count*10+2:]}
-}
-
-//readUShort Reads an unsigned short from data, starting at caret-2
-func readUShort(data []byte, caret int) int {
-	return int(uint16(data[caret-2]&0xFF)<<8 | uint16(data[caret-1]&0xFF))
-}
-
-//readU24BitInt Reads an unsigned 3-byte int from data, starting at caret-3
-func readU24BitInt(data []byte, caret int) int {
-	return int(uint32(data[caret-3]&0xFF)<<16 + uint32(data[caret-2]&0xFF)<<8 + uint32(data[caret-1]&0xFF))
 }

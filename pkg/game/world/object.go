@@ -4,21 +4,9 @@ import (
 	"fmt"
 
 	"go.uber.org/atomic"
+	
+	`github.com/spkaeros/rscgo/pkg/definitions`
 )
-
-//ObjectDefinition This represents a single definition for a single object in the game.
-type ObjectDefinition struct {
-	ID            int
-	Name          string
-	Commands      [2]string
-	Description   string
-	CollisionType int
-	Width, Height int
-	ModelHeight   int
-}
-
-//ObjectDefs This holds the defining characteristics for all of the game's scene objects, ordered by ID.
-var ObjectDefs []ObjectDefinition
 
 //Object Represents a game object in the world.
 type Object struct {
@@ -50,12 +38,12 @@ func (o *Object) Name() string {
 		if o.ID < 0 || o.ID > 1188 {
 			return "nil"
 		}
-		return ObjectDefs[o.ID].Name
+		return definitions.ScenaryObjects[o.ID].Name
 	}
-	if o.ID < 0 || o.ID >= len(BoundaryDefs) {
+	if o.ID < 0 || o.ID >= len(definitions.BoundaryObjects) {
 		return "nil"
 	}
-	return BoundaryDefs[o.ID].Name
+	return definitions.BoundaryObjects[o.ID].Name
 }
 
 //Name checks if an object definition exists for this object, and if so returns the name associated with it.
@@ -64,12 +52,12 @@ func (o *Object) Command1() string {
 		if o.ID < 0 || o.ID > 1188 {
 			return "nil"
 		}
-		return ObjectDefs[o.ID].Commands[0]
+		return definitions.ScenaryObjects[o.ID].Commands[0]
 	}
-	if o.ID < 0 || o.ID >= len(BoundaryDefs) {
+	if o.ID < 0 || o.ID >= len(definitions.BoundaryObjects) {
 		return "nil"
 	}
-	return BoundaryDefs[o.ID].Commands[0]
+	return definitions.BoundaryObjects[o.ID].Commands[0]
 }
 
 func (o *Object) Command2() string {
@@ -77,12 +65,12 @@ func (o *Object) Command2() string {
 		if o.ID < 0 || o.ID > 1188 {
 			return "nil"
 		}
-		return ObjectDefs[o.ID].Commands[1]
+		return definitions.ScenaryObjects[o.ID].Commands[1]
 	}
-	if o.ID < 0 || o.ID >= len(BoundaryDefs) {
+	if o.ID < 0 || o.ID >= len(definitions.BoundaryObjects) {
 		return "nil"
 	}
-	return BoundaryDefs[o.ID].Commands[1]
+	return definitions.BoundaryObjects[o.ID].Commands[1]
 }
 
 func (o *Object) Width() int {
@@ -90,7 +78,7 @@ func (o *Object) Width() int {
 		if o.ID < 0 || o.ID > 1188 {
 			return 1
 		}
-		return ObjectDefs[o.ID].Width
+		return definitions.ScenaryObjects[o.ID].Width
 	}
 	return 1
 }
@@ -100,7 +88,7 @@ func (o *Object) Height() int {
 		if o.ID < 0 || o.ID > 1188 {
 			return 1
 		}
-		return ObjectDefs[o.ID].Height
+		return definitions.ScenaryObjects[o.ID].Height
 	}
 	return 1
 }
@@ -121,7 +109,7 @@ func (o *Object) Boundaries() [2]Location {
 		maxX = width + o.X() - 1
 		maxY = height + o.Y() - 1
 
-		if ObjectDefs[o.ID].CollisionType == 2 || ObjectDefs[o.ID].CollisionType == 3 {
+		if definitions.ScenaryObjects[o.ID].CollisionType == 2 || definitions.ScenaryObjects[o.ID].CollisionType == 3 {
 			if dir == 0 {
 				width++
 				minX--

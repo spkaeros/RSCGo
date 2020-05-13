@@ -1,18 +1,20 @@
 package main
 
 import (
+	"math"
 	"os"
+	"strconv"
 	"sync"
 	"time"
-	"math"
-	"strconv"
-
+	
 	"github.com/BurntSushi/toml"
 	"github.com/jessevdk/go-flags"
+	
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/db"
+	`github.com/spkaeros/rscgo/pkg/definitions`
 	"github.com/spkaeros/rscgo/pkg/engine"
-	"github.com/spkaeros/rscgo/pkg/game/net/handlers"
+	`github.com/spkaeros/rscgo/pkg/game/net/handlers`
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
@@ -99,11 +101,11 @@ func (w *asInit) executeAll() {
 }
 
 func main() {
-//	if Flags.UseCipher {
-//		log.Debug("TODO: Figure out why ISAAC cipher sometimes works, yet eventually desynchronizes from client's ISAAC stream.")
-//		log.Debug("This cipher will remain disabled until such time as this issue gets resolved.  Possibly to be replaced by full stream encryption anyways")
-//		Flags.UseCipher = false
-//	}
+	//	if Flags.UseCipher {
+	//		log.Debug("TODO: Figure out why ISAAC cipher sometimes works, yet eventually desynchronizes from client's ISAAC stream.")
+	//		log.Debug("This cipher will remain disabled until such time as this issue gets resolved.  Possibly to be replaced by full stream encryption anyways")
+	//		Flags.UseCipher = false
+	//	}
 
 	config.Verbosity = int(math.Min(math.Max(float64(len(Flags.Verbose)), 0), 4))
 	if Flags.Port > 0 {
@@ -112,32 +114,32 @@ func main() {
 	log.Debugln("RSCGo starting up...")
 	log.Debugln()
 
-//	var wg sync.WaitGroup
-//	wg.Add(1)
-//	go func() {
+	//	var wg sync.WaitGroup
+	//	wg.Add(1)
+	//	go func() {
 	start := time.Now()
 	runner := newRunner()
 	runner.runAll(handlers.UnmarshalPackets, db.LoadTileDefinitions, db.LoadObjectDefinitions, db.LoadBoundaryDefinitions, db.LoadItemDefinitions, db.LoadNpcDefinitions)
-	runner.executeAll()
+	//	runner.executeAll()
 	runner.runAll(db.LoadObjectLocations, db.LoadNpcLocations, db.LoadItemLocations, world.RunScripts, world.LoadCollisionData)
-	runner.executeAll()
-/*	go func() {
-		world.RunScripts()
-		runner.Done()
-	}()
-	go func() {
-		db.LoadObjectLocations()
-		runner.Done()
-	}()
-	go func() {
-		db.LoadItemLocations()
-		runner.Done()
-	}()
-	go func() {
-		db.LoadNpcLocations()
-		runner.Done()
-	}()
-	runner.Wait()*/
+	//	runner.executeAll()
+	/*	go func() {
+			world.RunScripts()
+			runner.Done()
+		}()
+		go func() {
+			db.LoadObjectLocations()
+			runner.Done()
+		}()
+		go func() {
+			db.LoadItemLocations()
+			runner.Done()
+		}()
+		go func() {
+			db.LoadNpcLocations()
+			runner.Done()
+		}()
+		runner.Wait()*/
 	// Entity definitions
 
 	// Entity locations
@@ -146,15 +148,15 @@ func main() {
 	if config.Verbose() {
 		log.Debugln("Loaded " + strconv.Itoa(len(world.Sectors)-1) + " map sectors")
 		log.Debugln("Loaded " + strconv.Itoa(handlers.PacketCount()) + " (" + strconv.Itoa(handlers.HandlerCount()) + ") packets (handlers)")
-		log.Debugln("Loaded " + strconv.Itoa(int(world.ItemIndexer.Load())) + " items and " + strconv.Itoa(len(world.ItemDefs)-1) + " item definitions")
-		log.Debugln("Loaded " + strconv.Itoa(world.Npcs.Size()) + " NPCs and " + strconv.Itoa(len(world.NpcDefs)-1) + " NPC definitions")
-		log.Debugln("Loaded " + strconv.Itoa(len(world.ObjectDefs)-1) + " scenary definitions, and " + strconv.Itoa(len(world.BoundaryDefs)-1) + " boundary definitions")
+		log.Debugln("Loaded " + strconv.Itoa(int(world.ItemIndexer.Load())) + " items and " + strconv.Itoa(len(definitions.Items)-1) + " item definitions")
+		log.Debugln("Loaded " + strconv.Itoa(world.Npcs.Size()) + " NPCs and " + strconv.Itoa(len(definitions.Npcs)-1) + " NPC definitions")
+		log.Debugln("Loaded " + strconv.Itoa(len(definitions.ScenaryObjects)-1) + " scenary definitions, and " + strconv.Itoa(len(definitions.BoundaryObjects)-1) + " boundary definitions")
 		log.Debugln("Loaded " + strconv.Itoa(int(world.ObjectCounter.Load())) + " scenary / boundary objects")
 		log.Debugf("Triggers[\n\t%d item actions,\n\t%d scenary actions,\n\t%d boundary actions,\n\t%d npc actions,\n\t%d item->boundary actions,\n\t%d item->scenary actions,\n\t%d attacking NPC actions,\n\t%d killing NPC actions\n];\n", len(world.ItemTriggers), len(world.ObjectTriggers), len(world.BoundaryTriggers), len(world.NpcTriggers), len(world.InvOnBoundaryTriggers), len(world.InvOnObjectTriggers), len(world.NpcAtkTriggers), len(world.NpcDeathTriggers))
 		log.Debugln("Finished loading entitys; took " + strconv.Itoa(int(time.Since(start).Milliseconds())) + "ms")
 	}
 	engine.Bind(config.Port())
-	engine.Bind(config.Port()+1)
+	engine.Bind(config.Port() + 1)
 	log.Debugf("Listening at TCP port %d, and TCP websockets port %d on all addresses.\n", config.Port(), config.Port()+1)
 	log.Debugln()
 	log.Debugln("RSCGo has finished initializing world; we hope you enjoy it")

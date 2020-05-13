@@ -10,6 +10,9 @@ bind.command("sysupdate", func(player, args) {
 		return
 	}
 	world.systemUpdate(time)
+	world.players.Range(func(p1) {
+		p1.SendUpdateTimer
+	})
 })
 
 bind.onLogin(func(player) {

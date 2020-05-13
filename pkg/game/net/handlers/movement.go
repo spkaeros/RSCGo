@@ -107,7 +107,7 @@ func init() {
 				if !player.WalkTo(affectedClient.Location) {
 					return true
 				}
-//				player.SetPath(world.MakePath(player.Location, affectedClient.Location))
+				//				player.SetPath(world.MakePath(player.Location, affectedClient.Location))
 			}
 			return false
 		})

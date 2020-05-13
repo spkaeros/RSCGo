@@ -10,16 +10,16 @@
 package entity
 
 import (
-	`fmt`
-	`strconv`
+	"fmt"
+	"strconv"
 	"sync"
 	"time"
-	
-	`github.com/spkaeros/rscgo/pkg/log`
+
+	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 type entry struct {
-	key string
+	key   string
 	Value interface{}
 }
 
@@ -62,7 +62,7 @@ type EntrySet []entry
 
 //Size Size of receiver entry set.
 func (e EntrySet) Size() int {
-	return len(e)-1
+	return len(e) - 1
 }
 
 //String Stringifies the receiver entry set.
@@ -237,7 +237,7 @@ func (a *AttributeList) HasMasks(name string, masks ...int) bool {
 // If it doesn't exist, or is another type, it Will set it to 0.
 // NOTE: mask parameter should be the index of the bit from the right most bit that you want to deactivate.
 func (a *AttributeList) RemoveMask(name string, mask int) {
-	a.SetVar(name, a.VarInt(name, 0) ^ mask)
+	a.SetVar(name, a.VarInt(name, 0)^mask)
 }
 
 //CheckMask checks if there is an int attribute assigned to the specified name, and returns true if mask is set on it.
@@ -251,11 +251,11 @@ func (a *AttributeList) CheckMask(name string, mask int) bool {
 // Otherwise, returns nil.
 func (a *AttributeList) VarEntity(name string) Entity {
 	if e := a.VarChecked(name); e != nil {
-		if e, ok := e.(Entity); ok && e.Type()&(TypeMob|TypeEntity)!=0 {
+		if e, ok := e.(Entity); ok && e.Type()&(TypeMob|TypeEntity) != 0 {
 			return e
 		}
 	}
-	
+
 	return nil
 }
 
@@ -265,19 +265,19 @@ func (a *AttributeList) VarMob(name string) MobileEntity {
 	if e := a.VarEntity(name); e != nil && (e.Type()&TypeMob) != 0 {
 		return e.(MobileEntity)
 	}
-	
+
 	return nil
 }
 
 func (a *AttributeList) VarNpc(name string) MobileEntity {
-	if m := a.VarMob(name); m != nil && m.Type()&TypeNpc!=0 && m.IsNpc() {
+	if m := a.VarMob(name); m != nil && m.Type()&TypeNpc != 0 && m.IsNpc() {
 		return m
 	}
 	return nil
 }
 
 func (a *AttributeList) VarPlayer(name string) MobileEntity {
-	if m := a.VarMob(name); m != nil && m.Type()&TypePlayer!=0 && m.IsPlayer() {
+	if m := a.VarMob(name); m != nil && m.Type()&TypePlayer != 0 && m.IsPlayer() {
 		return m
 	}
 	return nil

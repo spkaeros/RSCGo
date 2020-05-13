@@ -10,6 +10,7 @@
 package handlers
 
 import (
+	`github.com/spkaeros/rscgo/pkg/definitions`
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -336,7 +337,7 @@ func init() {
 				// If somehow we became busy, the object changed before arriving, we do nothing.
 				return true
 			}
-			if world.ObjectDefs[object.ID].CollisionType == 2 || world.ObjectDefs[object.ID].CollisionType == 3 {
+			if definitions.Scenary(object.ID).CollisionType == 2 || definitions.Scenary(object.ID).CollisionType == 3 {
 				if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
 					player.ResetPath()
 					player.AddState(world.MSBatching)

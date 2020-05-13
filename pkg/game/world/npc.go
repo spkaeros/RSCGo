@@ -14,24 +14,9 @@ import (
 	"time"
 	
 	"github.com/spkaeros/rscgo/pkg/game/entity"
+	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/rand"
 )
-
-//NpcDefinition This represents a single definition for a single NPC in the game.
-type NpcDefinition struct {
-	ID          int
-	Name        string
-	Description string
-	Command     string
-	Hits        int
-	Attack      int
-	Strength    int
-	Defense     int
-	Hostility   int
-}
-
-//NpcDefs This holds the defining characteristics for all of the game's NPCs, ordered by ID.
-var NpcDefs []NpcDefinition
 
 //Npcs A collection of every NPC in the game, sorted by index
 var Npcs = NewMobList()
@@ -56,16 +41,16 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 		n.Skills().SetCur(i, 1)
 		n.Skills().SetMax(i, 1)
 	}
-	if id < len(NpcDefs)-1 {
-		n.Skills().SetCur(0, NpcDefs[id].Attack)
-		n.Skills().SetCur(1, NpcDefs[id].Defense)
-		n.Skills().SetCur(2, NpcDefs[id].Strength)
-		n.Skills().SetCur(3, NpcDefs[id].Hits)
+	if id < len(definitions.Npcs)-1 {
+		n.Skills().SetCur(0, definitions.Npcs[id].Attack)
+		n.Skills().SetCur(1, definitions.Npcs[id].Defense)
+		n.Skills().SetCur(2, definitions.Npcs[id].Strength)
+		n.Skills().SetCur(3, definitions.Npcs[id].Hits)
 		
-		n.Skills().SetMax(0, NpcDefs[id].Attack)
-		n.Skills().SetMax(1, NpcDefs[id].Defense)
-		n.Skills().SetMax(2, NpcDefs[id].Strength)
-		n.Skills().SetMax(3, NpcDefs[id].Hits)
+		n.Skills().SetMax(0, definitions.Npcs[id].Attack)
+		n.Skills().SetMax(1, definitions.Npcs[id].Defense)
+		n.Skills().SetMax(2, definitions.Npcs[id].Strength)
+		n.Skills().SetMax(3, definitions.Npcs[id].Hits)
 
 	}
 	return n
@@ -73,43 +58,43 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 
 // Returns true if this NPCs definition has the attackable hostility bit set.
 func (n *NPC) Attackable() bool {
-	if n.ID > len(NpcDefs)-1 {
+	if n.ID > len(definitions.Npcs)-1 {
 		return false
 	}
 
-	return NpcDefs[n.ID].Hostility&1 == 1
+	return definitions.Npcs[n.ID].Hostility&1 == 1
 }
 
 // Returns true if this NPCs definition has the retreat near death hostility bit set.
 func (n *NPC) Retreats() bool {
-	if n.ID > len(NpcDefs)-1 {
+	if n.ID > len(definitions.Npcs)-1 {
 		return false
 	}
 
-	return NpcDefs[n.ID].Hostility&2 == 2
+	return definitions.Npcs[n.ID].Hostility&2 == 2
 }
 
 // Returns true if this NPCs definition has the aggressive hostility bit set.
 func (n *NPC) Aggressive() bool {
-	if n.ID > len(NpcDefs)-1 {
+	if n.ID > len(definitions.Npcs)-1 {
 		return false
 	}
 
-	return NpcDefs[n.ID].Hostility&4 == 4
+	return definitions.Npcs[n.ID].Hostility&4 == 4
 }
 
 func (n *NPC) Name() string {
-	if n.ID > len(NpcDefs)-1 {
+	if n.ID > len(definitions.Npcs)-1 {
 		return "nil"
 	}
-	return NpcDefs[n.ID].Name
+	return definitions.Npcs[n.ID].Name
 }
 
 func (n *NPC) Command() string {
-	if n.ID > len(NpcDefs)-1 {
+	if n.ID > len(definitions.Npcs)-1 {
 		return "nil"
 	}
-	return NpcDefs[n.ID].Command
+	return definitions.Npcs[n.ID].Command
 }
 
 //UpdateNPCPositions Loops through the global NPC entityList and, if they are by a player, updates their path to a new path every so often,

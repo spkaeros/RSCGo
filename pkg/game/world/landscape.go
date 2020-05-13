@@ -15,6 +15,7 @@ import (
 	"sync"
 
 	"github.com/spkaeros/rscgo/pkg/config"
+	`github.com/spkaeros/rscgo/pkg/definitions`
 	"github.com/spkaeros/rscgo/pkg/jag"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
@@ -61,81 +62,6 @@ func LoadCollisionData() {
 		metaDataCaret += 10
 	}
 }
-
-type TileDefinition struct {
-	Color   int
-	Visible int
-	Blocked int
-}
-
-var TileDefs []TileDefinition
-
-//BoundaryDefs This holds the defining characteristics for all of the game's boundary scene objects, ordered by ID.
-var BoundaryDefs []BoundaryDefinition
-
-//BoundaryDefinition This represents a single definition for a single boundary object in the game.
-type BoundaryDefinition struct {
-	ID          int
-	Name        string
-	Commands    [2]string
-	Description string
-	Dynamic     bool
-	Solid       bool
-}
-
-const (
-	OverlayBlank = iota
-	//OverlayGravel Used for roads, ID 1
-	OverlayGravel
-	//OverlayWater Used for regular water, ID 2
-	OverlayWater
-	//OverlayWoodFloor Used for the floors of buildings, ID 3
-	OverlayWoodFloor
-	//OverlayBridge Used for bridges, suspends wood floor over water, ID 4
-	OverlayBridge
-	//OverlayStoneFloor Used for the floors of buildings, ID 5
-	OverlayStoneFloor
-	//OverlayRedCarpet Used for the floors of buildings, ID 6
-	OverlayRedCarpet
-	//OverlayDarkWater Used for dark, swampy water, ID 7
-	OverlayDarkWater
-	//OverlayBlack Used for empty parts of upper planes, ID 8
-	OverlayBlack
-	//OverlayWhite Used as a separator, e.g for edge of water, mountains, etc.  ID 9
-	OverlayWhite
-	//OverlayBlack2 Not sure where it is used, ID 10
-	OverlayBlack2
-	//OverlayLava Used in dungeons and on Karamja/Crandor as lava, ID 11
-	OverlayLava
-	//OverlayBridge2 Used for a specific type of bridge, ID 12
-	OverlayBridge2
-	//OverlayBlueCarpet Used for the floors of buildings, ID 13
-	OverlayBlueCarpet
-	//OverlayPentagram Used for certain questing purposes, ID 14
-	OverlayPentagram
-	//OverlayPurpleCarpet Used for the floors of buildings, ID 15
-	OverlayPurpleCarpet
-	//OverlayBlack3 Not sure what it is used for, ID 16, traversable
-	OverlayBlack3
-	//OverlayStoneFloorLight Used for the entrance to temple of ikov, ID 17
-	OverlayStoneFloorLight
-	//OverlayUnknown Not sure what this is yet, ID 18
-	OverlayUnknown
-	//OverlayBlack4 Not sure what it is used for, ID 19
-	OverlayBlack4
-	//OverlayAgilityLog Blank suspended tile over blackness for agility challenged, ID 20
-	OverlayAgilityLog
-	//OverlayAgilityLog Blank suspended tile over blackness for agility challenged, ID 21
-	OverlayAgilityLog2
-	//OverlayUnknown2 Not sure what this is yet, ID 22
-	OverlayUnknown2
-	//OverlaySandFloor Used for sand floor, ID 23
-	OverlaySandFloor
-	//OverlayMudFloor Used for mud floor, ID 24
-	OverlayMudFloor
-	//OverlaySandFloor Used for water floor, ID 25
-	OverlayWaterFloor
-)
 
 const (
 	//ClipNorth Bitmask to represent a wall to the north.
@@ -198,11 +124,11 @@ func (l Location) Mask(toward Location) byte {
 }
 
 /*
-var blockedOverlays = [...]int{OverlayWater, OverlayDarkWater, OverlayBlack, OverlayWhite, OverlayLava, OverlayBlack2, OverlayBlack3, OverlayBlack4}
+var blockedOverlays = [...]int{OverlayWater, definitions.OverlayDarkWater, definitions.OverlayBlack, definitions.OverlayWhite, definitions.OverlayLava, definitions.OverlayBlack2, definitions.OverlayBlack3, definitions.OverlayBlack4}
 
 func isOverlayBlocked(overlay int) bool {
 	for _, v := range blockedOverlays {
-		if v == overlay {
+		if v == definitions.Overlay {
 			return true
 		}
 	}
@@ -218,7 +144,7 @@ func (t TileData) blocked(bit byte, current bool) bool {
 		return true
 	}
 	// Diagonal walls (/, \) and impassable scenary objects (|=|) both effectively disable the occupied location
-	// TODO: Is overlay clipping finished?
+	// TODO: Is definitions.Overlay clipping finished?
 	return !current && (t.CollisionMask & (ClipSwNe | ClipSeNw | ClipFullBlock)) != 0
 }
 
@@ -276,13 +202,13 @@ func loadSector(data []byte) (s *Sector) {
 			diagonalWalls := int(uint32(data[offset+6]&0xFF)<<24 | uint32(data[offset+7]&0xFF)<<16 | uint32(data[offset+8]&0xFF)<<8 | uint32(data[offset+9]&0xFF))
 			if groundOverlay == 250 {
 				// -6 overflows to 250, and is water tile
-				groundOverlay = OverlayWater
+				groundOverlay = definitions.OverlayWater
 			}
-			if (groundOverlay == 0 && (groundTexture) == 0) || groundOverlay == OverlayWater || groundOverlay == OverlayBlack {
+			if (groundOverlay == 0 && (groundTexture) == 0) || groundOverlay == definitions.OverlayWater || groundOverlay == definitions.OverlayBlack {
 				blankCount++
 			}
 			tileIdx := x*RegionSize + y
-			if groundOverlay > 0 && int(groundOverlay) < len(TileDefs) && TileDefs[groundOverlay-1].Blocked != 0 {
+			if groundOverlay > 0 && int(groundOverlay) < len(definitions.TileOverlays) && definitions.TileOverlays[groundOverlay-1].Blocked != 0 {
 				s.Tiles[tileIdx].CollisionMask |= ClipFullBlock
 			}
 			walls := [] []int {
@@ -293,11 +219,11 @@ func loadSector(data []byte) (s *Sector) {
 				if walls[i][0] < 0 {
 					continue
 				}
-				if boundary := walls[i][0]; boundary > len(BoundaryDefs)-1 {
-					log.Debugf("Out of bounds indexing attempted into BoundaryDefs[%d]; while upper bound is currently %d\n", boundary, len(BoundaryDefs)-1)
+				if boundary := walls[i][0]; boundary > len(definitions.BoundaryObjects)-1 {
+					log.Debugf("Out of bounds indexing attempted into definitions.BoundaryObjects[%d]; while upper bound is currently %d\n", boundary, len(definitions.BoundaryObjects)-1)
 					continue
 				}
-				if wall := BoundaryDefs[walls[i][0]]; !wall.Dynamic && wall.Solid {
+				if wall := definitions.BoundaryObjects[walls[i][0]]; !wall.Dynamic && wall.Solid {
 					s.Tiles[x*RegionSize+y].CollisionMask |= int16(walls[i][1])
 					if walls[i][2] > 0 {
 						s.Tiles[(x-i)*RegionSize+((y-1)+i)].CollisionMask |= int16(walls[i][1]<<2)
@@ -310,7 +236,7 @@ func loadSector(data []byte) (s *Sector) {
 					diagonalWalls -= 12000
 				}
 				diagonalWalls -= 1
-				if wall := BoundaryDefs[diagonalWalls]; !wall.Dynamic && wall.Solid {
+				if wall := definitions.BoundaryObjects[diagonalWalls]; !wall.Dynamic && wall.Solid {
 					if diagonalWalls > 12000 {
 						s.Tiles[tileIdx].CollisionMask |= ClipSwNe
 					} else {

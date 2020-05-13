@@ -7,7 +7,7 @@
  *
  */
 
-package ipthrottle
+package ipThrottle
 
 import (
 	"time"
@@ -15,13 +15,14 @@ import (
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
-type IpThrottle map[int][]time.Time
+type ipThrottle map[int][]time.Time
 
-func (l IpThrottle) Add(ip string) {
+func (l ipThrottle) Add(ip string) {
 	l[strutil.IPToInteger(ip)] = append(l[strutil.IPToInteger(ip)], time.Now())
 }
 
-func (l IpThrottle) Recent(ip string, timeFrame time.Duration) int {
+//Recent returns the number of entries that match the provided IP which were added within the past specified timeFrame
+func (l ipThrottle) Recent(ip string, timeFrame time.Duration) int {
 	valid := 0
 	var removing []string
 	if attempts, ok := l[strutil.IPToInteger(ip)]; ok {
@@ -43,6 +44,11 @@ func (l IpThrottle) Recent(ip string, timeFrame time.Duration) int {
 	return valid
 }
 
-func NewThrottle() IpThrottle {
-	return make(IpThrottle)
+type NetworkThrottle interface {
+	Recent(string, time.Duration) int
+	Add(string)
+}
+
+func NewThrottle() NetworkThrottle {
+	return make(ipThrottle)
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/log"
+	"github.com/spkaeros/rscgo/pkg/definitions"
 	rscRand "github.com/spkaeros/rscgo/pkg/rand"
 )
 
@@ -208,7 +209,7 @@ func RemoveItem(i *GroundItem) {
 func AddObject(o *Object) {
 	getRegion(o.X(), o.Y()).Objects.Add(o)
 	if !o.Boundary {
-		scenary := ObjectDefs[o.ID]
+		scenary := definitions.ScenaryObjects[o.ID]
 		// type 0 is used when the object causes no collisions of any sort.
 		// type 1 is used when the object fully blocks the tile(s) that it sits on.  Marks tile as fully blocked.
 		// type 2 is used when the object mimics a boundary, e.g for gates and the like.
@@ -271,7 +272,7 @@ func AddObject(o *Object) {
 			}
 		}
 	} else {
-		boundary := BoundaryDefs[o.ID]
+		boundary := definitions.BoundaryObjects[o.ID]
 		if !boundary.Solid {
 			// Doorframes and some other stuff collide with nothing.
 			return
@@ -280,7 +281,7 @@ func AddObject(o *Object) {
 		areaX := (2304 + x) % RegionSize
 		areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
 		if len(sectorFromCoords(x, y).Tiles) <= 0 {
-			log.Warning.Println("ERROR: Sector with no tiles at:" + strconv.Itoa(x) + "," + strconv.Itoa(y) + " ("+strconv.Itoa(areaX)+","+strconv.Itoa(areaY)+"\n")
+			log.Warn("ERROR: Sector with no tiles at:" + strconv.Itoa(x) + "," + strconv.Itoa(y) + " ("+strconv.Itoa(areaX)+","+strconv.Itoa(areaY)+"\n")
 			return
 		}
 		if o.Direction == 0 {
@@ -305,7 +306,7 @@ func AddObject(o *Object) {
 func RemoveObject(o *Object) {
 	getRegion(o.X(), o.Y()).Objects.Remove(o)
 	if !o.Boundary {
-		scenary := ObjectDefs[o.ID]
+		scenary := definitions.ScenaryObjects[o.ID]
 		// type 0 is used when the object causes no collisions of any sort.
 		// type 1 is used when the object fully blocks the tile(s) that it sits on.  Marks tile as fully blocked.
 		// type 2 is used when the object mimics a boundary, e.g for gates and the like.
@@ -355,7 +356,7 @@ func RemoveObject(o *Object) {
 		}
 	} else {
 		// Wall or door location
-		boundary := BoundaryDefs[o.ID]
+		boundary := definitions.BoundaryObjects[o.ID]
 		if !boundary.Solid {
 			return
 		}
@@ -457,10 +458,10 @@ func NpcNearest(id, x, y int) *NPC {
 	return npc
 }
 
-//NpcNear looks for any NPC with the given ID, that is within a 16x16 square
+//NpcVisibleFrom looks for any NPC with the given ID, that is within a 16x16 square
 // surrounding the given coordinates, and then returns it.
 // Returns nil if it can not find an NPC to fit the given parameters.
-func NpcNear(id, x, y int) *NPC {
+func NpcVisibleFrom(id, x, y int) *NPC {
 	point := NewLocation(x, y)
 	minDelta := 16
 	var npc *NPC

@@ -35,8 +35,8 @@ func (s *sqlService) sqlOpen(addr string) *sql.DB {
 // Implements PlayerService interface and sqlService.
 type sqlService struct {
 	database *sql.DB
-	Driver string
-	context context.Context
+	Driver   string
+	context  context.Context
 }
 
 //newSqlService returns a new sqlService instance attached to the provided *sql.DB

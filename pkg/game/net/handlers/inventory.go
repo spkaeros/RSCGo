@@ -10,9 +10,10 @@
 package handlers
 
 import (
-	"github.com/spkaeros/rscgo/pkg/game/net"
+	`github.com/spkaeros/rscgo/pkg/definitions`
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
+	"github.com/spkaeros/rscgo/pkg/game/net"
 )
 
 func init() {
@@ -62,7 +63,7 @@ func init() {
 		}
 
 		id := p.ReadUint16()
-		if id < 0 || id > len(world.ItemDefs)-1 {
+		if id < 0 || id > len(definitions.Items)-1 {
 			log.Cheatf("%v attempted to pick up an item with an out-of-bounds ID: %d\n", player, id)
 			return
 		}
@@ -77,15 +78,15 @@ func init() {
 
 			item := world.GetItem(x, y, id)
 			if item == nil || !item.VisibleTo(player) {
-				log.Cheatf("%v attempted to pick up an item that doesn't exist: %s@{%d,%d}\n", player, world.ItemDefs[id].Name, x, y)
+				log.Cheatf("%v attempted to pick up an item that doesn't exist: %s@{%d,%d}\n", player, definitions.Items[id].Name, x, y)
 				return true
 			}
-			
+
 			if !player.Inventory.CanHold(item.ID, item.Amount) {
 				player.Message("You do not have room for that item in your inventory.")
 				return true
 			}
-			
+
 			maxDelta := 0
 			if world.IsTileBlocking(x, y, 0x40, false) {
 				maxDelta++
@@ -93,7 +94,7 @@ func init() {
 			if delta := player.Delta(item.Location); delta > maxDelta || delta == 1 && !player.ReachableCoords(item.X(), item.Y()) {
 				return player.FinishedPath()
 			}
-			
+
 			player.ResetPath()
 			item.Remove()
 			player.Inventory.Add(item.ID, item.Amount)
