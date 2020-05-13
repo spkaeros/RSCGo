@@ -68,7 +68,7 @@ func init() {
 			return
 		}
 
-		p.ReadUint16() // Useless? this variable is for what affect we are applying to the ground item, e.g casting, using item with
+		p.ReadUint16() // Unused in this opcode this variable is what affect-type we are applying to the ground item, e.g casting, using item with, etc...but we are not using any affects
 
 		player.SetDistancedAction(func() bool {
 			log.Debugf("%d\n", player)
@@ -82,17 +82,17 @@ func init() {
 				return true
 			}
 
-			if !player.Inventory.CanHold(item.ID, item.Amount) {
-				player.Message("You do not have room for that item in your inventory.")
-				return true
-			}
-
 			maxDelta := 0
 			if world.IsTileBlocking(x, y, 0x40, false) {
 				maxDelta++
 			}
 			if delta := player.Delta(item.Location); delta > maxDelta || delta == 1 && !player.ReachableCoords(item.X(), item.Y()) {
 				return player.FinishedPath()
+			}
+
+			if !player.Inventory.CanHold(item.ID, item.Amount) {
+				player.Message("You do not have room for that item in your inventory.")
+				return true
 			}
 
 			player.ResetPath()

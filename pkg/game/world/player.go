@@ -313,7 +313,7 @@ func (p *Player) WalkingArrivalAction(target entity.MobileEntity, dist int, acti
 func (p *Player) CanReachMob(target entity.MobileEntity) bool {
 	if p.FinishedPath() && p.VarInt("triedReach", 0) >= 5 {
 		// Tried reaching one mob >=5 times without single success, abort early.
-		p.ResetPath()
+//		p.ResetPath()
 		p.UnsetVar("triedReach")
 		return false
 	}
@@ -479,6 +479,12 @@ func (l Location) Blocked() bool {
 // any obstacles, and you are within range.  Otherwise returns false.
 func (l Location) Targetable(other Location) bool {
 	return l.WithinRange(other, 5) && l.Reachable(other)
+}
+
+//WithinReach returns true if you are able to physically touch the other person you are so close without obstacles
+// Otherwise returns false.
+func (l Location) WithinReach(other Location) bool {
+	return l.WithinRange(other, 2) && l.Reachable(other)
 }
 
 func (l Location) Reachable(other Location) bool {
@@ -1713,7 +1719,9 @@ func (p *Player) Read(data []byte) (n int, err error) {
 			p.SetVar("readSize", 0)
 			p.SetVar("headerFin", header.Fin)
 			if err != nil {
-				if err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
+				if err == io.EOF && !p.headerFin() {
+					return -1, errors.NewNetworkError("End of file mid-read:", false)
+				} else if err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
 					return -1, errors.NewNetworkError("closed conn", false)
 				} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
 					return -1, errors.NewNetworkError("timed out", false)
