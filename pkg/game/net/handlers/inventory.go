@@ -71,7 +71,6 @@ func init() {
 		p.ReadUint16() // Unused in this opcode this variable is what affect-type we are applying to the ground item, e.g casting, using item with, etc...but we are not using any affects
 
 		player.SetDistancedAction(func() bool {
-			log.Debugf("%d\n", player)
 			if player.Busy() {
 				return true
 			}
