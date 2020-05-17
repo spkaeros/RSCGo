@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/spkaeros/rscgo/pkg/game/entity"
-	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/isaac"
-	irand "github.com/spkaeros/rscgo/pkg/rand"
+	"github.com/spkaeros/rscgo/pkg/log"
+	rscRand "github.com/spkaeros/rscgo/pkg/rand"
 )
 
 type MobState = int
@@ -42,20 +42,20 @@ const (
 	StateShopping
 	//MSItemAction Indicates that the mob in this state is doing an inventory action
 	MSItemAction
-	
-	StateFightingDuel    = StateDueling|StateFighting
-	StateChatChoosing    = StateMenu|StateChatting
-	StateItemChoosing    = StateMenu|MSItemAction
-	StateObjectChoosing  = StateMenu|MSBatching
 
-	StatePanelActive     = StateBanking | StateShopping | StateChangingLooks | StateSleeping | StateTrading | StateDueling
-	
+	StateFightingDuel   = StateDueling | StateFighting
+	StateChatChoosing   = StateMenu | StateChatting
+	StateItemChoosing   = StateMenu | MSItemAction
+	StateObjectChoosing = StateMenu | MSBatching
+
+	StatePanelActive = StateBanking | StateShopping | StateChangingLooks | StateSleeping | StateTrading | StateDueling
+
 	StateBusy      = StatePanelActive | StateChatting | MSItemAction | MSBatching
-	StateWaitEvent = StateMenu|StateChatting|MSItemAction|MSBatching
+	StateWaitEvent = StateMenu | StateChatting | MSItemAction | MSBatching
 )
 
 const (
-	SyncSprite     = 1<<iota
+	SyncSprite = 1 << iota
 	SyncMoved
 	SyncRemoved
 	SyncAppearance
@@ -170,8 +170,8 @@ type Mob struct {
 
 //ExperienceReward returns the total rewarded experience upon killing a mob.
 func (m *Mob) ExperienceReward() int {
-	meleeTotal := (m.Skills().Current(entity.StatStrength)+m.Skills().Current(entity.StatAttack)+m.Skills().Current(entity.StatDefense))*2
-	return (int(math.Floor(float64(m.Skills().Current(entity.StatHits)+meleeTotal)/7))*2) + 20
+	meleeTotal := (m.Skills().Current(entity.StatStrength) + m.Skills().Current(entity.StatAttack) + m.Skills().Current(entity.StatDefense)) * 2
+	return (int(math.Floor(float64(m.Skills().Current(entity.StatHits)+meleeTotal)/7)) * 2) + 20
 }
 
 func (m *Mob) TargetMob() entity.MobileEntity {
@@ -223,13 +223,13 @@ func (n *NPC) IsNpc() bool {
 
 //Busy Returns true if this mobs state is anything other than idle. otherwise returns false.
 func (m *Mob) Busy() bool {
-	return m.State()&StateBusy!=0
+	return m.State()&StateBusy != 0
 }
 
 func (m *Mob) BusyInput() bool {
-	return m.State()&StateWaitEvent==StateChatChoosing || m.State()&StateWaitEvent==StateItemChoosing ||
+	return m.State()&StateWaitEvent == StateChatChoosing || m.State()&StateWaitEvent == StateItemChoosing ||
 		m.State()&StateWaitEvent == StateObjectChoosing || m.State() == StateIdle
-//	return m.State() != StateIdle && m.State() != MSItemAction
+	//	return m.State() != StateIdle && m.State() != MSItemAction
 }
 
 func (m *Mob) IsFighting() bool {
@@ -602,56 +602,55 @@ func (m *Mob) Skills() *entity.SkillTable {
 func (m *Mob) PrayerModifiers() [3]float64 {
 	var modifiers = [...]float64{1.0, 1.0, 1.0}
 
+	mods := []float64{1.05, 1.10, 1.15}
 
-	mods := []float64 { 1.05, 1.10, 1.15 }
-
-	defenseMods := []int { 0, 3, 9 }
-	strengthMods := []int { 1, 4, 10 }
-	attackMods := []int { 2, 5, 11 }
+	defenseMods := []int{0, 3, 9}
+	strengthMods := []int{1, 4, 10}
+	attackMods := []int{2, 5, 11}
 	for idx, prayer := range defenseMods {
-		if m.VarBool("prayer" + strconv.Itoa(prayer), false) {
+		if m.VarBool("prayer"+strconv.Itoa(prayer), false) {
 			modifiers[entity.StatDefense] = mods[idx]
 		}
 	}
 
 	for idx, prayer := range strengthMods {
-		if m.VarBool("prayer" + strconv.Itoa(prayer), false) {
+		if m.VarBool("prayer"+strconv.Itoa(prayer), false) {
 			modifiers[entity.StatStrength] = mods[idx]
 		}
 	}
 
 	for idx, prayer := range attackMods {
-		if m.VarBool("prayer" + strconv.Itoa(prayer), false) {
+		if m.VarBool("prayer"+strconv.Itoa(prayer), false) {
 			modifiers[entity.StatAttack] = mods[idx]
 		}
 	}
-/*	if m.VarBool("prayer0", false) {
-		modifiers[1] += .05
-	}
-	if m.VarBool("prayer1", false) {
-		modifiers[2] += .05
-	}
-	if m.VarBool("prayer2", false) {
-		modifiers[0] += .05
-	}
-	if m.VarBool("prayer3", false) {
-		modifiers[1] += .1
-	}
-	if m.VarBool("prayer4", false) {
-		modifiers[2] += .1
-	}
-	if m.VarBool("prayer5", false) {
-		modifiers[0] += .1
-	}
-	if m.VarBool("prayer9", false) {
-		modifiers[1] += .15
-	}
-	if m.VarBool("prayer10", false) {
-		modifiers[2] += .15
-	}
-	if m.VarBool("prayer11", false) {
-		modifiers[0] += .15
-	}*/
+	/*	if m.VarBool("prayer0", false) {
+			modifiers[1] += .05
+		}
+		if m.VarBool("prayer1", false) {
+			modifiers[2] += .05
+		}
+		if m.VarBool("prayer2", false) {
+			modifiers[0] += .05
+		}
+		if m.VarBool("prayer3", false) {
+			modifiers[1] += .1
+		}
+		if m.VarBool("prayer4", false) {
+			modifiers[2] += .1
+		}
+		if m.VarBool("prayer5", false) {
+			modifiers[0] += .1
+		}
+		if m.VarBool("prayer9", false) {
+			modifiers[1] += .15
+		}
+		if m.VarBool("prayer10", false) {
+			modifiers[2] += .15
+		}
+		if m.VarBool("prayer11", false) {
+			modifiers[0] += .15
+		}*/
 	return modifiers
 }
 
@@ -663,12 +662,12 @@ func (m *Mob) StyleBonus(stat int) int {
 	if mode == (stat+1)%3+1 {
 		return 3
 	}
-//	if (mode == 1 && stat == entity.StatStrength) || (mode == 2 && stat == entity.StatAttack) || (mode == 3 && stat == entity.StatDefense) {
-//		return 3
-//	}
-//	modes := []int { entity.StatStrength, entity.StatAttack, entity.StatDefense }
-//	if mode == 0 {
-//		return 1
+	//	if (mode == 1 && stat == entity.StatStrength) || (mode == 2 && stat == entity.StatAttack) || (mode == 3 && stat == entity.StatDefense) {
+	//		return 3
+	//	}
+	//	modes := []int { entity.StatStrength, entity.StatAttack, entity.StatDefense }
+	//	if mode == 0 {
+	//		return 1
 	return 0
 }
 
@@ -692,13 +691,22 @@ func (m *Mob) DefensePoints() float64 {
 func (m *Mob) CombatRng() *rand.Rand {
 	rng, ok := m.VarChecked("isaacRng").(*rand.Rand)
 	if !ok || rng == nil {
-		rng = rand.New(isaac.New(irand.Uint64()))
+		rng = rand.New(isaac.New(rscRand.Rng.Uint64()))
 		m.SetVar("isaacRng", rng)
 	}
 	return rng
 }
 
-//MagicDamage Calculates and returns a combat spells damage from the 
+func (m *Mob) Isaac() *rand.Rand {
+	rng, ok := m.VarChecked("isaac").(*rand.Rand)
+	if !ok || rng == nil {
+		rng = rand.New(isaac.New(rscRand.Rng.Uint64()))
+		m.SetVar("isaac", rng)
+	}
+	return rng
+}
+
+//MagicDamage Calculates and returns a combat spells damage from the
 // receiver mob cast unto the target MobileEntity.  This basically wraps a statistically
 // random percentage check around a call to GenerateHit.
 func (m *Mob) MagicDamage(target entity.MobileEntity, maximum float64) int {
@@ -706,7 +714,7 @@ func (m *Mob) MagicDamage(target entity.MobileEntity, maximum float64) int {
 	if BoundedChance(float64(m.MagicPoints())/(target.DefensePoints()*4)*100, 0.0, 82.0) {
 		return m.GenerateHit(maximum)
 	}
-	
+
 	return 0
 }
 
@@ -716,9 +724,9 @@ func (m *Mob) MagicDamage(target entity.MobileEntity, maximum float64) int {
 func (m *Mob) GenerateHit(max float64) int {
 	var damage float64
 	for damage > max || damage < 1.0 {
-		damage = math.Floor((m.CombatRng().NormFloat64() * (max/3)) + (max/2))
+		damage = math.Floor((m.CombatRng().NormFloat64() * (max / 3)) + (max / 2))
 	}
-	
+
 	return int(damage)
 }
 
@@ -731,6 +739,6 @@ func (m *Mob) MeleeDamage(target entity.MobileEntity) int {
 	if BoundedChance(m.AttackPoints()/(target.DefensePoints()*4)*100, 0.0, 82.0) {
 		return m.GenerateHit(m.MaxMeleeDamage())
 	}
-	
+
 	return 0
 }

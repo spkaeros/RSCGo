@@ -15,7 +15,7 @@ import (
 	"sync"
 
 	"github.com/spkaeros/rscgo/pkg/config"
-	`github.com/spkaeros/rscgo/pkg/definitions`
+	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/jag"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
@@ -145,7 +145,7 @@ func (t TileData) blocked(bit byte, current bool) bool {
 	}
 	// Diagonal walls (/, \) and impassable scenary objects (|=|) both effectively disable the occupied location
 	// TODO: Is definitions.Overlay clipping finished?
-	return !current && (t.CollisionMask & (ClipSwNe | ClipSeNw | ClipFullBlock)) != 0
+	return !current && (t.CollisionMask&(ClipSwNe|ClipSeNw|ClipFullBlock)) != 0
 }
 
 func sectorName(x, y int) string {
@@ -211,9 +211,9 @@ func loadSector(data []byte) (s *Sector) {
 			if groundOverlay > 0 && int(groundOverlay) < len(definitions.TileOverlays) && definitions.TileOverlays[groundOverlay-1].Blocked != 0 {
 				s.Tiles[tileIdx].CollisionMask |= ClipFullBlock
 			}
-			walls := [] []int {
-				[]int{ int(verticalWalls)-1, ClipNorth, y },
-				[]int{ int(horizontalWalls)-1, ClipEast,x },
+			walls := [][]int{
+				[]int{int(verticalWalls) - 1, ClipNorth, y},
+				[]int{int(horizontalWalls) - 1, ClipEast, x},
 			}
 			for i := 0; i < 2; i++ {
 				if walls[i][0] < 0 {
@@ -226,7 +226,7 @@ func loadSector(data []byte) (s *Sector) {
 				if wall := definitions.BoundaryObjects[walls[i][0]]; !wall.Dynamic && wall.Solid {
 					s.Tiles[x*RegionSize+y].CollisionMask |= int16(walls[i][1])
 					if walls[i][2] > 0 {
-						s.Tiles[(x-i)*RegionSize+((y-1)+i)].CollisionMask |= int16(walls[i][1]<<2)
+						s.Tiles[(x-i)*RegionSize+((y-1)+i)].CollisionMask |= int16(walls[i][1] << 2)
 					}
 				}
 			}

@@ -12,23 +12,24 @@ package world
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"math"
 	stdnet "net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
-	"strings"
-	"io"
-
-	"github.com/gobwas/ws/wsutil"
+	
 	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 	"go.uber.org/atomic"
-
+	
 	"github.com/spkaeros/rscgo/pkg/definitions"
+	"github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/game/net"
+	`github.com/spkaeros/rscgo/pkg/game/social`
 	"github.com/spkaeros/rscgo/pkg/log"
-	"github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
@@ -53,69 +54,13 @@ func DefaultAppearance() AppearanceTable {
 	return NewAppearanceTable(1, 2, true, 2, 8, 14, 0)
 }
 
-type friendSet map[uint64]bool
-
-type FriendsList struct {
-	sync.RWMutex
-	friendSet
-	Owner string
-}
-
-func (f *FriendsList) contains(name string) bool {
-	f.RLock()
-	defer f.RUnlock()
-	_, ok := f.friendSet[strutil.Base37.Encode(name)]
-	return ok
-}
-
-func (f *FriendsList) containsHash(hash uint64) bool {
-	f.RLock()
-	defer f.RUnlock()
-	_, ok := f.friendSet[hash]
-	return ok
-}
-
-func (f *FriendsList) Add(name string) {
-	f.Lock()
-	defer f.Unlock()
-	hash := strutil.Base37.Encode(name)
-	p, ok := Players.FromUserHash(hash)
-	f.friendSet[hash] = p != nil && ok && (p.FriendList.contains(f.Owner) || !p.FriendBlocked())
-}
-
-func (f *FriendsList) Remove(name string) {
-	f.Lock()
-	defer f.Unlock()
-	hash := strutil.Base37.Encode(name)
-	delete(f.friendSet, hash)
-	if p, ok := Players.FromUserHash(hash); ok && p.FriendList.contains(f.Owner) {
-		p.SendPacket(FriendUpdate(strutil.Base37.Encode(f.Owner), false))
-	}
-}
-
-func (f *FriendsList) ForEach(fn func(string, bool) bool) {
-	f.Lock()
-	defer f.Unlock()
-	for name, status := range f.friendSet {
-		if fn(strutil.Base37.Decode(name), status) {
-			break
-		}
-	}
-}
-
-func (f *FriendsList) size() int {
-	f.RLock()
-	defer f.RUnlock()
-	return len(f.friendSet)
-}
-
 //player Represents a single player.
 type Player struct {
 	LocalPlayers     *MobList
 	LocalNPCs        *MobList
 	LocalObjects     *entityList
 	LocalItems       *entityList
-	FriendList       *FriendsList
+	FriendList       *social.FriendsList
 	IgnoreList       []uint64
 	Appearance       AppearanceTable
 	KnownAppearances map[int]int
@@ -131,7 +76,6 @@ type Player struct {
 	}
 	DistancedAction func() bool
 	ActionLock      sync.RWMutex
-	UpdateWG        sync.Mutex
 	OutgoingPackets chan *net.Packet
 	ReplyMenuC      chan int8
 	Equips          [12]int
@@ -141,7 +85,6 @@ type Player struct {
 	SigKill         chan struct{}
 	Tickables       []interface{}
 	ReadWriter      *bufio.ReadWriter
-	Websocket       bool
 	Mob
 }
 
@@ -227,7 +170,7 @@ func (p *Player) ResetDistancedAction() {
 
 //FriendsWith returns true if specified username is in our friend entityList.
 func (p *Player) FriendsWith(other uint64) bool {
-	return p.FriendList.containsHash(other)
+	return p.FriendList.ContainsHash(other)
 }
 
 //Ignoring returns true if specified username is in our ignore entityList.
@@ -262,8 +205,8 @@ func (p *Player) DuelBlocked() bool {
 
 func (p *Player) UpdateStatus(status bool) {
 	Players.Range(func(player *Player) {
-		if player.FriendList.contains(p.Username()) {
-			if p.FriendList.contains(player.Username()) || !p.FriendBlocked() {
+		if player.FriendList.Contains(p.Username()) {
+			if p.FriendList.Contains(player.Username()) || !p.FriendBlocked() {
 				p.SendPacket(FriendUpdate(p.UsernameHash(), status))
 			}
 		}
@@ -943,12 +886,12 @@ func (p *Player) SendPacket(packet *net.Packet) {
 	if p == nil || (packet.Opcode != 0 && !p.Connected()) {
 		return
 	}
-//	data := []byte { byte(len(packet.FrameBuffer)-1), byte(packet.FrameBuffer[len(packet.FrameBuffer)-1]) }
-//	if data[1] == 0 {
-//		p.Write(packet.FrameBuffer)
-//	} else {
-//		p.Write(append(data, packet.FrameBuffer[:len(packet.FrameBuffer)-1]...))
-//	}
+	//	data := []byte { byte(len(packet.FrameBuffer)-1), byte(packet.FrameBuffer[len(packet.FrameBuffer)-1]) }
+	//	if data[1] == 0 {
+	//		p.Write(packet.FrameBuffer)
+	//	} else {
+	//		p.Write(append(data, packet.FrameBuffer[:len(packet.FrameBuffer)-1]...))
+	//	}
 	p.OutgoingPackets <- packet
 	
 }
@@ -1147,7 +1090,7 @@ func (p *Player) Initialize() {
 func NewPlayer(index int, ip string) *Player {
 	p := &Player{Mob: Mob{Entity: Entity{Index: index, Location: Lumbridge.Clone()}, AttributeList: *entity.NewAttributeList()},
 		Attributes: entity.NewAttributeList(), LocalPlayers: NewMobList(), LocalNPCs: NewMobList(), LocalObjects: &entityList{},
-		Appearance: DefaultAppearance(), FriendList: &FriendsList{friendSet: make(friendSet)}, KnownAppearances: make(map[int]int),
+		Appearance: DefaultAppearance(), FriendList: social.New(), KnownAppearances: make(map[int]int),
 		Inventory: &Inventory{Capacity: 30}, TradeOffer: &Inventory{Capacity: 12}, DuelOffer: &Inventory{Capacity: 8}, Unregistering: atomic.NewBool(false),
 		LocalItems: &entityList{}, OutgoingPackets: make(chan *net.Packet, 20), SigDisconnect: make(chan struct{}), SigKill: make(chan struct{})}
 	p.SetVar("currentIP", ip)
@@ -1712,12 +1655,10 @@ func (p *Player) Read(data []byte) (n int, err error) {
 		if err != nil {
 			return -1, errors.NewNetworkError("Deadline reached", true)
 		}
-		if strings.HasSuffix(p.Socket.LocalAddr().String(), "43595") && (p.readSize() >= p.readLimit()) {
+		if strings.HasSuffix(p.Socket.LocalAddr().String(), "43595") && p.VarBool("needsReader", true) {
 			// reset buffer read index and create the next reader
 			header, reader, err := wsutil.NextReader(p.Socket, ws.StateServerSide)
-			p.SetVar("readLimit", int(header.Length))
-			p.SetVar("readSize", 0)
-			p.SetVar("headerFin", header.Fin)
+			p.SetVar("needsReader", false)
 			if err != nil {
 				if err == io.EOF && !p.headerFin() {
 					return -1, errors.NewNetworkError("End of file mid-read:", false)
@@ -1728,17 +1669,13 @@ func (p *Player) Read(data []byte) (n int, err error) {
 				}
 				log.Warn("Problem creating reader for next websocket frame:", err)
 			}
-			p.ReadWriter.Reader.Reset(reader)
+			p.ReadWriter.Reader.Reset(io.LimitReader(reader, header.Length))
 		}
 		n, err := p.ReadWriter.Read(data[written:])
-		p.SetVar("readSize", p.readSize()+n)
 		if err != nil {
 			if err == io.EOF {
-				if !p.headerFin() {
-					continue
-				}
-			}
-			if err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
+				p.UnsetVar("needsReader")
+			} else if err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
 				return -1, errors.NewNetworkError("closed conn", false)
 			} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
 				return -1, errors.NewNetworkError("timed out", false)

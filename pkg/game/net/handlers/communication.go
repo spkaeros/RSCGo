@@ -10,7 +10,7 @@
 package handlers
 
 import (
-	`github.com/spkaeros/rscgo/pkg/game/net`
+	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
@@ -36,18 +36,18 @@ func init() {
 			player.Message("@que@Please remove '" + strutil.Base37.Decode(hash) + "' from your ignore list before friending them.")
 			return
 		}
-		p1, ok := world.Players.FromUserHash(hash)
-		player.FriendList.Add(strutil.Base37.Decode(hash))
-		if ok && p1.FriendsWith(player.UsernameHash()) {
+		if p1, ok := world.Players.FromUserHash(hash); ok && p1 != nil &&
+				(!p1.FriendBlocked() || p1.FriendList.ContainsHash(hash)) {
+			player.FriendList.Add(strutil.Base37.Decode(hash))
 			p1.SendPacket(world.FriendUpdate(player.UsernameHash(), true))
 		}
 	})
 	AddHandler("privmsg", func(player *world.Player, p *net.Packet) {
-		if c1, ok := world.Players.FromUserHash(p.ReadUint64()); ok {
-			if !c1.FriendBlocked() || c1.FriendsWith(player.UsernameHash()) {
-				// c1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(strutil.ChatFilter.Unpack(p.FrameBuffer[8:]))))
-				c1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(string(p.FrameBuffer[8:]))))
-			}
+		hash := p.ReadUint64()
+		if p1, ok := world.Players.FromUserHash(hash); ok && p1 != nil &&
+				(!p1.FriendBlocked() || p1.FriendList.ContainsHash(hash)) {
+			// c1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(strutil.ChatFilter.Unpack(p.FrameBuffer[8:]))))
+			p1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(string(p.FrameBuffer[8:]))))
 		}
 	})
 	AddHandler("removefriend", func(player *world.Player, p *net.Packet) {
@@ -60,6 +60,12 @@ func init() {
 			return
 		}
 		player.FriendList.Remove(strutil.Base37.Decode(hash))
+		if player.FriendBlocked() {
+			if p1, ok := world.Players.FromUserHash(hash); ok && p1 != nil &&
+					p1.FriendList.ContainsHash(hash) {
+				p1.FriendList.ToggleStatus(player.Username())
+			}
+		}
 	})
 	AddHandler("addignore", func(player *world.Player, p *net.Packet) {
 		hash := p.ReadUint64()

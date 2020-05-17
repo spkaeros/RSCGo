@@ -13,7 +13,7 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/spkaeros/rscgo/pkg/config"
-	`github.com/spkaeros/rscgo/pkg/game/net`
+	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/rand"
@@ -48,7 +48,7 @@ func init() {
 		// TODO: Remove maybe...TLS deprecates the need for it
 		player.SetConnected(true)
 		p.ReadUint8() // UID, useful?
-		player.SetServerSeed(rand.Uint64())
+		player.SetServerSeed(rand.Rng.Uint64())
 		player.SendPacket(net.NewReplyPacket(nil).AddUint64(player.ServerSeed()))
 	})
 }

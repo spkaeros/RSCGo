@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	
-	`github.com/spkaeros/rscgo/pkg/definitions`
+
+	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 
 	"github.com/spkaeros/rscgo/pkg/config"
@@ -300,6 +300,10 @@ func (s *sqlService) PlayerLoad(player *world.Player) bool {
 			switch list {
 			case "friend":
 				player.FriendList.Add(strutil.Base37.Decode(hash))
+				if p1, ok := world.Players.FromUserHash(hash); ok && p1 != nil &&
+						(!p1.ChatBlocked() || p1.FriendList.ContainsHash(hash)) {
+					player.FriendList.ToggleStatus(strutil.Base37.Decode(hash))
+				}
 			case "ignore":
 				player.IgnoreList = append(player.IgnoreList, hash)
 			}

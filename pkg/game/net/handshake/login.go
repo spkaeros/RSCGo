@@ -13,12 +13,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	
+
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/crypto"
 	"github.com/spkaeros/rscgo/pkg/db"
 	"github.com/spkaeros/rscgo/pkg/game/net"
-	`github.com/spkaeros/rscgo/pkg/game/net/handlers`
+	"github.com/spkaeros/rscgo/pkg/game/net/handlers"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
@@ -99,6 +99,7 @@ func init() {
 			}
 			//dataService is a db.PlayerService that all login-related functions should use to access or change player profile data.
 			var dataService = db.DefaultPlayerService
+//			log.Debug(crypto.Hash(password), "=", password, "len=", len(password))
 			if !dataService.PlayerNameExists(player.Username()) || !dataService.PlayerValidLogin(player.UsernameHash(), crypto.Hash(password)) {
 				loginReply <- response{ResponseBadPassword, "Invalid credentials"}
 				return

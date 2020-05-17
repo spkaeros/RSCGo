@@ -17,8 +17,8 @@ import (
 	"github.com/spkaeros/rscgo/pkg/engine/tasks"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
-	"github.com/spkaeros/rscgo/pkg/ipthrottle"
 	"github.com/spkaeros/rscgo/pkg/log"
+	"github.com/spkaeros/rscgo/pkg/throttle"
 )
 
 var loginThrottle = ipThrottle.NewThrottle()
@@ -217,7 +217,7 @@ const (
 //ResponseListener This method will block until a response to send to the client is received from our data workers, or if this doesn't occur, 10 seconds after it was called.
 func (r *ResponseListener) attachPlayer(p *world.Player) chan response {
 	// schedules the channel listener on the game engines thread
-	tasks.Tickers.Add("playerCreating", func() bool {
+	tasks.TickList.Add("playerCreating", func() bool {
 		defer close(r.listener)
 		select {
 		case res := <-r.listener:

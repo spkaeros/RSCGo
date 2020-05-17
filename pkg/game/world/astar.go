@@ -24,7 +24,7 @@ type tileNode struct {
 
 func (n *tileNode) gCostFrom(neighbor *tileNode) float64 {
 	stepPrice := 1.0
-	if n.loc.DeltaX(neighbor.loc) + n.loc.DeltaY(neighbor.loc) > 1 {
+	if n.loc.DeltaX(neighbor.loc)+n.loc.DeltaY(neighbor.loc) > 1 {
 		stepPrice = math.Sqrt2
 	}
 	return n.gCost + stepPrice
@@ -66,9 +66,9 @@ func (q *tileQueue) Pop() interface{} {
 type Pathfinder struct {
 	tileQueue
 	activeTiles map[int]*tileNode
-	last Location
-	start Location
-	end   Location
+	last        Location
+	start       Location
+	end         Location
 }
 
 // This produces a unique hash for each tile possible within the current game world; in this sense, it is a perfect hashing algorithm.
@@ -80,13 +80,13 @@ func (l Location) Hash() int {
 //NewPathfinder Returns a new A* pathfinder instance to derive an optimal path from start to end.
 func NewPathfinder(start, end Location) *Pathfinder {
 	startNode := &tileNode{loc: start, open: true}
-	p := &Pathfinder{start: start, end: end, tileQueue: tileQueue{startNode}, activeTiles: map[int]*tileNode{ start.Hash(): startNode, end.Hash(): {loc: end}}}
+	p := &Pathfinder{start: start, end: end, tileQueue: tileQueue{startNode}, activeTiles: map[int]*tileNode{start.Hash(): startNode, end.Hash(): {loc: end}}}
 	heap.Init(&p.tileQueue)
 	return p
 }
 
 func (p *Pathfinder) node(l Location) *tileNode {
-	hash := (l.X()<<16)|l.Y()
+	hash := (l.X() << 16) | l.Y()
 	if v, ok := p.activeTiles[hash]; !ok || v == nil {
 		p.activeTiles[hash] = &tileNode{loc: l}
 	}
@@ -117,7 +117,7 @@ func (p *Pathfinder) MakePath() *Pathway {
 		position := active.loc
 		if p.last.LongestDelta(active.loc) == 0 /*|| p.tileQueue.Len() > 512*/ {
 			// DoS prevention measures; astar will run forever if you let it
-//			return makePath(active)
+			//			return makePath(active)
 			return nil
 		}
 		if position.Equals(p.end) {
@@ -129,7 +129,7 @@ func (p *Pathfinder) MakePath() *Pathway {
 		// OrderedDirections is ordered as orthogonal then diagonals.
 		// Direction precedent: E,W,N,S,SW,SE,NW,NE
 		for _, direction := range OrderedDirections {
-//			node := &tileNode{loc: active.loc.Step(direction), open: false, closed: false}
+			//			node := &tileNode{loc: active.loc.Step(direction), open: false, closed: false}
 			neighbor := p.node(active.loc.Step(direction))
 			if !active.loc.Reachable(neighbor.loc) {
 				continue

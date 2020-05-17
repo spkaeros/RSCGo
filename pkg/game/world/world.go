@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/spkaeros/rscgo/pkg/config"
-	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/definitions"
+	"github.com/spkaeros/rscgo/pkg/log"
 	rscRand "github.com/spkaeros/rscgo/pkg/rand"
 )
 
@@ -31,7 +31,8 @@ const (
 )
 
 //OrderedDirections This is an array containing all of the directions a mob can walk in, ordered by path finder precedent.
-var OrderedDirections = [...]int { 2, 6, 0, 4, 3, 5, 1, 7 }
+var OrderedDirections = [...]int{2, 6, 0, 4, 3, 5, 1, 7}
+
 func (l Location) Step(direction int) Location {
 	loc := l.Clone()
 	if direction == 0 || direction == 1 || direction == 7 {
@@ -46,6 +47,7 @@ func (l Location) Step(direction int) Location {
 	}
 	return loc
 }
+
 //UpdateTime a point in time in the future to log all active players out and shut down the game for updates.
 // Before the command is issued to set this time, it is initialized to time.Time{} zero value.
 var UpdateTime time.Time
@@ -149,10 +151,14 @@ func AddPlayer(p *Player) {
 	getRegion(p.X(), p.Y()).Players.Add(p)
 	Players.Put(p)
 	Players.Range(func(player *Player) {
-		if player.FriendList.contains(p.Username()) {
-			player.SendPacket(FriendUpdate(p.UsernameHash(), p.FriendList.contains(player.Username()) || !p.FriendBlocked()))
-
+		if player.FriendList.Contains(p.Username()) && (!p.FriendBlocked() || p.FriendsWith(player.UsernameHash())) {
+			player.FriendList.ToggleStatus(p.Username())
+			player.SendPacket(FriendUpdate(p.UsernameHash(), true))
 		}
+		
+//		if player.FriendList.Contains(p.Username()) {
+//			player.SendPacket(FriendUpdate(p.UsernameHash(), p.FriendList.Contains(player.Username()) || !p.FriendBlocked()))
+//		}
 	})
 }
 
@@ -162,8 +168,9 @@ func RemovePlayer(p *Player) {
 	getRegion(p.X(), p.Y()).Players.Remove(p)
 	Players.Remove(p)
 	Players.Range(func(player *Player) {
-		if player.FriendList.contains(p.Username()) {
-			player.SendPacket(FriendUpdate(p.UsernameHash(), !p.FriendBlocked()))
+		if player.FriendList.Contains(p.Username()) && (!p.FriendBlocked() || p.FriendsWith(player.UsernameHash())) {
+			player.FriendList.ToggleStatus(p.Username())
+			player.SendPacket(FriendUpdate(p.UsernameHash(), false))
 		}
 	})
 	p.SetRegionRemoved()
@@ -214,7 +221,7 @@ func AddObject(o *Object) {
 		// type 1 is used when the object fully blocks the tile(s) that it sits on.  Marks tile as fully blocked.
 		// type 2 is used when the object mimics a boundary, e.g for gates and the like.
 		// type 3 is used when the object mimics an opened door-type boundary, e.g opened gates and the like.
-		if scenary.CollisionType%3 == 0{
+		if scenary.CollisionType%3 == 0 {
 			return
 		}
 		width := scenary.Height
@@ -229,7 +236,7 @@ func AddObject(o *Object) {
 				areaX := (2304 + x) % RegionSize
 				areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
 				if len(sectorFromCoords(x, y).Tiles) <= 0 {
-					log.Warning.Println("ERROR: Sector with no tiles at:" + strconv.Itoa(x) + "," + strconv.Itoa(y) + " ("+strconv.Itoa(areaX)+","+strconv.Itoa(areaY)+"\n")
+					log.Warning.Println("ERROR: Sector with no tiles at:" + strconv.Itoa(x) + "," + strconv.Itoa(y) + " (" + strconv.Itoa(areaX) + "," + strconv.Itoa(areaY) + "\n")
 					return
 				}
 				if scenary.CollisionType == 1 {
@@ -237,8 +244,8 @@ func AddObject(o *Object) {
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipFullBlock
 					continue
 				}
-				
-				// Type 2 (directional blocking, e.g gates etc) if we made it here
+
+				// If it's gone this far, collisionType is 2 (directional blocking, e.g gates etc)
 				if o.Direction == byte(North) {
 					// Block the tiles east side
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipEast
@@ -268,7 +275,7 @@ func AddObject(o *Object) {
 						sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1].CollisionMask |= ClipSouth
 					}
 				}
-				
+
 			}
 		}
 	} else {
@@ -281,7 +288,7 @@ func AddObject(o *Object) {
 		areaX := (2304 + x) % RegionSize
 		areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
 		if len(sectorFromCoords(x, y).Tiles) <= 0 {
-			log.Warn("ERROR: Sector with no tiles at:" + strconv.Itoa(x) + "," + strconv.Itoa(y) + " ("+strconv.Itoa(areaX)+","+strconv.Itoa(areaY)+"\n")
+			log.Warn("ERROR: Sector with no tiles at:" + strconv.Itoa(x) + "," + strconv.Itoa(y) + " (" + strconv.Itoa(areaX) + "," + strconv.Itoa(areaY) + "\n")
 			return
 		}
 		if o.Direction == 0 {
@@ -316,7 +323,7 @@ func RemoveObject(o *Object) {
 		}
 		width := scenary.Height
 		height := scenary.Width
-		
+
 		//if o.Direction == byte(North) || o.Direction == byte(South) {
 		if o.Direction%4 == 0 {
 			// reverse measurements for directions 0(North) and 4(South), as scenary measurements
@@ -366,7 +373,7 @@ func RemoveObject(o *Object) {
 		areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
 		if o.Direction == 0 { // Vertical wall ('| ',' |') North<->South
 			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= ^ClipNorth
-			if areaX + areaY > 0 {
+			if areaX+areaY > 0 {
 				sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1].CollisionMask &= ^ClipSouth
 			}
 		} else if o.Direction == 1 { // Horizontal wall ('__','‾‾') East<->West
@@ -538,28 +545,26 @@ func surroundingRegions(x, y int) (regions [4]*region) {
 	return
 }
 
-//BoundedChance should return true (percent)% of the time, and false (100-percent)% of the time.
-// It uses ISAAC64+ to provide randomness. If percent is not inside the specified boundaries, it will be
-// ignored and the appropriate boundary will replace it.
-//
-// percent defines the percentage of chance for this check to pass, as long as it's between minPercent and maxPercent.
-//
-// minPercent defines the minimum percentage of chance for this check to pass.  if percent is lower than this, it will
-// be ignored and this will be used.
-//
-// maxPercent defines the maximum percentage of chance for this check to pass.  if percent is higher than this, it will
-// be ignored and this will be used.
+//BoundedChance is a statistically random function that should return true percent/maxPercent% of the time.
+// This should return true approximately percent/maxPercent of the time, and false (maxPercent-percent)/maxPercent of
+// the time.
+// percent defines the percentage of chance for this check to pass, clamped to the provided boundaries.
+// minPercent is the minimum allowed value of percent.  If percent is larger than minPercent, then minPercent is used
+// in its place.
+// maxPercent is the maximum allowed value of percent, and also the denominator used when scaling the percentage to
+// a 1-byte value
+// Returns: randByte <= max(min(percent, maxPercent), minPercent)/maxPercent*256.0, (with uniform randomness)
 func BoundedChance(percent float64, minPercent, maxPercent float64) bool {
 	if minPercent < 0.0 {
 		minPercent = 0.0
 	}
-	if maxPercent > 100.0 {
-		maxPercent = 100.0
-	}
+//	if maxPercent > 100.0 {
+//		maxPercent = 100.0
+//	}
 	if minPercent > maxPercent {
 		maxPercent, minPercent = minPercent, maxPercent
 	}
-	return float64(rscRand.Uint8()) <= math.Max(minPercent, math.Min(maxPercent, percent))/100.0*256.0
+	return rscRand.Rng.Float64() <= math.Max(minPercent, math.Min(maxPercent, percent))/maxPercent
 }
 
 //Chance should return true (percent)% of the time, and false (100-percent)% of the time.
@@ -591,26 +596,28 @@ func WeightedChoice(choices map[int]float64) int {
 	// all individual probabilities must be scaled down by the same figure to account for the difference.
 	// e.g passing 3 values in with 50.0 probability on each of them will result in each entry returning at a
 	// rate of 33.333~% instead of 50% each, because 50/150=33.333~
-	cumulativeProbability := math.Max(1.0, totalProb/100)
-	upperBound := cumulativeProbability * math.MaxUint16
-	hit := float64(rscRand.Int31N(1, int(upperBound)))
+//	cumulativeProbability := math.Max(1.0, totalProb/100)
+//	upperBound := cumulativeProbability * math.MaxUint16
+//	hit := float64(rscRand.Int31N(1, int(upperBound)))
+	hit := rscRand.Rng.Float64()*totalProb
 	if config.Verbosity >= 3 {
-		log.Info.Printf("WeightedChoice: Upper bound for total probability:%d (total was: %.2f%% of 65535; the RNG lower bound) {\n", int(upperBound), cumulativeProbability*100)
-		log.Info.Printf("\tRolled: %d/%d;\n", int(hit), int(upperBound))
-		defer log.Info.Println("};")
+//		log.Debugf("WeightedChoice: Upper bound for total probability:%d {\n", int(totalProb))
+		log.Debugf("\nRolled: %d/%d;\n", int(hit), int(totalProb))
+//		defer log.Info.Println("};")
 	}
 	for choice, prob := range choices {
-		newProb := prob / 100 * math.MaxUint16 / upperBound
+//		newProb := prob / 100 * math.MaxUint16 / upperBound
 		if config.Verbosity >= 3 {
-			log.Info.Printf("\tentry{val:%d; hit range between %d - %d (%.2f%% chance)}", choice, int(total), int(total+(newProb*upperBound)), newProb*100)
+			log.Debugf("\tentry{val:%d; hit range between %d - %d (%.2f%% chance)}\n", choice, int(total), int(total+(prob)), prob/totalProb*100)
 		}
-		total += newProb * upperBound
+		total += prob
 		if hit < total {
+			log.Debugf("Hit:%v\n", choice)
 			return choice
 		}
 	}
 	if config.Verbosity >= 3 {
-		log.Info.Println("Rolled value did not return anything!")
+		log.Debugln("Rolled value did not return anything!")
 	}
 	return -1
 }

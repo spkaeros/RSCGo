@@ -11,8 +11,8 @@ package handlers
 
 import (
 	"strconv"
-	
-	`github.com/spkaeros/rscgo/pkg/definitions`
+
+	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"

@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"go.uber.org/atomic"
-	
-	`github.com/spkaeros/rscgo/pkg/definitions`
+
+	"github.com/spkaeros/rscgo/pkg/definitions"
 )
 
 //Object Represents a game object in the world.

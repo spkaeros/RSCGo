@@ -18,7 +18,7 @@ import (
 	"github.com/mattn/anko/core"
 	"github.com/mattn/anko/env"
 	"github.com/mattn/anko/parser"
-	`github.com/spkaeros/rscgo/pkg/definitions`
+	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/rand"
@@ -327,7 +327,9 @@ func ScriptEnv() *env.Env {
 	e.Define("newNpc", NewNpc)
 	e.Define("newObject", NewObject)
 	e.Define("base37", strutil.Base37.Encode)
-	e.Define("rand", rand.Int31N)
+	e.Define("rand", func(low, high int) int {
+		return rand.Rng.Intn(high-low) + low
+	})
 	e.Define("tNow", time.Now)
 	e.Define("North", North)
 	e.Define("NorthEast", NorthEast)
@@ -350,7 +352,7 @@ func ScriptEnv() *env.Env {
 		if cur < req {
 			return false
 		}
-		return float64(rand.Int31N(1, 128)) <= (float64(cur)+40)-(float64(req)*1.5)
+		return rand.Rng.Float64()*127.0+1.0 <= (float64(cur)+40.0)-(float64(req)*1.5)
 	})
 	e.Define("roll", Chance)
 	e.Define("boundedRoll", BoundedChance)
@@ -389,10 +391,11 @@ func ScriptEnv() *env.Env {
 		}
 	})
 
-	e.Define("fuzzyFindItem", func(input string) []map[string]interface{} {
-		var itemList []map[string]interface{}
+	e.Define("fuzzyFindItem", func(input string) (itemList []map[string]interface{}) {
+		maxRank := 0
 		for id, item := range definitions.Items {
-			if fuzzy.MatchFold(input, item.Name) {
+			if rank := fuzzy.LevenshteinDistance(input, item.Name); rank > maxRank {
+				maxRank = rank
 				itemList = append(itemList, map[string]interface{}{"name": item.Name, "id": id})
 			}
 		}
@@ -435,14 +438,14 @@ func ScriptEnv() *env.Env {
 		if m.IsPlayer() {
 			return m.(*Player)
 		}
-		
+
 		return nil
 	})
 	e.Define("asNpc", func(m entity.MobileEntity) *NPC {
 		if m.IsNpc() {
 			return m.(*NPC)
 		}
-		
+
 		return nil
 	})
 	e = core.Import(e)

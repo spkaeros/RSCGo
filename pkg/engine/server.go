@@ -10,39 +10,35 @@
 package engine
 
 import (
+	"bufio"
 	"context"
 	"crypto/tls"
 	stdnet "net"
 	"os"
 	"reflect"
-	"bufio"
 	"strconv"
 	"strings"
+	`sync`
 	"time"
 
 	"github.com/gobwas/ws"
-	
+
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/db"
 	"github.com/spkaeros/rscgo/pkg/engine/tasks"
-	`github.com/spkaeros/rscgo/pkg/game/net`
-	`github.com/spkaeros/rscgo/pkg/game/net/handlers`
+	"github.com/spkaeros/rscgo/pkg/game/net"
+	"github.com/spkaeros/rscgo/pkg/game/net/handlers"
 	"github.com/spkaeros/rscgo/pkg/game/net/handshake"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
-)
-
-var (
-	//Kill a signaling channel for killing the main server
-	Kill = make(chan struct{})
 )
 
 //Bind binds to the TCP port at port, and the websocket port at port+1.
 func Bind(port int) {
 	listener, err := stdnet.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
-		log.Error.Printf("Can't bind to specified port: %d\n", port)
-		log.Error.Println(err)
+		log.Fatal("Can't bind to specified port: %d\n", port)
+		log.Fatal(err)
 		os.Exit(1)
 	}
 	go func() {
@@ -75,10 +71,12 @@ func Bind(port int) {
 			if port == config.WSPort() {
 				if certErr == nil {
 					// set up socket to use TLS if we have certs that we can load
-					socket = tls.Server(socket, &tls.Config{Certificates: []tls.Certificate{certChain}, InsecureSkipVerify: true})
+					socket = tls.Server(socket, &tls.Config{Certificates: []tls.Certificate{certChain}, ServerName: "rscturmoil.com", InsecureSkipVerify: true, SessionTicketsDisabled: true})
 				}
 				if _, err := wsUpgrader.Upgrade(socket); err != nil {
-					log.Error.Println("Encountered a problem attempting to upgrade the HTTP(S) connection to use websockets:", err)
+					if config.Verbosity > 0 {
+						log.Warn("Encountered a problem attempting to upgrade the HTTP(S) connection to use websockets:", err)
+					}
 					continue
 				}
 			}
@@ -88,8 +86,12 @@ func Bind(port int) {
 			go func() {
 				defer func() {
 					p.Attributes.SetVar("lastIP", p.CurrentIP())
-					p.Write([]byte{1,4})
-					p.ReadWriter.Flush()
+					p.Write([]byte{1, 4})
+					if err := p.ReadWriter.Flush(); err != nil {
+						log.Warn("Couldn't flush socket write buffer for", p.String())
+						log.Warn(err)
+					}
+
 					if err := p.Socket.Close(); err != nil {
 						log.Warn("Couldn't close socket:", err)
 					}
@@ -126,16 +128,18 @@ func Bind(port int) {
 							packet.FrameBuffer = append(header, packet.FrameBuffer[:frameLength]...)
 						}
 						p.Write(packet.FrameBuffer)
-						p.ReadWriter.Flush()
+						err := p.ReadWriter.Flush()
+						if err != nil {
+							log.Debug("Error flushing buffer", err)
+							return
+						}
 					}
 				}
 			}()
 			go func() {
-//				defer p.Destroy()
 				for {
 					select {
 					case <-p.SigKill:
-//					case <-p.SigDisconnect:
 						return
 					default:
 						header := make([]byte, 2)
@@ -152,7 +156,7 @@ func Bind(port int) {
 						} else {
 							frameSize -= 1
 						}
-						
+
 						// Upper bound is an approximation of the max size of the clientside outgoing data buffer
 						if frameSize >= 23768 || frameSize < 0 {
 							log.Cheatf("Invalid packet length from [%v]: %d\n", p, frameSize)
@@ -181,19 +185,13 @@ func Bind(port int) {
 							log.Debugf("Packet{\n\topcode:%d;\n\tlength:%d;\n\tpayload:%v\n};\n", p1.Opcode, len(p1.FrameBuffer), p1.FrameBuffer)
 							return
 						}
-						
+
 						handler(p, p1)
 					}
 				}
 			}()
 		}
 	}()
-}
-
-//StartConnectionService Binds and listens for new clients on the configured ports
-func StartConnectionService() {
-	Bind(config.Port())   // UNIX sockets
-	Bind(config.WSPort()) // websockets
 }
 
 func runTickables(p *world.Player) {
@@ -203,7 +201,7 @@ func runTickables(p *world.Player) {
 			_, err := realFn(context.Background())
 			if !err.IsNil() {
 				toRemove = append(toRemove, i)
-				log.Warning.Println("Error in tickable:", err)
+				log.Warn("Error in tickable:", err)
 				continue
 			}
 		}
@@ -211,7 +209,7 @@ func runTickables(p *world.Player) {
 			_, err := realFn(context.Background(), reflect.ValueOf(p))
 			if !err.IsNil() {
 				toRemove = append(toRemove, i)
-				log.Warning.Println("Error in tickable:", err)
+				log.Warn("Error in tickable:", err)
 				continue
 			}
 		}
@@ -240,107 +238,6 @@ func runTickables(p *world.Player) {
 		}
 	}
 }
-
-//Tick One game engine 'tick'.  This is to handle movement, to synchronize client, to update movement-related state variables... Runs once per 640ms.
-func Tick() {
-	tasks.Tickers.RunSynchronous()
-/*
-	world.Players.Range(func(p *world.Player) {
-		header := make([]byte, 2)
-		c := p.VarChecked("client").(*client)
-		n, err := c.Read(header)
-		if n < 2 || err != nil {
-			if err != nil {
-				log.Debug("Read error:", err)
-			}
-			log.Debug("Not enough bytes in header(need 2 bytes, got:", n)
-			return
-		}
-		frameSize := int(header[0] & 0xFF)
-		if frameSize >= 160 {
-			frameSize = ((frameSize - 160) << 8) | int(header[1]&0xFF)
-		} else {
-			frameSize -= 1
-		}
-		
-		// Upper bound is an approximation of the max size of the clientside outgoing data buffer
-		if frameSize >= 23768 || frameSize < 0 {
-			log.Cheatf("Invalid packet length from [%v]: %d\n", p, frameSize)
-			return
-		}
-		localData := make([]byte, frameSize)
-		if frameSize > 0 {
-		
-			n, err := c.Read(localData)
-			if n < frameSize || err != nil {
-				if err != nil {
-					log.Debug("Read error:", err)
-				}
-				log.Debug("Not enough bytes in header(need", frameSize, "bytes, got:", n)
-				return
-			}
-		}
-		if frameSize < 160 {
-			localData = append(localData, header[1])
-		}
-		if !p.Connected() && !handshake.EarlyOperation(int(localData[0])) {
-			log.Warnf("Unauthorized packet[opcode:%v,size:%v (expected:%v)] rejected from: %v\n", localData[0], len(localData), frameSize, p)
-			return
-		}
-		//				p.incomingPackets <- net.NewPacket(localData[0], localData[1:])
-		log.Debug(localData)
-		p1 := net.NewPacket(localData[0], localData[1:])
-		handler := handlers.Handler(p1.Opcode)
-		if handler == nil {
-			log.Debugf("Packet{\n\topcode:%d;\n\tlength:%d;\n\tpayload:%v\n};\n", p1.Opcode, len(p1.FrameBuffer), p1.FrameBuffer)
-			return
-		}
-		
-		handler(p, p1)
-	})
-*/	world.Players.Range(func(p *world.Player) {
-		runTickables(p)
-		if fn := p.DistancedAction; fn != nil {
-			if fn() {
-				p.ResetDistancedAction()
-			}
-		}
-		p.TraversePath()
-	})
-
-	world.UpdateNPCPositions()
-
-	world.Players.Range(func(p *world.Player) {
-		// Everything is updated relative to our player's position, so player position net comes first
-		if positions := world.PlayerPositions(p); positions != nil {
-			p.SendPacket(positions)
-		}
-		if appearances := world.PlayerAppearances(p); appearances != nil {
-			p.SendPacket(appearances)
-		}
-		if npcUpdates := world.NPCPositions(p); npcUpdates != nil {
-			p.SendPacket(npcUpdates)
-		}
-		if objectUpdates := world.ObjectLocations(p); objectUpdates != nil {
-			p.SendPacket(objectUpdates)
-		}
-		if boundaryUpdates := world.BoundaryLocations(p); boundaryUpdates != nil {
-			p.SendPacket(boundaryUpdates)
-		}
-		if itemUpdates := world.ItemLocations(p); itemUpdates != nil {
-			p.SendPacket(itemUpdates)
-		}
-		if clearDistantChunks := world.ClearDistantChunks(p); clearDistantChunks != nil {
-			p.SendPacket(clearDistantChunks)
-		}
-	})
-
-	world.Players.Range(func(p *world.Player) {
-		p.ResetRegionRemoved()
-		p.ResetRegionMoved()
-		p.ResetSpriteUpdated()
-		p.ResetAppearanceChanged()
-	})
 	/*	world.Players.Range(func(p *world.Player) {
 			for _, fn := range p.ResetTickables {
 				fn()
@@ -348,66 +245,101 @@ func Tick() {
 			p.ResetTickables = p.ResetTickables[:0]
 		})
 	*/
-//	world.Players.Range(func(p *world.Player) {
+/*
+		world.Players.Range(func(p *world.Player) {
 
-//			for {
-//				select {
-//				case <-p.SigKill:
-//					return
-/*				for packet, ok := <-p.OutgoingPackets; ok && packet != nil; {
-					//		if ok && packet != nil {
-					if ok && packet.Opcode != 0 {
-						frameLength := len(packet.FrameBuffer)
-						header := []byte{0, 0}
-						if frameLength >= 160 {
-							header[0] = byte(frameLength>>8 + 160)
-							header[1] = byte(frameLength)
-						} else {
-							header[0] = byte(frameLength)
-							frameLength--
-							header[1] = packet.FrameBuffer[frameLength]
-						}
-						packet.FrameBuffer = append(header, packet.FrameBuffer[:frameLength]...)
+			if p.Unregistering.Load() && p.Unregistering.CAS(true, false) {
+				p.Attributes.SetVar("lastIP", p.CurrentIP())
+				p.ReadWriter.Flush()
+				if err := p.Socket.Close(); err != nil {
+					log.Warn("Couldn't close socket:", err)
+				}
+				if player, ok := world.Players.FromIndex(p.Index); ok && player.UsernameHash() != p.UsernameHash() || !ok || !p.Connected() {
+					if ok {
+						log.Cheatf("Unauthenticated player being destroyed had index %d and there is a player that is assigned that index already! (%v)\n", p.Index, player)
 					}
-					go p.Write(packet.FrameBuffer)
-//						p.ReadWriter.Flush()
+					return
 				}
-//			}*/
-//		p.ReadWriter.Flush()
-/*		if p.Unregistering.Load() && p.Unregistering.CAS(true, false) {
-			p.Attributes.SetVar("lastIP", p.CurrentIP())
-			p.ReadWriter.Flush()
-			if err := p.Socket.Close(); err != nil {
-				log.Warn("Couldn't close socket:", err)
+				world.RemovePlayer(p)
+				p.SetConnected(false)
+				log.Debug("Unregistered:{'" + p.Username() + "'@'" + p.CurrentIP() + "'}")
+				go db.DefaultPlayerService.PlayerSave(p)
 			}
-			if player, ok := world.Players.FromIndex(p.Index); ok && player.UsernameHash() != p.UsernameHash() || !ok || !p.Connected() {
-				if ok {
-					log.Cheatf("Unauthenticated player being destroyed had index %d and there is a player that is assigned that index already! (%v)\n", p.Index, player)
-				}
-				return
-			}
-			world.RemovePlayer(p)
-			p.SetConnected(false)
-			log.Debug("Unregistered:{'" + p.Username() + "'@'" + p.CurrentIP() + "'}")
-			go db.DefaultPlayerService.PlayerSave(p)
-		}
+		})
 */
-//	})
-
-	world.ResetNpcUpdateFlags()
-}
 
 //StartGameEngine Launches a goroutine to handle updating the state of the game every 640ms in a synchronized fashion.  This is known as a single game engine 'pulse'.
 func StartGameEngine() {
 	ticker := time.NewTicker(640 * time.Millisecond)
 	defer ticker.Stop()
 	for range ticker.C {
-		Tick()
+		tasks.TickList.RunAsynchronous()
+//		tasks.TickList.RunSynchronous()
+		wait := sync.WaitGroup{}
+		world.Players.Range(func(p *world.Player) {
+			wait.Add(1)
+			go func() {
+				defer wait.Done()
+				runTickables(p)
+				if fn := p.DistancedAction; fn != nil {
+					if fn() {
+						p.ResetDistancedAction()
+					}
+				}
+				p.TraversePath()
+			}()
+		})
+		wait.Wait()
+		world.UpdateNPCPositions()
+		
+		world.Players.Range(func(p *world.Player) {
+			wait.Add(1)
+			go func() {
+				defer wait.Done()
+				// Everything is updated relative to our player's position, so player position net comes first
+				if positions := world.PlayerPositions(p); positions != nil {
+					p.SendPacket(positions)
+				}
+				if appearances := world.PlayerAppearances(p); appearances != nil {
+					p.SendPacket(appearances)
+				}
+				if npcUpdates := world.NPCPositions(p); npcUpdates != nil {
+					p.SendPacket(npcUpdates)
+				}
+				if objectUpdates := world.ObjectLocations(p); objectUpdates != nil {
+					p.SendPacket(objectUpdates)
+				}
+				if boundaryUpdates := world.BoundaryLocations(p); boundaryUpdates != nil {
+					p.SendPacket(boundaryUpdates)
+				}
+				if itemUpdates := world.ItemLocations(p); itemUpdates != nil {
+					p.SendPacket(itemUpdates)
+				}
+				if clearDistantChunks := world.ClearDistantChunks(p); clearDistantChunks != nil {
+					p.SendPacket(clearDistantChunks)
+				}
+			}()
+		})
+		wait.Wait()
+		
+		world.Players.Range(func(p *world.Player) {
+			wait.Add(1)
+			go func() {
+				defer wait.Done()
+				p.ResetRegionRemoved()
+				p.ResetRegionMoved()
+				p.ResetSpriteUpdated()
+				p.ResetAppearanceChanged()
+			}()
+		})
+		wait.Wait()
+		
+		world.ResetNpcUpdateFlags()
 	}
 }
 
 //Stop This will stop the game instance, if it is running.
 func Stop() {
-	log.Info.Println("Stopping ..")
-	Kill <- struct{}{}
+	log.Debug("Stopping...")
+	os.Exit(0)
 }

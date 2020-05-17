@@ -11,6 +11,7 @@ package website
 
 import (
 	"html/template"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -55,7 +56,9 @@ func writeContent(w http.ResponseWriter, content []byte) bool {
 	return true
 }
 
-var templates = make(map[string]*template.Template)
+type webpages map[string]*template.Template
+
+var pageTemplates = make(webpages)
 
 /*
 // Load templates on program initialisation
@@ -81,7 +84,7 @@ func render(w http.ResponseWriter, r *http.Request) {
 	file := filepath.Join("website", name)
 
 	// check template files cache
-	tmpl, ok := templates[name]
+	tmpl, ok := pageTemplates[name]
 	if !ok {
 		// Return a 404 if the template doesn't exist or the request is for a directory
 		info, err := os.Stat(file)
@@ -95,7 +98,7 @@ func render(w http.ResponseWriter, r *http.Request) {
 		tmpl, err = template.ParseFiles(filepath.Join("website/layouts", "layout.html"), file)
 		if err != nil {
 			// Log the detailed error
-			log.Error.Println(err.Error())
+			log.Warn(err.Error())
 			// Return a generic "Internal Server Error" message
 			http.Error(w, http.StatusText(500), 500)
 			return
@@ -103,14 +106,14 @@ func render(w http.ResponseWriter, r *http.Request) {
 
 		// Cache the template in RAM for future requests to the same URL.
 		// This results in faster execution times, after the very first request to a templated URL
-		templates[name] = tmpl
+		pageTemplates[name] = tmpl
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	err := tmpl.ExecuteTemplate(w, "layout", Information)
 	if err != nil {
-		log.Error.Println(err.Error())
-		http.Error(w, http.StatusText(500), 500)
+		log.Warn("Problem encountered executing a webpage template:", err.Error())
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 
@@ -119,6 +122,7 @@ func render(w http.ResponseWriter, r *http.Request) {
 //Start Binds to the web port 8080 and serves HTTP template to it.
 // Note: This is a blocking call, it will not return to caller.
 func Start() {
+	mime.AddExtensionType(".js", "application/javascript; charset=utf-8")
 	muxCtx.HandleFunc("/", render)
 	muxCtx.HandleFunc("/game/", render)
 	muxCtx.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./data/client"))))

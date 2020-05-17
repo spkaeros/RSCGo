@@ -12,9 +12,9 @@ package world
 import (
 	"math"
 	"time"
-	
-	"github.com/spkaeros/rscgo/pkg/game/entity"
+
 	"github.com/spkaeros/rscgo/pkg/definitions"
+	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/rand"
 )
 
@@ -24,16 +24,16 @@ var Npcs = NewMobList()
 //NPC Represents a single non-playable character within the game world.
 type NPC struct {
 	Mob
-	ID         int
-	StartPoint Location
-	Boundaries [2]Location
+	ID           int
+	StartPoint   Location
+	Boundaries   [2]Location
 	damageDeltas map[uint64]int
 }
 
 //NewNpc Creates a new NPC and returns a reference to it
 func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 	n := &NPC{ID: id, Mob: Mob{Entity: Entity{Index: Npcs.Size(), Location: NewLocation(startX, startY)}, AttributeList: *entity.NewAttributeList()},
-			damageDeltas: make(map[uint64]int), Boundaries: [2]Location{ NewLocation(minX, minY), NewLocation(maxX, maxY) } }
+		damageDeltas: make(map[uint64]int), Boundaries: [2]Location{NewLocation(minX, minY), NewLocation(maxX, maxY)}}
 	Npcs.Add(n)
 	n.SetVar("skills", &entity.SkillTable{})
 	n.SetVar("startPoint", n.Location.Clone())
@@ -46,7 +46,7 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 		n.Skills().SetCur(1, definitions.Npcs[id].Defense)
 		n.Skills().SetCur(2, definitions.Npcs[id].Strength)
 		n.Skills().SetCur(3, definitions.Npcs[id].Hits)
-		
+
 		n.Skills().SetMax(0, definitions.Npcs[id].Attack)
 		n.Skills().SetMax(1, definitions.Npcs[id].Defense)
 		n.Skills().SetMax(2, definitions.Npcs[id].Strength)
@@ -107,13 +107,13 @@ func UpdateNPCPositions() {
 		moveTime := n.VarTime("moveTime")
 		if n.VarInt("pathLength", 0) == 0 && (moveTime.IsZero() || time.Now().After(moveTime)) {
 			// schedule when to start wandering again
-			n.SetVar("moveTime", time.Now().Add(time.Second*time.Duration(rand.Int31N(10, 15))))
+			n.SetVar("moveTime", time.Now().Add(time.Second*time.Duration(rand.Rng.Intn(5)+10)))
 			// set how many steps we should wander for before taking a break
 			if n.VarInt("pathLength", 0) == 0 {
-				n.SetVar("pathLength", rand.Int31N(5, 15))
+				n.SetVar("pathLength", rand.Rng.Intn(10)+5)
 			}
 		} else {
-			// wander aimlessly until we run out of scheduled steps 
+			// wander aimlessly until we run out of scheduled steps
 			n.TraversePath()
 		}
 		return false
@@ -133,7 +133,7 @@ func (n *NPC) UpdateRegion(x, y int) {
 
 //ResetNpcUpdateFlags Resets the synchronization update flags for all NPCs in the game world.
 func ResetNpcUpdateFlags() {
-	Npcs.RangeNpcs(func (n *NPC) bool {
+	Npcs.RangeNpcs(func(n *NPC) bool {
 		n.ResetRegionRemoved()
 		n.ResetRegionMoved()
 		n.ResetSpriteUpdated()
@@ -169,7 +169,7 @@ func (n *NPC) Damage(dmg int) {
 func (n *NPC) DamageMelee(atk *Player, dmg int) {
 	n.Damage(dmg)
 	if delta, ok := n.damageDeltas[atk.UsernameHash()]; ok {
-		n.damageDeltas[atk.UsernameHash()] = delta+dmg
+		n.damageDeltas[atk.UsernameHash()] = delta + dmg
 		return
 	}
 	n.damageDeltas[atk.UsernameHash()] = dmg
@@ -189,13 +189,13 @@ func (n *NPC) MeleeExperience(up bool) float64 {
 // all of the NPCs EXP reward to all of the players that helped kill it, proprortional
 // to how much they helped.
 // Returns: the total number of hitpoints depleted by player melee damage.
-func(n *NPC) TotalDamage() (total int) {
-	for userHash, dmg:= range n.damageDeltas {
+func (n *NPC) TotalDamage() (total int) {
+	for userHash, dmg := range n.damageDeltas {
 		if Players.ContainsHash(userHash) {
 			total += dmg
 		}
 	}
-	
+
 	return
 }
 
@@ -216,10 +216,10 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 	totalExp := n.ExperienceReward() & 0xFFFFFFC
 	for usernameHash, damage := range n.damageDeltas {
 		player, ok := Players.FromUserHash(usernameHash)
-//		log.Info.Println(usernameHash,damage)
+		//		log.Info.Println(usernameHash,damage)
 		if ok {
-			exp := float64(totalExp)/float64(totalDamage)
-			player.DistributeMeleeExp(int(exp)*damage / 4)
+			exp := float64(totalExp) / float64(totalDamage)
+			player.DistributeMeleeExp(int(exp) * damage / 4)
 		}
 		if damage > mostDamage || dropPlayer == nil {
 			if ok {
@@ -251,12 +251,12 @@ func (n *NPC) TraversePath() {
 	if n.VarInt("pathLength", 0) <= 0 {
 		return
 	}
-	
+
 	for tries := 0; tries < 10; tries++ {
 		if Chance(25) {
-			n.SetVar("pathDir", int(rand.Uint8n(8)))
+			n.SetVar("pathDir", int(rand.Rng.Int31n(8)))
 		}
-		
+
 		dst := n.Location.Clone()
 		dir := n.VarInt("pathDir", North)
 		if dir == East || dir == SouthEast || dir == NorthEast {
@@ -269,9 +269,9 @@ func (n *NPC) TraversePath() {
 		} else if dir == South || dir == SouthWest || dir == SouthEast {
 			dst.y.Inc()
 		}
-		
+
 		if !n.Reachable(dst) || !dst.WithinArea(n.Boundaries) {
-			n.SetVar("pathDir", int(rand.Uint8n(8)))
+			n.SetVar("pathDir", int(rand.Rng.Int31n(8)))
 			continue
 		}
 

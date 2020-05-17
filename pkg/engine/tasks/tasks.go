@@ -11,32 +11,37 @@ package tasks
 
 import (
 	"sync"
+	
+	`github.com/spkaeros/rscgo/pkg/config`
+	`github.com/spkaeros/rscgo/pkg/log`
 )
 
 //Task is a single func that takes no args and returns a bool to indicate whether or not it
 // should be removed from the set it belongs to upon completion
 type Task func() bool
 
+type tasks map[string]Task
+
 //TaskList is a concurrency-safe list of Task closures mapped to simple string identifiers.
 // The main purpose for this is to provide the ability to schedule functions to run on the
 // game engines thread, to synchronize certain sensitive events.
 // It is guarded by a sync.RWMutex.
 type TaskList struct {
-	taskSet map[string]Task
+	tasks
 	sync.RWMutex
 }
 
-//Tickers A collection of Tasks that are intended to be ran once per game engine tick.
+//TickList A collection of Tasks that are intended to be ran once per game engine tick.
 // Tasks should contractually return either true if they are to be removed after execution completes,
 // or false if they are to be ran again on the next engine cycle.
-var Tickers = &TaskList{
-	taskSet: make(map[string]Task),
+var TickList = &TaskList{
+	tasks: make(tasks),
 }
 
 //Range runs fn(name,Task) for each Task in the list.
 func (t *TaskList) Range(fn func(string, Task)) {
 	t.RLock()
-	for name, task := range t.taskSet {
+	for name, task := range t.tasks {
 		fn(name, task)
 	}
 	t.RUnlock()
@@ -63,21 +68,26 @@ func (t *TaskList) RunSynchronous() {
 // Upon completion of all tasks, it will remove any tasks that had returned true, then the caller will resume execution.
 // TODO: Probably some form of pooling?
 func (t *TaskList) RunAsynchronous() {
-	var removeList []string
-	var runningTasks sync.WaitGroup
-	runningTasks.Add(t.Count())
+	finishedTasks := make([]string, 0, t.Count())
+	runningTasks := sync.WaitGroup{}
 	t.Range(func(name string, task Task) {
-		// start := time.Now()
-		defer runningTasks.Done()
+		runningTasks.Add(1)
 		go func() {
+			defer runningTasks.Done()
+			if config.Verbosity >= 2 {
+				log.Debugf("Async ticking task '%s' just ticked", name)
+			}
 			if task() {
-				removeList = append(removeList, name)
+				if config.Verbosity >= 2 {
+					log.Debugf("Async ticking task '%s' finished ticking.\n", name)
+				}
+				finishedTasks = append(finishedTasks, name)
 			}
 		}()
 		// log.Info.Printf("tickTask--%s; finished executing in %v", name, time.Since(start))
 	})
 	runningTasks.Wait()
-	for _, taskName := range removeList {
+	for _, taskName := range finishedTasks {
 		t.Remove(taskName)
 	}
 }
@@ -86,26 +96,26 @@ func (t *TaskList) RunAsynchronous() {
 func (t *TaskList) Count() int {
 	t.RLock()
 	defer t.RUnlock()
-	return len(t.taskSet)
+	return len(t.tasks)
 }
 
 //Add will add a mapping of the Task fn to the provided name, in this list.
 func (t *TaskList) Add(name string, fn Task) {
 	t.Lock()
 	defer t.Unlock()
-	t.taskSet[name] = fn
+	t.tasks[name] = fn
 }
 
 //Get returns the Task that is mapped to the provided name in this list, or null if no such task exists.
 func (t *TaskList) Get(name string) Task {
 	t.RLock()
 	defer t.RUnlock()
-	return t.taskSet[name]
+	return t.tasks[name]
 }
 
 //Remove will remove the task mapped to the provided name from the list, if any such task exists.
 func (t *TaskList) Remove(name string) {
 	t.Lock()
 	defer t.Unlock()
-	delete(t.taskSet, name)
+	delete(t.tasks, name)
 }

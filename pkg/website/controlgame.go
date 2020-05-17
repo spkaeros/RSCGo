@@ -21,20 +21,19 @@ import (
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
+
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/procexec"
 	"github.com/spkaeros/rscgo/pkg/rand"
 )
 
-type bufferSet struct {
-	buffers map[uint64]chan []byte
-	sync.RWMutex
-}
+type buffers map[uint64]chan []byte
 
 func bindGameProcManager() {
 	var stdout io.Reader
-	var stdoutClients = bufferSet{buffers: make(map[uint64]chan []byte)}
-	var backBuffer = make([][]byte, 0, 100)
+	var bufs = make(buffers)
+	var lockBufs sync.RWMutex
+	var backBuf = make([][]byte, 0, 100)
 	var ServerCmd *exec.Cmd
 	var done = make(chan struct{})
 
@@ -50,12 +49,12 @@ func bindGameProcManager() {
 
 		out, err := ServerCmd.StdoutPipe()
 		if err != nil {
-			writeContent(w, []byte("Error making stdout pipe:"+err.Error()))
+			writeContent(w, []byte("Error piping stdout:"+err.Error()))
 			return
 		}
 		e, err := ServerCmd.StderrPipe()
 		if err != nil {
-			writeContent(w, []byte("Error making stderr pipe:"+err.Error()))
+			writeContent(w, []byte("Error piping stderr:"+err.Error()))
 			return
 		}
 		stdout = io.MultiReader(out, e)
@@ -76,8 +75,8 @@ func bindGameProcManager() {
 			done <- struct{}{}
 			if ServerCmd != nil && ServerCmd.ProcessState != nil {
 				if failureCode := ServerCmd.ProcessState.ExitCode(); failureCode != 0 {
-					log.Warning.Println("Server exited with failure code:", failureCode)
-					log.Warning.Println(ServerCmd.ProcessState.String())
+					log.Warn("Server exited with failure code:", failureCode)
+					log.Warn(ServerCmd.ProcessState.String())
 				}
 			}
 		}()
@@ -88,16 +87,17 @@ func bindGameProcManager() {
 				if err != nil {
 					return
 				}
-				backBuffer = append(backBuffer, line)
-				if len(backBuffer) == 100 {
-					backBuffer = backBuffer[10:]
+				backBuf = append(backBuf, line)
+				if len(backBuf) == 100 {
+					// truncates ten oldest buffered lines
+					backBuf = backBuf[10:]
 				}
 				fmt.Printf("[GAME] %s", line)
-				stdoutClients.RLock()
-				for _, buf := range stdoutClients.buffers {
+				lockBufs.RLock()
+				for _, buf := range bufs {
 					buf <- line
 				}
-				stdoutClients.RUnlock()
+				lockBufs.RUnlock()
 			}
 		}()
 		writeContent(w, []byte("Successfully started game server (pid: "+strconv.Itoa(ServerCmd.Process.Pid)+")"))
@@ -138,22 +138,22 @@ func bindGameProcManager() {
 			return
 		}
 		defer conn.Close()
-		for _, line := range backBuffer {
+		for _, line := range backBuf {
 			if err := wsutil.WriteServerText(conn, line); err != nil {
 				log.Info.Println(err)
 				return
 			}
 		}
-		identifier := rand.Uint64()
+		identifier := rand.Rng.Uint64()
 		buf := make(chan []byte, 256)
-		stdoutClients.Lock()
-		stdoutClients.buffers[identifier] = buf
-		stdoutClients.Unlock()
+		lockBufs.Lock()
+		bufs[identifier] = buf
+		lockBufs.Unlock()
 
 		defer func() {
-			stdoutClients.Lock()
-			delete(stdoutClients.buffers, identifier)
-			stdoutClients.Unlock()
+			lockBufs.Lock()
+			delete(bufs, identifier)
+			lockBufs.Unlock()
 			close(buf)
 		}()
 

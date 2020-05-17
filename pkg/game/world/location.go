@@ -116,7 +116,7 @@ func (l Location) DirectionTo(destX, destY int) int {
 //NewRandomLocation Returns a new random location within the specified bounds.  bounds[0] should be lowest corner, and
 // bounds[1] should be the highest corner.
 func NewRandomLocation(bounds [2]Location) Location {
-	return NewLocation(rand.Int31N(bounds[0].X(), bounds[1].X()), rand.Int31N(bounds[0].Y(), bounds[1].Y()))
+	return NewLocation(rand.Rng.Intn(bounds[1].X()-bounds[0].X())+bounds[0].X(), rand.Rng.Intn(bounds[1].Y()-bounds[0].Y())+bounds[0].Y())
 }
 
 //String Returns a string representation of the location
@@ -243,8 +243,9 @@ func (l *Location) PlaneY(up bool) int {
 			newPlane = curPlane - 1
 		}
 	}
-	return newPlane * 944 + l.Y() % 944
+	return newPlane*944 + l.Y()%944
 }
+
 //NextTileToward Returns the next tile toward the final destination of this pathway from currentLocation
 func (l Location) NextTileToward(dst Location) Location {
 	nextStep := l.Clone()
@@ -253,7 +254,7 @@ func (l Location) NextTileToward(dst Location) Location {
 	} else if delta > 0 {
 		nextStep.x.Dec()
 	}
-	
+
 	if delta := l.Y() - dst.Y(); delta < 0 {
 		nextStep.y.Inc()
 	} else if delta > 0 {

@@ -10,29 +10,28 @@
 package world
 
 import (
+	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/rand"
-	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 //FriendList Builds a net with the players friend entityList information in it.
 func FriendList(player *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(71)
-	p.AddUint8(byte(player.FriendList.size()))
-	player.FriendList.ForEach(func(s string, b bool) bool {
+	p.AddUint8(byte(player.FriendList.Size()))
+	for s := range player.FriendList.EntrySet() {
 		hash := strutil.Base37.Encode(s)
 		p.AddUint64(hash)
-
+		
 		p1, ok := Players.FromUserHash(hash)
-		if p1 != nil && ok && (p1.FriendList.contains(player.Username()) || !p1.FriendBlocked()) {
+		if p1 != nil && ok && (p1.FriendList.Contains(player.Username()) || !p1.FriendBlocked()) {
 			p.AddUint8(0xFF)
 		} else {
 			p.AddUint8(0)
 		}
-		return false
-	})
+	}
 	return p
 }
 
@@ -40,10 +39,10 @@ func FriendList(player *Player) (p *net.Packet) {
 func PrivateMessage(hash uint64, msg string) (p *net.Packet) {
 	p = net.NewEmptyPacket(120)
 	p.AddUint64(hash)
-	p.AddUint32(rand.Uint32()) // unique Message ID to prevent duplicate messages somehow arriving or something idk
+	p.AddUint32(rand.Rng.Uint32()) // unique Message ID to prevent duplicate messages somehow arriving or something idk
 	// for _, c := range strutil.ChatFilter.Pack(msg) {
-	for _, c := range msg {
-		p.AddUint8(byte(c))
+	for _, c := range []byte(strutil.ChatFilter.Format(msg)) {
+		p.AddUint8(c)
 	}
 	return p
 }
@@ -280,8 +279,8 @@ func NPCPositions(player *Player) (p *net.Packet) {
 		player.LocalNPCs.Add(n)
 		p.AddBitmask(n.Index, 12)
 		// bitwise trick avoids branching to do a manual addition, and maintains binary compatibility with the original protocol
-		p.AddBitmask((n.X() - player.X()) & 0x1F, 5)
-		p.AddBitmask((n.Y() - player.Y()) & 0x1F, 5)
+		p.AddBitmask((n.X()-player.X())&0x1F, 5)
+		p.AddBitmask((n.Y()-player.Y())&0x1F, 5)
 		p.AddBitmask(n.Direction(), 4)
 		p.AddBitmask(n.ID, 10)
 		counter++
@@ -319,7 +318,7 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 			player.ResetSpriteUpdated()
 		})
 	}
-//	var removing = NewMobList()
+	//	var removing = NewMobList()
 	var removing []*Player
 	player.LocalPlayers.RangePlayers(func(p1 *Player) bool {
 		p1.RLock()
@@ -328,32 +327,35 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(1, 1)
 			p.AddBitmask(3, 2)
-//			removing.Add(p1)
+			//			removing.Add(p1)
 			removing = append(removing, p1)
-//			player.AppearanceLock.Lock()
-//			delete(player.KnownAppearances, p1.Index)
-//			player.AppearanceLock.Unlock()
-/*			p1.ResetTickables = append(p1.ResetTickables, func() {
-				p1.ResetRegionRemoved()
-				p1.ResetRegionMoved()
-				p1.ResetSpriteUpdated()
-			})
-*/		} else if p1.SyncMask&SyncMoved == SyncMoved {
+			//			player.AppearanceLock.Lock()
+			//			delete(player.KnownAppearances, p1.Index)
+			//			player.AppearanceLock.Unlock()
+			/*			p1.ResetTickables = append(p1.ResetTickables, func() {
+							p1.ResetRegionRemoved()
+							p1.ResetRegionMoved()
+							p1.ResetSpriteUpdated()
+						})
+			*/
+		} else if p1.SyncMask&SyncMoved == SyncMoved {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(0, 1)
 			p.AddBitmask(p1.Direction(), 3)
-/*			p1.ResetTickables = append(p1.ResetTickables, func() {
-				p1.ResetRegionMoved()
-				p1.ResetSpriteUpdated()
-			})
-*/		} else if p1.SyncMask&SyncSprite == SyncSprite {
+			/*			p1.ResetTickables = append(p1.ResetTickables, func() {
+							p1.ResetRegionMoved()
+							p1.ResetSpriteUpdated()
+						})
+			*/
+		} else if p1.SyncMask&SyncSprite == SyncSprite {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(1, 1)
 			p.AddBitmask(p1.Direction(), 4)
-/*			p1.ResetTickables = append(p1.ResetTickables, func() {
-				p1.ResetSpriteUpdated()
-			})
-*/		} else {
+			/*			p1.ResetTickables = append(p1.ResetTickables, func() {
+							p1.ResetSpriteUpdated()
+						})
+			*/
+		} else {
 			p.AddBitmask(0, 1)
 			counter--
 		}
@@ -382,22 +384,22 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 
 		p.AddBitmask(p1.Index, 11)
 		// bitwise trick avoids branching to do a manual addition, and maintains binary compatibility with the original protocol
-		p.AddBitmask((p1.X() - player.X()) & 0x1F, 5)
-		p.AddBitmask((p1.Y() - player.Y()) & 0x1F, 5)
+		p.AddBitmask((p1.X()-player.X())&0x1F, 5)
+		p.AddBitmask((p1.Y()-player.Y())&0x1F, 5)
 		p.AddBitmask(p1.Direction(), 4)
 		player.LocalPlayers.Add(p1)
-//		player.AppearanceLock.RLock()
-//		if ticket, ok := player.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance)!=0 {
-//			p.AddBitmask(1, 1)
-//			player.AppearanceReq = append(player.AppearanceReq, p1)
-//		} else {
-			p.AddBitmask(0, 1)
-//		}
-//		player.AppearanceLock.RUnlock()
-//				p1.ResetTickables = append(p1.ResetTickables, func() {
-//					p1.ResetRegionMoved()
-//					p1.ResetSpriteUpdated()
-//				})
+		//		player.AppearanceLock.RLock()
+		//		if ticket, ok := player.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance)!=0 {
+		//			p.AddBitmask(1, 1)
+		//			player.AppearanceReq = append(player.AppearanceReq, p1)
+		//		} else {
+		p.AddBitmask(0, 1)
+		//		}
+		//		player.AppearanceLock.RUnlock()
+		//				p1.ResetTickables = append(p1.ResetTickables, func() {
+		//					p1.ResetRegionMoved()
+		//					p1.ResetSpriteUpdated()
+		//				})
 	}
 	if counter <= 0 {
 		return nil
@@ -411,9 +413,9 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	var appearanceList []*Player
 	ourPlayer.RLock()
 	if ourPlayer.SyncMask&SyncAppearance == SyncAppearance {
-//		ourPlayer.ResetTickables = append(ourPlayer.ResetTickables, func() {
-//			ourPlayer.ResetAppearanceChanged()
-//		})
+		//		ourPlayer.ResetTickables = append(ourPlayer.ResetTickables, func() {
+		//			ourPlayer.ResetAppearanceChanged()
+		//		})
 		appearanceList = append(appearanceList, ourPlayer)
 	}
 	ourPlayer.RUnlock()
@@ -425,7 +427,7 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	ourPlayer.LocalPlayers.Range(func(p1 entity.MobileEntity) bool {
 		ourPlayer.AppearanceLock.RLock()
 		if ticket, ok := ourPlayer.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.(*Player).AppearanceTicket() ||
-				p1.(*Player).SyncMask&(SyncRemoved|SyncAppearance)!=0 {
+			p1.(*Player).SyncMask&(SyncRemoved|SyncAppearance) != 0 {
 			appearanceList = append(appearanceList, p1.(*Player))
 		}
 		ourPlayer.AppearanceLock.RUnlock()
@@ -911,7 +913,7 @@ func TeleBubble(offsetX, offsetY int) (p *net.Packet) {
 
 func SystemUpdate(t int64) *net.Packet {
 	p := net.NewEmptyPacket(52)
-	p.AddUint16(uint16(t/640))
+	p.AddUint16(uint16(t / 640))
 	return p
 }
 
@@ -925,9 +927,9 @@ func LoginBox(inactiveDays int, lastIP string) (p *net.Packet) {
 	p.AddUint32(uint32(strutil.IPToInteger(lastIP))) // IP
 	p.AddUint16(uint16(inactiveDays))                // Last logged in
 	// TODO: Recoverys
-	p.AddUint8(201)                                    // recovery questions set days, 200 = unset, 201 = set
+	p.AddUint8(201) // recovery questions set days, 200 = unset, 201 = set
 	// TODO: Message center
-	p.AddUint16(0)                                   // Unread messages, number minus one, 0 does not render anything
+	p.AddUint16(0) // Unread messages, number minus one, 0 does not render anything
 	return p
 }
 

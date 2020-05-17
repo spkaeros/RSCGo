@@ -12,10 +12,10 @@ package handlers
 import (
 	"strconv"
 
+	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
-	"github.com/spkaeros/rscgo/pkg/game/net"
 )
 
 func init() {

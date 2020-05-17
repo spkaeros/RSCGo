@@ -186,7 +186,7 @@ func NewGeneralShop(name string) *Shop {
 	shop := &Shop{true, 40, 130, generalStock.Clone(), generalStock.Clone(), name, NewMobList()}
 	Shops.Add(name, shop)
 	shopTicker := 0
-	tasks.Tickers.Add("shop-"+name, func() bool {
+	tasks.TickList.Add("shop-"+name, func() bool {
 		shopTicker++
 		if shopTicker == 20 { // 12.8s
 			shopTicker = 0
@@ -196,35 +196,35 @@ func NewGeneralShop(name string) *Shop {
 					return false
 				}
 				changed = true
-//				if stockedAmount <= 0 {
-//					changed = true
+				//				if stockedAmount <= 0 {
+				//					changed = true
 
-//					if item.Amount > 0 {
-//						item.Amount--
-//					}
-//					return item.Amount == 0
-//				} else {
+				//					if item.Amount > 0 {
+				//						item.Amount--
+				//					}
+				//					return item.Amount == 0
+				//				} else {
 				// We always have these items around and work on changing the amount back to normal when it changes
-//				if stockedAmount < item.Amount {
-					// We're low on this item, increase toward normal.
-//						changed = true
-//					item.Amount--
-//					if item.Amount == 0 {
-//						shop.Inventory.Remove(item)
-//					}
-//				}
-				if shop.Stock.Count(item.ID) > item.Amount{
+				//				if stockedAmount < item.Amount {
+				// We're low on this item, increase toward normal.
+				//						changed = true
+				//					item.Amount--
+				//					if item.Amount == 0 {
+				//						shop.Inventory.Remove(item)
+				//					}
+				//				}
+				if shop.Stock.Count(item.ID) > item.Amount {
 					item.Amount++
 				} else {
 					item.Amount--
 				}
-//				if stockedAmount > item.Amount {
-					// We are overstocked with this item, decrease toward normal.
-//					item.Amount++
-//						changed = true
-//				}
+				//				if stockedAmount > item.Amount {
+				// We are overstocked with this item, decrease toward normal.
+				//					item.Amount++
+				//						changed = true
+				//				}
 
-//				}
+				//				}
 				return item.Amount == 0
 			})
 			if changed {
@@ -233,13 +233,13 @@ func NewGeneralShop(name string) *Shop {
 					return false
 				})
 			}
-//			if changed {
-//				shop.Players.Range(func(player *Player) {
-//					if player.HasState(StateShopping) && player.CurrentShop() == shop {
-//						player.SendPacket(ShopOpen(shop))
-//					}
-//				})
-//			}
+			//			if changed {
+			//				shop.Players.Range(func(player *Player) {
+			//					if player.HasState(StateShopping) && player.CurrentShop() == shop {
+			//						player.SendPacket(ShopOpen(shop))
+			//					}
+			//				})
+			//			}
 		}
 		return false
 	})
@@ -253,15 +253,15 @@ func (s *ShopItems) Add(item *Item) {
 		s.set = append(s.set, item)
 	} else {
 		s.Get(item.ID).Amount += 1
-//		s.RLock()
-//		defer s.RUnlock()
-//		for _, shopItem := range s.set {
-//			if shopItem.ID == item.ID {
-//				for i := 0; i < item.Amount; i++ {
-//					shopItem.Amount += 1
-//				}
-//			}
-//		}
+		//		s.RLock()
+		//		defer s.RUnlock()
+		//		for _, shopItem := range s.set {
+		//			if shopItem.ID == item.ID {
+		//				for i := 0; i < item.Amount; i++ {
+		//					shopItem.Amount += 1
+		//				}
+		//			}
+		//		}
 	}
 }
 
@@ -301,7 +301,7 @@ func (s *ShopItems) RemoveID(id, amount int, remove bool) {
 			item.Amount -= amount
 			return remove && item.Amount <= 0
 		}
-		
+
 		return false
 	})
 }

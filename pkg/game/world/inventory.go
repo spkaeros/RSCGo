@@ -7,13 +7,14 @@ import (
 	"strconv"
 	"sync"
 	"time"
-	
-	`github.com/spkaeros/rscgo/pkg/definitions`
+
+	"go.uber.org/atomic"
+
+	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/engine/tasks"
 	"github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/log"
-	"go.uber.org/atomic"
 )
 
 //DefaultDrop returns the default item ID all mobs should drop on death
@@ -171,7 +172,7 @@ func NewGroundItem(id, amount, x, y int) *GroundItem {
 		},
 	}
 	item.SetVar("visibility", 1)
-	tasks.Tickers.Add("gItem-"+strconv.Itoa(item.Index), func() bool {
+	tasks.TickList.Add("gItem-"+strconv.Itoa(item.Index), func() bool {
 		item.Inc("ticker", 1)
 		curTick := item.VarInt("ticker", 0)
 		// Visiblity is scoped to item owner but I guess it doesn't have an owner.
@@ -417,9 +418,9 @@ func (i *Inventory) CanHold(id, amount int) bool {
 	var slotsReq int
 	if definitions.Items[id].Stackable || i.stackEverything {
 		if i.GetByID(id) == nil {
-				slotsReq += 1+(amount/math.MaxInt32)
+			slotsReq += 1 + (amount / math.MaxInt32)
 		} else {
-			for i.GetByID(id).Amount + amount > math.MaxInt32 {
+			for i.GetByID(id).Amount+amount > math.MaxInt32 {
 				slotsReq++
 				amount -= math.MaxInt32
 			}
@@ -428,7 +429,7 @@ func (i *Inventory) CanHold(id, amount int) bool {
 		slotsReq++
 	}
 	return i.Size()+slotsReq-1 < i.Capacity
-//	return i.Size() < i.Capacity
+	//	return i.Size() < i.Capacity
 }
 
 //Add Puts an item into the inventory with the specified id and quantity, and returns its index.
@@ -445,23 +446,23 @@ func (i *Inventory) Add(id int, qty int) int {
 		if item.Amount < 0 {
 			log.Suspicious.Println(errors.NewArgsError("*Inventory.Add(id,amt) Resulting item amount less than zero: " + strconv.FormatUint(uint64(item.Amount+qty), 10)))
 		}
-		if item.Amount + qty > math.MaxInt32 {
+		if item.Amount+qty > math.MaxInt32 {
 			item.Amount = math.MaxInt32
 			return i.GetIndex(id)
 		}
-/*
-			amt := math.MaxInt32 - item.Amount
-			item.Amount = math.MaxInt32
-			item = &Item{ID: id, Amount: amt%math.MaxInt32}
-			newAmt -= amt%math.MaxInt32
-			i.Lock.Lock()
-			i.List = append(i.List, item)
-			i.Lock.Unlock()
-			if newAmt <= 0 {
-				return i.Size() - 1
+		/*
+				amt := math.MaxInt32 - item.Amount
+				item.Amount = math.MaxInt32
+				item = &Item{ID: id, Amount: amt%math.MaxInt32}
+				newAmt -= amt%math.MaxInt32
+				i.Lock.Lock()
+				i.List = append(i.List, item)
+				i.Lock.Unlock()
+				if newAmt <= 0 {
+					return i.Size() - 1
+				}
 			}
-		}
-*/		item.Amount += qty
+		*/item.Amount += qty
 		return i.GetIndex(id)
 	}
 
@@ -507,7 +508,7 @@ func (i *Inventory) RemoveByID(id, amt int) int {
 		return -1
 	}
 	index := i.GetIndex(id)
-	if  i.stackEverything || definitions.Items[id].Stackable {
+	if i.stackEverything || definitions.Items[id].Stackable {
 		if i.Get(index).Amount == amt {
 			i.Remove(index)
 		} else {
