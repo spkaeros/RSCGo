@@ -1286,6 +1286,30 @@ func (p *Player) PrayerOn(idx int) {
 		p.SendPrayers()
 		return
 	}
+	boosterPrayers := [3][]int {
+		[]int { 0, 3, 9 },
+		[]int{ 1, 4, 10 },
+		[]int{ 2, 5, 11 },
+	}
+	defer p.SetVar("prayer"+strconv.Itoa(idx), true)
+	for stat := 0; stat < 3; stat++ {
+		for _, index := range boosterPrayers[stat] {
+			if index == idx {
+				for _, other := range boosterPrayers[stat] {
+					if other != idx {
+						p.PrayerOff(other)
+					}
+				}
+				return
+			}
+		}
+	}
+	/*
+	if p.IsDueling() && !p.DuelPrayer() {
+		p.Message("You cannot use prayer in this duel!")
+		p.SendPrayers()
+		return
+	}
 	if idx == 0 || idx == 3 || idx == 9 {
 		p.PrayerOff(0)
 		p.PrayerOff(3)
@@ -1302,7 +1326,7 @@ func (p *Player) PrayerOn(idx int) {
 		p.PrayerOff(11)
 	}
 	p.SetVar("prayer"+strconv.Itoa(idx), true)
-}
+*/}
 
 func (p *Player) PrayerOff(idx int) {
 	p.SetVar("prayer"+strconv.Itoa(idx), false)
