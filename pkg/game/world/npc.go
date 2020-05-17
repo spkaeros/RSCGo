@@ -15,7 +15,6 @@ import (
 
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
-	"github.com/spkaeros/rscgo/pkg/rand"
 )
 
 //Npcs A collection of every NPC in the game, sorted by index
@@ -107,10 +106,10 @@ func UpdateNPCPositions() {
 		moveTime := n.VarTime("moveTime")
 		if n.VarInt("pathLength", 0) == 0 && (moveTime.IsZero() || time.Now().After(moveTime)) {
 			// schedule when to start wandering again
-			n.SetVar("moveTime", time.Now().Add(time.Second*time.Duration(rand.Rng.Intn(5)+10)))
+			n.SetVar("moveTime", time.Now().Add(time.Second*time.Duration(n.Isaac().Intn(15)+5)))
 			// set how many steps we should wander for before taking a break
 			if n.VarInt("pathLength", 0) == 0 {
-				n.SetVar("pathLength", rand.Rng.Intn(10)+5)
+				n.SetVar("pathLength", n.Isaac().Intn(15))
 			}
 		} else {
 			// wander aimlessly until we run out of scheduled steps
@@ -254,7 +253,7 @@ func (n *NPC) TraversePath() {
 
 	for tries := 0; tries < 10; tries++ {
 		if Chance(25) {
-			n.SetVar("pathDir", int(rand.Rng.Int31n(8)))
+			n.SetVar("pathDir", n.Isaac().Intn(8))
 		}
 
 		dst := n.Location.Clone()
@@ -271,7 +270,7 @@ func (n *NPC) TraversePath() {
 		}
 
 		if !n.Reachable(dst) || !dst.WithinArea(n.Boundaries) {
-			n.SetVar("pathDir", int(rand.Rng.Int31n(8)))
+			n.SetVar("pathDir", n.Isaac().Intn(8))
 			continue
 		}
 

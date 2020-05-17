@@ -328,7 +328,8 @@ func ScriptEnv() *env.Env {
 	e.Define("newObject", NewObject)
 	e.Define("base37", strutil.Base37.Encode)
 	e.Define("rand", func(low, high int) int {
-		return rand.Rng.Intn(high-low) + low
+//		return int(rand.Rng.Int31n(int32(high+1-low))) + low
+		return int(rand.Rng.Float64()*float64(high))-low
 	})
 	e.Define("tNow", time.Now)
 	e.Define("North", North)
