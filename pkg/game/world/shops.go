@@ -186,7 +186,7 @@ func NewGeneralShop(name string) *Shop {
 	shop := &Shop{true, 40, 130, generalStock.Clone(), generalStock.Clone(), name, NewMobList()}
 	Shops.Add(name, shop)
 	shopTicker := 0
-	tasks.TickList.Add("shop-"+name, func() bool {
+	tasks.TickList.Add(func() bool {
 		shopTicker++
 		if shopTicker == 20 { // 12.8s
 			shopTicker = 0

@@ -20,7 +20,7 @@ import (
 // should be removed from the set it belongs to upon completion
 type Task func() bool
 
-type tasks map[string]Task
+type tasks []Task
 
 //TaskList is a concurrency-safe list of Task closures mapped to simple string identifiers.
 // The main purpose for this is to provide the ability to schedule functions to run on the
@@ -34,32 +34,38 @@ type TaskList struct {
 //TickList A collection of Tasks that are intended to be ran once per game engine tick.
 // Tasks should contractually return either true if they are to be removed after execution completes,
 // or false if they are to be ran again on the next engine cycle.
-var TickList = &TaskList{
-	tasks: make(tasks),
-}
+var TickList = &TaskList{}
 
-//Range runs fn(name,Task) for each Task in the list.
-func (t *TaskList) Range(fn func(string, Task)) {
+//Range runs fn(Task) for each Task in the list.
+func (t *TaskList) Range(fn func(Task)) {
 	t.RLock()
-	for name, task := range t.tasks {
-		fn(name, task)
+	defer t.RUnlock()
+	for _, task := range t.tasks {
+		if fn == nil {
+			log.Debug("niltask found!")
+			continue
+		}
+		fn(task)
 	}
-	t.RUnlock()
 }
 
 //RunSynchronous will execute every task in the list sequentially, one at a time.  The order in which they run is
 // basically unpredictable.  Upon completion, the tasks that have returned true will be removed from the set, then
 // the calling function will resume execution.
 func (t *TaskList) RunSynchronous() {
-	var removeList []string
-	t.Range(func(name string, task Task) {
+	t.Lock()
+	defer t.Unlock()
+	retainedTasks := []Task{}
+	for _, task := range t.tasks {
 		if task() {
-			removeList = append(removeList, name)
+			if config.Verbosity >= 2 {
+				log.Debugf("task finished; removing from collection.\n")
+			}
+		} else {
+			retainedTasks = append(retainedTasks, task)
 		}
-	})
-	for _, taskName := range removeList {
-		t.Remove(taskName)
 	}
+	t.tasks = append(t.tasks[:0], retainedTasks[:]...)
 }
 
 //RunAsynchronous will attempt to run every task in the list at the same time, but not necessarily in parallel
@@ -68,28 +74,25 @@ func (t *TaskList) RunSynchronous() {
 // Upon completion of all tasks, it will remove any tasks that had returned true, then the caller will resume execution.
 // TODO: Probably some form of pooling?
 func (t *TaskList) RunAsynchronous() {
-	finishedTasks := make([]string, 0, t.Count())
-	runningTasks := sync.WaitGroup{}
-	t.Range(func(name string, task Task) {
-		runningTasks.Add(1)
+	retainedTasks := []Task{}
+	wait := sync.WaitGroup{}
+	t.Range(func(task Task) {
+		wait.Add(1)
 		go func() {
-			defer runningTasks.Done()
-			if config.Verbosity >= 2 {
-				log.Debugf("Async ticking task '%s' just ticked", name)
-			}
+			defer wait.Done()
 			if task() {
 				if config.Verbosity >= 2 {
-					log.Debugf("Async ticking task '%s' finished ticking.\n", name)
+					log.Debugf("task finished; removing from collection.\n")
 				}
-				finishedTasks = append(finishedTasks, name)
+			} else {
+				retainedTasks = append(retainedTasks, task)
 			}
 		}()
-		// log.Info.Printf("tickTask--%s; finished executing in %v", name, time.Since(start))
 	})
-	runningTasks.Wait()
-	for _, taskName := range finishedTasks {
-		t.Remove(taskName)
-	}
+	wait.Wait()
+	t.Lock()
+	t.tasks = append(t.tasks[:0], retainedTasks[:]...)
+	t.Unlock()
 }
 
 //Count returns the total number of tasks currently in this list.
@@ -100,22 +103,48 @@ func (t *TaskList) Count() int {
 }
 
 //Add will add a mapping of the Task fn to the provided name, in this list.
-func (t *TaskList) Add(name string, fn Task) {
+func (t *TaskList) Add(fn Task) int {
 	t.Lock()
 	defer t.Unlock()
-	t.tasks[name] = fn
+	t.tasks = append(t.tasks, fn)
+	return len(t.tasks)-1
 }
 
-//Get returns the Task that is mapped to the provided name in this list, or null if no such task exists.
-func (t *TaskList) Get(name string) Task {
+//Get returns the Task at the given index of this collection.
+// If no task is at the provided index, returns nil.
+func (t *TaskList) Get(i int) Task {
 	t.RLock()
 	defer t.RUnlock()
-	return t.tasks[name]
+	if i >= len(t.tasks) {
+		return nil
+	}
+	return t.tasks[i]
 }
 
-//Remove will remove the task mapped to the provided name from the list, if any such task exists.
-func (t *TaskList) Remove(name string) {
+//Remove locates and removes the given task, and returns its old index.
+// If it finds no such task, returns -1
+func (t *TaskList) Remove(fn Task) int {
 	t.Lock()
 	defer t.Unlock()
-	delete(t.tasks, name)
+	for i, v := range t.tasks {
+		if &v == &fn {
+			t.tasks[i] = nil
+			if i >= len(t.tasks)-1 {
+				t.tasks = t.tasks[:i]
+				return i
+			}
+			t.tasks = append(t.tasks[:i], t.tasks[i+1:]...)
+			return i
+		}
+	}
+	return -1
+}
+
+//Remove locates and removes the given task, and returns its old index.
+// If it finds no such task, returns -1
+func (t *TaskList) RemoveIdx(i int) int {
+	t.Lock()
+	defer t.Unlock()
+	t.tasks[i] = nil
+	return i
 }

@@ -217,7 +217,7 @@ const (
 //ResponseListener This method will block until a response to send to the client is received from our data workers, or if this doesn't occur, 10 seconds after it was called.
 func (r *ResponseListener) attachPlayer(p *world.Player) chan response {
 	// schedules the channel listener on the game engines thread
-	tasks.TickList.Add("playerCreating", func() bool {
+	tasks.TickList.Add(func() bool {
 		defer close(r.listener)
 		select {
 		case res := <-r.listener:
@@ -231,7 +231,7 @@ func (r *ResponseListener) attachPlayer(p *world.Player) chan response {
 				if res.IsValid() {
 					p.SetConnected(true)
 					p.Initialize()
-					return true
+					return true 
 				}
 				p.Destroy()
 				if res.ResponseCode == ResponseBadPassword {
@@ -251,7 +251,7 @@ func (r *ResponseListener) attachPlayer(p *world.Player) chan response {
 					return true
 				}
 			}
-			return true
+			return true 
 		case <-time.After(time.Second * 10):
 			p.SendPacket(world.HandshakeResponse(-1))
 			p.Destroy()

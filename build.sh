@@ -34,11 +34,13 @@ if [[ $1 == 'all' ]]; then
 #		for ARCH in `go tool dist list |sed -e 's/\// /g' |cut -f2 -d' ' |sort |uniq`; do
 #		done
 	done
-	echo "Install a target build profile to default game-server binary path (./bin/game)? "
-	
-	read -p 'Specify platform tuple to install to default game binary (blank for linux-amd64): ' -i 'linux-amd64' ANSWER
-	#mv "bin/$ANSWER" "bin/game"
-	cp bin/game-$ANSWER bin/game
+	if [[ `pidof game` != "" ]]; then
+		pkill game
+		cp "bin/game-`go env GOHOSTOS`-`go env GOHOSTARCH`" 'bin/game'
+		screen ./bin/game -v
+		exit
+	fi
+	cp "bin/game-`go env GOHOSTOS`-`go env GOHOSTARCH`" 'bin/game'
 	exit
 fi
 
