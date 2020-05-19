@@ -84,7 +84,7 @@ type Player struct {
 	SigDisconnect   chan struct{}
 	SigKill         chan struct{}
 	Tickables       []interface{}
-	ReadWriter      *bufio.ReadWriter
+	Reader      *bufio.Reader
 	Mob
 }
 
@@ -1621,56 +1621,6 @@ func (p *Player) OpenSleepScreen() {
 	p.AddState(StateSleeping)
 	p.SendPacket(SleepWord(p))
 }
-/*
-func (p *Player) SendPacket(packet *net.Packet) {
-	var err error
-	var dataLen int
-	if strings.HasSuffix(p.Socket.LocalAddr().String(), "43595") {
-		err = wsutil.WriteServerBinary(p.Socket, src)
-		dataLen = len(src)
-	} else {
-		dataLen, err = p.ReadWriter.Write(src)
-	}
-	log.Debug(src, dataLen, err)
-	if err != nil {
-		log.Warn("Problem occurred writing data to a client:", err)
-		p.Destroy()
-		return -1
-	}
-	p.ReadWriter.Flush()
-	return dataLen
-}*/
-
-//Write Writes data to the client's socket from `b`.  Returns the length of the written bytes.
-func (p *Player) Write(src []byte) int {
-	var err error
-	var dataLen int
-	if strings.HasSuffix(p.Socket.LocalAddr().String(), "43595") {
-		err = wsutil.WriteServerBinary(p.Socket, src)
-		dataLen = len(src)
-	} else {
-		dataLen, err = p.ReadWriter.Write(src)
-	}
-//	log.Debug(src, dataLen, err)
-	if err != nil {
-		log.Warn("Problem occurred writing data to a client:", err)
-		p.Destroy()
-		return -1
-	}
-	return dataLen
-}
-
-func (p *Player) readSize() int {
-	return p.VarInt("readSize", 0)
-}
-
-func (p *Player) readLimit() int {
-	return p.VarInt("readLimit", 0)
-}
-
-func (p *Player) headerFin() bool {
-	return p.VarBool("headerFin", false)
-}
 
 func (p *Player) Read(data []byte) (n int, err error) {
 	written := 0
@@ -1684,7 +1634,7 @@ func (p *Player) Read(data []byte) (n int, err error) {
 			header, reader, err := wsutil.NextReader(p.Socket, ws.StateServerSide)
 			p.SetVar("needsReader", false)
 			if err != nil {
-				if err == io.EOF && !p.headerFin() {
+				if err == io.EOF {
 					return -1, errors.NewNetworkError("End of file mid-read:", false)
 				} else if err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
 					return -1, errors.NewNetworkError("closed conn", false)
@@ -1693,9 +1643,9 @@ func (p *Player) Read(data []byte) (n int, err error) {
 				}
 				log.Warn("Problem creating reader for next websocket frame:", err)
 			}
-			p.ReadWriter.Reader.Reset(io.LimitReader(reader, header.Length))
+			p.Reader.Reset(io.LimitReader(reader, header.Length))
 		}
-		n, err := p.ReadWriter.Read(data[written:])
+		n, err := p.Reader.Read(data[written:])
 		if err != nil {
 			if err == io.EOF {
 				p.UnsetVar("needsReader")

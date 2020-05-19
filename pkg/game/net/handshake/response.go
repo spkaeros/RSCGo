@@ -52,7 +52,9 @@ func (r response) send(requestKind string, p *world.Player) {
 	}
 	name += "'@'" + p.CurrentIP() + "'"
 	log.Debugf("%s{%s}: %s", requestKind, name, r)
-	p.SendPacket(net.NewPacket(0, []byte{byte(r.ResponseCode)}))
+	packet := net.NewEmptyPacket(0)
+	packet.AddUint8(byte(r.ResponseCode))
+	p.SendPacket(packet)
 }
 
 func (r response) String() string {

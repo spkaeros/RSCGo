@@ -31,7 +31,6 @@ type Packet struct {
 	FrameBuffer []byte
 	readIndex   int
 	bitIndex    int
-	writeIndex  int
 }
 
 //NewPacket Creates a new handlers instance.
@@ -41,7 +40,7 @@ func NewPacket(opcode byte, payload []byte) *Packet {
 
 //NewEmptyPacket Creates a new handlers instance intended for sending formatted data to the client.
 func NewEmptyPacket(opcode byte) *Packet {
-	return &Packet{Opcode: opcode, FrameBuffer: append([]byte{opcode}, make([]byte, 4999)...)}
+	return &Packet{Opcode: opcode, FrameBuffer: []byte{opcode}}
 }
 
 //NewReplyPacket Creates a new handlers instance intended for sending raw data to the client.
@@ -72,7 +71,7 @@ func (p *Packet) ReadUint32() int {
 	if checkError(p.Skip(4)) {
 		return 0
 	}
-	return int(binary.BigEndian.Uint64(p.FrameBuffer[p.readIndex-4:]))
+	return int(binary.BigEndian.Uint32(p.FrameBuffer[p.readIndex-4:]))
 }
 
 //ReadUint16 Read the next 16-bit integer from the handlers payload.
@@ -80,7 +79,7 @@ func (p *Packet) ReadUint16() int {
 	if checkError(p.Skip(2)) {
 		return 0
 	}
-	return int(binary.BigEndian.Uint64(p.FrameBuffer[p.readIndex-2:]))
+	return int(binary.BigEndian.Uint16(p.FrameBuffer[p.readIndex-2:]))
 }
 
 func checkError(err error) bool {
@@ -109,7 +108,7 @@ func (p *Packet) ReadInt8() int8 {
 	if checkError(p.Skip(1)) {
 		return 0
 	}
-	return int8(p.FrameBuffer[p.readIndex-1] & 0x7F)
+	return int8(p.FrameBuffer[p.readIndex-1])
 }
 
 //ReadBoolean Returns true if the next payload byte isn't 0
@@ -195,31 +194,35 @@ func (p *Packet) ReadString() string {
 	return availableData
 }
 
+func (p *Packet) EnsureCapacity(l int) {
+	p.FrameBuffer = append(p.FrameBuffer, make([]byte, l)...)
+}
+
 //AddUint64 Adds a 64-bit integer to the handlers payload.
 func (p *Packet) AddUint64(l uint64) *Packet {
-	p.writeIndex += 8
-	binary.BigEndian.PutUint64(p.FrameBuffer[p.writeIndex-8:], l)
+	p.EnsureCapacity(8)
+	binary.BigEndian.PutUint64(p.FrameBuffer[len(p.FrameBuffer)-8:], l)
 	return p
 }
 
 //AddUint32 Adds a 32-bit integer to the handlers payload.
 func (p *Packet) AddUint32(i uint32) *Packet {
-	p.writeIndex += 4
-	binary.BigEndian.PutUint32(p.FrameBuffer[p.writeIndex-4:], i)
+	p.EnsureCapacity(4)
+	binary.BigEndian.PutUint32(p.FrameBuffer[len(p.FrameBuffer)-4:], i)
 	return p
 }
 
 func (p *Packet) AddSmart08_32(i int) *Packet {
 	if i >= 128 {
-		p.writeIndex += 4
+		p.EnsureCapacity(4)
 		// 0x80000000 is (2^24)*128, which adds 128 to the most significant byte
 		// We use this to indicate that the value is 4 bytes long to our client
-		binary.BigEndian.PutUint32(p.FrameBuffer[p.writeIndex-4:], uint32(i+0x80000000))
+		binary.BigEndian.PutUint32(p.FrameBuffer[len(p.FrameBuffer)-4:], uint32(i)+0x80000000)
 		return p
 	}
 
-	p.writeIndex += 1
-	p.FrameBuffer[p.writeIndex-1] = uint8(i)
+	p.EnsureCapacity(1)
+	p.FrameBuffer[len(p.FrameBuffer)-1] = uint8(i)
 	return p
 }
 
@@ -235,6 +238,7 @@ func (p *Packet) SetUint16At(offset int, s uint16) *Packet {
 		log.Warning.Println("Attempted out of bounds Packet.SetUint16At: ", offset, s)
 		return p
 	}
+	p.EnsureCapacity(2)
 	p.FrameBuffer[offset+1] = byte(s >> 8)
 	p.FrameBuffer[offset+2] = byte(s)
 	return p
@@ -242,50 +246,52 @@ func (p *Packet) SetUint16At(offset int, s uint16) *Packet {
 
 //AddUint16 Adds a 16-bit integer to the handlers payload.
 func (p *Packet) AddUint16(s uint16) *Packet {
-	p.writeIndex += 2
-	binary.BigEndian.PutUint16(p.FrameBuffer[p.writeIndex-2:], s)
+	p.EnsureCapacity(2)
+	binary.BigEndian.PutUint16(p.FrameBuffer[len(p.FrameBuffer)-2:], s)
 	return p
 }
 
 //AddBoolean Adds a single byte to the payload, with the value 1 if b is true, and 0 if b is false.
 func (p *Packet) AddBoolean(b bool) *Packet {
-	p.writeIndex += 1
+	p.EnsureCapacity(1)
 	if b {
-		p.FrameBuffer[p.writeIndex-1] = 1
+		p.FrameBuffer[len(p.FrameBuffer)-1] = 1
 		return p
 	}
-	p.FrameBuffer[p.writeIndex-1] = 0
+	p.FrameBuffer[len(p.FrameBuffer)-1] = 0
 	return p
 }
 
 //AddUint8 Adds an 8-bit integer to the handlers payload.
 func (p *Packet) AddUint8(b uint8) *Packet {
-	p.writeIndex += 1
-	p.FrameBuffer[p.writeIndex-1] = b
+	p.EnsureCapacity(1)
+	p.FrameBuffer[len(p.FrameBuffer)-1] = b
 	return p
 }
 
 //AddInt8 Adds an 8-bit signed integer to the handlers payload.
 func (p *Packet) AddInt8(b int8) *Packet {
-	p.writeIndex += 1
-	p.FrameBuffer[p.writeIndex-1] = uint8(b)
+	p.EnsureCapacity(1)
+	p.FrameBuffer[len(p.FrameBuffer)-1] = uint8(b)
 	return p
 }
 
 //AddBytes Adds byte array to handlers payload
 func (p *Packet) AddBytes(b []byte) *Packet {
 	for _, v := range b {
+//		p.EnsureCapacity(1)
 		p.AddUint8(uint8(v))
 	}
 	return p
 }
 
-var bitmasks [33]int32
+var bitmasks [66]int32
 
 func init() {
-	for i := 0; i < 32; i++ {
+	for i := 0; i < 64; i++ {
 		bitmasks[i] = (1 << i) - 1
 	}
+	bitmasks[65] = -1
 }
 
 //AddSignedBits adds the value with the first bit masked off
@@ -303,17 +309,20 @@ func (p *Packet) AddBitmask(value int, numBits int) *Packet {
 	bitOffset := 8 - (p.bitIndex & 7)
 	// increment written bits count
 	p.bitIndex += numBits
-
+	for ((p.bitIndex + 7) / 8) + 1 > len(p.FrameBuffer) {
+		p.FrameBuffer = append(p.FrameBuffer, 0)
+	}
 	// Write our value, using some bitwise tricks to only take up the specified bits
-	for ; numBits > bitOffset; bitOffset = 8 {
+	for numBits > bitOffset {
 		// prepare the byte we're writing into for the new data
 		p.FrameBuffer[byteOffset] &= byte(^bitmasks[bitOffset])
 		// append bits of our value that fit onto byte
-		p.FrameBuffer[byteOffset] |= byte(value >> numBits-bitOffset&int(bitmasks[bitOffset]))
+		p.FrameBuffer[byteOffset] |= byte(value >> uint(numBits-bitOffset&int(bitmasks[bitOffset])))
 		// increment written bytes (maybe isn't necessary, we do not mix bitwise data with normal bytes ever)
 		byteOffset++
 		// decrease number of bits left to write
 		numBits -= bitOffset
+		bitOffset = 8
 	}
 
 	if numBits == bitOffset {
@@ -322,10 +331,11 @@ func (p *Packet) AddBitmask(value int, numBits int) *Packet {
 		p.FrameBuffer[byteOffset] |= byte(value & int(bitmasks[bitOffset]))
 	} else {
 		// we were done encoding our value mid-byte
-		p.FrameBuffer[byteOffset] &= byte(^(int(bitmasks[numBits]) << bitOffset-numBits))
-		p.FrameBuffer[byteOffset] |= byte((value & int(bitmasks[numBits])) << bitOffset-numBits)
+		p.FrameBuffer[byteOffset] &= byte(^(int(bitmasks[numBits]) << uint(bitOffset-numBits)))
+		p.FrameBuffer[byteOffset] |= byte((value & int(bitmasks[numBits])) << uint(bitOffset-numBits))
 	}
 	return p
+
 }
 
 //Length returns length of byte buffer.
@@ -349,4 +359,8 @@ func (p *Packet) String() string {
 
 func (p *Packet) ReadIndex() int {
 	return p.readIndex
+}
+
+func (p *Packet) WriteIndex() int {
+	return len(p.FrameBuffer)
 }

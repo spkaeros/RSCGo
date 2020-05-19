@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/db"
@@ -82,16 +83,10 @@ func Bind(port int) {
 			}
 			p := world.NewPlayer(world.Players.NextIndex(), strings.Split(socket.RemoteAddr().String(), ":")[0])
 			p.Socket = socket
-			p.ReadWriter = bufio.NewReadWriter(bufio.NewReader(socket), bufio.NewWriter(socket))
+			p.Reader = bufio.NewReader(socket)
 			go func() {
 				defer func() {
 					p.Attributes.SetVar("lastIP", p.CurrentIP())
-					p.Write([]byte{1, 4})
-					if err := p.ReadWriter.Flush(); err != nil {
-						log.Warn("Couldn't flush socket write buffer for", p.String())
-						log.Warn(err)
-					}
-
 					if err := p.Socket.Close(); err != nil {
 						log.Warn("Couldn't close socket:", err)
 					}
@@ -113,25 +108,50 @@ func Bind(port int) {
 					case <-p.SigKill:
 						return
 					case packet, ok := <-p.OutgoingPackets:
-						//		if ok && packet != nil {
-						if ok && packet != nil && packet.Opcode != 0 {
-							frameLength := len(packet.FrameBuffer)
-							header := []byte{0, 0}
-							if frameLength >= 160 {
-								header[0] = byte(frameLength>>8 + 160)
-								header[1] = byte(frameLength)
+						if ok && packet != nil {
+							if strings.HasSuffix(p.Socket.LocalAddr().String(), "43595") {
+								writer := wsutil.NewWriter(socket, ws.StateServerSide, ws.OpBinary)
+								if packet.Opcode == 0 {
+									writer.Write(packet.FrameBuffer)
+									writer.Flush()
+									continue
+								}
+								header := []byte{0, 0}
+								frameLength := len(packet.FrameBuffer)
+								if frameLength >= 160 {
+									header[0] = byte(frameLength>>8 + 160)
+									header[1] = byte(frameLength)
+								} else {
+									header[0] = byte(frameLength)
+									if frameLength > 0 {
+										frameLength--
+										header[1] = packet.FrameBuffer[frameLength]
+									}
+								}
+								writer.Write(append(header, packet.FrameBuffer[:frameLength]...))
+								writer.Flush()
 							} else {
-								header[0] = byte(frameLength)
-								frameLength--
-								header[1] = packet.FrameBuffer[frameLength]
+								writer := bufio.NewWriter(socket)
+								if packet.Opcode == 0 {
+									writer.Write(packet.FrameBuffer)
+									writer.Flush()
+									continue
+								}
+								header := []byte{0, 0}
+								frameLength := len(packet.FrameBuffer)
+								if frameLength >= 160 {
+									header[0] = byte(frameLength>>8 + 160)
+									header[1] = byte(frameLength)
+								} else {
+									header[0] = byte(frameLength)
+									if frameLength > 0 {
+										frameLength--
+										header[1] = packet.FrameBuffer[frameLength]
+									}
+								}
+								writer.Write(append(header, packet.FrameBuffer[:frameLength]...))
+								writer.Flush()
 							}
-							packet.FrameBuffer = append(header, packet.FrameBuffer[:frameLength]...)
-						}
-						p.Write(packet.FrameBuffer)
-						err := p.ReadWriter.Flush()
-						if err != nil {
-							log.Debug("Error flushing buffer", err)
-							return
 						}
 					}
 				}
@@ -145,10 +165,10 @@ func Bind(port int) {
 						header := make([]byte, 2)
 						n, err := p.Read(header)
 						if n < 2 {
-							return
+							continue
 						} else if err != nil {
 							log.Debug(err)
-							return
+							continue
 						}
 						frameSize := int(header[0] & 0xFF)
 						if frameSize >= 160 {
@@ -158,7 +178,7 @@ func Bind(port int) {
 						}
 
 						// Upper bound is an approximation of the max size of the clientside outgoing data buffer
-						if frameSize >= 23768 || frameSize < 0 {
+						if frameSize >= 24573 || frameSize < 0 {
 							log.Cheatf("Invalid packet length from [%v]: %d\n", p, frameSize)
 							return
 						}
@@ -166,10 +186,10 @@ func Bind(port int) {
 						if frameSize > 0 {
 							n, err := p.Read(localData)
 							if n < frameSize {
-								return
+								continue
 							} else if err != nil {
 								log.Debug(err)
-								return
+								continue
 							}
 						}
 						if frameSize < 160 {
@@ -183,7 +203,7 @@ func Bind(port int) {
 						handler := handlers.Handler(p1.Opcode)
 						if handler == nil {
 							log.Debugf("Packet{\n\topcode:%d;\n\tlength:%d;\n\tpayload:%v\n};\n", p1.Opcode, len(p1.FrameBuffer), p1.FrameBuffer)
-							return
+							continue
 						}
 
 						handler(p, p1)
@@ -250,7 +270,6 @@ func runTickables(p *world.Player) {
 
 			if p.Unregistering.Load() && p.Unregistering.CAS(true, false) {
 				p.Attributes.SetVar("lastIP", p.CurrentIP())
-				p.ReadWriter.Flush()
 				if err := p.Socket.Close(); err != nil {
 					log.Warn("Couldn't close socket:", err)
 				}

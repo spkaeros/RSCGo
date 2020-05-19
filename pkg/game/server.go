@@ -3,7 +3,6 @@ package main
 import (
 	"math"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -124,13 +123,13 @@ func main() {
 
 	// Network protocol information
 	if config.Verbose() {
-		log.Debugln("Loaded " + strconv.Itoa(len(world.Sectors)-1) + " map sectors")
-		log.Debugln("Loaded " + strconv.Itoa(handlers.PacketCount()) + " (" + strconv.Itoa(handlers.HandlerCount()) + ") packets (handlers)")
-		log.Debugln("Loaded " + strconv.Itoa(int(world.ItemIndexer.Load())) + " items and " + strconv.Itoa(len(definitions.Items)-1) + " item definitions")
-		log.Debugln("Loaded " + strconv.Itoa(world.Npcs.Size()) + " NPCs and " + strconv.Itoa(len(definitions.Npcs)-1) + " NPC definitions")
-		log.Debugln("Loaded " + strconv.Itoa(len(definitions.ScenaryObjects)-1) + " scenary definitions, and " + strconv.Itoa(len(definitions.BoundaryObjects)-1) + " boundary definitions")
-		log.Debugln("Loaded " + strconv.Itoa(int(world.ObjectCounter.Load())) + " scenary / boundary objects")
-		log.Debugln("Finished loading game data; took " + strconv.Itoa(int(time.Since(start).Milliseconds())) + "ms")
+		log.Debug("Loaded", len(world.Sectors)-1, "map sectors")
+		log.Debug("Loaded", handlers.PacketCount(), "packets (with", handlers.HandlerCount(), "handlers)")
+		log.Debug("Loaded", world.ItemIndexer.Load(), "items and", len(definitions.Items)-1, "item definitions")
+		log.Debug("Loaded", world.Npcs.Size(), "NPCs and", len(definitions.Npcs)-1,"NPC definitions")
+		log.Debug("Loaded", len(definitions.ScenaryObjects)-1, "scenary definitions, and", len(definitions.BoundaryObjects)-1, "boundary definitions")
+		log.Debug("Loaded", world.ObjectCounter.Load(), "scenary / boundary objects")
+		log.Debug("Deserializing all game entity data took", time.Since(start).Milliseconds(), "milliseconds")
 		if config.Verbosity >= 2 {
 			log.Debugf("Triggers[\n\t%d item actions,\n\t%d scenary actions,\n\t%d boundary actions,\n\t%d npc actions,\n\t%d item->boundary actions,\n\t%d item->scenary actions,\n\t%d attacking NPC actions,\n\t%d killing NPC actions\n];\n", len(world.ItemTriggers), len(world.ObjectTriggers), len(world.BoundaryTriggers), len(world.NpcTriggers), len(world.InvOnBoundaryTriggers), len(world.InvOnObjectTriggers), len(world.NpcAtkTriggers), len(world.NpcDeathTriggers))
 		}
