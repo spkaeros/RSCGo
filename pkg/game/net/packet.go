@@ -11,9 +11,11 @@ package net
 
 import (
 	"fmt"
-	"math"
+//	"math"
 	"strconv"
 	"strings"
+	"runtime/debug"
+	"encoding/binary"
 
 	"github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -29,6 +31,7 @@ type Packet struct {
 	FrameBuffer []byte
 	readIndex   int
 	bitIndex    int
+	writeIndex  int
 }
 
 //NewPacket Creates a new handlers instance.
@@ -38,7 +41,7 @@ func NewPacket(opcode byte, payload []byte) *Packet {
 
 //NewEmptyPacket Creates a new handlers instance intended for sending formatted data to the client.
 func NewEmptyPacket(opcode byte) *Packet {
-	return &Packet{Opcode: opcode, FrameBuffer: []byte{opcode}}
+	return &Packet{Opcode: opcode, FrameBuffer: append([]byte{opcode}, make([]byte, 4999)...)}
 }
 
 //NewReplyPacket Creates a new handlers instance intended for sending raw data to the client.
@@ -46,69 +49,75 @@ func NewReplyPacket(src []byte) *Packet {
 	return &Packet{FrameBuffer: src}
 }
 
-func (p *Packet) readNSizeUints(n int) []uint64 {
-	read := func(numBytes int) uint64 {
-		var val uint64
-		buf := make([]byte, numBytes)
-		_ = p.Read(buf)
-		for idx, b := range buf {
-			val |= uint64(b) << uint((numBytes-1-idx)<<3)
-		}
-		return val
-	}
-
-	var set []uint64
-	for ; n > 0; n -= 8 {
-		set = append(set, read(int(math.Min(float64(n), 8))))
-	}
-	return set
-}
-
 //ReadUint128 Read the next 128-bit integer from the handlers payload.
 func (p *Packet) ReadUint128() (msb uint64, lsb uint64) {
-	buf := p.readNSizeUints(16)
-	return buf[0], buf[1]
+	if checkError(p.Skip(16)) {
+		return 0, 0
+	}
+	msb = binary.BigEndian.Uint64(p.FrameBuffer[p.readIndex-16:])
+	lsb = binary.BigEndian.Uint64(p.FrameBuffer[p.readIndex-8:])
+	return
 }
 
 //ReadUint64 Read the next 64-bit integer from the handlers payload.
 func (p *Packet) ReadUint64() uint64 {
-	return p.readNSizeUints(8)[0]
+	if checkError(p.Skip(8)) {
+		return 0
+	}
+	return binary.BigEndian.Uint64(p.FrameBuffer[p.readIndex-8:])
 }
 
 //ReadUint32 Read the next 32-bit integer from the handlers payload.
 func (p *Packet) ReadUint32() int {
-	return int(p.readNSizeUints(4)[0])
+	if checkError(p.Skip(4)) {
+		return 0
+	}
+	return int(binary.BigEndian.Uint64(p.FrameBuffer[p.readIndex-4:]))
 }
 
 //ReadUint16 Read the next 16-bit integer from the handlers payload.
 func (p *Packet) ReadUint16() int {
-	return int(p.readNSizeUints(2)[0])
+	if checkError(p.Skip(2)) {
+		return 0
+	}
+	return int(binary.BigEndian.Uint64(p.FrameBuffer[p.readIndex-2:]))
 }
 
 func checkError(err error) bool {
 	if err != nil {
-		log.Warning.Println(err)
+		debug.PrintStack()
+		log.Warn(err)
 		return true
 	}
 	return false
 }
 
 //ReadUint8 Read the next 8-bit integer from the handlers payload.
-func (p *Packet) ReadUint8() byte {
+func (p *Packet) ReadUint8() uint8 {
 	if checkError(p.Skip(1)) {
 		return 0
 	}
 	return p.FrameBuffer[p.readIndex-1] & 0xFF
 }
 
+func (p *Packet) ReadUByte() byte {
+	return p.ReadUint8()
+}
+
 //ReadInt8 returns the signed interpretation of the next payload byte.
 func (p *Packet) ReadInt8() int8 {
-	return int8(p.ReadUint8())
+	if checkError(p.Skip(1)) {
+		return 0
+	}
+	return int8(p.FrameBuffer[p.readIndex-1] & 0x7F)
 }
 
 //ReadBoolean Returns true if the next payload byte isn't 0
 func (p *Packet) ReadBoolean() bool {
-	return p.ReadUint8() != 0
+	if checkError(p.Skip(1)) {
+		return false
+	}
+	return p.FrameBuffer[p.readIndex-1] != 0
 }
 
 func (p *Packet) Read(buf []byte) int {
@@ -118,10 +127,13 @@ func (p *Packet) Read(buf []byte) int {
 		return -1
 	}
 	copy(buf, p.FrameBuffer[p.readIndex:])
-	p.Skip(n)
+	if checkError(p.Skip(n)) {
+		return -1
+	}
 	return n
 }
 
+//Flip Resets the read buffer caret to zero.
 func (p *Packet) Flip() {
 	p.readIndex = 0
 }
@@ -129,6 +141,7 @@ func (p *Packet) Flip() {
 //Rewind rewinds the reader index by n bytes
 func (p *Packet) Rewind(n int) error {
 	if n < 0 {
+		debug.PrintStack()
 		return errors.NewNetworkError("Packet.Skip,BufferOutOfBounds; Rewinding the buffer by less than 0 bytes is not permitted.  Perhaps you need *Packet.Skip ?", false)
 	}
 	if n > p.readIndex {
@@ -142,7 +155,8 @@ func (p *Packet) Rewind(n int) error {
 //Skip skips the reader index by n bytes
 func (p *Packet) Skip(n int) error {
 	if n < 0 {
-		return errors.NewNetworkError("Packet.Skip,BufferOutOfBounds; Skipping the buffer by less than 0 bytes is not permitted.  Perhaps you need *Packet.Rewind ?", false)
+		debug.PrintStack()
+		return errors.NewNetworkError("BufferOutOfBounds; Skipping the buffer by less than 0 bytes is not permitted.  Perhaps you need *Packet.Rewind ?", false)
 	}
 	if p.Available() < n {
 		p.readIndex = p.Length()
@@ -164,11 +178,12 @@ func (p *Packet) ReadStringN(n int) (val string) {
 }
 
 //ReadString Read the next variable-length C-string from the handlers payload and return it as a Go-string.
-// This will keep reading data until it reaches a null-byte or a new-line character ( '\0', 0xA, 0, 10 ).
+// This will keep reading data until it reaches a string termination byte.
+// String termination bytes in order of precedence:
+// NULL (0x0,'\x00',0), LineFeed (0xA,'\n',10), and space (0x20,' ',32)
 func (p *Packet) ReadString() string {
-	// String termination chars in order of precedence: NULL(\0), LineFeed (\n), and space(' ')
 	availableData := string(p.FrameBuffer[p.readIndex:])
-	for _, separator := range []byte{0, 10} {
+	for _, separator := range []byte{0x0, 0xA, 0x20} {
 		end := strings.IndexByte(availableData, separator)
 		if end <= 0 {
 			continue
@@ -182,24 +197,36 @@ func (p *Packet) ReadString() string {
 
 //AddUint64 Adds a 64-bit integer to the handlers payload.
 func (p *Packet) AddUint64(l uint64) *Packet {
-	p.FrameBuffer = append(p.FrameBuffer, byte(l>>56), byte(l>>48), byte(l>>40), byte(l>>32), byte(l>>24), byte(l>>16), byte(l>>8), byte(l))
+	p.writeIndex += 8
+	binary.BigEndian.PutUint64(p.FrameBuffer[p.writeIndex-8:], l)
 	return p
 }
 
 //AddUint32 Adds a 32-bit integer to the handlers payload.
 func (p *Packet) AddUint32(i uint32) *Packet {
-	p.FrameBuffer = append(p.FrameBuffer, byte(i>>24), byte(i>>16), byte(i>>8), byte(i))
+	p.writeIndex += 4
+	binary.BigEndian.PutUint32(p.FrameBuffer[p.writeIndex-4:], i)
+	return p
+}
+
+func (p *Packet) AddSmart08_32(i int) *Packet {
+	if i >= 128 {
+		p.writeIndex += 4
+		// 0x80000000 is (2^24)*128, which adds 128 to the most significant byte
+		// We use this to indicate that the value is 4 bytes long to our client
+		binary.BigEndian.PutUint32(p.FrameBuffer[p.writeIndex-4:], uint32(i+0x80000000))
+		return p
+	}
+
+	p.writeIndex += 1
+	p.FrameBuffer[p.writeIndex-1] = uint8(i)
 	return p
 }
 
 //AddUint8or32 Adds a 32-bit integer or an 8-byte integer to the handlers payload, depending on value.
+// TODO: Deprecate and remove this in favor of above, improved name
 func (p *Packet) AddUint8or32(i uint32) *Packet {
-	if i < 128 {
-		p.FrameBuffer = append(p.FrameBuffer, uint8(i))
-		return p
-	}
-	p.FrameBuffer = append(p.FrameBuffer, byte((i>>24)+128), byte(i>>16), byte(i>>8), byte(i))
-	return p
+	return p.AddSmart08_32(int(i))
 }
 
 //SetUint16At Rewrites the data at offset to the provided short uint value
@@ -215,64 +242,89 @@ func (p *Packet) SetUint16At(offset int, s uint16) *Packet {
 
 //AddUint16 Adds a 16-bit integer to the handlers payload.
 func (p *Packet) AddUint16(s uint16) *Packet {
-	p.FrameBuffer = append(p.FrameBuffer, byte(s>>8), byte(s))
+	p.writeIndex += 2
+	binary.BigEndian.PutUint16(p.FrameBuffer[p.writeIndex-2:], s)
 	return p
 }
 
 //AddBoolean Adds a single byte to the payload, with the value 1 if b is true, and 0 if b is false.
 func (p *Packet) AddBoolean(b bool) *Packet {
+	p.writeIndex += 1
 	if b {
-		p.FrameBuffer = append(p.FrameBuffer, 1)
+		p.FrameBuffer[p.writeIndex-1] = 1
 		return p
 	}
-	p.FrameBuffer = append(p.FrameBuffer, 0)
+	p.FrameBuffer[p.writeIndex-1] = 0
 	return p
 }
 
 //AddUint8 Adds an 8-bit integer to the handlers payload.
 func (p *Packet) AddUint8(b uint8) *Packet {
-	p.FrameBuffer = append(p.FrameBuffer, b)
+	p.writeIndex += 1
+	p.FrameBuffer[p.writeIndex-1] = b
 	return p
 }
 
 //AddInt8 Adds an 8-bit signed integer to the handlers payload.
 func (p *Packet) AddInt8(b int8) *Packet {
-	p.FrameBuffer = append(p.FrameBuffer, uint8(b))
+	p.writeIndex += 1
+	p.FrameBuffer[p.writeIndex-1] = uint8(b)
 	return p
 }
 
 //AddBytes Adds byte array to handlers payload
 func (p *Packet) AddBytes(b []byte) *Packet {
-	p.FrameBuffer = append(p.FrameBuffer, b...)
+	for _, v := range b {
+		p.AddUint8(uint8(v))
+	}
 	return p
 }
 
-//AddBitmask Packs value into the numBits next bits of the packetbuilders byte buffer.
-func (p *Packet) AddBitmask(value int, numBits int) *Packet {
-	masks := []int32{0, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff, 0x1ff, 0x3ff, 0x7ff, 0xfff, 0x1fff,
-		0x3fff, 0x7fff, 0xffff, 0x1ffff, 0x3ffff, 0x7ffff, 0xfffff, 0x1fffff, 0x3fffff, 0x7fffff, 0xffffff,
-		0x1ffffff, 0x3ffffff, 0x7ffffff, 0xfffffff, 0x1fffffff, 0x3fffffff, 0x7fffffff, -1}
-	byteOffset := (p.bitIndex >> 3) + 1
-	bitOffset := 8 - (p.bitIndex & 7)
-	p.bitIndex += numBits
-	length := ((p.bitIndex + 7) / 8) + 1
-	for length > len(p.FrameBuffer) {
-		p.FrameBuffer = append(p.FrameBuffer, 0)
+var bitmasks [33]int32
+
+func init() {
+	for i := 0; i < 32; i++ {
+		bitmasks[i] = (1 << i) - 1
 	}
+}
+
+//AddSignedBits adds the value with the first bit masked off
+func (p *Packet) AddSignedBits(value int, numBits int) *Packet {
+	return p.AddBitmask(value & int(bitmasks[numBits]), numBits)
+}
+
+//AddBitmask Packs value into the numBits next bits of the packetbuilders byte buffer.
+// Note: This method only keeps track of the data that it has written to the buffer; it will
+// overwrite any non-bitmasked values in the buffer starting at the beginning.
+func (p *Packet) AddBitmask(value int, numBits int) *Packet {
+	// determine what byte we can start safely write this value into
+	byteOffset := (p.bitIndex >> 3) + 1
+	// determine what bit within that byte we can safely write this value into
+	bitOffset := 8 - (p.bitIndex & 7)
+	// increment written bits count
+	p.bitIndex += numBits
+
+	// Write our value, using some bitwise tricks to only take up the specified bits
 	for ; numBits > bitOffset; bitOffset = 8 {
-		p.FrameBuffer[byteOffset] &= byte(^masks[bitOffset])
-		p.FrameBuffer[byteOffset] |= byte(value >> uint(numBits-bitOffset&int(masks[bitOffset])))
+		// prepare the byte we're writing into for the new data
+		p.FrameBuffer[byteOffset] &= byte(^bitmasks[bitOffset])
+		// append bits of our value that fit onto byte
+		p.FrameBuffer[byteOffset] |= byte(value >> numBits-bitOffset&int(bitmasks[bitOffset]))
+		// increment written bytes (maybe isn't necessary, we do not mix bitwise data with normal bytes ever)
 		byteOffset++
+		// decrease number of bits left to write
 		numBits -= bitOffset
 	}
-	if numBits == bitOffset {
-		p.FrameBuffer[byteOffset] &= byte(^masks[bitOffset])
-		p.FrameBuffer[byteOffset] |= byte(value & int(masks[bitOffset]))
-	} else {
-		p.FrameBuffer[byteOffset] &= byte(^(int(masks[numBits]) << uint(bitOffset-numBits)))
-		p.FrameBuffer[byteOffset] |= byte((value & int(masks[numBits])) << uint(bitOffset-numBits))
-	}
 
+	if numBits == bitOffset {
+		// we reached the end of the last byte
+		p.FrameBuffer[byteOffset] &= byte(^bitmasks[bitOffset])
+		p.FrameBuffer[byteOffset] |= byte(value & int(bitmasks[bitOffset]))
+	} else {
+		// we were done encoding our value mid-byte
+		p.FrameBuffer[byteOffset] &= byte(^(int(bitmasks[numBits]) << bitOffset-numBits))
+		p.FrameBuffer[byteOffset] |= byte((value & int(bitmasks[numBits])) << bitOffset-numBits)
+	}
 	return p
 }
 
