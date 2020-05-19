@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"encoding/binary"
 
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/definitions"
@@ -52,15 +53,15 @@ func LoadCollisionData() {
 	entryFileCaret := 0
 	metaDataCaret := 0
 	// Sectors begin at: offsetX=48, offsetY=96
+	SectorsLock.Lock()
 	for i := 0; i < archive.FileCount; i++ {
-		id := int(uint32(archive.MetaData[metaDataCaret]&0xFF)<<24 | uint32(archive.MetaData[metaDataCaret+1]&0xFF)<<16 | uint32(archive.MetaData[metaDataCaret+2]&0xFF)<<8 | uint32(archive.MetaData[metaDataCaret+3]&0xFF))
+		id := int(binary.BigEndian.Uint32(archive.MetaData[metaDataCaret:]))
 		startCaret := entryFileCaret
 		entryFileCaret += int(uint32(archive.MetaData[metaDataCaret+7]&0xFF)<<16 | uint32(archive.MetaData[metaDataCaret+8]&0xFF)<<8 | uint32(archive.MetaData[metaDataCaret+9]&0xFF))
-		SectorsLock.Lock()
 		Sectors[id] = loadSector(archive.FileData[startCaret:entryFileCaret])
-		SectorsLock.Unlock()
 		metaDataCaret += 10
 	}
+	SectorsLock.Unlock()
 }
 
 const (
@@ -103,15 +104,15 @@ func ClipBit(direction int) int {
 // toward the given x,y coordinates.
 // Returns: [2]byte {verticalMasks, horizontalMasks}
 func (l Location) Masks(x, y int) (masks [2]byte) {
-	if x > l.X() {
-		masks[0] |= ClipSouth
-	} else {
-		masks[0] |= ClipNorth
-	}
 	if y > l.Y() {
-		masks[1] |= ClipEast
+		masks[0] |= ClipNorth
 	} else {
+		masks[0] |= ClipSouth
+	}
+	if x > l.X() {
 		masks[1] |= ClipWest
+	} else {
+		masks[1] |= ClipEast
 	}
 	// diags and solid objects are checked for automatically in the functions that you'd use this with, so
 	return
@@ -140,12 +141,9 @@ func IsTileBlocking(x, y int, bit byte, current bool) bool {
 }
 
 func (t TileData) blocked(bit byte, current bool) bool {
-	if t.CollisionMask&int16(bit) != 0 {
-		return true
-	}
 	// Diagonal walls (/, \) and impassable scenary objects (|=|) both effectively disable the occupied location
-	// TODO: Is definitions.Overlay clipping finished?
-	return !current && (t.CollisionMask&(ClipSwNe|ClipSeNw|ClipFullBlock)) != 0
+	// TODO: Is overlay clipping finished?
+	return t.CollisionMask&int16(bit) != 0 || (!current && (t.CollisionMask&(ClipSwNe|ClipSeNw|ClipFullBlock)) != 0)
 }
 
 func sectorName(x, y int) string {
@@ -174,16 +172,12 @@ func (s *Sector) tile(x, y int) TileData {
 }
 
 func CollisionData(x, y int) TileData {
-	//sector := sectorFromCoords(x, y)
-	//if sector == nil {
-	//	return TileData{CollisionMask: ClipFullBlock}
-	//}
 	return sectorFromCoords(x, y).tile(x, y)
 }
 
 //loadSector Parses raw data into data structures that make up a 48x48 map sector.
 func loadSector(data []byte) (s *Sector) {
-	// If we were given less than the length of a decompressed, raw map sector
+	// 48*48=2304 tiles per sector and 10 bytes per tile makes each sector 23040 byte
 	if len(data) < 23040 {
 		log.Warning.Printf("Too short sector data: %d\n", len(data))
 		return nil
@@ -196,10 +190,11 @@ func loadSector(data []byte) (s *Sector) {
 		for y := 0; y < RegionSize; y++ {
 			groundTexture := data[offset+1] & 0xFF
 			groundOverlay := data[offset+2] & 0xFF
-			//			roofTexture := data[offset+3] & 0xFF
+			//roofTexture := data[offset+3] & 0xFF
 			horizontalWalls := data[offset+4] & 0xFF
 			verticalWalls := data[offset+5] & 0xFF
-			diagonalWalls := int(uint32(data[offset+6]&0xFF)<<24 | uint32(data[offset+7]&0xFF)<<16 | uint32(data[offset+8]&0xFF)<<8 | uint32(data[offset+9]&0xFF))
+			diagonalWalls := binary.BigEndian.Uint32(data[offset+6:])
+//			diagonalWalls := int(uint32(data[offset+6]&0xFF)<<24 | uint32(data[offset+7]&0xFF)<<16 | uint32(data[offset+8]&0xFF)<<8 | uint32(data[offset+9]&0xFF))
 			if groundOverlay == 250 {
 				// -6 overflows to 250, and is water tile
 				groundOverlay = definitions.OverlayWater
