@@ -57,18 +57,11 @@ for os in `go tool dist list|sed -e 's/\// /g' |cut -f2 -d' ' |sort |uniq`; do
 		break
 	fi
 done
-if [[ -z $OS || -z $ARCH ]]; then
-	echo "Could not find target tuple.  Must provide target OS and architecture as arguments, e.g: ./build.sh linux amd64"
-	listTargets
-	exit
+if [[ -z $OS ]]; then
+	ARCH=`go env GOHOSTOS`
 fi
-#if [[ -z $ARCH ]]; then
-#	echo "Could not find matching target architecture.  Must provide target OS and architecture as arguments, e.g: ./build.sh linux amd64"
-#	listTargets
-#	exit
-#fi
+if [[ -z $ARCH ]]; then
+	OS=`go env GOHOSTARCH`
+fi
 compile $OS $ARCH
-if [[ -z $3 ]]; then
-	exit
-fi
-cp bin/game-$3 bin/game
+cp bin/game-`go env GOHOSTOS`-`go env GOHOSTARCH` bin/game
