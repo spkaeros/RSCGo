@@ -17,7 +17,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
-//FriendList Builds a net with the players friend entityList information in it.
+//FriendList Builds a packet with the players friend entityList information in it.
 func FriendList(player *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(71)
 	p.AddUint8(byte(player.FriendList.Size()))
@@ -35,7 +35,7 @@ func FriendList(player *Player) (p *net.Packet) {
 	return p
 }
 
-//PrivateMessage Builds a net with a private message from hash with content msg.
+//PrivateMessage Builds a packet with a private message from hash with content msg.
 func PrivateMessage(hash uint64, msg string) (p *net.Packet) {
 	p = net.NewEmptyPacket(120)
 	p.AddUint64(hash)
@@ -47,23 +47,12 @@ func PrivateMessage(hash uint64, msg string) (p *net.Packet) {
 	return p
 }
 
-func CreateProjectile(owner *Player, target entity.MobileEntity, projectileID int) *net.Packet {
-	p := net.NewEmptyPacket(234)
-	p.AddUint16(1)
-	p.AddUint16(uint16(owner.Index))
-	eventID := 3
-	if target.IsPlayer() {
-		eventID = 4
-	}
-	p.AddUint8(uint8(eventID))
+//func CreateProjectile(owner *Player, target entity.MobileEntity, projectileID int) (p *net.Packet) {
+//	p := net.NewEmptyPacket(234)
+//	return p
+//}
 
-	p.AddUint16(uint16(projectileID))
-	p.AddUint16(uint16(target.ServerIndex()))
-
-	return p
-}
-
-//IgnoreList Builds a net with the players ignore entityList information in it.
+//IgnoreList Builds a packet with the players ignore entityList information in it.
 func IgnoreList(player *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(109)
 	p.AddUint8(byte(len(player.IgnoreList)))
@@ -73,7 +62,7 @@ func IgnoreList(player *Player) (p *net.Packet) {
 	return p
 }
 
-//FriendUpdate Builds a net with an online status update for the player with the specified hash
+//FriendUpdate Builds a packet with an online status update for the player with the specified hash
 func FriendUpdate(hash uint64, online bool) (p *net.Packet) {
 	p = net.NewEmptyPacket(149)
 	p.AddUint64(hash)
@@ -85,57 +74,74 @@ func FriendUpdate(hash uint64, online bool) (p *net.Packet) {
 	return
 }
 
-//PlayerChat Builds a net containing a view-area chat message from the player with the index sender and returns it.
-func PlayerChat(sender int, msg string) *net.Packet {
-	p := net.NewEmptyPacket(234)
-	p.AddUint16(1)
-	p.AddUint16(uint16(sender))
-	p.AddUint8(1)
-	p.AddUint8(uint8(len(msg)))
-	p.AddBytes([]byte(msg))
-	return p
-}
-
-//PlayerDamage Builds a net containing a view-area damage display for this player
-func PlayerDamage(victim *Player, damage int) *net.Packet {
-	p := net.NewEmptyPacket(234)
-	p.AddUint16(1)
-	p.AddUint16(uint16(victim.Index))
-	p.AddUint8(2)
-	p.AddUint8(uint8(damage))
-	p.AddUint8(uint8(victim.Skills().Current(entity.StatHits)))
-	p.AddUint8(uint8(victim.Skills().Maximum(entity.StatHits)))
-	return p
-}
-
-//PlayerItemBubble Builds a net containing a view-area item action bubble display for this player
-func PlayerItemBubble(player *Player, id int) *net.Packet {
-	p := net.NewEmptyPacket(234)
-	p.AddUint16(1)
-	p.AddUint16(uint16(player.Index))
-	p.AddUint8(0)
-	p.AddUint16(uint16(id))
-	return p
-}
-
-//NpcDamage Builds a net containing a view-area damage display for this NPC
-func NpcDamage(victim *NPC, damage int) *net.Packet {
-	p := net.NewEmptyPacket(104)
-	p.AddUint16(1)
-	p.AddUint16(uint16(victim.Index))
-	p.AddUint8(2)
-	p.AddUint8(uint8(damage))
-	p.AddUint8(uint8(victim.Skills().Current(entity.StatHits)))
-	p.AddUint8(uint8(victim.Skills().Maximum(entity.StatHits)))
-	return p
+func NpcEvents(player *Player) (p *net.Packet) {
+	updateSize := 0
+	
+	p = net.NewEmptyPacket(104)
+	p.AddUint16(uint16(updateSize))
+	list, ok := player.Var("npcSplatQ")
+	if ok {
+		list, ok := list.([]HitSplat)
+		if !ok {
+			return nil
+		}
+		newList := make([]HitSplat, 0, len(list))
+		for _, splat := range list {
+			if splat.Owner.IsNpc() {
+				p.AddUint16(uint16(splat.Owner.ServerIndex()))
+				p.AddUint8(2)
+				p.AddUint8(uint8(splat.Damage))
+				p.AddUint8(uint8(splat.Owner.Skills().Current(entity.StatHits)))
+				p.AddUint8(uint8(splat.Owner.Skills().Maximum(entity.StatHits)))
+				updateSize++
+			} else {
+				newList = append(newList, splat)
+			}
+		}
+		player.SetVar("npcSplatQ", newList)
+	}
+	list, ok = player.Var("npcChatQ")
+	if ok {
+		list, ok := list.([]ChatMessage)
+		if !ok {
+			return nil
+		}
+		newList := make([]ChatMessage, 0, len(list))
+		for _, msg := range list {
+			if msg.Owner.IsNpc() {
+				p.AddUint16(uint16(msg.Owner.ServerIndex()))
+				p.AddUint8(1)
+				p.AddUint16(uint16(msg.Target.ServerIndex()))
+				if len(msg.string) > 255 {
+					msg.string = msg.string[:255]
+				}
+				msg.string = strutil.ChatFilter.Format(msg.string)
+				// messageRaw := strutil.ChatFilter.Pack(message)
+				messageRaw := msg.string
+				p.AddUint8(uint8(len(messageRaw)))
+				for _, c := range messageRaw {
+					p.AddUint8(byte(c))
+				}
+				updateSize++
+			} else {
+				newList = append(newList, msg)
+			}
+		}
+		player.SetVar("npcChatQ", newList)
+	}
+	p.SetUint16At(1, uint16(updateSize))
+	if updateSize <= 0 {
+		return nil
+	}
+	return
 }
 
 //ShopClose A net to tell the client to close any open shop interface.
 var ShopClose = net.NewEmptyPacket(137)
 
-//ShopOpen Builds a net to open a shop interface with the data about this shop.
-func ShopOpen(shop *Shop) *net.Packet {
-	p := net.NewEmptyPacket(101)
+//ShopOpen Builds a packet to open a shop interface with the data about this shop.
+func ShopOpen(shop *Shop) (p *net.Packet) {
+	p = net.NewEmptyPacket(101)
 	p.AddUint8(uint8(shop.Inventory.Size()))
 	p.AddBoolean(shop.BuysUnstocked)
 	p.AddUint8(uint8(shop.BasePurchasePercent))
@@ -150,14 +156,14 @@ func ShopOpen(shop *Shop) *net.Packet {
 	return p
 }
 
-func SleepWord(player *Player) *net.Packet {
-	p := net.NewEmptyPacket(117)
+func SleepWord(player *Player) (p *net.Packet) {
+	p = net.NewEmptyPacket(117)
 	// TODO: Figure this out
 	return p
 }
 
-func SleepFatigue(player *Player) *net.Packet {
-	p := net.NewEmptyPacket(244)
+func SleepFatigue(player *Player) (p *net.Packet) {
+	p = net.NewEmptyPacket(244)
 	p.AddUint16(uint16(player.VarInt("sleepFatigue", 0)))
 	return p
 }
@@ -167,7 +173,8 @@ var SleepClose = net.NewEmptyPacket(84)
 var SleepWrong = net.NewEmptyPacket(194)
 
 func NpcMessage(sender *NPC, message string, target *Player) (p *net.Packet) {
-	p = net.NewEmptyPacket(104)
+	target.QueueNpcChat(sender, target, message)
+/*	p = net.NewEmptyPacket(104)
 	p.AddUint16(1)
 	p.AddUint16(uint16(sender.Index))
 	p.AddUint8(1)
@@ -182,30 +189,13 @@ func NpcMessage(sender *NPC, message string, target *Player) (p *net.Packet) {
 	for _, c := range messageRaw {
 		p.AddUint8(byte(c))
 	}
-	return
+	return*/
+	return net.NewEmptyPacket(6)
 }
 
-func PlayerMessage(sender *Player, message string) (p *net.Packet) {
-	p = net.NewEmptyPacket(234)
-	p.AddUint16(1)
-	p.AddUint16(uint16(sender.Index))
-	p.AddUint8(6)
-	if len(message) > 255 {
-		message = message[:255]
-	}
-	message = strutil.ChatFilter.Format(message)
-	// messageRaw := strutil.ChatFilter.Pack(message)
-	messageRaw := message
-	p.AddUint8(uint8(len(messageRaw)))
-	for _, c := range messageRaw {
-		p.AddUint8(byte(c))
-	}
-	return
-}
-
-//PrivacySettings Builds a net containing the players privacy settings for display in the settings menu.
-func PrivacySettings(player *Player) *net.Packet {
-	p := net.NewEmptyPacket(51)
+//PrivacySettings Builds a packet containing the players privacy settings for display in the settings menu.
+func PrivacySettings(player *Player) (p *net.Packet) {
+	p = net.NewEmptyPacket(51)
 	p.AddBoolean(player.ChatBlocked())
 	p.AddBoolean(player.FriendBlocked())
 	p.AddBoolean(player.TradeBlocked())
@@ -213,8 +203,8 @@ func PrivacySettings(player *Player) *net.Packet {
 	return p
 }
 
-func OptionMenuOpen(questions ...string) *net.Packet {
-	p := net.NewEmptyPacket(245)
+func OptionMenuOpen(questions ...string) (p *net.Packet) {
+	p = net.NewEmptyPacket(245)
 	p.AddUint8(uint8(len(questions)))
 	for _, question := range questions {
 		p.AddUint8(uint8(len(question)))
@@ -225,14 +215,14 @@ func OptionMenuOpen(questions ...string) *net.Packet {
 
 var OptionMenuClose = net.NewEmptyPacket(252)
 
-//NPCPositions Builds a net containing view area NPC position and sprite information
+//NPCPositions Builds a packet containing view area NPC position and sprite information
 func NPCPositions(player *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(79)
-	counter := 0
+	changed := 0
 	p.AddBitmask(player.LocalNPCs.Size(), 8)
 	var removing = NewMobList()
 	player.LocalNPCs.RangeNpcs(func(n *NPC) bool {
-		counter++
+		changed++
 		n.RLock()
 		if !player.WithinRange(player.Location, player.VarInt("viewRadius", 16)) || n.SyncMask&SyncRemoved == SyncRemoved || n.Location.Equals(DeathPoint) {
 			p.AddBitmask(1, 1)
@@ -249,7 +239,7 @@ func NPCPositions(player *Player) (p *net.Packet) {
 			p.AddBitmask(n.Direction(), 4)
 		} else {
 			p.AddBitmask(0, 1)
-			counter--
+			changed--
 		}
 		n.RUnlock()
 		return false
@@ -279,27 +269,27 @@ func NPCPositions(player *Player) (p *net.Packet) {
 		player.LocalNPCs.Add(n)
 		p.AddBitmask(n.Index, 12)
 		// bitwise trick avoids branching to do a manual addition, and maintains binary compatibility with the original protocol
-		p.AddBitmask((n.X()-player.X())&0x1F, 5)
-		p.AddBitmask((n.Y()-player.Y())&0x1F, 5)
+		p.AddSignedBits(n.X()-player.X(), 5)
+		p.AddSignedBits(n.Y()-player.Y(), 5)
 		p.AddBitmask(n.Direction(), 4)
 		p.AddBitmask(n.ID, 10)
-		counter++
+		changed++
 	}
-	if counter <= 0 {
-		return nil
-	}
+	//if changed <= 0 {
+	//	return nil
+	//}
 	return
 }
 
-func PrayerStatus(player *Player) *net.Packet {
-	p := net.NewEmptyPacket(206)
+func PrayerStatus(player *Player) (p *net.Packet) {
+	p = net.NewEmptyPacket(206)
 	for i := 0; i < 14; i++ {
 		p.AddBoolean(player.PrayerActivated(i))
 	}
 	return p
 }
 
-//PlayerPositions Builds a net containing view area player position and sprite information, including ones own information, and returns it.
+//PlayerPositions Builds a packet containing view area player position and sprite information, including ones own information, and returns it.
 // If no players need to be updated, returns nil.
 func PlayerPositions(player *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(191)
@@ -309,55 +299,54 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 	p.AddBitmask(player.Y(), 13)
 	p.AddBitmask(player.Direction(), 4)
 	p.AddBitmask(player.LocalPlayers.Size(), 8)
-	counter := 0
+	changed := 0
 	if player.SyncMask&SyncNeedsPosition != 0 {
-		counter++
-		player.ResetTickables = append(player.ResetTickables, func() {
+		changed++
+		player.PostTickables.Add(func() bool {
 			player.ResetRegionRemoved()
 			player.ResetRegionMoved()
 			player.ResetSpriteUpdated()
+			return true
 		})
 	}
-	//	var removing = NewMobList()
 	var removing []*Player
 	player.LocalPlayers.RangePlayers(func(p1 *Player) bool {
 		p1.RLock()
-		counter++
+		changed++
 		if p1.LongestDelta(player.Location) >= player.VarInt("viewRadius", 16) || p1.SyncMask&SyncRemoved == SyncRemoved {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(1, 1)
 			p.AddBitmask(3, 2)
-			//			removing.Add(p1)
 			removing = append(removing, p1)
-			//			player.AppearanceLock.Lock()
-			//			delete(player.KnownAppearances, p1.Index)
-			//			player.AppearanceLock.Unlock()
-			/*			p1.ResetTickables = append(p1.ResetTickables, func() {
-							p1.ResetRegionRemoved()
-							p1.ResetRegionMoved()
-							p1.ResetSpriteUpdated()
-						})
-			*/
+			//player.AppearanceLock.Lock()
+			//delete(player.KnownAppearances, p1.Index)
+			//player.AppearanceLock.Unlock()
+			p1.PostTickables.Add(func(p1 *Player) bool {
+				p1.ResetRegionRemoved()
+				p1.ResetRegionMoved()
+				p1.ResetSpriteUpdated()
+				return true
+			})
 		} else if p1.SyncMask&SyncMoved == SyncMoved {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(0, 1)
 			p.AddBitmask(p1.Direction(), 3)
-			/*			p1.ResetTickables = append(p1.ResetTickables, func() {
-							p1.ResetRegionMoved()
-							p1.ResetSpriteUpdated()
-						})
-			*/
+			p1.PostTickables.Add(func(p1 *Player) bool {
+				p1.ResetRegionMoved()
+				p1.ResetSpriteUpdated()
+				return true
+			})
 		} else if p1.SyncMask&SyncSprite == SyncSprite {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(1, 1)
 			p.AddBitmask(p1.Direction(), 4)
-			/*			p1.ResetTickables = append(p1.ResetTickables, func() {
-							p1.ResetSpriteUpdated()
-						})
-			*/
+			p1.PostTickables.Add(func(p1 *Player) bool {
+				p1.ResetSpriteUpdated()
+				return true
+			})
 		} else {
 			p.AddBitmask(0, 1)
-			counter--
+			changed--
 		}
 		p1.RUnlock()
 		return false
@@ -366,96 +355,175 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		player.LocalPlayers.Remove(p1)
 	}
 	newPlayerCount := 0
-	for _, p1 := range player.NewPlayers() {
-		if len(player.LocalPlayers.mobSet) >= 255 {
-			break
+	player.NewPlayers().RangePlayers(func(p1 *Player) bool {
+		if player.LocalPlayers.Size() >= 255 {
+			// We can only support so many players.  This might even be too much
+			return false
 		}
 		if newPlayerCount >= 25 {
+			// Shrink view area when too many new players in one tick
 			if player.VarInt("viewRadius", 16) > 1 {
 				player.Dec("viewRadius", 1)
 			}
-			break
-		} else {
-			if player.VarInt("viewRadius", 16) < 16 {
-				player.Inc("viewRadius", 1)
-			}
+			return false
+		} else if player.VarInt("viewRadius", 16) < 16 {
+			// Grow view area back out after it had been shrunk
+			player.Inc("viewRadius", 1)
 		}
 		newPlayerCount++
-
+		player.LocalPlayers.Add(p1)
 		p.AddBitmask(p1.Index, 11)
 		// bitwise trick avoids branching to do a manual addition, and maintains binary compatibility with the original protocol
-		p.AddBitmask((p1.X()-player.X())&0x1F, 5)
-		p.AddBitmask((p1.Y()-player.Y())&0x1F, 5)
+		p.AddSignedBits(p1.X()-player.X(), 5)
+		p.AddSignedBits(p1.Y()-player.Y(), 5)
 		p.AddBitmask(p1.Direction(), 4)
-		player.LocalPlayers.Add(p1)
-		//		player.AppearanceLock.RLock()
-		//		if ticket, ok := player.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance)!=0 {
-		//			p.AddBitmask(1, 1)
-		//			player.AppearanceReq = append(player.AppearanceReq, p1)
-		//		} else {
-		p.AddBitmask(0, 1)
-		//		}
-		//		player.AppearanceLock.RUnlock()
-		//				p1.ResetTickables = append(p1.ResetTickables, func() {
-		//					p1.ResetRegionMoved()
-		//					p1.ResetSpriteUpdated()
-		//				})
-	}
-	if counter <= 0 {
-		return nil
-	}
+		player.AppearanceLock.RLock()
+		if ticket, ok := player.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance)!=0 {
+			p.AddBitmask(1, 1)
+			player.AppearanceReq = append(player.AppearanceReq, p1)
+		} else {
+			p.AddBitmask(0, 1)
+		}
+		player.AppearanceLock.RUnlock()
+		return false
+	})
+//	if changed+newPlayerCount <= 0 {
+//		return nil
+//	}
 	return
 }
 
-//PlayerAppearances Builds a net with the view-area player appearance profiles in it.
+//PlayerAppearances Builds a packet with the view-area player appearance profiles in it.
 func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(234)
+	p.AddUint16(0)
+	updateSize := 0
+	list, ok := ourPlayer.Var("bubbleQ")
+	if ok {
+		for _, bubble := range list.([]ItemBubble) {
+			p.AddUint16(uint16(bubble.Owner.ServerIndex()))
+			p.AddUint8(0)
+			p.AddUint16(uint16(bubble.Item))
+			updateSize++
+		}
+		ourPlayer.UnsetVar("bubbleQ")
+	}
+	list, ok = ourPlayer.Var("publicChatQ")
+	if ok {
+		for _, msg := range list.([]ChatMessage) {
+			p.AddUint16(uint16(msg.Owner.ServerIndex()))
+			// what is this 1 for
+			p.AddUint8(1)
+			// TODO: Is this better or is end of message indicator better
+			p.AddUint8(uint8(len(msg.string)))
+			p.AddBytes([]byte(msg.string))
+			updateSize++
+		}
+		ourPlayer.UnsetVar("publicChatQ")
+	}
+	list, ok = ourPlayer.Var("hitsplatQ")
+	if ok {
+		for _, splat := range list.([]HitSplat) {
+			p.AddUint16(uint16(splat.Owner.ServerIndex()))
+			p.AddUint8(2)
+			p.AddUint8(uint8(splat.Damage))
+			p.AddUint8(uint8(splat.Owner.Skills().Current(entity.StatHits)))
+			p.AddUint8(uint8(splat.Owner.Skills().Maximum(entity.StatHits)))
+			updateSize++
+		}
+		ourPlayer.UnsetVar("hitsplatQ")
+	}
+	list, ok = ourPlayer.Var("projectileQ")
+	if ok {
+		for _, shot := range list.([]Projectile) {
+			p.AddUint16(uint16(shot.Owner.ServerIndex()))
+			updateType := 3
+			if shot.Target.IsPlayer() {
+				updateType = 4
+			}
+			p.AddUint8(uint8(updateType))
+
+			p.AddUint16(uint16(shot.Kind))
+			p.AddUint16(uint16(shot.Target.ServerIndex()))
+			updateSize++
+		}
+		ourPlayer.UnsetVar("projectileQ")
+	}
+	list, ok = ourPlayer.Var("questChatQ")
+	if ok {
+		for _, msg := range list.([]ChatMessage) {
+			p.AddUint16(uint16(msg.Owner.ServerIndex()))
+			p.AddUint8(6)
+			if len(msg.string) > 0xFF {
+				// Too long message; truncate to max transmittable length
+				msg.string = msg.string[:255]
+			}
+			msg.string = strutil.ChatFilter.Format(msg.string)
+			// Go defaults as UTF-8; I updated the clients to use UTF-8 as well
+			// messageRaw := strutil.ChatFilter.Encode(message)
+			p.AddUint8(uint8(len(msg.string)))
+			p.AddBytes([]byte(msg.string))
+			updateSize++
+		}
+		ourPlayer.UnsetVar("questChatQ")
+	}
+
+
 	var appearanceList []*Player
-	ourPlayer.RLock()
 	if ourPlayer.SyncMask&SyncAppearance == SyncAppearance {
-		//		ourPlayer.ResetTickables = append(ourPlayer.ResetTickables, func() {
-		//			ourPlayer.ResetAppearanceChanged()
-		//		})
+//		ourPlayer.Tickables.Add(func() bool {
+//			ourPlayer.ResetAppearanceChanged()
+//			return true
+//		})
 		appearanceList = append(appearanceList, ourPlayer)
 	}
-	ourPlayer.RUnlock()
 
 	ourPlayer.AppearanceLock.Lock()
 	appearanceList = append(appearanceList, ourPlayer.AppearanceReq...)
 	ourPlayer.AppearanceReq = ourPlayer.AppearanceReq[:0]
-	ourPlayer.AppearanceLock.Unlock()
-	ourPlayer.LocalPlayers.Range(func(p1 entity.MobileEntity) bool {
-		ourPlayer.AppearanceLock.RLock()
-		if ticket, ok := ourPlayer.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.(*Player).AppearanceTicket() ||
-			p1.(*Player).SyncMask&(SyncRemoved|SyncAppearance) != 0 {
-			appearanceList = append(appearanceList, p1.(*Player))
+	ourPlayer.LocalPlayers.RangePlayers(func(p1 *Player) bool {
+		if ticket, ok := ourPlayer.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.AppearanceTicket() ||
+			p1.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
+			appearanceList = append(appearanceList, p1)
 		}
-		ourPlayer.AppearanceLock.RUnlock()
 		return false
 	})
-	if len(appearanceList) <= 0 {
-		return nil
-	}
-	p.AddUint16(uint16(len(appearanceList))) // Update size
+	ourPlayer.AppearanceLock.Unlock()
 	for _, player := range appearanceList {
 		p.AddUint16(uint16(player.Index))
 		p.AddUint8(5) // player appearances
+		// This ticket is to track changes to the players around us
+		// Everytime this ticket changes, we must send this block out regionally,
+		// containing data that identifies all of the owning players characteristics
 		p.AddUint16(uint16(player.AppearanceTicket()))
 		p.AddUint64(player.UsernameHash())
-		p.AddUint8(12) // length of sprites.  Anything less than 12 will get padded with 0s
+		p.AddUint8(uint8(len(player.Equips))) // length of sprites.  Anything less than 12 will get padded with 0s
 		ourPlayer.AppearanceLock.Lock()
 		ourPlayer.KnownAppearances[player.Index] = player.AppearanceTicket()
 		for i := 0; i < 12; i++ {
 			p.AddUint8(uint8(player.Equips[i]))
 		}
 		ourPlayer.AppearanceLock.Unlock()
+
+		// The below colors will set the human character animation colors used for this player,
+		// it will not apply to any equipment on top of said human character
+		// They are simple array indexes corresponding to arrays built in the client
 		p.AddUint8(uint8(player.Appearance.HeadColor))
 		p.AddUint8(uint8(player.Appearance.BodyColor))
 		p.AddUint8(uint8(player.Appearance.LegsColor))
 		p.AddUint8(uint8(player.Appearance.SkinColor))
+
+		// Combat level is the publically shown level of this player; it gives a general
+		// idea of how good this player is in combat, it's calculated from the levels of the 
+		// first 6 skill types
 		p.AddUint8(uint8(player.Skills().CombatLevel()))
 		p.AddBoolean(player.Skulled())
+		updateSize++
 	}
+	if updateSize <= 0 {
+		return nil
+	}
+	p.SetUint16At(1, uint16(updateSize))
 	return
 }
 
@@ -463,51 +531,53 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 // a removal of all stationary entities within an 8x8 chunk of tiles surrounding the cached location.
 func ClearDistantChunks(player *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(211)
-	chunks, ok := player.Var("distantChunks")
-	if ok {
-		if len(chunks.([]Location)) <= 0 {
-			return nil
-		}
-		for _, chunk := range chunks.([]Location) {
-			p.AddUint16(uint16(chunk.X() - player.X()))
-			p.AddUint16(uint16(chunk.Y() - player.Y()))
-		}
+	ichunks, ok := player.Var("distantChunks")
+	if !ok {
+		return nil
+	}
+	chunks := ichunks.([]Location)
+	if len(chunks) <= 0 {
+		return nil
+	}
+	for _, chunk := range chunks {
+		p.AddUint16(uint16(chunk.X() - player.X()))
+		p.AddUint16(uint16(chunk.Y() - player.Y()))
 	}
 	player.UnsetVar("distantChunks")
 	return
 }
 
-//ObjectLocations Builds a net with the view-area object positions in it, relative to the player.
+//ObjectLocations Builds a packet with the view-area object positions in it, relative to the player.
 // If no new objects are available and no existing local objects are removed from area, returns nil.
 func ObjectLocations(player *Player) (p *net.Packet) {
-	counter := 0
+	changed := 0
 	p = net.NewEmptyPacket(48)
-	var removing = entityList{}
+	var removing = []*Object{}
 	for _, o := range player.LocalObjects.set {
 		if o, ok := o.(*Object); ok {
 			if o.Boundary {
 				continue
 			}
 			if !player.WithinRange(o.Location, player.VarInt("viewRadius", 16)+5) || GetObject(o.X(), o.Y()) != o {
-				if !player.WithinRange(o.Location, 128) {
+				if !player.WithinRange(o.Location, 144) {
+					// suddenly this local entity is now miles away which isn't very local
 					if chunks, ok := player.Var("distantChunks"); ok {
 						player.SetVar("distantChunks", append(chunks.([]Location), o.Location.Clone()))
 					} else {
 						player.SetVar("distantChunks", []Location{o.Location.Clone()})
 					}
-					removing.Add(o)
-					continue
+				} else {
+					p.AddUint16(60000)
+					p.AddUint8(byte(o.X() - player.X()))
+					p.AddUint8(byte(o.Y() - player.Y()))
+					changed++
 				}
-				p.AddUint16(60000)
-				p.AddUint8(byte(o.X() - player.X()))
-				p.AddUint8(byte(o.Y() - player.Y()))
-				removing.Add(o)
-				counter++
+				removing = append(removing, o)
 			}
 		}
 	}
-	for _, p1 := range removing.set {
-		player.LocalObjects.Remove(p1)
+	for _, o := range removing {
+		player.LocalObjects.Remove(o)
 	}
 	for _, o := range player.NewObjects() {
 		if o.Boundary {
@@ -517,48 +587,48 @@ func ObjectLocations(player *Player) (p *net.Packet) {
 		p.AddUint8(byte(o.X() - player.X()))
 		p.AddUint8(byte(o.Y() - player.Y()))
 		player.LocalObjects.Add(o)
-		counter++
+		changed++
 	}
-	if counter == 0 {
+	if changed == 0 {
 		return nil
 	}
 	return
 }
 
-//BoundaryLocations Builds a net with the view-area boundary positions in it, relative to the player.
+//BoundaryLocations Builds a packet with the view-area boundary positions in it, relative to the player.
 // If no new objects are available and no existing local boundarys are removed from area, returns nil.
 func BoundaryLocations(player *Player) (p *net.Packet) {
-	counter := 0
+	changed := 0
 	p = net.NewEmptyPacket(91)
-	var removing = entityList{}
+	var removing = []*Object{}
 	for _, o := range player.LocalObjects.set {
 		if o, ok := o.(*Object); ok {
 			if !o.Boundary {
 				continue
 			}
 			if !player.WithinRange(o.Location, player.VarInt("viewRadius", 16)+5) || GetObject(o.X(), o.Y()) != o {
-				if !player.WithinRange(o.Location, 128) {
+				if !player.WithinRange(o.Location, 144) {
 					if chunks, ok := player.Var("distantChunks"); ok {
 						player.SetVar("distantChunks", append(chunks.([]Location), o.Location.Clone()))
 					} else {
 						player.SetVar("distantChunks", []Location{o.Location.Clone()})
 					}
-					removing.Add(o)
-					continue
+				} else {
+					// network protocol does not support actual removal of previously existing boundary objects
+					// so instead, we replace with an invisible boundary that does not block.
+					// This is seen in canonical game most notably when slicing a spider web with a weapon
+					p.AddUint16(16)
+					p.AddUint8(uint8(o.X() - player.X()))
+					p.AddUint8(uint8(o.Y() - player.Y()))
+					p.AddUint8(o.Direction)
+					changed++
 				}
-				p.AddUint16(16)
-				xOff := o.X() - player.X()
-				yOff := o.Y() - player.Y()
-				p.AddUint8(uint8(xOff))
-				p.AddUint8(uint8(yOff))
-				p.AddUint8(o.Direction)
-				removing.Add(o)
-				counter++
+				removing = append(removing, o)
 			}
 		}
 	}
-	for _, p1 := range removing.set {
-		player.LocalObjects.Remove(p1)
+	for _, o := range removing {
+		player.LocalObjects.Remove(o)
 	}
 	for _, o := range player.NewObjects() {
 		if !o.Boundary {
@@ -569,58 +639,58 @@ func BoundaryLocations(player *Player) (p *net.Packet) {
 		p.AddUint8(byte(o.Y() - player.Y()))
 		p.AddUint8(o.Direction)
 		player.LocalObjects.Add(o)
-		counter++
+		changed++
 	}
-	if counter == 0 {
+	if changed == 0 {
 		return nil
 	}
 	return
 }
 
-//ItemLocations Builds a net with the view-area item positions in it, relative to the player.
+//ItemLocations Builds a packet with the view-area item positions in it, relative to the player.
 // If no new items are available and no existing items are removed from area, returns nil.
 func ItemLocations(player *Player) (p *net.Packet) {
-	counter := 0
+	changed := 0
 	p = net.NewEmptyPacket(99)
-	var removing = entityList{}
+	var removing = []*GroundItem{}
 	for _, i := range player.LocalItems.set {
 		if i, ok := i.(*GroundItem); ok {
 			x, y := i.X(), i.Y()
 			if !player.WithinRange(i.Location, player.VarInt("viewRadius", 16)) {
-				if !player.WithinRange(i.Location, 128) {
+				if !player.WithinRange(i.Location, 144) {
 					if chunks, ok := player.Var("distantChunks"); ok {
 						player.SetVar("distantChunks", append(chunks.([]Location), i.Location.Clone()))
 					} else {
 						player.SetVar("distantChunks", []Location{i.Location.Clone()})
 					}
-					removing.Add(i)
-					continue
+				} else {
+					// If first byte is 0xFF, all ground items at this location get cleared
+					p.AddUint8(255)
+					p.AddUint8(byte(x - player.X()))
+					p.AddUint8(byte(y - player.Y()))
+					changed++
 				}
-				p.AddUint8(255)
-				p.AddUint8(byte(x - player.X()))
-				p.AddUint8(byte(y - player.Y()))
-				removing.Add(i)
-				counter++
+				removing = append(removing, i)
 			} else if !i.VisibleTo(player) || !getRegion(x, y).Items.Contains(i) {
-				p.AddUint16(uint16(i.ID + 0x8000)) // + 32768
+				p.AddUint16(uint16(i.ID | 0x8000)) // turn remove by ID bit on
 				p.AddUint8(byte(x - player.X()))
 				p.AddUint8(byte(y - player.Y()))
-				removing.Add(i)
-				counter++
+				removing = append(removing, i)
+				changed++
 			}
 		}
 	}
-	for _, p1 := range removing.set {
-		player.LocalItems.Remove(p1)
+	for _, i := range removing {
+		player.LocalItems.Remove(i)
 	}
 	for _, i := range player.NewItems() {
 		p.AddUint16(uint16(i.ID))
 		p.AddUint8(byte(i.X() - player.X()))
 		p.AddUint8(byte(i.Y() - player.Y()))
 		player.LocalItems.Add(i)
-		counter++
+		changed++
 	}
-	if counter == 0 {
+	if changed == 0 {
 		return nil
 	}
 	return
@@ -629,33 +699,34 @@ func ItemLocations(player *Player) (p *net.Packet) {
 //OpenChangeAppearance The appearance changing window.
 var OpenChangeAppearance = net.NewEmptyPacket(59)
 
-//InventoryItems Builds a net containing the players inventory items.
+//InventoryItems Builds a packet containing the players inventory items.
 func InventoryItems(player *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(53)
 	p.AddUint8(uint8(player.Inventory.Size()))
 	player.Inventory.Range(func(item *Item) bool {
 		if item.Worn {
-			p.AddUint16(uint16(item.ID + 0x8000))
+			// turn equipped bit on
+			p.AddUint16(uint16(item.ID | 0x8000))
 		} else {
 			p.AddUint16(uint16(item.ID))
 		}
 		if definitions.Items[item.ID].Stackable {
-			p.AddUint8or32(uint32(item.Amount))
+			p.AddSmart08_32(item.Amount)
 		}
 		return true
 	})
 	return
 }
 
-//FightMode Builds a net with the players fight mode information in it.
+//FightMode Builds a packet with the players fight mode information in it.
 func FightMode(player *Player) (p *net.Packet) {
-	// TODO: 204
+	// TODO: add to 204
 	p = net.NewEmptyPacket(132)
 	p.AddUint8(byte(player.FightMode()))
 	return p
 }
 
-//Fatigue Builds a net with the players fatigue percentage in it.
+//Fatigue Builds a packet with the players fatigue percentage in it.
 func Fatigue(player *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(114)
 	// Fatigue is converted to percentage differently in the client.
@@ -664,25 +735,13 @@ func Fatigue(player *Player) (p *net.Packet) {
 	return p
 }
 
-//ClientSettings Builds a net containing the players client settings, e.g camera mode, mouse mode, sound fx...
+//ClientSettings Builds a packet containing the players client settings, e.g camera mode, mouse mode, sound fx...
 func ClientSettings(player *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(240)
 	// TODO: Right IDs?
-	if player.GetClientSetting(0) {
-		p.AddUint8(1)
-	} else {
-		p.AddUint8(0)
-	}
-	if player.GetClientSetting(2) {
-		p.AddUint8(1)
-	} else {
-		p.AddUint8(0)
-	}
-	if player.GetClientSetting(3) {
-		p.AddUint8(1)
-	} else {
-		p.AddUint8(0)
-	}
+	p.AddBoolean(player.GetClientSetting(0))
+	p.AddBoolean(player.GetClientSetting(2))
+	p.AddBoolean(player.GetClientSetting(3))
 
 	//	p.AddUint8(0) // Camera auto/manual?
 	//	p.AddUint8(0) // Mouse buttons 1 or 2?
@@ -690,9 +749,9 @@ func ClientSettings(player *Player) (p *net.Packet) {
 	return
 }
 
-//PlayerStats Builds a net containing all the player's stat information and returns it.
-func PlayerStats(player *Player) *net.Packet {
-	p := net.NewEmptyPacket(156)
+//PlayerStats Builds a packet containing all the player's stat information and returns it.
+func PlayerStats(player *Player) (p *net.Packet) {
+	p = net.NewEmptyPacket(156)
 	for i := 0; i < 18; i++ {
 		p.AddUint8(uint8(player.Skills().Current(i)))
 	}
@@ -702,36 +761,36 @@ func PlayerStats(player *Player) *net.Packet {
 	}
 
 	for i := 0; i < 18; i++ {
-		p.AddUint32(uint32(player.Skills().Experience(i) * 4))
+		p.AddUint32(uint32(player.Skills().Experience(i)))
 	}
 	return p
 }
 
-//PlayerStat Builds a net containing player's stat information for skill at idx and returns it.
-func PlayerExperience(player *Player, idx int) *net.Packet {
-	p := net.NewEmptyPacket(33)
+//PlayerStat Builds a packet containing player's stat information for skill at idx and returns it.
+func PlayerExperience(player *Player, idx int) (p *net.Packet) {
+	p = net.NewEmptyPacket(33)
 	p.AddUint8(byte(idx))
-	p.AddUint32(uint32(player.Skills().Experience(idx)) * 4)
+	p.AddUint32(uint32(player.Skills().Experience(idx)) )
 	return p
 }
 
-func PlayerCombatPoints(player *Player) *net.Packet {
-	p := net.NewEmptyPacket(242)
+func PlayerCombatPoints(player *Player) (p *net.Packet) {
+	p = net.NewEmptyPacket(242)
 	p.AddUint32(uint32(player.Attributes.VarInt("combatPoints", 0)))
 	return p
 }
 
-//PlayerStat Builds a net containing player's stat information for skill at idx and returns it.
-func PlayerStat(player *Player, idx int) *net.Packet {
-	p := net.NewEmptyPacket(159)
+//PlayerStat Builds a packet containing player's stat information for skill at idx and returns it.
+func PlayerStat(player *Player, idx int) (p *net.Packet) {
+	p = net.NewEmptyPacket(159)
 	p.AddUint8(byte(idx))
 	p.AddUint8(byte(player.Skills().Current(idx)))
 	p.AddUint8(byte(player.Skills().Maximum(idx)))
-	p.AddUint32(uint32(player.Skills().Experience(idx)) * 4)
+	p.AddUint32(uint32(player.Skills().Experience(idx)))
 	return p
 }
 
-//EquipmentStats Builds a net with the players equipment statistics in it.
+//EquipmentStats Builds a packet with the players equipment statistics in it.
 func EquipmentStats(player *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(153)
 	p.AddUint8(uint8(player.ArmourPoints()))
@@ -740,36 +799,38 @@ func EquipmentStats(player *Player) (p *net.Packet) {
 	p.AddUint8(uint8(player.MagicPoints()))
 	p.AddUint8(uint8(player.PrayerPoints()))
 	p.AddUint8(uint8(player.RangedPoints()))
+	p.AddUint8(uint8(player.VarInt("questPoints", 0xFF)))
 	return
 }
 
 var BankClose = net.NewEmptyPacket(203)
 
-func BankOpen(player *Player) *net.Packet {
-	p := net.NewEmptyPacket(42)
-	p.AddUint8(uint8(player.Bank().Size()))
-	p.AddUint8(uint8(player.Bank().Capacity))
-	for _, item := range player.Bank().List {
+func BankOpen(player *Player) (p *net.Packet) {
+	p = net.NewEmptyPacket(42)
+	p.AddUint8(uint8(player.bank.Size()))
+	p.AddUint8(uint8(player.bank.Capacity))
+	player.bank.Range(func(item *Item) bool {
 		p.AddUint16(uint16(item.ID))
 		p.AddUint8or32(uint32(item.Amount))
-	}
+		return false
+	})
 	return p
 }
 
-func BankUpdateItem(index, id, amount int) *net.Packet {
-	p := net.NewEmptyPacket(249)
+func BankUpdateItem(index, id, amount int) (p *net.Packet) {
+	p = net.NewEmptyPacket(249)
 	p.AddUint8(uint8(index))
 	p.AddUint16(uint16(id))
 	p.AddUint8or32(uint32(amount))
 	return p
 }
 
-//DuelOpen Builds a net to open a duel negotiation window
-func DuelOpen(targetIndex int) *net.Packet {
+//DuelOpen Builds a packet to open a duel negotiation window
+func DuelOpen(targetIndex int) (p *net.Packet) {
 	return net.NewEmptyPacket(176).AddUint16(uint16(targetIndex))
 }
 
-//DuelUpdate Builds a net to update a duel offer
+//DuelUpdate Builds a packet to update a duel offer
 func DuelUpdate(player *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(6)
 	p.AddUint8(uint8(player.DuelOffer.Size()))
@@ -781,14 +842,14 @@ func DuelUpdate(player *Player) (p *net.Packet) {
 	return
 }
 
-//DuelTargetAccept Builds a net to change duel targets accepted status
-func DuelTargetAccept(accepted bool) *net.Packet {
+//DuelTargetAccept Builds a packet to change duel targets accepted status
+func DuelTargetAccept(accepted bool) (p *net.Packet) {
 	return net.NewEmptyPacket(253).AddBoolean(accepted)
 }
 
-//DuelOptions Builds a net to update duel fight options
-func DuelOptions(player *Player) *net.Packet {
-	p := net.NewEmptyPacket(30)
+//DuelOptions Builds a packet to update duel fight options
+func DuelOptions(player *Player) (p *net.Packet) {
+	p = net.NewEmptyPacket(30)
 	p.AddBoolean(!player.VarBool("duelCanRetreat", true))
 	p.AddBoolean(!player.VarBool("duelCanMagic", true))
 	p.AddBoolean(!player.VarBool("duelCanPrayer", true))
@@ -796,11 +857,12 @@ func DuelOptions(player *Player) *net.Packet {
 	return p
 }
 
-//DuelConfirmationOpen Builds a net to open the duel confirmation page
-func DuelConfirmationOpen(player, other *Player) *net.Packet {
-	p := net.NewEmptyPacket(172)
+//DuelConfirmationOpen Builds a packet to open the duel confirmation page
+func DuelConfirmationOpen(player, other *Player) (p *net.Packet) {
+	p = net.NewEmptyPacket(172)
 
 	p.AddUint64(other.UsernameHash())
+	
 	p.AddUint8(uint8(other.DuelOffer.Size()))
 	other.DuelOffer.Range(func(item *Item) bool {
 		p.AddUint16(uint16(item.ID))
@@ -819,8 +881,7 @@ func DuelConfirmationOpen(player, other *Player) *net.Packet {
 	p.AddBoolean(!player.VarBool("duelCanMagic", true))
 	p.AddBoolean(!player.VarBool("duelCanPrayer", true))
 	p.AddBoolean(!player.VarBool("duelCanEquip", true))
-
-	return p
+	return
 }
 
 var DuelClose = net.NewEmptyPacket(225)
@@ -828,12 +889,12 @@ var DuelClose = net.NewEmptyPacket(225)
 //TradeClose Closes a trade window
 var TradeClose = net.NewEmptyPacket(128)
 
-//TradeOpen Builds a net to open a trade window
-func TradeOpen(targetIndex int) *net.Packet {
+//TradeOpen Builds a packet to open a trade window
+func TradeOpen(targetIndex int) (p *net.Packet) {
 	return net.NewEmptyPacket(92).AddUint16(uint16(targetIndex))
 }
 
-//TradeUpdate Builds a net to update a trade offer
+//TradeUpdate Builds a packet to update a trade offer
 func TradeUpdate(player *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(97)
 	p.AddUint8(uint8(player.TradeOffer.Size()))
@@ -845,19 +906,19 @@ func TradeUpdate(player *Player) (p *net.Packet) {
 	return
 }
 
-//TradeTargetAccept Builds a net to change trade targets accepted status
-func TradeTargetAccept(accepted bool) *net.Packet {
+//TradeTargetAccept Builds a packet to change trade targets accepted status
+func TradeTargetAccept(accepted bool) (p *net.Packet) {
 	return net.NewEmptyPacket(162).AddBoolean(accepted)
 }
 
-//TradeAccept Builds a net to change trade targets accepted status
-func TradeAccept(accepted bool) *net.Packet {
+//TradeAccept Builds a packet to change trade targets accepted status
+func TradeAccept(accepted bool) (p *net.Packet) {
 	return net.NewEmptyPacket(15).AddBoolean(accepted)
 }
 
-//TradeConfirmationOpen Builds a net to open the trade confirmation page
-func TradeConfirmationOpen(player, other *Player) *net.Packet {
-	p := net.NewEmptyPacket(20)
+//TradeConfirmationOpen Builds a packet to open the trade confirmation page
+func TradeConfirmationOpen(player, other *Player) (p *net.Packet) {
+	p = net.NewEmptyPacket(20)
 
 	p.AddUint64(other.UsernameHash())
 	p.AddUint8(uint8(other.TradeOffer.Size()))
@@ -878,7 +939,7 @@ func TradeConfirmationOpen(player, other *Player) *net.Packet {
 }
 
 //Logout Resets client to login welcome screen
-var Logout = net.NewPacket(4, []byte{4})
+var Logout = net.NewEmptyPacket(4)
 
 //WelcomeMessage Welcome to the game on login
 var WelcomeMessage = ServerMessage("Welcome to RuneScape")
@@ -895,14 +956,14 @@ var CannotLogout = net.NewEmptyPacket(183)
 //DefaultActionMessage This is a message to inform the player that the action they were trying to perform didn't do anything.
 var DefaultActionMessage = ServerMessage("Nothing interesting happens.")
 
-//ServerMessage Builds a net containing a game message to display in the chat box.
+//ServerMessage Builds a packet containing a game message to display in the chat box.
 func ServerMessage(msg string) (p *net.Packet) {
 	p = net.NewEmptyPacket(131)
 	p.AddBytes([]byte(msg))
 	return
 }
 
-//TeleBubble Builds a net to draw a teleport bubble at the specified offsets.
+//TeleBubble Builds a packet to draw a teleport bubble at the specified offsets.
 func TeleBubble(offsetX, offsetY int) (p *net.Packet) {
 	p = net.NewEmptyPacket(36)
 	p.AddUint8(0) // type, 0 is mobs, 1 is stationary entities, e.g telegrab
@@ -911,17 +972,18 @@ func TeleBubble(offsetX, offsetY int) (p *net.Packet) {
 	return
 }
 
-func SystemUpdate(t int64) *net.Packet {
-	p := net.NewEmptyPacket(52)
+//SystemUpdate A packet with the time until servers next system update, measured in server ticks (640ms intervals)
+func SystemUpdate(t int64) (p *net.Packet) {
+	p = net.NewEmptyPacket(52)
 	p.AddUint16(uint16(t / 640))
 	return p
 }
 
-func Sound(name string) *net.Packet {
+func Sound(name string) (p *net.Packet) {
 	return net.NewEmptyPacket(204).AddBytes([]byte(name))
 }
 
-//LoginBox Builds a net to create a welcome box on the client with the inactiveDays since login, and lastIP connected from.
+//LoginBox Builds a packet to create a welcome box on the client with the inactiveDays since login, and lastIP connected from.
 func LoginBox(inactiveDays int, lastIP string) (p *net.Packet) {
 	p = net.NewEmptyPacket(182)
 	p.AddUint32(uint32(strutil.IPToInteger(lastIP))) // IP
@@ -933,27 +995,23 @@ func LoginBox(inactiveDays int, lastIP string) (p *net.Packet) {
 	return p
 }
 
-//BigInformationBox Builds a net to trigger the opening of a large black text window with msg as its contents
+//BigInformationBox Builds a packet to trigger the opening of a large black text window with msg as its contents
 func BigInformationBox(msg string) (p *net.Packet) {
-	p = net.NewEmptyPacket(222)
-	p.AddBytes([]byte(msg))
-	return p
+	return net.NewEmptyPacket(222).AddBytes([]byte(msg))
 }
 
-//BigInformationBox Builds a net to trigger the opening of a small black text window with msg as its contents
+//InformationBox Builds a packet to trigger the opening of a small black text window with msg as its contents
 func InformationBox(msg string) (p *net.Packet) {
-	p = net.NewEmptyPacket(89)
-	p.AddBytes([]byte(msg))
-	return p
+	return net.NewEmptyPacket(89).AddBytes([]byte(msg))
 }
 
 //HandshakeResponse Builds a bare net with the login response code.
-func HandshakeResponse(v int) *net.Packet {
-	return net.NewReplyPacket([]byte{byte(v)})
+func HandshakeResponse(v int) (p *net.Packet) {
+	return &net.Packet{FrameBuffer: []byte{ byte(v) }}
 }
 
-//PlaneInfo Builds a net to update information about the client environment, e.g height, player index...
-func PlaneInfo(player *Player) *net.Packet {
+//PlaneInfo Builds a packet to update information about the client environment, e.g height, player index...
+func PlaneInfo(player *Player) (p *net.Packet) {
 	playerInfo := net.NewEmptyPacket(25)
 	playerInfo.AddUint16(uint16(player.Index))
 	playerInfo.AddUint16(2304) // alleged width, tiles per sector also...

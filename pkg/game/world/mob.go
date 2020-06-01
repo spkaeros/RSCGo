@@ -55,6 +55,7 @@ const (
 )
 
 const (
+	SyncInit = 0
 	SyncSprite = 1 << iota
 	SyncMoved
 	SyncRemoved
@@ -161,10 +162,11 @@ func (l *MobList) Get(idx int) entity.MobileEntity {
 
 //Mob Represents a mobile entity within the game world.
 type Mob struct {
-	Entity
-	entity.AttributeList
 	SyncMask       int
-	ResetTickables []func()
+	skills		   entity.SkillTable
+	path		   *Pathway
+	Entity
+	*entity.AttributeList
 	sync.RWMutex
 }
 
@@ -198,6 +200,9 @@ func (p *Player) Type() entity.Type {
 }
 
 func (p *Player) ServerIndex() int {
+	if p == nil {
+		return -1
+	}
 	return p.Index
 }
 
@@ -219,6 +224,10 @@ func (n *NPC) IsPlayer() bool {
 
 func (n *NPC) IsNpc() bool {
 	return true
+}
+
+func (m *Mob) Skulls() map[uint64]time.Time {
+	return nil
 }
 
 //Busy Returns true if this mobs state is anything other than idle. otherwise returns false.
@@ -332,7 +341,8 @@ func (m *Mob) ResetSpriteUpdated() {
 
 //SetPath Sets the mob's current pathway to path.  If path is nil, effectively resets the mobs path.
 func (m *Mob) SetPath(path *Pathway) {
-	m.SetVar("path", path)
+	m.path = path
+	
 }
 
 func (m *Mob) WalkTo(end Location) bool {
@@ -343,17 +353,13 @@ func (m *Mob) WalkTo(end Location) bool {
 
 //Path returns the path that this mob is trying to traverse.
 func (m *Mob) Path() *Pathway {
-	v, ok := m.Var("path")
-	if ok {
-		return v.(*Pathway)
-	}
-	return nil
+	return m.path
 }
 
 //ResetPath Sets the mobs path to nil, to stop the traversal of the path instantly
 func (m *Mob) ResetPath() {
-	m.UnsetVar("path")
 	m.UnsetVar("pathLength")
+	m.path = nil
 }
 
 //FinishedPath Returns true if the mobs path is nil, the paths current waypoint exceeds the number of waypoints available, or the next tile in the path is not a valid location, implying that we have reached our destination.
@@ -411,7 +417,7 @@ func (n *NPC) Teleport(x, y int) {
 }
 
 func (m *Mob) SessionCache() *entity.AttributeList {
-	return &m.AttributeList
+	return m.AttributeList
 }
 
 func (m *Mob) State() int {
@@ -596,7 +602,7 @@ func (m *Mob) SetRangedPoints(i int) {
 }
 
 func (m *Mob) Skills() *entity.SkillTable {
-	return m.VarChecked("skills").(*entity.SkillTable)
+	return &m.skills
 }
 
 func (m *Mob) PrayerModifiers() [3]float64 {
@@ -624,33 +630,6 @@ func (m *Mob) PrayerModifiers() [3]float64 {
 			modifiers[entity.StatAttack] = mods[idx]
 		}
 	}
-	/*	if m.VarBool("prayer0", false) {
-			modifiers[1] += .05
-		}
-		if m.VarBool("prayer1", false) {
-			modifiers[2] += .05
-		}
-		if m.VarBool("prayer2", false) {
-			modifiers[0] += .05
-		}
-		if m.VarBool("prayer3", false) {
-			modifiers[1] += .1
-		}
-		if m.VarBool("prayer4", false) {
-			modifiers[2] += .1
-		}
-		if m.VarBool("prayer5", false) {
-			modifiers[0] += .1
-		}
-		if m.VarBool("prayer9", false) {
-			modifiers[1] += .15
-		}
-		if m.VarBool("prayer10", false) {
-			modifiers[2] += .15
-		}
-		if m.VarBool("prayer11", false) {
-			modifiers[0] += .15
-		}*/
 	return modifiers
 }
 
@@ -662,12 +641,6 @@ func (m *Mob) StyleBonus(stat int) int {
 	if mode == (stat+1)%3+1 {
 		return 3
 	}
-	//	if (mode == 1 && stat == entity.StatStrength) || (mode == 2 && stat == entity.StatAttack) || (mode == 3 && stat == entity.StatDefense) {
-	//		return 3
-	//	}
-	//	modes := []int { entity.StatStrength, entity.StatAttack, entity.StatDefense }
-	//	if mode == 0 {
-	//		return 1
 	return 0
 }
 
@@ -679,13 +652,11 @@ func (m *Mob) MaxMeleeDamage() float64 {
 //AttackPoints Calculates and returns the accuracy capability of this mob, based on many variables, as a single variable.
 func (m *Mob) AttackPoints() float64 {
 	return ((float64(m.Skills().Current(entity.StatAttack))*m.PrayerModifiers()[entity.StatAttack])+float64(m.StyleBonus(entity.StatAttack)))*((float64(m.AimPoints())*0.00175)+0.1) + 1.05
-	//	return (float64(m.Skills().Current(StatAttack)) * m.PrayerModifiers()[StatAttack]) + float64(m.StyleBonus(StatAttack)+m.AimPoints())
 }
 
 //DefensePoints Calculates and returns the defensive capability of this mob, based on many variables, as a single variable.
 func (m *Mob) DefensePoints() float64 {
 	return ((float64(m.Skills().Current(entity.StatDefense))*m.PrayerModifiers()[entity.StatDefense])+float64(m.StyleBonus(entity.StatDefense)))*((float64(m.ArmourPoints())*0.00175)+0.1) + 1.05
-	//	return (float64(m.Skills().Current(StatDefense)) * m.PrayerModifiers()[StatDefense]) + float64(m.StyleBonus(StatDefense)+m.ArmourPoints())
 }
 
 func (m *Mob) CombatRng() *rand.Rand {
@@ -741,4 +712,17 @@ func (m *Mob) MeleeDamage(target entity.MobileEntity) int {
 	}
 
 	return 0
+}
+
+func (m *Mob) Random(low, high int) int {
+	return int(m.Isaac().Int63n(int64(high-low))) + low
+}
+
+type HitSplat struct {
+	Owner entity.MobileEntity
+	Damage int
+}
+
+func NewHitsplat(target entity.MobileEntity, damage int) HitSplat {
+	return HitSplat{target, damage}
 }

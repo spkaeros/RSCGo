@@ -27,6 +27,8 @@ func ConnectEntityService() {
 
 //Objects attempts to load all the scenary object definitions from the SQL service
 func (s *sqlService) Objects() (objects []definitions.ScenaryDefinition) {
+	s.Lock()
+	defer s.Unlock()
 	s.context = context.Background()
 	db := s.connect(s.context)
 	defer db.Close()
@@ -48,6 +50,8 @@ func (s *sqlService) Objects() (objects []definitions.ScenaryDefinition) {
 
 //Boundarys attempts to load all the boundary game object definitions from the SQL service
 func (s *sqlService) Boundarys() (boundarys []definitions.BoundaryDefinition) {
+	s.Lock()
+	defer s.Unlock()
 	s.context = context.Background()
 	db := s.connect(s.context)
 	defer db.Close()
@@ -69,6 +73,8 @@ func (s *sqlService) Boundarys() (boundarys []definitions.BoundaryDefinition) {
 
 //Tiles attempts to load all the tile overlay definitions from the SQL service
 func (s *sqlService) Tiles() (overlays []definitions.TileDefinition) {
+	s.Lock()
+	defer s.Unlock()
 	s.context = context.Background()
 	db := s.connect(s.context)
 	defer db.Close()
@@ -90,6 +96,8 @@ func (s *sqlService) Tiles() (overlays []definitions.TileDefinition) {
 
 //Items attempts to load all the item definitions from the SQL service
 func (s *sqlService) Items() (items []definitions.ItemDefinition) {
+	s.Lock()
+	defer s.Unlock()
 	s.context = context.Background()
 	db := s.connect(s.context)
 	defer db.Close()
@@ -139,6 +147,8 @@ func (s *sqlService) Items() (items []definitions.ItemDefinition) {
 
 //Npcs attempts to load all the npc definitions from the SQL service
 func (s *sqlService) Npcs() (npcs []definitions.NpcDefinition) {
+	s.Lock()
+	defer s.Unlock()
 	s.context = context.Background()
 	db := s.connect(s.context)
 	defer db.Close()

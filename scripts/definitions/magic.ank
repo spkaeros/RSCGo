@@ -152,11 +152,10 @@ func newWeakenHandler(depleteStat, depletePercent) {
 				player.Message("@que@Your opponent already has weakened " + skillName(depleteStat))
 				return
 			}
-			projectile = newProjectile(player, spell.target, 1)
 			for p in player.NearbyPlayers() {
-				p.SendPacket(projectile)
+				p.QueueProjectile(player, spell.target, 1)
 			}
-			player.SendPacket(projectile)
+			player.QueueProjectile(player, spell.target, 1)
 			spell.target.Skills().SetCur(depleteStat, newStat)
 			targetp = asPlayer(spell.target)
 			if targetp != nil {
@@ -168,35 +167,16 @@ func newWeakenHandler(depleteStat, depletePercent) {
 }
 
 func fireMissile(player, spell, dmg) {
-/*
-	// Deprecated this terrible attempt to produce a gaussian bell from reines et al
-	odds = {}
-	rat = 45.0 + toFloat(player.MagicPoints())
-	peak = dmg/100.0*rat
-	dip = peak / 3.0
-
-	cur = 100*(dmg+(3/dmg))
-	for i = 0; i <= dmg; i++ {
-		odds[i] = cur
-		if i < dip || i > peak {
-			cur -= 3*(dmg+1)
-		} else {
-			cur += 3*(dmg+1)
-		}
-	}
-	hit = math.Min(spell.target.Skills().Current(HITPOINTS), weightedChance(odds))
-*/
 	hit = player.MagicDamage(spell.target, dmg)
 	spell.target.Skills().DecreaseCur(HITPOINTS, hit)
 	if spell.target.Skills().Current(HITPOINTS) <= 0 {
 		spell.target.Killed(player)
 		return
 	}
-	projectile = newProjectile(player, spell.target, 1)
 	for p in player.NearbyPlayers() {
-		p.SendPacket(projectile)
+		p.QueueProjectile(player, spell.target, 1)
 	}
-	player.SendPacket(projectile)
+	player.QueueProjectile(player, spell.target, 1)
 	spell.target.Damage(hit)
 	targetp = asPlayer(spell.target)
 	if targetp != nil {

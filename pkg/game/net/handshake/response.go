@@ -11,10 +11,8 @@ package handshake
 
 import (
 	"strconv"
-	"strings"
 	"time"
 
-	"github.com/spkaeros/rscgo/pkg/engine/tasks"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -26,10 +24,9 @@ var registerThrottle = ipThrottle.NewThrottle()
 
 type (
 	//ResponseType A networking handshake response identifier code.
-	// To be useful, this should be used in a ResponseListener struct together with ResponseCode.
 	ResponseType int
 	//ResponseCode A valid networking handshake response code.  In practice as long as this type is being used,
-	// it's a safe bet that whatever the contents, it is a valid handshake response for the server.
+	// it's a safe bet that it is a valid handshake response.
 	ResponseCode int
 )
 
@@ -46,21 +43,15 @@ type response struct {
 }
 
 func (r response) send(requestKind string, p *world.Player) {
-	name := "'" + p.Username()
-	if len(name) == 0 || strings.ToLower(name) == "nil" {
-		name = "Unidentified Player"
-	}
-	name += "'@'" + p.CurrentIP() + "'"
-	log.Debugf("%s{%s}: %s", requestKind, name, r)
-	packet := net.NewEmptyPacket(0)
-	packet.AddUint8(byte(r.ResponseCode))
-	p.SendPacket(packet)
+	log.Debugf("{ %s for %s@%s }\t%s\n", requestKind, p.Username(), p.CurrentIP(), r)
+	p.OutQueue <- net.Packet{FrameBuffer: []byte{byte(r.ResponseCode)}}
+	p.FlushOutgoing()
 }
 
 func (r response) String() string {
 	msg := ""
 	if r.IsValid() {
-		msg += "Succeeded"
+		msg += "Operation Succeeded"
 		rank := r.ResponseCode - ResponseCode(23)
 		switch rank {
 		case 1:
@@ -70,6 +61,7 @@ func (r response) String() string {
 			msg += " as administrator"
 			break
 		default:
+			msg += " as player"
 			break
 		}
 	} else {
@@ -81,19 +73,23 @@ func (r response) String() string {
 	msg += " (code:" + strconv.Itoa(int(r.ResponseCode)) + "" + r.description + ")"
 
 	return msg
-	//	return kind + ": { Player: '" + name + "'@'" + .CurrentIP() + "' }: Response: " + r.result.reason
-	//	return "[" + kind + "] - Response: '" + strconv.Itoa(int(r.result)) + "'"
+}
+
+//NewLoginListener returns a pointer to a new ResponseListener that is ready to listen for login handshakes.
+func NewLoginListener(p *world.Player) *ResponseListener {
+	return newListener(p, LoginCode)
+	// return &ResponseListener{listener: make(chan response), kind: LoginCode, result: response{ResponseCode(-2), "Unresolved"}, status: "Resolving..."}
 }
 
 //NewRegistrationListener returns a pointer to a new ResponseListener that is ready to listen for
 // registration handshakes.
 func NewRegistrationListener(p *world.Player) *ResponseListener {
-	return &ResponseListener{listener: make(chan response), kind: RegisterCode, result: response{ResponseCode(-2), ""}, status: "FAIL"}
+	return newListener(p, RegisterCode)
+	// return &ResponseListener{listener: make(chan response), kind: RegisterCode, result: response{ResponseCode(-2), "Unresolved"}, status: "Resolving..."}
 }
 
-//NewLoginListener returns a pointer to a new ResponseListener that is ready to listen for login handshakes.
-func NewLoginListener(p *world.Player) *ResponseListener {
-	return &ResponseListener{listener: make(chan response), kind: LoginCode, result: response{ResponseCode(-2), ""}, status: "FAIL"}
+func newListener(p *world.Player, kind ResponseType) *ResponseListener {
+	return &ResponseListener{listener: make(chan response), kind: kind, result: response{description: "Unresolved"}, status: "Resolving..."}
 }
 
 //IsValid is used to determine whether the ResponseCode is for a successful handshake or not.
@@ -219,7 +215,7 @@ const (
 //ResponseListener This method will block until a response to send to the client is received from our data workers, or if this doesn't occur, 10 seconds after it was called.
 func (r *ResponseListener) attachPlayer(p *world.Player) chan response {
 	// schedules the channel listener on the game engines thread
-	tasks.TickList.Add(func() bool {
+	go func() bool {
 		defer close(r.listener)
 		select {
 		case res := <-r.listener:
@@ -233,13 +229,12 @@ func (r *ResponseListener) attachPlayer(p *world.Player) chan response {
 				if res.IsValid() {
 					p.SetConnected(true)
 					p.Initialize()
-					return true 
+					return true
 				}
 				p.Destroy()
 				if res.ResponseCode == ResponseBadPassword {
 					loginThrottle.Add(p.CurrentIP())
 				}
-				//				log.Debugf("%s (%s)", r, status)
 			case RegisterCode:
 				if registerThrottle.Recent(p.CurrentIP(), time.Hour) >= 2 {
 					res.ResponseCode = ResponseSpamTimeout
@@ -247,18 +242,17 @@ func (r *ResponseListener) attachPlayer(p *world.Player) chan response {
 				res.send("RegisterRequest", p)
 				p.Destroy()
 				// below is to cap registration of new profiles to 2 per hour per IP address
-				//				p.SendPacket(world.HandshakeResponse(int(res.ResponseCode)))
 				if res.ResponseCode == ResponseRegisterSuccess {
 					registerThrottle.Add(p.CurrentIP())
 					return true
 				}
 			}
-			return true 
+			return true
 		case <-time.After(time.Second * 10):
 			p.SendPacket(world.HandshakeResponse(-1))
 			p.Destroy()
 			return true
 		}
-	})
+	}()
 	return r.listener
 }

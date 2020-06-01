@@ -20,14 +20,14 @@ import (
 // should be removed from the set it belongs to upon completion
 type Task func() bool
 
-type tasks []Task
+type Tasks []Task
 
 //TaskList is a concurrency-safe list of Task closures mapped to simple string identifiers.
 // The main purpose for this is to provide the ability to schedule functions to run on the
 // game engines thread, to synchronize certain sensitive events.
 // It is guarded by a sync.RWMutex.
 type TaskList struct {
-	tasks
+	Tasks
 	sync.RWMutex
 }
 
@@ -36,11 +36,22 @@ type TaskList struct {
 // or false if they are to be ran again on the next engine cycle.
 var TickList = &TaskList{}
 
+func Schedule(ticks int, call func()) {
+	TickList.Add(func() bool {
+		ticks -= 1
+		if ticks <= 0 {
+			call()
+			return true
+		}
+		return false
+	})
+}
+
 //Range runs fn(Task) for each Task in the list.
 func (t *TaskList) Range(fn func(Task)) {
 	t.RLock()
 	defer t.RUnlock()
-	for _, task := range t.tasks {
+	for _, task := range t.Tasks {
 		if fn == nil {
 			log.Debug("niltask found!")
 			continue
@@ -52,11 +63,11 @@ func (t *TaskList) Range(fn func(Task)) {
 //RunSynchronous will execute every task in the list sequentially, one at a time.  The order in which they run is
 // basically unpredictable.  Upon completion, the tasks that have returned true will be removed from the set, then
 // the calling function will resume execution.
-func (t *TaskList) RunSynchronous() {
+func (t *TaskList) RunSynchronous() Tasks {
 	t.Lock()
 	defer t.Unlock()
 	retainedTasks := []Task{}
-	for _, task := range t.tasks {
+	for _, task := range t.Tasks {
 		if task() {
 			if config.Verbosity >= 2 {
 				log.Debugf("task finished; removing from collection.\n")
@@ -65,7 +76,8 @@ func (t *TaskList) RunSynchronous() {
 			retainedTasks = append(retainedTasks, task)
 		}
 	}
-	t.tasks = append(t.tasks[:0], retainedTasks[:]...)
+//	t.Tasks = append(t.Tasks[:0], retainedTasks[:]...)
+	return retainedTasks
 }
 
 //RunAsynchronous will attempt to run every task in the list at the same time, but not necessarily in parallel
@@ -74,40 +86,53 @@ func (t *TaskList) RunSynchronous() {
 // Upon completion of all tasks, it will remove any tasks that had returned true, then the caller will resume execution.
 // TODO: Probably some form of pooling?
 func (t *TaskList) RunAsynchronous() {
-	retainedTasks := []Task{}
 	wait := sync.WaitGroup{}
-	t.Range(func(task Task) {
+	retainedTasks := make(chan Task, 255)
+	t.Lock()
+	defer t.Unlock()
+	for _, task := range t.Tasks {
 		wait.Add(1)
-		go func() {
+		go func(task Task) {
 			defer wait.Done()
+			if task == nil {
+				return
+			}
 			if task() {
 				if config.Verbosity >= 2 {
 					log.Debugf("task finished; removing from collection.\n")
 				}
 			} else {
-				retainedTasks = append(retainedTasks, task)
+				retainedTasks <- task
 			}
-		}()
-	})
+		}(task)
+	}
 	wait.Wait()
-	t.Lock()
-	t.tasks = append(t.tasks[:0], retainedTasks[:]...)
-	t.Unlock()
+	t.Tasks = t.Tasks[:0]
+	select {
+	case task, ok := <-retainedTasks:
+		if !ok {
+			break
+		}
+		t.Tasks = append(t.Tasks, task)
+	default: return
+	}
+//	t.tasks = append(t.tasks[:0], retainedTasks[:]...)
+	return
 }
 
 //Count returns the total number of tasks currently in this list.
 func (t *TaskList) Count() int {
 	t.RLock()
 	defer t.RUnlock()
-	return len(t.tasks)
+	return len(t.Tasks)
 }
 
 //Add will add a mapping of the Task fn to the provided name, in this list.
 func (t *TaskList) Add(fn Task) int {
 	t.Lock()
 	defer t.Unlock()
-	t.tasks = append(t.tasks, fn)
-	return len(t.tasks)-1
+	t.Tasks = append(t.Tasks, fn)
+	return len(t.Tasks)-1
 }
 
 //Get returns the Task at the given index of this collection.
@@ -115,10 +140,10 @@ func (t *TaskList) Add(fn Task) int {
 func (t *TaskList) Get(i int) Task {
 	t.RLock()
 	defer t.RUnlock()
-	if i >= len(t.tasks) {
+	if i >= len(t.Tasks) {
 		return nil
 	}
-	return t.tasks[i]
+	return t.Tasks[i]
 }
 
 //Remove locates and removes the given task, and returns its old index.
@@ -126,14 +151,14 @@ func (t *TaskList) Get(i int) Task {
 func (t *TaskList) Remove(fn Task) int {
 	t.Lock()
 	defer t.Unlock()
-	for i, v := range t.tasks {
+	for i, v := range t.Tasks {
 		if &v == &fn {
-			t.tasks[i] = nil
-			if i >= len(t.tasks)-1 {
-				t.tasks = t.tasks[:i]
+			t.Tasks[i] = nil
+			if i >= len(t.Tasks)-1 {
+				t.Tasks = t.Tasks[:i]
 				return i
 			}
-			t.tasks = append(t.tasks[:i], t.tasks[i+1:]...)
+			t.Tasks = append(t.Tasks[:i], t.Tasks[i+1:]...)
 			return i
 		}
 	}
@@ -145,6 +170,6 @@ func (t *TaskList) Remove(fn Task) int {
 func (t *TaskList) RemoveIdx(i int) int {
 	t.Lock()
 	defer t.Unlock()
-	t.tasks[i] = nil
+	t.Tasks[i] = nil
 	return i
 }

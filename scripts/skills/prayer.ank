@@ -4,58 +4,28 @@ strings = import("strings")
 
 load("scripts/definitions/prayer.ank")
 
-
 bind.onLogin(func(player) {
-	prayers = []
-	for i in range(14) {
-		prayers[i] = {
-			"drained": defs[i].drained,
-			"drainDuration": defs[i].drainDuration,
-			"startTime": defs[i].startTime,
-		}
-	}
-
-	player.Tickables += func() {
-		for index in range(14) {
-			if !prayers[index].startTime.IsZero() {
-				// prayer active
-				if time.Since(prayers[index].startTime).Milliseconds() >= prayers[index].drainDuration(player.PrayerPoints()) {
-					// drain a level
-					prayers[index].startTime = prayers[index].startTime.Add(time.Millisecond * prayers[index].drainDuration(player.PrayerPoints()))
+	drained = 0
+	player.Tickables.Add(func() {
+		index = 0
+		for drainRate in drainRates {
+			if player.PrayerActivated(index) {
+				drained += drainRate
+				if drained >= 325 {
+					drained -= 325
 					player.IncCurStat(PRAYER, -1)
 					if player.Skills().Current(PRAYER) <= 0 {
 						player.Message("You have run out of prayer points. Return to a church to recharge")
 						for idx in range(14) {
 							player.PrayerOff(idx)
-							prayers[idx] = {
-								"drained": defs[idx].drained,
-								"drainDuration": defs[idx].drainDuration,
-								"startTime": defs[idx].startTime,
-							}
 						}
 						player.SendPrayers()
-						break
 					}
 				}
-
-				if !player.PrayerActivated(index) {
-					// player turning prayer off
-					prayers[index].drained = time.Since(prayers[index].startTime).Milliseconds()
-					prayers[index].startTime = defs[index].startTime
-//				} else {
-//					println((time.Since(prayers[index].startTime).Milliseconds() / prayers[index].drainDuration(player.PrayerPoints()) * 100) + "% drained (" + time.Since(prayers[index].startTime).Milliseconds() + "/" + prayers[index].drainDuration(player.PrayerPoints()) + "ms) for prayer [" + index + "]")
-				}
-			} else {
-				// prayer inactive
-				if player.PrayerActivated(index) {
-					// player turning prayer on
-					prayers[index].startTime = time.Now().Add(-time.Millisecond * prayers[index].drained)
-					prayers[index].drained = defs[index].drained
-//					println((time.Since(prayers[index].startTime).Milliseconds() / prayers[index].drainDuration(player.PrayerPoints()) * 100) + "% drained (" + time.Since(prayers[index].startTime).Milliseconds() + "/" + prayers[index].drainDuration(player.PrayerPoints()) + "ms) for prayer [" + index + "]")
-				}
 			}
+			index++
 		}
-	}
+	})
 })
 
 bind.item(itemPredicate(20, 413, 604, 814), func(player, item) {

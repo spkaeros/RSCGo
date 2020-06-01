@@ -10,10 +10,10 @@
 package world
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
 	"sync"
-	"encoding/binary"
 
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/definitions"
@@ -23,15 +23,6 @@ import (
 )
 
 //TileData Represents a single tile in the game's landscape.
-/*
-	DiagonalWalls int
-	HorizontalWalls byte
-	VerticalWalls byte
-	GroundElevation byte
-	Roofs byte
-	GroundTexture byte
-GroundOverlay byte
-*/
 type TileData struct {
 	CollisionMask int16
 }
@@ -105,17 +96,17 @@ func ClipBit(direction int) int {
 // Returns: [2]byte {verticalMasks, horizontalMasks}
 func (l Location) Masks(x, y int) (masks [2]byte) {
 	if y > l.Y() {
-		masks[0] |= ClipNorth
-	} else {
 		masks[0] |= ClipSouth
+	} else {
+		masks[0] |= ClipNorth
 	}
 	if x > l.X() {
-		masks[1] |= ClipWest
-	} else {
 		masks[1] |= ClipEast
+	} else {
+		masks[1] |= ClipWest
 	}
 	// diags and solid objects are checked for automatically in the functions that you'd use this with, so
-	return
+	return masks
 }
 
 //
@@ -194,7 +185,7 @@ func loadSector(data []byte) (s *Sector) {
 			horizontalWalls := data[offset+4] & 0xFF
 			verticalWalls := data[offset+5] & 0xFF
 			diagonalWalls := binary.BigEndian.Uint32(data[offset+6:])
-//			diagonalWalls := int(uint32(data[offset+6]&0xFF)<<24 | uint32(data[offset+7]&0xFF)<<16 | uint32(data[offset+8]&0xFF)<<8 | uint32(data[offset+9]&0xFF))
+			//			diagonalWalls := int(uint32(data[offset+6]&0xFF)<<24 | uint32(data[offset+7]&0xFF)<<16 | uint32(data[offset+8]&0xFF)<<8 | uint32(data[offset+9]&0xFF))
 			if groundOverlay == 250 {
 				// -6 overflows to 250, and is water tile
 				groundOverlay = definitions.OverlayWater
@@ -207,8 +198,8 @@ func loadSector(data []byte) (s *Sector) {
 				s.Tiles[tileIdx].CollisionMask |= ClipFullBlock
 			}
 			walls := [][]int{
-				[]int{int(verticalWalls) - 1, ClipNorth, y},
-				[]int{int(horizontalWalls) - 1, ClipEast, x},
+				{int(verticalWalls) - 1, ClipNorth, y},
+				{int(horizontalWalls) - 1, ClipEast, x},
 			}
 			for i := 0; i < 2; i++ {
 				if walls[i][0] < 0 {

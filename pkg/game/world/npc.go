@@ -10,11 +10,13 @@
 package world
 
 import (
-	"math"
+	"sync"
 	"time"
 
 	"github.com/spkaeros/rscgo/pkg/definitions"
+	"github.com/spkaeros/rscgo/pkg/engine/tasks"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
+	"github.com/spkaeros/rscgo/pkg/rand"
 )
 
 //Npcs A collection of every NPC in the game, sorted by index
@@ -23,23 +25,40 @@ var Npcs = NewMobList()
 //NPC Represents a single non-playable character within the game world.
 type NPC struct {
 	Mob
-	ID           int
-	StartPoint   Location
-	Boundaries   [2]Location
-	damageDeltas map[uint64]int
+	ID               int
+	pathSteps        int
+	lastMoved        time.Time
+	StartPoint       Location
+	Boundaries       [2]Location
+	meleeRangeDamage damages
 }
+
+type (
+	damageTable = map[uint64]int
+	damages     = struct {
+		damageTable
+		sync.RWMutex
+	}
+)
 
 //NewNpc Creates a new NPC and returns a reference to it
 func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
-	n := &NPC{ID: id, Mob: Mob{Entity: Entity{Index: Npcs.Size(), Location: NewLocation(startX, startY)}, AttributeList: *entity.NewAttributeList()},
-		damageDeltas: make(map[uint64]int), Boundaries: [2]Location{NewLocation(minX, minY), NewLocation(maxX, maxY)}}
-	Npcs.Add(n)
-	n.SetVar("skills", &entity.SkillTable{})
-	n.SetVar("startPoint", n.Location.Clone())
-	for i := 0; i < 18; i++ {
-		n.Skills().SetCur(i, 1)
-		n.Skills().SetMax(i, 1)
+	n := &NPC{
+		ID: id,
+		Mob: Mob{
+			skills: entity.SkillTable{},
+			Entity: Entity{
+				Index:    Npcs.Size(),
+				Location: NewLocation(startX, startY),
+			},
+			AttributeList: entity.NewAttributeList(),
+		},
+		meleeRangeDamage: damages{
+			damageTable: make(damageTable),
+		},
+		Boundaries: [2]Location{NewLocation(minX, minY), NewLocation(maxX, maxY)},
 	}
+	n.StartPoint = n.Location.Clone()
 	if id < len(definitions.Npcs)-1 {
 		n.Skills().SetCur(0, definitions.Npcs[id].Attack)
 		n.Skills().SetCur(1, definitions.Npcs[id].Defense)
@@ -50,9 +69,20 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 		n.Skills().SetMax(1, definitions.Npcs[id].Defense)
 		n.Skills().SetMax(2, definitions.Npcs[id].Strength)
 		n.Skills().SetMax(3, definitions.Npcs[id].Hits)
-
 	}
+	for i := 4; i < 18; i++ {
+		n.Skills().SetCur(i, 0)
+		n.Skills().SetMax(i, 0)
+	}
+
+	Npcs.Add(n)
 	return n
+}
+
+func (n *NPC) CacheDamage(hash uint64, dmg int) {
+	n.meleeRangeDamage.Lock()
+	defer n.meleeRangeDamage.Unlock()
+	n.meleeRangeDamage.damageTable[hash] += dmg
 }
 
 // Returns true if this NPCs definition has the attackable hostility bit set.
@@ -99,24 +129,27 @@ func (n *NPC) Command() string {
 //UpdateNPCPositions Loops through the global NPC entityList and, if they are by a player, updates their path to a new path every so often,
 // within their boundaries, and traverses each NPC along said path if necessary.
 func UpdateNPCPositions() {
+	wait := sync.WaitGroup{}
+	wait.Add(Npcs.Size())
 	Npcs.RangeNpcs(func(n *NPC) bool {
-		if n.Busy() || n.IsFighting() || n.Equals(DeathPoint) {
-			return false
-		}
-		moveTime := n.VarTime("moveTime")
-		if n.VarInt("pathLength", 0) == 0 && (moveTime.IsZero() || time.Now().After(moveTime)) {
-			// schedule when to start wandering again
-			n.SetVar("moveTime", time.Now().Add(time.Second*time.Duration(n.Isaac().Intn(15)+5)))
-			// set how many steps we should wander for before taking a break
-			if n.VarInt("pathLength", 0) == 0 {
-				n.SetVar("pathLength", n.Isaac().Intn(15))
+		go func() {
+			defer wait.Done()
+			if n.Busy() || n.IsFighting() || n.Equals(DeathPoint) {
+				return
 			}
-		} else {
+			if n.pathSteps == 0 && (n.lastMoved.IsZero() || time.Now().After(n.lastMoved)) {
+				// schedule when to start wandering again
+				n.lastMoved = time.Now().Add(time.Second * time.Duration(rand.Rng.Intn(15)+5))
+				// set how many steps we should wander for before taking a break
+				n.pathSteps = rand.Rng.Intn(15)
+				return
+			}
 			// wander aimlessly until we run out of scheduled steps
 			n.TraversePath()
-		}
+		}()
 		return false
 	})
+	wait.Wait()
 }
 
 func (n *NPC) UpdateRegion(x, y int) {
@@ -159,7 +192,7 @@ func (n *NPC) Damage(dmg int) {
 			if !n.WithinRange(p1.Location, 16) {
 				return false
 			}
-			p1.SendPacket(NpcDamage(n, dmg))
+			p1.QueueNpcSplat(n, dmg)
 			return false
 		})
 	}
@@ -167,20 +200,9 @@ func (n *NPC) Damage(dmg int) {
 
 func (n *NPC) DamageMelee(atk *Player, dmg int) {
 	n.Damage(dmg)
-	if delta, ok := n.damageDeltas[atk.UsernameHash()]; ok {
-		n.damageDeltas[atk.UsernameHash()] = delta + dmg
-		return
-	}
-	n.damageDeltas[atk.UsernameHash()] = dmg
-}
-
-//MeleeExperience returns how much combat experience to award for killing an opponent with melee.
-func (n *NPC) MeleeExperience(up bool) float64 {
-	e := float64((n.Skills().CombatLevel()*2.0)+10.0) * 1.5
-	if up {
-		return math.Ceil(e)
-	}
-	return math.Floor(e)
+	n.meleeRangeDamage.Lock()
+	defer n.meleeRangeDamage.Unlock()
+	n.meleeRangeDamage.damageTable[atk.UsernameHash()] += dmg
 }
 
 // Loops through the list of players that had dealt damage to this NPC, and
@@ -189,7 +211,9 @@ func (n *NPC) MeleeExperience(up bool) float64 {
 // to how much they helped.
 // Returns: the total number of hitpoints depleted by player melee damage.
 func (n *NPC) TotalDamage() (total int) {
-	for userHash, dmg := range n.damageDeltas {
+	n.meleeRangeDamage.RLock()
+	defer n.meleeRangeDamage.RUnlock()
+	for userHash, dmg := range n.meleeRangeDamage.damageTable {
 		if Players.ContainsHash(userHash) {
 			total += dmg
 		}
@@ -213,12 +237,12 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 	var mostDamage int
 	totalDamage := n.TotalDamage()
 	totalExp := n.ExperienceReward() & 0xFFFFFFC
-	for usernameHash, damage := range n.damageDeltas {
+	n.meleeRangeDamage.Lock()
+	for usernameHash, damage := range n.meleeRangeDamage.damageTable {
 		player, ok := Players.FromUserHash(usernameHash)
-		//		log.Info.Println(usernameHash,damage)
 		if ok {
 			exp := float64(totalExp) / float64(totalDamage)
-			player.DistributeMeleeExp(int(exp) * damage / 4)
+			player.DistributeMeleeExp(int(exp) * damage)
 		}
 		if damage > mostDamage || dropPlayer == nil {
 			if ok {
@@ -227,65 +251,74 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 			mostDamage = damage
 		}
 	}
-	n.damageDeltas = make(map[uint64]int)
+	n.meleeRangeDamage.damageTable = make(damageTable)
+	n.meleeRangeDamage.Unlock()
+
 	if dropPlayer != nil {
 		AddItem(NewGroundItemFor(dropPlayer.UsernameHash(), DefaultDrop, 1, n.X(), n.Y()))
 	} else {
 		AddItem(NewGroundItem(DefaultDrop, 1, n.X(), n.Y()))
 	}
-	n.Skills().SetCur(entity.StatHits, n.Skills().Maximum(entity.StatHits))
-	n.SetLocation(DeathPoint, true)
+	
 	killer.ResetFighting()
 	n.ResetFighting()
+	n.Remove()
+	tasks.Schedule(16, func() {
+		n.Respawn()
+	})
 	go func() {
 		// TODO: npc definition entry for respawn time
 		time.Sleep(time.Second * 10)
-		n.SetLocation(n.VarChecked("startPoint").(Location), true)
+		
 	}()
 	return
 }
 
+func (n *NPC) Remove() {
+	n.SetVar("removed", true)
+}
+
+func (n *NPC) Respawn() {
+	n.Skills().SetCur(entity.StatHits, n.Skills().Maximum(entity.StatHits))
+	n.SetLocation(n.StartPoint, true)
+	n.UnsetVar("removed")
+}
+
 //TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
 func (n *NPC) TraversePath() {
-	if n.VarInt("pathLength", 0) <= 0 {
+	//	for tries := 0; tries < 10; tries++ {
+	dst := n.Location.Clone()
+	dir := n.Direction()
+	if Chance(25) {
+		dir = rand.Rng.Intn(8)
+	}
+	if dir == East || dir == SouthEast || dir == NorthEast {
+		dst.x.Dec()
+	} else if dir == West || dir == SouthWest || dir == NorthWest {
+		dst.x.Inc()
+	}
+	if dir == North || dir == NorthWest || dir == NorthEast {
+		dst.y.Dec()
+	} else if dir == South || dir == SouthWest || dir == SouthEast {
+		dst.y.Inc()
+	}
+
+	if !n.Reachable(dst) || !dst.WithinArea(n.Boundaries) {
+//		n.SetDirection(rand.Rng.Intn(8))
 		return
 	}
 
-	for tries := 0; tries < 10; tries++ {
-		if Chance(25) {
-			n.SetVar("pathDir", n.Isaac().Intn(8))
-		}
-
-		dst := n.Location.Clone()
-		dir := n.VarInt("pathDir", North)
-		if dir == East || dir == SouthEast || dir == NorthEast {
-			dst.x.Dec()
-		} else if dir == West || dir == SouthWest || dir == NorthWest {
-			dst.x.Inc()
-		}
-		if dir == North || dir == NorthWest || dir == NorthEast {
-			dst.y.Dec()
-		} else if dir == South || dir == SouthWest || dir == SouthEast {
-			dst.y.Inc()
-		}
-
-		if !n.Reachable(dst) || !dst.WithinArea(n.Boundaries) {
-			n.SetVar("pathDir", n.Isaac().Intn(8))
-			continue
-		}
-
-		n.Dec("pathLength", 1)
-		n.SetLocation(dst, false)
-		break
-	}
+	n.pathSteps -= 1
+	n.SetLocation(dst, false)
+	//	}
 }
 
 //ChatIndirect sends a chat message to target and all of target's view area players, without any delay.
 func (n *NPC) ChatIndirect(target *Player, msg string) {
 	for _, player := range target.NearbyPlayers() {
-		player.SendPacket(NpcMessage(n, msg, target))
+		player.QueueNpcChat(n, target, msg)
 	}
-	target.SendPacket(NpcMessage(n, msg, target))
+	target.QueueNpcChat(n, target, msg)
 }
 
 //Chat sends chat messages to target and all of target's view area players, with a 1800ms(3 tick) delay between each

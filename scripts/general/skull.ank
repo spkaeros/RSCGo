@@ -14,11 +14,11 @@ bind.command("skulled", func(player, args) {
 	totalSeconds = toInt(player.Cache("skullTime")) * 0.64
 	minutes = toInt(math.Floor(totalSeconds / 60))
 	seconds = totalSeconds % 60
-	player.Message("skulled: " + player.Skulled() + (player.Skulled() ? "; time left:" + minutes + "m" + seconds + "s" : ""))
+	player.Message("skulled: " + player.Skulled() + (player.Skulled() ? "; time left:" + minutes + "m" + seconds + "s (" + toInt(player.Cache("skullTime")) + " ticks)" : ""))
 })
 
 bind.onLogin(func(player) {
-	player.Tickables += func() {
+	player.Tickables.Add(func() {
 		if player.Skulled() {
 			player.Attributes.Dec("skullTime", 1)
 
@@ -27,5 +27,5 @@ bind.onLogin(func(player) {
 				player.SetSkulled(false)
 			}
 		}
-	}
+	})
 })

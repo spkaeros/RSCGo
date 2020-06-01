@@ -287,7 +287,7 @@ func ScriptEnv() *env.Env {
 	e.Define("sleep", time.Sleep)
 	e.Define("runAfter", time.AfterFunc)
 	e.Define("after", time.After)
-	e.Define("newProjectile", CreateProjectile)
+	e.Define("newProjectile", NewProjectile)
 	e.Define("tMinute", time.Second*60)
 	e.Define("tHour", time.Second*60*60)
 	e.Define("tSecond", time.Second)
@@ -328,8 +328,8 @@ func ScriptEnv() *env.Env {
 	e.Define("newObject", NewObject)
 	e.Define("base37", strutil.Base37.Encode)
 	e.Define("rand", func(low, high int) int {
-//		return int(rand.Rng.Int31n(int32(high+1-low))) + low
-		return int(rand.Rng.Float64()*float64(high))-low
+		//		return int(rand.Rng.Int31n(int32(high+1-low))) + low
+		return int(rand.Rng.Float64()*float64(high)) - low
 	})
 	e.Define("tNow", time.Now)
 	e.Define("North", North)

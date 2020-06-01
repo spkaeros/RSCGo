@@ -28,7 +28,7 @@ func init() {
 			log.Suspicious.Printf("Player %v attempted to use a non-existent object at %d,%d\n", player, x, y)
 			return
 		}
-		player.SetDistancedAction(func() bool {
+		player.SetTickAction(func() bool {
 			if player.AtObject(object) {
 				player.ResetPath()
 				player.AddState(world.MSBatching)
@@ -63,7 +63,7 @@ func init() {
 			log.Suspicious.Printf("Player %v attempted to use a non-existent object at %d,%d\n", player, x, y)
 			return
 		}
-		player.SetDistancedAction(func() bool {
+		player.SetTickAction(func() bool {
 			if player.AtObject(object) {
 				player.ResetPath()
 				player.AddState(world.MSBatching)
@@ -99,7 +99,7 @@ func init() {
 			return
 		}
 		bounds := object.Boundaries()
-		player.SetDistancedAction(func() bool {
+		player.SetTickAction(func() bool {
 			if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
 				player.ResetPath()
 				if player.Busy() || world.GetObject(object.X(), object.Y()) != object {
@@ -137,7 +137,7 @@ func init() {
 			return
 		}
 		bounds := object.Boundaries()
-		player.SetDistancedAction(func() bool {
+		player.SetTickAction(func() bool {
 			if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() && player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y() {
 				player.ResetPath()
 				if player.Busy() || world.GetObject(object.X(), object.Y()) != object {
@@ -238,7 +238,7 @@ func init() {
 		}
 		invItem := player.Inventory.Get(invIndex)
 		bounds := object.Boundaries()
-		player.SetDistancedAction(func() bool {
+		player.SetTickAction(func() bool {
 			if player.Busy() || world.GetObject(object.X(), object.Y()) != object {
 				// If somehow we became busy, or the object changed before arriving, we do nothing.
 				return true
@@ -285,7 +285,7 @@ func init() {
 			return
 		}
 		invItem := player.Inventory.Get(invIndex)
-		player.SetDistancedAction(func() bool {
+		player.SetTickAction(func() bool {
 			if player.Busy() || !player.Connected() || target == nil || target.Busy() || !target.Connected() {
 				return true
 			}
@@ -332,7 +332,7 @@ func init() {
 		invItem := player.Inventory.Get(invIndex)
 		bounds := object.Boundaries()
 		player.WalkTo(object.Location)
-		player.SetDistancedAction(func() bool {
+		player.SetTickAction(func() bool {
 			if player.Busy() || world.GetObject(object.X(), object.Y()) != object {
 				// If somehow we became busy, the object changed before arriving, we do nothing.
 				return true

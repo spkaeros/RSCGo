@@ -3,6 +3,7 @@ package main
 import (
 	"math"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -36,6 +37,7 @@ func init() {
 		log.Fatal("Invalid port number specified.  Valid port numbers are 1-65533 inclusive.  Got:", Flags.Port)
 		os.Exit(100)
 	}
+	// Default to config.toml for config file
 	if len(Flags.Config) == 0 {
 		Flags.Config = "config.toml"
 	}
@@ -49,7 +51,7 @@ func init() {
 	config.TomlConfig.Crypto.HashMemory = 8
 	config.TomlConfig.Crypto.HashSalt = "rscgo./GOLANG!RULES/.1994"
 	config.TomlConfig.Version = 204
-	config.TomlConfig.Port = 43594 // = 43595 for websocket connections
+	config.TomlConfig.Port = 43594 // +1 for websockets
 
 	if _, err := toml.DecodeFile(Flags.Config, &config.TomlConfig); err != nil {
 		log.Warn("Error reading general config file:", err)
@@ -59,7 +61,6 @@ func init() {
 	// TODO: Default serialization to JSON or BSON maybe?
 	config.TomlConfig.Database.PlayerDriver = "sqlite3"
 	config.TomlConfig.Database.PlayerDB = "file:./data/players.db"
-	// TODO: Default serialization to JSON or BSON maybe?
 	config.TomlConfig.Database.WorldDriver = "sqlite3"
 	config.TomlConfig.Database.WorldDB = "file:./data/world.db"
 
@@ -67,36 +68,27 @@ func init() {
 		log.Warn("Error reading database config file:", err)
 		os.Exit(102)
 	}
+
 	db.ConnectEntityService()
 	db.DefaultPlayerService = db.NewPlayerServiceSql()
+	world.DefaultPlayerService = world.PlayerService(db.DefaultPlayerService)
 }
 
-type asInit struct {
-	sync.WaitGroup
-}
+//run Helper function for concurrently running a bunch of functions and waiting for them to complete
+func run(fns ...func()) {
+	w := &sync.WaitGroup{}
+	do := func(fn func()) {
+		w.Add(1)
+		go func(fn func()) {
+			defer w.Done()
+			fn()
+		}(fn)
+	}
 
-func newRunner() asInit {
-	return asInit{sync.WaitGroup{}}
-}
-
-func (w *asInit) runAll(fn ...func()) {
-	for _, v := range fn {
-		w.run(v)
+	for _, fn := range fns {
+		do(fn)
 	}
 	w.Wait()
-}
-
-func (w *asInit) run(fn func()) {
-	w.Add(1)
-	go func() {
-		defer w.Done()
-		fn()
-	}()
-}
-
-func (w *asInit) executeAll() {
-	w.WaitGroup.Wait()
-	return
 }
 
 func main() {
@@ -114,19 +106,17 @@ func main() {
 	log.Debugln()
 
 	start := time.Now()
-	runner := newRunner()
 	// Entity definitions
-	runner.runAll(handlers.UnmarshalPackets, db.LoadTileDefinitions, db.LoadObjectDefinitions, db.LoadBoundaryDefinitions, db.LoadItemDefinitions, db.LoadNpcDefinitions)
+	run(handlers.UnmarshalPackets, db.LoadTileDefinitions, db.LoadObjectDefinitions, db.LoadBoundaryDefinitions, db.LoadItemDefinitions, db.LoadNpcDefinitions)
 	// Entity locations
-	runner.runAll(db.LoadObjectLocations, db.LoadNpcLocations, db.LoadItemLocations, world.RunScripts, world.LoadCollisionData)
-
+	run(db.LoadObjectLocations, db.LoadNpcLocations, db.LoadItemLocations, world.RunScripts, world.LoadCollisionData)
 
 	// Network protocol information
 	if config.Verbose() {
 		log.Debug("Loaded", len(world.Sectors)-1, "map sectors")
 		log.Debug("Loaded", handlers.PacketCount(), "packets (with", handlers.HandlerCount(), "handlers)")
 		log.Debug("Loaded", world.ItemIndexer.Load(), "items and", len(definitions.Items)-1, "item definitions")
-		log.Debug("Loaded", world.Npcs.Size(), "NPCs and", len(definitions.Npcs)-1,"NPC definitions")
+		log.Debug("Loaded", world.Npcs.Size(), "NPCs and", len(definitions.Npcs)-1, "NPC definitions")
 		log.Debug("Loaded", len(definitions.ScenaryObjects)-1, "scenary definitions, and", len(definitions.BoundaryObjects)-1, "boundary definitions")
 		log.Debug("Loaded", world.ObjectCounter.Load(), "scenary / boundary objects")
 		log.Debug("Deserializing all game entity data took", time.Since(start).Milliseconds(), "milliseconds")
@@ -136,7 +126,7 @@ func main() {
 	}
 	engine.Bind(config.Port())
 	engine.Bind(config.Port() + 1)
-	log.Debugf("Listening at TCP port %d, and TCP websockets port %d on all addresses.\n", config.Port(), config.Port()+1)
+	log.Debugln("Listening at: " + strconv.Itoa(config.Port()) + " (TCP), " + strconv.Itoa(config.WSPort()) + " (websockets)")
 	log.Debugln()
 	log.Debugln("RSCGo has finished initializing world; we hope you enjoy it")
 	engine.StartGameEngine()

@@ -1,7 +1,10 @@
 package world
 
+import "sync"
+
 //Pathway Represents a path for a mobile entity to traverse across the virtual world.
 type Pathway struct {
+	sync.RWMutex
 	StartX, StartY  int
 	WaypointsX      []int
 	WaypointsY      []int
@@ -34,6 +37,8 @@ func MakePath(start, end Location) (*Pathway, bool) {
 
 //countWaypoints Returns the length of the largest waypoint slice within this path.
 func (p *Pathway) countWaypoints() int {
+	p.RLock()
+	defer p.RUnlock()
 	xCount, yCount := len(p.WaypointsX), len(p.WaypointsY)
 	if xCount >= yCount {
 		return xCount
@@ -44,24 +49,28 @@ func (p *Pathway) countWaypoints() int {
 //waypointX Returns the x coordinate of the specified waypoint, by taking the waypointX delta at w, and adding it to StartX.
 // If w is out of bounds, returns the StartX coordinate, aka the x coord to start turning at.
 func (p *Pathway) waypointX(w int) int {
-	offset := func(w int) int {
-		if w >= p.countWaypoints() || w < 0 {
+	p.RLock()
+	defer p.RUnlock()
+	offset := func(p *Pathway, w int) int {
+		if w >= len(p.WaypointsX) || w < 0 {
 			return 0
 		}
 		return p.WaypointsX[w]
-	}(w)
+	}(p, w)
 	return p.StartX + offset
 }
 
 //waypointY Returns the y coordinate of the specified waypoint, by taking the waypointY delta at w, and adding it to StartY.
 // If w is out of bounds, returns the StartY coordinate, aka the y coord to start turning at.
 func (p *Pathway) waypointY(w int) int {
-	offset := func(w int) int {
-		if w >= p.countWaypoints() || w < 0 {
+	p.RLock()
+	defer p.RUnlock()
+	offset := func(p *Pathway, w int) int {
+		if w >= len(p.WaypointsY) || w < 0 {
 			return 0
 		}
 		return p.WaypointsY[w]
-	}(w)
+	}(p, w)
 	return p.StartY + offset
 }
 
@@ -80,6 +89,8 @@ func (p *Pathway) startingTile() Location {
 
 //addFirstWaypoint Prepends a waypoint to this path.
 func (p *Pathway) addFirstWaypoint(x, y int) *Pathway {
+	p.Lock()
+	defer p.Unlock()
 	p.WaypointsX = append([]int{x}, p.WaypointsX...)
 	p.WaypointsY = append([]int{y}, p.WaypointsY...)
 	return p

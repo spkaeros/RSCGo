@@ -4,15 +4,15 @@ time = import("time")
 
 bind.onLogin(func(player) {
 	curTick = 0
-	player.Tickables += func() {
+	player.Tickables.Add(func() {
 		curTick++
-		if time.Since(player.AttributeList.VarTime("deathTime")) <= time.Second*5 {
+//		if time.Since(player.AttributeList.VarTime("deathTime")) <= time.Second*5 {
 			// Hack to fix bug in client death screen that freezes client if no new player position packets arrive after
 			// the timer runs out.  Timer for it is 250, and decreases at a rate of 50 per sec, e.g 5 secs
-			player.ResetTickables += func() {
-				player.SetSpriteUpdated()
-			}
-		}
+//			player.PostTickables.Add(func() {
+//				player.SetSpriteUpdated()
+//			})
+//		}
 		skillsTimer = player.PrayerActivated(PRAYER_RAPID_RESTORE) ? 50 : 100
 		hitpointTimer = player.PrayerActivated(PRAYER_RAPID_HEAL) ? 50 : 100
 
@@ -36,5 +36,5 @@ bind.onLogin(func(player) {
 				player.IncCurStat(HITPOINTS, delta / math.Abs(delta))
 			}
 		}
-	}
+	})
 })

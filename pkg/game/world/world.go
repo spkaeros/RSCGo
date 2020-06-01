@@ -52,83 +52,114 @@ func (l Location) Step(direction int) Location {
 // Before the command is issued to set this time, it is initialized to time.Time{} zero value.
 var UpdateTime time.Time
 
-type PlayerMap struct {
-	usernames map[uint64]*Player
-	indices   map[int]*Player
-	lock      sync.RWMutex
+type PlayerList struct {
+	players []*Player
+	curIdx int
+	free []int
+	sync.RWMutex
 }
 
 //Players Collection containing all of the active client, by index and username hash, guarded by a mutex
-var Players = &PlayerMap{usernames: make(map[uint64]*Player), indices: make(map[int]*Player)}
+var Players = &PlayerList{players: make([]*Player, 1250)}
 
 //FromUserHash Returns the client with the base37 username `hash` if it exists and true, otherwise returns nil and false.
-func (m *PlayerMap) FromUserHash(hash uint64) (*Player, bool) {
-	m.lock.RLock()
-	result, ok := m.usernames[hash]
-	m.lock.RUnlock()
-	return result, ok
+func (m *PlayerList) FromUserHash(hash uint64) (*Player, bool) {
+	m.RLock()
+	defer m.RUnlock()
+	for _, p := range m.players {
+		if p.UsernameHash() == hash {
+			return p, true
+		}
+	}
+	return nil, false
 }
 
 //ContainsHash Returns true if there is a client mapped to this username hash is in this collection, otherwise returns false.
-func (m *PlayerMap) ContainsHash(hash uint64) bool {
+func (m *PlayerList) ContainsHash(hash uint64) bool {
 	_, ret := m.FromUserHash(hash)
 	return ret
 }
 
 //FromIndex Returns the client with the index `index` if it exists and true, otherwise returns nil and false.
-func (m *PlayerMap) FromIndex(index int) (*Player, bool) {
-	m.lock.RLock()
-	result, ok := m.indices[index]
-	m.lock.RUnlock()
-	return result, ok
+func (m *PlayerList) FromIndex(index int) (*Player, bool) {
+	m.RLock()
+	defer m.RUnlock()
+	return m.players[index], m.players[index] != nil && m.players[index].ServerIndex() == index
 }
 
 //Add Puts a client into the map.
-func (m *PlayerMap) Put(player *Player) {
-	nextIndex := m.NextIndex()
-	m.lock.Lock()
-	player.Index = nextIndex
-	m.usernames[player.UsernameHash()] = player
-	m.indices[nextIndex] = player
-	m.lock.Unlock()
+func (m *PlayerList) Put(player *Player) {
+	idx := m.NextIndex()
+	m.Lock()
+	defer m.Unlock()
+	player.Index = idx
+	m.players[idx] = player
 }
 
 //Remove Removes a client from the map.
-func (m *PlayerMap) Remove(player *Player) {
-	m.lock.Lock()
-	delete(m.usernames, player.UsernameHash())
-	delete(m.indices, player.Index)
-	m.lock.Unlock()
+func (m *PlayerList) Remove(player *Player) {
+	m.Lock()
+	defer m.Unlock()
+	m.players[player.ServerIndex()] = nil
+	m.free = append(m.free, player.ServerIndex())
+	
 }
 
 //Range Calls action for every active client in the collection.
-func (m *PlayerMap) Range(action func(*Player)) {
-	m.lock.RLock()
-	for _, c := range m.indices {
-		if c != nil && c.Connected() {
-			action(c)
+func (m *PlayerList) Range(action func(*Player)) {
+	m.RLock()
+	defer m.RUnlock()
+	for _, p := range m.players {
+		if p != nil && p.Connected() {
+			action(p)
 		}
 	}
-	m.lock.RUnlock()
 }
 
 //Size Returns the size of the active client collection.
-func (m *PlayerMap) Size() int {
-	m.lock.RLock()
-	defer m.lock.RUnlock()
-	return len(m.usernames)
+func (m *PlayerList) Size() int {
+	m.RLock()
+	defer m.RUnlock()
+	return len(m.players)
+}
+
+func (m *PlayerList) freeCount() int {
+	m.RLock()
+	defer m.RUnlock()
+	return len(m.free)
 }
 
 //NextIndex Returns the lowest available index for the client to be mapped to.
-func (m *PlayerMap) NextIndex() int {
-	m.lock.RLock()
-	defer m.lock.RUnlock()
-	for i := 0; i < config.MaxPlayers(); i++ {
-		if _, ok := m.indices[i]; !ok {
-			return i
-		}
+func (m *PlayerList) NextIndex() int {
+	if m.freeCount() > 0 {
+		m.Lock()
+		defer m.Unlock()
+		idx := m.free[0]
+		m.free = m.free[1:]
+		return idx
 	}
-	return -1
+	m.RLock()
+	defer m.RUnlock()
+	defer func() { m.curIdx += 1 }()
+	return m.curIdx
+}
+
+func (m *PlayerList) AsyncDo(fn func(*Player)) sync.WaitGroup {
+	w := sync.WaitGroup{}
+//	w.Add(m.Size())
+	for _, p := range m.players {
+		if p == nil {
+//			go w.Done()
+			continue
+		}
+		w.Add(1)
+		go func() {
+			fn(p)
+			w.Done()
+		}()
+	}
+	w.Wait()
+	return w
 }
 
 //region Represents a 48x48 section of map.  The purpose of this is to keep track of entities in the entire world without having to allocate tiles individually, which would make search algorithms slower and utilizes a great deal of memory.
@@ -399,6 +430,8 @@ func ReplaceObject(old *Object, newID int) *Object {
 
 //GetAllObjects Returns a slice containing all objects in the game
 func GetAllObjects() (list []*Object) {
+	regionLock.RLock()
+	defer regionLock.RUnlock()
 	for x := 0; x < MaxX; x += RegionSize {
 		for y := 0; y < MaxY; y += RegionSize {
 			if r := regions[x/RegionSize][y/RegionSize]; r != nil {
@@ -448,6 +481,8 @@ func NpcNearest(id, x, y int) *NPC {
 	point := NewLocation(x, y)
 	minDelta := 16
 	var npc *NPC
+	regionLock.RLock()
+	defer regionLock.RUnlock()
 	for x := 0; x < MaxX; x += RegionSize {
 		for y := 0; y < MaxY; y += RegionSize {
 			if r := regions[x/RegionSize][y/RegionSize]; r != nil {
@@ -472,6 +507,7 @@ func NpcVisibleFrom(id, x, y int) *NPC {
 	point := NewLocation(x, y)
 	minDelta := 16
 	var npc *NPC
+	
 	for x := 0; x < MaxX; x += RegionSize {
 		for y := 0; y < MaxY; y += RegionSize {
 			if r := regions[x/RegionSize][y/RegionSize]; r != nil {
@@ -489,6 +525,8 @@ func NpcVisibleFrom(id, x, y int) *NPC {
 	return npc
 }
 
+var regionLock = sync.RWMutex{}
+
 //getRegionFromIndex internal function to get a region by its row amd column indexes
 func getRegionFromIndex(areaX, areaY int) *region {
 	if areaX < 0 {
@@ -505,6 +543,8 @@ func getRegionFromIndex(areaX, areaY int) *region {
 		fmt.Println("planeY index out of range")
 		return &region{&MobList{}, &MobList{}, &entityList{}, &entityList{}}
 	}
+	regionLock.Lock()
+	defer regionLock.Unlock()
 	if regions[areaX][areaY] == nil {
 		regions[areaX][areaY] = &region{&MobList{}, &MobList{}, &entityList{}, &entityList{}}
 	}

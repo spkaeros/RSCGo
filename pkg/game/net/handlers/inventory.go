@@ -10,10 +10,10 @@
 package handlers
 
 import (
-	`github.com/spkaeros/rscgo/pkg/definitions`
+	"github.com/spkaeros/rscgo/pkg/definitions"
+	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
-	"github.com/spkaeros/rscgo/pkg/game/net"
 )
 
 func init() {
@@ -70,7 +70,7 @@ func init() {
 
 		p.ReadUint16() // Unused in this opcode this variable is what affect-type we are applying to the ground item, e.g casting, using item with, etc...but we are not using any affects
 
-		player.SetDistancedAction(func() bool {
+		player.SetTickAction(func() bool {
 			if player.Busy() {
 				return true
 			}
@@ -108,7 +108,7 @@ func init() {
 		}
 		index := p.ReadUint16()
 		// Just to prevent drops mid-path, and perform drop on path completion
-		player.SetDistancedAction(func() bool {
+		player.SetTickAction(func() bool {
 			if player.Busy() {
 				return true
 			}

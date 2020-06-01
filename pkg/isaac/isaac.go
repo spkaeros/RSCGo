@@ -1,7 +1,7 @@
 package isaac
 
 import (
-//	"math/bits"
+	//	"math/bits"
 	"sync"
 
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -45,7 +45,7 @@ func (r *ISAAC) shake(i int, mixed uint64) {
 	r.state[i] = (r.acc2) + r.state[prevState&MixMask>>3&0xFF]
 	// XOR op was added to result value calculation in ISAAC64
 	// supposed to reduce the linearity over ZsubText(pow(2,32))
-//	r.acc2 = prevState + (r.acc1 ^ r.state[bits.RotateLeft64(r.state[i]&MixMask, 11)&0xFF])
+	//	r.acc2 = prevState + (r.acc1 ^ r.state[bits.RotateLeft64(r.state[i]&MixMask, 11)&0xFF])
 	// ISAAC64 non-modified:
 	r.acc2 = prevState + (r.acc1 + r.state[r.state[i]>>8&MixMask>>3])
 	r.randrsl[i] = r.acc2
@@ -166,7 +166,7 @@ func (r *ISAAC) Uint64() (number uint64) {
 //Int63 Returns the next 8 bytes as a long integer from the ISAAC CSPRNG receiver instance.
 // Guarenteed non-negative
 func (r *ISAAC) Int63() (number int64) {
-	return int64(r.Uint64()<<1>>1)
+	return int64(r.Uint64() << 1 >> 1)
 }
 
 //Uint32 Returns the next 4 bytes as an integer from the ISAAC CSPRNG receiver instance.
@@ -311,7 +311,7 @@ func (r *ISAAC) NextBytes(n int) []byte {
 
 func (r *ISAAC) Float64() float64 {
 again:
-	f := float64(r.Int63n(1<<53)) / (1<<53)
+	f := float64(r.Int63n(1<<53)) / (1 << 53)
 	if f == 1 {
 		goto again
 	}

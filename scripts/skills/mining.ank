@@ -15,7 +15,7 @@ bind.object(objectPredicate(keys(defs)...), func(player, object, click) {
 	if click == 1 {
 		player.PlaySound("prospect")
 		player.Message("You examine the rock for ores...")
-		sleep(tMillis*1200)
+		sleep(tMillis*1280)
 
 		if mineDef.ore < 0 {
 			player.Message("You fail to find anything interesting")
@@ -29,7 +29,7 @@ bind.object(objectPredicate(keys(defs)...), func(player, object, click) {
 
 	if pickaxeDef.lvl < 0 || pickaxeDef.bonus < 0 {
 		player.Message("You need a pickaxe to mine this rock.")
-		sleep(tMillis*1800)
+		sleep(tMillis*1920)
 		player.Message("You do not have a pickaxe which you have the mining level to use")
 		return
 	}
@@ -41,7 +41,7 @@ bind.object(objectPredicate(keys(defs)...), func(player, object, click) {
 	player.PlaySound("mine")
 	player.ItemBubble(ids.IRON_PICKAXE)
 	player.Message("You swing your pick at the rock...")
-	sleep(tMillis*1800)
+	sleep(tMillis*1920)
 
 	if world.getObjectAt(object.X(), object.Y()) != object || mineDef.ore < 0 {
 		// my thought is that if the pointers don't match, then someone else's mine action depleted the ore

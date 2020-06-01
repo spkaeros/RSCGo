@@ -61,4 +61,5 @@ type MobileEntity interface {
 	Skills() *SkillTable
 	TargetMob() MobileEntity
 	SessionCache() *AttributeList
+	Skulls() map[uint64]time.Time
 }

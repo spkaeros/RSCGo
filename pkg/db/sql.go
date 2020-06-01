@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"sync"
 
 	"github.com/spkaeros/rscgo/pkg/log"
 
@@ -37,6 +38,7 @@ type sqlService struct {
 	database *sql.DB
 	Driver   string
 	context  context.Context
+	sync.RWMutex
 }
 
 //newSqlService returns a new sqlService instance attached to the provided *sql.DB

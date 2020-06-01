@@ -163,7 +163,7 @@ func RunScripts() {
 			//// Note: Still want to run the code even after a parse error to see what happens
 			//_, err = vm.Run(ScriptEnv(), &vm.Options{Debug: true}, stmt)
 			if err != nil {
-				log.Warning.Println("Anko error ['"+path+"']:", err)
+				log.Warn("Anko error ['"+path+"']:", err)
 				//				log.Info.Println(env.String())
 				return nil
 			}
@@ -182,12 +182,12 @@ func RunScripts() {
 func load(filePath string) string {
 	file, err := os.Open(filePath)
 	if err != nil {
-		log.Warning.Println("Error opening script file:", err)
+		log.Warn("Error opening script file:", err)
 		return ""
 	}
 	data, err := ioutil.ReadAll(file)
 	if err != nil {
-		log.Warning.Println("Error reading script file:", err)
+		log.Warn("Error reading script file:", err)
 		return ""
 	}
 

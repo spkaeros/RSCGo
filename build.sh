@@ -58,10 +58,10 @@ for os in `go tool dist list|sed -e 's/\// /g' |cut -f2 -d' ' |sort |uniq`; do
 	fi
 done
 if [[ -z $OS ]]; then
-	ARCH=`go env GOHOSTOS`
+	OS=`go env GOHOSTOS`
 fi
 if [[ -z $ARCH ]]; then
-	OS=`go env GOHOSTARCH`
+	ARCH=`go env GOHOSTARCH`
 fi
 compile $OS $ARCH
 cp bin/game-`go env GOHOSTOS`-`go env GOHOSTARCH` bin/game

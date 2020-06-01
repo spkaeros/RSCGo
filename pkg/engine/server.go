@@ -10,29 +10,26 @@
 package engine
 
 import (
-	"bufio"
-	"context"
 	"crypto/tls"
 	stdnet "net"
 	"os"
-	"reflect"
 	"strconv"
-	"strings"
-	`sync`
 	"time"
 
 	"github.com/gobwas/ws"
-	"github.com/gobwas/ws/wsutil"
 
 	"github.com/spkaeros/rscgo/pkg/config"
-	"github.com/spkaeros/rscgo/pkg/db"
+	//"github.com/spkaeros/rscgo/pkg/db"
 	"github.com/spkaeros/rscgo/pkg/engine/tasks"
+	rscerrors "github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/net/handlers"
 	"github.com/spkaeros/rscgo/pkg/game/net/handshake"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
+
+const TickMillis = time.Millisecond*640
 
 //Bind binds to the TCP port at port, and the websocket port at port+1.
 func Bind(port int) {
@@ -72,7 +69,7 @@ func Bind(port int) {
 			if port == config.WSPort() {
 				if certErr == nil {
 					// set up socket to use TLS if we have certs that we can load
-					socket = tls.Server(socket, &tls.Config{Certificates: []tls.Certificate{certChain}, ServerName: "rscturmoil.com", InsecureSkipVerify: true, SessionTicketsDisabled: true})
+					socket = tls.Server(socket, &tls.Config{Certificates: []tls.Certificate{certChain}, ServerName: "rscturmoil.com", InsecureSkipVerify: false, SessionTicketsDisabled: true})
 				}
 				if _, err := wsUpgrader.Upgrade(socket); err != nil {
 					if config.Verbosity > 0 {
@@ -81,82 +78,11 @@ func Bind(port int) {
 					continue
 				}
 			}
-			p := world.NewPlayer(world.Players.NextIndex(), strings.Split(socket.RemoteAddr().String(), ":")[0])
-			p.Socket = socket
-			p.Reader = bufio.NewReader(socket)
+			p := world.NewPlayer(socket)
 			go func() {
-				defer func() {
-					p.Attributes.SetVar("lastIP", p.CurrentIP())
-					if err := p.Socket.Close(); err != nil {
-						log.Warn("Couldn't close socket:", err)
-					}
-					if player, ok := world.Players.FromIndex(p.Index); ok && player.UsernameHash() != p.UsernameHash() || !ok || !p.Connected() {
-						if ok {
-							log.Cheatf("Unauthenticated player being destroyed had index %d and there is a player that is assigned that index already! (%v)\n", p.Index, player)
-						}
-						return
-					}
-					if p.Connected() {
-						go db.DefaultPlayerService.PlayerSave(p)
-					}
-					world.RemovePlayer(p)
-					p.SetConnected(false)
-					log.Debug("Unregistered:{'" + p.Username() + "'@'" + p.CurrentIP() + "'}")
-				}()
-				for {
-					select {
-					case <-p.SigKill:
-						return
-					case packet, ok := <-p.OutgoingPackets:
-						if ok && packet != nil {
-							if strings.HasSuffix(p.Socket.LocalAddr().String(), "43595") {
-								writer := wsutil.NewWriter(socket, ws.StateServerSide, ws.OpBinary)
-								if packet.Opcode == 0 {
-									writer.Write(packet.FrameBuffer)
-									writer.Flush()
-									continue
-								}
-								header := []byte{0, 0}
-								frameLength := len(packet.FrameBuffer)
-								if frameLength >= 160 {
-									header[0] = byte(frameLength>>8 + 160)
-									header[1] = byte(frameLength)
-								} else {
-									header[0] = byte(frameLength)
-									if frameLength > 0 {
-										frameLength--
-										header[1] = packet.FrameBuffer[frameLength]
-									}
-								}
-								writer.Write(append(header, packet.FrameBuffer[:frameLength]...))
-								writer.Flush()
-							} else {
-								writer := bufio.NewWriter(socket)
-								if packet.Opcode == 0 {
-									writer.Write(packet.FrameBuffer)
-									writer.Flush()
-									continue
-								}
-								header := []byte{0, 0}
-								frameLength := len(packet.FrameBuffer)
-								if frameLength >= 160 {
-									header[0] = byte(frameLength>>8 + 160)
-									header[1] = byte(frameLength)
-								} else {
-									header[0] = byte(frameLength)
-									if frameLength > 0 {
-										frameLength--
-										header[1] = packet.FrameBuffer[frameLength]
-									}
-								}
-								writer.Write(append(header, packet.FrameBuffer[:frameLength]...))
-								writer.Flush()
-							}
-						}
-					}
-				}
-			}()
-			go func() {
+				defer close(p.OutQueue)
+				defer close(p.InQueue)
+				defer p.Destroy()
 				for {
 					select {
 					case <-p.SigKill:
@@ -167,6 +93,13 @@ func Bind(port int) {
 						if n < 2 {
 							continue
 						} else if err != nil {
+							switch err.(type) {
+							case rscerrors.NetError:
+								if err.(rscerrors.NetError).Fatal {
+									p.Destroy()
+									return
+								}
+							}
 							log.Debug(err)
 							continue
 						}
@@ -177,7 +110,6 @@ func Bind(port int) {
 							frameSize -= 1
 						}
 
-						// Upper bound is an approximation of the max size of the clientside outgoing data buffer
 						if frameSize >= 24573 || frameSize < 0 {
 							log.Cheatf("Invalid packet length from [%v]: %d\n", p, frameSize)
 							return
@@ -195,18 +127,15 @@ func Bind(port int) {
 						if frameSize < 160 {
 							localData = append(localData, header[1])
 						}
-						if !p.Connected() && !handshake.EarlyOperation(int(localData[0])) {
+						if handshake.EarlyOperation(int(localData[0])) {
+							handlers.Handler(localData[0])(p, net.NewPacket(localData[0], localData[1:]))
+							continue
+						}
+						if !p.Connected() {
 							log.Warnf("Unauthorized packet[opcode:%v,size:%v (expected:%v)] rejected from: %v\n", localData[0], len(localData), frameSize, p)
 							return
 						}
-						p1 := net.NewPacket(localData[0], localData[1:])
-						handler := handlers.Handler(p1.Opcode)
-						if handler == nil {
-							log.Debugf("Packet{\n\topcode:%d;\n\tlength:%d;\n\tpayload:%v\n};\n", p1.Opcode, len(p1.FrameBuffer), p1.FrameBuffer)
-							continue
-						}
-
-						handler(p, p1)
+						p.InQueue <- *net.NewPacket(localData[0], localData[1:])
 					}
 				}
 			}()
@@ -214,146 +143,102 @@ func Bind(port int) {
 	}()
 }
 
-func runTickables(p *world.Player) {
-	var toRemove []int
-	for i, fn := range p.Tickables {
-		if realFn, ok := fn.(func(context.Context) (reflect.Value, reflect.Value)); ok {
-			_, err := realFn(context.Background())
-			if !err.IsNil() {
-				toRemove = append(toRemove, i)
-				log.Warn("Error in tickable:", err)
-				continue
-			}
-		}
-		if realFn, ok := fn.(func(context.Context, reflect.Value) (reflect.Value, reflect.Value)); ok {
-			_, err := realFn(context.Background(), reflect.ValueOf(p))
-			if !err.IsNil() {
-				toRemove = append(toRemove, i)
-				log.Warn("Error in tickable:", err)
-				continue
-			}
-		}
-		if realFn, ok := fn.(func()); ok {
-			realFn()
-		}
-		if realFn, ok := fn.(func() bool); ok {
-			if realFn() {
-				toRemove = append(toRemove, i)
-			}
-		}
-		if realFn, ok := fn.(func(*world.Player)); ok {
-			realFn(p)
-		}
-		if realFn, ok := fn.(func(*world.Player) bool); ok {
-			if realFn(p) {
-				toRemove = append(toRemove, i)
-			}
-		}
-	}
-	for _, idx := range toRemove {
-		p.Tickables[idx] = nil
-		p.Tickables = p.Tickables[:idx]
-		if idx < len(p.Tickables)-1 {
-			p.Tickables = append(p.Tickables[idx+1:])
-		}
-	}
-}
-	/*	world.Players.Range(func(p *world.Player) {
-			for _, fn := range p.ResetTickables {
-				fn()
-			}
-			p.ResetTickables = p.ResetTickables[:0]
-		})
-	*/
-/*
-		world.Players.Range(func(p *world.Player) {
-
-			if p.Unregistering.Load() && p.Unregistering.CAS(true, false) {
-				p.Attributes.SetVar("lastIP", p.CurrentIP())
-				if err := p.Socket.Close(); err != nil {
-					log.Warn("Couldn't close socket:", err)
-				}
-				if player, ok := world.Players.FromIndex(p.Index); ok && player.UsernameHash() != p.UsernameHash() || !ok || !p.Connected() {
-					if ok {
-						log.Cheatf("Unauthenticated player being destroyed had index %d and there is a player that is assigned that index already! (%v)\n", p.Index, player)
-					}
+func handlePackets(p *world.Player) {
+	//	tasks.TickList.Add(func() bool {
+	//	go func() {
+	go func() {
+		for {
+			select {
+			case p1, ok := <-p.InQueue:
+				if !ok || p1.Opcode == 0xFF {
 					return
 				}
-				world.RemovePlayer(p)
-				p.SetConnected(false)
-				log.Debug("Unregistered:{'" + p.Username() + "'@'" + p.CurrentIP() + "'}")
-				go db.DefaultPlayerService.PlayerSave(p)
+				handler := handlers.Handler(p1.Opcode)
+				if handler == nil {
+					log.Debugf("Packet{\n\topcode:%d;\n\tlength:%d;\n\tpayload:%v\n};\n", p1.Opcode, len(p1.FrameBuffer), p1.FrameBuffer)
+					return
+				}
+
+				// log.Debug(p1)
+				handler(p, &p1)
+				continue
+			default:
+				return
 			}
-		})
-*/
+		}
+	}()
+}
 
 //StartGameEngine Launches a goroutine to handle updating the state of the game every 640ms in a synchronized fashion.  This is known as a single game engine 'pulse'.
 func StartGameEngine() {
-	ticker := time.NewTicker(640 * time.Millisecond)
-	defer ticker.Stop()
-	for range ticker.C {
+	//	ticker := time.NewTicker(640 * time.Millisecond)
+	//	defer ticker.Stop()
+	var start time.Time
+	//	for range ticker.C {
+	for {
+		start = time.Now()
+
 		tasks.TickList.RunAsynchronous()
-//		tasks.TickList.RunSynchronous()
-		wait := sync.WaitGroup{}
+
 		world.Players.Range(func(p *world.Player) {
-			wait.Add(1)
-			go func() {
-				defer wait.Done()
-				runTickables(p)
-				if fn := p.DistancedAction; fn != nil {
-					if fn() {
-						p.ResetDistancedAction()
-					}
-				}
-				p.TraversePath()
-			}()
+			handlePackets(p)
+			if p.TickAction() != nil && p.TickAction()() {
+				p.ResetTickAction()
+			}
+			p.Tickables.Tick(interface{}(p))
+			p.TraversePath()
 		})
-		wait.Wait()
+
 		world.UpdateNPCPositions()
-		
 		world.Players.Range(func(p *world.Player) {
-			wait.Add(1)
-			go func() {
-				defer wait.Done()
-				// Everything is updated relative to our player's position, so player position net comes first
-				if positions := world.PlayerPositions(p); positions != nil {
-					p.SendPacket(positions)
-				}
-				if appearances := world.PlayerAppearances(p); appearances != nil {
-					p.SendPacket(appearances)
-				}
-				if npcUpdates := world.NPCPositions(p); npcUpdates != nil {
-					p.SendPacket(npcUpdates)
-				}
-				if objectUpdates := world.ObjectLocations(p); objectUpdates != nil {
-					p.SendPacket(objectUpdates)
-				}
-				if boundaryUpdates := world.BoundaryLocations(p); boundaryUpdates != nil {
-					p.SendPacket(boundaryUpdates)
-				}
-				if itemUpdates := world.ItemLocations(p); itemUpdates != nil {
-					p.SendPacket(itemUpdates)
-				}
-				if clearDistantChunks := world.ClearDistantChunks(p); clearDistantChunks != nil {
-					p.SendPacket(clearDistantChunks)
-				}
-			}()
+			if positions := world.PlayerPositions(p); positions != nil {
+				// log.Debug("position!")
+				p.SendPacket(positions)
+			}
+			if appearances := world.PlayerAppearances(p); appearances != nil {
+				// log.Debug("event!")
+				p.SendPacket(appearances)
+			}
+			if npcUpdates := world.NPCPositions(p); npcUpdates != nil {
+				// log.Debug("npcPosition!")
+				p.SendPacket(npcUpdates)
+			}
+			if npcUpdates := world.NpcEvents(p); npcUpdates != nil {
+				// log.Debug("npcEvents!")
+				p.SendPacket(npcUpdates)
+			}
+			if objectUpdates := world.ObjectLocations(p); objectUpdates != nil {
+				// log.Debug("sceneEvent!")
+				p.SendPacket(objectUpdates)
+			}
+			if boundaryUpdates := world.BoundaryLocations(p); boundaryUpdates != nil {
+				// log.Debug("boundarys!")
+				p.SendPacket(boundaryUpdates)
+			}
+			if itemUpdates := world.ItemLocations(p); itemUpdates != nil {
+				// log.Debug("lootables!")
+				p.SendPacket(itemUpdates)
+			}
+			if clearDistantChunks := world.ClearDistantChunks(p); clearDistantChunks != nil {
+				// log.Debug("chunkClear!")
+				p.SendPacket(clearDistantChunks)
+			}
 		})
-		wait.Wait()
-		
+
 		world.Players.Range(func(p *world.Player) {
-			wait.Add(1)
-			go func() {
-				defer wait.Done()
-				p.ResetRegionRemoved()
-				p.ResetRegionMoved()
-				p.ResetSpriteUpdated()
-				p.ResetAppearanceChanged()
-			}()
+			p.FlushOutgoing()
+			p.PostTickables.Tick(interface{}(p))
+			p.ResetRegionRemoved()
+			p.ResetRegionMoved()
+			p.ResetSpriteUpdated()
+			p.ResetAppearanceChanged()
 		})
-		wait.Wait()
-		
 		world.ResetNpcUpdateFlags()
+
+		sleepTime := TickMillis-time.Now().Sub(start)
+		if sleepTime > 0 {
+			time.Sleep(sleepTime)
+		}
 	}
 }
 

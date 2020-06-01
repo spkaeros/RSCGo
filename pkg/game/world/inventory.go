@@ -20,6 +20,11 @@ import (
 //DefaultDrop returns the default item ID all mobs should drop on death
 const DefaultDrop = 20
 
+type ItemBubble struct {
+	Owner *Player
+	Item  int
+}
+
 //Item Represents a single item in the game.
 type Item struct {
 	ID     int

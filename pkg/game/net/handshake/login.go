@@ -99,7 +99,6 @@ func init() {
 			}
 			//dataService is a db.PlayerService that all login-related functions should use to access or change player profile data.
 			var dataService = db.DefaultPlayerService
-//			log.Debug(crypto.Hash(password), "=", password, "len=", len(password))
 			if !dataService.PlayerNameExists(player.Username()) || !dataService.PlayerValidLogin(player.UsernameHash(), crypto.Hash(password)) {
 				loginReply <- response{ResponseBadPassword, "Invalid credentials"}
 				return
@@ -130,7 +129,6 @@ func init() {
 			var dataService = db.DefaultPlayerService
 			usernameHash := p.ReadUint64()
 			if !dataService.PlayerHasRecoverys(usernameHash) {
-				player.SendPacket(net.NewReplyPacket([]byte{0}))
 				player.Destroy()
 				return
 			}

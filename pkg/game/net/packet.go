@@ -11,15 +11,21 @@ package net
 
 import (
 	"fmt"
-//	"math"
+	//	"math"
+	"encoding/binary"
+	"io"
+	"runtime/debug"
 	"strconv"
 	"strings"
-	"runtime/debug"
-	"encoding/binary"
 
 	"github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
+
+type WriteFlusher interface {
+	io.Writer
+	Flush() error
+}
 
 //Packet The definition of a game handlers.  Generally, these are commands, indexed by their Opcode(0-255), with
 //  a 5000-byte buffer for arguments, stored in FrameBuffer.  If the handlers is bare, raw data is intended to be
@@ -233,14 +239,12 @@ func (p *Packet) AddUint8or32(i uint32) *Packet {
 }
 
 //SetUint16At Rewrites the data at offset to the provided short uint value
-func (p *Packet) SetUint16At(offset int, s uint16) *Packet {
+func (p *Packet) SetUint16At(offset int, val uint16) *Packet {
 	if offset >= len(p.FrameBuffer) || offset < 0 {
-		log.Warning.Println("Attempted out of bounds Packet.SetUint16At: ", offset, s)
+		log.Warning.Println("Attempted out of bounds Packet.SetUint16At: ", offset, val)
 		return p
 	}
-	p.EnsureCapacity(2)
-	p.FrameBuffer[offset+1] = byte(s >> 8)
-	p.FrameBuffer[offset+2] = byte(s)
+	binary.BigEndian.PutUint16(p.FrameBuffer[offset:], val)
 	return p
 }
 
@@ -279,7 +283,7 @@ func (p *Packet) AddInt8(b int8) *Packet {
 //AddBytes Adds byte array to handlers payload
 func (p *Packet) AddBytes(b []byte) *Packet {
 	for _, v := range b {
-//		p.EnsureCapacity(1)
+		//		p.EnsureCapacity(1)
 		p.AddUint8(uint8(v))
 	}
 	return p
@@ -296,7 +300,7 @@ func init() {
 
 //AddSignedBits adds the value with the first bit masked off
 func (p *Packet) AddSignedBits(value int, numBits int) *Packet {
-	return p.AddBitmask(value & int(bitmasks[numBits]), numBits)
+	return p.AddBitmask(value&int(bitmasks[numBits]), numBits)
 }
 
 //AddBitmask Packs value into the numBits next bits of the packetbuilders byte buffer.
@@ -309,7 +313,7 @@ func (p *Packet) AddBitmask(value int, numBits int) *Packet {
 	bitOffset := 8 - (p.bitIndex & 7)
 	// increment written bits count
 	p.bitIndex += numBits
-	for ((p.bitIndex + 7) / 8) + 1 > len(p.FrameBuffer) {
+	for ((p.bitIndex+7)/8)+1 > len(p.FrameBuffer) {
 		p.FrameBuffer = append(p.FrameBuffer, 0)
 	}
 	// Write our value, using some bitwise tricks to only take up the specified bits
