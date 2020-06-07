@@ -21,7 +21,7 @@ func init() {
 			return
 		}
 		index := p.ReadUint16()
-		p1, ok := world.Players.FromIndex(index)
+		p1, ok := world.Players.FindIndex(index)
 		if !ok {
 			log.Suspicious.Printf("%v attempted to trade a player that does not exist.\n", player.String())
 			return
@@ -61,7 +61,7 @@ func init() {
 			player.SendPacket(world.TradeClose)
 			return
 		}
-		c1, ok := world.Players.FromIndex(player.TradeTarget())
+		c1, ok := world.Players.FindIndex(player.TradeTarget())
 		if !ok {
 			log.Suspicious.Printf("%v attempted to update a trade with a non-existent target!\n", player.String())
 			player.ResetTrade()
@@ -110,7 +110,7 @@ func init() {
 			player.SendPacket(world.TradeClose)
 			return
 		}
-		c1, ok := world.Players.FromIndex(player.TradeTarget())
+		c1, ok := world.Players.FindIndex(player.TradeTarget())
 		if !ok {
 			log.Suspicious.Printf("%v attempted to decline a trade with a non-existent target!\n", player.String())
 			player.ResetTrade()
@@ -132,7 +132,7 @@ func init() {
 			player.SendPacket(world.TradeClose)
 			return
 		}
-		c1, ok := world.Players.FromIndex(player.TradeTarget())
+		c1, ok := world.Players.FindIndex(player.TradeTarget())
 		if !ok {
 			log.Suspicious.Printf("%v attempted to accept a trade with a non-existent target!\n", player.String())
 			player.ResetTrade()
@@ -162,7 +162,7 @@ func init() {
 			player.SendPacket(world.TradeClose)
 			return
 		}
-		target, ok := world.Players.FromIndex(player.TradeTarget())
+		target, ok := world.Players.FindIndex(player.TradeTarget())
 		if !ok {
 			log.Suspicious.Printf("%v attempted to accept a trade confirmation with a non-existent target!\n", player.String())
 			player.ResetTrade()

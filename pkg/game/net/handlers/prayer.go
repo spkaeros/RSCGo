@@ -29,7 +29,7 @@ func init() {
 			log.Suspicious.Printf("%v turned on a prayer that he is too low level for: %d\n", player, idx)
 			return
 		}
-		player.PrayerOn(int(idx))
+		player.ActivatePrayer(int(idx))
 		player.SendPrayers()
 	})
 	AddHandler("prayeroff", func(player *world.Player, p *net.Packet) {
@@ -43,7 +43,7 @@ func init() {
 			return
 		}
 		if player.PrayerActivated(int(idx)) {
-			player.PrayerOff(int(idx))
+			player.DeactivatePrayer(int(idx))
 		}
 		player.SendPrayers()
 	})

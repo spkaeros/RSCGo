@@ -37,7 +37,7 @@ func init() {
 			player.Message("@que@Please remove '" + strutil.Base37.Decode(hash) + "' from your ignore list before friending them.")
 			return
 		}
-		if p1, ok := world.Players.FromUserHash(hash); ok && p1 != nil &&
+		if p1, ok := world.Players.FindHash(hash); ok && p1 != nil &&
 			(!p1.FriendBlocked() || p1.FriendList.ContainsHash(hash)) {
 			player.FriendList.Add(strutil.Base37.Decode(hash))
 			p1.SendPacket(world.FriendUpdate(player.UsernameHash(), true))
@@ -45,7 +45,7 @@ func init() {
 	})
 	AddHandler("privmsg", func(player *world.Player, p *net.Packet) {
 		hash := p.ReadUint64()
-		if p1, ok := world.Players.FromUserHash(hash); ok && p1 != nil &&
+		if p1, ok := world.Players.FindHash(hash); ok && p1 != nil &&
 			(!p1.FriendBlocked() || p1.FriendList.ContainsHash(hash)) {
 			// c1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(strutil.ChatFilter.Unpack(p.FrameBuffer[8:]))))
 			p1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(string(p.FrameBuffer[8:]))))
@@ -62,7 +62,7 @@ func init() {
 		}
 		player.FriendList.Remove(strutil.Base37.Decode(hash))
 		if player.FriendBlocked() {
-			if p1, ok := world.Players.FromUserHash(hash); ok && p1 != nil &&
+			if p1, ok := world.Players.FindHash(hash); ok && p1 != nil &&
 				p1.FriendList.ContainsHash(hash) {
 				p1.FriendList.ToggleStatus(player.Username())
 			}

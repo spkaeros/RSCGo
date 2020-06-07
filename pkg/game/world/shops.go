@@ -12,7 +12,7 @@ package world
 import (
 	"sync"
 
-	"github.com/spkaeros/rscgo/pkg/engine/tasks"
+	"github.com/spkaeros/rscgo/pkg/tasks"
 )
 
 const (

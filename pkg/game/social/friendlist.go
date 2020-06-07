@@ -81,8 +81,9 @@ func (f *FriendsList) Add(name string) {
 func (f *FriendsList) ToggleStatus(name string) bool {
 	f.Lock()
 	defer f.Unlock()
+	toggleHash := strutil.Base37.Encode(name)
 	for hash, status := range f.friendSet {
-		if strutil.Base37.Encode(name) == hash {
+		if hash == toggleHash {
 			f.friendSet[hash] = !status
 			return true
 		}

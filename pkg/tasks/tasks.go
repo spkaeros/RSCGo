@@ -20,6 +20,7 @@ import (
 // should be removed from the set it belongs to upon completion
 type Task func() bool
 
+//Tasks is a slice of Task closures
 type Tasks []Task
 
 //TaskList is a concurrency-safe list of Task closures mapped to simple string identifiers.

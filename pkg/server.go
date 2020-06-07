@@ -1,0 +1,462 @@
+/*
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
+package main
+
+import (
+	"crypto/tls"
+	stdnet "net"
+	"os"
+	"sync"
+	"strconv"
+	"time"
+	"strings"
+	"math"
+
+	"github.com/gobwas/ws"
+	"github.com/jessevdk/go-flags"
+	"github.com/BurntSushi/toml"
+
+	"github.com/spkaeros/rscgo/pkg/crypto"
+	"github.com/spkaeros/rscgo/pkg/config"
+	"github.com/spkaeros/rscgo/pkg/definitions"
+	"github.com/spkaeros/rscgo/pkg/tasks"
+	rscerrors "github.com/spkaeros/rscgo/pkg/errors"
+	"github.com/spkaeros/rscgo/pkg/db"
+	"github.com/spkaeros/rscgo/pkg/isaac"
+	"github.com/spkaeros/rscgo/pkg/strutil"
+	"github.com/spkaeros/rscgo/pkg/game/net"
+	"github.com/spkaeros/rscgo/pkg/game/net/handlers"
+	"github.com/spkaeros/rscgo/pkg/game/net/handshake"
+	"github.com/spkaeros/rscgo/pkg/game/world"
+	"github.com/spkaeros/rscgo/pkg/log"
+)
+
+const (
+	TickMillis = time.Millisecond*640
+)
+
+type (
+	Flags struct {
+		Verbose   []bool `short:"v" long:"verbose" description:"Display more verbose output"`
+		Port      int    `short:"p" long:"port" description:"The TCP port for the game to listen on, (Websocket will use the port directly above it)"`
+		Config    string `short:"c" long:"config" description:"Specify the TOML configuration file to load game settings from" default:"config.toml"`
+		UseCipher bool   `short:"e" long:"encryption" description:"Enable command opcode encryption using a variant of ISAAC to encrypt net opcodes."`
+	}
+	Server struct {
+		port int
+		listener stdnet.Listener
+		*time.Ticker
+	}
+)
+
+var (
+	cliFlags = &Flags{}
+	start = time.Now()
+	newPlayers chan *world.Player
+	tlsCerts, tlsError = tls.LoadX509KeyPair("./data/ssl/fullchain.pem", "./data/ssl/privkey.pem")
+	wsUpgrader = ws.Upgrader{
+		Protocol: func(protocol []byte) bool {
+			// Chrome is picky, won't work without explicit protocol acceptance
+			return true
+		},
+		ReadBufferSize:  23768,
+		WriteBufferSize: 23768,
+	}
+)
+
+func main() {
+	// Initialize sane defaults as fallback configuration options, if the config.toml file is not found or if some values are left out of it
+	config.TomlConfig.MaxPlayers = 1250
+	config.TomlConfig.DataDir = "./data/"
+	config.TomlConfig.PacketHandlerFile = "packets.toml"
+	config.TomlConfig.Crypto.HashComplexity = 15
+	config.TomlConfig.Crypto.HashLength = 32
+	config.TomlConfig.Crypto.HashMemory = 8
+	config.TomlConfig.Crypto.HashSalt = "rscgo./GOLANG!RULES/.1994"
+	config.TomlConfig.Version = 204
+	config.TomlConfig.Port = 43594 // +1 for websockets
+
+	if _, err := flags.Parse(cliFlags); err != nil {
+		log.Warn("Error parsing command arguments:", cliFlags)
+		return
+	}
+	// Default to config.toml for config file
+	if len(cliFlags.Config) == 0 {
+		cliFlags.Config = "config.toml"
+	}
+	if _, err := toml.DecodeFile("config.toml", &config.TomlConfig); err != nil {
+		log.Warn("Error decoding configuration file (" + cliFlags.Config + "):", err)
+		return 
+	}
+	// TODO: Default serialization to JSON or BSON maybe?
+	config.TomlConfig.Database.PlayerDriver = "sqlite3"
+	config.TomlConfig.Database.PlayerDB = "file:./data/players.db"
+	config.TomlConfig.Database.WorldDriver = "sqlite3"
+	config.TomlConfig.Database.WorldDB = "file:./data/world.db"
+	if _, err := toml.DecodeFile("data/dbio.conf", &config.TomlConfig.Database); err != nil {
+		log.Warn("Error reading database config file:", err)
+		return
+	}
+
+	if cliFlags.Port > 0 {
+		config.TomlConfig.Port = cliFlags.Port
+	}
+	if config.Port() >= 65534 || config.Port() < 0 {
+		log.Warn("Error: Invalid port number specified.")
+		log.Warn("Valid port numbers are 1-65533 (needs the port 1 above it open to bind a websockets listener).")
+		return 
+	}
+
+	run(db.ConnectEntityService, func() {
+		db.DefaultPlayerService = db.NewPlayerServiceSql()
+		world.DefaultPlayerService = world.PlayerService(db.DefaultPlayerService)
+	})
+	config.Verbosity = len(cliFlags.Verbose)
+
+	run(handlers.UnmarshalPackets, db.LoadTileDefinitions, db.LoadObjectDefinitions, db.LoadBoundaryDefinitions, db.LoadItemDefinitions, db.LoadNpcDefinitions)
+	run(db.LoadObjectLocations, db.LoadNpcLocations, db.LoadItemLocations, world.RunScripts, world.LoadCollisionData)
+
+	if config.Verbose() {
+		log.Debug("Loaded", len(world.Sectors)-1, "map sectors")
+		log.Debug("Loaded", handlers.PacketCount(), "packets (with", handlers.HandlerCount(), "handlers)")
+		log.Debug("Loaded", world.ItemIndexer.Load(), "items and", len(definitions.Items)-1, "item definitions")
+		log.Debug("Loaded", world.Npcs.Size(), "NPCs and", len(definitions.Npcs)-1, "NPC definitions")
+		log.Debug("Loaded", len(definitions.ScenaryObjects)-1, "scenary definitions, and", len(definitions.BoundaryObjects)-1, "boundary definitions")
+		log.Debug("Loaded", world.ObjectCounter.Load(), "scenary / boundary objects")
+		log.Debug("Loading all game entitys took:", time.Since(start).Seconds(), "seconds")
+		if config.Verbosity >= 2 {
+			log.Debugf("Triggers[\n\t%d item actions,\n\t%d scenary actions,\n\t%d boundary actions,\n\t%d npc actions,\n\t%d item->boundary actions,\n\t%d item->scenary actions,\n\t%d attacking NPC actions,\n\t%d killing NPC actions\n];\n", len(world.ItemTriggers), len(world.ObjectTriggers), len(world.BoundaryTriggers), len(world.NpcTriggers), len(world.InvOnBoundaryTriggers), len(world.InvOnObjectTriggers), len(world.NpcAtkTriggers), len(world.NpcDeathTriggers))
+		}
+	}
+	log.Debug("Listening at: " + strconv.Itoa(config.Port()) + " (TCP), " + strconv.Itoa(config.WSPort()) + " (websockets)")
+	log.Debug()
+	log.Debug("RSCGo has finished initializing world; we hope you enjoy it")
+
+	(&Server{Ticker: time.NewTicker(TickMillis)}).Start()
+}
+
+func readPacket(player *world.Player) (*net.Packet, error) {
+	header := make([]byte, 2)
+	n, err := player.Read(header)
+	if err != nil {
+		switch err.(type) {
+		case rscerrors.NetError:
+			if err.(rscerrors.NetError).Fatal {
+				player.Destroy()
+			}
+		}
+		log.Warn("Error reading packet header:", err)
+		return nil, rscerrors.NewNetworkError("Error reading header for packet:" + err.Error(), true)
+	}
+	if n < 2 {
+		return nil, rscerrors.NewNetworkError("Invalid packet-frame length recv; got " + strconv.Itoa(n), false)
+	}
+	length := int(header[0] & 0xFF)
+	if length >= 160 {
+		length = (length-160) << 8|int(header[1] & 0xFF)
+	} else {
+		length -= 1
+	}
+
+	frame := make([]byte, length)
+	if length > 0 {
+		n, err := player.Read(frame)
+		if err != nil {
+			log.Warn("Error reading packet frame:", err)
+//			return nil, rscerrors.NewNetworkError("Error reading frame for packet:" + err.Error(), true)
+			return nil, err
+		}
+		if n < int(length) {
+			return nil, rscerrors.NewNetworkError("Invalid packet-frame length recv; got " + strconv.Itoa(n), false)
+		}
+	}
+
+	if length < 160 {
+		frame = append(frame, header[1])
+	}
+	return net.NewPacket(frame[0], frame[1:]), nil
+}
+
+//run Helper function for concurrently running a bunch of functions and waiting for them to complete
+func run(fns ...func()) {
+	w := &sync.WaitGroup{}
+	do := func(fn func()) {
+		w.Add(1)
+		go func(fn func()) {
+			defer w.Done()
+			fn()
+		}(fn)
+	}
+
+	for _, fn := range fns {
+		do(fn)
+	}
+	w.Wait()
+}
+
+
+func (s *Server) tlsAccept(l stdnet.Listener) *world.Player {
+	socket, err := l.Accept()
+	if err != nil {
+		log.Errorf("Error: Could not accept new player websocket (%v):%v\n", socket,  err.Error())
+		return nil
+	}
+	if tlsError == nil {
+		// This block only runs if the certificate chain was initialized right
+		if tmpSock := tls.Server(socket, &tls.Config{Certificates: []tls.Certificate{tlsCerts}, ServerName: "rscturmoil.com", InsecureSkipVerify: false, SessionTicketsDisabled: true}); tmpSock != nil {
+			// If we encountered some problem setting up TLS, this should prevent us from losing our original non-encrypted socket hopefully
+			socket = tmpSock
+		}
+	}
+
+	p := world.NewPlayer(socket)
+	_, err = wsUpgrader.Upgrade(p.Socket)
+	p.Websocket = err == nil
+
+	return p
+}
+
+
+//Bind binds to the TCP port at port, and the websocket port at port+1.
+func (s *Server) Bind(port int) bool {
+	listener, err := stdnet.Listen("tcp", ":"+strconv.Itoa(port))
+	if err != nil {
+		log.Fatal("Can't bind to specified port: %d\n", port)
+		log.Fatal(err)
+		os.Exit(1)
+	}
+	s.listener = listener
+
+	go func() {
+		defer func() {
+			if err := s.listener.Close(); err != nil {
+				log.Fatal("closing listener failed:", err)
+				os.Exit(1)
+			}
+		}()
+		for {
+			player := s.tlsAccept(s.listener)
+			login, err := readPacket(player)
+			if err != nil {
+				if err, ok := err.(rscerrors.NetError); ok {
+					if err.Fatal {
+						player.Socket.Close()
+						continue
+					}
+				}
+				player.Socket.Close()
+				continue
+			}
+			if login == nil {
+				player.Socket.Close()
+				continue
+			}
+			if login.Opcode == 0 {
+				sendReply := func(i handshake.ResponseCode, reason string) {
+					// player.OutQueue <- world.HandshakeResponse(int(i))
+					// player.FlushOutgoing()
+					player.WritePacket(world.HandshakeResponse(int(i)))
+					if i.IsValid() {
+						player.Initialize()
+						go func() {
+							defer close(player.OutQueue)
+							defer close(player.InQueue)
+							defer player.Destroy()
+							for {
+								select {
+								default:
+									if p, err := readPacket(player); err != nil {
+										if err, ok := err.(rscerrors.NetError); ok {
+											if err.Fatal {
+												log.Debug("Fatal!")
+												return
+											}
+										}
+										return
+									} else if p == nil {
+										continue
+									} else {
+										player.InQueue <- p
+									}
+								}
+							}
+						}()
+						log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "successfully logged in")
+					} else {
+						log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "failed to login (" + reason + ")")
+						player.Destroy()
+						close(player.OutQueue)
+						close(player.InQueue)
+					}
+				}
+				if !world.UpdateTime.IsZero() {
+					sendReply(handshake.ResponseLoginServerRejection, "System update in progress")
+					continue
+				}
+				if world.Players.Size() >= config.MaxPlayers() {
+					sendReply(handshake.ResponseWorldFull, "Out of usable player slots")
+					continue
+				}
+				if handshake.LoginThrottle.Recent(player.CurrentIP(), time.Minute*5) >= 5 {
+					sendReply(handshake.ResponseSpamTimeout, "Too many recent invalid login attempts (5 in 5 minutes)")
+					continue
+				}
+
+				player.SetReconnecting(login.ReadBoolean())
+				if ver := login.ReadUint16(); ver != config.Version() {
+					sendReply(handshake.ResponseUpdated, "Invalid client version (" + strconv.Itoa(ver) + ")")
+					continue
+				}
+
+				rsaSize := login.ReadUint16()
+				data := make([]byte, rsaSize)
+				rsaRead := login.Read(data)
+				if rsaRead < rsaSize {
+					sendReply(handshake.ResponseLoginServerRejection, "Invalid RSA block")
+					continue
+				}
+				packetDec := net.NewPacket(0, crypto.DecryptRSA(data))
+				player.SetVar("ourRng", isaac.New(packetDec.ReadUint64()))
+				player.SetVar("theirRng", isaac.New(packetDec.ReadUint64()))
+				player.SetVar("username", strutil.Base37.Encode(strings.TrimSpace(packetDec.ReadString())))
+				password := strings.TrimSpace(packetDec.ReadString())
+				if world.Players.ContainsHash(player.UsernameHash()) {
+					sendReply(handshake.ResponseLoggedIn, "Player with same username is already logged in")
+					continue
+				}
+				var dataService = db.DefaultPlayerService
+				if !dataService.PlayerNameExists(player.Username()) || !dataService.PlayerValidLogin(player.UsernameHash(), crypto.Hash(password)) {
+					handshake.LoginThrottle.Add(player.CurrentIP())
+					sendReply(handshake.ResponseBadPassword, "Invalid credentials")
+					continue
+				}
+				if !dataService.PlayerLoad(player) {
+					sendReply(handshake.ResponseDecodeFailure, "Could not load player profile; is the dataService setup properly?")
+					continue
+				}
+
+				if player.Reconnecting() {
+					sendReply(handshake.ResponseReconnected, "")
+					continue
+				}
+				switch player.Rank() {
+				case 2:
+					sendReply(handshake.ResponseAdministrator, "")
+				case 1:
+					sendReply(handshake.ResponseModerator, "")
+				default:
+					sendReply(handshake.ResponseLoginSuccess, "")
+				}
+
+				continue
+			}
+		}
+	}()
+	config.Verbosity = int(math.Min(math.Max(float64(len(cliFlags.Verbose)), 0), 4))
+	return false
+}
+
+func (s *Server) handlePackets(p *world.Player) {
+	//	tasks.TickList.Add(func() bool {
+	//	go func() {
+	go func() {
+		for {
+			select {
+			default:
+				return
+			case p1, ok := <-p.InQueue:
+				if !ok || p1 == nil {
+					return
+				}
+				if handlePacket := handlers.Handler(p1.Opcode); handlePacket != nil {
+					handlePacket(p, p1)
+				}
+			}
+		}
+	}()
+}
+func (s *Server) Start() {
+	s.Bind(config.Port())
+//	(s.Ticker).
+	defer s.Ticker.Stop()
+	for range s.C {
+		tasks.TickList.RunAsynchronous()
+
+		world.Players.Range(func(p *world.Player) {
+			if p == nil {
+				return
+			}
+			s.handlePackets(p)
+			if p.TickAction() != nil && p.TickAction()() {
+				p.ResetTickAction()
+			}
+			p.Tickables.Tick(interface{}(p))
+			p.TraversePath()
+		})
+		world.UpdateNPCPositions()
+
+		world.Players.Range(func(p *world.Player) {
+			if p == nil {
+				return
+			}
+			if positions := world.PlayerPositions(p); positions != nil {
+				log.Debug("position!")
+				p.SendPacket(positions)
+			}
+			if appearances := world.PlayerAppearances(p); appearances != nil {
+				// log.Debug("event!")
+				p.SendPacket(appearances)
+			}
+			if npcUpdates := world.NPCPositions(p); npcUpdates != nil {
+				// log.Debug("npcPosition!")
+				p.SendPacket(npcUpdates)
+			}
+			if npcUpdates := world.NpcEvents(p); npcUpdates != nil {
+				// log.Debug("npcEvents!")
+				p.SendPacket(npcUpdates)
+			}
+			if objectUpdates := world.ObjectLocations(p); objectUpdates != nil {
+				// log.Debug("sceneEvent!")
+				p.SendPacket(objectUpdates)
+			}
+			if boundaryUpdates := world.BoundaryLocations(p); boundaryUpdates != nil {
+				// log.Debug("boundarys!")
+				p.SendPacket(boundaryUpdates)
+			}
+			if itemUpdates := world.ItemLocations(p); itemUpdates != nil {
+				// log.Debug("lootables!")
+				p.SendPacket(itemUpdates)
+			}
+			if clearDistantChunks := world.ClearDistantChunks(p); clearDistantChunks != nil {
+				// log.Debug("chunkClear!")
+				p.SendPacket(clearDistantChunks)
+			}
+		})
+
+		world.Players.Range(func(p *world.Player) {
+			if p == nil {
+				return
+			}
+		//	p.FlushOutgoing()
+			p.PostTickables.Tick(interface{}(p))
+			p.ResetRegionRemoved()
+			p.ResetRegionMoved()
+			p.ResetSpriteUpdated()
+			p.ResetAppearanceChanged()
+		})
+		world.ResetNpcUpdateFlags()
+	}
+}
+
+//Stop This will stop the game instance, if it is running.
+func (s *Server) Stop() {
+	log.Debug("Stopping...")
+	os.Exit(0)
+}

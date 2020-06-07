@@ -33,8 +33,8 @@ var CommandHandlers = make(map[string]func(*Player, []string))
 
 func init() {
 	env.Packages["world"] = map[string]reflect.Value{
-		"getPlayer":              reflect.ValueOf(Players.FromIndex),
-		"getPlayerByName":        reflect.ValueOf(Players.FromUserHash),
+		"getPlayer":              reflect.ValueOf(Players.FindIndex),
+		"getPlayerByName":        reflect.ValueOf(Players.FindHash),
 		"players":                reflect.ValueOf(Players),
 		"getEquipmentDefinition": reflect.ValueOf(definitions.Equip),
 		"replaceObject":          reflect.ValueOf(ReplaceObject),

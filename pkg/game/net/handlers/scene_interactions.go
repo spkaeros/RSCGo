@@ -275,7 +275,7 @@ func init() {
 			return
 		}
 
-		target, ok := world.Players.FromIndex(targetIndex)
+		target, ok := world.Players.FindIndex(targetIndex)
 		if !ok || target == nil || !target.Connected() {
 			log.Suspicious.Printf("%s attempted to use an inventory item on a player that doesn't exist\n", player.String())
 			return

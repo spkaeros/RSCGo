@@ -43,6 +43,20 @@ func (s *scripts) Tick(arg interface{}) {
 	s.async(arg)
 }
 
+func (s *scripts) Schedule(ticks int, fn func()) {
+	ticker := func() bool {
+		ticks -= 1
+		if ticks <= 0 {
+			fn()
+			return true
+		}
+		return false
+	}
+	s.Lock()
+	defer s.Unlock()
+	s.scriptCalls = append(s.scriptCalls, ticker)
+}
+
 func (s *scripts) async(arg interface{}) {
 	wait := sync.WaitGroup{}
 	s.Lock()
@@ -66,7 +80,7 @@ func (s *scripts) async(arg interface{}) {
 				}
 			// A function call returning its active status.
 			case statusReturnCall:
-				if (script.(statusReturnCall))() {
+				if !(script.(statusReturnCall))() {
 					retainedScripts <- script
 				}
 			// A function call taking a *world.Player as an argument and returning its active status.
@@ -81,10 +95,11 @@ func (s *scripts) async(arg interface{}) {
 				ret, callErr := (script.(dualReturnCall))(context.Background())
 				if !callErr.IsNil() {
 					log.Warn("Error retVal from a dualReturnCall in the Anko ctx:", callErr.Elem())
-//					log.Warn(callErr.(error).Error())
 					return
 				}
-				retainedScripts <- script
+//				if !ret.Bool() {
+					retainedScripts <- script
+//				}
 
 				log.Debug(ret, callErr)
 //				retainedScripts = append(retainedScripts, script)
@@ -98,7 +113,7 @@ func (s *scripts) async(arg interface{}) {
 					log.Warn("Error retVal from a singleArgDualReturnCall in the Anko ctx:", callErr.String())
 					return
 				}
-				if !ret.IsNil() {
+				if !ret.IsNil() && ret.Bool() {
 					log.Debug(ret)
 				}
 				retainedScripts <- script
@@ -111,7 +126,7 @@ func (s *scripts) async(arg interface{}) {
 	s.scriptCalls = s.scriptCalls[:0]
 	select {
 	case fn, ok := <-retainedScripts:
-		if !ok {
+		if !ok || fn == nil {
 			return
 		}
 		s.scriptCalls = append(s.scriptCalls, fn)

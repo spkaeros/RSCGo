@@ -297,7 +297,7 @@ func (s *sqlService) PlayerLoad(player *world.Player) bool {
 			switch list {
 			case "friend":
 				player.FriendList.Add(strutil.Base37.Decode(hash))
-				if p1, ok := world.Players.FromUserHash(hash); ok && p1 != nil &&
+				if p1, ok := world.Players.FindHash(hash); ok && p1 != nil &&
 					(!p1.ChatBlocked() || p1.FriendList.ContainsHash(hash)) {
 					player.FriendList.ToggleStatus(strutil.Base37.Decode(hash))
 				}

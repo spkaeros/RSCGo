@@ -80,34 +80,34 @@ func init() {
 			return
 		}
 		playerID := p.ReadUint16()
-		affectedClient, ok := world.Players.FromIndex(playerID)
+		target, ok := world.Players.FindIndex(playerID)
 		if !ok {
 			player.Message("@que@Could not find the player you're looking for.")
 			return
 		}
 		player.ResetAll()
 		player.StartFollowing(2)
-		player.Message("@que@Following " + affectedClient.Username())
+		player.Message("@que@Following " + target.Username())
 		player.SetTickAction(func() bool {
 			if !player.IsFollowing() {
 				// Following vars have been reset.
 				return true
 			}
-			if affectedClient == nil || !affectedClient.Connected() ||
-				!player.WithinRange(affectedClient.Location, 16) {
+			if target == nil || !target.Connected() ||
+				!player.WithinRange(target.Location, 16) {
 				// We think we have a target, but they're miles away now or no longer exist
 				player.ResetFollowing()
 				return true
 			}
-			if !player.FinishedPath() && player.WithinRange(affectedClient.Location, player.FollowRadius()) {
+			if !player.FinishedPath() && player.WithinRange(target.Location, player.FollowRadius()) {
 				// We're not done moving toward our target, but we're close enough that we should stop
 				player.ResetPath()
-			} else if !player.WithinRange(affectedClient.Location, player.FollowRadius()) {
+			} else if !player.WithinRange(target.Location, player.FollowRadius()) {
 				// We're not moving, but our target is moving away, so we must try to get closer
-				if !player.WalkTo(affectedClient.Location) {
+				if !player.WalkTo(target.Location) {
 					return true
 				}
-				//				player.SetPath(world.MakePath(player.Location, affectedClient.Location))
+				//				player.SetPath(world.MakePath(player.Location, target.Location))
 			}
 			return false
 		})
@@ -119,7 +119,7 @@ func init() {
 			appearanceTicket := p.ReadUint16()
 			player.AppearanceLock.Lock()
 			if ticket, ok := player.KnownAppearances[serverIndex]; !ok || ticket != appearanceTicket {
-				if c1, ok := world.Players.FromIndex(serverIndex); ok {
+				if c1, ok := world.Players.FindIndex(serverIndex); ok {
 					player.AppearanceReq = append(player.AppearanceReq, c1)
 				}
 			}

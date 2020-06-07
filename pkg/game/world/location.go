@@ -8,32 +8,26 @@ import (
 	"go.uber.org/atomic"
 )
 
+//OrderedDirections This is an array containing all of the directions a mob can walk in, ordered by path finder precedent.
+// West, East, North, South, SouthWest, SouthEast, NorthWest, NorthEast
+var OrderedDirections = [...]int{2, 6, 0, 4, 3, 5, 1, 7}
+
+type Direction = int
+
 const (
-	//North Represents north.
-	North int = iota
-	//NorthWest Represents north-west.
+	North Direction = iota
 	NorthWest
-	//West Represents west.
 	West
-	//SouthWest Represents south-west.
 	SouthWest
-	//South represents south.
 	South
-	//SouthEast represents south-east
 	SouthEast
-	//East Represents east.
 	East
-	//NorthEast Represents north-east.
 	NorthEast
-	//LeftFighting Represents fighting stance on the left hand side
+	// TODO: Check is right
 	LeftFighting
-	//RightFighting Represents fighting stance on the right hand side
 	RightFighting
-	//MaxX Width of the game
-	MaxX = 944
-	//MaxY Height of the game
-	MaxY = 3776
 )
+
 
 const (
 	//PlaneGround Represents the value for the ground-level plane
@@ -124,9 +118,28 @@ func (l *Location) String() string {
 	return fmt.Sprintf("[%d,%d]", l.X(), l.Y())
 }
 
+func (l Location) Within(minX, maxX, minY, maxY int) bool {
+	return l.X() > minX && l.X() <= maxX && l.Y() > minY && l.Y() <= maxY
+}
+
 //IsValid Returns true if the tile at x,y is within world boundaries, false otherwise.
 func (l Location) IsValid() bool {
-	return l.X() <= MaxX && l.Y() <= MaxY
+	return l.Within(0,MaxX,0,MaxY)
+}
+
+func (l *Location) Step(dir int) Location {
+	loc := l.Clone()
+	if dir == 0 || dir == 1 || dir == 7 {
+		loc.y.Dec()
+	} else if dir == 4 || dir == 5 || dir == 3 {
+		loc.y.Inc()
+	}
+	if dir == 1 || dir == 2 || dir == 3 {
+		loc.x.Inc()
+	} else if dir == 5 || dir == 6 || dir == 7 {
+		loc.x.Dec()
+	}
+	return loc
 }
 
 //Equals Returns true if this location points to the same location as o
@@ -141,9 +154,7 @@ func (l *Location) Equals(o interface{}) bool {
 }
 
 func (l *Location) Delta(other Location) (delta int) {
-	delta += l.DeltaX(other)
-	delta += l.DeltaY(other)
-	return
+	return l.DeltaX(other)+l.DeltaY(other)
 }
 
 //DeltaX Returns the difference between this locations x coord and the other locations x coord

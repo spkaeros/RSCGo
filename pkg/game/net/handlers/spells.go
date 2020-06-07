@@ -36,7 +36,7 @@ func init() {
 	})
 	AddHandler("spellplayer", func(player *world.Player, p *net.Packet) {
 		targetIndex := p.ReadUint16()
-		target, ok := world.Players.FromIndex(targetIndex)
+		target, ok := world.Players.FindIndex(targetIndex)
 		if !ok {
 			return
 		}

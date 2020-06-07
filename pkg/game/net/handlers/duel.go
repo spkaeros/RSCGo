@@ -24,7 +24,7 @@ func init() {
 			return
 		}
 		index := p.ReadUint16()
-		target, ok := world.Players.FromIndex(index)
+		target, ok := world.Players.FindIndex(index)
 		if !ok {
 			log.Suspicious.Printf("%v attempted to duel a player that does not exist.\n", player.String())
 			return
@@ -260,7 +260,7 @@ func init() {
 			target.ResetDuelAccepted()
 			if !player.VarBool("duelCanPrayer", true) {
 				for i := 0; i < 14; i++ {
-					player.PrayerOff(i)
+					player.DeactivatePrayer(i)
 				}
 				player.SendPrayers()
 				player.Message("You cannot use prayer in this duel!")
@@ -276,7 +276,7 @@ func init() {
 			}
 			if !target.VarBool("duelCanPrayer", true) {
 				for i := 0; i < 14; i++ {
-					target.PrayerOff(i)
+					target.DeactivatePrayer(i)
 				}
 				target.SendPrayers()
 				target.Message("You cannot use prayer in this duel!")

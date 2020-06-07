@@ -22,14 +22,12 @@ import (
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
-//TileData Represents a single tile in the game's landscape.
-type TileData struct {
-	CollisionMask int16
-}
+//CollisionMask Represents a single tile in the game's landscape.
+type CollisionMask int16
 
 //Sector Represents a sector of 48x48(2304) tiles in the game's landscape.
 type Sector struct {
-	Tiles []TileData
+	Tiles []CollisionMask
 }
 
 //Sectors A map to store landscape sectors by their hashed file name.
@@ -41,18 +39,18 @@ var SectorsLock sync.RWMutex
 func LoadCollisionData() {
 	archive := jag.New(config.DataDir() + string(os.PathSeparator) + "landscape.jag")
 
-	entryFileCaret := 0
-	metaDataCaret := 0
+	fileOffset := 0
+	metaDataOffset := 0
 	// Sectors begin at: offsetX=48, offsetY=96
-	SectorsLock.Lock()
 	for i := 0; i < archive.FileCount; i++ {
-		id := int(binary.BigEndian.Uint32(archive.MetaData[metaDataCaret:]))
-		startCaret := entryFileCaret
-		entryFileCaret += int(uint32(archive.MetaData[metaDataCaret+7]&0xFF)<<16 | uint32(archive.MetaData[metaDataCaret+8]&0xFF)<<8 | uint32(archive.MetaData[metaDataCaret+9]&0xFF))
-		Sectors[id] = loadSector(archive.FileData[startCaret:entryFileCaret])
-		metaDataCaret += 10
+		id := int(binary.BigEndian.Uint32(archive.MetaData[metaDataOffset:]))
+		compSz :=  int(uint32(archive.MetaData[metaDataOffset+7]&0xFF)<<16 | uint32(archive.MetaData[metaDataOffset+8]&0xFF)<<8 | uint32(archive.MetaData[metaDataOffset+9]&0xFF))
+		SectorsLock.Lock()
+		Sectors[id] = loadSector(archive.FileData[fileOffset:fileOffset+compSz])
+		SectorsLock.Unlock()
+		metaDataOffset += 10
+		fileOffset += compSz
 	}
-	SectorsLock.Unlock()
 }
 
 const (
@@ -131,10 +129,10 @@ func IsTileBlocking(x, y int, bit byte, current bool) bool {
 	return CollisionData(x, y).blocked(bit, current)
 }
 
-func (t TileData) blocked(bit byte, current bool) bool {
+func (t CollisionMask) blocked(bit byte, current bool) bool {
 	// Diagonal walls (/, \) and impassable scenary objects (|=|) both effectively disable the occupied location
 	// TODO: Is overlay clipping finished?
-	return t.CollisionMask&int16(bit) != 0 || (!current && (t.CollisionMask&(ClipSwNe|ClipSeNw|ClipFullBlock)) != 0)
+	return t&CollisionMask(bit) != 0 || (!current && (t&(ClipSwNe|ClipSeNw|ClipFullBlock)) != 0)
 }
 
 func sectorName(x, y int) string {
@@ -150,19 +148,19 @@ func sectorFromCoords(x, y int) *Sector {
 		return s
 	}
 	// Default to returning a blank sector filled with zero-value tiles.
-	return &Sector{Tiles: make([]TileData, 2304)}
+	return &Sector{Tiles: make([]CollisionMask, 2304)}
 }
 
-func (s *Sector) tile(x, y int) TileData {
+func (s *Sector) tile(x, y int) CollisionMask {
 	areaX := (2304 + x) % RegionSize
 	areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
 	if len(s.Tiles) <= 0 {
-		return TileData{}
+		return 0
 	}
 	return s.Tiles[areaX*RegionSize+areaY]
 }
 
-func CollisionData(x, y int) TileData {
+func CollisionData(x, y int) CollisionMask {
 	return sectorFromCoords(x, y).tile(x, y)
 }
 
@@ -173,7 +171,7 @@ func loadSector(data []byte) (s *Sector) {
 		log.Warning.Printf("Too short sector data: %d\n", len(data))
 		return nil
 	}
-	s = &Sector{Tiles: make([]TileData, 2304)}
+	s = &Sector{Tiles: make([]CollisionMask, 2304)}
 	offset := 0
 
 	blankCount := 0
@@ -195,7 +193,7 @@ func loadSector(data []byte) (s *Sector) {
 			}
 			tileIdx := x*RegionSize + y
 			if groundOverlay > 0 && int(groundOverlay) < len(definitions.TileOverlays) && definitions.TileOverlays[groundOverlay-1].Blocked != 0 {
-				s.Tiles[tileIdx].CollisionMask |= ClipFullBlock
+				s.Tiles[tileIdx] |= ClipFullBlock
 			}
 			walls := [][]int{
 				{int(verticalWalls) - 1, ClipNorth, y},
@@ -210,9 +208,9 @@ func loadSector(data []byte) (s *Sector) {
 					continue
 				}
 				if wall := definitions.BoundaryObjects[walls[i][0]]; !wall.Dynamic && wall.Solid {
-					s.Tiles[x*RegionSize+y].CollisionMask |= int16(walls[i][1])
+					s.Tiles[x*RegionSize+y] |= CollisionMask(walls[i][1])
 					if walls[i][2] > 0 {
-						s.Tiles[(x-i)*RegionSize+((y-1)+i)].CollisionMask |= int16(walls[i][1] << 2)
+						s.Tiles[(x-i)*RegionSize+((y-1)+i)] |= CollisionMask(walls[i][1] << 2)
 					}
 				}
 			}
@@ -224,10 +222,10 @@ func loadSector(data []byte) (s *Sector) {
 				diagonalWalls -= 1
 				if wall := definitions.BoundaryObjects[diagonalWalls]; !wall.Dynamic && wall.Solid {
 					if diagonalWalls > 12000 {
-						s.Tiles[tileIdx].CollisionMask |= ClipSwNe
+						s.Tiles[tileIdx] |= ClipSwNe
 					} else {
 						// diagonal that blocks: SE<->NW (/ aka |‾ or _|)
-						s.Tiles[tileIdx].CollisionMask |= ClipSeNw
+						s.Tiles[tileIdx] |= ClipSeNw
 					}
 				}
 			}

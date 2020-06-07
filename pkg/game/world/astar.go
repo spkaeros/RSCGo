@@ -108,7 +108,7 @@ func (p *Pathfinder) MakePath() *Pathway {
 		active.closed = true
 		makePath := func(active *tileNode) *Pathway {
 			path := &Pathway{StartX: 0, StartY: 0}
-			for !active.parent.loc.Equals(p.start) {
+			for active.parent != nil && !active.parent.loc.Equals(p.start) {
 				path.addFirstWaypoint(active.loc.X(), active.loc.Y())
 				active = active.parent
 			}

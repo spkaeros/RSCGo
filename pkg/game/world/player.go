@@ -23,9 +23,8 @@ import (
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 
-	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/definitions"
-	"github.com/spkaeros/rscgo/pkg/engine/tasks"
+	"github.com/spkaeros/rscgo/pkg/tasks"
 	"github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/game/net"
@@ -53,6 +52,7 @@ type (
 		bank             *Inventory
 		TradeOffer       *Inventory
 		DuelOffer        *Inventory
+		Prayers			 [15]bool
 		Duel             struct {
 			Rules    [4]bool
 			Accepted [2]bool
@@ -62,15 +62,16 @@ type (
 		PostTickables scripts
 		tickAction    statusReturnCall
 		ActionLock    sync.RWMutex
-		SendHandler   chan net.Packet
+		SendHandler   chan *net.Packet
 		ReplyMenuC    chan int8
 		Equips        [12]int
 		killer        sync.Once
 		hasReader     bool
-		SigKill       chan struct{}
-		InQueue       chan net.Packet
-		OutQueue      chan net.Packet
+		Websocket     bool
+		InQueue       chan *net.Packet
+		OutQueue      chan *net.Packet
 		Reader        *bufio.Reader
+		Writer		  net.WriteFlusher
 		DatabaseIndex int
 		Mob
 	}
@@ -99,9 +100,9 @@ func (p *Player) CanAttack(target entity.MobileEntity) bool {
 	if p.State()&StateFightingDuel == StateFightingDuel {
 		return p.Duel.Target == target && p.DuelMagic()
 	}
-	p1 := AsPlayer(target)
+	targetp := AsPlayer(target)
 	ourWild := p.Wilderness()
-	targetWild := p1.Wilderness()
+	targetWild := targetp.Wilderness()
 	if ourWild < 1 || targetWild < 1 {
 		p.Message("You cannot attack other players outside of the wilderness!")
 		return false
@@ -111,11 +112,11 @@ func (p *Player) CanAttack(target entity.MobileEntity) bool {
 		delta = -delta
 	}
 	if delta > ourWild {
-		p.Message("You must move to at least level " + strconv.Itoa(delta) + " wilderness to attack " + p1.Username() + "!")
+		p.Message("You must move to at least level " + strconv.Itoa(delta) + " wilderness to attack " + targetp.Username() + "!")
 		return false
 	}
 	if delta > targetWild {
-		p.Message(p1.Username() + " is not in high enough wilderness for you to attack!")
+		p.Message(targetp.Username() + " is not in high enough wilderness for you to attack!")
 		return false
 	}
 	return true
@@ -158,7 +159,7 @@ func (p *Player) ConnectionPort() int {
 }
 
 func (p *Player) IsWebsocket() bool {
-	return p.ConnectionPort() == config.WSPort()
+	return p.Websocket
 }
 
 func (p *Player) Rank() int {
@@ -176,20 +177,25 @@ func (p *Player) String() string {
 
 //SetTickAction queues a distanced action to run every game engine tick before path traversal, if action returns true, it will be reset.
 func (p *Player) SetTickAction(action func() bool) {
-	p.ActionLock.Lock()
+	if p == nil {
+		return
+	}
+	p.Lock()
+	defer p.Unlock()
 	p.tickAction = action
-	p.ActionLock.Unlock()
+	// p.ActionLock.Lock()
+	// p.ActionLock.Unlock()
 }
 
 func (p *Player) TickAction() func() bool {
+	p.RLock()
+	defer p.RUnlock()
 	return p.tickAction
 }
 
 //ResetTickAction clears the distanced action, if any is queued.  Should be called any time the player is deliberately performing an action.
 func (p *Player) ResetTickAction() {
-	p.ActionLock.Lock()
-	p.tickAction = nil
-	p.ActionLock.Unlock()
+	p.SetTickAction(nil)
 }
 
 //FriendsWith returns true if specified username is in our friend entityList.
@@ -229,6 +235,9 @@ func (p *Player) DuelBlocked() bool {
 
 func (p *Player) UpdateStatus(status bool) {
 	Players.Range(func(player *Player) {
+		if player == nil {
+			return
+		}
 		if player.FriendList.Contains(p.Username()) {
 			if p.FriendList.Contains(player.Username()) || !p.FriendBlocked() {
 				p.SendPacket(FriendUpdate(p.UsernameHash(), status))
@@ -253,26 +262,17 @@ func (p *Player) WalkingRangedAction(t entity.MobileEntity, fn func()) {
 // of `target` mob, with a straight line of sight, e.g no intersecting boundaries, large
 // objects, walls, etc.
 // Runs everything on game engine ticks, retries until catastrophic failure or success.
-func (p *Player) WalkingArrivalAction(target entity.MobileEntity, dist int, action func()) {
-	p.tickAction = func() bool {
-		if target == nil {
-			p.ResetPath()
-			return true
-		}
-		if p.WithinRange(NewLocation(target.X(), target.Y()), dist) {
-			// make sure we can shoot them without obstacles
-			if !p.CanReachMob(target) {
+func (p *Player) WalkingArrivalAction(t entity.MobileEntity, dist int, action func()) {
+	p.SetTickAction(func() bool {
+		if p.LongestDeltaCoords(t.X(), t.Y()) >= dist {
+			if !p.CanReachMob(t) {
 				return false
 			}
-			// shoot them
 			action()
 			return true
 		}
-		//		if !p.WalkTo(NewLocation(target.X(), target.Y())) {
-		///			return true
-		//		}
-		return !p.WalkTo(NewLocation(target.X(), target.Y()))
-	}
+		return !p.WalkTo(NewLocation(t.X(), t.Y()))
+	})
 }
 
 //CanReachMob Check if we can reach a mob traversing the most direct tiles toward them, e.g straight lines.
@@ -321,13 +321,13 @@ func (p *Player) SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, du
 	p.Attributes.SetVar("trade_block", tradeBlocked)
 	p.Attributes.SetVar("duel_block", duelBlocked)
 
-	//Players.Range(func(player *Player) {
-	//	if player.FriendList.contains(p.Username()) {
-	//		if !p.FriendList.contains(player.Username()) || p.FriendBlocked() {
-	//			p.SendPacket(FriendUpdate(p.UsernameHash(), !p.FriendBlocked() || p.FriendList.contains(player.Username())))
-	//		}
-	//	}
-	//})
+	Players.Range(func(player *Player) {
+		if player.FriendList.Contains(p.Username()) {
+			if !p.FriendList.Contains(player.Username()) || p.FriendBlocked() {
+				p.SendPacket(FriendUpdate(p.UsernameHash(), !p.FriendBlocked() || p.FriendList.Contains(player.Username())))
+			}
+		}
+	})
 }
 
 //SetClientSetting sets the specified client setting to flag.
@@ -511,8 +511,8 @@ func (l Location) ReachableCoords(x, y int) bool {
 
 //UpdateRegion if this player is currently in a region, removes it from that region, and adds it to the region at x,y
 func (p *Player) UpdateRegion(x, y int) {
-	curArea := getRegion(p.X(), p.Y())
-	newArea := getRegion(x, y)
+	curArea := Region(p.X(), p.Y())
+	newArea := Region(x, y)
 	if newArea != curArea {
 		if curArea.Players.Contains(p) {
 			curArea.Players.Remove(p)
@@ -677,7 +677,7 @@ func (p *Player) SetFatigue(i int) {
 
 //NearbyPlayers Returns nearby players.
 func (p *Player) NearbyPlayers() (players []*Player) {
-	for _, r := range surroundingRegions(p.X(), p.Y()) {
+	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.Players.RangePlayers(func(p1 *Player) bool {
 			if p.WithinRange(p1.Location, 16) && p != p1 {
 				players = append(players, p1)
@@ -691,7 +691,7 @@ func (p *Player) NearbyPlayers() (players []*Player) {
 
 //NearbyNpcs Returns nearby NPCs.
 func (p *Player) NearbyNpcs() (npcs []*NPC) {
-	for _, r := range surroundingRegions(p.X(), p.Y()) {
+	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.NPCs.RangeNpcs(func(n *NPC) bool {
 			if p.WithinRange(n.Location, 16) && !n.Location.Equals(DeathPoint) {
 				npcs = append(npcs, n)
@@ -705,7 +705,7 @@ func (p *Player) NearbyNpcs() (npcs []*NPC) {
 
 //NearbyObjects Returns nearby objects.
 func (p *Player) NearbyObjects() (objects []*Object) {
-	for _, r := range surroundingRegions(p.X(), p.Y()) {
+	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		objects = append(objects, r.Objects.NearbyObjects(p)...)
 	}
 
@@ -714,7 +714,7 @@ func (p *Player) NearbyObjects() (objects []*Object) {
 
 //NewObjects Returns nearby objects that this player is unaware of.
 func (p *Player) NewObjects() (objects []*Object) {
-	for _, r := range surroundingRegions(p.X(), p.Y()) {
+	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		for _, o := range r.Objects.NearbyObjects(p) {
 			if !p.LocalObjects.Contains(o) {
 				objects = append(objects, o)
@@ -727,7 +727,7 @@ func (p *Player) NewObjects() (objects []*Object) {
 
 //NewItems Returns nearby ground items that this player is unaware of.
 func (p *Player) NewItems() (items []*GroundItem) {
-	for _, r := range surroundingRegions(p.X(), p.Y()) {
+	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		for _, i := range r.Items.NearbyItems(p) {
 			if !p.LocalItems.Contains(i) {
 				items = append(items, i)
@@ -741,7 +741,7 @@ func (p *Player) NewItems() (items []*GroundItem) {
 //NewPlayers Returns nearby players that this player is unaware of.
 func (p *Player) NewPlayers() (players *MobList) {
 	list := &MobList{}
-	for _, r := range surroundingRegions(p.X(), p.Y()) {
+	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.Players.RangePlayers(func(p1 *Player) bool {
 			if !p.LocalPlayers.Contains(p1) && p != p1 && p.WithinRange(p1.Location, 15) {
 				list.Add(p1)
@@ -755,7 +755,7 @@ func (p *Player) NewPlayers() (players *MobList) {
 
 //NewNPCs Returns nearby NPCs that this player is unaware of.
 func (p *Player) NewNPCs() (npcs []*NPC) {
-	for _, r := range surroundingRegions(p.X(), p.Y()) {
+	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.NPCs.RangeNpcs(func(n *NPC) bool {
 			if !p.LocalNPCs.Contains(n) && p.WithinRange(n.Location, 15) {
 				npcs = append(npcs, n)
@@ -891,10 +891,11 @@ func (p *Player) ResetDuelRules() {
 
 //SendPacket sends a net to the client.
 func (p *Player) SendPacket(packet *net.Packet) {
-	if p == nil || (packet.Opcode != 0 && !p.Connected()) {
+	if p == nil || (!p.Connected() && packet.Opcode != 0) {
 		return
 	}
-	p.OutQueue <- *packet
+//	p.OutQueue <- packet
+	p.WritePacket(packet)
 }
 
 type PlayerService interface {
@@ -905,34 +906,26 @@ var DefaultPlayerService PlayerService
 
 //Destroy sends a kill signal to the underlying client to tear down all of the I/O routines and save the player.
 func (p *Player) Destroy() {
-	p.killer.Do(func() {
-		if p.Connected() {
-			p.UpdateStatus(false)
-			p.ResetAll()
-		}
-		p.OutQueue <- *Logout
-		//go time.AfterFunc(time.Millisecond*time.Duration(640)*2, func() {
-		tasks.TickList.Add(func() bool {
+	tasks.TickList.Add(func() bool {
+		p.killer.Do(func() {
 			if err := p.Socket.Close(); err != nil {
 				log.Warn("Couldn't close socket:", err)
 			}
-			p.Inventory.Owner = nil
 			p.Attributes.SetVar("lastIP", p.CurrentIP())
-			close(p.SigKill)
-			if player, ok := Players.FromIndex(p.Index); ok && player.UsernameHash() != p.UsernameHash() || !ok || !p.Connected() {
-				if ok {
-					log.Cheatf("Unauthenticated player being destroyed had index %d and there is a player that is assigned that index already! (%v)\n", p.Index, player)
-				}
-				return true
-			}
-			if p.Connected() {
+			p.Inventory.Owner = nil
+			if Players.Find(p) > -1 {
+				log.Debug("Unregistered:{'" + p.Username() + "'@'" + p.CurrentIP() + "'}")
+				p.ResetAll()
+				p.UpdateStatus(false)
+				p.WritePacket(Logout)
+				p.SetConnected(false)
+				RemovePlayer(p)
 				go DefaultPlayerService.PlayerSave(p)
+			} else {
+				log.Debug("Unregistered:{Unauthenticated@'" + p.CurrentIP() + "'}")
 			}
-			RemovePlayer(p)
-			p.SetConnected(false)
-			log.Debug("Unregistered:{'" + p.Username() + "'@'" + p.CurrentIP() + "'}")
-			return true
 		})
+		return true
 	})
 }
 
@@ -961,19 +954,19 @@ func (p *Player) CanReach(bounds [2]Location) bool {
 		return true
 	}
 	if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y() &&
-		(CollisionData(x-1, y).CollisionMask&ClipWest) == 0 {
+		(CollisionData(x-1, y)&ClipWest) == 0 {
 		return true
 	}
 	if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y() &&
-		(CollisionData(x+1, y).CollisionMask&ClipEast) == 0 {
+		(CollisionData(x+1, y)&ClipEast) == 0 {
 		return true
 	}
 	if x >= bounds[0].X() && x <= bounds[1].X() && bounds[0].Y() <= y-1 && bounds[1].Y() >= y-1 &&
-		(CollisionData(x, y-1).CollisionMask&ClipSouth) == 0 {
+		(CollisionData(x, y-1)&ClipSouth) == 0 {
 		return true
 	}
 	if x >= bounds[0].X() && x <= bounds[1].X() && bounds[0].Y() <= y+1 && bounds[1].Y() >= y+1 &&
-		(CollisionData(x, y+1).CollisionMask&ClipNorth) == 0 {
+		(CollisionData(x, y+1)&ClipNorth) == 0 {
 		return true
 	}
 	return false
@@ -1033,19 +1026,19 @@ func (p *Player) CanReachDiag(bounds [2]Location) bool {
 	*/
 	// Northeast target
 	if p.X()-1 >= bounds[0].X() && p.X()-1 <= bounds[1].X() && p.Y()-1 >= bounds[0].Y() && p.Y()-1 <= bounds[1].Y() {
-		return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipSouth|ClipWest) == 0
+		return CollisionData(p.X()-1, p.Y()-1)&(ClipSouth|ClipWest) == 0
 	}
 	// Northwest target
 	if p.X()+1 >= bounds[0].X() && p.X()+1 <= bounds[1].X() && p.Y()-1 >= bounds[0].Y() && p.Y()-1 <= bounds[1].Y() {
-		return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipSouth|ClipEast) == 0
+		return CollisionData(p.X()-1, p.Y()-1)&(ClipSouth|ClipEast) == 0
 	}
 	// Southeast target
 	if p.X()-1 >= bounds[0].X() && p.X()-1 <= bounds[1].X() && p.Y()+1 >= bounds[0].Y() && p.Y()+1 <= bounds[1].Y() {
-		return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipNorth|ClipWest) == 0
+		return CollisionData(p.X()-1, p.Y()-1)&(ClipNorth|ClipWest) == 0
 	}
 	// Southwest target
 	if p.X()+1 >= bounds[0].X() && p.X()+1 <= bounds[1].X() && p.Y()+1 >= bounds[0].Y() && p.Y()+1 <= bounds[1].Y() {
-		return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipNorth|ClipEast) == 0
+		return CollisionData(p.X()-1, p.Y()-1)&(ClipNorth|ClipEast) == 0
 	}
 	return false
 	/*
@@ -1077,8 +1070,10 @@ func (p *Player) SendFatigue() {
 // routine.
 func (p *Player) Initialize() {
 	AddPlayer(p)
-	p.SetVar("initTime", time.Now())
+	// Mark down time of authentication
+	p.SetVar("authTime", time.Now())
 	// update flags
+	p.SetConnected(true)
 	p.SetAppearanceChanged()
 	p.SetSpriteUpdated()
 
@@ -1114,10 +1109,39 @@ func (p *Player) Initialize() {
 		fn(p)
 	}
 }
+func (p *Player) WritePacket(packet *net.Packet) {
+	// go func() {
+		if p.Writer == nil {
+			if p.IsWebsocket() {
+				p.Writer = wsutil.NewWriter(p.Socket, ws.StateServerSide, ws.OpBinary)
+			} else {
+				p.Writer = bufio.NewWriter(p.Socket)
+			}
+		}
+		if packet.Opcode == 0 {
+			p.Writer.Write(packet.FrameBuffer)
+			p.Writer.Flush()
+			return
+		}
+		header := []byte{0, 0}
+		frameLength := len(packet.FrameBuffer)
+		if frameLength >= 160 {
+			header[0] = byte(frameLength>>8 + 160)
+			header[1] = byte(frameLength)
+		} else {
+			header[0] = byte(frameLength)
+			if frameLength > 0 {
+				frameLength--
+				header[1] = packet.FrameBuffer[frameLength]
+			}
+		}
+		p.Writer.Write(append(header, packet.FrameBuffer[:frameLength]...))
+		p.Writer.Flush()
+	// }()
+}
 
 func (p *Player) FlushOutgoing() {
-	//	go func() {
-	var writer net.WriteFlusher
+/*	var writer net.WriteFlusher
 	if p.IsWebsocket() {
 		writer = wsutil.NewWriter(p.Socket, ws.StateServerSide, ws.OpBinary)
 	} else {
@@ -1126,35 +1150,18 @@ func (p *Player) FlushOutgoing() {
 	for {
 		select {
 		case packet, ok := <-p.OutQueue:
-			if !ok {
+			if !ok || packet == nil {
 				return
 			}
-			if packet.Opcode == 0 {
-				writer.Write(packet.FrameBuffer)
-				writer.Flush()
-				continue
-			}
-			header := []byte{0, 0}
-			frameLength := len(packet.FrameBuffer)
-			if frameLength >= 160 {
-				header[0] = byte(frameLength>>8 + 160)
-				header[1] = byte(frameLength)
-			} else {
-				header[0] = byte(frameLength)
-				if frameLength > 0 {
-					frameLength--
-					header[1] = packet.FrameBuffer[frameLength]
-				}
-			}
-			writer.Write(append(header, packet.FrameBuffer[:frameLength]...))
+			
 			writer.Flush()
+			//writer.Flush()
 			continue
 		default:
 			return
 		}
 	}
-	return
-	//	}()
+*/
 }
 
 //NewPlayer Returns a reference to a new player.
@@ -1180,11 +1187,10 @@ func NewPlayer(socket stdnet.Conn) *Player {
 		TradeOffer:       &Inventory{Capacity: 12},
 		DuelOffer:        &Inventory{Capacity: 8},
 		Equips:           [12]int{entity.DefaultAppearance().Head, entity.DefaultAppearance().Body, entity.DefaultAppearance().Legs},
-		SigKill:          make(chan struct{}),
-		InQueue:          make(chan net.Packet, 50),
-		OutQueue:         make(chan net.Packet, 50),
+		InQueue:          make(chan *net.Packet, 50),
+		OutQueue:         make(chan *net.Packet, 50),
+		Reader:			  bufio.NewReader(socket),
 	}
-	p.Reader = bufio.NewReader(socket)
 	// TODO: Get rid of this self-referential member; figure out better way to handle client item updating
 	p.Inventory.Owner = p
 	return p
@@ -1207,21 +1213,17 @@ func (p *Player) OpenAppearanceChanger() {
 //Chat sends a player NPC chat message packet to the player and all other players around it.  If multiple msgs are
 // provided, will sleep the goroutine for 3-4 ticks between each message, depending on length of message.
 func (p *Player) Chat(msgs ...string) {
-	for _, msg := range msgs {
-		for _, player := range p.NearbyPlayers() {
-			player.QueueQuestChat(p, nil, msg)
-		}
-		p.QueueQuestChat(p, nil, msg)
-
-		sleepTicks := 3
-		if len(msg) > 82 {
-			sleepTicks++
-		}
-		time.Sleep(time.Millisecond * time.Duration(640*sleepTicks))
-		//tasks.Schedule(sleepTicks, func() {
-
-		//})
+	for _, player := range p.NearbyPlayers() {
+		player.QueueQuestChat(p, nil, msgs[0])
 	}
+	p.QueueQuestChat(p, nil, msgs[0])
+	sleepTicks := 3
+	if len(msgs[0]) > 83 {
+		sleepTicks++
+	}
+	tasks.Schedule(sleepTicks, func() {
+		p.Chat(msgs[1:]...)
+	})
 }
 
 //QueuePublicChat Adds a message to a locked public-chat queue
@@ -1409,7 +1411,7 @@ func (p *Player) IncExp(idx int, amt int) {
 //SetMaxStat sets this players maximum stat at idx to lvl and updates the client about it.
 func (p *Player) SetMaxStat(idx int, lvl int) {
 	p.Skills().SetMax(idx, lvl)
-	p.Skills().SetExp(idx, entity.LevelToExperience(lvl))
+	p.Skills().SetExp(idx, entity.LevelToExperience(lvl) / 4)
 	p.SendStat(idx)
 }
 
@@ -1430,7 +1432,16 @@ func (p *Player) AddItem(id, amount int) {
 }
 
 func (p *Player) PrayerActivated(idx int) bool {
-	return p.VarBool("prayer"+strconv.Itoa(idx), false)
+	return p.Prayers[idx]
+}
+
+func (p *Player) TogglePrayer(idx int) bool {
+	p.Prayers[idx] = !p.Prayers[idx]
+	return p.Prayers[idx]
+}
+
+func (p *Player) ActivatePrayer(idx int) {
+	p.Prayers[idx] = true
 }
 
 func (p *Player) PrayerOn(idx int) {
@@ -1439,51 +1450,28 @@ func (p *Player) PrayerOn(idx int) {
 		p.SendPrayers()
 		return
 	}
-	boosterPrayers := [3][]int{
+	boosterPrayers := [3][3]int{
 		{0, 3, 9},
 		{1, 4, 10},
 		{2, 5, 11},
 	}
-	defer p.SetVar("prayer"+strconv.Itoa(idx), true)
+	defer p.ActivatePrayer(idx)
 	for stat := 0; stat < 3; stat++ {
 		for _, index := range boosterPrayers[stat] {
 			if index == idx {
 				for _, other := range boosterPrayers[stat] {
 					if other != idx {
-						p.PrayerOff(other)
+						p.DeactivatePrayer(other)
 					}
 				}
 				return
 			}
 		}
 	}
-	/*
-		if p.IsDueling() && !p.DuelPrayer() {
-			p.Message("You cannot use prayer in this duel!")
-			p.SendPrayers()
-			return
-		}
-		if idx == 0 || idx == 3 || idx == 9 {
-			p.PrayerOff(0)
-			p.PrayerOff(3)
-			p.PrayerOff(9)
-		}
-		if idx == 1 || idx == 4 || idx == 10 {
-			p.PrayerOff(1)
-			p.PrayerOff(4)
-			p.PrayerOff(10)
-		}
-		if idx == 2 || idx == 5 || idx == 11 {
-			p.PrayerOff(2)
-			p.PrayerOff(5)
-			p.PrayerOff(11)
-		}
-		p.SetVar("prayer"+strconv.Itoa(idx), true)
-	*/
 }
 
-func (p *Player) PrayerOff(idx int) {
-	p.SetVar("prayer"+strconv.Itoa(idx), false)
+func (p *Player) DeactivatePrayer(idx int) {
+	p.Prayers[idx] = false
 }
 
 func (p *Player) SendPrayers() {
@@ -1543,60 +1531,54 @@ func AsNpc(m entity.MobileEntity) *NPC {
 	return m.(*NPC)
 }
 
-func (p *Player) StartCombat(target entity.MobileEntity) {
-	if target.IsPlayer() {
-		targetp := AsPlayer(target)
+func (p *Player) StartCombat(defender entity.MobileEntity) {
+	attacker := entity.MobileEntity(p)
+	if defender.IsPlayer() {
+		targetp := AsPlayer(defender)
 		targetp.PlaySound("underattack")
 		if !p.IsDueling() && !targetp.SkulledOn(p.UsernameHash()) {
 			p.SkullOn(targetp)
 		}
 	}
-	p.SetVar("fightTarget", target)
-	target.SessionCache().SetVar("fightTarget", p)
-	target.SetRegionRemoved()
-	p.Teleport(target.X(), target.Y())
+	p.SetVar("fightTarget", defender)
+	defender.SessionCache().SetVar("fightTarget", p)
+	defender.SetRegionRemoved()
+	p.Teleport(defender.X(), defender.Y())
 	p.AddState(StateFighting)
-	target.AddState(StateFighting)
+	defender.AddState(StateFighting)
 	p.SetDirection(RightFighting)
-	target.SetDirection(LeftFighting)
-	curTick := 0
-	attacker := entity.MobileEntity(p)
-	defender := target
-	tasks.TickList.Add(func() bool {
-		if ptarget, ok := target.(*Player); (ok && !ptarget.Connected()) || !target.HasState(StateFighting) ||
-			!p.HasState(StateFighting) || !p.Connected() || p.LongestDeltaCoords(target.X(), target.Y()) > 0 {
+	defender.SetDirection(LeftFighting)
+	tasks.Schedule(2, func() {
+		if ptarget, ok := defender.(*Player); (ok && !ptarget.Connected()) || !defender.HasState(StateFighting) ||
+			!p.HasState(StateFighting) || !p.Connected() || p.LongestDeltaCoords(defender.X(), defender.Y()) > 0 {
 			// target is a disconnected player, we are disconnected,
 			// one of us is not in a fight, or we are distanced somehow unexpectedly.  Kill tasks.
 			// quickfix for possible bugs I imagined will exist
 			p.ResetFighting()
-			target.ResetFighting()
-			return true
+			defender.ResetFighting()
+			return
 		}
-
-		// One round per 2 ticks
-		curTick++
-		if curTick%2 == 0 {
-			// TODO: tickables return tick delay count, e.g return 2 will wait 2 ticks and rerun, maybe??
-			// would get ridda this per-tickable counter var paradigm
-			return false
-		}
-
 		defer func() {
 			attacker, defender = defender, attacker
 		}()
-
 		attacker.SessionCache().Inc("fightRound", 1)
-		if p.PrayerActivated(12) && attacker.IsNpc() {
-			return false
+
+		// Paralyze Monster blocker here
+		if attacker.IsNpc() && defender.IsPlayer() && AsPlayer(defender).PrayerActivated(12) {
+			return
 		}
+		
 		nextHit := int(math.Min(float64(defender.Skills().Current(entity.StatHits)), float64(attacker.MeleeDamage(defender))))
 		defender.Skills().DecreaseCur(entity.StatHits, nextHit)
 		if defender.Skills().Current(entity.StatHits) <= 0 {
 			if attacker.IsPlayer() {
 				AsPlayer(attacker).PlaySound("victory")
 			}
+			// if defender.IsPlayer() {
+				// AsPlayer(defender).PlaySound("death")
+			// }
 			defender.Killed(attacker)
-			return true
+			return
 		}
 		if defender.IsNpc() && attacker.IsPlayer() {
 			AsNpc(defender).CacheDamage(AsPlayer(attacker).UsernameHash(), nextHit)
@@ -1618,7 +1600,7 @@ func (p *Player) StartCombat(target entity.MobileEntity) {
 			defender.(*Player).PlaySound(sound)
 		}
 
-		return false
+		return
 	})
 	//tasks.TickList.Add(fightClosure)
 }
@@ -1629,7 +1611,7 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 	p.PlaySound("death")
 	p.SendPacket(Death)
 	for i := 0; i < 14; i++ {
-		p.PrayerOff(i)
+		p.DeactivatePrayer(i)
 	}
 	for i := 0; i < 18; i++ {
 		p.Skills().SetCur(i, p.Skills().Maximum(i))
@@ -1670,7 +1652,7 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 		// becomes universally visible on NPCs, or temporarily private otherwise
 		if i == 0 || p.Inventory.RemoveByID(v.ID, v.Amount) > -1 {
 			if killer != nil && killer.IsPlayer() {
-				v.SetVar("belongsTo", killer.SessionCache().VarLong("username", 0))
+				v.Owner = AsPlayer(killer).Username()
 			}
 			AddItem(v)
 		} else {
@@ -1813,78 +1795,9 @@ func (p *Player) OpenSleepScreen() {
 	p.SendPacket(SleepWord(p))
 }
 
-/*
 //Read implements an io.Reader that detects what type of connection the underlying socket is using,
 // and interprets the network byte stream accordingly.  Websockets require a lot of extra book-keeping
 // to be used like this, and as such
-func (p *Player) Read(data []byte) (n int, err error) {
-	written := 0
-	for written < len(data) {
-		err := p.Socket.SetDeadline(time.Now().Add(time.Second * time.Duration(15)))
-		if err != nil {
-			p.Destroy()
-			return -1, errors.NewNetworkError("Deadline reached", true)
-		}
-		if p.IsWebsocket() && !p.hasReader {
-			// reset buffer read index and create the next reader
-			header, reader, err := wsutil.NextReader(p.Socket, ws.StateServerSide)
-			p.hasReader = true
-			p.SetVar("frameFinished", header.Fin)
-			if err != nil {
-				if err == io.EOF {
-					p.Destroy()
-					return -1, errors.NewNetworkError("EOF encountered during wsutil.NextReader:" + err.Error(), true)
-				} else if err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
-					p.Destroy()
-					return -1, errors.NewNetworkError("closed conn", true)
-				} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
-					p.Destroy()
-					return -1, errors.NewNetworkError("timed out", true)
-				}
-				log.Warn("Problem creating reader for next websocket frame:", err)
-			}
-//			if p.Reader != nil {
-				p.Reader.Reset(reader, header.)
-//			} else {
-//				p.Reader = bufio.NewReader(io.LimitReader(reader, header.Length))
-//			}
-		}
-		n, err := p.Reader.Read(data[written:])
-//		p.hasReader = err == io.EOF
-		if err != nil {
-			if err == io.EOF {
-				if !p.VarBool("frameFinished", false) {
-					p.Destroy()
-					log.Debug("EOF on unfinished frame")
-//					return -1, errors.NewNetworkError("EOF on unfinished frame", true)
-				}
-				p.hasReader=false
-				log.Debug("End of frame detected")
-				continue
-			}
-			if err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
-				p.Destroy()
-				return -1, errors.NewNetworkError("closed conn", true)
-			}
-			if e, ok := err.(stdnet.Error); ok && e.Timeout() {
-				p.Destroy()
-				return -1, errors.NewNetworkError("timed out", true)
-			}
-//			if p.IsWebsocket() && err == io.EOF {
-//				p.hasReader=false
-//				log.Warn("Problem reading from socket:", err.Error())
-//				p.Reader = nil
-//				continue
-//			}
-			return -1, errors.NewNetworkError("Unknown:" + err.Error(), false)
-			//continue
-		}
-		written += n
-	}
-	return written, nil
-}
-*/
-
 func (p *Player) Read(data []byte) (n int, err error) {
 	written := 0
 	for written < len(data) {
@@ -1915,7 +1828,7 @@ func (p *Player) Read(data []byte) (n int, err error) {
 		}
 		n, err := p.Reader.Read(data[written:])
 		if err != nil {
-			if err == io.EOF {
+			if err == io.EOF && p.IsWebsocket() {
 				p.hasReader = false
 				if !p.VarBool("frameFin", false) {
 					return -1, errors.NewNetworkError("closed conn", true)
@@ -1926,8 +1839,8 @@ func (p *Player) Read(data []byte) (n int, err error) {
 			} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
 				return -1, errors.NewNetworkError("timed out", true)
 			}
-			//	continue
-			return -1, errors.NewNetworkError("idklol", false)
+			// continue
+			return -1, errors.NewNetworkError(err.Error(), false)
 		}
 		written += n
 	}

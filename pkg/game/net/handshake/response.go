@@ -19,8 +19,8 @@ import (
 	"github.com/spkaeros/rscgo/pkg/throttle"
 )
 
-var loginThrottle = ipThrottle.NewThrottle()
-var registerThrottle = ipThrottle.NewThrottle()
+var LoginThrottle = ipThrottle.NewThrottle()
+var RegisterThrottle = ipThrottle.NewThrottle()
 
 type (
 	//ResponseType A networking handshake response identifier code.
@@ -32,23 +32,23 @@ type (
 
 type ResponseListener struct {
 	kind     ResponseType
-	listener chan response
-	result   response
+	listener chan Response
+	result   Response
 	status   string
 }
 
-type response struct {
+type Response struct {
 	ResponseCode
-	description string
+	Description string
 }
 
-func (r response) send(requestKind string, p *world.Player) {
+func (r Response) send(requestKind string, p *world.Player) {
 	log.Debugf("{ %s for %s@%s }\t%s\n", requestKind, p.Username(), p.CurrentIP(), r)
-	p.OutQueue <- net.Packet{FrameBuffer: []byte{byte(r.ResponseCode)}}
+	p.OutQueue <- &net.Packet{FrameBuffer: []byte{ byte(r.ResponseCode) }}
 	p.FlushOutgoing()
 }
 
-func (r response) String() string {
+func (r Response) String() string {
 	msg := ""
 	if r.IsValid() {
 		msg += "Operation Succeeded"
@@ -67,10 +67,10 @@ func (r response) String() string {
 	} else {
 		msg += "Failed"
 	}
-	if len(r.description) > 0 {
-		r.description = " " + r.description
+	if len(r.Description) > 0 {
+		r.Description = " " + r.Description
 	}
-	msg += " (code:" + strconv.Itoa(int(r.ResponseCode)) + "" + r.description + ")"
+	msg += " (code:" + strconv.Itoa(int(r.ResponseCode)) + "" + r.Description + ")"
 
 	return msg
 }
@@ -78,18 +78,63 @@ func (r response) String() string {
 //NewLoginListener returns a pointer to a new ResponseListener that is ready to listen for login handshakes.
 func NewLoginListener(p *world.Player) *ResponseListener {
 	return newListener(p, LoginCode)
-	// return &ResponseListener{listener: make(chan response), kind: LoginCode, result: response{ResponseCode(-2), "Unresolved"}, status: "Resolving..."}
+	// return &ResponseListener{listener: make(chan Response), kind: LoginCode, result: Response{ResponseCode(-2), "Unresolved"}, status: "Resolving..."}
+}
+
+func ReplySignal(p *world.Player) chan Response {
+	// schedules the channel listener on the game engines thread
+	r := NewLoginListener(p)
+	go func() bool {
+		defer close(r.listener)
+		select {
+		case res := <-r.listener:
+			r.result = res
+			switch r.kind {
+			case LoginCode:
+				if LoginThrottle.Recent(p.CurrentIP(), time.Minute*time.Duration(5)) >= 5 {
+					res.ResponseCode = ResponseSpamTimeout
+				}
+				res.send("LoginRequest", p)
+				if res.IsValid() {
+					p.SetConnected(true)
+					p.Initialize()
+					return true 
+				}
+				p.Destroy()
+				if res.ResponseCode == ResponseBadPassword {
+					LoginThrottle.Add(p.CurrentIP())
+				}
+			case RegisterCode:
+				if RegisterThrottle.Recent(p.CurrentIP(), time.Hour) >= 2 {
+					res.ResponseCode = ResponseSpamTimeout
+				}
+				res.send("RegisterRequest", p)
+				p.Destroy()
+				// below is to cap registration of new profiles to 2 per hour per IP address
+				if res.ResponseCode == ResponseRegisterSuccess {
+					RegisterThrottle.Add(p.CurrentIP())
+					return true
+				}
+			}
+			return true 
+		case <-time.After(time.Second * 10):
+			p.SendPacket(world.HandshakeResponse(-1))
+			p.Destroy()
+			return true
+		}
+	}()
+	return r.listener
 }
 
 //NewRegistrationListener returns a pointer to a new ResponseListener that is ready to listen for
 // registration handshakes.
 func NewRegistrationListener(p *world.Player) *ResponseListener {
 	return newListener(p, RegisterCode)
-	// return &ResponseListener{listener: make(chan response), kind: RegisterCode, result: response{ResponseCode(-2), "Unresolved"}, status: "Resolving..."}
+	// return &ResponseListener{listener: make(chan Response), kind: RegisterCode, result: Response{ResponseCode(-2), "Unresolved"}, status: "Resolving..."}
 }
 
 func newListener(p *world.Player, kind ResponseType) *ResponseListener {
-	return &ResponseListener{listener: make(chan response), kind: kind, result: response{description: "Unresolved"}, status: "Resolving..."}
+	return &ResponseListener{listener: make(chan Response), kind: kind, result: Response{Description: "Unresolved"}, status: "Resolving..."}
 }
 
 //IsValid is used to determine whether the ResponseCode is for a successful handshake or not.
@@ -213,7 +258,7 @@ const (
 )
 
 //ResponseListener This method will block until a response to send to the client is received from our data workers, or if this doesn't occur, 10 seconds after it was called.
-func (r *ResponseListener) attachPlayer(p *world.Player) chan response {
+func (r *ResponseListener) attachPlayer(p *world.Player) chan Response {
 	// schedules the channel listener on the game engines thread
 	go func() bool {
 		defer close(r.listener)
@@ -222,32 +267,32 @@ func (r *ResponseListener) attachPlayer(p *world.Player) chan response {
 			r.result = res
 			switch r.kind {
 			case LoginCode:
-				if loginThrottle.Recent(p.CurrentIP(), time.Minute*time.Duration(5)) >= 5 {
+				if LoginThrottle.Recent(p.CurrentIP(), time.Minute*time.Duration(5)) >= 5 {
 					res.ResponseCode = ResponseSpamTimeout
 				}
 				res.send("LoginRequest", p)
 				if res.IsValid() {
 					p.SetConnected(true)
 					p.Initialize()
-					return true
+					return true 
 				}
 				p.Destroy()
 				if res.ResponseCode == ResponseBadPassword {
-					loginThrottle.Add(p.CurrentIP())
+					LoginThrottle.Add(p.CurrentIP())
 				}
 			case RegisterCode:
-				if registerThrottle.Recent(p.CurrentIP(), time.Hour) >= 2 {
+				if RegisterThrottle.Recent(p.CurrentIP(), time.Hour) >= 2 {
 					res.ResponseCode = ResponseSpamTimeout
 				}
 				res.send("RegisterRequest", p)
 				p.Destroy()
 				// below is to cap registration of new profiles to 2 per hour per IP address
 				if res.ResponseCode == ResponseRegisterSuccess {
-					registerThrottle.Add(p.CurrentIP())
+					RegisterThrottle.Add(p.CurrentIP())
 					return true
 				}
 			}
-			return true
+			return true 
 		case <-time.After(time.Second * 10):
 			p.SendPacket(world.HandshakeResponse(-1))
 			p.Destroy()

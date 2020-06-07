@@ -11,7 +11,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/spkaeros/rscgo/pkg/definitions"
-	"github.com/spkaeros/rscgo/pkg/engine/tasks"
+	"github.com/spkaeros/rscgo/pkg/tasks"
 	"github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -117,6 +117,7 @@ func (i *Item) Stackable() bool {
 //GroundItem Represents a single ground item within the game.
 type GroundItem struct {
 	ID, Amount int
+	Owner string
 	*entity.AttributeList
 	Entity
 }
@@ -124,12 +125,6 @@ type GroundItem struct {
 //ItemIndexer Ensures unique indexes for ground items.
 //  TODO: Proper indexing
 var ItemIndexer = atomic.NewUint32(0)
-
-//Owner Returns: if this ground item has a player that it belongs to, returns that players username base37 hash.  Otherwise,
-// returns 0.
-func (i *GroundItem) Owner() uint64 {
-	return i.VarLong("belongsTo", 0)
-}
 
 //Visibility This is a special state attribute to indicate who the receiver item is visible to.
 // Value 0 means the item has expired and is no longer visible to anybody.
@@ -182,7 +177,7 @@ func NewGroundItem(id, amount, x, y int) *GroundItem {
 		curTick := item.VarInt("ticker", 0)
 		// Visiblity is scoped to item owner but I guess it doesn't have an owner.
 		// Oh well, we'll just let everyone see it early.
-		if item.Visibility() == 1 && item.Owner() == 0 {
+		if item.Visibility() == 1 && len(item.Owner) == 0 {
 			item.SetVar("visibility", 2)
 		}
 		// This keeps track of how many times we've ticked for ~71 sec since we started.
@@ -302,7 +297,7 @@ func (i *GroundItem) VisibleTo(p *Player) bool {
 
 	if i.Visibility() == 1 {
 		// Owner of item is only one we currently want seeing this
-		return i.Owner() == p.UsernameHash()
+		return i.Owner == p.Username()
 	}
 
 	return i.Visibility() == 2

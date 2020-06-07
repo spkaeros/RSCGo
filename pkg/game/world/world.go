@@ -4,19 +4,26 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"math/rand"
 	"sync"
 	"time"
 
-	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/log"
 	rscRand "github.com/spkaeros/rscgo/pkg/rand"
+	"github.com/spkaeros/rscgo/pkg/isaac"
 )
 
 const (
 	TicksDay       = 135000
 	TicksHour      = 5625
 	TicksTwentyMin = 1875
+	TicksMinute    = 100
+
+	//MaxX Width of the game
+	MaxX = 944
+	//MaxY Height of the game
+	MaxY = 3776
 )
 
 const (
@@ -30,40 +37,22 @@ const (
 	LowerBound = RegionSize / 2
 )
 
-//OrderedDirections This is an array containing all of the directions a mob can walk in, ordered by path finder precedent.
-var OrderedDirections = [...]int{2, 6, 0, 4, 3, 5, 1, 7}
-
-func (l Location) Step(direction int) Location {
-	loc := l.Clone()
-	if direction == 0 || direction == 1 || direction == 7 {
-		loc.y.Dec()
-	} else if direction == 4 || direction == 5 || direction == 3 {
-		loc.y.Inc()
-	}
-	if direction == 1 || direction == 2 || direction == 3 {
-		loc.x.Inc()
-	} else if direction == 5 || direction == 6 || direction == 7 {
-		loc.x.Dec()
-	}
-	return loc
-}
-
 //UpdateTime a point in time in the future to log all active players out and shut down the game for updates.
 // Before the command is issued to set this time, it is initialized to time.Time{} zero value.
 var UpdateTime time.Time
 
 type PlayerList struct {
-	players []*Player
+	players [1250]*Player
 	curIdx int
 	free []int
 	sync.RWMutex
 }
 
 //Players Collection containing all of the active client, by index and username hash, guarded by a mutex
-var Players = &PlayerList{players: make([]*Player, 1250)}
+var Players = &PlayerList{free: make([]int, 0, 1250)}
 
-//FromUserHash Returns the client with the base37 username `hash` if it exists and true, otherwise returns nil and false.
-func (m *PlayerList) FromUserHash(hash uint64) (*Player, bool) {
+//FindHash Returns the client with the base37 username `hash` if it exists and true, otherwise returns nil and false.
+func (m *PlayerList) FindHash(hash uint64) (*Player, bool) {
 	m.RLock()
 	defer m.RUnlock()
 	for _, p := range m.players {
@@ -74,34 +63,60 @@ func (m *PlayerList) FromUserHash(hash uint64) (*Player, bool) {
 	return nil, false
 }
 
-//ContainsHash Returns true if there is a client mapped to this username hash is in this collection, otherwise returns false.
-func (m *PlayerList) ContainsHash(hash uint64) bool {
-	_, ret := m.FromUserHash(hash)
-	return ret
-}
-
 //FromIndex Returns the client with the index `index` if it exists and true, otherwise returns nil and false.
-func (m *PlayerList) FromIndex(index int) (*Player, bool) {
+func (m *PlayerList) FindIndex(index int) (*Player, bool) {
 	m.RLock()
 	defer m.RUnlock()
-	return m.players[index], m.players[index] != nil && m.players[index].ServerIndex() == index
+	return m.players[index], m.players[index] != nil
 }
 
-//Add Puts a client into the map.
+//Find Returns the slot that this player occupies in the set.
+func (m *PlayerList) Find(player *Player) int {
+	m.RLock()
+	defer m.RUnlock()
+	for i, v := range m.players {
+		if v == player {
+			return i
+		}
+	}
+
+	return -1
+}
+
+//Contains Returns true if this player is assigned to a slot in the set, otherwise returns false.
+func (m *PlayerList) Contains(player *Player) bool {
+	return m.Find(player) > -1
+}
+
+//ContainsHash Returns true if there is a client mapped to this username hash is in this collection, otherwise returns false.
+func (m *PlayerList) ContainsHash(hash uint64) bool {
+	player, ret := m.FindHash(hash)
+	return ret && player != nil
+}
+
+
+//Put Finds the lowest available empty slot in the list, and puts the player there.
+// This will also assign the players server index variable (*Player.Index) to the assigned slot.
 func (m *PlayerList) Put(player *Player) {
-	idx := m.NextIndex()
+	if i := m.Find(player); i > -1 {
+		log.Debug("Player list double-put attempted; old index is", i)
+		return
+	}
+	player.Index = m.nextSlot()
 	m.Lock()
 	defer m.Unlock()
-	player.Index = idx
-	m.players[idx] = player
+	m.players[player.Index] = player
 }
 
-//Remove Removes a client from the map.
+//Remove Removes a client from the set.
 func (m *PlayerList) Remove(player *Player) {
+	freedSlot := player.ServerIndex()
+	log.Debug("free slot: ",freedSlot)
 	m.Lock()
 	defer m.Unlock()
-	m.players[player.ServerIndex()] = nil
-	m.free = append(m.free, player.ServerIndex())
+	m.players[freedSlot].Index = -1
+	m.players[freedSlot] = nil
+	m.free = append(m.free, freedSlot)
 	
 }
 
@@ -110,7 +125,7 @@ func (m *PlayerList) Range(action func(*Player)) {
 	m.RLock()
 	defer m.RUnlock()
 	for _, p := range m.players {
-		if p != nil && p.Connected() {
+		if p != nil {
 			action(p)
 		}
 	}
@@ -123,47 +138,46 @@ func (m *PlayerList) Size() int {
 	return len(m.players)
 }
 
-func (m *PlayerList) freeCount() int {
-	m.RLock()
-	defer m.RUnlock()
-	return len(m.free)
-}
-
 //NextIndex Returns the lowest available index for the client to be mapped to.
-func (m *PlayerList) NextIndex() int {
-	if m.freeCount() > 0 {
-		m.Lock()
-		defer m.Unlock()
+func (m *PlayerList) nextSlot() int {
+	m.Lock()
+	defer m.Unlock()
+	if len(m.free) > 0 {
 		idx := m.free[0]
-		m.free = m.free[1:]
+		if len(m.free) > 1 {
+			m.free = m.free[1:]
+		} else {
+			m.free = []int{}
+		}
 		return idx
 	}
-	m.RLock()
-	defer m.RUnlock()
 	defer func() { m.curIdx += 1 }()
 	return m.curIdx
 }
 
-func (m *PlayerList) AsyncDo(fn func(*Player)) sync.WaitGroup {
+func (m *PlayerList) AsyncRange(fn func(*Player)) {
 	w := sync.WaitGroup{}
-//	w.Add(m.Size())
+	m.RLock()
+	defer m.RUnlock()
 	for _, p := range m.players {
 		if p == nil {
-//			go w.Done()
 			continue
 		}
-		w.Add(1)
-		go func() {
-			fn(p)
-			w.Done()
-		}()
+		if p != nil {
+			w.Add(1)
+			go func() {
+				fn(p)
+				w.Done()
+			}()
+		}
 	}
 	w.Wait()
-	return w
 }
 
 //region Represents a 48x48 section of map.  The purpose of this is to keep track of entities in the entire world without having to allocate tiles individually, which would make search algorithms slower and utilizes a great deal of memory.
 type region struct {
+	x int
+	y int
 	Players *MobList
 	NPCs    *MobList
 	Objects *entityList
@@ -177,13 +191,13 @@ func WithinWorld(x, y int) bool {
 	return x <= MaxX && x >= 0 && y >= 0 && y <= MaxY
 }
 
-//AddPlayer Add a player to the region.
+//AddPlayer Add a player to a region of the game world.
 func AddPlayer(p *Player) {
-	getRegion(p.X(), p.Y()).Players.Add(p)
+	Region(p.X(), p.Y()).Players.Add(p)
 	Players.Put(p)
 	Players.Range(func(player *Player) {
-		if player.FriendList.Contains(p.Username()) && (!p.FriendBlocked() || p.FriendsWith(player.UsernameHash())) {
-			player.FriendList.ToggleStatus(p.Username())
+		if player.FriendList.Contains(p.Username()) && (!p.FriendBlocked() || p.FriendList.Contains(player.Username())) {
+			player.FriendList.Set(p.Username(), true)
 			player.SendPacket(FriendUpdate(p.UsernameHash(), true))
 		}
 		
@@ -193,38 +207,38 @@ func AddPlayer(p *Player) {
 	})
 }
 
-//RemovePlayer SetRegionRemoved a player from the region.
+//RemovePlayer Remove a player from the game world.
 func RemovePlayer(p *Player) {
-	//	p.UpdateStatus(false)
-	getRegion(p.X(), p.Y()).Players.Remove(p)
+	p.SetRegionRemoved()
 	Players.Remove(p)
+	Region(p.X(), p.Y()).Players.Remove(p)
 	Players.Range(func(player *Player) {
-		if player.FriendList.Contains(p.Username()) && (!p.FriendBlocked() || p.FriendsWith(player.UsernameHash())) {
-			player.FriendList.ToggleStatus(p.Username())
+		if player.FriendList.Contains(p.Username()) && (!p.FriendBlocked() || p.FriendList.Contains(player.Username())) {
+			player.FriendList.Set(p.Username(), false)
 			player.SendPacket(FriendUpdate(p.UsernameHash(), false))
 		}
 	})
-	p.SetRegionRemoved()
 }
 
 //AddNpc Add a NPC to the region.
 func AddNpc(n *NPC) {
-	getRegion(n.X(), n.Y()).NPCs.Add(n)
+	Region(n.X(), n.Y()).NPCs.Add(n)
 }
 
 //RemoveNpc SetRegionRemoved a NPC from the region.
 func RemoveNpc(n *NPC) {
-	getRegion(n.X(), n.Y()).NPCs.Remove(n)
+	Region(n.X(), n.Y()).NPCs.Remove(n)
 }
 
 //AddItem Add a ground item to the region.
 func AddItem(i *GroundItem) {
-	getRegion(i.X(), i.Y()).Items.Add(i)
+	Region(i.X(), i.Y()).Items.Add(i)
 }
 
 //GetItem Returns the item at x,y with the specified id.  Returns nil if it can not find the item.
 func GetItem(x, y, id int) *GroundItem {
-	region := getRegion(x, y)
+	
+	region := Region(x, y)
 	region.Items.lock.RLock()
 	defer region.Items.lock.RUnlock()
 	for _, i := range region.Items.set {
@@ -240,12 +254,12 @@ func GetItem(x, y, id int) *GroundItem {
 
 //RemoveItem SetRegionRemoved a ground item to the region.
 func RemoveItem(i *GroundItem) {
-	getRegion(i.X(), i.Y()).Items.Remove(i)
+	Region(i.X(), i.Y()).Items.Remove(i)
 }
 
 //AddObject Add an object to the region.
 func AddObject(o *Object) {
-	getRegion(o.X(), o.Y()).Objects.Add(o)
+	Region(o.X(), o.Y()).Objects.Add(o)
 	if !o.Boundary {
 		scenary := definitions.ScenaryObjects[o.ID]
 		// type 0 is used when the object causes no collisions of any sort.
@@ -272,38 +286,38 @@ func AddObject(o *Object) {
 				}
 				if scenary.CollisionType == 1 {
 					// Blocks the whole tile.  Can not walk on it from any direction
-					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipFullBlock
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipFullBlock
 					continue
 				}
 
 				// If it's gone this far, collisionType is 2 (directional blocking, e.g gates etc)
 				if o.Direction == byte(North) {
 					// Block the tiles east side
-					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipEast
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipEast
 					// ensure that the neighbors index is valid
 					if len(sectorFromCoords(x-1, y).Tiles) > 0 && (areaX > 0 || areaY >= RegionSize) {
 						// then block the eastern neighbors west side
-						sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask |= ClipWest
+						sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY] |= ClipWest
 					}
 				} else if o.Direction == byte(West) {
 					// Block the tiles south side
-					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipSouth
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipSouth
 					// then block the southern neighbors north side
-					sectorFromCoords(x, y+1).Tiles[areaX*RegionSize+areaY+1].CollisionMask |= ClipNorth
+					sectorFromCoords(x, y+1).Tiles[areaX*RegionSize+areaY+1] |= ClipNorth
 				} else if o.Direction == byte(South) {
 					// Block the tiles west side
-					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipWest
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipWest
 					// then block the western neighbors east side
 					if areaX, areaY := (2304+x+1)%RegionSize, (1776+y-(944*((y+100)/944)))%RegionSize; (areaX+1)*RegionSize+areaY > 2304 {
-						sectorFromCoords(x+1, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipEast
+						sectorFromCoords(x+1, y).Tiles[areaX*RegionSize+areaY] |= ClipEast
 					}
 				} else if o.Direction == byte(East) {
 					// Block the tiles north side
-					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipNorth
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipNorth
 					// ensure that the neighbors index is valid
 					if len(sectorFromCoords(x, y-1).Tiles) > 0 && areaX+areaY > 0 {
 						// then block the eastern neighbors west side
-						sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1].CollisionMask |= ClipSouth
+						sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1] |= ClipSouth
 					}
 				}
 
@@ -323,26 +337,26 @@ func AddObject(o *Object) {
 			return
 		}
 		if o.Direction == 0 {
-			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipNorth
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipNorth
 			if areaX+areaY > 0 {
-				sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1].CollisionMask |= ClipSouth
+				sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1] |= ClipSouth
 			}
 		} else if o.Direction == 1 {
-			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipEast
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipEast
 			if areaX > 0 || areaY >= 48 {
-				sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask |= ClipWest
+				sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY] |= ClipWest
 			}
 		} else if o.Direction == 2 {
-			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipSwNe
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipSwNe
 		} else if o.Direction == 3 {
-			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask |= ClipSeNw
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipSeNw
 		}
 	}
 }
 
 //RemoveObject SetRegionRemoved an object from the region.
 func RemoveObject(o *Object) {
-	getRegion(o.X(), o.Y()).Objects.Remove(o)
+	Region(o.X(), o.Y()).Objects.Remove(o)
 	if !o.Boundary {
 		scenary := definitions.ScenaryObjects[o.ID]
 		// type 0 is used when the object causes no collisions of any sort.
@@ -368,26 +382,26 @@ func RemoveObject(o *Object) {
 				areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
 				if scenary.CollisionType == 1 {
 					// This indicates a solid object.  Impassable and blocks the whole tile.
-					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= ^ClipFullBlock
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipFullBlock
 				} else if o.Direction == 0 {
-					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= ^ClipEast
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipEast
 					if sectorFromCoords(x-1, y) != nil {
-						sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask &= ^ClipWest
+						sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY] &= ^ClipWest
 					}
 				} else if o.Direction == 2 {
-					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= ^ClipSouth
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipSouth
 					if sectorFromCoords(x, y+1) != nil {
-						sectorFromCoords(x, y+1).Tiles[areaX*RegionSize+areaY+1].CollisionMask &= ^ClipNorth
+						sectorFromCoords(x, y+1).Tiles[areaX*RegionSize+areaY+1] &= ^ClipNorth
 					}
 				} else if o.Direction == 4 {
-					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= ^ClipWest
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipWest
 					if sectorFromCoords(x+1, y) != nil {
-						sectorFromCoords(x+1, y).Tiles[(areaX+1)*RegionSize+areaY].CollisionMask &= ^ClipEast
+						sectorFromCoords(x+1, y).Tiles[(areaX+1)*RegionSize+areaY] &= ^ClipEast
 					}
 				} else if o.Direction == 6 {
-					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= ^ClipNorth
+					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipNorth
 					if sectorFromCoords(x, y-1) != nil {
-						sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1].CollisionMask &= ^ClipSouth
+						sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1] &= ^ClipSouth
 					}
 				}
 			}
@@ -403,19 +417,19 @@ func RemoveObject(o *Object) {
 		areaX := (2304 + x) % RegionSize
 		areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
 		if o.Direction == 0 { // Vertical wall ('| ',' |') North<->South
-			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= ^ClipNorth
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipNorth
 			if areaX+areaY > 0 {
-				sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1].CollisionMask &= ^ClipSouth
+				sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1] &= ^ClipSouth
 			}
 		} else if o.Direction == 1 { // Horizontal wall ('__','‾‾') East<->West
-			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= ^ClipEast
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipEast
 			if areaX > 0 || areaY >= 48 {
-				sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY].CollisionMask &= ^ClipWest
+				sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY] &= ^ClipWest
 			}
 		} else if o.Direction == 2 { // Diagonal wall ('\','‾|','|_') Southwest<->Northeast
-			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= ^ClipSwNe
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipSwNe
 		} else if o.Direction == 3 { // Diagonal wall ('/','|‾','_|') Southeast<->Northwest
-			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY].CollisionMask &= ^ClipSeNw
+			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipSeNw
 		}
 	}
 }
@@ -451,7 +465,7 @@ func GetAllObjects() (list []*Object) {
 
 //GetObject If there is an object at these coordinates, returns it.  Otherwise, returns nil.
 func GetObject(x, y int) *Object {
-	r := getRegion(x, y)
+	r := Region(x, y)
 	r.Objects.lock.RLock()
 	defer r.Objects.lock.RUnlock()
 	for _, o := range r.Objects.set {
@@ -527,59 +541,62 @@ func NpcVisibleFrom(id, x, y int) *NPC {
 
 var regionLock = sync.RWMutex{}
 
-//getRegionFromIndex internal function to get a region by its row amd column indexes
-func getRegionFromIndex(areaX, areaY int) *region {
-	if areaX < 0 {
-		areaX = 0
+// internal function to get a region by its row amd column indexes
+func get(x, y int) *region {
+	if x < 0 {
+		x = 0
 	}
-	if areaX >= HorizontalPlanes {
-		fmt.Println("planeX index out of range")
-		return &region{&MobList{}, &MobList{}, &entityList{}, &entityList{}}
+	if x >= HorizontalPlanes {
+		fmt.Println("planeX index out of range", x)
+		x = HorizontalPlanes-1
 	}
-	if areaY < 0 {
-		areaY = 0
+	if y < 0 {
+		y = 0
 	}
-	if areaY >= VerticalPlanes {
-		fmt.Println("planeY index out of range")
-		return &region{&MobList{}, &MobList{}, &entityList{}, &entityList{}}
+	if y >= VerticalPlanes {
+		fmt.Println("planeY out of range", y)
+		y = VerticalPlanes-1
 	}
 	regionLock.Lock()
 	defer regionLock.Unlock()
-	if regions[areaX][areaY] == nil {
-		regions[areaX][areaY] = &region{&MobList{}, &MobList{}, &entityList{}, &entityList{}}
+	if regions[x][y] == nil {
+		regions[x][y] = &region{x, y, &MobList{}, &MobList{}, &entityList{}, &entityList{}}
 	}
-	return regions[areaX][areaY]
+	return regions[x][y]
 }
 
-//getRegion Returns the region that corresponds with the given coordinates.  If it does not exist yet, it will allocate a new onr and store it for the lifetime of the application in the regions map.
-func getRegion(x, y int) *region {
-	return getRegionFromIndex(x/RegionSize, y/RegionSize)
-}
+//Region Returns the region that corresponds with the given coordinates.  If it does not exist yet, it will allocate a new onr and store it for the lifetime of the application in the regions map.
+func Region(x, y int) *region {
+
+	regionLock.Lock()
+	defer regionLock.Unlock()
+	if regions[x/RegionSize][y/RegionSize] == nil {
+		regions[x/RegionSize][y/RegionSize] = &region{x, y, &MobList{}, &MobList{}, &entityList{}, &entityList{}}
+	}
+	return regions[x/RegionSize][y/RegionSize]}
 
 //surroundingRegions Returns the regions surrounding the given coordinates.  It wil
-func surroundingRegions(x, y int) (regions [4]*region) {
-	areaX := x / RegionSize
-	areaY := y / RegionSize
-	regions[0] = getRegionFromIndex(areaX, areaY)
-	relX := x % RegionSize
-	relY := y % RegionSize
-	if relX <= LowerBound {
-		regions[1] = getRegionFromIndex(areaX-1, areaY)
-		if relY <= LowerBound {
-			regions[2] = getRegionFromIndex(areaX-1, areaY-1)
-			regions[3] = getRegionFromIndex(areaX, areaY-1)
+func (r *region) neighbors() (regions [4]*region) {
+	regions[0] = r
+	regionX := r.x % RegionSize
+	regionY := r.y % RegionSize
+	if regionX <= LowerBound {
+		regions[1] = get((r.x/RegionSize)-1, r.y/RegionSize)
+		if regionY <= LowerBound {
+			regions[2] = get((r.x/RegionSize)-1, (r.y/RegionSize)-1)
+			regions[3] = get((r.x/RegionSize), (r.y/RegionSize)-1)
 		} else {
-			regions[2] = getRegionFromIndex(areaX-1, areaY+1)
-			regions[3] = getRegionFromIndex(areaX, areaY+1)
+			regions[2] = get((r.x/RegionSize)-1, (r.y/RegionSize)+1)
+			regions[3] = get((r.x/RegionSize), (r.y/RegionSize)+1)
 		}
-	} else if relY <= LowerBound {
-		regions[1] = getRegionFromIndex(areaX+1, areaY)
-		regions[2] = getRegionFromIndex(areaX+1, areaY-1)
-		regions[3] = getRegionFromIndex(areaX, areaY-1)
+	} else if regionY <= LowerBound {
+		regions[1] = get((r.x/RegionSize)+1, (r.y/RegionSize))
+		regions[2] = get((r.x/RegionSize)+1, (r.y/RegionSize)-1)
+		regions[3] = get((r.x/RegionSize), (r.y/RegionSize)-1)
 	} else {
-		regions[1] = getRegionFromIndex(areaX+1, areaY)
-		regions[2] = getRegionFromIndex(areaX+1, areaY+1)
-		regions[3] = getRegionFromIndex(areaX, areaY+1)
+		regions[1] = get((r.x/RegionSize)+1, (r.y/RegionSize))
+		regions[2] = get((r.x/RegionSize)+1, (r.y/RegionSize)+1)
+		regions[3] = get((r.x/RegionSize), (r.y/RegionSize)+1)
 	}
 
 	return
@@ -615,6 +632,32 @@ func Chance(percent float64) bool {
 	return BoundedChance(percent, 0.0, 100.0)
 }
 
+//probWeights
+type IntProbabilitys = map[int]float64
+
+//Statistical 
+func Statistical(rng *rand.Rand, options IntProbabilitys) int {
+	if rng == nil {
+		rng = rand.New(isaac.New(uint64(time.Now().UnixNano())))
+	}
+
+	total := 0.0
+	for _, p := range options {
+		total += p
+	}
+
+	rolled := rng.Float64()*total
+	prob := 0.0
+	for i, p := range options {
+		prob += p
+		if rolled <= prob {
+			log.Debug("Chose", i, "; hit", rolled,"probability =", prob, "/", total)
+			return i
+		}
+	}
+	return -1
+}
+
 //WeightedChoice Awesome API call takes map[retVal]probability as input and returns a statistically weighted randomized retVal as output.
 //
 // The input's mapped value assigned to each key is its return probability, out of the total sum of all return probabilities.
@@ -623,41 +666,20 @@ func Chance(percent float64) bool {
 //
 // You can make the total anything. Useful for anything that needs to return certain values deterministically more often than others, but randomly.
 func WeightedChoice(choices map[int]float64) int {
-	total := 0.0
-	totalProb := 0.0
-	for _, probability := range choices {
-		totalProb += probability
-	}
 
-	// We determine the real upper limit of the cumulative probability.
-	// if the sum of all probabilities adds up to 100.0% or less, then the upper limit will be 65535
-	// if it's less, any unaccounted for percentage will return -1.
-	// if it's more, it'll scale 65535 up by however much percentage it needs to handle all inputs provided, and subsequently
-	// all individual probabilities must be scaled down by the same figure to account for the difference.
-	// e.g passing 3 values in with 50.0 probability on each of them will result in each entry returning at a
-	// rate of 33.333~% instead of 50% each, because 50/150=33.333~
-//	cumulativeProbability := math.Max(1.0, totalProb/100)
-//	upperBound := cumulativeProbability * math.MaxUint16
-//	hit := float64(rscRand.Int31N(1, int(upperBound)))
-	hit := rscRand.Rng.Float64()*totalProb
-	if config.Verbosity >= 3 {
-//		log.Debugf("WeightedChoice: Upper bound for total probability:%d {\n", int(totalProb))
-		log.Debugf("\nRolled: %d/%d;\n", int(hit), int(totalProb))
-//		defer log.Info.Println("};")
-	}
-	for choice, prob := range choices {
-//		newProb := prob / 100 * math.MaxUint16 / upperBound
-		if config.Verbosity >= 3 {
-			log.Debugf("\tentry{val:%d; hit range between %d - %d (%.2f%% chance)}\n", choice, int(total), int(total+(prob)), prob/totalProb*100)
-		}
-		total += prob
-		if hit < total {
-			log.Debugf("Hit:%v\n", choice)
-			return choice
-		}
-	}
-	if config.Verbosity >= 3 {
-		log.Debugln("Rolled value did not return anything!")
-	}
-	return -1
+	return Statistical(rscRand.Rng, choices)
 }
+/*
+func init() {
+for i := 0; i < 50; i+=1 {
+	WeightedChoice( map[int]float64 {
+		1: 25.0,
+		3: 25.5,
+		6: 66.66,
+		21: 25.0,
+		23: 25.5,
+		26: 66.66,
+	})
+	}
+}
+*/

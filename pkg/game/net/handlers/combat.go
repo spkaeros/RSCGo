@@ -66,7 +66,7 @@ func init() {
 		})
 	})
 	AddHandler("attackplayer", func(player *world.Player, p *net.Packet) {
-		affectedPlayer, ok := world.Players.FromIndex(p.ReadUint16())
+		affectedPlayer, ok := world.Players.FindIndex(p.ReadUint16())
 		if affectedPlayer == nil || !ok {
 			log.Suspicious.Printf("player[%v] tried to attack nil player\n", player)
 			return

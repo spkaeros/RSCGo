@@ -12,7 +12,7 @@ package handshake
 import (
 	"strconv"
 	"strings"
-	"time"
+	// "time"
 
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/crypto"
@@ -26,12 +26,12 @@ import (
 func init() {
 	handlers.AddHandler("newplayer", func(player *world.Player, p *net.Packet) {
 		reply := NewRegistrationListener(player).attachPlayer(player)
-		if registerThrottle.Recent(player.CurrentIP(), time.Hour) >= 2 {
-			reply <- response{ResponseSpamTimeout, "Recently registered too many other characters"}
-			return
-		}
+		// if registerThrottle.Recent(player.CurrentIP(), time.Hour) >= 2 {
+			// reply <- Response{ResponseSpamTimeout, "Recently registered too many other characters"}
+			// return
+		// }
 		if version := p.ReadUint16(); version != config.Version() {
-			reply <- response{ResponseUpdated, "Invalid client version (" + strconv.Itoa(version) + ")"}
+			reply <- Response{ResponseUpdated, "Invalid client version (" + strconv.Itoa(version) + ")"}
 			return
 		}
 		username := strutil.Base37.Decode(p.ReadUint64())
@@ -39,20 +39,20 @@ func init() {
 		player.SetVar("username", username)
 		go func() {
 			if userLen, passLen := len(username), len(password); userLen < 2 || userLen > 12 || passLen < 5 || passLen > 20 {
-				reply <- response{ResponseBadInputLength, "Password and/or username too long and/or too short."}
+				reply <- Response{ResponseBadInputLength, "Password and/or username too long and/or too short."}
 				return
 			}
 			dataService := db.DefaultPlayerService
 			if dataService.PlayerNameExists(username) {
-				reply <- response{ResponseUsernameTaken, "Username is taken by another player already."}
+				reply <- Response{ResponseUsernameTaken, "Username is taken by another player already."}
 				return
 			}
 
 			if !dataService.PlayerCreate(username, crypto.Hash(password), player.CurrentIP()) {
-				reply <- response{-1, ""}
+				reply <- Response{-1, ""}
 				return
 			}
-			reply <- response{ResponseRegisterSuccess, ""}
+			reply <- Response{ResponseRegisterSuccess, ""}
 		}()
 	})
 }

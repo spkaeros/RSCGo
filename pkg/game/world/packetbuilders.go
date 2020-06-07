@@ -25,7 +25,7 @@ func FriendList(player *Player) (p *net.Packet) {
 		hash := strutil.Base37.Encode(s)
 		p.AddUint64(hash)
 		
-		p1, ok := Players.FromUserHash(hash)
+		p1, ok := Players.FindHash(hash)
 		if p1 != nil && ok && (p1.FriendList.Contains(player.Username()) || !p1.FriendBlocked()) {
 			p.AddUint8(0xFF)
 		} else {
@@ -671,7 +671,7 @@ func ItemLocations(player *Player) (p *net.Packet) {
 					changed++
 				}
 				removing = append(removing, i)
-			} else if !i.VisibleTo(player) || !getRegion(x, y).Items.Contains(i) {
+			} else if !i.VisibleTo(player) || !Region(x, y).Items.Contains(i) {
 				p.AddUint16(uint16(i.ID | 0x8000)) // turn remove by ID bit on
 				p.AddUint8(byte(x - player.X()))
 				p.AddUint8(byte(y - player.Y()))

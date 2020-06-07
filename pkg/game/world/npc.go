@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/spkaeros/rscgo/pkg/definitions"
-	"github.com/spkaeros/rscgo/pkg/engine/tasks"
+	"github.com/spkaeros/rscgo/pkg/tasks"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/rand"
 )
@@ -153,8 +153,8 @@ func UpdateNPCPositions() {
 }
 
 func (n *NPC) UpdateRegion(x, y int) {
-	curArea := getRegion(n.X(), n.Y())
-	newArea := getRegion(x, y)
+	curArea := Region(n.X(), n.Y())
+	newArea := Region(x, y)
 	if newArea != curArea {
 		if curArea.NPCs.Contains(n) {
 			curArea.NPCs.Remove(n)
@@ -187,7 +187,7 @@ type NpcBlockingTrigger struct {
 var NpcDeathTriggers []NpcBlockingTrigger
 
 func (n *NPC) Damage(dmg int) {
-	for _, r := range surroundingRegions(n.X(), n.Y()) {
+	for _, r := range Region(n.X(), n.Y()).neighbors() {
 		r.Players.RangePlayers(func(p1 *Player) bool {
 			if !n.WithinRange(p1.Location, 16) {
 				return false
@@ -237,9 +237,9 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 	var mostDamage int
 	totalDamage := n.TotalDamage()
 	totalExp := n.ExperienceReward() & 0xFFFFFFC
-	n.meleeRangeDamage.Lock()
+	n.meleeRangeDamage.RLock()
 	for usernameHash, damage := range n.meleeRangeDamage.damageTable {
-		player, ok := Players.FromUserHash(usernameHash)
+		player, ok := Players.FindHash(usernameHash)
 		if ok {
 			exp := float64(totalExp) / float64(totalDamage)
 			player.DistributeMeleeExp(int(exp) * damage)
@@ -251,8 +251,7 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 			mostDamage = damage
 		}
 	}
-	n.meleeRangeDamage.damageTable = make(damageTable)
-	n.meleeRangeDamage.Unlock()
+	n.meleeRangeDamage.RUnlock()
 
 	if dropPlayer != nil {
 		AddItem(NewGroundItemFor(dropPlayer.UsernameHash(), DefaultDrop, 1, n.X(), n.Y()))
@@ -266,11 +265,6 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 	tasks.Schedule(16, func() {
 		n.Respawn()
 	})
-	go func() {
-		// TODO: npc definition entry for respawn time
-		time.Sleep(time.Second * 10)
-		
-	}()
 	return
 }
 
@@ -279,6 +273,9 @@ func (n *NPC) Remove() {
 }
 
 func (n *NPC) Respawn() {
+	n.meleeRangeDamage.Lock()
+	n.meleeRangeDamage.damageTable = make(damageTable)
+	n.meleeRangeDamage.Unlock()
 	n.Skills().SetCur(entity.StatHits, n.Skills().Maximum(entity.StatHits))
 	n.SetLocation(n.StartPoint, true)
 	n.UnsetVar("removed")
@@ -291,6 +288,9 @@ func (n *NPC) TraversePath() {
 	dir := n.Direction()
 	if Chance(25) {
 		dir = rand.Rng.Intn(8)
+		// for !n.Reachable(dst.Step(dir)) {
+			// dir = rand.Rng.Intn(8)
+		// }
 	}
 	if dir == East || dir == SouthEast || dir == NorthEast {
 		dst.x.Dec()
@@ -304,7 +304,6 @@ func (n *NPC) TraversePath() {
 	}
 
 	if !n.Reachable(dst) || !dst.WithinArea(n.Boundaries) {
-//		n.SetDirection(rand.Rng.Intn(8))
 		return
 	}
 
@@ -324,12 +323,18 @@ func (n *NPC) ChatIndirect(target *Player, msg string) {
 //Chat sends chat messages to target and all of target's view area players, with a 1800ms(3 tick) delay between each
 // message.
 func (n *NPC) Chat(target *Player, msgs ...string) {
-	for _, msg := range msgs {
-		n.ChatIndirect(target, msg)
-
-		//		if i < len(msgs)-1 {
-		time.Sleep(time.Millisecond * 1800)
-		// TODO: is 3 ticks right?
-		//		}
+	if len(msgs) <= 0 {
+		return
+	}
+	n.ChatIndirect(target, msgs[0])
+	sleepTicks := 3
+	if len(msgs[0]) >= 83 {
+		sleepTicks += 1
+	}
+	if len(msgs) > 1 {
+		tasks.Schedule(sleepTicks, func() {
+			n.Chat(target, msgs[1:]...)
+			return
+		})
 	}
 }
