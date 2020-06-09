@@ -21,20 +21,20 @@ bind.npc(npcPredicate(482), func(player, npc) {
 		npc.Chat(player, "Yes, thats what's in there", "Ok you need to get that tin out of the rock",
 				"First of all you need a pick", "And here we have a pick")
 		player.Message("The instructor somehow produces a large pickaxe from inside his jacket")
-		sleep(tMillis*1200)
+		sleep(Millisecond*1200)
 		player.Message("The instructor gives you the pickaxe")
 		player.AddItem(ids.BRONZE_PICKAXE, 1)
-		sleep(tMillis*1200)
+		sleep(Millisecond*1200)
 		npc.Chat(player, "Now hit those rocks")
 		player.SetCache("tutorial", 51)
 	} else if toInt(player.Cache("tutorial")) == 51 {
 		if player.Inventory.CountID(ids.BRONZE_PICKAXE) < 1 {
 			player.Chat("I have lost my pickaxe")
 			player.Message("The instructor somehow produces a large pickaxe from inside his jacket")
-            sleep(tMillis*1200)
+            sleep(Millisecond*1200)
             player.Message("The instructor gives you the pickaxe")
             player.AddItem(ids.BRONZE_PICKAXE, 1)
-            sleep(tMillis*1200)
+            sleep(Millisecond*1200)
 		}
 		npc.Chat(player, "to mine a rock just left click on it",
 				"If you have a pickaxe in your inventory you might get some ore")
@@ -55,11 +55,11 @@ bind.npc(npcPredicate(482), func(player, npc) {
 bind.object(objectPredicate(496), func(player, object, click) {
 	if click == 1 {
 		player.Message("This rock contains " + itemDefs[ids.TIN_ORE].Name)
-		sleep(tMillis*1800)
+		sleep(Millisecond*1800)
 		player.Message("Sometimes you won't find the ore but trying again may find it")
-		sleep(tMillis*1800)
+		sleep(Millisecond*1800)
 		player.Message("If a rock contains a high level ore")
-		sleep(tMillis*1800)
+		sleep(Millisecond*1800)
 		player.Message("You will not find it until you increase your mining level")
 		if toInt(player.Cache("tutorial")) == 49 {
 			player.SetCache("tutorial", 50)
@@ -72,14 +72,14 @@ bind.object(objectPredicate(496), func(player, object, click) {
 	}
 	if player.Inventory.CountID(ids.BRONZE_PICKAXE) < 1 {
 		player.Message("You need a " + itemDefs[ids.BRONZE_PICKAXE].Name + " to mine this rock")
-		sleep(tMillis*1800)
+		sleep(Millisecond*1800)
 		player.Message("You do not have a pickaxe which you have the mining level to use")
 		return
 	}
 	player.PlaySound("mine")
 	player.Message("You swing your pick at the rock...")
 	player.ItemBubble(ids.IRON_PICKAXE)
-	sleep(tMillis*1800)
+	sleep(Millisecond*1800)
 	if gatheringSuccess(1, player.Skills().Current(MINING)) {
 		player.Message("You manage to obtain some tin ore")
 		player.AddItem(ids.TIN_ORE, 1)

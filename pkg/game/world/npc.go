@@ -130,8 +130,8 @@ func (n *NPC) Command() string {
 // within their boundaries, and traverses each NPC along said path if necessary.
 func UpdateNPCPositions() {
 	wait := sync.WaitGroup{}
-	wait.Add(Npcs.Size())
 	Npcs.RangeNpcs(func(n *NPC) bool {
+		wait.Add(1)
 		go func() {
 			defer wait.Done()
 			if n.Busy() || n.IsFighting() || n.Equals(DeathPoint) {
@@ -142,7 +142,6 @@ func UpdateNPCPositions() {
 				n.lastMoved = time.Now().Add(time.Second * time.Duration(rand.Rng.Intn(15)+5))
 				// set how many steps we should wander for before taking a break
 				n.pathSteps = rand.Rng.Intn(15)
-				return
 			}
 			// wander aimlessly until we run out of scheduled steps
 			n.TraversePath()
@@ -165,13 +164,19 @@ func (n *NPC) UpdateRegion(x, y int) {
 
 //ResetNpcUpdateFlags Resets the synchronization update flags for all NPCs in the game world.
 func ResetNpcUpdateFlags() {
+	wait := sync.WaitGroup{}
 	Npcs.RangeNpcs(func(n *NPC) bool {
-		n.ResetRegionRemoved()
-		n.ResetRegionMoved()
-		n.ResetSpriteUpdated()
-		n.ResetAppearanceChanged()
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			n.ResetRegionRemoved()
+			n.ResetRegionMoved()
+			n.ResetSpriteUpdated()
+			n.ResetAppearanceChanged()
+		}()
 		return false
 	})
+	wait.Wait()
 }
 
 //NpcActionPredicate callback to a function defined in the Anko scripts loaded at runtime, to be run when certain
@@ -236,7 +241,7 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 	var dropPlayer *Player
 	var mostDamage int
 	totalDamage := n.TotalDamage()
-	totalExp := n.ExperienceReward() & 0xFFFFFFC
+	totalExp := n.ExperienceReward() ^ 3
 	n.meleeRangeDamage.RLock()
 	for usernameHash, damage := range n.meleeRangeDamage.damageTable {
 		player, ok := Players.FindHash(usernameHash)
@@ -271,13 +276,16 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 
 func (n *NPC) Remove() {
 	n.SetVar("removed", true)
+	n.SetCoords(0, 0, true)
 }
 
 func (n *NPC) Respawn() {
 	n.meleeRangeDamage.Lock()
 	n.meleeRangeDamage.damageTable = make(damageTable)
 	n.meleeRangeDamage.Unlock()
-	n.Skills().SetCur(entity.StatHits, n.Skills().Maximum(entity.StatHits))
+	for i := 0; i <= 3; i++ {
+		n.Skills().SetCur(i, n.Skills().Maximum(i))
+	}
 	n.SetLocation(n.StartPoint, true)
 	n.UnsetVar("removed")
 }
@@ -323,15 +331,13 @@ func (n *NPC) Chat(target *Player, msgs ...string) {
 	if len(msgs) <= 0 {
 		return
 	}
-	n.ChatIndirect(target, msgs[0])
-	sleepTicks := 3
-	if len(msgs[0]) >= 83 {
-		sleepTicks += 1
-	}
-	if len(msgs) > 1 {
-		tasks.Schedule(sleepTicks, func() bool  {
-			n.Chat(target, msgs[1:]...)
-			return true
-		})
+
+	for _, msg := range msgs {
+		sleep := 3
+		if len(msg) >= 83 {
+			sleep = 4
+		}
+		n.ChatIndirect(target, msg)
+		time.Sleep(time.Millisecond*640*time.Duration(sleep))
 	}
 }

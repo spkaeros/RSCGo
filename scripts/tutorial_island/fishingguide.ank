@@ -16,7 +16,7 @@ bind.npc(npcPredicate(479), func(player, npc) {
 				"you'll need this")
 		player.Message("the fishing instructor gives you a somewhat old looking net")
 		player.AddItem(ids.NET, 1)
-		sleep(tMillis*1200)
+		sleep(Millisecond*1200)
 		npc.Chat(player, "Go catch some shrimp", "left click on that sparkling piece of water",
 				"While you have the net in your inventory you might catch some fish")
 		player.SetCache("tutorial", 41)
@@ -39,7 +39,7 @@ bind.npc(npcPredicate(479), func(player, npc) {
 bind.object(objectPredicate(493), func(player, object, click) {
 	if player.Skills().Experience(FISHING) >= 200 {
 		player.Message("that's enough fishing for now")
-		sleep(tMillis*1800)
+		sleep(Millisecond*1800)
 		player.Message("go through the next door to continue the tutorial")
 		return true
 	}
@@ -50,7 +50,7 @@ bind.object(objectPredicate(493), func(player, object, click) {
 	player.PlaySound("fishing")
 	player.Message("You attempt to catch some fish")
 	player.ItemBubble(ids.NET)
-	sleep(tMillis*1800)
+	sleep(Millisecond*1800)
 	if gatheringSuccess(1, player.Skills().Current(FISHING)) {
 		player.Message("You catch some shrimp")
 		player.AddItem(ids.RAW_SHRIMP, 1)
@@ -61,7 +61,7 @@ bind.object(objectPredicate(493), func(player, object, click) {
 	} else {
 		player.Message("You fail to catch anything")
 		if toInt(player.Cache("tutorial")) == 41 {
-			sleep(tMillis*1800)
+			sleep(Millisecond*1800)
 			player.Message("keep trying, you'll catch something soon")
 		}
 	}

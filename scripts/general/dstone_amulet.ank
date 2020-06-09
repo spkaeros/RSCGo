@@ -14,7 +14,7 @@ locations = [
 
 bind.item(itemPredicate(597), func(player, item) {
 	player.Message("You rub the amulet")
-	sleep(tMillis * 640)
+	sleep(Millisecond * 640)
 	player.Message("Where would you like to teleport to?")
 	location = player.OpenOptionMenu("Edgeville", "Karamja", "Draynor village", "Al Kharid", "Nowhere")
 	if location < 0 {

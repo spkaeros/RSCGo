@@ -54,6 +54,7 @@ func (l Location) X() int {
 	if l.x == nil {
 		return -1
 	}
+	
 	return int(l.x.Load())
 }
 
@@ -61,6 +62,7 @@ func (l Location) Y() int {
 	if l.y == nil {
 		return -1
 	}
+	
 	return int(l.y.Load())
 }
 
@@ -98,6 +100,10 @@ func NewLocation(x, y int) Location {
 	return Location{x: atomic.NewUint32(uint32(x)), y: atomic.NewUint32(uint32(y))}
 }
 
+func (l Location) Point() entity.Location {
+	return l.Clone()
+}
+
 func (l Location) DirectionTo(destX, destY int) int {
 	sprites := [3][3]int{{SouthWest, West, NorthWest}, {South, -1, North}, {SouthEast, East, NorthEast}}
 	xIndex, yIndex := l.X()-destX+1, l.Y()-destY+1
@@ -119,12 +125,12 @@ func (l *Location) String() string {
 }
 
 func (l Location) Within(minX, maxX, minY, maxY int) bool {
-	return l.X() > minX && l.X() <= maxX && l.Y() > minY && l.Y() <= maxY
+	return l.WithinArea([2]Location { NewLocation(minX, minY), NewLocation(maxX, maxY) })
 }
 
 //IsValid Returns true if the tile at x,y is within world boundaries, false otherwise.
 func (l Location) IsValid() bool {
-	return l.Within(0,MaxX,0,MaxY)
+	return l.WithinArea([2]Location { NewLocation(0, 0), NewLocation(MaxX, MaxY)})
 }
 
 func (l *Location) Step(dir int) Location {
@@ -144,75 +150,86 @@ func (l *Location) Step(dir int) Location {
 
 //Equals Returns true if this location points to the same location as o
 func (l *Location) Equals(o interface{}) bool {
-	if o, ok := o.(*Location); ok {
-		return l.X() == o.X() && l.Y() == o.Y()
-	}
-	if o, ok := o.(Location); ok {
-		return l.X() == o.X() && l.Y() == o.Y()
+	switch o.(type) {
+	case Location:
+		return l.LongestDelta(o.(Location)) == 0
+	case *Location:
+		return l.LongestDelta(*o.(*Location)) == 0
+	case *Player:
+		return l.LongestDelta(o.(*Player).Mob.Entity.Location) == 0
+	case Player:
+		return l.LongestDelta(o.(Player).Mob.Entity.Location) == 0
+	case *NPC:
+		return l.LongestDelta(o.(*NPC).Mob.Entity.Location) == 0
+	case NPC:
+		return l.LongestDelta(o.(NPC).Mob.Entity.Location) == 0
+	case *Object:
+		return l.LongestDelta(o.(*Object).Entity.Location) == 0
+	case Object:
+		return l.LongestDelta(o.(Object).Entity.Location) == 0
+	case *GroundItem:
+		return l.LongestDelta(o.(*GroundItem).Entity.Location) == 0
+	case GroundItem:
+		return l.LongestDelta(o.(GroundItem).Entity.Location) == 0
+	case *Mob:
+		return l.LongestDelta(o.(*Mob).Entity.Location) == 0
+	case Mob:
+		return l.LongestDelta(o.(Mob).Entity.Location) == 0
 	}
 	return false
 }
 
 func (l *Location) Delta(other Location) (delta int) {
-	return l.DeltaX(other)+l.DeltaY(other)
+	return l.LongestDelta(other)
 }
 
 //DeltaX Returns the difference between this locations x coord and the other locations x coord
 func (l *Location) DeltaX(other Location) (deltaX int) {
-	ourX := l.X()
-	theirX := other.X()
-	if ourX > theirX {
-		deltaX = ourX - theirX
-	} else if theirX > ourX {
-		deltaX = theirX - ourX
-	}
+	deltaX = int(math.Abs(float64(other.X()) - float64(l.X())))
+	// if ourX > theirX {
+		// deltaX = ourX - theirX
+	// } else if theirX > ourX {
+		// deltaX = theirX - ourX
+	// }
 	return
 }
 
 //DeltaY Returns the difference between this locations y coord and the other locations y coord
 func (l *Location) DeltaY(other Location) (deltaY int) {
-	ourY := l.Y()
-	theirY := other.Y()
-	if ourY > theirY {
-		deltaY = ourY - theirY
-	} else if theirY > ourY {
-		deltaY = theirY - ourY
-	}
+	deltaY = int(math.Abs(float64(other.Y()) - float64(l.Y())))
+	// if ourY > theirY {
+		// deltaY = ourY - theirY
+	// } else if theirY > ourY {
+		// deltaY = theirY - ourY
+	// }
 	return
 }
 
 //LongestDelta Returns the largest difference in coordinates between receiver and other
 func (l *Location) LongestDelta(other Location) int {
-	deltaX, deltaY := l.DeltaX(other), l.DeltaY(other)
-	if deltaX > deltaY {
-		return deltaX
+	if x, y := l.DeltaX(other), l.DeltaY(other); x > y {
+		return x
+	} else {
+		return y
 	}
-	return deltaY
 }
 
 //LongestDeltaCoords returns the number of tiles the coordinates provided
 func (l *Location) LongestDeltaCoords(x, y int) int {
-	other := NewLocation(x, y)
-	deltaX, deltaY := l.DeltaX(other), l.DeltaY(other)
-	if deltaX > deltaY {
-		return deltaX
-	}
-	return deltaY
+	return l.LongestDelta(NewLocation(x, y))
 }
 
-func (l Location) EuclideanDistance(loc Location) float64 {
-	dX := l.DeltaX(loc)
-	dY := l.DeltaY(loc)
-	return math.Sqrt(float64(dX*dX) + float64(dY*dY))
+func (l Location) EuclideanDistance(other Location) float64 {
+	return math.Sqrt(math.Pow(float64(l.DeltaX(other)), 2) + math.Pow(float64(l.DeltaY(other)), 2))
 }
 
 //WithinRange Returns true if the other location is within radius tiles of the receiver location, otherwise false.
-func (l *Location) WithinRange(other Location, radius int) bool {
-	return l.LongestDelta(other) <= radius
+func (l *Location) WithinRange(other entity.Location, radius int) bool {
+	return l.Near(other, radius)
 }
 
 //EntityWithin Returns true if the other location is within radius tiles of the receiver location, otherwise false.
-func (l *Location) EntityWithin(other entity.Location, radius int) bool {
+func (l *Location) Near(other entity.Location, radius int) bool {
 	return l.LongestDeltaCoords(other.X(), other.Y()) <= radius
 }
 
@@ -277,6 +294,35 @@ func (l Location) NextTileToward(dst Location) Location {
 		nextStep.y.Dec()
 	}
 	return nextStep
+}
+
+func (l *Location) CanReach(bounds [2]Location) bool {
+	x, y := l.X(), l.Y()
+
+	if x >= bounds[0].X() && x <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y() {
+		return true
+	}
+	if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y() &&
+		(CollisionData(x-1, y)&ClipWest) == 0 {
+		return true
+	}
+	if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y() &&
+		(CollisionData(x+1, y)&ClipEast) == 0 {
+		return true
+	}
+	if x >= bounds[0].X() && x <= bounds[1].X() && bounds[0].Y() <= y-1 && bounds[1].Y() >= y-1 &&
+		(CollisionData(x, y-1)&ClipSouth) == 0 {
+		return true
+	}
+	if x >= bounds[0].X() && x <= bounds[1].X() && bounds[0].Y() <= y+1 && bounds[1].Y() >= y+1 &&
+		(CollisionData(x, y+1)&ClipNorth) == 0 {
+		return true
+	}
+	return false
+}
+
+func (l Location) WithinArea(area [2]Location) bool {
+	return l.X() >= area[0].X() && l.X() <= area[1].X() && l.Y() >= area[0].Y() && l.Y() <= area[1].Y()
 }
 
 //ParseDirection Tries to parse the direction indicated in s.  If it can not match any direction, returns the zero-value for direction: north.

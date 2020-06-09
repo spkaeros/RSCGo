@@ -31,7 +31,7 @@ bind.onLogin(func(player) {
 
 bind.item(itemPredicate(20, 413, 604, 814), func(player, item) {
 	player.Message("You dig a hole in the ground")
-	sleep(tMillis*640)
+	sleep(Millisecond*640)
 	player.Message("You bury the " + strings.ToLower(item.Name()))
 	player.Inventory.RemoveByID(toInt(item.ID), 1)
 	switch item.ID {

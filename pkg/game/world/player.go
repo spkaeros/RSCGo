@@ -255,7 +255,7 @@ func (p *Player) WalkingRangedAction(t entity.MobileEntity, fn func()) {
 // Runs everything on game engine ticks, retries until catastrophic failure or success.
 func (p *Player) WalkingArrivalAction(t entity.MobileEntity, dist int, action func()) {
 	p.SetTickAction(func() bool {
-		if p.EntityWithin(t.Point(), dist) {
+		if p.Near(t.Point(), dist) {
 			if !p.CanReachMob(t) {
 				return true
 			}
@@ -302,7 +302,7 @@ func (p *Player) CanReachMob(target entity.MobileEntity) bool {
 			pathY--
 		}
 	}
-	return false
+	return true
 }
 
 //SetPrivacySettings sets privacy settings to specified values.
@@ -913,15 +913,14 @@ func (p *Player) Destroy() {
 				log.Debug("Unregistered:{'" + p.Username() + "'@'" + p.CurrentIP() + "'}")
 				p.ResetAll()
 				p.UpdateStatus(false)
-				p.WritePacket(Logout)
 				p.SetConnected(false)
 				go func() {
 					DefaultPlayerService.PlayerSave(p)
 					RemovePlayer(p)
 				}()
-			} else {
-				log.Debug("Unregistered:{'" + p.CurrentIP() + "'}")
+				return
 			}
+			log.Debug("Unregistered:{'" + p.CurrentIP() + "'}")
 		})
 		return true
 	})
@@ -939,35 +938,6 @@ func (p *Player) AtObject(object *Object) bool {
 	//	return p.Reachable(bounds[0]) || p.Reachable(bounds[1]) && p.WithinArea(bounds) p.CanReach(bounds) ||  (p.FinishedPath() && p.CanReachDiag(bounds))
 
 	return p.CanReach(bounds) || (p.FinishedPath() && p.CanReachDiag(bounds))
-}
-
-func (l Location) WithinArea(area [2]Location) bool {
-	return l.X() >= area[0].X() && l.X() <= area[1].X() && l.Y() >= area[0].Y() && l.Y() <= area[1].Y()
-}
-
-func (p *Player) CanReach(bounds [2]Location) bool {
-	x, y := p.X(), p.Y()
-
-	if x >= bounds[0].X() && x <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y() {
-		return true
-	}
-	if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y() &&
-		(CollisionData(x-1, y)&ClipWest) == 0 {
-		return true
-	}
-	if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y() &&
-		(CollisionData(x+1, y)&ClipEast) == 0 {
-		return true
-	}
-	if x >= bounds[0].X() && x <= bounds[1].X() && bounds[0].Y() <= y-1 && bounds[1].Y() >= y-1 &&
-		(CollisionData(x, y-1)&ClipSouth) == 0 {
-		return true
-	}
-	if x >= bounds[0].X() && x <= bounds[1].X() && bounds[0].Y() <= y+1 && bounds[1].Y() >= y+1 &&
-		(CollisionData(x, y+1)&ClipNorth) == 0 {
-		return true
-	}
-	return false
 }
 
 func (p *Player) CanReachDiag(bounds [2]Location) bool {
@@ -1060,10 +1030,6 @@ func (p *Player) CanReachDiag(bounds [2]Location) bool {
 	*/
 }
 
-func (p *Player) SendFatigue() {
-	p.SendPacket(Fatigue(p))
-}
-
 //Initialize informs the client of all of the various attributes of this player, and starts the stat normalization
 // routine.
 func (p *Player) Initialize() {
@@ -1076,30 +1042,30 @@ func (p *Player) Initialize() {
 	p.SetSpriteUpdated()
 
 	// settings panel
-	p.SendPacket(ClientSettings(p))
-	p.SendPacket(PrivacySettings(p))
+	p.WritePacket(ClientSettings(p))
+	p.WritePacket(PrivacySettings(p))
 	// social panel
-	p.SendPacket(FriendList(p))
-	p.SendPacket(IgnoreList(p))
+	p.WritePacket(FriendList(p))
+	p.WritePacket(IgnoreList(p))
 	// TODO: Not canonical RSC, but definitely good QoL update...
 	//  p.SendPacket(FightMode(p))
 
 	// stat panel
-	p.SendStats()
-	p.SendFatigue()
-	p.SendEquipBonuses()
+	p.WritePacket(PlayerStats(p))
+	p.WritePacket(Fatigue(p))
+	p.WritePacket(EquipmentStats(p))
 	p.SendCombatPoints()
 
 	// inventory panel
-	p.SendInventory()
+	p.WritePacket(InventoryItems(p))
 	// mesh related coordinate info and player index
 	p.SendPlane()
 	if !p.Attributes.Contains("madeAvatar") {
 		p.OpenAppearanceChanger()
 	} else {
 		if !p.Reconnecting() {
-			p.SendPacket(LoginBox(int(time.Since(p.Attributes.VarTime("lastLogin")).Hours()/24), p.Attributes.VarString("lastIP", "0.0.0.0")))
 			p.SendPacket(WelcomeMessage)
+			p.SendPacket(LoginBox(int(time.Since(p.Attributes.VarTime("lastLogin")).Hours()/24), p.Attributes.VarString("lastIP", "0.0.0.0")))
 		}
 		p.Attributes.SetVar("lastLogin", time.Now())
 	}
@@ -1176,18 +1142,18 @@ func (p *Player) OpenAppearanceChanger() {
 //Chat sends a player NPC chat message packet to the player and all other players around it.  If multiple msgs are
 // provided, will sleep the goroutine for 3-4 ticks between each message, depending on length of message.
 func (p *Player) Chat(msgs ...string) {
-	for _, player := range p.NearbyPlayers() {
-		player.QueueQuestChat(p, nil, msgs[0])
+	for _, msg := range msgs {
+		sleep := 3
+		if len(msg) >= 83 {
+			sleep = 4
+		}
+		m := p.TargetMob()
+		for _, player := range p.NearbyPlayers() {
+			player.QueueQuestChat(p, m, msg)
+		}
+		p.QueueQuestChat(p, m, msg)
+		time.Sleep(time.Millisecond*640*time.Duration(sleep))
 	}
-	p.QueueQuestChat(p, nil, msgs[0])
-	sleepTicks := 3
-	if len(msgs[0]) > 83 {
-		sleepTicks++
-	}
-	tasks.Schedule(sleepTicks, func() bool {
-		p.Chat(msgs[1:]...)
-		return true
-	})
 }
 
 //QueuePublicChat Adds a message to a locked public-chat queue
@@ -1260,33 +1226,31 @@ func (p *Player) OpenOptionMenu(options ...string) int {
 	}
 	p.AddState(StateMenu)
 	p.SendPacket(OptionMenuOpen(options...))
-	reply := make(chan int8)
 	p.ReplyMenuC = make(chan int8)
-	p.Tickables.Add(func(p *Player) bool {
-		select {
-		case r, ok := <-p.ReplyMenuC:
-			if !p.HasState(StateMenu) || !ok {
-				return true
-			}
-			close(p.ReplyMenuC)
-			p.RemoveState(StateMenu)
-			if r < 0 || r > int8(len(options)-1) {
-				log.Warn("Invalid option menu reply:", r)
-				return true
-			}
-
-			if p.TargetNpc() != nil && p.HasState(StateChatting) {
-				go func() {
-					p.Chat(options[r])
-					reply <- r
-				}()
-			}
-			return true
-		default:
-			return false
+	select {
+	case r, ok := <-p.ReplyMenuC:
+		if !p.HasState(StateMenu) || !ok {
+			return -1
 		}
-	})
-	return int(<-reply)
+		close(p.ReplyMenuC)
+		p.RemoveState(StateMenu)
+		if r < 0 || r > int8(len(options)-1) {
+			log.Warn("Invalid option menu reply:", r)
+			return -1
+		}
+
+		if p.TargetNpc() != nil && p.HasState(StateChatting) {
+			go func() {
+				p.Chat(options[r])
+			}()
+		}
+		return int(r)
+	}
+	return -1
+//	reply := make(chan int8)
+//	p.Tickables.Add(func(p *Player) bool {
+//	})
+//	return int(<-reply)
 }
 
 //CloseOptionMenu closes any open option menus.
@@ -1486,17 +1450,22 @@ func (p *Player) AddSkull(user uint64) {
 }
 
 func AsPlayer(m entity.MobileEntity) *Player {
-	return m.(*Player)
+	if p, ok := m.(*Player); ok {
+		return p
+	}
+	return nil
 }
 
 func AsNpc(m entity.MobileEntity) *NPC {
-	return m.(*NPC)
+	if n, ok := m.(*NPC); ok {
+		return n
+	}
+	return nil
 }
 
 func (p *Player) StartCombat(defender entity.MobileEntity) {
 	attacker := entity.MobileEntity(p)
-	if defender.IsPlayer() {
-		targetp := AsPlayer(defender)
+	if targetp := AsPlayer(defender); targetp != nil {
 		targetp.PlaySound("underattack")
 		if !p.IsDueling() && !targetp.SkulledOn(p.UsernameHash()) {
 			p.SkullOn(targetp)
@@ -1512,7 +1481,7 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 	p.SetDirection(RightFighting)
 	defender.SetDirection(LeftFighting)
 	tasks.Schedule(2, func() bool {
-		if defender.IsPlayer() && !AsPlayer(defender).Connected() || !defender.HasState(StateFighting) ||
+		if (defender.IsPlayer() && !AsPlayer(defender).Connected()) || !defender.HasState(StateFighting) ||
 			!p.HasState(StateFighting) || !p.Connected() || p.LongestDeltaCoords(defender.X(), defender.Y()) > 0 {
 			// target is a disconnected player, we are disconnected,
 			// one of us is not in a fight, or we are distanced somehow unexpectedly.  Kill tasks.
@@ -1533,17 +1502,17 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 		
 		nextHit := int(math.Min(float64(defender.Skills().Current(entity.StatHits)), float64(attacker.MeleeDamage(defender))))
 		defender.Skills().DecreaseCur(entity.StatHits, nextHit)
-		if defender.Skills().Current(entity.StatHits) <= 0 {
-			if attacker.IsPlayer() {
-				AsPlayer(attacker).PlaySound("victory")
-			}
-			defender.Killed(attacker)
-			return true
-		}
 		if defender.IsNpc() && attacker.IsPlayer() {
 			AsNpc(defender).CacheDamage(AsPlayer(attacker).UsernameHash(), nextHit)
 		}
 		defender.Damage(nextHit)
+		if defender.Skills().Current(entity.StatHits) <= 0 {
+			if attackerp := AsPlayer(attacker); attackerp != nil {
+				attackerp.PlaySound("victory")
+			}
+			defender.Killed(attacker)
+			return true
+		}
 
 		sound := "combat"
 		// TODO: hit sfx (1/2/3) 1 is standard sound 2 is armor sound 3 is ghostly undead sound
@@ -1553,16 +1522,17 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 		} else {
 			sound += "a"
 		}
-		if attacker.IsPlayer() {
-			AsPlayer(attacker).PlaySound(sound)
+		
+		if attackerp := AsPlayer(attacker); attackerp != nil {
+			attackerp.PlaySound(sound)
 		}
-		if defender.IsPlayer() {
-			AsPlayer(defender).PlaySound(sound)
+		
+		if defenderp := AsPlayer(defender); defenderp != nil {
+			defenderp.PlaySound(sound)
 		}
 
 		return false
 	})
-	//tasks.TickList.Add(fightClosure)
 }
 
 //Killed kills this player, dropping all of its items where it stands.

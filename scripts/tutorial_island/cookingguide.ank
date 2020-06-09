@@ -14,7 +14,7 @@ bind.npc(npcPredicate(478), func(player, npc) {
 			player.AddItem(ids.RAW_RAT_MEAT, 1) // raw rat meat
 			npc.Chat(player, "First you need something to cook")
 			player.Message("the instructor gives you a piece of meat")
-			sleep(tMillis*1200)
+			sleep(Millisecond*1200)
 		} else {
 			npc.Chat(player, "I see you have bought your own meat", "good stuff")
 		}
@@ -53,24 +53,24 @@ bind.invOnObject(func(player, object, item) {
 	if item.ID == ids.RAW_RAT_MEAT && object.ID == 491 {
 		player.PlaySound("cooking")
 		player.Message("You cook the meat on the stove...")
-		sleep(tMillis*1200)
+		sleep(Millisecond*1200)
 		player.Inventory.RemoveItemByID(ids.RAW_RAT_MEAT, 1)
 		if toInt(player.Cache("tutorial")) == 30 {
 			player.Message("@que@The meat is now nicely cooked")
 			player.AddItem(ids.COOKEDMEAT, 1)
 			player.IncExp(COOKING, 30)
-			sleep(tMillis*1200)
+			sleep(Millisecond*1200)
 			player.Message("Now speak to the cooking instructor again")
 			player.SetCache("tutorial", 31)
 		} else {
 			player.Message("@que@You accidentally burn the meat")
 			player.AddItem(ids.BURNTMEAT, 1)
 			if toInt(player.Cache("tutorial")) == 25 {
-				sleep(tMillis*1200)
+				sleep(Millisecond*1200)
 				player.Message("sometimes you will burn food")
-				sleep(tMillis*1200)
+				sleep(Millisecond*1200)
 				player.Message("As your cooking level increases this will happen less")
-				sleep(tMillis*1200)
+				sleep(Millisecond*1200)
 				player.Message("Now speak to the cooking instructor again")
 				player.SetCache("tutorial", 30)
 			}

@@ -47,25 +47,19 @@ func (s *scripts) Schedule(ticks int, fn func() bool) {
 	remainder := ticks
 	ticker := func() bool {
 		remainder -= 1
-		log.Debug(remainder)
 		if remainder <= 0 {
-			if fn() {
-				return true
-			}
 			remainder = ticks
+			return fn()
 		}
 		return false
 	}
-	s.Lock()
-	defer s.Unlock()
-	s.scriptCalls = append(s.scriptCalls, ticker)
+	s.Add(ticker)
 }
 
 func (s *scripts) async(arg interface{}) {
-	wait := sync.WaitGroup{}
-	s.Lock()
-	defer s.Unlock()
 	retainedScripts := make(chan scriptCall, len(s.scriptCalls))
+	wait := sync.WaitGroup{}
+	s.RLock()
 	for _, script := range s.scriptCalls {
 		wait.Add(1)
 		go func(script scriptCall) {
@@ -127,7 +121,10 @@ func (s *scripts) async(arg interface{}) {
 	//	}()
 		}(script)
 	}
+	s.RUnlock()
 	wait.Wait()
+	s.Lock()
+	defer s.Unlock()
 	s.scriptCalls = s.scriptCalls[:0]
 	select {
 	case fn, ok := <-retainedScripts:

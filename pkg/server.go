@@ -397,7 +397,7 @@ func (s *Server) Start() {
 			}
 			s.handlePackets(p)
 			
-			if fn := p.TickAction(); fn != nil && fn() {
+			if fn := p.TickAction(); fn != nil && !fn() {
 				p.ResetTickAction()
 			}
 			p.Tickables.Tick(interface{}(p))

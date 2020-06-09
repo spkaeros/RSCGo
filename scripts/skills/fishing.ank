@@ -28,7 +28,7 @@ bind.object(objectPredicate(keys(defs)...), func(player, object, click) {
 	player.PlaySound("fishing")
 	player.ItemBubble(fishDef[click].net)
 	player.Message("You attempt to catch " + (fishDef[click].net == ids.NET ? "some" : "a") + " " + (fishDef[click].net == ids.LOBSTER_POT ? "lobster" : "fish"))
-	sleep(tMillis*1920)
+	sleep(Millisecond*1920)
 
 
 	if gatheringSuccess(fish.lvl, player.Skills().Current(FISHING)) && world.getObjectAt(object.X(), object.Y()) == object {

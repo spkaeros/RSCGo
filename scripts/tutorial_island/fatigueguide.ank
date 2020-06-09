@@ -22,7 +22,7 @@ bind.npc(npcPredicate(774), func(player, npc) {
 		npc.Chat(player, "Tell you what, I'll give you this useful sleeping bag", "So you can rest anywhere")
 		player.AddItem(ids.SLEEPING_BAG, 1)
 		player.Message("The expert hands you a sleeping bag")
-		sleep(tMillis*1200)
+		sleep(Millisecond*1200)
 		npc.Chat(player, "This saves you the trouble of finding a bed",
 				"but you will need to sleep longer to restore your fatigue fully",
 				"You can now go through the next door")
@@ -41,7 +41,7 @@ bind.npc(npcPredicate(774), func(player, npc) {
 bind.object(objectPredicate("rest"), func(player, object, click) {
 	// TODO: CAPTCHA system
 	player.Message("You attempt to sleep in the bed...")
-	sleep(1800*tMillis)
+	sleep(1800*Millisecond)
 	player.Message("You wake up - feeling refreshed")
 	player.SetFatigue(0)
 	player.SendFatigue()

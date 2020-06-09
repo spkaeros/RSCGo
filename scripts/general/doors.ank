@@ -99,7 +99,7 @@ func handleLockedDoor(player, object) {
 	}
 	openDoor = world.replaceObject(object, 11)
 	player.Teleport(destX, destY)
-	go runAfter(3*tSecond, func() {
+	go runAfter(3*Second, func() {
 		player.PlaySound("closedoor")
 		world.replaceObject(openDoor, oldID)
 	})

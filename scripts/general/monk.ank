@@ -7,7 +7,7 @@ bind.npc(npcPredicate(93, 174), func(player, npc) {
 	case 0:
 		npc.Chat(player, "Ok")
 		player.Message("The monk places his hands on your head")
-		sleep(tMillis*1800)
+		sleep(Millisecond*1800)
 		player.Message("You feel a little better")
 		// if max level is greater than current level, there's healing to be done
 		if player.Skills().Maximum(HITPOINTS) > player.Skills().Current(HITPOINTS) {

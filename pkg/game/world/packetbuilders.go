@@ -275,9 +275,9 @@ func NPCPositions(player *Player) (p *net.Packet) {
 		p.AddBitmask(n.ID, 10)
 		changed++
 	}
-	//if changed <= 0 {
-	//	return nil
-	//}
+	if changed <= 0 {
+		return nil
+	}
 	return
 }
 

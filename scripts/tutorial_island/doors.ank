@@ -121,7 +121,7 @@ bind.boundary(objectPredicate(83, 77, 90, 85, 88, 84, 82, 75, 81, 80, 89, 78, 76
 	}
 	openDoor = world.replaceObject(object, 11)
 	player.Teleport(destX, destY)
-	go runAfter(3*tSecond, func() {
+	go runAfter(3*Second, func() {
 		player.PlaySound("closedoor")
 		world.replaceObject(openDoor, oldID)
 	})

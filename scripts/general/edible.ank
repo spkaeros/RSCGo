@@ -10,7 +10,7 @@ bind.item(itemPredicate(keys(amounts)...), func(player, item) {
 	player.Inventory.RemoveByID(item.ID, 1)
 	if amount != 0 {
 		player.IncCurStat(HITPOINTS, amount)
-		sleep(tMillis * 640)
+		sleep(Millisecond * 640)
 		player.Message("It heals some health.")
 	}
 })

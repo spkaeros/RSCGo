@@ -8,13 +8,13 @@ bind.invOnBoundary(func(player, object, item) {
 	// equipment type 16 == anything occupying chars right hand, with or without occupying other slots
 	if object.ID == 24 && world.getEquipmentDefinition(item.ID).Type&16!=0 {
 		player.Message("You try to destroy the web")
-		sleep(tMillis*1920)
+		sleep(Millisecond*1920)
 		// 25% chance to cut through web
 		if roll(25) {
 			player.Message("You slice through the web.")
 			world.removeObject(object)
 			go func() {
-				sleep(tSecond*15)
+				sleep(Second*15)
 				world.addObject(object)
 			}()
 		} else {

@@ -28,7 +28,7 @@ bind.invOnPlayer(itemPredicate(575), func(player, target, item) {
 	player.ItemBubble(ids.CHRISTMAS_CRACKER)
 	player.Message("You pull a christmas cracker")
 	target.Message("You pull a christmas cracker")
-	sleep(tMillis*640)
+	sleep(Millisecond*640)
 	hat = weightedChance(phats)
 	prize = weightedChance(prizes)
 	player.Inventory.RemoveByID(ids.CHRISTMAS_CRACKER, 1)

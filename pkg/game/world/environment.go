@@ -13,6 +13,7 @@ import (
 	"os"
 	"reflect"
 	"time"
+	"strings"
 
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/mattn/anko/core"
@@ -21,6 +22,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/log"
+	"github.com/spkaeros/rscgo/pkg/tasks"
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 
@@ -74,6 +76,12 @@ func init() {
 			}()
 			Players.Range(func(player *Player) {
 				player.SendUpdateTimer()
+			})
+			tasks.Schedule(10, func() bool {
+				Players.Range(func(player *Player) {
+					player.SendUpdateTimer()
+				})
+				return false
 			})
 		}),
 		"teleport": reflect.ValueOf(func(target *Player, x, y int, bubble bool) {
@@ -283,16 +291,15 @@ func init() {
 func ScriptEnv() *env.Env {
 	e := env.NewEnv()
 	parser.EnableErrorVerbose()
-	//parser.EnableDebug(2)
 	e.Define("sleep", time.Sleep)
 	e.Define("runAfter", time.AfterFunc)
 	e.Define("after", time.After)
 	e.Define("newProjectile", NewProjectile)
-	e.Define("tMinute", time.Second*60)
-	e.Define("tHour", time.Second*60*60)
-	e.Define("tSecond", time.Second)
-	e.Define("tMillis", time.Millisecond)
-	e.Define("ChatDelay", time.Millisecond*1800)
+	e.Define("Minute", time.Second*60)
+	e.Define("Hour", time.Second*60*60)
+	e.Define("Second", time.Second)
+	e.Define("Millisecond", time.Millisecond)
+	e.Define("ChatDelay", time.Millisecond*(640*3))
 	e.Define("tNanos", time.Nanosecond)
 	e.Define("ATTACK", entity.StatAttack)
 	e.Define("DEFENSE", entity.StatDefense)
@@ -312,8 +319,20 @@ func ScriptEnv() *env.Env {
 	e.Define("HERBLAW", entity.StatHerblaw)
 	e.Define("AGILITY", entity.StatAgility)
 	e.Define("THIEVING", entity.StatThieving)
+	e.Define("PRAYER_THICK_SKIN", 0)
+	e.Define("PRAYER_BURST_OF_STRENGTH", 1)
+	e.Define("PRAYER_CLARITY_OF_THOUGHT", 2)
+	e.Define("PRAYER_ROCK_SKIN", 3)
+	e.Define("PRAYER_SUPERHUMAN_STRENGTH", 4)
+	e.Define("PRAYER_IMPROVED_REFLEXES", 5)
 	e.Define("PRAYER_RAPID_RESTORE", 6)
 	e.Define("PRAYER_RAPID_HEAL", 7)
+	e.Define("PRAYER_PROTECT_ITEM", 8)
+	e.Define("PRAYER_STEEL_SKIN", 9)
+	e.Define("PRAYER_ULTIMATE_STRENGTH", 10)
+	e.Define("PRAYER_INCREDIBLE_REFLEXES", 11)
+	e.Define("PRAYER_PARALYZE_MONSTER", 12)
+	e.Define("PRAYER_PROTECT_FROM_MISSILES", 13)
 	e.Define("ZeroTime", time.Time{})
 	e.Define("itemDefs", definitions.Items)
 	e.Define("objectDefs", definitions.ScenaryObjects)
@@ -328,18 +347,17 @@ func ScriptEnv() *env.Env {
 	e.Define("newObject", NewObject)
 	e.Define("base37", strutil.Base37.Encode)
 	e.Define("rand", func(low, high int) int {
-		//		return int(rand.Rng.Int31n(int32(high+1-low))) + low
-		return int(rand.Rng.Float64()*float64(high)) - low
+		return int(rand.Rng.Float64()*float64(high+1)) - low
 	})
-	e.Define("tNow", time.Now)
-	e.Define("North", North)
-	e.Define("NorthEast", NorthEast)
-	e.Define("NorthWest", NorthWest)
-	e.Define("South", South)
-	e.Define("SouthEast", SouthEast)
-	e.Define("SouthWest", SouthWest)
-	e.Define("East", East)
-	e.Define("West", West)
+	
+	e.Define("NORTH", North)
+	e.Define("NORTHEAST", NorthEast)
+	e.Define("NORTHWEST", NorthWest)
+	e.Define("SOUTH", South)
+	e.Define("SOUTHEAST", SouthEast)
+	e.Define("SOUTHWEST", SouthWest)
+	e.Define("EAST", East)
+	e.Define("WEST", West)
 	e.Define("parseDirection", ParseDirection)
 	e.Define("contains", func(s []int64, elem int64) bool {
 		for _, v := range s {
@@ -392,14 +410,21 @@ func ScriptEnv() *env.Env {
 		}
 	})
 
-	e.Define("fuzzyFindItem", func(input string) (itemList []map[string]interface{}) {
-		maxRank := 0
+	e.Define("fuzzyItem", func(input string) (itemList []map[string]interface{}) {
+		// maxRank := 0
 		for id, item := range definitions.Items {
-			if rank := fuzzy.LevenshteinDistance(input, item.Name); rank > maxRank {
-				maxRank = rank
-				itemList = append(itemList, map[string]interface{}{"name": item.Name, "id": id})
+			if fuzzy.MatchNormalized(strings.ToLower(input), strings.ToLower(item.Name)) {
+				 rank := fuzzy.LevenshteinDistance(input, item.Name)
+				itemList = append(itemList, map[string]interface{}{"name": item.Name, "id": id, "rank": rank})
+				for idx := len(itemList)-1; idx > 0; idx-- {
+					if itemList[idx]["rank"].(int) <= itemList[idx-1]["rank"].(int) {
+						itemList[idx-1], itemList[idx] = itemList[idx], itemList[idx-1]
+					}
+				}
 			}
 		}
+
+		
 		return itemList
 	})
 
@@ -435,20 +460,8 @@ func ScriptEnv() *env.Env {
 			return false
 		}
 	})
-	e.Define("asPlayer", func(m entity.MobileEntity) *Player {
-		if m.IsPlayer() {
-			return m.(*Player)
-		}
-
-		return nil
-	})
-	e.Define("asNpc", func(m entity.MobileEntity) *NPC {
-		if m.IsNpc() {
-			return m.(*NPC)
-		}
-
-		return nil
-	})
+	e.Define("asPlayer", AsPlayer)
+	e.Define("asNpc", AsNpc)
 	e = core.Import(e)
 	return e
 }

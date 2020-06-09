@@ -72,13 +72,13 @@ func init() {
 
 		player.SetTickAction(func() bool {
 			if player.Busy() {
-				return true
+				return false
 			}
 
 			item := world.GetItem(x, y, id)
 			if item == nil || !item.VisibleTo(player) {
 				log.Cheatf("%v attempted to pick up an item that doesn't exist: %s@{%d,%d}\n", player, definitions.Items[id].Name, x, y)
-				return true
+				return false
 			}
 
 			maxDelta := 0
@@ -91,7 +91,7 @@ func init() {
 
 			if !player.Inventory.CanHold(item.ID, item.Amount) {
 				player.Message("You do not have room for that item in your inventory.")
-				return true
+				return false
 			}
 
 			player.ResetPath()
@@ -99,7 +99,7 @@ func init() {
 			player.Inventory.Add(item.ID, item.Amount)
 			player.SendInventory()
 			player.PlaySound("takeobject")
-			return true
+			return false
 		})
 	})
 	AddHandler("dropitem", func(player *world.Player, p *net.Packet) {
@@ -110,24 +110,24 @@ func init() {
 		// Just to prevent drops mid-path, and perform drop on path completion
 		player.SetTickAction(func() bool {
 			if player.Busy() {
-				return true
+				return false
 			}
 			if !player.FinishedPath() {
-				return false
+				return true
 			}
 
 			if player.Inventory.Size() < index {
-				return true
+				return false
 			}
 
 			item := player.Inventory.Get(index)
 			if !player.Inventory.Remove(index) {
-				return true
+				return false
 			}
 			world.AddItem(world.NewGroundItemFor(player.UsernameHash(), item.ID, item.Amount, player.X(), player.Y()))
 			player.PlaySound("dropobject")
 			player.SendInventory()
-			return true
+			return false
 		})
 	})
 	AddHandler("invaction1", func(player *world.Player, p *net.Packet) {

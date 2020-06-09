@@ -12,14 +12,14 @@ bind.npc(npcPredicate(474), func(player, npc) {
 		player.AddItem(ids.WOODEN_SHIELD, 1) // wood shield
 		player.AddItem(ids.BRONZE_LSWORD, 1) // bronze long
 		player.Message("The instructor gives you a sword and shield")
-		sleep(tMillis*1200)
+		sleep(Millisecond*1200)
 		npc.Chat(player, "look after these well", "These items will now have appeared in your inventory",
 				"You can access them by selecting the bag icon in the menu bar",
 				"which can be found in the top right hand corner of the screen",
 				"To wield your weapon and shield left click on them within your inventory",
 				"their box will go red to show you are wearing them")
 		player.Message("When you have done this speak to the combat instructor again")
-		sleep(tMillis*1200)
+		sleep(Millisecond*1200)
 		player.SetCache("tutorial", 16)
 	} else if toInt(player.Cache("tutorial")) == 16 {
 		shield = player.Inventory.GetByID(ids.WOODEN_SHIELD)
@@ -41,7 +41,7 @@ bind.npc(npcPredicate(474), func(player, npc) {
 					"To wield your weapon and shield left click on them",
 					"their boxs will go red to show you are wearing them")
 			player.Message("When you have done this speak to the combat instructor again")
-			sleep(tMillis*1200)
+			sleep(Millisecond*1200)
 		}
 	} else if toInt(player.Cache("tutorial")) >= 20 {
 		npc.Chat(player, "Well done you're a born fighter", "As you kill things", "Your combat experience will go up",
@@ -72,6 +72,6 @@ func(player, npc) {
 	// the action, what to do if the predicate is true
 	player.SetCache("tutorial", 20)
 	player.Message("Well done you've killed the rat")
-	sleep(1200*tMillis)
+	sleep(1200*Millisecond)
 	player.Message("Now speak to the combat instructor again")
 })

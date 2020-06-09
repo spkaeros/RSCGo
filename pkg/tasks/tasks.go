@@ -91,8 +91,8 @@ func (t *TaskList) RunSynchronous() Tasks {
 // TODO: Probably some form of pooling?
 func (t *TaskList) RunAsynchronous() {
 	wait := sync.WaitGroup{}
-	retainedTasks := make(chan Task, 255)
-	t.Lock()
+	retainedTasks := make(chan Task, len(t.Tasks))
+	t.RLock()
 	for _, task := range t.Tasks {
 		wait.Add(1)
 		go func(task Task) {
@@ -101,23 +101,26 @@ func (t *TaskList) RunAsynchronous() {
 				return
 			}
 			if task() {
-				defer t.Remove(task)
+				log.Debugf("task finished; removing from collection.\n")
 			} else {
 				retainedTasks <- task
 			}
 		}(task)
 	}
-	t.Unlock()
+	t.RUnlock()
 	wait.Wait()
-	// t.Tasks = t.Tasks[:0]
-	// select {
-	// case task, ok := <-retainedTasks:
-		// if !ok {
-			// break
-		// }
-		// t.Tasks = append(t.Tasks, task)
-	// default: return
-	// }
+	t.Lock()
+	defer t.Unlock()
+	t.Tasks = t.Tasks[:0]
+	select {
+	case task, ok := <-retainedTasks:
+		if !ok {
+			break
+		}
+		
+		t.Tasks = append(t.Tasks, task)
+	default: return
+	}
 //	t.tasks = append(t.tasks[:0], retainedTasks[:]...)
 	return
 }
