@@ -37,12 +37,15 @@ type TaskList struct {
 // or false if they are to be ran again on the next engine cycle.
 var TickList = &TaskList{}
 
-func Schedule(ticks int, call func()) {
+func Schedule(ticks int, call func() bool) {
+	ticksLeft := ticks
 	TickList.Add(func() bool {
-		ticks -= 1
-		if ticks <= 0 {
-			call()
-			return true
+		ticksLeft -= 1
+		if ticksLeft <= 0 {
+			ticksLeft = ticks
+			if call() {
+				return true
+			}
 		}
 		return false
 	})
@@ -90,7 +93,6 @@ func (t *TaskList) RunAsynchronous() {
 	wait := sync.WaitGroup{}
 	retainedTasks := make(chan Task, 255)
 	t.Lock()
-	defer t.Unlock()
 	for _, task := range t.Tasks {
 		wait.Add(1)
 		go func(task Task) {
@@ -99,24 +101,23 @@ func (t *TaskList) RunAsynchronous() {
 				return
 			}
 			if task() {
-				if config.Verbosity >= 2 {
-					log.Debugf("task finished; removing from collection.\n")
-				}
+				defer t.Remove(task)
 			} else {
 				retainedTasks <- task
 			}
 		}(task)
 	}
+	t.Unlock()
 	wait.Wait()
-	t.Tasks = t.Tasks[:0]
-	select {
-	case task, ok := <-retainedTasks:
-		if !ok {
-			break
-		}
-		t.Tasks = append(t.Tasks, task)
-	default: return
-	}
+	// t.Tasks = t.Tasks[:0]
+	// select {
+	// case task, ok := <-retainedTasks:
+		// if !ok {
+			// break
+		// }
+		// t.Tasks = append(t.Tasks, task)
+	// default: return
+	// }
 //	t.tasks = append(t.tasks[:0], retainedTasks[:]...)
 	return
 }

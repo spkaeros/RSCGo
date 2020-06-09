@@ -19,7 +19,7 @@ import (
 
 func init() {
 	AddHandler("attacknpc", func(player *world.Player, p *net.Packet) {
-		npc := world.GetNpc(p.ReadUint16())
+		npc := world.AsNpc( world.Npcs.Get(p.ReadUint16()) )
 		if npc == nil || !npc.Attackable() {
 			log.Suspicious.Printf("%v tried to attack nil NPC\n", player)
 			player.Message("The character does not appear interested in fighting")

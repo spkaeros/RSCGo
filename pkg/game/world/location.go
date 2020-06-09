@@ -5,9 +5,9 @@ import (
 	"math"
 
 	"github.com/spkaeros/rscgo/pkg/rand"
+	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"go.uber.org/atomic"
 )
-
 //OrderedDirections This is an array containing all of the directions a mob can walk in, ordered by path finder precedent.
 // West, East, North, South, SouthWest, SouthEast, NorthWest, NorthEast
 var OrderedDirections = [...]int{2, 6, 0, 4, 3, 5, 1, 7}
@@ -209,6 +209,11 @@ func (l Location) EuclideanDistance(loc Location) float64 {
 //WithinRange Returns true if the other location is within radius tiles of the receiver location, otherwise false.
 func (l *Location) WithinRange(other Location, radius int) bool {
 	return l.LongestDelta(other) <= radius
+}
+
+//EntityWithin Returns true if the other location is within radius tiles of the receiver location, otherwise false.
+func (l *Location) EntityWithin(other entity.Location, radius int) bool {
+	return l.LongestDeltaCoords(other.X(), other.Y()) <= radius
 }
 
 //Plane Calculates and returns the plane that this location is on.

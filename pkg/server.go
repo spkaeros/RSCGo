@@ -18,8 +18,10 @@ import (
 	"time"
 	"strings"
 	"math"
+	"bufio"
 
 	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 	"github.com/jessevdk/go-flags"
 	"github.com/BurntSushi/toml"
 
@@ -219,6 +221,11 @@ func (s *Server) tlsAccept(l stdnet.Listener) *world.Player {
 	p := world.NewPlayer(socket)
 	_, err = wsUpgrader.Upgrade(p.Socket)
 	p.Websocket = err == nil
+	if p.IsWebsocket() {
+		p.Writer = wsutil.NewWriter(p.Socket, ws.StateServerSide, ws.OpBinary)
+	} else {
+		p.Writer = bufio.NewWriter(p.Socket)
+	}
 
 	return p
 }
@@ -260,22 +267,20 @@ func (s *Server) Bind(port int) bool {
 			}
 			if login.Opcode == 0 {
 				sendReply := func(i handshake.ResponseCode, reason string) {
-					// player.OutQueue <- world.HandshakeResponse(int(i))
-					// player.FlushOutgoing()
 					player.WritePacket(world.HandshakeResponse(int(i)))
+					player.Writer.Flush()
 					if i.IsValid() {
-						player.Initialize()
 						go func() {
-							defer close(player.OutQueue)
 							defer close(player.InQueue)
 							defer player.Destroy()
+							defer player.WritePacket(world.Logout)
+							player.Initialize()
 							for {
 								select {
 								default:
 									if p, err := readPacket(player); err != nil {
 										if err, ok := err.(rscerrors.NetError); ok {
 											if err.Fatal {
-												log.Debug("Fatal!")
 												return
 											}
 										}
@@ -291,9 +296,8 @@ func (s *Server) Bind(port int) bool {
 						log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "successfully logged in")
 					} else {
 						log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "failed to login (" + reason + ")")
-						player.Destroy()
-						close(player.OutQueue)
 						close(player.InQueue)
+						player.Destroy()
 					}
 				}
 				if !world.UpdateTime.IsZero() {
@@ -364,8 +368,6 @@ func (s *Server) Bind(port int) bool {
 }
 
 func (s *Server) handlePackets(p *world.Player) {
-	//	tasks.TickList.Add(func() bool {
-	//	go func() {
 	go func() {
 		for {
 			select {
@@ -382,9 +384,9 @@ func (s *Server) handlePackets(p *world.Player) {
 		}
 	}()
 }
+
 func (s *Server) Start() {
 	s.Bind(config.Port())
-//	(s.Ticker).
 	defer s.Ticker.Stop()
 	for range s.C {
 		tasks.TickList.RunAsynchronous()
@@ -394,7 +396,8 @@ func (s *Server) Start() {
 				return
 			}
 			s.handlePackets(p)
-			if p.TickAction() != nil && p.TickAction()() {
+			
+			if fn := p.TickAction(); fn != nil && fn() {
 				p.ResetTickAction()
 			}
 			p.Tickables.Tick(interface{}(p))
@@ -407,35 +410,27 @@ func (s *Server) Start() {
 				return
 			}
 			if positions := world.PlayerPositions(p); positions != nil {
-				log.Debug("position!")
 				p.SendPacket(positions)
 			}
 			if appearances := world.PlayerAppearances(p); appearances != nil {
-				// log.Debug("event!")
 				p.SendPacket(appearances)
 			}
 			if npcUpdates := world.NPCPositions(p); npcUpdates != nil {
-				// log.Debug("npcPosition!")
 				p.SendPacket(npcUpdates)
 			}
 			if npcUpdates := world.NpcEvents(p); npcUpdates != nil {
-				// log.Debug("npcEvents!")
 				p.SendPacket(npcUpdates)
 			}
 			if objectUpdates := world.ObjectLocations(p); objectUpdates != nil {
-				// log.Debug("sceneEvent!")
 				p.SendPacket(objectUpdates)
 			}
 			if boundaryUpdates := world.BoundaryLocations(p); boundaryUpdates != nil {
-				// log.Debug("boundarys!")
 				p.SendPacket(boundaryUpdates)
 			}
 			if itemUpdates := world.ItemLocations(p); itemUpdates != nil {
-				// log.Debug("lootables!")
 				p.SendPacket(itemUpdates)
 			}
 			if clearDistantChunks := world.ClearDistantChunks(p); clearDistantChunks != nil {
-				// log.Debug("chunkClear!")
 				p.SendPacket(clearDistantChunks)
 			}
 		})
@@ -444,12 +439,12 @@ func (s *Server) Start() {
 			if p == nil {
 				return
 			}
-		//	p.FlushOutgoing()
 			p.PostTickables.Tick(interface{}(p))
 			p.ResetRegionRemoved()
 			p.ResetRegionMoved()
 			p.ResetSpriteUpdated()
 			p.ResetAppearanceChanged()
+			// p.Writer.Flush()
 		})
 		world.ResetNpcUpdateFlags()
 	}

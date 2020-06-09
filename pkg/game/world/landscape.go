@@ -94,9 +94,9 @@ func ClipBit(direction int) int {
 // Returns: [2]byte {verticalMasks, horizontalMasks}
 func (l Location) Masks(x, y int) (masks [2]byte) {
 	if y > l.Y() {
-		masks[0] |= ClipSouth
-	} else {
 		masks[0] |= ClipNorth
+	} else {
+		masks[0] |= ClipSouth
 	}
 	if x > l.X() {
 		masks[1] |= ClipEast
@@ -183,7 +183,6 @@ func loadSector(data []byte) (s *Sector) {
 			horizontalWalls := data[offset+4] & 0xFF
 			verticalWalls := data[offset+5] & 0xFF
 			diagonalWalls := binary.BigEndian.Uint32(data[offset+6:])
-			//			diagonalWalls := int(uint32(data[offset+6]&0xFF)<<24 | uint32(data[offset+7]&0xFF)<<16 | uint32(data[offset+8]&0xFF)<<8 | uint32(data[offset+9]&0xFF))
 			if groundOverlay == 250 {
 				// -6 overflows to 250, and is water tile
 				groundOverlay = definitions.OverlayWater

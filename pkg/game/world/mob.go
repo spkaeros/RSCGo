@@ -188,7 +188,10 @@ func (m *Mob) TargetNpc() *NPC {
 }
 
 func (m *Mob) TargetPlayer() *Player {
-	return m.VarNpc("targetMob").(*Player)
+	if p, ok := m.TargetMob().(*Player); ok {
+		return p
+	}
+	return nil
 }
 
 func (p *Player) IsPlayer() bool {

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"sync"
 
+	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/log"
 
 	// Necessary for sqlite3 driver
@@ -36,6 +37,7 @@ func (s *sqlService) sqlOpen(addr string) *sql.DB {
 // Implements PlayerService interface and sqlService.
 type sqlService struct {
 	database *sql.DB
+	conn *sql.Conn
 	Driver   string
 	context  context.Context
 	sync.RWMutex
@@ -49,13 +51,20 @@ func newSqlService(driver string) *sqlService {
 	}
 }
 
+var dbConn *sqlService
+
 //connect returns a connection to the services underlying *sql.DB instance upon successful
 // connection.  If an error occurs, returns nil.
 func (s *sqlService) connect(ctx context.Context) *sql.Conn {
-	conn, err := s.database.Conn(ctx)
-	if err != nil {
-		log.Info.Println("Error connecting to SQLite3 service:", err)
-		return nil
+	if dbConn == nil {
+		dbConn = newSqlService(config.PlayerDriver())
+		db := dbConn.sqlOpen(config.PlayerDB())
+		dbConn.database = db
+		c, err := db.Conn(ctx)
+		if err != nil {
+			return nil
+		}
+		dbConn.conn = c
 	}
-	return conn
+	return dbConn.conn
 }

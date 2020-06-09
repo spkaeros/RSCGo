@@ -43,12 +43,16 @@ func (s *scripts) Tick(arg interface{}) {
 	s.async(arg)
 }
 
-func (s *scripts) Schedule(ticks int, fn func()) {
+func (s *scripts) Schedule(ticks int, fn func() bool) {
+	remainder := ticks
 	ticker := func() bool {
-		ticks -= 1
-		if ticks <= 0 {
-			fn()
-			return true
+		remainder -= 1
+		log.Debug(remainder)
+		if remainder <= 0 {
+			if fn() {
+				return true
+			}
+			remainder = ticks
 		}
 		return false
 	}
@@ -97,11 +101,12 @@ func (s *scripts) async(arg interface{}) {
 					log.Warn("Error retVal from a dualReturnCall in the Anko ctx:", callErr.Elem())
 					return
 				}
-//				if !ret.Bool() {
-					retainedScripts <- script
-//				}
+				if v, ok := ret.Interface().(bool); ok && !v {
+					log.Debugf("%v, %v\n", v, callErr)
+					return
+				}
+				retainedScripts <- script
 
-				log.Debug(ret, callErr)
 //				retainedScripts = append(retainedScripts, script)
 			// A function call that returns two values, the first a result value, and the second an error value
 			// Requires one argument, no type restrictions, so long as the client reads it properly.

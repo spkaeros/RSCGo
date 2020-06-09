@@ -262,8 +262,9 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 	killer.ResetFighting()
 	n.ResetFighting()
 	n.Remove()
-	tasks.Schedule(16, func() {
+	tasks.Schedule(16, func() bool {
 		n.Respawn()
+		return true
 	})
 	return
 }
@@ -283,14 +284,10 @@ func (n *NPC) Respawn() {
 
 //TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
 func (n *NPC) TraversePath() {
-	//	for tries := 0; tries < 10; tries++ {
 	dst := n.Location.Clone()
 	dir := n.Direction()
 	if Chance(25) {
 		dir = rand.Rng.Intn(8)
-		// for !n.Reachable(dst.Step(dir)) {
-			// dir = rand.Rng.Intn(8)
-		// }
 	}
 	if dir == East || dir == SouthEast || dir == NorthEast {
 		dst.x.Dec()
@@ -332,9 +329,9 @@ func (n *NPC) Chat(target *Player, msgs ...string) {
 		sleepTicks += 1
 	}
 	if len(msgs) > 1 {
-		tasks.Schedule(sleepTicks, func() {
+		tasks.Schedule(sleepTicks, func() bool  {
 			n.Chat(target, msgs[1:]...)
-			return
+			return true
 		})
 	}
 }

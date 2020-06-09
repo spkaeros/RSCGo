@@ -32,4 +32,5 @@ type Entity interface {
 type Location interface {
 	X() int
 	Y() int
+	Point() Location
 }

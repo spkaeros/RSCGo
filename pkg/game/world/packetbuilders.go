@@ -224,7 +224,7 @@ func NPCPositions(player *Player) (p *net.Packet) {
 	player.LocalNPCs.RangeNpcs(func(n *NPC) bool {
 		changed++
 		n.RLock()
-		if !player.WithinRange(player.Location, player.VarInt("viewRadius", 16)) || n.SyncMask&SyncRemoved == SyncRemoved || n.Location.Equals(DeathPoint) {
+		if !player.WithinRange(player.Location, player.VarInt("viewRadius", 16)) || n.SyncMask&SyncRemoved == SyncRemoved || n.Location.Equals(DeathPoint) || n.VarBool("removed", false) {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(1, 1)
 			p.AddBitmask(3, 2)

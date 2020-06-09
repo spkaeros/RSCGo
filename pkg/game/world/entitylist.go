@@ -2,12 +2,17 @@ package world
 
 import (
 	"sync"
+	"github.com/spkaeros/rscgo/pkg/game/entity"
 )
 
 //Entity A stationary scene entity within the game world.
 type Entity struct {
 	Location
 	Index int
+}
+
+func (e *Entity) Point() entity.Location {
+	return entity.Location(e)
 }
 
 func (e *Entity) ServerIndex() int {

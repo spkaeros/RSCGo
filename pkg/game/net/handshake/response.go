@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/throttle"
@@ -44,8 +43,6 @@ type Response struct {
 
 func (r Response) send(requestKind string, p *world.Player) {
 	log.Debugf("{ %s for %s@%s }\t%s\n", requestKind, p.Username(), p.CurrentIP(), r)
-	p.OutQueue <- &net.Packet{FrameBuffer: []byte{ byte(r.ResponseCode) }}
-	p.FlushOutgoing()
 }
 
 func (r Response) String() string {

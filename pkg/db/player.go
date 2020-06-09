@@ -33,7 +33,7 @@ type PlayerService interface {
 func NewPlayerServiceSql() PlayerService {
 	s := newSqlService(config.PlayerDriver())
 	s.sqlOpen(config.PlayerDB())
-	return s
+	return dbConn
 }
 
 //DefaultPlayerService the default player save managing service in use by the game server
@@ -44,7 +44,7 @@ var DefaultPlayerService PlayerService
 // Returns true if successful, otherwise returns false.
 func (s *sqlService) PlayerCreate(username, password, ip string) bool {
 	db := s.connect(context.Background())
-	defer db.Close()
+	// defer db.Close()
 	tx, err := db.BeginTx(context.Background(), nil)
 	if err != nil {
 		log.Info.Println("SQLiteService Could not begin transaction:", err)
@@ -117,7 +117,7 @@ func (s *sqlService) PlayerCreate(username, password, ip string) bool {
 //PlayerNameExists Returns true if there is a player with the name 'username' in the player database, otherwise returns false.
 func (s *sqlService) PlayerNameExists(username string) bool {
 	database := s.connect(context.Background())
-	defer database.Close()
+	// defer database.Close()
 	stmt, err := database.QueryContext(context.Background(), "SELECT id FROM player WHERE userhash=$1", strutil.Base37.Encode(username))
 	if err != nil {
 		log.Info.Println("UsernameTaken: Could not query player profile information:", err)
@@ -131,7 +131,7 @@ func (s *sqlService) PlayerNameExists(username string) bool {
 //PlayerValidLogin Returns true if it finds a user with this username hash and password in the database, otherwise returns false
 func (s *sqlService) PlayerValidLogin(userHash uint64, password string) bool {
 	database := s.connect(context.Background())
-	defer database.Close()
+	// defer database.Close()
 	rows, err := database.QueryContext(context.Background(), "SELECT id FROM player WHERE userhash=$1 AND password=$2", userHash, password)
 	if err != nil {
 		log.Info.Println("Validate: Could not validate user credentials:", err)
@@ -144,7 +144,7 @@ func (s *sqlService) PlayerValidLogin(userHash uint64, password string) bool {
 //PlayerChangePassword Updates the players password to password in the database.
 func (s *sqlService) PlayerChangePassword(userHash uint64, password string) bool {
 	database := s.connect(context.Background())
-	defer database.Close()
+	// defer database.Close()
 	stmt, err := database.ExecContext(context.Background(), "UPDATE player SET password=$1 WHERE userhash=$2", password, userHash)
 	if err != nil {
 		log.Info.Println("PlayerChangePassword: Could not update player password:", err)
@@ -161,7 +161,7 @@ func (s *sqlService) PlayerChangePassword(userHash uint64, password string) bool
 //PlayerHasRecoverys Returns true if this username has recovery questions assigned to it, otherwise returns false.
 func (s *sqlService) PlayerHasRecoverys(userHash uint64) bool {
 	database := s.connect(context.Background())
-	defer database.Close()
+	// defer database.Close()
 	rows, err := database.QueryContext(context.Background(), "SELECT question1 FROM recovery_questions WHERE userhash=$1", userHash)
 	if err != nil {
 		log.Info.Println("PlayerHasRecoverys: Could not search for recovery questions:", err)
@@ -174,7 +174,7 @@ func (s *sqlService) PlayerHasRecoverys(userHash uint64) bool {
 //PlayerLoadRecoverys Retrieves the recovery questions assigned to this username if any, otherwise returns nil
 func (s *sqlService) PlayerLoadRecoverys(userHash uint64) []string {
 	database := s.connect(context.Background())
-	defer database.Close()
+	// defer database.Close()
 	rows, err := database.QueryContext(context.Background(), "SELECT question1, question2, question3, question4, question5 FROM recovery_questions WHERE userhash=$1", userHash)
 	if err != nil {
 		log.Info.Println("PlayerLoadRecoverys: Could not find recovery questions:", err)
@@ -205,7 +205,7 @@ func (s *sqlService) SaveRecoveryQuestions(userHash uint64, questions []string, 
 func (s *sqlService) PlayerLoad(player *world.Player) bool {
 	loadProfile := func() error {
 		database := s.connect(context.Background())
-		defer database.Close()
+		// defer database.Close()
 		rows, err := database.QueryContext(context.Background(), "SELECT player.id, player.x, player.y, player.group_id, appearance.haircolour, appearance.topcolour, appearance.trousercolour, appearance.skincolour, appearance.head, appearance.body FROM player INNER JOIN appearance ON appearance.playerid=player.id AND player.userhash=$1", player.UsernameHash())
 		if err != nil {
 			log.Info.Println("Load error: Could not prepare statement:", err)
@@ -226,7 +226,7 @@ func (s *sqlService) PlayerLoad(player *world.Player) bool {
 	}
 	loadAttributes := func() error {
 		database := s.connect(context.Background())
-		defer database.Close()
+		// defer database.Close()
 
 		rows, err := database.QueryContext(context.Background(), "SELECT name, value FROM player_attr WHERE player_id=$1", player.DatabaseIndex)
 		if err != nil {
@@ -283,7 +283,7 @@ func (s *sqlService) PlayerLoad(player *world.Player) bool {
 	}
 	loadContactList := func(list string) error {
 		database := s.connect(context.Background())
-		defer database.Close()
+		// defer database.Close()
 
 		rows, err := database.QueryContext(context.Background(), "SELECT playerhash FROM contacts WHERE playerid=$1 AND type=$2", player.DatabaseIndex, list)
 		if err != nil {
@@ -309,7 +309,7 @@ func (s *sqlService) PlayerLoad(player *world.Player) bool {
 	}
 	loadInventory := func() error {
 		database := s.connect(context.Background())
-		defer database.Close()
+		// defer database.Close()
 		rows, err := database.QueryContext(context.Background(), "SELECT itemid, amount, wielded FROM inventory WHERE playerid=$1", player.DatabaseIndex)
 		if err != nil {
 			log.Info.Println("Load error: Could not prepare statement:", err)
@@ -336,7 +336,7 @@ func (s *sqlService) PlayerLoad(player *world.Player) bool {
 	}
 	loadBank := func() error {
 		database := s.connect(context.Background())
-		defer database.Close()
+		// defer database.Close()
 		rows, err := database.QueryContext(context.Background(), "SELECT itemid, amount FROM bank WHERE playerid=$1", player.DatabaseIndex)
 		if err != nil {
 			log.Info.Println("Load error: Could not prepare statement:", err)
@@ -352,7 +352,7 @@ func (s *sqlService) PlayerLoad(player *world.Player) bool {
 	}
 	loadStats := func() error {
 		database := s.connect(context.Background())
-		defer database.Close()
+		// defer database.Close()
 		rows, err := database.QueryContext(context.Background(), "SELECT cur, exp FROM stats WHERE playerid=$1 ORDER BY num", player.DatabaseIndex)
 		if err != nil {
 			log.Info.Println("Load error: Could not prepare statement:", err)
@@ -399,7 +399,7 @@ func (s *sqlService) PlayerLoad(player *world.Player) bool {
 //PlayerSave Saves a player to the SQLite3 database.
 func (s *sqlService) PlayerSave(player *world.Player) {
 	db := s.connect(context.Background())
-	defer db.Close()
+	// defer db.Close()
 	tx, err := db.BeginTx(context.Background(), nil)
 	if err != nil {
 		log.Info.Println("Save(): Could not begin transcaction for player update.")

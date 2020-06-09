@@ -62,25 +62,18 @@ type (
 		PostTickables scripts
 		tickAction    statusReturnCall
 		ActionLock    sync.RWMutex
-		SendHandler   chan *net.Packet
 		ReplyMenuC    chan int8
 		Equips        [12]int
 		killer        sync.Once
 		hasReader     bool
 		Websocket     bool
 		InQueue       chan *net.Packet
-		OutQueue      chan *net.Packet
 		Reader        *bufio.Reader
 		Writer		  net.WriteFlusher
 		DatabaseIndex int
 		Mob
 	}
 )
-
-func (p *Player) AsyncTick() bool {
-	p.Tickables.async(interface{}(p))
-	return true
-}
 
 func (p *Player) UsernameHash() uint64 {
 	if p == nil {
@@ -180,16 +173,14 @@ func (p *Player) SetTickAction(action func() bool) {
 	if p == nil {
 		return
 	}
-	p.Lock()
-	defer p.Unlock()
+	p.ActionLock.Lock()
+	defer p.ActionLock.Unlock()
 	p.tickAction = action
-	// p.ActionLock.Lock()
-	// p.ActionLock.Unlock()
 }
 
 func (p *Player) TickAction() func() bool {
-	p.RLock()
-	defer p.RUnlock()
+	p.ActionLock.RLock()
+	defer p.ActionLock.RUnlock()
 	return p.tickAction
 }
 
@@ -264,12 +255,12 @@ func (p *Player) WalkingRangedAction(t entity.MobileEntity, fn func()) {
 // Runs everything on game engine ticks, retries until catastrophic failure or success.
 func (p *Player) WalkingArrivalAction(t entity.MobileEntity, dist int, action func()) {
 	p.SetTickAction(func() bool {
-		if p.LongestDeltaCoords(t.X(), t.Y()) >= dist {
+		if p.EntityWithin(t.Point(), dist) {
 			if !p.CanReachMob(t) {
-				return false
+				return true
 			}
 			action()
-			return true
+			return false
 		}
 		return !p.WalkTo(NewLocation(t.X(), t.Y()))
 	})
@@ -457,6 +448,15 @@ func (l Location) WithinReach(other Location) bool {
 func (l Location) Reachable(other Location) bool {
 	return l.ReachableCoords(other.X(), other.Y())
 }
+func (l Location) RD(x, y int) bool {
+	status := l.ReachableCoords(x, y)
+	if status {
+		log.Debug(x,y,"reachable!")
+		return true
+	}
+	log.Debug("Unreachable:{from:", l.String(), "to:", x,y)
+	return false
+}
 
 func (l Location) ReachableCoords(x, y int) bool {
 	check := func(l, dst Location) bool {
@@ -485,7 +485,6 @@ func (l Location) ReachableCoords(x, y int) bool {
 	dst := l.Clone()
 	start := dst.Clone()
 
-	//	steps := 0
 	for dst.X() != x || dst.Y() != y {
 		if dst.X() > x {
 			dst.x.Dec()
@@ -497,10 +496,6 @@ func (l Location) ReachableCoords(x, y int) bool {
 		} else if dst.Y() < y {
 			dst.y.Inc()
 		}
-		//		if steps >= 8 {
-		//			return false
-		//		}
-		//		steps++
 		if !check(start.Clone(), dst.Clone()) {
 			return false
 		}
@@ -757,7 +752,7 @@ func (p *Player) NewPlayers() (players *MobList) {
 func (p *Player) NewNPCs() (npcs []*NPC) {
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.NPCs.RangeNpcs(func(n *NPC) bool {
-			if !p.LocalNPCs.Contains(n) && p.WithinRange(n.Location, 15) {
+			if !n.VarBool("removed", false) && !p.LocalNPCs.Contains(n) && p.WithinRange(n.Location, 15) {
 				npcs = append(npcs, n)
 			}
 			return false
@@ -894,7 +889,6 @@ func (p *Player) SendPacket(packet *net.Packet) {
 	if p == nil || (!p.Connected() && packet.Opcode != 0) {
 		return
 	}
-//	p.OutQueue <- packet
 	p.WritePacket(packet)
 }
 
@@ -906,7 +900,9 @@ var DefaultPlayerService PlayerService
 
 //Destroy sends a kill signal to the underlying client to tear down all of the I/O routines and save the player.
 func (p *Player) Destroy() {
-	tasks.TickList.Add(func() bool {
+	p.WritePacket(Logout)
+	p.Writer.Flush()
+	p.PostTickables.Add(func() bool {
 		p.killer.Do(func() {
 			if err := p.Socket.Close(); err != nil {
 				log.Warn("Couldn't close socket:", err)
@@ -919,10 +915,12 @@ func (p *Player) Destroy() {
 				p.UpdateStatus(false)
 				p.WritePacket(Logout)
 				p.SetConnected(false)
-				RemovePlayer(p)
-				go DefaultPlayerService.PlayerSave(p)
+				go func() {
+					DefaultPlayerService.PlayerSave(p)
+					RemovePlayer(p)
+				}()
 			} else {
-				log.Debug("Unregistered:{Unauthenticated@'" + p.CurrentIP() + "'}")
+				log.Debug("Unregistered:{'" + p.CurrentIP() + "'}")
 			}
 		})
 		return true
@@ -1110,58 +1108,24 @@ func (p *Player) Initialize() {
 	}
 }
 func (p *Player) WritePacket(packet *net.Packet) {
-	// go func() {
-		if p.Writer == nil {
-			if p.IsWebsocket() {
-				p.Writer = wsutil.NewWriter(p.Socket, ws.StateServerSide, ws.OpBinary)
-			} else {
-				p.Writer = bufio.NewWriter(p.Socket)
-			}
-		}
-		if packet.Opcode == 0 {
-			p.Writer.Write(packet.FrameBuffer)
-			p.Writer.Flush()
-			return
-		}
-		header := []byte{0, 0}
-		frameLength := len(packet.FrameBuffer)
-		if frameLength >= 160 {
-			header[0] = byte(frameLength>>8 + 160)
-			header[1] = byte(frameLength)
-		} else {
-			header[0] = byte(frameLength)
-			if frameLength > 0 {
-				frameLength--
-				header[1] = packet.FrameBuffer[frameLength]
-			}
-		}
-		p.Writer.Write(append(header, packet.FrameBuffer[:frameLength]...))
-		p.Writer.Flush()
-	// }()
-}
-
-func (p *Player) FlushOutgoing() {
-/*	var writer net.WriteFlusher
-	if p.IsWebsocket() {
-		writer = wsutil.NewWriter(p.Socket, ws.StateServerSide, ws.OpBinary)
+	defer p.Writer.Flush()
+	if packet.Opcode == 0 {
+		p.Writer.Write(packet.FrameBuffer)
+		return
+	}
+	header := []byte{0, 0}
+	frameLength := len(packet.FrameBuffer)
+	if frameLength >= 160 {
+		header[0] = byte(frameLength>>8 + 160)
+		header[1] = byte(frameLength)
 	} else {
-		writer = bufio.NewWriter(p.Socket)
-	}
-	for {
-		select {
-		case packet, ok := <-p.OutQueue:
-			if !ok || packet == nil {
-				return
-			}
-			
-			writer.Flush()
-			//writer.Flush()
-			continue
-		default:
-			return
+		header[0] = byte(frameLength)
+		if frameLength > 0 {
+			frameLength--
+			header[1] = packet.FrameBuffer[frameLength]
 		}
 	}
-*/
+	p.Writer.Write(append(header, packet.FrameBuffer[:frameLength]...))
 }
 
 //NewPlayer Returns a reference to a new player.
@@ -1188,7 +1152,6 @@ func NewPlayer(socket stdnet.Conn) *Player {
 		DuelOffer:        &Inventory{Capacity: 8},
 		Equips:           [12]int{entity.DefaultAppearance().Head, entity.DefaultAppearance().Body, entity.DefaultAppearance().Legs},
 		InQueue:          make(chan *net.Packet, 50),
-		OutQueue:         make(chan *net.Packet, 50),
 		Reader:			  bufio.NewReader(socket),
 	}
 	// TODO: Get rid of this self-referential member; figure out better way to handle client item updating
@@ -1221,8 +1184,9 @@ func (p *Player) Chat(msgs ...string) {
 	if len(msgs[0]) > 83 {
 		sleepTicks++
 	}
-	tasks.Schedule(sleepTicks, func() {
+	tasks.Schedule(sleepTicks, func() bool {
 		p.Chat(msgs[1:]...)
+		return true
 	})
 }
 
@@ -1457,12 +1421,10 @@ func (p *Player) PrayerOn(idx int) {
 	}
 	defer p.ActivatePrayer(idx)
 	for stat := 0; stat < 3; stat++ {
-		for _, index := range boosterPrayers[stat] {
-			if index == idx {
-				for _, other := range boosterPrayers[stat] {
-					if other != idx {
-						p.DeactivatePrayer(other)
-					}
+		for _, i := range boosterPrayers[stat] {
+			if i == idx {
+				for _, i1 := range boosterPrayers[stat] {
+					p.Prayers[i1] = false
 				}
 				return
 			}
@@ -1540,6 +1502,7 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 			p.SkullOn(targetp)
 		}
 	}
+	p.SetVar("targetMob", defender)
 	p.SetVar("fightTarget", defender)
 	defender.SessionCache().SetVar("fightTarget", p)
 	defender.SetRegionRemoved()
@@ -1548,15 +1511,15 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 	defender.AddState(StateFighting)
 	p.SetDirection(RightFighting)
 	defender.SetDirection(LeftFighting)
-	tasks.Schedule(2, func() {
-		if ptarget, ok := defender.(*Player); (ok && !ptarget.Connected()) || !defender.HasState(StateFighting) ||
+	tasks.Schedule(2, func() bool {
+		if defender.IsPlayer() && !AsPlayer(defender).Connected() || !defender.HasState(StateFighting) ||
 			!p.HasState(StateFighting) || !p.Connected() || p.LongestDeltaCoords(defender.X(), defender.Y()) > 0 {
 			// target is a disconnected player, we are disconnected,
 			// one of us is not in a fight, or we are distanced somehow unexpectedly.  Kill tasks.
 			// quickfix for possible bugs I imagined will exist
 			p.ResetFighting()
 			defender.ResetFighting()
-			return
+			return true
 		}
 		defer func() {
 			attacker, defender = defender, attacker
@@ -1565,7 +1528,7 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 
 		// Paralyze Monster blocker here
 		if attacker.IsNpc() && defender.IsPlayer() && AsPlayer(defender).PrayerActivated(12) {
-			return
+			return false
 		}
 		
 		nextHit := int(math.Min(float64(defender.Skills().Current(entity.StatHits)), float64(attacker.MeleeDamage(defender))))
@@ -1574,11 +1537,8 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 			if attacker.IsPlayer() {
 				AsPlayer(attacker).PlaySound("victory")
 			}
-			// if defender.IsPlayer() {
-				// AsPlayer(defender).PlaySound("death")
-			// }
 			defender.Killed(attacker)
-			return
+			return true
 		}
 		if defender.IsNpc() && attacker.IsPlayer() {
 			AsNpc(defender).CacheDamage(AsPlayer(attacker).UsernameHash(), nextHit)
@@ -1594,13 +1554,13 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 			sound += "a"
 		}
 		if attacker.IsPlayer() {
-			attacker.(*Player).PlaySound(sound)
+			AsPlayer(attacker).PlaySound(sound)
 		}
 		if defender.IsPlayer() {
-			defender.(*Player).PlaySound(sound)
+			AsPlayer(defender).PlaySound(sound)
 		}
 
-		return
+		return false
 	})
 	//tasks.TickList.Add(fightClosure)
 }
@@ -1644,9 +1604,9 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 	}
 
 	if killer != nil && killer.IsPlayer() {
-		killer := killer.(*Player)
-		killer.DistributeMeleeExp(p.ExperienceReward() / 4)
-		killer.Message("You have defeated " + p.Username() + "!")
+		killerp := AsPlayer(killer)
+		killerp.DistributeMeleeExp(p.ExperienceReward() / 4)
+		killerp.Message("You have defeated " + p.Username() + "!")
 	}
 	for i, v := range deathItems {
 		// becomes universally visible on NPCs, or temporarily private otherwise
@@ -1656,7 +1616,7 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 			}
 			AddItem(v)
 		} else {
-			log.Suspicious.Printf("Death item failed during removal: %v,%v owner:%v, killer:%v!\n", v.ID, v.Amount, p, killer)
+			log.Cheatf("Death item failed during removal: %v,%v owner:%v, killer:%v!\n", v.ID, v.Amount, p, killer)
 		}
 	}
 
@@ -1689,22 +1649,38 @@ func (p *Player) SendEquipBonuses() {
 func (p *Player) Damage(amt int) {
 	splat := NewHitsplat(p, amt)
 	for _, player := range p.NearbyPlayers() {
-		player.SetVar("hitsplatQ", append(player.VarChecked("hitsplatQ").([]HitSplat), splat))
+		q, ok := player.Var("hitsplatQ")
+		if !ok {
+			player.SetVar("hitsplatQ", []HitSplat{splat})
+			continue
+		}
+		player.SetVar("hitsplatQ", append(q.([]HitSplat), splat))
 	}
-	p.SetVar("hitsplatQ", append(p.VarChecked("hitsplatQ").([]HitSplat), splat))
+	q, ok := p.Var("hitsplatQ")
+	if !ok {
+		p.SetVar("hitsplatQ", []HitSplat{splat})
+		return
+	}
+	p.SetVar("hitsplatQ", append(q.([]HitSplat), splat))
 }
 
 //ItemBubble sends an item action bubble for this player to itself and any nearby players.
 func (p *Player) ItemBubble(id int) {
-	//	for _, player := range p.NearbyPlayers() {
-	//		player.SendPacket(PlayerItemBubble(p, id))
-	//	}
-	//	p.SendPacket(PlayerItemBubble(p, id))
 	bubble := ItemBubble{p, id}
 	for _, player := range p.NearbyPlayers() {
-		player.SetVar("bubbleQ", append(player.VarChecked("bubbleQ").([]ItemBubble), bubble))
+		q, ok := player.Var("bubbleQ")
+		if !ok {
+			player.SetVar("bubbleQ", []ItemBubble{bubble})
+			continue
+		}
+		player.SetVar("bubbleQ", append(q.([]ItemBubble), bubble))
 	}
-	p.SetVar("bubbleQ", append(p.VarChecked("bubbleQ").([]ItemBubble)))
+	q, ok := p.Var("bubbleQ")
+	if !ok {
+		p.SetVar("bubbleQ", []ItemBubble{bubble})
+		return
+	}
+	p.SetVar("bubbleQ", append(q.([]ItemBubble)))
 }
 
 //SetStat sets the current, maximum, and experience levels of the skill at idx to lvl, and updates the client about it.
@@ -1830,6 +1806,7 @@ func (p *Player) Read(data []byte) (n int, err error) {
 		if err != nil {
 			if err == io.EOF && p.IsWebsocket() {
 				p.hasReader = false
+				p.Reader = nil
 				if !p.VarBool("frameFin", false) {
 					return -1, errors.NewNetworkError("closed conn", true)
 				}
