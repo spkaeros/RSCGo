@@ -12,6 +12,8 @@ import (
 	"github.com/spkaeros/rscgo/pkg/log"
 	rscRand "github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/isaac"
+
+	"go.uber.org/atomic"
 )
 
 const (
@@ -25,6 +27,15 @@ const (
 	//MaxY Height of the game
 	MaxY = 3776
 )
+
+var (
+	Ticks = atomic.NewUint64(0)
+)
+
+
+func CurrentTick() int {
+	return int(Ticks.Load())
+}
 
 const (
 	//RegionSize Represents the size of the region

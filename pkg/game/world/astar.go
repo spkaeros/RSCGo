@@ -115,11 +115,11 @@ func (p *Pathfinder) MakePath() *Pathway {
 			return path
 		}
 		position := active.loc
-		if p.last.LongestDelta(active.loc) == 0 /*|| p.tileQueue.Len() > 512*/ {
+		// if p.last.LongestDelta(position) == 0 /*|| p.tileQueue.Len() > 512*/ {
 			// DoS prevention measures; astar will run forever if you let it
 			//			return makePath(active)
-			return nil
-		}
+			// return nil
+		// }
 		if position.Equals(p.end) {
 			// We made it!
 			return makePath(active)
@@ -131,7 +131,8 @@ func (p *Pathfinder) MakePath() *Pathway {
 		for _, direction := range OrderedDirections {
 			//			node := &tileNode{loc: active.loc.Step(direction), open: false, closed: false}
 			neighbor := p.node(active.loc.Step(direction))
-			if !active.loc.Reachable(neighbor.loc) {
+			if IsTileBlocking(neighbor.loc.X(), neighbor.loc.Y(), active.loc.Mask(neighbor.loc), false) {
+//			if !active.loc.Reachable(neighbor.loc) {
 				continue
 			}
 			gCost := active.gCostFrom(neighbor)

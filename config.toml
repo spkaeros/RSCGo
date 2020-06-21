@@ -1,5 +1,7 @@
-# The directory that holds any subsequent files mentioned.
-data_directory = './data/'
+# DEPRECATED: The directory that holds any subsequent files mentioned.
+# data_directory = './data/'
+# TOML file defining the data backends for the entity unmarshaller services 
+dbio_defs = './data/dbio.conf'
 # The version number of the latest client release.
 version = 204
 # TCP/IP port number to listen for incoming connections on.
@@ -7,7 +9,7 @@ port = 43594
 # Maximum number of players that this server can support.
 max_players = 2048
 # The TOML file containing incoming packet definitions.
-packet_handler_table = 'packets.toml'
+packet_handler_table = './data/packets.toml'
 
 [crypto]
 # Length of hash output

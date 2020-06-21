@@ -12,12 +12,13 @@ package handlers
 import (
 	//	"github.com/spkaeros/rscgo/pkg/engine/tasks"
 	"github.com/spkaeros/rscgo/pkg/game/net"
+	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 func init() {
-	AddHandler("logoutreq", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("logoutreq", func(player *world.Player, p *net.Packet) {
 		//		tasks.Tickers.Add("playerDestroy", func() bool {
 		if player.Busy() {
 			player.SendPacket(world.CannotLogout)
@@ -30,7 +31,7 @@ func init() {
 		//			return true
 		//		})
 	})
-	AddHandler("closeconn", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("closeconn", func(player *world.Player, p *net.Packet) {
 		if player.Busy() {
 			log.Suspicious.Println("CLOSECONN!!", player, p.String(), player.State())
 			log.Info.Println("CLOSECONN!!", player, p.String(), player.State())

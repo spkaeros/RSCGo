@@ -13,6 +13,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/tasks"
 	"github.com/spkaeros/rscgo/pkg/errors"
+	"github.com/spkaeros/rscgo/pkg/strutil"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
@@ -212,7 +213,7 @@ func NewGroundItem(id, amount, x, y int) *GroundItem {
 //NewGroundItemFor Creates a new ground item with an Owner in the game world and returns a reference to it.
 func NewGroundItemFor(owner uint64, id, amount, x, y int) *GroundItem {
 	item := NewGroundItem(id, amount, x, y)
-	item.SetVar("belongsTo", owner)
+	item.Owner = strutil.Base37.Decode(owner)
 	return item
 }
 
@@ -429,7 +430,6 @@ func (i *Inventory) CanHold(id, amount int) bool {
 		slotsReq++
 	}
 	return i.Size()+slotsReq-1 < i.Capacity
-	//	return i.Size() < i.Capacity
 }
 
 //Add Puts an item into the inventory with the specified id and quantity, and returns its index.
@@ -450,19 +450,7 @@ func (i *Inventory) Add(id int, qty int) int {
 			item.Amount = math.MaxInt32
 			return i.GetIndex(id)
 		}
-		/*
-				amt := math.MaxInt32 - item.Amount
-				item.Amount = math.MaxInt32
-				item = &Item{ID: id, Amount: amt%math.MaxInt32}
-				newAmt -= amt%math.MaxInt32
-				i.Lock.Lock()
-				i.List = append(i.List, item)
-				i.Lock.Unlock()
-				if newAmt <= 0 {
-					return i.Size() - 1
-				}
-			}
-		*/item.Amount += qty
+		item.Amount += qty
 		return i.GetIndex(id)
 	}
 

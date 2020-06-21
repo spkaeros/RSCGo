@@ -13,12 +13,13 @@ import (
 	"github.com/spkaeros/rscgo/pkg/db"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
+	"github.com/spkaeros/rscgo/pkg/game"
 )
 
 var dataService = db.DefaultPlayerService
 
 func init() {
-	AddHandler("forgotpass", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("forgotpass", func(player *world.Player, p *net.Packet) {
 		usernameHash := p.ReadUint64()
 		//dataService is a db.PlayerService that all login-related functions should use to access or change player profile data.
 		go func() {

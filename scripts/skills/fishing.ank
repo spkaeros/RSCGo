@@ -3,7 +3,7 @@ strings = import("strings")
 world = import("world")
 
 // Contains definitions for what objects contain what fish, etc
-load("scripts/definitions/fishing.ank")
+load("scripts/def/fishing.ank")
 
 bind.object(objectPredicate(keys(defs)...), func(player, object, click) {
 	cmd = strings.ToLower(objectDefs[object.ID].Commands[click])

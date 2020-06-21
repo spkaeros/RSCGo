@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/mattn/anko/vm"
+	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -26,7 +27,7 @@ import (
 )
 
 func init() {
-	AddHandler("command", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("command", func(player *world.Player, p *net.Packet) {
 		raw := string(p.FrameBuffer[:len(p.FrameBuffer)-1])
 		args := strutil.ParseArgs(raw)
 		// prevent `::` freezing player

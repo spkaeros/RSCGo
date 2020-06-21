@@ -1,4 +1,4 @@
-/*
+			/*
  * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
@@ -10,13 +10,15 @@
 package handlers
 
 import (
+	"github.com/spkaeros/rscgo/pkg/game"
+
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"math"
 )
 
 func init() {
-	AddHandler("walkto", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("walkto", func(player *world.Player, p *net.Packet) {
 		if player.IsFighting() {
 			target := player.FightTarget()
 			if target == nil {
@@ -53,7 +55,7 @@ func init() {
 		player.ResetAll()
 		player.SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
 	})
-	AddHandler("walktoentity", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("walktoentity", func(player *world.Player, p *net.Packet) {
 		if player.IsFighting() {
 			return
 		}
@@ -72,7 +74,7 @@ func init() {
 		player.ResetAll()
 		player.SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
 	})
-	AddHandler("followreq", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("followreq", func(player *world.Player, p *net.Packet) {
 		if player.IsFighting() {
 			return
 		}
@@ -86,44 +88,42 @@ func init() {
 			return
 		}
 		player.ResetAll()
-		player.StartFollowing(2)
 		player.Message("@que@Following " + target.Username())
+		rad := 2
+		player.SetVar("following", true)
 		player.SetTickAction(func() bool {
-			if !player.IsFollowing() {
+			if !player.VarBool("following", false) {
 				// Following vars have been reset.
 				return true
 			}
 			if target == nil || !target.Connected() ||
 				!player.WithinRange(target.Location, 16) {
 				// We think we have a target, but they're miles away now or no longer exist
-				player.ResetFollowing()
+				player.UnsetVar("following")
 				return true
 			}
-			if !player.FinishedPath() && player.WithinRange(target.Location, player.FollowRadius()) {
+			if !player.FinishedPath() && player.WithinRange(target.Location, rad) {
 				// We're not done moving toward our target, but we're close enough that we should stop
 				player.ResetPath()
-			} else if !player.WithinRange(target.Location, player.FollowRadius()) {
+			} else if !player.WithinRange(target.Location, rad) {
 				// We're not moving, but our target is moving away, so we must try to get closer
 				if !player.WalkTo(target.Location) {
 					return true
 				}
-				//				player.SetPath(world.MakePath(player.Location, target.Location))
 			}
 			return false
 		})
 	})
-	AddHandler("appearancerequest", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("appearancerequest", func(player *world.Player, p *net.Packet) {
 		playerCount := p.ReadUint16()
 		for i := 0; i < playerCount; i++ {
 			serverIndex := p.ReadUint16()
 			appearanceTicket := p.ReadUint16()
-			player.AppearanceLock.Lock()
 			if ticket, ok := player.KnownAppearances[serverIndex]; !ok || ticket != appearanceTicket {
 				if c1, ok := world.Players.FindIndex(serverIndex); ok {
 					player.AppearanceReq = append(player.AppearanceReq, c1)
 				}
 			}
-			player.AppearanceLock.Unlock()
 		}
 	})
 }

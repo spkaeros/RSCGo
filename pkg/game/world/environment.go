@@ -74,12 +74,12 @@ func init() {
 				time.Sleep(2 * time.Second)
 				os.Exit(200)
 			}()
-			Players.Range(func(player *Player) {
-				player.SendUpdateTimer()
-			})
 			tasks.Schedule(10, func() bool {
 				Players.Range(func(player *Player) {
 					player.SendUpdateTimer()
+				Players.Range(func(player *Player) {
+					player.SendUpdateTimer()
+				})
 				})
 				return false
 			})
@@ -98,6 +98,7 @@ func init() {
 				target.SendPacket(PlaneInfo(target))
 			}
 		}),
+		"curTick":		  reflect.ValueOf(Ticks.Load()),
 		"newShop":        reflect.ValueOf(NewShop),
 		"newLocation":    reflect.ValueOf(NewLocation),
 		"newGeneralShop": reflect.ValueOf(NewGeneralShop),
@@ -376,7 +377,8 @@ func ScriptEnv() *env.Env {
 	e.Define("roll", Chance)
 	e.Define("boundedRoll", BoundedChance)
 	e.Define("weightedChance", WeightedChoice)
-
+	e.Define("statRoll", Statistical)
+	e.Define("CurTick", CurrentTick)
 	e.Define("npcPredicate", func(ids ...interface{}) func(*NPC) bool {
 		return func(npc *NPC) bool {
 			for _, id := range ids {

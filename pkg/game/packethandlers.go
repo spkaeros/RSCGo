@@ -7,7 +7,7 @@
  *
  */
 
-package handlers
+package game
 
 import (
 	"github.com/BurntSushi/toml"
@@ -24,7 +24,7 @@ import (
 type HandlerFunc = func(*world.Player, *net.Packet)
 
 //handlers A map with descriptive names for the keys, and functions to run for the value.
-var handlers = make(map[string]HandlerFunc)
+var Handlers = make(map[string]HandlerFunc)
 
 //pDefinitions a collection of handlers pDefinitions.
 var pDefinitions packetList
@@ -55,7 +55,7 @@ func init() {
 
 //UnmarshalPackets Loads the handlers pDefinitions into memory from the configured TOML file
 func UnmarshalPackets() {
-	if _, err := toml.DecodeFile(config.DataDir()+config.PacketHandlers(), &pDefinitions); err != nil {
+	if _, err := toml.DecodeFile(config.PacketHandlers(), &pDefinitions); err != nil {
 		log.Error.Fatalln("Could not open handlers handler pDefinitions data file:", err)
 		return
 	}
@@ -65,7 +65,7 @@ func UnmarshalPackets() {
 func Handler(opcode byte) HandlerFunc {
 	for _, h := range pDefinitions.Set {
 		if byte(h.Opcode) == opcode {
-			return handlers[h.Name]
+			return Handlers[h.Name]
 		}
 	}
 	return nil
@@ -73,11 +73,11 @@ func Handler(opcode byte) HandlerFunc {
 
 //AddHandler Adds and assigns the packethandler to the handlers with the specified name.
 func AddHandler(name string, h HandlerFunc) {
-	if _, ok := handlers[name]; ok {
+	if _, ok := Handlers[name]; ok {
 		log.Warning.Printf("Attempted to bind a handler to handlers '%v' which is already handled elsewhere.  Ignoring bind.\n", name)
 		return
 	}
-	handlers[name] = h
+	Handlers[name] = h
 }
 
 //PacketCount returns the number of handlers pDefinitions
@@ -87,5 +87,5 @@ func PacketCount() int {
 
 //HandlerCount returns the number of pDefinitions that are handled
 func HandlerCount() int {
-	return len(handlers)
+	return len(Handlers)
 }

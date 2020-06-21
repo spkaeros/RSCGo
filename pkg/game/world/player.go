@@ -46,24 +46,21 @@ type (
 		KnownAppearances map[int]int
 		AppearanceReq    []*Player
 		Socket           stdnet.Conn
-		AppearanceLock   sync.RWMutex
 		Attributes       *entity.AttributeList
 		Inventory        *Inventory
 		bank             *Inventory
 		TradeOffer       *Inventory
 		DuelOffer        *Inventory
-		Prayers			 [15]bool
 		Duel             struct {
 			Rules    [4]bool
 			Accepted [2]bool
 			Target   *Player
 		}
-		Tickables     scripts
-		PostTickables scripts
-		tickAction    statusReturnCall
+		Tickables     tasks.Scripts
+		PostTickables tasks.Scripts
+		tickAction    tasks.StatusReturnCall
 		ActionLock    sync.RWMutex
 		ReplyMenuC    chan int8
-		Equips        [12]int
 		killer        sync.Once
 		hasReader     bool
 		Websocket     bool
@@ -87,8 +84,8 @@ func (p *Player) Bank() *Inventory {
 }
 
 func (p *Player) CanAttack(target entity.MobileEntity) bool {
-	if target.IsNpc() {
-		return target.(*NPC).Attackable()
+	if target := AsNpc(target); target != nil {
+		return target.Attackable()
 	}
 	if p.State()&StateFightingDuel == StateFightingDuel {
 		return p.Duel.Target == target && p.DuelMagic()
@@ -132,25 +129,6 @@ func (p *Player) RemoteAddress() string {
 	return p.Socket.RemoteAddr().String()
 }
 
-//LocalAddress returns the local IP:port that this player connected to, or N/A if this player never connected somehow
-func (p *Player) LocalAddress() string {
-	if p.Socket == nil {
-		return "N/A:N/A"
-	}
-	return p.Socket.LocalAddr().String()
-}
-
-func (p *Player) ConnectionPort() int {
-	if p.Socket == nil {
-		return -1
-	}
-	i, err := strconv.Atoi(strings.Split(p.Socket.LocalAddr().String(), ":")[1])
-	if err != nil {
-		return -1
-	}
-	return i
-}
-
 func (p *Player) IsWebsocket() bool {
 	return p.Websocket
 }
@@ -170,17 +148,14 @@ func (p *Player) String() string {
 
 //SetTickAction queues a distanced action to run every game engine tick before path traversal, if action returns true, it will be reset.
 func (p *Player) SetTickAction(action func() bool) {
-	if p == nil {
-		return
-	}
-	p.ActionLock.Lock()
-	defer p.ActionLock.Unlock()
+	p.Lock()
+	defer p.Unlock()
 	p.tickAction = action
 }
 
 func (p *Player) TickAction() func() bool {
-	p.ActionLock.RLock()
-	defer p.ActionLock.RUnlock()
+	p.RLock()
+	defer p.RUnlock()
 	return p.tickAction
 }
 
@@ -226,9 +201,6 @@ func (p *Player) DuelBlocked() bool {
 
 func (p *Player) UpdateStatus(status bool) {
 	Players.Range(func(player *Player) {
-		if player == nil {
-			return
-		}
 		if player.FriendList.Contains(p.Username()) {
 			if p.FriendList.Contains(player.Username()) || !p.FriendBlocked() {
 				p.SendPacket(FriendUpdate(p.UsernameHash(), status))
@@ -255,14 +227,14 @@ func (p *Player) WalkingRangedAction(t entity.MobileEntity, fn func()) {
 // Runs everything on game engine ticks, retries until catastrophic failure or success.
 func (p *Player) WalkingArrivalAction(t entity.MobileEntity, dist int, action func()) {
 	p.SetTickAction(func() bool {
-		if p.Near(t.Point(), dist) {
-			if !p.CanReachMob(t) {
+		if p.Near(t, dist) {
+			if !p.ReachableCoords(t.X(), t.Y()) {
 				return true
 			}
 			action()
 			return false
 		}
-		return !p.WalkTo(NewLocation(t.X(), t.Y()))
+		return p.WalkTo(NewLocation(t.X(), t.Y()))
 	})
 }
 
@@ -277,8 +249,7 @@ func (p *Player) CanReachMob(target entity.MobileEntity) bool {
 	}
 	p.Inc("triedReach", 1)
 
-	pathX := p.X()
-	pathY := p.Y()
+	pathX, pathY := p.X(), p.Y()
 	for steps := 0; steps < 256; steps++ {
 		if !p.ReachableCoords(pathX, pathY) {
 			return false
@@ -286,7 +257,7 @@ func (p *Player) CanReachMob(target entity.MobileEntity) bool {
 		// check deltas
 		if pathX == target.X() && pathY == target.Y() {
 			p.UnsetVar("triedReach")
-			break
+			return true
 		}
 
 		// Update coords toward target in a straight line
@@ -302,7 +273,7 @@ func (p *Player) CanReachMob(target entity.MobileEntity) bool {
 			pathY--
 		}
 	}
-	return true
+	return false
 }
 
 //SetPrivacySettings sets privacy settings to specified values.
@@ -311,6 +282,8 @@ func (p *Player) SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, du
 	p.Attributes.SetVar("friend_block", friendBlocked)
 	p.Attributes.SetVar("trade_block", tradeBlocked)
 	p.Attributes.SetVar("duel_block", duelBlocked)
+
+	// p.UpdateStatus(true)
 
 	Players.Range(func(player *Player) {
 		if player.FriendList.Contains(p.Username()) {
@@ -331,11 +304,6 @@ func (p *Player) SetClientSetting(id int, flag bool) {
 func (p *Player) GetClientSetting(id int) bool {
 	// TODO: Meaningful names mapped to IDs
 	return p.Attributes.VarBool("client_setting_"+strconv.Itoa(id), false)
-}
-
-//IsFollowing returns true if the player is following another mob, otherwise false.
-func (p *Player) IsFollowing() bool {
-	return p.FollowRadius() >= 0
 }
 
 //ServerSeed returns the seed for the ISAAC cipher provided by the game for this player, if set, otherwise returns 0
@@ -376,23 +344,6 @@ func (p *Player) FirstLogin() bool {
 //SetFirstLogin sets the player's persistent logged in before status to flag.
 func (p *Player) SetFirstLogin(flag bool) {
 	p.Attributes.SetVar("first_login", flag)
-}
-
-//StartFollowing sets the transient attribute for storing the radius with which we want to stay near our target
-func (p *Player) StartFollowing(radius int) {
-	p.SetVar("followrad", radius)
-}
-
-//FollowRadius returns the radius within which we should follow whatever mob we are following, or -1 if we aren't following anyone.
-func (p *Player) FollowRadius() int {
-	return p.VarInt("followrad", -1)
-}
-
-//ResetFollowing resets the transient attribute for storing the radius within which we want to stay to our target mob
-// and resets our path.
-func (p *Player) ResetFollowing() {
-	p.UnsetVar("followrad")
-	p.ResetPath()
 }
 
 //NextTo returns true if we can walk a straight line to target without colliding with any walls or objects,
@@ -449,8 +400,7 @@ func (l Location) Reachable(other Location) bool {
 	return l.ReachableCoords(other.X(), other.Y())
 }
 func (l Location) RD(x, y int) bool {
-	status := l.ReachableCoords(x, y)
-	if status {
+	if l.ReachableCoords(x, y) {
 		log.Debug(x,y,"reachable!")
 		return true
 	}
@@ -467,39 +417,17 @@ func (l Location) ReachableCoords(x, y int) bool {
 			return false
 		}
 
-		// does the next step toward our goal affect both X and Y coords?
-		if dst.X() != l.X() && dst.Y() != l.Y() {
-			// if so, we must scan for adjacent bitmasks of certain diags('_|', '‾|', '|‾' or '|_')
-			// Since / and \ masks block a whole tile, those masks are auto-checked in the guts of the API
-			// However, this leaves possible holes in x+1,y and x,y+1 at certain angles where we should block
-			masks := l.Masks(dst.X(), dst.Y())
-			if IsTileBlocking(l.X(), dst.Y(), masks[0], false) && IsTileBlocking(dst.X(), l.Y(), masks[1], false) {
-				return false
-			}
-			if IsTileBlocking(dst.X(), dst.Y(), masks[0]|masks[1], false) {
-				return false
-			}
-		}
 		return true
 	}
-	dst := l.Clone()
-	start := dst.Clone()
+	cur := l.Clone()
+	end := NewLocation(x, y)
 
-	for dst.X() != x || dst.Y() != y {
-		if dst.X() > x {
-			dst.x.Dec()
-		} else if dst.X() < x {
-			dst.x.Inc()
-		}
-		if dst.Y() > y {
-			dst.y.Dec()
-		} else if dst.Y() < y {
-			dst.y.Inc()
-		}
-		if !check(start.Clone(), dst.Clone()) {
+	for !cur.Equals(end) {
+		next := cur.Step(cur.DirectionToward(end))
+		if !check(cur, next) {
 			return false
 		}
-		start = dst.Clone()
+		cur = next
 	}
 	return true
 }
@@ -574,17 +502,15 @@ func (p *Player) EquipItem(item *Item) {
 		p.SetPrayerPoints(p.PrayerPoints() - otherDef.Prayer)
 		p.SetRangedPoints(p.RangedPoints() - otherDef.Ranged)
 		otherItem.Worn = false
-		p.AppearanceLock.Lock()
 		if otherDef.Type&1 == 1 {
-			p.Equips[otherDef.Position] = p.Appearance.Head
+			p.Equips()[otherDef.Position] = p.Appearance.Head
 		} else if otherDef.Type&2 == 2 {
-			p.Equips[otherDef.Position] = p.Appearance.Body
+			p.Equips()[otherDef.Position] = p.Appearance.Body
 		} else if otherDef.Type&4 == 4 {
-			p.Equips[otherDef.Position] = p.Appearance.Legs
+			p.Equips()[otherDef.Position] = p.Appearance.Legs
 		} else {
-			p.Equips[otherDef.Position] = 0
+			p.Equips()[otherDef.Position] = 0
 		}
-		p.AppearanceLock.Unlock()
 		return true
 	})
 	item.Worn = true
@@ -594,12 +520,19 @@ func (p *Player) EquipItem(item *Item) {
 	p.SetMagicPoints(p.MagicPoints() + def.Magic)
 	p.SetPrayerPoints(p.PrayerPoints() + def.Prayer)
 	p.SetRangedPoints(p.RangedPoints() + def.Ranged)
-	p.AppearanceLock.Lock()
-	p.Equips[def.Position] = def.Sprite
-	p.AppearanceLock.Unlock()
+	p.Equips()[def.Position] = def.Sprite
+	// Below will update our appearance ticket (a counter for the number of times this session we updated this player)
 	p.UpdateAppearance()
-	p.SendEquipBonuses()
-	p.SendInventory()
+	p.WritePacket(EquipmentStats(p))
+	p.WritePacket(InventoryItems(p))
+}
+
+func (p *Player) Equips() []int {
+	s, ok := p.Var("sprites")
+	if !ok || s == nil {
+		return []int{}
+	}
+	return s.([]int)
 }
 
 func (p *Player) UpdateAppearance() {
@@ -623,17 +556,15 @@ func (p *Player) DequipItem(item *Item) {
 	p.SetMagicPoints(p.MagicPoints() - def.Magic)
 	p.SetPrayerPoints(p.PrayerPoints() - def.Prayer)
 	p.SetRangedPoints(p.RangedPoints() - def.Ranged)
-	p.AppearanceLock.Lock()
 	if def.Type&1 == 1 {
-		p.Equips[def.Position] = p.Appearance.Head
+		p.Equips()[def.Position] = p.Appearance.Head
 	} else if def.Type&2 == 2 {
-		p.Equips[def.Position] = p.Appearance.Body
+		p.Equips()[def.Position] = p.Appearance.Body
 	} else if def.Type&4 == 4 {
-		p.Equips[def.Position] = p.Appearance.Legs
+		p.Equips()[def.Position] = p.Appearance.Legs
 	} else {
-		p.Equips[def.Position] = 0
+		p.Equips()[def.Position] = 0
 	}
-	p.AppearanceLock.Unlock()
 	p.UpdateAppearance()
 	p.SendEquipBonuses()
 	p.SendInventory()
@@ -645,7 +576,6 @@ func (p *Player) ResetAll() {
 	p.ResetDuel()
 	p.ResetTrade()
 	p.ResetTickAction()
-	p.ResetFollowing()
 	p.CloseOptionMenu()
 	p.CloseBank()
 	p.CloseShop()
@@ -654,7 +584,6 @@ func (p *Player) ResetAll() {
 func (p *Player) ResetAllExceptDueling() {
 	p.ResetTrade()
 	p.ResetTickAction()
-	p.ResetFollowing()
 	p.CloseOptionMenu()
 	p.CloseBank()
 	p.CloseShop()
@@ -1116,12 +1045,12 @@ func NewPlayer(socket stdnet.Conn) *Player {
 		Inventory:        &Inventory{Capacity: 30},
 		TradeOffer:       &Inventory{Capacity: 12},
 		DuelOffer:        &Inventory{Capacity: 8},
-		Equips:           [12]int{entity.DefaultAppearance().Head, entity.DefaultAppearance().Body, entity.DefaultAppearance().Legs},
 		InQueue:          make(chan *net.Packet, 50),
 		Reader:			  bufio.NewReader(socket),
 	}
 	// TODO: Get rid of this self-referential member; figure out better way to handle client item updating
 	p.Inventory.Owner = p
+	p.SetVar("sprites", []int{entity.DefaultAppearance().Head, entity.DefaultAppearance().Body, entity.DefaultAppearance().Legs, -1, -1, -1, -1, -1, -1, -1, -1, -1})
 	return p
 }
 
@@ -1240,17 +1169,11 @@ func (p *Player) OpenOptionMenu(options ...string) int {
 		}
 
 		if p.TargetNpc() != nil && p.HasState(StateChatting) {
-			go func() {
-				p.Chat(options[r])
-			}()
+			p.Chat(options[r])
 		}
 		return int(r)
 	}
 	return -1
-//	reply := make(chan int8)
-//	p.Tickables.Add(func(p *Player) bool {
-//	})
-//	return int(<-reply)
 }
 
 //CloseOptionMenu closes any open option menus.
@@ -1359,17 +1282,13 @@ func (p *Player) AddItem(id, amount int) {
 	}
 }
 
-func (p *Player) PrayerActivated(idx int) bool {
-	return p.Prayers[idx]
-}
-
 func (p *Player) TogglePrayer(idx int) bool {
-	p.Prayers[idx] = !p.Prayers[idx]
-	return p.Prayers[idx]
+	p.Mob.Prayers[idx] = !p.Mob.Prayers[idx]
+	return p.Mob.Prayers[idx]
 }
 
 func (p *Player) ActivatePrayer(idx int) {
-	p.Prayers[idx] = true
+	p.Mob.Prayers[idx] = true
 }
 
 func (p *Player) PrayerOn(idx int) {
@@ -1388,7 +1307,7 @@ func (p *Player) PrayerOn(idx int) {
 		for _, i := range boosterPrayers[stat] {
 			if i == idx {
 				for _, i1 := range boosterPrayers[stat] {
-					p.Prayers[i1] = false
+					p.Mob.Prayers[i1] = false
 				}
 				return
 			}
@@ -1396,8 +1315,16 @@ func (p *Player) PrayerOn(idx int) {
 	}
 }
 
+func (p *Player) PrayerOff(idx int) {
+	p.DeactivatePrayer(idx)
+}
+
 func (p *Player) DeactivatePrayer(idx int) {
-	p.Prayers[idx] = false
+	p.Mob.Prayers[idx] = false
+}
+
+func (p *Player) PrayerActivated(i int) bool {
+	return p.Mob.Prayers[i]
 }
 
 func (p *Player) SendPrayers() {
@@ -1412,7 +1339,7 @@ func (p *Player) SetSkulled(val bool) {
 	if val {
 		p.Attributes.SetVar("skullTicks", TicksTwentyMin)
 	} else {
-		p.Attributes.UnsetVar("skullTime")
+		p.Attributes.UnsetVar("skullTicks")
 	}
 	p.UpdateAppearance()
 }
@@ -1423,10 +1350,10 @@ func (p *Player) ResetFighting() {
 }
 
 func (p *Player) Skulls() map[uint64]time.Time {
-	records, ok := p.Var("skullRecord")
+	records, ok := p.Var("attackedList")
 	if !ok || records == nil {
-		p.SetVar("skullRecord", make(map[uint64]time.Time))
-		records = p.VarChecked("skullRecord").(map[uint64]time.Time)
+		p.SetVar("attackedList", make(map[uint64]time.Time))
+		records = p.VarChecked("attackedList").(map[uint64]time.Time)
 	}
 	return records.(map[uint64]time.Time)
 }
@@ -1441,7 +1368,7 @@ func (p *Player) SkulledOn(user uint64) bool {
 }
 
 func (p *Player) AddSkull(user uint64) {
-	if !p.SkulledOn(user) {
+	if p.SkulledOn(user) {
 		// we skulled on them within 20 mins ago, ignore call
 		return
 	}

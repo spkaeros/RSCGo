@@ -96,11 +96,11 @@ bind.command("object", func(player, args) {
 		if id < 0 || id >= len(objectDefs) {
 			return
 		}
-		dir = North
+		dir = NORTH
 		if len(args) > 1 {
 			dir = parseDirection(args[1])
 		}
-		world.addObject(newObject(id, North, x, y, false))
+		world.addObject(newObject(id, NORTH, x, y, false))
 		log.cmdf("'%v' spawned a new object{id:%v, dir:%v} at %v,%v", player.String(), id, dir, x, y)
 	} catch e {
 		player.Message("Invalid syntax.  Usage: ::object <id> (<dir>)")
@@ -139,11 +139,11 @@ bind.command("boundary", func(player, args) {
 		if id < 0 || id >= len(boundaryDefs) {
 			return
 		}
-		dir = North
+		dir = NORTH
 		if len(args) > 1 {
 			dir = parseDirection(args[1])
 		}
-		world.addObject(newObject(id, North, x, y, true))
+		world.addObject(newObject(id, NORTH, x, y, true))
 		log.cmdf("'%v' spawned a new boundary{id:%v, dir:%v} at %v,%v", player.String(), id, dir, x, y)
 	} catch e {
 		player.Message("Invalid syntax.  Usage: ::boundary <id> (<dir>)")

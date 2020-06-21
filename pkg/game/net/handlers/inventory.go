@@ -10,6 +10,7 @@
 package handlers
 
 import (
+	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
@@ -17,7 +18,7 @@ import (
 )
 
 func init() {
-	AddHandler("invwield", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("invwield", func(player *world.Player, p *net.Packet) {
 		if player.IsDueling() && player.IsFighting() && !player.DuelEquipment() {
 			player.Message("You can not use equipment in this duel")
 			return
@@ -36,7 +37,7 @@ func init() {
 
 		player.EquipItem(item)
 	})
-	AddHandler("removeitem", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("removeitem", func(player *world.Player, p *net.Packet) {
 		index := p.ReadUint16()
 		if index < 0 || index > player.Inventory.Size() {
 			log.Cheatf("Player[%v] tried to unwield an item with an out-of-bounds inventory index: %d\n", player, index)
@@ -51,7 +52,7 @@ func init() {
 		player.DequipItem(item)
 		player.PlaySound("click")
 	})
-	AddHandler("takeitem", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("takeitem", func(player *world.Player, p *net.Packet) {
 		if player.Busy() || player.IsFighting() {
 			return
 		}
@@ -102,7 +103,7 @@ func init() {
 			return false
 		})
 	})
-	AddHandler("dropitem", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("dropitem", func(player *world.Player, p *net.Packet) {
 		if player.Busy() || player.IsFighting() {
 			return
 		}
@@ -127,10 +128,10 @@ func init() {
 			world.AddItem(world.NewGroundItemFor(player.UsernameHash(), item.ID, item.Amount, player.X(), player.Y()))
 			player.PlaySound("dropobject")
 			player.SendInventory()
-			return false
+			return true
 		})
 	})
-	AddHandler("invaction1", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("invaction1", func(player *world.Player, p *net.Packet) {
 		index := p.ReadUint16()
 		item := player.Inventory.Get(index)
 		if item == nil || player.Busy() || player.IsFighting() {

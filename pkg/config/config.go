@@ -3,6 +3,7 @@ package config
 //TomlConfig A data structure representing the RSCGo TOML configuration file.
 var TomlConfig struct {
 	DataDir           string `toml:"data_directory"`
+	DbioDefs           string `toml:"dbio_defs"`
 	Version           int    `toml:"version"`
 	Port              int    `toml:"port"`
 	MaxPlayers        int    `toml:"max_players"`

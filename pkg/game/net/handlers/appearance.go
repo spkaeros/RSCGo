@@ -15,6 +15,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
+	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 
@@ -44,7 +45,7 @@ func inArray(a []int, i int) bool {
 }
 
 func init() {
-	AddHandler("changeappearance", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("changeappearance", func(player *world.Player, p *net.Packet) {
 		if !player.HasState(world.StateChangingLooks) {
 			// Make sure the player either has never logged in before, or talked to the makeover mage to get here.
 			return
@@ -78,13 +79,13 @@ func init() {
 				headType = metalHead
 			}
 		}
-		player.AppearanceLock.Lock()
 		{
-			if player.Equips[0] == player.Appearance.Head {
-				player.Equips[0] = headType
+			sprites := player.Equips()
+			if sprites[0] == player.Appearance.Head {
+				sprites[0] = headType
 			}
-			if player.Equips[1] == player.Appearance.Body {
-				player.Equips[1] = bodyType
+			if sprites[1] == player.Appearance.Body {
+				sprites[1] = bodyType
 			}
 			player.Appearance.Body = bodyType
 			player.Appearance.Head = headType
@@ -95,7 +96,6 @@ func init() {
 			player.Appearance.LegsColor = legColor
 			player.UpdateAppearance()
 		}
-		player.AppearanceLock.Unlock()
 		player.RemoveState(world.StateChangingLooks)
 		if !player.Attributes.Contains("madeAvatar") {
 			player.SendPacket(world.WelcomeMessage)

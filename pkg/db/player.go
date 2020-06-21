@@ -52,7 +52,7 @@ func (s *sqlService) PlayerCreate(username, password, ip string) bool {
 	}
 
 	var playerID int
-	if s.Driver != "postgres" {
+	if config.PlayerDriver() != "postgres" {
 		stmt, err := tx.Exec("INSERT INTO player(username, userhash, password, x, y, group_id) VALUES($1, $2, $3, 220, 445, 0)", username, strutil.Base37.Encode(username), password)
 		if err != nil {
 			log.Info.Println("SQLiteService Could not insert new player profile information:", err)
@@ -218,8 +218,8 @@ func (s *sqlService) PlayerLoad(player *world.Player) bool {
 		var x, y, rank int
 		rows.Scan(&player.DatabaseIndex, &x, &y, &rank, &player.Appearance.HeadColor, &player.Appearance.BodyColor, &player.Appearance.LegsColor, &player.Appearance.SkinColor, &player.Appearance.Head, &player.Appearance.Body)
 		player.SetVar("rank", rank)
-		player.Equips[0] = player.Appearance.Head
-		player.Equips[1] = player.Appearance.Body
+		player.Equips()[0] = player.Appearance.Head
+		player.Equips()[1] = player.Appearance.Body
 		player.SetX(x)
 		player.SetY(y)
 		return nil
@@ -323,7 +323,7 @@ func (s *sqlService) PlayerLoad(player *world.Player) bool {
 			index := player.Inventory.Add(id, amt)
 			if e := definitions.Equip(id); e != nil && wielded {
 				player.Inventory.Get(index).Worn = true
-				player.Equips[e.Position] = e.Sprite
+				player.Equips()[e.Position] = e.Sprite
 				player.SetAimPoints(player.AimPoints() + e.Aim)
 				player.SetPowerPoints(player.PowerPoints() + e.Power)
 				player.SetArmourPoints(player.ArmourPoints() + e.Armour)

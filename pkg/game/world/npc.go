@@ -248,12 +248,10 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 		if ok {
 			exp := float64(totalExp) / float64(totalDamage)
 			player.DistributeMeleeExp(int(exp) * damage)
-		}
-		if damage > mostDamage || dropPlayer == nil {
-			if ok {
+			if damage > mostDamage || dropPlayer == nil {
 				dropPlayer = player
+				mostDamage = damage
 			}
-			mostDamage = damage
 		}
 	}
 	n.meleeRangeDamage.RUnlock()

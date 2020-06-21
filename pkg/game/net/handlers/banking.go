@@ -10,13 +10,14 @@
 package handlers
 
 import (
+	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 func init() {
-	AddHandler("depositbank", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("depositbank", func(player *world.Player, p *net.Packet) {
 		if !player.HasState(world.StateBanking) {
 			return
 		}
@@ -37,7 +38,7 @@ func init() {
 			player.SendPacket(world.BankUpdateItem(player.Bank().GetIndex(id), id, player.Bank().GetByID(id).Amount))
 		}
 	})
-	AddHandler("withdrawbank", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("withdrawbank", func(player *world.Player, p *net.Packet) {
 		if !player.HasState(world.StateBanking) {
 			return
 		}
@@ -84,7 +85,7 @@ func init() {
 			}
 		}
 	})
-	AddHandler("closebank", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("closebank", func(player *world.Player, p *net.Packet) {
 		if !player.HasState(world.StateBanking) {
 			return
 		}

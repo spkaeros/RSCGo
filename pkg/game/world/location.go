@@ -133,6 +133,36 @@ func (l Location) IsValid() bool {
 	return l.WithinArea([2]Location { NewLocation(0, 0), NewLocation(MaxX, MaxY)})
 }
 
+func (l *Location) NextStep(d Location) Location {
+	next := l.Step(l.DirectionToward(d))
+	if !l.Reachable(next) {
+//	if !l.Reachable(d) {
+			if l.X() < d.X() {
+				if next = l.Step(West); l.Reachable(next) {
+					return next
+				}
+			}
+			if l.X() > d.X() {
+				if next = l.Step(East); l.Reachable(next) {
+					return next
+				}
+			}
+			if l.Y() < d.Y() {
+				if next = l.Step(South); l.Reachable(next) {
+					return next
+				}
+				next = l.Step(South)
+			}
+			if l.Y() > d.Y() {
+				if next = l.Step(North); l.Reachable(next) {
+					return next
+				}
+				next = l.Step(North)
+			}
+	}
+	return next
+}
+
 func (l *Location) Step(dir int) Location {
 	loc := l.Clone()
 	if dir == 0 || dir == 1 || dir == 7 {

@@ -1,5 +1,5 @@
 bind = import("bind")
-load("scripts/definitions/magic.ank")
+load("scripts/def/magic.ank")
 
 for idx in range(len(defs)) {
 	fn = defs[idx].handler

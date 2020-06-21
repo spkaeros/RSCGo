@@ -10,6 +10,8 @@
 package handlers
 
 import (
+	"github.com/spkaeros/rscgo/pkg/game"
+
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
@@ -24,7 +26,7 @@ import (
 // can get away with suffering a minor performance decrease without causing any issues to the game.
 
 func init() {
-	AddHandler("spellnpc", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("spellnpc", func(player *world.Player, p *net.Packet) {
 		targetIndex := p.ReadUint16()
 		target := world.GetNpc(targetIndex)
 		if target == nil {
@@ -34,7 +36,7 @@ func init() {
 		//		log.Info.Println("cast on npc:", targetIndex, target.ID, spellIndex)
 		dispatchSpellAction(player, spellIndex, target)
 	})
-	AddHandler("spellplayer", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("spellplayer", func(player *world.Player, p *net.Packet) {
 		targetIndex := p.ReadUint16()
 		target, ok := world.Players.FindIndex(targetIndex)
 		if !ok {
@@ -44,19 +46,19 @@ func init() {
 		//		log.Info.Println("cast on player:", targetIndex, target.String(), spellIndex)
 		dispatchSpellAction(player, spellIndex, target)
 	})
-	AddHandler("spellself", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("spellself", func(player *world.Player, p *net.Packet) {
 		idx := p.ReadUint16()
 
 		//		log.Info.Println("Cast on self:", idx)
 		dispatchSpellAction(player, idx, nil)
 	})
-	AddHandler("spellinvitem", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("spellinvitem", func(player *world.Player, p *net.Packet) {
 		p.Skip(2) // short uint itemIndex
 		spellIndex := p.ReadUint16()
 		//		log.Info.Println("Cast on invitem:", spellIndex, "on", itemIndex)
 		dispatchSpellAction(player, spellIndex, nil)
 	})
-	AddHandler("spellgrounditem", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("spellgrounditem", func(player *world.Player, p *net.Packet) {
 		//		itemX := p.ReadUint16()
 		//		itemY := p.ReadUint16()
 		//		itemID := p.ReadUint16()

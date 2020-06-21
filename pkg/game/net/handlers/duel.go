@@ -12,6 +12,7 @@ package handlers
 import (
 	"strconv"
 
+	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -19,7 +20,7 @@ import (
 )
 
 func init() {
-	AddHandler("duelreq", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("duelreq", func(player *world.Player, p *net.Packet) {
 		if player.Busy() {
 			return
 		}
@@ -58,7 +59,7 @@ func init() {
 		target.ResetPath()
 		target.SendPacket(world.DuelOpen(player.Index))
 	})
-	AddHandler("duelupdate", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("duelupdate", func(player *world.Player, p *net.Packet) {
 		if !player.IsDueling() {
 			log.Suspicious.Printf("%v attempted to update a duel it was not in!\n", player.String())
 			player.ResetDuel()
@@ -113,7 +114,7 @@ func init() {
 			player.DuelOffer.Add(p.ReadUint16(), p.ReadUint32())
 		}
 	})
-	AddHandler("dueloptions", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("dueloptions", func(player *world.Player, p *net.Packet) {
 		if !player.IsDueling() {
 			log.Suspicious.Printf("%v tried changing duel options in a duel that they are not in!\n", player.String())
 			player.ResetDuel()
@@ -164,7 +165,7 @@ func init() {
 		//target.SetVar("duelCanEquip", !equipmentAllowed)
 		target.SendPacket(world.DuelOptions(target))
 	})
-	AddHandler("dueldecline", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("dueldecline", func(player *world.Player, p *net.Packet) {
 		if !player.IsDueling() {
 			log.Suspicious.Printf("%v attempted to decline a duel it was not in!\n", player.String())
 			player.ResetDuel()
@@ -194,7 +195,7 @@ func init() {
 		target.Message(player.Username() + " has declined the duel")
 		target.SendPacket(world.DuelClose)
 	})
-	AddHandler("duelaccept", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("duelaccept", func(player *world.Player, p *net.Packet) {
 		if !player.IsDueling() {
 			log.Suspicious.Printf("%v attempted to decline a duel it was not in!\n", player.String())
 			player.ResetDuel()
@@ -228,7 +229,7 @@ func init() {
 			target.SendPacket(world.DuelTargetAccept(true))
 		}
 	})
-	AddHandler("duelconfirmaccept", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("duelconfirmaccept", func(player *world.Player, p *net.Packet) {
 		if !player.IsDueling() || !player.DuelAccepted(1) {
 			log.Suspicious.Printf("%v attempted to accept a duel confirmation it was not in!\n", player.String())
 			player.ResetDuel()

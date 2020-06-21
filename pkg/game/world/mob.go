@@ -165,6 +165,7 @@ type Mob struct {
 	SyncMask       int
 	skills		   entity.SkillTable
 	path		   *Pathway
+	Prayers		   [15]bool
 	Entity
 	*entity.AttributeList
 	sync.RWMutex

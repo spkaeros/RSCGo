@@ -10,6 +10,7 @@
 package handlers
 
 import (
+	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
@@ -17,7 +18,7 @@ import (
 )
 
 func init() {
-	AddHandler("objectaction", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("objectaction", func(player *world.Player, p *net.Packet) {
 		if player.Busy() || player.IsFighting() {
 			return
 		}
@@ -52,7 +53,7 @@ func init() {
 
 		})
 	})
-	AddHandler("objectaction2", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("objectaction2", func(player *world.Player, p *net.Packet) {
 		if player.Busy() || player.IsFighting() {
 			return
 		}
@@ -87,7 +88,7 @@ func init() {
 			return false
 		})
 	})
-	AddHandler("boundaryaction2", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("boundaryaction2", func(player *world.Player, p *net.Packet) {
 		if player.Busy() || player.IsFighting() {
 			return
 		}
@@ -125,7 +126,7 @@ func init() {
 			return false
 		})
 	})
-	AddHandler("boundaryaction", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("boundaryaction", func(player *world.Player, p *net.Packet) {
 		if player.Busy() || player.IsFighting() {
 			return
 		}
@@ -163,7 +164,7 @@ func init() {
 			return false
 		})
 	})
-	AddHandler("talktonpc", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("talktonpc", func(player *world.Player, p *net.Packet) {
 		if player.Busy() || player.IsFighting() {
 			return
 		}
@@ -218,7 +219,7 @@ func init() {
 			player.Message("The " + npc.Name() + " does not appear interested in talking")
 		})
 	})
-	AddHandler("invonboundary", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("invonboundary", func(player *world.Player, p *net.Packet) {
 		if player.Busy() || player.IsFighting() {
 			return
 		}
@@ -263,7 +264,7 @@ func init() {
 			return false
 		})
 	})
-	AddHandler("invonplayer", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("invonplayer", func(player *world.Player, p *net.Packet) {
 		if player.Busy() || player.IsFighting() {
 			return
 		}
@@ -312,7 +313,7 @@ func init() {
 			return false
 		})
 	})
-	AddHandler("invonobject", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("invonobject", func(player *world.Player, p *net.Packet) {
 		if player.Busy() || player.IsFighting() {
 			return
 		}

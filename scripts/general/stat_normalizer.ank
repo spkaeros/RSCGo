@@ -1,12 +1,9 @@
 bind = import("bind")
-bind.onLogin(func(player) {
-	curTick = 0
-	player.Tickables.Add(func() {
-		curTick++
-		skillsTimer = player.PrayerActivated(PRAYER_RAPID_RESTORE) ? 50 : 100
-		hitpointTimer = player.PrayerActivated(PRAYER_RAPID_HEAL) ? 50 : 100
+math = import("math")
 
-		if curTick % skillsTimer == 0 {
+bind.onLogin(func(player) {
+	player.Tickables.Add(func() {
+		if (CurTick() % (player.PrayerActivated(PRAYER_RAPID_RESTORE) ? 50 : 100)) == 0 {
 			for i in range(THIEVING) {
 				delta = player.Skills().DeltaMax(i)
 				if i == HITPOINTS || i == PRAYER || delta == 0 {
@@ -19,13 +16,13 @@ bind.onLogin(func(player) {
 				player.IncCurStat(i, delta / math.Abs(delta))
 			}
 		}
-
-		if curTick % hitpointTimer == 0 {
+	})
+	player.Tickables.Add(func() {
+		if (CurTick() % (player.PrayerActivated(PRAYER_RAPID_HEAL) ? 50 : 100)) == 0 {
 			delta = player.Skills().DeltaMax(HITPOINTS)
 			if delta != 0 {
 				player.IncCurStat(HITPOINTS, delta / math.Abs(delta))
 			}
 		}
-		return true
 	})
 })

@@ -5,10 +5,13 @@ time = import("time")
 log = import("log")
 world = import("world")
 
-bind.command("tele", func(player, args) {
+func tele(player, args) {
 	if len(args) < 2 {
 		player.Message("Invalid args.  Usage: ::tele <x> <y>")
 		return
+	}
+	if args[0] == "edgeville" {
+		world.teleport(player, 220, 445, true)
 	}
 	x = toInt(args[0])
 	y = toInt(args[1])
@@ -17,7 +20,10 @@ bind.command("tele", func(player, args) {
 		return
 	}
 	world.teleport(player, x, y, true)
-})
+}
+
+bind.command("tele", tele)
+bind.command("teleport", tele)
 
 bind.command("goto", func(player, args) {
   	if len(args) < 1 {

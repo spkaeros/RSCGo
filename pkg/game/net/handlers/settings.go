@@ -10,6 +10,7 @@
 package handlers
 
 import (
+	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/crypto"
 	"github.com/spkaeros/rscgo/pkg/db"
 	"github.com/spkaeros/rscgo/pkg/game/net"
@@ -18,7 +19,7 @@ import (
 )
 
 func init() {
-	AddHandler("changepass", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("changepass", func(player *world.Player, p *net.Packet) {
 		oldPassword := p.ReadString()
 		newPassword := p.ReadString()
 		go func() {
@@ -32,13 +33,13 @@ func init() {
 			player.Message("Successfully updated your password to the new password you have provided.")
 		}()
 	})
-	AddHandler("clientsetting", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("clientsetting", func(player *world.Player, p *net.Packet) {
 		// 2 = mouse buttons
 		// 0 = camera angle manual/auto
 		// 3 = soundFX (false=on, wtf)
 		player.SetClientSetting(int(p.ReadUint8()), p.ReadBoolean())
 	})
-	AddHandler("privacysettings", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("privacysettings", func(player *world.Player, p *net.Packet) {
 		chatBlocked := p.ReadBoolean()
 		friendBlocked := p.ReadBoolean()
 		tradeBlocked := p.ReadBoolean()
@@ -60,13 +61,13 @@ func init() {
 		}
 		player.SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, duelBlocked)
 	})
-	AddHandler("cancelpq", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("cancelpq", func(player *world.Player, p *net.Packet) {
 		// empty net
 	})
-	AddHandler("changepq", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("changepq", func(player *world.Player, p *net.Packet) {
 		player.SendPacket(net.NewEmptyPacket(224))
 	})
-	AddHandler("setpq", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("setpq", func(player *world.Player, p *net.Packet) {
 		var questions []string
 		var answers []uint64
 		for i := 0; i < 5; i++ {

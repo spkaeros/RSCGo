@@ -34,10 +34,12 @@ import (
 	"github.com/spkaeros/rscgo/pkg/isaac"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 	"github.com/spkaeros/rscgo/pkg/game/net"
-	"github.com/spkaeros/rscgo/pkg/game/net/handlers"
+	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/game/net/handshake"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
+	
+	_ "github.com/spkaeros/rscgo/pkg/game/net/handlers"
 )
 
 const (
@@ -77,7 +79,8 @@ func main() {
 	// Initialize sane defaults as fallback configuration options, if the config.toml file is not found or if some values are left out of it
 	config.TomlConfig.MaxPlayers = 1250
 	config.TomlConfig.DataDir = "./data/"
-	config.TomlConfig.PacketHandlerFile = "packets.toml"
+	config.TomlConfig.DbioDefs = "./data/dbio.conf"
+	config.TomlConfig.PacketHandlerFile = "./data/packets.toml"
 	config.TomlConfig.Crypto.HashComplexity = 15
 	config.TomlConfig.Crypto.HashLength = 32
 	config.TomlConfig.Crypto.HashMemory = 8
@@ -93,19 +96,25 @@ func main() {
 	if len(cliFlags.Config) == 0 {
 		cliFlags.Config = "config.toml"
 	}
-	if _, err := toml.DecodeFile("config.toml", &config.TomlConfig); err != nil {
-		log.Warn("Error decoding configuration file (" + cliFlags.Config + "):", err)
+	if _, err := toml.DecodeFile(cliFlags.Config, &config.TomlConfig); err != nil {
+		log.Warn("Error decoding server TOML configuration file `" + cliFlags.Config + "`:", err)
+		log.Fatal("Error decoding server TOML configuration file:", "`" + cliFlags.Config + "`")
+		log.Fatal(err)
+		os.Exit(101)
 		return 
 	}
-	// TODO: Default serialization to JSON or BSON maybe?
+
+	// TODO: data backend default to JSON or BSON maybe?
 	config.TomlConfig.Database.PlayerDriver = "sqlite3"
 	config.TomlConfig.Database.PlayerDB = "file:./data/players.db"
 	config.TomlConfig.Database.WorldDriver = "sqlite3"
 	config.TomlConfig.Database.WorldDB = "file:./data/world.db"
-	if _, err := toml.DecodeFile("data/dbio.conf", &config.TomlConfig.Database); err != nil {
+	if _, err := toml.DecodeFile(config.TomlConfig.DbioDefs, &config.TomlConfig.Database); err != nil {
 		log.Warn("Error reading database config file:", err)
 		return
 	}
+
+	run(game.UnmarshalPackets)
 
 	if cliFlags.Port > 0 {
 		config.TomlConfig.Port = cliFlags.Port
@@ -116,34 +125,37 @@ func main() {
 		return 
 	}
 
-	run(db.ConnectEntityService, func() {
-		db.DefaultPlayerService = db.NewPlayerServiceSql()
-		world.DefaultPlayerService = world.PlayerService(db.DefaultPlayerService)
-	})
 	config.Verbosity = len(cliFlags.Verbose)
-
-	run(handlers.UnmarshalPackets, db.LoadTileDefinitions, db.LoadObjectDefinitions, db.LoadBoundaryDefinitions, db.LoadItemDefinitions, db.LoadNpcDefinitions)
-	run(db.LoadObjectLocations, db.LoadNpcLocations, db.LoadItemLocations, world.RunScripts, world.LoadCollisionData)
+	run(db.ConnectEntityService, func() {
+		db.DefaultPlayerService, world.DefaultPlayerService = db.NewPlayerServiceSql(), db.NewPlayerServiceSql()
+	})
+	// Three init phases after data backend is connected--Entity definitions, then tile collision bitmask loading, followed by entity spawn locations
+	// So, the order here of these three phases is important.  If you attempt to load object spawn locations during the same phase as the collision
+	// data, it will result in a world filled with objects that are not solid.  Many similar bugs possible.  Best just to leave this be.
+	run(db.LoadTileDefinitions, db.LoadObjectDefinitions, db.LoadBoundaryDefinitions, db.LoadItemDefinitions, db.LoadNpcDefinitions)
+	run(world.LoadCollisionData, world.RunScripts)
+	run(db.LoadObjectLocations, db.LoadNpcLocations, db.LoadItemLocations)
 
 	if config.Verbose() {
-		log.Debug("Loaded", len(world.Sectors)-1, "map sectors")
-		log.Debug("Loaded", handlers.PacketCount(), "packets (with", handlers.HandlerCount(), "handlers)")
-		log.Debug("Loaded", world.ItemIndexer.Load(), "items and", len(definitions.Items)-1, "item definitions")
-		log.Debug("Loaded", world.Npcs.Size(), "NPCs and", len(definitions.Npcs)-1, "NPC definitions")
-		log.Debug("Loaded", len(definitions.ScenaryObjects)-1, "scenary definitions, and", len(definitions.BoundaryObjects)-1, "boundary definitions")
+		log.Debug("Loaded", len(world.Sectors), "map sectors")
+		log.Debug("Loaded", game.PacketCount(), "packets (with", game.HandlerCount(), "handlers)")
+		log.Debug("Loaded", world.ItemIndexer.Load(), "items and", len(definitions.Items), "item definitions")
+		log.Debug("Loaded", world.Npcs.Size(), "NPCs and", len(definitions.Npcs), "NPC definitions")
+		log.Debug("Loaded", len(definitions.ScenaryObjects), "scenary definitions, and", len(definitions.BoundaryObjects), "boundary definitions")
 		log.Debug("Loaded", world.ObjectCounter.Load(), "scenary / boundary objects")
 		log.Debug("Loading all game entitys took:", time.Since(start).Seconds(), "seconds")
 		if config.Verbosity >= 2 {
 			log.Debugf("Triggers[\n\t%d item actions,\n\t%d scenary actions,\n\t%d boundary actions,\n\t%d npc actions,\n\t%d item->boundary actions,\n\t%d item->scenary actions,\n\t%d attacking NPC actions,\n\t%d killing NPC actions\n];\n", len(world.ItemTriggers), len(world.ObjectTriggers), len(world.BoundaryTriggers), len(world.NpcTriggers), len(world.InvOnBoundaryTriggers), len(world.InvOnObjectTriggers), len(world.NpcAtkTriggers), len(world.NpcDeathTriggers))
 		}
 	}
-	log.Debug("Listening at: " + strconv.Itoa(config.Port()) + " (TCP), " + strconv.Itoa(config.WSPort()) + " (websockets)")
+	log.Debug("Listening at TCP port " + strconv.Itoa(config.Port()))// + " (TCP), " + strconv.Itoa(config.WSPort()) + " (websockets)")
 	log.Debug()
 	log.Debug("RSCGo has finished initializing world; we hope you enjoy it")
-
-	(&Server{Ticker: time.NewTicker(TickMillis)}).Start()
+	Instance.Start()
 }
 
+
+var Instance = &Server{Ticker: time.NewTicker(TickMillis)}
 func readPacket(player *world.Player) (*net.Packet, error) {
 	header := make([]byte, 2)
 	n, err := player.Read(header)
@@ -169,15 +181,14 @@ func readPacket(player *world.Player) (*net.Packet, error) {
 
 	frame := make([]byte, length)
 	if length > 0 {
-		n, err := player.Read(frame)
-		if err != nil {
-			log.Warn("Error reading packet frame:", err)
-//			return nil, rscerrors.NewNetworkError("Error reading frame for packet:" + err.Error(), true)
-			return nil, err
-		}
-		if n < int(length) {
-			return nil, rscerrors.NewNetworkError("Invalid packet-frame length recv; got " + strconv.Itoa(n), false)
-		}
+		// for written := 0; written < length; {
+			_, err := player.Read(frame)
+			if err != nil {
+				log.Warn("Error reading packet frame:", err)
+				return nil, err
+			}
+			// written += n
+		// }
 	}
 
 	if length < 160 {
@@ -219,6 +230,7 @@ func (s *Server) tlsAccept(l stdnet.Listener) *world.Player {
 	}
 
 	p := world.NewPlayer(socket)
+	// TODO: See if we can get TLS working on one port for either TCP sockets or websockets
 	_, err = wsUpgrader.Upgrade(p.Socket)
 	p.Websocket = err == nil
 	if p.IsWebsocket() {
@@ -264,6 +276,65 @@ func (s *Server) Bind(port int) bool {
 			if login == nil {
 				player.Socket.Close()
 				continue
+			}
+			if login.Opcode == 32 {
+				second, err := readPacket(player)
+				if err != nil {
+					if err, ok := err.(rscerrors.NetError); ok {
+						if err.Fatal {
+							player.Socket.Close()
+							continue
+						}
+					}
+					player.Socket.Close()
+					continue
+				}
+				login = second
+			}
+			if login.Opcode == 2 {
+				defer func() {
+					close(player.InQueue)
+					err := player.Socket.Close()
+					if err != nil {
+						log.Debug("Error closing socket:", err)
+						return
+					}
+					player.Inventory.Owner = nil
+				}()
+				if version := login.ReadUint16(); version != config.Version() {
+					player.WritePacket(world.HandshakeResponse(int(handshake.ResponseUpdated)))
+					player.Writer.Flush()
+					return
+				}
+				username := strutil.Base37.Decode(login.ReadUint64())
+				password := strings.TrimSpace(login.ReadString())
+				reply := func(i handshake.ResponseCode, reason string) {
+					player.WritePacket(world.HandshakeResponse(int(i)))
+					player.Writer.Flush()
+					if reason == "" {
+						log.Debug("[REGISTER] Player", "'" + username + "'", "created successfully for:", player.CurrentIP())
+						return
+					}
+					log.Debug("[REGISTER] Player creation failed for:", "'" + username + "'@'" + player.CurrentIP() + "'")
+					return
+				}
+				go func() {
+					if userLen, passLen := len(username), len(password); userLen < 2 || userLen > 12 || passLen < 5 || passLen > 20 {
+						reply(handshake.ResponseBadInputLength, "Password and/or username too long and/or too short.")
+						return
+					}
+					dataService := db.DefaultPlayerService
+					if dataService.PlayerNameExists(username) {
+						reply(handshake.ResponseUsernameTaken, "Username is taken by another player already.")
+						return
+					}
+
+					if !dataService.PlayerCreate(username, crypto.Hash(password), player.CurrentIP()) {
+						reply(8, "Data backend seems to have failed creating a player")
+						return
+					}
+					reply(handshake.ResponseRegisterSuccess, "")
+				}()
 			}
 			if login.Opcode == 0 {
 				sendReply := func(i handshake.ResponseCode, reason string) {
@@ -377,7 +448,7 @@ func (s *Server) handlePackets(p *world.Player) {
 				if !ok || p1 == nil {
 					return
 				}
-				if handlePacket := handlers.Handler(p1.Opcode); handlePacket != nil {
+				if handlePacket := game.Handler(p1.Opcode); handlePacket != nil {
 					handlePacket(p, p1)
 				}
 			}
@@ -389,18 +460,18 @@ func (s *Server) Start() {
 	s.Bind(config.Port())
 	defer s.Ticker.Stop()
 	for range s.C {
-		tasks.TickList.RunAsynchronous()
+		tasks.TickList.Tick()
 
 		world.Players.Range(func(p *world.Player) {
 			if p == nil {
 				return
 			}
 			s.handlePackets(p)
+			p.Tickables.Call(interface{}(p))
 			
 			if fn := p.TickAction(); fn != nil && !fn() {
 				p.ResetTickAction()
 			}
-			p.Tickables.Tick(interface{}(p))
 			p.TraversePath()
 		})
 		world.UpdateNPCPositions()
@@ -439,7 +510,7 @@ func (s *Server) Start() {
 			if p == nil {
 				return
 			}
-			p.PostTickables.Tick(interface{}(p))
+			p.PostTickables.Call(interface{}(p))
 			p.ResetRegionRemoved()
 			p.ResetRegionMoved()
 			p.ResetSpriteUpdated()
@@ -447,6 +518,7 @@ func (s *Server) Start() {
 			// p.Writer.Flush()
 		})
 		world.ResetNpcUpdateFlags()
+		world.Ticks.Inc()
 	}
 }
 

@@ -10,13 +10,14 @@
 package handlers
 
 import (
+	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 func init() {
-	AddHandler("tradereq", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("tradereq", func(player *world.Player, p *net.Packet) {
 		if player.Busy() {
 			return
 		}
@@ -54,7 +55,7 @@ func init() {
 			p1.Message(player.Username() + " wishes to trade with you.")
 		}
 	})
-	AddHandler("tradeupdate", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("tradeupdate", func(player *world.Player, p *net.Packet) {
 		if !player.IsTrading() {
 			log.Suspicious.Printf("%v attempted to decline a non-existent trade!\n", player.String())
 			player.ResetTrade()
@@ -103,7 +104,7 @@ func init() {
 			player.TradeOffer.Add(p.ReadUint16(), p.ReadUint32())
 		}
 	})
-	AddHandler("tradedecline", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("tradedecline", func(player *world.Player, p *net.Packet) {
 		if !player.IsTrading() {
 			log.Suspicious.Printf("%v attempted to decline a trade it was not in!\n", player.String())
 			player.ResetTrade()
@@ -125,7 +126,7 @@ func init() {
 		c1.Message(player.Username() + " has declined the trade.")
 		c1.SendPacket(world.TradeClose)
 	})
-	AddHandler("tradeaccept", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("tradeaccept", func(player *world.Player, p *net.Packet) {
 		if !player.IsTrading() {
 			log.Suspicious.Printf("%v attempted to accept a trade it was not in!\n", player.String())
 			player.ResetTrade()
@@ -155,7 +156,7 @@ func init() {
 			c1.SendPacket(world.TradeTargetAccept(true))
 		}
 	})
-	AddHandler("tradeconfirmaccept", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("tradeconfirmaccept", func(player *world.Player, p *net.Packet) {
 		if !player.IsTrading() || !player.VarBool("trade1accept", false) {
 			log.Suspicious.Printf("%v attempted to accept a trade confirmation it was not in!\n", player.String())
 			player.ResetTrade()

@@ -115,11 +115,10 @@ func NpcEvents(player *Player) (p *net.Packet) {
 				if len(msg.string) > 255 {
 					msg.string = msg.string[:255]
 				}
-				msg.string = strutil.ChatFilter.Format(msg.string)
+				message := strutil.ChatFilter.Format(msg.string)
 				// messageRaw := strutil.ChatFilter.Pack(message)
-				messageRaw := msg.string
-				p.AddUint8(uint8(len(messageRaw)))
-				for _, c := range messageRaw {
+				p.AddUint8(uint8(len(message)))
+				for _, c := range message {
 					p.AddUint8(byte(c))
 				}
 				updateSize++
@@ -157,15 +156,12 @@ func ShopOpen(shop *Shop) (p *net.Packet) {
 }
 
 func SleepWord(player *Player) (p *net.Packet) {
-	p = net.NewEmptyPacket(117)
 	// TODO: Figure this out
-	return p
+	return net.NewEmptyPacket(117)
 }
 
 func SleepFatigue(player *Player) (p *net.Packet) {
-	p = net.NewEmptyPacket(244)
-	p.AddUint16(uint16(player.VarInt("sleepFatigue", 0)))
-	return p
+	return net.NewEmptyPacket(244).AddUint16(uint16(player.VarInt("sleepFatigue", 0)))
 }
 
 var SleepClose = net.NewEmptyPacket(84)
@@ -190,17 +186,13 @@ func NpcMessage(sender *NPC, message string, target *Player) (p *net.Packet) {
 		p.AddUint8(byte(c))
 	}
 	return*/
-	return net.NewEmptyPacket(6)
+	// return net.NewEmptyPacket(6)
+	return nil
 }
 
 //PrivacySettings Builds a packet containing the players privacy settings for display in the settings menu.
 func PrivacySettings(player *Player) (p *net.Packet) {
-	p = net.NewEmptyPacket(51)
-	p.AddBoolean(player.ChatBlocked())
-	p.AddBoolean(player.FriendBlocked())
-	p.AddBoolean(player.TradeBlocked())
-	p.AddBoolean(player.DuelBlocked())
-	return p
+	return net.NewEmptyPacket(51).AddBoolean(player.ChatBlocked()).AddBoolean(player.FriendBlocked()).AddBoolean(player.TradeBlocked()).AddBoolean(player.DuelBlocked())
 }
 
 func OptionMenuOpen(questions ...string) (p *net.Packet) {
@@ -224,16 +216,17 @@ func NPCPositions(player *Player) (p *net.Packet) {
 	player.LocalNPCs.RangeNpcs(func(n *NPC) bool {
 		changed++
 		n.RLock()
-		if !player.WithinRange(player.Location, player.VarInt("viewRadius", 16)) || n.SyncMask&SyncRemoved == SyncRemoved || n.Location.Equals(DeathPoint) || n.VarBool("removed", false) {
+		mask := n.SyncMask
+		if !player.WithinRange(player.Location, player.VarInt("viewRadius", 16)) || mask&SyncRemoved == SyncRemoved || n.Location.Equals(DeathPoint) || n.VarBool("removed", false) {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(1, 1)
 			p.AddBitmask(3, 2)
 			removing.Add(n)
-		} else if n.SyncMask&SyncMoved == SyncMoved {
+		} else if mask&SyncMoved == SyncMoved {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(0, 1)
 			p.AddBitmask(n.Direction(), 3)
-		} else if n.SyncMask&SyncSprite == SyncSprite {
+		} else if mask&SyncSprite == SyncSprite {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(1, 1)
 			p.AddBitmask(n.Direction(), 4)
@@ -260,10 +253,9 @@ func NPCPositions(player *Player) (p *net.Packet) {
 				player.Dec("viewRadius", 1)
 			}
 			break
-		} else {
-			if player.VarInt("viewRadius", 16) < 16 {
-				player.Inc("viewRadius", 1)
-			}
+		}
+		if player.VarInt("viewRadius", 16) < 16 {
+			player.Inc("viewRadius", 1)
 		}
 		newCount++
 		player.LocalNPCs.Add(n)
@@ -283,7 +275,7 @@ func NPCPositions(player *Player) (p *net.Packet) {
 
 func PrayerStatus(player *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(206)
-	for i := 0; i < 14; i++ {
+	for i := 0; i < len(player.Mob.Prayers); i++ {
 		p.AddBoolean(player.PrayerActivated(i))
 	}
 	return p
@@ -312,23 +304,16 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 	var removing []*Player
 	player.LocalPlayers.RangePlayers(func(p1 *Player) bool {
 		p1.RLock()
+		defer      p1.RUnlock()
 		changed++
-		if p1.LongestDelta(player.Location) >= player.VarInt("viewRadius", 16) || p1.SyncMask&SyncRemoved == SyncRemoved {
-			p.AddBitmask(1, 1)
-			p.AddBitmask(1, 1)
-			p.AddBitmask(3, 2)
-			removing = append(removing, p1)
-			//player.AppearanceLock.Lock()
-			//delete(player.KnownAppearances, p1.Index)
-			//player.AppearanceLock.Unlock()
-			p1.PostTickables.Add(func(p1 *Player) bool {
-				p1.ResetRegionRemoved()
-				p1.ResetRegionMoved()
-				p1.ResetSpriteUpdated()
-				return true
-			})
-		} else if p1.SyncMask&SyncMoved == SyncMoved {
-			p.AddBitmask(1, 1)
+		mask := p1.SyncMask
+		if mask&(SyncRemoved|SyncMoved|SyncSprite) == 0 {
+			p.AddBitmask(0, 1)
+			changed--
+			return false
+		}
+		p.AddBitmask(1, 1)
+		if mask&SyncMoved == SyncMoved {
 			p.AddBitmask(0, 1)
 			p.AddBitmask(p1.Direction(), 3)
 			p1.PostTickables.Add(func(p1 *Player) bool {
@@ -336,19 +321,26 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 				p1.ResetSpriteUpdated()
 				return true
 			})
-		} else if p1.SyncMask&SyncSprite == SyncSprite {
+			return false
+		}
+		if p1.LongestDelta(player.Location) >= player.VarInt("viewRadius", 16) || mask&(SyncRemoved|SyncSprite) != 0 {
 			p.AddBitmask(1, 1)
-			p.AddBitmask(1, 1)
-			p.AddBitmask(p1.Direction(), 4)
+			if mask&SyncSprite != 0 {
+				p.AddBitmask(p1.Direction(), 4)
+			} else {
+				p.AddBitmask(3, 2)
+				removing = append(removing, p1)
+			}
 			p1.PostTickables.Add(func(p1 *Player) bool {
-				p1.ResetSpriteUpdated()
+				if mask&SyncSprite != 0 {
+					p1.ResetSpriteUpdated()
+					return true
+				}
+				p1.ResetRegionRemoved()
+				p1.ResetRegionMoved()
 				return true
 			})
-		} else {
-			p.AddBitmask(0, 1)
-			changed--
 		}
-		p1.RUnlock()
 		return false
 	})
 	for _, p1 := range removing {
@@ -377,14 +369,12 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		p.AddSignedBits(p1.X()-player.X(), 5)
 		p.AddSignedBits(p1.Y()-player.Y(), 5)
 		p.AddBitmask(p1.Direction(), 4)
-		player.AppearanceLock.RLock()
 		if ticket, ok := player.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance)!=0 {
 			p.AddBitmask(1, 1)
 			player.AppearanceReq = append(player.AppearanceReq, p1)
 		} else {
 			p.AddBitmask(0, 1)
 		}
-		player.AppearanceLock.RUnlock()
 		return false
 	})
 //	if changed+newPlayerCount <= 0 {
@@ -401,9 +391,9 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	list, ok := ourPlayer.Var("bubbleQ")
 	if ok {
 		for _, bubble := range list.([]ItemBubble) {
-			p.AddUint16(uint16(bubble.Owner.ServerIndex()))
-			p.AddUint8(0)
-			p.AddUint16(uint16(bubble.Item))
+			p.AddUint16(uint16(bubble.Owner.ServerIndex())) // Index
+			p.AddUint8(0) // Update Type
+			p.AddUint16(uint16(bubble.Item)) // Item ID
 			updateSize++
 		}
 		ourPlayer.UnsetVar("bubbleQ")
@@ -411,12 +401,11 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	list, ok = ourPlayer.Var("publicChatQ")
 	if ok {
 		for _, msg := range list.([]ChatMessage) {
-			p.AddUint16(uint16(msg.Owner.ServerIndex()))
-			// what is this 1 for
-			p.AddUint8(1)
+			p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
+			p.AddUint8(1) // Update Type
 			// TODO: Is this better or is end of message indicator better
-			p.AddUint8(uint8(len(msg.string)))
-			p.AddBytes([]byte(msg.string))
+			p.AddUint8(uint8(len(msg.string))) // Count of UTF-8 characters in message
+			p.AddBytes([]byte(msg.string)) // UTF-8 encoded message
 			updateSize++
 		}
 		ourPlayer.UnsetVar("publicChatQ")
@@ -424,11 +413,11 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	list, ok = ourPlayer.Var("hitsplatQ")
 	if ok {
 		for _, splat := range list.([]HitSplat) {
-			p.AddUint16(uint16(splat.Owner.ServerIndex()))
-			p.AddUint8(2)
-			p.AddUint8(uint8(splat.Damage))
-			p.AddUint8(uint8(splat.Owner.Skills().Current(entity.StatHits)))
-			p.AddUint8(uint8(splat.Owner.Skills().Maximum(entity.StatHits)))
+			p.AddUint16(uint16(splat.Owner.ServerIndex())) // Index
+			p.AddUint8(2) // Update Type
+			p.AddUint8(uint8(splat.Damage)) // How much damage was done
+			p.AddUint8(uint8(splat.Owner.Skills().Current(entity.StatHits))) // Current hitpoints level, for healthbar percentage 
+			p.AddUint8(uint8(splat.Owner.Skills().Maximum(entity.StatHits))) // Maximum hitpoints level, for healthbar percentage
 			updateSize++
 		}
 		ourPlayer.UnsetVar("hitsplatQ")
@@ -436,15 +425,15 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	list, ok = ourPlayer.Var("projectileQ")
 	if ok {
 		for _, shot := range list.([]Projectile) {
-			p.AddUint16(uint16(shot.Owner.ServerIndex()))
+			p.AddUint16(uint16(shot.Owner.ServerIndex())) // Index
 			updateType := 3
 			if shot.Target.IsPlayer() {
 				updateType = 4
 			}
-			p.AddUint8(uint8(updateType))
+			p.AddUint8(uint8(updateType)) // Update Type
 
-			p.AddUint16(uint16(shot.Kind))
-			p.AddUint16(uint16(shot.Target.ServerIndex()))
+			p.AddUint16(uint16(shot.Kind)) // Projectile Type
+			p.AddUint16(uint16(shot.Target.ServerIndex())) // Projectile target index
 			updateSize++
 		}
 		ourPlayer.UnsetVar("projectileQ")
@@ -452,14 +441,16 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	list, ok = ourPlayer.Var("questChatQ")
 	if ok {
 		for _, msg := range list.([]ChatMessage) {
-			p.AddUint16(uint16(msg.Owner.ServerIndex()))
-			p.AddUint8(6)
-			if len(msg.string) > 0xFF {
-				// Too long message; truncate to max transmittable length
-				msg.string = msg.string[:255]
-			}
+			p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
+			p.AddUint8(6) // Update Type
+			// Format chat messages to match the rules of Jagex chat format
+			// Examples: First letters capitalized for every sentence, color-codes are properly identified, etc.
 			msg.string = strutil.ChatFilter.Format(msg.string)
-			// Go defaults as UTF-8; I updated the clients to use UTF-8 as well
+			// Too long messages are truncated to 255 bytes
+			if len(msg.string) > 0xFF {
+				msg.string = msg.string[:0xFF]
+			}
+			// Deprecated below call; Go defaults string encoding to UTF-8 and I updated the clients to use UTF-8 as well
 			// messageRaw := strutil.ChatFilter.Encode(message)
 			p.AddUint8(uint8(len(msg.string)))
 			p.AddBytes([]byte(msg.string))
@@ -470,40 +461,37 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 
 
 	var appearanceList []*Player
-	if ourPlayer.SyncMask&SyncAppearance == SyncAppearance {
-//		ourPlayer.Tickables.Add(func() bool {
-//			ourPlayer.ResetAppearanceChanged()
-//			return true
-//		})
+	if ourPlayer.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
+		ourPlayer.PostTickables.Add(func() bool {
+			ourPlayer.ResetAppearanceChanged()
+			return true
+		})
 		appearanceList = append(appearanceList, ourPlayer)
 	}
 
-	ourPlayer.AppearanceLock.Lock()
 	appearanceList = append(appearanceList, ourPlayer.AppearanceReq...)
 	ourPlayer.AppearanceReq = ourPlayer.AppearanceReq[:0]
 	ourPlayer.LocalPlayers.RangePlayers(func(p1 *Player) bool {
-		if ticket, ok := ourPlayer.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.AppearanceTicket() ||
-			p1.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
+		if ticket, ok := ourPlayer.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.AppearanceTicket() {//||
+			// p1.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
 			appearanceList = append(appearanceList, p1)
 		}
 		return false
 	})
-	ourPlayer.AppearanceLock.Unlock()
 	for _, player := range appearanceList {
-		p.AddUint16(uint16(player.Index))
-		p.AddUint8(5) // player appearances
+		p.AddUint16(uint16(player.Index)) // index
+		p.AddUint8(5) // update type
 		// This ticket is to track changes to the players around us
 		// Everytime this ticket changes, we must send this block out regionally,
 		// containing data that identifies all of the owning players characteristics
-		p.AddUint16(uint16(player.AppearanceTicket()))
-		p.AddUint64(player.UsernameHash())
-		p.AddUint8(uint8(len(player.Equips))) // length of sprites.  Anything less than 12 will get padded with 0s
-		ourPlayer.AppearanceLock.Lock()
+		p.AddUint16(uint16(player.AppearanceTicket())) // appearance uuid
+		p.AddUint64(player.UsernameHash()) // base37 encoded username
 		ourPlayer.KnownAppearances[player.Index] = player.AppearanceTicket()
-		for i := 0; i < 12; i++ {
-			p.AddUint8(uint8(player.Equips[i]))
+		sprites := player.Equips()
+		p.AddUint8(uint8(len(sprites))) // length of equipped item sprites  If length less than 12 any ones after length will get set to 0
+		for i := 0; i < len(sprites); i++ {
+			p.AddUint8(uint8(sprites[i]))
 		}
-		ourPlayer.AppearanceLock.Unlock()
 
 		// The below colors will set the human character animation colors used for this player,
 		// it will not apply to any equipment on top of said human character
@@ -811,7 +799,7 @@ func BankOpen(player *Player) (p *net.Packet) {
 	p.AddUint8(uint8(player.bank.Capacity))
 	player.bank.Range(func(item *Item) bool {
 		p.AddUint16(uint16(item.ID))
-		p.AddUint8or32(uint32(item.Amount))
+		p.AddSmart08_32(item.Amount)
 		return false
 	})
 	return p
@@ -821,7 +809,7 @@ func BankUpdateItem(index, id, amount int) (p *net.Packet) {
 	p = net.NewEmptyPacket(249)
 	p.AddUint8(uint8(index))
 	p.AddUint16(uint16(id))
-	p.AddUint8or32(uint32(amount))
+	p.AddSmart08_32(amount)
 	return p
 }
 

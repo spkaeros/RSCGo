@@ -10,6 +10,7 @@
 package handlers
 
 import (
+	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/db"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
@@ -39,7 +40,7 @@ var actions = []string{
 }
 
 func init() {
-	AddHandler("reportabuse", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("reportabuse", func(player *world.Player, p *net.Packet) {
 		userHash := p.ReadUint64()
 		reasonIndex := int(p.ReadUint8() - 1)
 		actionIndex := int(p.ReadUint8())

@@ -12,13 +12,14 @@ package handlers
 import (
 	"time"
 
+	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 func init() {
-	AddHandler("attacknpc", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("attacknpc", func(player *world.Player, p *net.Packet) {
 		npc := world.AsNpc( world.Npcs.Get(p.ReadUint16()) )
 		if npc == nil || !npc.Attackable() {
 			log.Suspicious.Printf("%v tried to attack nil NPC\n", player)
@@ -65,7 +66,7 @@ func init() {
 			player.StartCombat(npc)
 		})
 	})
-	AddHandler("attackplayer", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("attackplayer", func(player *world.Player, p *net.Packet) {
 		affectedPlayer, ok := world.Players.FindIndex(p.ReadUint16())
 		if affectedPlayer == nil || !ok {
 			log.Suspicious.Printf("player[%v] tried to attack nil player\n", player)
@@ -103,7 +104,7 @@ func init() {
 			player.StartCombat(affectedPlayer)
 		})
 	})
-	AddHandler("fightmode", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("fightmode", func(player *world.Player, p *net.Packet) {
 		mode := p.ReadUint8()
 		if mode < 0 || mode > 3 {
 			log.Suspicious.Printf("Invalid fightmode(%v) selected by %s", mode, player.String())

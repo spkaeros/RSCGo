@@ -10,11 +10,6 @@
 package handshake
 
 import (
-	"strconv"
-	"time"
-
-	"github.com/spkaeros/rscgo/pkg/game/world"
-	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/throttle"
 )
 
@@ -29,111 +24,6 @@ type (
 	ResponseCode int
 )
 
-type ResponseListener struct {
-	kind     ResponseType
-	listener chan Response
-	result   Response
-	status   string
-}
-
-type Response struct {
-	ResponseCode
-	Description string
-}
-
-func (r Response) send(requestKind string, p *world.Player) {
-	log.Debugf("{ %s for %s@%s }\t%s\n", requestKind, p.Username(), p.CurrentIP(), r)
-}
-
-func (r Response) String() string {
-	msg := ""
-	if r.IsValid() {
-		msg += "Operation Succeeded"
-		rank := r.ResponseCode - ResponseCode(23)
-		switch rank {
-		case 1:
-			msg += " as moderator"
-			break
-		case 2:
-			msg += " as administrator"
-			break
-		default:
-			msg += " as player"
-			break
-		}
-	} else {
-		msg += "Failed"
-	}
-	if len(r.Description) > 0 {
-		r.Description = " " + r.Description
-	}
-	msg += " (code:" + strconv.Itoa(int(r.ResponseCode)) + "" + r.Description + ")"
-
-	return msg
-}
-
-//NewLoginListener returns a pointer to a new ResponseListener that is ready to listen for login handshakes.
-func NewLoginListener(p *world.Player) *ResponseListener {
-	return newListener(p, LoginCode)
-	// return &ResponseListener{listener: make(chan Response), kind: LoginCode, result: Response{ResponseCode(-2), "Unresolved"}, status: "Resolving..."}
-}
-
-func ReplySignal(p *world.Player) chan Response {
-	// schedules the channel listener on the game engines thread
-	r := NewLoginListener(p)
-	go func() bool {
-		defer close(r.listener)
-		select {
-		case res := <-r.listener:
-			r.result = res
-			switch r.kind {
-			case LoginCode:
-				if LoginThrottle.Recent(p.CurrentIP(), time.Minute*time.Duration(5)) >= 5 {
-					res.ResponseCode = ResponseSpamTimeout
-				}
-				res.send("LoginRequest", p)
-				if res.IsValid() {
-					p.SetConnected(true)
-					p.Initialize()
-					return true 
-				}
-				p.Destroy()
-				if res.ResponseCode == ResponseBadPassword {
-					LoginThrottle.Add(p.CurrentIP())
-				}
-			case RegisterCode:
-				if RegisterThrottle.Recent(p.CurrentIP(), time.Hour) >= 2 {
-					res.ResponseCode = ResponseSpamTimeout
-				}
-				res.send("RegisterRequest", p)
-				p.Destroy()
-				// below is to cap registration of new profiles to 2 per hour per IP address
-				if res.ResponseCode == ResponseRegisterSuccess {
-					RegisterThrottle.Add(p.CurrentIP())
-					return true
-				}
-			}
-			return true 
-		case <-time.After(time.Second * 10):
-			p.SendPacket(world.HandshakeResponse(-1))
-			p.Destroy()
-			return true
-		}
-	}()
-	return r.listener
-}
-
-//NewRegistrationListener returns a pointer to a new ResponseListener that is ready to listen for
-// registration handshakes.
-func NewRegistrationListener(p *world.Player) *ResponseListener {
-	return newListener(p, RegisterCode)
-	// return &ResponseListener{listener: make(chan Response), kind: RegisterCode, result: Response{ResponseCode(-2), "Unresolved"}, status: "Resolving..."}
-}
-
-func newListener(p *world.Player, kind ResponseType) *ResponseListener {
-	return &ResponseListener{listener: make(chan Response), kind: kind, result: Response{Description: "Unresolved"}, status: "Resolving..."}
-}
-
 //IsValid is used to determine whether the ResponseCode is for a successful handshake or not.
 // Returns true if the handshake was a success and the client is now logged in, otherwise returns false.
 func (r ResponseCode) IsValid() bool {
@@ -144,18 +34,6 @@ func (r ResponseCode) IsValid() bool {
 		}
 	}
 	return int(r)&64 == 64
-}
-
-//IsEarlyOpcode is used to determine whether or not the opcode provided is an authorization handshake packet or not.
-// Returns true if the opcode is an auth packet, otherwise returns false.
-func EarlyOperation(opcode int) bool {
-	// session PRNG seed request, login request, new-player request
-	for _, i := range [...]int{32, 0, 2} {
-		if i == opcode {
-			return true
-		}
-	}
-	return false
 }
 
 const (
@@ -253,48 +131,3 @@ const (
 	LoginCode ResponseType = iota
 	RegisterCode
 )
-
-//ResponseListener This method will block until a response to send to the client is received from our data workers, or if this doesn't occur, 10 seconds after it was called.
-func (r *ResponseListener) attachPlayer(p *world.Player) chan Response {
-	// schedules the channel listener on the game engines thread
-	go func() bool {
-		defer close(r.listener)
-		select {
-		case res := <-r.listener:
-			r.result = res
-			switch r.kind {
-			case LoginCode:
-				if LoginThrottle.Recent(p.CurrentIP(), time.Minute*time.Duration(5)) >= 5 {
-					res.ResponseCode = ResponseSpamTimeout
-				}
-				res.send("LoginRequest", p)
-				if res.IsValid() {
-					p.SetConnected(true)
-					p.Initialize()
-					return true 
-				}
-				p.Destroy()
-				if res.ResponseCode == ResponseBadPassword {
-					LoginThrottle.Add(p.CurrentIP())
-				}
-			case RegisterCode:
-				if RegisterThrottle.Recent(p.CurrentIP(), time.Hour) >= 2 {
-					res.ResponseCode = ResponseSpamTimeout
-				}
-				res.send("RegisterRequest", p)
-				p.Destroy()
-				// below is to cap registration of new profiles to 2 per hour per IP address
-				if res.ResponseCode == ResponseRegisterSuccess {
-					RegisterThrottle.Add(p.CurrentIP())
-					return true
-				}
-			}
-			return true 
-		case <-time.After(time.Second * 10):
-			p.SendPacket(world.HandshakeResponse(-1))
-			p.Destroy()
-			return true
-		}
-	}()
-	return r.listener
-}

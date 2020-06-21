@@ -95,12 +95,12 @@ func ClipBit(direction int) int {
 func (l Location) Masks(x, y int) (masks [2]byte) {
 	if y > l.Y() {
 		masks[0] |= ClipNorth
-	} else {
+	} else if y < l.Y() {
 		masks[0] |= ClipSouth
 	}
 	if x > l.X() {
 		masks[1] |= ClipEast
-	} else {
+	} else if x < l.X() {
 		masks[1] |= ClipWest
 	}
 	// diags and solid objects are checked for automatically in the functions that you'd use this with, so

@@ -10,13 +10,14 @@
 package handlers
 
 import (
+	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 func init() {
-	AddHandler("chatmsg", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("chatmsg", func(player *world.Player, p *net.Packet) {
 		for _, p1 := range player.NearbyPlayers() {
 			if !p1.ChatBlocked() || p1.FriendsWith(player.UsernameHash()) {
 				//p1.SendPacket(world.PlayerChat(player.Index, string(p.FrameBuffer)))
@@ -24,7 +25,7 @@ func init() {
 			}
 		}
 	})
-	AddHandler("addfriend", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("addfriend", func(player *world.Player, p *net.Packet) {
 		hash := p.ReadUint64()
 		defer func() {
 			player.SendPacket(world.FriendList(player))
@@ -43,7 +44,7 @@ func init() {
 			p1.SendPacket(world.FriendUpdate(player.UsernameHash(), true))
 		}
 	})
-	AddHandler("privmsg", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("privmsg", func(player *world.Player, p *net.Packet) {
 		hash := p.ReadUint64()
 		if p1, ok := world.Players.FindHash(hash); ok && p1 != nil &&
 			(!p1.FriendBlocked() || p1.FriendList.ContainsHash(hash)) {
@@ -51,7 +52,7 @@ func init() {
 			p1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(string(p.FrameBuffer[8:]))))
 		}
 	})
-	AddHandler("removefriend", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("removefriend", func(player *world.Player, p *net.Packet) {
 		hash := p.ReadUint64()
 		defer func() {
 			player.SendPacket(world.FriendList(player))
@@ -68,7 +69,7 @@ func init() {
 			}
 		}
 	})
-	AddHandler("addignore", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("addignore", func(player *world.Player, p *net.Packet) {
 		hash := p.ReadUint64()
 		defer func() {
 			player.SendPacket(world.IgnoreList(player))
@@ -83,7 +84,7 @@ func init() {
 		}
 		player.IgnoreList = append(player.IgnoreList, hash)
 	})
-	AddHandler("removeignore", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("removeignore", func(player *world.Player, p *net.Packet) {
 		hash := p.ReadUint64()
 		defer func() {
 			player.SendPacket(world.IgnoreList(player))
@@ -101,7 +102,7 @@ func init() {
 			}
 		}
 	})
-	AddHandler("chooseoption", func(player *world.Player, p *net.Packet) {
+	game.AddHandler("chooseoption", func(player *world.Player, p *net.Packet) {
 		choice := p.ReadUint8()
 		if player.VarInt("state", 0)&world.StateChatChoosing&^world.MSItemAction == 0 {
 			return
