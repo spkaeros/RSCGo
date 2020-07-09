@@ -694,7 +694,7 @@ func InventoryItems(player *Player) (p *net.Packet) {
 	player.Inventory.Range(func(item *Item) bool {
 		if item.Worn {
 			// turn equipped bit on
-			p.AddUint16(uint16(item.ID | 0x8000))
+			p.AddUint16(uint16(item.ID) | 0x8000)
 		} else {
 			p.AddUint16(uint16(item.ID))
 		}

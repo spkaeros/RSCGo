@@ -219,16 +219,11 @@ func (p *Packet) AddUint32(i uint32) *Packet {
 }
 
 func (p *Packet) AddSmart08_32(i int) *Packet {
-	if i >= 128 {
-		p.EnsureCapacity(4)
-		// 0x80000000 is (2^24)*128, which adds 128 to the most significant byte
-		// We use this to indicate that the value is 4 bytes long to our client
-		binary.BigEndian.PutUint32(p.FrameBuffer[len(p.FrameBuffer)-4:], uint32(i)+0x80000000)
+	if i >= 0x80 {
+		p.AddUint32(0x80<<24|uint32(i))
 		return p
 	}
-
-	p.EnsureCapacity(1)
-	p.FrameBuffer[len(p.FrameBuffer)-1] = uint8(i)
+	p.AddUint8(uint8(i))
 	return p
 }
 
@@ -292,7 +287,7 @@ func (p *Packet) AddBytes(b []byte) *Packet {
 var bitmasks [66]int32
 
 func init() {
-	for i := 0; i < 64; i++ {
+	for i := 0; i <= 64; i++ {
 		bitmasks[i] = (1 << i) - 1
 	}
 	bitmasks[65] = -1

@@ -295,6 +295,8 @@ func init() {
 		return l
 	}
 
+	fmt.Println(Base37.Encode("hawkmeathead"))
+
 	Base37.Decode = func(i uint64) string {
 		if i < 0 || i >= math.MaxUint64 {
 			return "invalid_name"

@@ -400,8 +400,9 @@ func (s *Server) Bind(port int) bool {
 				packetDec := net.NewPacket(0, crypto.DecryptRSA(data))
 				player.SetVar("ourRng", isaac.New(packetDec.ReadUint64()))
 				player.SetVar("theirRng", isaac.New(packetDec.ReadUint64()))
-				player.SetVar("username", strutil.Base37.Encode(strings.TrimSpace(packetDec.ReadString())))
+				player.SetVar("username", packetDec.ReadUint64())
 				password := strings.TrimSpace(packetDec.ReadString())
+				// password := strings.TrimSpace(packetDec.ReadString())
 				if world.Players.ContainsHash(player.UsernameHash()) {
 					sendReply(handshake.ResponseLoggedIn, "Player with same username is already logged in")
 					continue
