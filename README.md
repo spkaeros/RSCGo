@@ -50,4 +50,4 @@ I have begun hosting a publicly available RSCGo instance, using the 204 HTML5 we
 
 As it stands, I am uncertain what direction this public server is headed(PK oriented, replica oriented, etc); I am almost certain that there will end up being a variant put up that is a replica-like experience, along with a much improved sister site that implements helpful QoL updates and etc that Jagex had not, as the team sees fit...
 
-If you like my software, you should come join us for a chat in discord: https://discord.gg/baz32Y
+If you like my software, you should come join us for a chat in discord: https://discord.gg/PqNQpqB      
