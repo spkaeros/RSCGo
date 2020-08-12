@@ -1,11 +1,11 @@
 package strutil
 
 import (
-	"fmt"
 	"math"
 	"strconv"
 	"strings"
 	"unicode"
+	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 //MaxBase37 Max base37 string hash for 12-rune usernames. (999999999999)
@@ -17,7 +17,7 @@ func IPToInteger(s string) (ip int) {
 		for index, octet := range octets {
 			numericOctet, err := strconv.Atoi(strings.Split(octet, ":")[0])
 			if err != nil {
-				fmt.Println("Error parsing IP address to integer:", err)
+				log.Debug("Error parsing IP address to integer:", err)
 				return -1
 			}
 			ip |= numericOctet << uint((3-index)*8)
@@ -39,8 +39,8 @@ func JagHash(s string) int {
 	return ident
 }
 
-//ParseArgs Neat command argument parsing function with support for single-quotes, ported from Java
-func ParseArgs(s string) []string {
+//CmdArgs Neat command argument parsing function with support for single-quotes, ported from Java
+func CmdArgs(s string) []string {
 	str := strings.Builder{}
 	escaped := false
 	quoted := false
@@ -82,7 +82,62 @@ func ParseArgs(s string) []string {
 // White indicates an equal target.
 func CombatPrefix(delta int) string {
 	// They're stronger
-	if delta < -9 {
+	if delta < 0 {
+/*		switch delta {
+		default:
+			return "@red@"
+		case -9:
+			fallthrough
+		case -8:
+			fallthrough
+		case -7:
+			return "@or3@"
+		case -6:
+			fallthrough
+		case -5:
+			fallthrough
+		case -4:
+			return "@or2@"
+		case -3:
+			fallthrough
+		case -2:
+			fallthrough
+		case -1:
+			return "@or1@"
+		}*/
+		if (-delta - 1) / 3 < 3 {
+			return "@or" + strconv.Itoa((-delta - 1) / 3) + "@"
+		}
+		return "@red@"
+	} else if delta > 0 {
+		if (delta - 1) / 3 < 3 {
+			return "@gr" + strconv.Itoa((delta - 1) / 3) + "@"
+		}
+		return "@gre@"
+/*		switch delta {
+		default:
+			return "@gre@"
+		case 9:
+			fallthrough
+		case 8:
+			fallthrough
+		case 7:
+			return "@gr3@"
+		case 6:
+			fallthrough
+		case 5:
+			fallthrough
+		case 4:
+			return "@gr2@"
+		case 3:
+			fallthrough
+		case 2:
+			fallthrough
+		case 1:
+			return "@gr1@"
+		}*/
+	}
+/*	if delta < -9 {
 		return "@red@"
 	}
 	if delta < -6 {
@@ -108,7 +163,7 @@ func CombatPrefix(delta int) string {
 	if delta > 0 {
 		return "@gr1@"
 	}
-
+*/
 	// They're the same
 	return "@whi@"
 }
@@ -237,26 +292,27 @@ func init() {
 	ChatFilter.Format = func(msg string) string {
 		builder := &strings.Builder{}
 		startingSentence := true
-		for i, c := range msg {
+		for i := 0; i < len(msg); i++ {
+			c := rune(msg[i])
 			if unicode.IsGraphic(c) {
-				if c == '@' {
-					if i == 4 && msg[i-4] == '@' {
-						startingSentence = true
-					} else if i == 0 && msg[i+4] == '@' {
-						startingSentence = false
-					} else {
-						c = ' '
-					}
-				} else if unicode.IsPunct(c) {
+				if c == '@' && i + 4 < len(msg) && msg[i+4] == '@' {
+					c = ' '
+					i += 5
 					startingSentence = true
+				} else if c == '~' && i + 4 < len(msg) && msg[i+4] == '~' {
+					c = ' '
+					i += 5
+					startingSentence = true
+				} else if unicode.IsPunct(c) {
+					if c == '.' || c == '!' || c == ':' {
+						startingSentence = true
+					}
+				} else if unicode.IsLetter(c) {
+					if startingSentence && unicode.IsLower(c) {
+						c = unicode.ToUpper(c)
+					}
+					startingSentence = false
 				}
-				startingSentence = false
-				if startingSentence {
-					c = unicode.ToUpper(c)
-				} else {
-					c = unicode.ToLower(c)
-				}
-
 				builder.WriteRune(c)
 			}
 		}
@@ -264,29 +320,25 @@ func init() {
 		return builder.String()
 	}
 	Base37.Encode = func(s string) uint64 {
-		s = strings.ToLower(s)
 		var buf []rune
-		for _, c := range s {
-			if c >= 'a' && c <= 'z' {
-				buf = append(buf, c)
-			} else if c >= '0' && c <= '9' {
+		for _, c := range strings.ToLower(s) {
+			if c >= 'a' && c <= 'z' || c >= '0' && c <= '9' {
 				buf = append(buf, c)
 			} else {
 				buf = append(buf, ' ')
 			}
 		}
-
-		s1 := strings.TrimSpace(string(buf))
-		if len(s1) > 12 {
-			s1 = s1[:12]
+		s = strings.TrimSpace(string(buf))
+		if len(s) > 12 {
+			s = s[:12]
 		}
 		var l uint64
-		for _, c := range s1 {
+		for _, c := range s {
 			l *= 37
 			if c >= 'a' && c <= 'z' {
-				l += 1 + uint64(c) - 97
+				l += uint64(c) - 96
 			} else if c >= '0' && c <= '9' {
-				l += 27 + uint64(c) - 48
+				l += uint64(c) - 21
 			}
 			if l >= MaxBase37 {
 				return MaxBase37
@@ -295,30 +347,30 @@ func init() {
 		return l
 	}
 
-	fmt.Println(Base37.Encode("hawkmeathead"))
-
 	Base37.Decode = func(i uint64) string {
 		if i < 0 || i >= math.MaxUint64 {
 			return "invalid_name"
 		}
 		var s string
+		var chars []rune
 		for i != 0 {
 			remainder := i % 37
 			i /= 37
 			if remainder == 0 {
 				s = " " + s
+				chars = append([]rune{' '}, chars...)
 			} else if remainder < 27 {
-				if i%37 == 0 {
-					s = string(remainder+64) + s
-				} else {
-					s = string(remainder+96) + s
+				remainder += 64
+				if i % 37 != 0 {
+					remainder += 32
 				}
+				chars = append([]rune{rune(remainder)}, chars...)
 			} else {
-				s = string(remainder+21) + s
+				chars = append([]rune{rune(remainder+21)}, chars...)
 			}
 		}
 
-		return s
+		return string(chars)
 	}
 
 	Base16.Int = func(s string) uint64 {
@@ -364,54 +416,13 @@ func init() {
 			remainder := i % uint64(base)
 			i /= uint64(base)
 			if remainder >= 10 {
-				s = string(remainder+'A'-10) + s
+				c := rune(remainder+'A'-10)
+				s = string(c) + s
 			} else {
-				s = string(remainder+'0') + s
+				c := rune(remainder+'0')
+				s = string(c) + s
 			}
 		}
 		return s
 	}
-	/*
-		BaseConversion.Encode = func(base int, s string) (l uint64) {
-			for _, c := range s {
-				l *= uint64(base)
-				if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' {
-					l += uint64(c-'a'+1)
-				} else if c >= '0' && c <= '9' {
-					l += uint64(c-'0'+27)
-				}
-			}
-
-			return
-		}
-
-		BaseConversion.Decode = func(base int, i uint64) (s string) {
-			if i < 0 {
-				return "invalid_integer_to_string (enc failure)"
-			}
-			upper := true
-			for i != 0 {
-				remainder := i%uint64(base)
-				i /= uint64(base)
-				if remainder >= 11 {
-					if upper {
-						s = string(remainder + 'a'-1) + s
-						upper = false
-					} else {
-						s = string(remainder + 'A'-1) + s
-					}
-				} else if remainder > 0 {
-					s = string(remainder + '0' - 27) + s
-				} else {
-					s = string(' ') + s
-					upper = true
-				}
-			}
-			return s
-		}
-		fmt.Println(Base37.Decode(418444))
-		fmt.Println(Base37.Encode(Base37.Decode(418444)))
-		fmt.Println(Base16.String(418444))
-		fmt.Println(Base16.Int(Base16.String(418444)))
-	*/
 }

@@ -1350,12 +1350,12 @@ func (p *Player) ResetFighting() {
 }
 
 func (p *Player) Skulls() map[uint64]time.Time {
-	records, ok := p.Var("attackedList")
-	if !ok || records == nil {
-		p.SetVar("attackedList", make(map[uint64]time.Time))
-		records = p.VarChecked("attackedList").(map[uint64]time.Time)
+	if records, ok := p.VarChecked("attackedList").(map[uint64]time.Time); ok && records != nil {
+		return records
 	}
-	return records.(map[uint64]time.Time)
+	attackList := make(map[uint64]time.Time)
+	p.SetVar("attackedList", attackList)
+	return attackList
 }
 
 func (p *Player) SkullOn(p1 *Player) {
@@ -1390,6 +1390,14 @@ func AsNpc(m entity.MobileEntity) *NPC {
 	return nil
 }
 
+func (p *Player) SetTarget(m entity.MobileEntity) {
+	p.SetVar("targetMob", m)
+}
+
+func (p *Player) SetFightTarget(m entity.MobileEntity) {
+	p.SetVar("fightTarget", m)
+}
+
 func (p *Player) StartCombat(defender entity.MobileEntity) {
 	attacker := entity.MobileEntity(p)
 	if targetp := AsPlayer(defender); targetp != nil {
@@ -1398,15 +1406,21 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 			p.SkullOn(targetp)
 		}
 	}
-	p.SetVar("targetMob", defender)
-	p.SetVar("fightTarget", defender)
-	defender.SessionCache().SetVar("fightTarget", p)
+	p.SetTarget(defender)
+	p.SetFightTarget(defender)
+	
+	// p.SetVar("fightTarget", defender)
+	defender.SessionCache().SetVar("fightTarget", attacker)
+
+	p.AddState(StateFighting)
+	p.SetDirection(RightFighting)
+	
+	defender.AddState(StateFighting)
+	defender.SetDirection(LeftFighting)
+
 	defender.SetRegionRemoved()
 	p.Teleport(defender.X(), defender.Y())
-	p.AddState(StateFighting)
-	defender.AddState(StateFighting)
-	p.SetDirection(RightFighting)
-	defender.SetDirection(LeftFighting)
+
 	tasks.Schedule(2, func() bool {
 		if (defender.IsPlayer() && !AsPlayer(defender).Connected()) || !defender.HasState(StateFighting) ||
 			!p.HasState(StateFighting) || !p.Connected() || p.LongestDeltaCoords(defender.X(), defender.Y()) > 0 {
@@ -1434,6 +1448,9 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 		}
 		defender.Damage(nextHit)
 		if defender.Skills().Current(entity.StatHits) <= 0 {
+			if attacker.IsPlayer() {
+				AsPlayer(attacker).PlaySound("victory")
+			}
 			if attackerp := AsPlayer(attacker); attackerp != nil {
 				attackerp.PlaySound("victory")
 			}
@@ -1449,14 +1466,23 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 		} else {
 			sound += "a"
 		}
-		
-		if attackerp := AsPlayer(attacker); attackerp != nil {
-			attackerp.PlaySound(sound)
+
+
+		if attacker.IsPlayer() {
+			AsPlayer(attacker).PlaySound(sound)
 		}
 		
-		if defenderp := AsPlayer(defender); defenderp != nil {
-			defenderp.PlaySound(sound)
+		if defender.IsPlayer() {
+			AsPlayer(defender).PlaySound(sound)
 		}
+		
+		// if attackerp := AsPlayer(attacker); attackerp != nil {
+			// attackerp.PlaySound(sound)
+		// }
+		// 
+		// if defenderp := AsPlayer(defender); defenderp != nil {
+			// defenderp.PlaySound(sound)
+		// }
 
 		return false
 	})

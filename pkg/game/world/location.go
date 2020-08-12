@@ -8,9 +8,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"go.uber.org/atomic"
 )
-//OrderedDirections This is an array containing all of the directions a mob can walk in, ordered by path finder precedent.
-// West, East, North, South, SouthWest, SouthEast, NorthWest, NorthEast
-var OrderedDirections = [...]int{2, 6, 0, 4, 3, 5, 1, 7}
 
 type Direction = int
 
@@ -28,10 +25,15 @@ const (
 	RightFighting
 )
 
+//OrderedDirections This is an array containing all of the directions a mob can walk in, ordered by path finder precedent.
+// West, East, North, South, SouthWest, SouthEast, NorthWest, NorthEast
+var OrderedDirections = [...]Direction{2, 6, 0, 4, 3, 5, 1, 7}
+
+type Plane = int
 
 const (
 	//PlaneGround Represents the value for the ground-level plane
-	PlaneGround int = iota
+	PlaneGround Plane = iota
 	//PlaneSecond Represents the value for the second-story plane
 	PlaneSecond
 	//PlaneThird Represents the value for the third-story plane
@@ -40,16 +42,84 @@ const (
 	PlaneBasement
 )
 
+//tileNode self-referential linked node for use within grid-based path finder algorithms
+type tileNode struct {
+	//parent the tile node that this node comes from in the path
+	parent              *tileNode
+	//loc the location that this node points at within the game
+	loc                 Location
+	//hCost,gCost,nCost the various cost values, containing the heuristically calculated travel costs for this node
+	hCost, gCost, nCost float64
+	//index the priority queue slot of this node
+	index               int
+	//open represents whether this node has been opened or not
+	open,closed       bool
+}
+
+//gCostFrom calculates the travel cost of traversing to this node from the specified neighbor node
+func (n *tileNode) gCostFrom(neighbor *tileNode) float64 {
+	stepPrice := 1.0
+	if n.loc.DeltaX(neighbor.loc)+n.loc.DeltaY(neighbor.loc) > 1 {
+		stepPrice = math.Sqrt2
+	}
+	return n.gCost + stepPrice
+}
+
+//tileQueue represents a priority queue of tiles used for path finding
+// designed to prioritize the tiles with the least cost
+type tileQueue []*tileNode
+
+//Len returns the length of this priority queue
+func (q tileQueue) Len() int {
+	return len(q)
+}
+
+//Less returns true if the node at index `i`'s total cost is less than the node at index `j`'s total cost.
+func (q tileQueue) Less(i, j int) bool {
+	return q[i].nCost < q[j].nCost
+}
+
+//Swap swaps the nodes at i and j with each other
+func (q tileQueue) Swap(i, j int) {
+	q[i], q[j] = q[j], q[i]
+	q[i].index = i
+	q[j].index = j
+}
+
+//Push pushes the pointer x onto the priority queue, and stores its index
+func (q *tileQueue) Push(x interface{}) {
+	n := len(*q)
+	node := x.(*tileNode)
+	node.index = n
+	*q = append(*q, node)
+}
+
+//Pop removes the top-most prioritized node from the queue, then returns it.
+func (q *tileQueue) Pop() interface{} {
+	old := *q
+	n := len(old)
+	if n == 0 {
+		return nil
+	}
+	node := old[n-1]
+	old[n-1] = nil
+	node.index = -1
+	*q = old[0 : n-1]
+	return node
+}
+
 //Location A tile in the game world.
 type Location struct {
 	x *atomic.Uint32
 	y *atomic.Uint32
 }
 
+//Clone returns a new Location that points to the same coordinates as the receiver.
 func (l Location) Clone() Location {
 	return NewLocation(l.X(), l.Y())
 }
 
+//X atomically gets the X coordinate for this Location
 func (l Location) X() int {
 	if l.x == nil {
 		return -1
@@ -58,6 +128,7 @@ func (l Location) X() int {
 	return int(l.x.Load())
 }
 
+//Y atomically gets the Y coordinate for this Location
 func (l Location) Y() int {
 	if l.y == nil {
 		return -1
@@ -66,20 +137,40 @@ func (l Location) Y() int {
 	return int(l.y.Load())
 }
 
+//SetX atomically stores a new X coordinate into this Location
 func (l Location) SetX(x int) {
 	l.x.Store(uint32(x))
 }
 
+//SetY atomically stores a new Y coordinate into this Location
 func (l Location) SetY(y int) {
 	l.y.Store(uint32(y))
 }
 
+func (l Location) checkWildH() bool {
+	return l.X() < 336 && l.X() > 47
+}
+
+func (l Location) wildernessDepth() float64 {
+	return float64(427-l.Y()) / 6.0
+}
+//Wilderness calculates and returns the wilderness level of this Location.
 func (l Location) Wilderness() int {
-	/* max wilderness X */
-	if l.X() > 344 {
+	// check X boundaries
+	if !l.checkWildH() {
 		return 0
 	}
-	return (2203-(l.Y()+1776))/6 + 1
+	// get precise wild lvl, ensure it's not 0 or lower
+	depth := l.wildernessDepth()
+	if depth <= 0 {
+		return 0
+	}
+	// truncate wild lvl to int precision; add 1
+	return int(depth)+1
+
+	// 2203-1776=427 is the length of our wilderness zone, the first level starts at y=426, every level is 6 tiles
+	// return (2203-(l.Y()+1776))/6 + 1
+	// return ((426 - l.Y()) / 6) + 1
 }
 
 var (
@@ -349,6 +440,12 @@ func (l *Location) CanReach(bounds [2]Location) bool {
 		return true
 	}
 	return false
+}
+
+//Hash returns a unique identifier for the tile this location points at.
+// This is a perfect hashing function; every tile in the game gets a unique hashcode with it.
+func (l Location) Hash() int {
+	return (l.X() << 13) | l.Y()
 }
 
 func (l Location) WithinArea(area [2]Location) bool {

@@ -10,22 +10,26 @@
 package world
 
 import (
+	`fmt`
+	`io/ioutil`
 	"os"
 	"reflect"
-	"time"
+	`strconv`
 	"strings"
-
+	"time"
+	
 	"github.com/lithammer/fuzzysearch/fuzzy"
-	"github.com/mattn/anko/core"
 	"github.com/mattn/anko/env"
 	"github.com/mattn/anko/parser"
+	`github.com/mattn/anko/vm`
+	
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/log"
-	"github.com/spkaeros/rscgo/pkg/tasks"
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/strutil"
-
+	"github.com/spkaeros/rscgo/pkg/tasks"
+	
 	// Defines various package-related scripting utilities
 	_ "github.com/mattn/anko/packages"
 )
@@ -296,12 +300,20 @@ func ScriptEnv() *env.Env {
 	e.Define("runAfter", time.AfterFunc)
 	e.Define("after", time.After)
 	e.Define("newProjectile", NewProjectile)
-	e.Define("Minute", time.Second*60)
-	e.Define("Hour", time.Second*60*60)
-	e.Define("Second", time.Second)
+	//e.Define("Minute", time.Second*60)
+	// The smallest possible unit of time observable by this game engine.
+	e.Define("TickDuration", TickDuration)
+	// The standard delay for chat messages with NPCs
+	e.Define("ChatDelay", TickDuration * 3)
+	// One millisecond
 	e.Define("Millisecond", time.Millisecond)
-	e.Define("ChatDelay", time.Millisecond*(640*3))
-	e.Define("tNanos", time.Nanosecond)
+	// One second
+	e.Define("Second", time.Second)
+	// 64 seconds; or 100 ticks, which is a game-minute
+	e.Define("Minute", TickDuration*TicksMinute)
+	// 64 minutes; or 600 ticks, which is a game-hour
+	e.Define("Hour", TickDuration*TicksMinute*60)
+	// Skill indexes to help make clean, concise, easy to read code
 	e.Define("ATTACK", entity.StatAttack)
 	e.Define("DEFENSE", entity.StatDefense)
 	e.Define("STRENGTH", entity.StatStrength)
@@ -320,6 +332,7 @@ func ScriptEnv() *env.Env {
 	e.Define("HERBLAW", entity.StatHerblaw)
 	e.Define("AGILITY", entity.StatAgility)
 	e.Define("THIEVING", entity.StatThieving)
+	// Prayer indexes, for cleaner, more concise, easier to read code.
 	e.Define("PRAYER_THICK_SKIN", 0)
 	e.Define("PRAYER_BURST_OF_STRENGTH", 1)
 	e.Define("PRAYER_CLARITY_OF_THOUGHT", 2)
@@ -334,32 +347,57 @@ func ScriptEnv() *env.Env {
 	e.Define("PRAYER_INCREDIBLE_REFLEXES", 11)
 	e.Define("PRAYER_PARALYZE_MONSTER", 12)
 	e.Define("PRAYER_PROTECT_FROM_MISSILES", 13)
+	// A blank initialized time.Time struct.
 	e.Define("ZeroTime", time.Time{})
+	// Inventory item definitions
 	e.Define("itemDefs", definitions.Items)
+	// Scenary object definitions
 	e.Define("objectDefs", definitions.ScenaryObjects)
+	// Scenary object definitions
 	e.Define("boundaryDefs", definitions.BoundaryObjects)
+	// NPC definitions
 	e.Define("npcDefs", definitions.Npcs)
+	// Convert skill level to experience units
 	e.Define("lvlToExp", entity.LevelToExperience)
+	// Convert experience units to skill level.
 	e.Define("expToLvl", entity.ExperienceToLevel)
+	// Check if a location is within the physical defined world boundaries
 	e.Define("withinWorld", WithinWorld)
+	// Finds the index of a skill by name
 	e.Define("skillIndex", entity.SkillIndex)
+	// Finds the name of a skill by index
 	e.Define("skillName", entity.SkillName)
+	// Creates a new NPC
 	e.Define("newNpc", NewNpc)
+	// Creates a new game object
 	e.Define("newObject", NewObject)
+	// Encodes a string, truncated to its 12th character, to it's base37 integral representation.
 	e.Define("base37", strutil.Base37.Encode)
+	// Task list for things that should run at certain engine ticks in the future 
+	e.Define("Tickables", tasks.TickList)
+	// Returns a random integer between low and high, high inclusive.
 	e.Define("rand", func(low, high int) int {
 		return int(rand.Rng.Float64()*float64(high+1)) - low
 	})
-	
+	// Represents northern direction in game world
 	e.Define("NORTH", North)
+	// Represents north-eastern direction in game world
 	e.Define("NORTHEAST", NorthEast)
+	// Represents north-western direction in game world
 	e.Define("NORTHWEST", NorthWest)
+	// Represents southern direction in game world
 	e.Define("SOUTH", South)
+	// Represents south-eastern direction in game world
 	e.Define("SOUTHEAST", SouthEast)
+	// Represents south-western direction in game world
 	e.Define("SOUTHWEST", SouthWest)
+	// Represents eastern direction in game world
 	e.Define("EAST", East)
+	// Represents western direction in game world
 	e.Define("WEST", West)
+	// Parse a direction from a string representation, e.g n/north for 0, s/south for 4
 	e.Define("parseDirection", ParseDirection)
+	// Returns true if s contains the element elem
 	e.Define("contains", func(s []int64, elem int64) bool {
 		for _, v := range s {
 			if v == elem {
@@ -368,17 +406,26 @@ func ScriptEnv() *env.Env {
 		}
 		return false
 	})
+	// Statistically determine whether a gathering action failed or succeeded, based on required skill level,
+	// and current skill level.
 	e.Define("gatheringSuccess", func(req, cur int) bool {
 		if cur < req {
 			return false
 		}
 		return rand.Rng.Float64()*127.0+1.0 <= (float64(cur)+40.0)-(float64(req)*1.5)
 	})
+	// Return true a specific statistical percentage of the time.
 	e.Define("roll", Chance)
+	// Return true a specific statistical percentage of the time, with specific upper and lower percent bounds
 	e.Define("boundedRoll", BoundedChance)
+	// Statistically choose a single integer out of a collection of integers mapped to float64 probabilities
 	e.Define("weightedChance", WeightedChoice)
+	// Statistically choose a single integer out of a collection of integers mapped to float64 probabilities
+	// Accepts an RNG instance as its argument
 	e.Define("statRoll", Statistical)
+	// Returns the current game engine tick
 	e.Define("CurTick", CurrentTick)
+	// Creates a predicate function to determine whether or not a binded action should occur
 	e.Define("npcPredicate", func(ids ...interface{}) func(*NPC) bool {
 		return func(npc *NPC) bool {
 			for _, id := range ids {
@@ -395,6 +442,8 @@ func ScriptEnv() *env.Env {
 			return false
 		}
 	})
+	// Creates a predicate function to determine whether or not a binded action should occur, with player
+	// argument also
 	e.Define("npcBlockingPredicate", func(ids ...interface{}) func(*Player, *NPC) bool {
 		return func(player *Player, npc *NPC) bool {
 			for _, id := range ids {
@@ -411,7 +460,7 @@ func ScriptEnv() *env.Env {
 			return false
 		}
 	})
-
+	// Returns a list of ranked inventory item object literals
 	e.Define("fuzzyItem", func(input string) (itemList []map[string]interface{}) {
 		// maxRank := 0
 		for id, item := range definitions.Items {
@@ -425,11 +474,11 @@ func ScriptEnv() *env.Env {
 				}
 			}
 		}
-
 		
 		return itemList
 	})
 
+	// returns a predicate function to determine whether an item related action should run
 	e.Define("itemPredicate", func(ids ...interface{}) func(*Item) bool {
 		return func(item *Item) bool {
 			for _, id := range ids {
@@ -446,6 +495,7 @@ func ScriptEnv() *env.Env {
 			return false
 		}
 	})
+	// returns a predicate function to determine whether an object related action should run
 	e.Define("objectPredicate", func(ids ...interface{}) func(*Object, int) bool {
 		return func(object *Object, click int) bool {
 			for _, id := range ids {
@@ -462,8 +512,276 @@ func ScriptEnv() *env.Env {
 			return false
 		}
 	})
+	// tries converting a pointer to a player struct, and returns it
+	// returns nil upon failure
 	e.Define("asPlayer", AsPlayer)
+	// tries converting a pointer to an NPC struct and returns it
+	// returns nil upon failure
 	e.Define("asNpc", AsNpc)
-	e = core.Import(e)
+	
+	e.Define("toPlayer", func(v interface{}) *Player {
+		if p, ok := v.(*Player); ok {
+			return p
+		}
+		return nil
+	})
+	e.Define("toMob", func(v interface{}) entity.MobileEntity {
+		if m, ok := v.(entity.MobileEntity); ok {
+			return m
+		}
+		return nil
+	})
+	e.Define("toNpc", func(v interface{}) *NPC {
+		if n, ok := v.(*NPC); ok {
+			return n
+		}
+		return nil
+	})
+	e.Define("toBool", func(v interface{}) bool {
+		rv := reflect.ValueOf(v)
+		if !rv.IsValid() {
+			return false
+		}
+		nt := reflect.TypeOf(true)
+		if rv.Type().ConvertibleTo(nt) {
+			return rv.Convert(nt).Bool()
+		}
+		if rv.Type().ConvertibleTo(reflect.TypeOf(1.0)) && rv.Convert(reflect.TypeOf(1.0)).Float() > 0.0 {
+			return true
+		}
+		if rv.Kind() == reflect.String {
+			s := strings.ToLower(v.(string))
+			if s == "y" || s == "yes" {
+				return true
+			}
+			b, err := strconv.ParseBool(s)
+			if err == nil {
+				return b
+			}
+		}
+		return false
+	})
+	
+	e.Define("toString", func(v interface{}) string {
+		if b, ok := v.([]byte); ok {
+			return string(b)
+		}
+		return fmt.Sprint(v)
+	})
+	
+	e.Define("toInt", func(v interface{}) int64 {
+		rv := reflect.ValueOf(v)
+		if !rv.IsValid() {
+			return 0
+		}
+		nt := reflect.TypeOf(1)
+		if rv.Type().ConvertibleTo(nt) {
+			return rv.Convert(nt).Int()
+		}
+		if rv.Kind() == reflect.String {
+			i, err := strconv.ParseInt(v.(string), 10, 64)
+			if err == nil {
+				return i
+			}
+			f, err := strconv.ParseFloat(v.(string), 64)
+			if err == nil {
+				return int64(f)
+			}
+		}
+		if rv.Kind() == reflect.Bool {
+			if v.(bool) {
+				return 1
+			}
+		}
+		return 0
+	})
+	
+	e.Define("toFloat", func(v interface{}) float64 {
+		rv := reflect.ValueOf(v)
+		if !rv.IsValid() {
+			return 0
+		}
+		nt := reflect.TypeOf(1.0)
+		if rv.Type().ConvertibleTo(nt) {
+			return rv.Convert(nt).Float()
+		}
+		if rv.Kind() == reflect.String {
+			f, err := strconv.ParseFloat(v.(string), 64)
+			if err == nil {
+				return f
+			}
+		}
+		if rv.Kind() == reflect.Bool {
+			if v.(bool) {
+				return 1.0
+			}
+		}
+		return 0.0
+	})
+	
+	e.Define("toChar", func(s rune) string {
+		return string(s)
+	})
+	
+	e.Define("toRune", func(s string) rune {
+		if len(s) == 0 {
+			return 0
+		}
+		return rune(s[0])
+		//return []rune(s)[0]
+	})
+	
+	e.Define("toBoolSlice", func(v []interface{}) []bool {
+		var result []bool
+		toSlice(v, &result)
+		return result
+	})
+	
+	e.Define("toStringSlice", func(v []interface{}) []string {
+		var result []string
+		toSlice(v, &result)
+		return result
+	})
+	
+	e.Define("toIntSlice", func(v []interface{}) []int64 {
+		var result []int64
+		toSlice(v, &result)
+		return result
+	})
+	
+	e.Define("toFloatSlice", func(v []interface{}) []float64 {
+		var result []float64
+		toSlice(v, &result)
+		return result
+	})
+	
+	e.Define("toByteSlice", func(s string) []byte {
+		return []byte(s)
+	})
+	
+	e.Define("toRuneSlice", func(s string) []rune {
+		return []rune(s)
+	})
+	
+	e.Define("toDuration", func(v int64) time.Duration {
+		return time.Duration(v)
+	})
+	
+	e.Define("keys", func(v interface{}) []interface{} {
+		rv := reflect.ValueOf(v)
+		if rv.Kind() == reflect.Interface {
+			rv = rv.Elem()
+		}
+		mapKeysValue := rv.MapKeys()
+		mapKeys := make([]interface{}, len(mapKeysValue))
+		for i := 0; i < len(mapKeysValue); i++ {
+			mapKeys[i] = mapKeysValue[i].Interface()
+		}
+		return mapKeys
+	})
+	
+	e.Define("range", func(args ...int64) []int64 {
+		var start, stop int64
+		var step int64 = 1
+		
+		switch len(args) {
+		case 0:
+			panic("range expected at least 1 argument, got 0")
+		case 1:
+			stop = args[0]
+		case 2:
+			start = args[0]
+			stop = args[1]
+		case 3:
+			start = args[0]
+			stop = args[1]
+			step = args[2]
+			if step == 0 {
+				panic("range argument 3 must not be zero")
+			}
+		default:
+			panic(fmt.Sprintf("range expected at most 3 arguments, got %d", len(args)))
+		}
+		
+		var arr []int64
+		for i := start; (step > 0 && i < stop) || (step < 0 && i > stop); i += step {
+			arr = append(arr, i)
+		}
+		return arr
+	})
+	
+	e.Define("typeOf", func(v interface{}) string {
+		return reflect.TypeOf(v).String()
+	})
+	
+	e.Define("kindOf", func(v interface{}) string {
+		typeOf := reflect.TypeOf(v)
+		if typeOf == nil {
+			return "nil"
+		}
+		return typeOf.Kind().String()
+	})
+	
+	e.Define("defined", func(s string) bool {
+		_, err := e.Get(s)
+		return err == nil
+	})
+	
+	e.Define("load", func(s string) interface{} {
+		body, err := ioutil.ReadFile(s)
+		if err != nil {
+			panic(err)
+		}
+		scanner := new(parser.Scanner)
+		scanner.Init(string(body))
+		stmts, err := parser.Parse(scanner)
+		if err != nil {
+			if pe, ok := err.(*parser.Error); ok {
+				pe.Filename = s
+				panic(pe)
+			}
+			panic(err)
+		}
+		rv, err := vm.Run(e, nil, stmts)
+		if err != nil {
+			panic(err)
+		}
+		return rv
+	})
+	
+	e.Define("print", fmt.Print)
+	e.Define("println", fmt.Println)
+	e.Define("printf", fmt.Printf)
+
 	return e
+}
+
+// ImportToX adds all the toX to the env given
+func ImportToX(e *env.Env) {
+}
+
+// toSlice takes in a "generic" slice and converts and copies
+// it's elements into the typed slice pointed at by ptr.
+// Note that this is a costly operation.
+func toSlice(from []interface{}, ptr interface{}) {
+	// Value of the pointer to the target
+	obj := reflect.Indirect(reflect.ValueOf(ptr))
+	// We can't just convert from interface{} to whatever the target is (diff memory layout),
+	// so we need to create a New slice of the proper type and copy the values individually
+	t := reflect.TypeOf(ptr).Elem()
+	tt := t.Elem()
+	slice := reflect.MakeSlice(t, len(from), len(from))
+	// Copying the data, val is an addressable Pointer of the actual target type
+	val := reflect.Indirect(reflect.New(tt))
+	for i := 0; i < len(from); i++ {
+		v := reflect.ValueOf(from[i])
+		if v.IsValid() && v.Type().ConvertibleTo(tt) {
+			val.Set(v.Convert(tt))
+		} else {
+			val.Set(reflect.Zero(tt))
+		}
+		slice.Index(i).Set(val)
+	}
+	// Ok now assign our slice to the target pointer
+	obj.Set(slice)
 }

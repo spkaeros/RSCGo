@@ -343,7 +343,7 @@ func padSeed(key ...uint64) (seed [256]uint64) {
 			continue
 		}
 		// Commented out bitwise AND because we use 64 bits.  This is fine, right?
-		seed[i] = (0x6c078965*(seed[i-1]^(seed[i-1]>>30)) + uint64(i)) // & 0xffffffff
+		seed[i] = 0x6c078965*(seed[i-1]^(seed[i-1]>>30)) + uint64(i) // & 0xffffffff
 	}
 	return
 }

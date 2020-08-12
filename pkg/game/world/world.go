@@ -22,17 +22,22 @@ const (
 	TicksTwentyMin = 1875
 	TicksMinute    = 100
 
+	//PlaneSize the length of tiles per plane per axis
+	PlaneSize = 944
 	//MaxX Width of the game
-	MaxX = 944
+	MaxX = PlaneSize
 	//MaxY Height of the game
-	MaxY = 3776
+	MaxY         = PlaneSize*4
+	TickDuration = 640*time.Millisecond
 )
 
 var (
+	//Ticks keeps track of the number of ticks the engine has run for, used to time things
 	Ticks = atomic.NewUint64(0)
 )
 
 
+//CurrentTick returns the current game engine tick.
 func CurrentTick() int {
 	return int(Ticks.Load())
 }
@@ -212,7 +217,6 @@ func AddPlayer(p *Player) {
 			player.SendPacket(FriendUpdate(p.UsernameHash(), true))
 		}
 		
-//		if player.FriendList.Contains(p.Username()) {
 //			player.SendPacket(FriendUpdate(p.UsernameHash(), p.FriendList.Contains(player.Username()) || !p.FriendBlocked()))
 //		}
 	})
@@ -595,19 +599,19 @@ func (r *region) neighbors() (regions [4]*region) {
 		regions[1] = get((r.x/RegionSize)-1, r.y/RegionSize)
 		if regionY <= LowerBound {
 			regions[2] = get((r.x/RegionSize)-1, (r.y/RegionSize)-1)
-			regions[3] = get((r.x/RegionSize), (r.y/RegionSize)-1)
+			regions[3] = get(r.x/RegionSize, (r.y/RegionSize)-1)
 		} else {
 			regions[2] = get((r.x/RegionSize)-1, (r.y/RegionSize)+1)
-			regions[3] = get((r.x/RegionSize), (r.y/RegionSize)+1)
+			regions[3] = get(r.x/RegionSize, (r.y/RegionSize)+1)
 		}
 	} else if regionY <= LowerBound {
-		regions[1] = get((r.x/RegionSize)+1, (r.y/RegionSize))
+		regions[1] = get((r.x/RegionSize)+1, r.y/RegionSize)
 		regions[2] = get((r.x/RegionSize)+1, (r.y/RegionSize)-1)
-		regions[3] = get((r.x/RegionSize), (r.y/RegionSize)-1)
+		regions[3] = get(r.x/RegionSize, (r.y/RegionSize)-1)
 	} else {
-		regions[1] = get((r.x/RegionSize)+1, (r.y/RegionSize))
+		regions[1] = get((r.x/RegionSize)+1, r.y/RegionSize)
 		regions[2] = get((r.x/RegionSize)+1, (r.y/RegionSize)+1)
-		regions[3] = get((r.x/RegionSize), (r.y/RegionSize)+1)
+		regions[3] = get(r.x/RegionSize, (r.y/RegionSize)+1)
 	}
 
 	return

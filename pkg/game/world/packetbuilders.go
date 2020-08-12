@@ -293,7 +293,7 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 	p.AddBitmask(player.LocalPlayers.Size(), 8)
 	changed := 0
 	if player.SyncMask&SyncNeedsPosition != 0 {
-		changed++
+		changed += 1
 		player.PostTickables.Add(func() bool {
 			player.ResetRegionRemoved()
 			player.ResetRegionMoved()
@@ -301,82 +301,92 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 			return true
 		})
 	}
-	var removing []*Player
+	var removeList []*Player
 	player.LocalPlayers.RangePlayers(func(p1 *Player) bool {
 		p1.RLock()
-		defer      p1.RUnlock()
-		changed++
-		mask := p1.SyncMask
-		if mask&(SyncRemoved|SyncMoved|SyncSprite) == 0 {
+		defer p1.RUnlock()
+		removing := p1.SyncMask&SyncRemoved != 0 || !player.Near(p1.Point(), player.VarInt("viewRadius", RegionSize/3))
+		changing, moving := p1.SyncMask&SyncSprite != 0, p1.SyncMask&SyncMoved != 0
+		if !removing && !changing && !moving {
 			p.AddBitmask(0, 1)
-			changed--
+			return false
+		}
+		defer p1.PostTickables.Add(func(p1 *Player) bool {
+			if p1.SyncMask&SyncSprite != 0 {
+				p1.ResetSpriteUpdated()
+				return true
+			}
+			p1.ResetRegionMoved()
+			p1.ResetRegionRemoved()
+			return true
+		})
+		changed += 1
+		p.AddBitmask(1, 1)
+		if removing {
+			removeList = append(removeList, p1)
+			p.AddBitmask(3, 2)
+			return false
+		}
+		if moving {
+			p.AddBitmask(0, 1)
+			p.AddBitmask(p1.Direction(), 3)
+//			p1.PostTickables.Add(func(p1 *Player) bool {
+//				p1.ResetRegionMoved()
+//				p1.ResetSpriteUpdated()
+//				return true
+//			})
 			return false
 		}
 		p.AddBitmask(1, 1)
-		if mask&SyncMoved == SyncMoved {
-			p.AddBitmask(0, 1)
-			p.AddBitmask(p1.Direction(), 3)
-			p1.PostTickables.Add(func(p1 *Player) bool {
-				p1.ResetRegionMoved()
-				p1.ResetSpriteUpdated()
-				return true
-			})
-			return false
-		}
-		if p1.LongestDelta(player.Location) >= player.VarInt("viewRadius", 16) || mask&(SyncRemoved|SyncSprite) != 0 {
-			p.AddBitmask(1, 1)
-			if mask&SyncSprite != 0 {
-				p.AddBitmask(p1.Direction(), 4)
-			} else {
-				p.AddBitmask(3, 2)
-				removing = append(removing, p1)
-			}
-			p1.PostTickables.Add(func(p1 *Player) bool {
-				if mask&SyncSprite != 0 {
-					p1.ResetSpriteUpdated()
-					return true
-				}
-				p1.ResetRegionRemoved()
-				p1.ResetRegionMoved()
-				return true
-			})
-		}
+		p.AddBitmask(p1.Direction(), 4)
+		// if mask&(SyncRemoved|SyncSprite) != 0 || !player.Near(p1.Point(), player.VarInt("viewRadius", RegionSize/3)) {
+			// p.AddBitmask(1, 1)
+			// if mask&SyncRemoved != 0 {
+				// p.AddBitmask(3, 2)
+			// } else {
+				// p.AddBitmask(p1.Direction(), 4)
+			// }
+		// }
 		return false
 	})
-	for _, p1 := range removing {
+	for _, p1 := range removeList {
 		player.LocalPlayers.Remove(p1)
 	}
 	newPlayerCount := 0
 	player.NewPlayers().RangePlayers(func(p1 *Player) bool {
 		if player.LocalPlayers.Size() >= 255 {
-			// We can only support so many players.  This might even be too much
-			return false
+			// we stop adding when the player count grows larger than a single byte can hold
+			// Maybe reduce further, if this proves laggy
+			return true
 		}
 		if newPlayerCount >= 25 {
-			// Shrink view area when too many new players in one tick
-			if player.VarInt("viewRadius", 16) > 1 {
+			// too much new players for one packet
+			// Shrink view area to alleviate congested resources
+			if player.VarInt("viewRadius", RegionSize/3) > 1 {
 				player.Dec("viewRadius", 1)
 			}
-			return false
-		} else if player.VarInt("viewRadius", 16) < 16 {
+			return true
+		} else if player.VarInt("viewRadius", RegionSize/3) < RegionSize/3 {
 			// Grow view area back out after it had been shrunk
 			player.Inc("viewRadius", 1)
 		}
-		newPlayerCount++
+		newPlayerCount += 1
 		player.LocalPlayers.Add(p1)
 		p.AddBitmask(p1.Index, 11)
-		// bitwise trick avoids branching to do a manual addition, and maintains binary compatibility with the original protocol
 		p.AddSignedBits(p1.X()-player.X(), 5)
 		p.AddSignedBits(p1.Y()-player.Y(), 5)
 		p.AddBitmask(p1.Direction(), 4)
-		if ticket, ok := player.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance)!=0 {
-			p.AddBitmask(1, 1)
+		if ticket, ok := player.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
 			player.AppearanceReq = append(player.AppearanceReq, p1)
+			p.AddBitmask(1, 1)
 		} else {
 			p.AddBitmask(0, 1)
 		}
 		return false
 	})
+	if newPlayerCount + changed <= 0 {
+		return nil
+	}
 //	if changed+newPlayerCount <= 0 {
 //		return nil
 //	}
@@ -386,23 +396,27 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 //PlayerAppearances Builds a packet with the view-area player appearance profiles in it.
 func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(234)
-	p.AddUint16(0)
+	p.AddUint16(0) // we update this value after we dequeue player updates
 	updateSize := 0
-	list, ok := ourPlayer.Var("bubbleQ")
-	if ok {
+	updateType := 0
+	if list, ok := ourPlayer.Var("bubbleQ"); ok {
 		for _, bubble := range list.([]ItemBubble) {
 			p.AddUint16(uint16(bubble.Owner.ServerIndex())) // Index
-			p.AddUint8(0) // Update Type
+			p.AddUint8(uint8(updateType)) // Update Type
 			p.AddUint16(uint16(bubble.Item)) // Item ID
 			updateSize++
 		}
 		ourPlayer.UnsetVar("bubbleQ")
 	}
-	list, ok = ourPlayer.Var("publicChatQ")
-	if ok {
+	updateType += 1
+	if list, ok := ourPlayer.Var("publicChatQ"); ok {
 		for _, msg := range list.([]ChatMessage) {
+			msg.string = strutil.ChatFilter.Format(msg.string)
+			if len(msg.string) > 84 {
+				msg.string = msg.string[:84]
+			}
 			p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
-			p.AddUint8(1) // Update Type
+			p.AddUint8(uint8(updateType)) // Update Type
 			// TODO: Is this better or is end of message indicator better
 			p.AddUint8(uint8(len(msg.string))) // Count of UTF-8 characters in message
 			p.AddBytes([]byte(msg.string)) // UTF-8 encoded message
@@ -410,11 +424,11 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 		}
 		ourPlayer.UnsetVar("publicChatQ")
 	}
-	list, ok = ourPlayer.Var("hitsplatQ")
-	if ok {
+	updateType += 1
+	if list, ok := ourPlayer.Var("hitsplatQ"); ok {
 		for _, splat := range list.([]HitSplat) {
 			p.AddUint16(uint16(splat.Owner.ServerIndex())) // Index
-			p.AddUint8(2) // Update Type
+			p.AddUint8(uint8(updateType)) // Update Type
 			p.AddUint8(uint8(splat.Damage)) // How much damage was done
 			p.AddUint8(uint8(splat.Owner.Skills().Current(entity.StatHits))) // Current hitpoints level, for healthbar percentage 
 			p.AddUint8(uint8(splat.Owner.Skills().Maximum(entity.StatHits))) // Maximum hitpoints level, for healthbar percentage
@@ -422,33 +436,34 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 		}
 		ourPlayer.UnsetVar("hitsplatQ")
 	}
-	list, ok = ourPlayer.Var("projectileQ")
-	if ok {
+	updateType += 1
+	if list, ok := ourPlayer.Var("projectileQ"); ok {
 		for _, shot := range list.([]Projectile) {
 			p.AddUint16(uint16(shot.Owner.ServerIndex())) // Index
-			updateType := 3
 			if shot.Target.IsPlayer() {
-				updateType = 4
+				p.AddUint8(uint8(updateType+1)) // Update Type
+			} else {
+				p.AddUint8(uint8(updateType)) // Update Type
 			}
-			p.AddUint8(uint8(updateType)) // Update Type
-
 			p.AddUint16(uint16(shot.Kind)) // Projectile Type
 			p.AddUint16(uint16(shot.Target.ServerIndex())) // Projectile target index
 			updateSize++
 		}
 		ourPlayer.UnsetVar("projectileQ")
 	}
-	list, ok = ourPlayer.Var("questChatQ")
-	if ok {
+	updateType += 2
+	// update type 5??
+	updateType += 1
+	if list, ok := ourPlayer.Var("questChatQ"); ok {
 		for _, msg := range list.([]ChatMessage) {
 			p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
-			p.AddUint8(6) // Update Type
+			p.AddUint8(uint8(updateType)) // Update Type
 			// Format chat messages to match the rules of Jagex chat format
 			// Examples: First letters capitalized for every sentence, color-codes are properly identified, etc.
 			msg.string = strutil.ChatFilter.Format(msg.string)
-			// Too long messages are truncated to 255 bytes
-			if len(msg.string) > 0xFF {
-				msg.string = msg.string[:0xFF]
+			// Too long messages are truncated to 84 bytes
+			if len(msg.string) > 84 {
+				msg.string = msg.string[:84]
 			}
 			// Deprecated below call; Go defaults string encoding to UTF-8 and I updated the clients to use UTF-8 as well
 			// messageRaw := strutil.ChatFilter.Encode(message)
@@ -458,7 +473,6 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 		}
 		ourPlayer.UnsetVar("questChatQ")
 	}
-
 
 	var appearanceList []*Player
 	if ourPlayer.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
@@ -472,7 +486,7 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	appearanceList = append(appearanceList, ourPlayer.AppearanceReq...)
 	ourPlayer.AppearanceReq = ourPlayer.AppearanceReq[:0]
 	ourPlayer.LocalPlayers.RangePlayers(func(p1 *Player) bool {
-		if ticket, ok := ourPlayer.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.AppearanceTicket() {//||
+		if ticket, ok := ourPlayer.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.AppearanceTicket() {
 			// p1.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
 			appearanceList = append(appearanceList, p1)
 		}

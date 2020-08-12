@@ -55,13 +55,13 @@ const (
 )
 
 const (
-	SyncInit = 0
-	SyncSprite = 1 << iota
+	SyncInit = 1 << iota
+	SyncSprite
 	SyncMoved
 	SyncRemoved
 	SyncAppearance
 
-	SyncNeedsPosition = SyncRemoved | SyncMoved | SyncSprite
+	SyncNeedsPosition = SyncRemoved | SyncMoved | SyncSprite | SyncInit
 )
 
 // mobSet a collection of entity.MobileEntitys
@@ -196,7 +196,7 @@ func (m *Mob) TargetPlayer() *Player {
 }
 
 func (p *Player) IsPlayer() bool {
-	return true
+	return p.Type() == entity.TypePlayer
 }
 
 func (p *Player) Type() entity.Type {
@@ -341,6 +341,37 @@ func (m *Mob) ResetSpriteUpdated() {
 	m.Lock()
 	defer m.Unlock()
 	m.SyncMask &= ^SyncSprite
+}
+
+//LocationJumped returns true if this mob's moved several tiles since the last tick
+// Note: The mob position data must be checked using a specific order, failure to
+// check these flags in order will result in the client exhibiting undefined behavior.
+// TODO: Work on a more refined series of checks to prevent the caller worrying about this.
+func (m *Mob) LocationJumped() bool {
+	return m.SyncFlag(SyncRemoved)
+}
+
+//LocationChanged returns true if this mob's moved one tile since the last tick.
+// Note: The mob position data must be checked using a specific order, failure to
+// check these flags in order will result in the client exhibiting undefined behavior.
+// TODO: Work on a more refined series of checks to prevent the caller worrying about this.
+func (m *Mob) LocationChanged() bool {
+	return m.SyncFlag(SyncMoved)
+}
+
+//StanceChanged returns true if this mob's direction/stance has changed, but their location hasn't changed.
+// Note: The mob position data must be checked using a specific order, failure to
+// check these flags in order will result in the client exhibiting undefined behavior.
+// TODO: Work on a more refined series of checks to prevent the caller worrying about this.
+func (m *Mob) StanceChanged() bool {
+	return m.SyncFlag(SyncSprite)
+}
+
+//SyncFlag returns true if this mob's SyncMask shares any of the activated bits with the provided mask.
+func (m *Mob) SyncFlag(mask int) bool {
+	m.RLock()
+	defer m.RUnlock()
+	return m.SyncMask&mask != 0
 }
 
 //SetPath Sets the mob's current pathway to path.  If path is nil, effectively resets the mobs path.
@@ -609,32 +640,44 @@ func (m *Mob) Skills() *entity.SkillTable {
 	return &m.skills
 }
 
-func (m *Mob) PrayerModifiers() [3]float64 {
-	var modifiers = [...]float64{1.0, 1.0, 1.0}
-
-	mods := []float64{1.05, 1.10, 1.15}
-
-	defenseMods := []int{0, 3, 9}
-	strengthMods := []int{1, 4, 10}
-	attackMods := []int{2, 5, 11}
-	for idx, prayer := range defenseMods {
-		if m.VarBool("prayer"+strconv.Itoa(prayer), false) {
-			modifiers[entity.StatDefense] = mods[idx]
+//PrayerModifier returns a percentage to scale the specified skill up by,
+// depending on the mobs active prayers
+func (m *Mob) PrayerModifier(skill int) int {
+	if skill >= 3 || skill < 0 {
+		log.Warn("Skill index provided for PrayerModifier call was out of bounds!  Only skills 0-2 inclusive are valid; got:", strconv.Itoa(skill))
+		return 0
+	}
+	prayers := [3] [3]int { [3]int { 0, 3, 9 }, [3]int { 1, 4, 10 }, [3]int { 2, 5, 11 }}
+	for idx, prayer := range prayers[skill] {
+		if m.VarBool("prayer" + strconv.Itoa(prayer), false) {
+			// Each tier of offensive prayers yields 5% improvement
+			return (idx+1)*5
 		}
 	}
 
-	for idx, prayer := range strengthMods {
-		if m.VarBool("prayer"+strconv.Itoa(prayer), false) {
-			modifiers[entity.StatStrength] = mods[idx]
-		}
-	}
-
-	for idx, prayer := range attackMods {
-		if m.VarBool("prayer"+strconv.Itoa(prayer), false) {
-			modifiers[entity.StatAttack] = mods[idx]
-		}
-	}
-	return modifiers
+	return 0
+	// var modifiers = [...]float64{1.0, 1.0, 1.0}
+	// defenseMods := [...]int{0, 3, 9}
+	// strengthMods := [...]int{1, 4, 10}
+	// attackMods := [...]int{2, 5, 11}
+	// for idx, prayer := range defenseMods {
+		// if m.VarBool("prayer"+strconv.Itoa(prayer), false) {
+			// modifiers[entity.StatDefense] = mods[idx]
+		// }
+	// }
+// 
+	// for idx, prayer := range strengthMods {
+		// if m.VarBool("prayer"+strconv.Itoa(prayer), false) {
+			// modifiers[entity.StatStrength] = mods[idx]
+		// }
+	// }
+// 
+	// for idx, prayer := range attackMods {
+		// if m.VarBool("prayer"+strconv.Itoa(prayer), false) {
+			// modifiers[entity.StatAttack] = mods[idx]
+		// }
+	// }
+	// return modifiers
 }
 
 func (m *Mob) StyleBonus(stat int) int {
@@ -650,17 +693,27 @@ func (m *Mob) StyleBonus(stat int) int {
 
 //MaxMeleeDamage Calculates and returns the current max hit for this mob, based on many variables.
 func (m *Mob) MaxMeleeDamage() float64 {
-	return ((float64(m.Skills().Current(entity.StatStrength))*m.PrayerModifiers()[entity.StatStrength])+float64(m.StyleBonus(entity.StatStrength)))*((float64(m.PowerPoints())*0.00175)+0.1) + 1.05
+	return (float64(m.Skills().Current(entity.StatStrength) * ((100.0+m.PrayerModifier(entity.StatStrength))/100.0) + m.StyleBonus(entity.StatStrength))) * (float64(m.PowerPoints()) * 0.00175 + 0.1) + 1.05
+//	return ((float64(m.Skills().Current(entity.StatStrength))*m.PrayerModifiers()[entity.StatStrength])+float64(m.StyleBonus(entity.StatStrength)))*((float64(m.PowerPoints())*0.00175)+0.1) + 1.05
 }
 
 //AttackPoints Calculates and returns the accuracy capability of this mob, based on many variables, as a single variable.
 func (m *Mob) AttackPoints() float64 {
-	return ((float64(m.Skills().Current(entity.StatAttack))*m.PrayerModifiers()[entity.StatAttack])+float64(m.StyleBonus(entity.StatAttack)))*((float64(m.AimPoints())*0.00175)+0.1) + 1.05
+	return (float64(m.Skills().Current(entity.StatAttack) * ((100.0+m.PrayerModifier(entity.StatAttack))/100.0) + m.StyleBonus(entity.StatAttack))) * (float64(m.AimPoints()) * 0.00175 + 0.1) + 1.05
+//	return ((float64(m.Skills().Current(entity.StatAttack))*m.PrayerModifiers()[entity.StatAttack])+float64(m.StyleBonus(entity.StatAttack)))*((float64(m.AimPoints())*0.00175)+0.1) + 1.05
+}
+
+//MagicPower Calculates and returns the offensive magic capability of this mob, based on its current magic level, magic equip points, and several covariants.
+// Designed for determining whether a spell hits or misses when casting an offensive missile spell on another mob.
+func (m *Mob) MagicPower() float64 {
+	// curMagic*(magicPoints*0.00175+0.1)+1.05
+	return float64(m.Skills().Current(entity.StatMagic)) * (float64(m.MagicPoints())*0.00175+0.1) + 1.05
 }
 
 //DefensePoints Calculates and returns the defensive capability of this mob, based on many variables, as a single variable.
 func (m *Mob) DefensePoints() float64 {
-	return ((float64(m.Skills().Current(entity.StatDefense))*m.PrayerModifiers()[entity.StatDefense])+float64(m.StyleBonus(entity.StatDefense)))*((float64(m.ArmourPoints())*0.00175)+0.1) + 1.05
+	// return ((float64(m.Skills().Current(entity.StatDefense))*m.PrayerModifiers()[entity.StatDefense])+float64(m.StyleBonus(entity.StatDefense)))*((float64(m.ArmourPoints())*0.00175)+0.1) + 1.05
+	return (float64(m.Skills().Current(entity.StatAttack) * ((100.0+m.PrayerModifier(entity.StatAttack))/100.0) + m.StyleBonus(entity.StatStrength))) * (float64(m.AimPoints()) * 0.00175 + 0.1) + 1.05
 }
 
 func (m *Mob) CombatRng() *rand.Rand {
@@ -686,7 +739,8 @@ func (m *Mob) Isaac() *rand.Rand {
 // random percentage check around a call to GenerateHit.
 func (m *Mob) MagicDamage(target entity.MobileEntity, maximum float64) int {
 	// TODO: Tweak the defense/armor hit/miss formula to better match RSC--or at least verify this is somewhat close?
-	if BoundedChance(float64(m.MagicPoints())/(target.DefensePoints()*4)*100, 0.0, 82.0) {
+	if m.CombatRng().Float64() <= math.Max(0.625, math.Min(0.0, float64(m.MagicPoints())/(target.DefensePoints()*4))) {
+	// if BoundedChance(float64(m.MagicPoints())/(target.DefensePoints()*4)*100, 0.0, 82.0) {
 		return m.GenerateHit(maximum)
 	}
 
@@ -711,7 +765,8 @@ func (m *Mob) GenerateHit(max float64) int {
 // Kenix mentioned running monte-carlo sims when coming up with it, so presumably this formula matched up
 // statistically fairly well to the real game.  I can not say for sure as I didn't do these things myself, though.
 func (m *Mob) MeleeDamage(target entity.MobileEntity) int {
-	if BoundedChance(m.AttackPoints()/(target.DefensePoints()*4)*100, 0.0, 82.0) {
+	if m.CombatRng().Float64() <= math.Max(0.82, math.Min(0.0, m.AttackPoints()/(target.DefensePoints()*4))) {
+	// if BoundedChance(m.AttackPoints()/(target.DefensePoints()*4)*100, 0.0, 82.0) {
 		return m.GenerateHit(m.MaxMeleeDamage())
 	}
 

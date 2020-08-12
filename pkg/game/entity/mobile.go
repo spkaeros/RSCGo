@@ -57,7 +57,7 @@ type MobileEntity interface {
 	Killed(MobileEntity)
 	Damage(int)
 	StyleBonus(int) int
-	PrayerModifiers() [3]float64
+	PrayerModifier(int) int
 	Skills() *SkillTable
 	TargetMob() MobileEntity
 	SessionCache() *AttributeList

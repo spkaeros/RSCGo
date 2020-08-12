@@ -29,7 +29,7 @@ import (
 func init() {
 	game.AddHandler("command", func(player *world.Player, p *net.Packet) {
 		raw := string(p.FrameBuffer[:len(p.FrameBuffer)-1])
-		args := strutil.ParseArgs(raw)
+		args := strutil.CmdArgs(raw)
 		// prevent `::` freezing player
 		if len(args) <= 0 {
 			return

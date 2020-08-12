@@ -11,57 +11,8 @@ package world
 
 import (
 	"container/heap"
-	"math"
+	//"math"
 )
-
-type tileNode struct {
-	parent              *tileNode
-	loc                 Location
-	hCost, gCost, nCost float64
-	index               int
-	open, closed        bool
-}
-
-func (n *tileNode) gCostFrom(neighbor *tileNode) float64 {
-	stepPrice := 1.0
-	if n.loc.DeltaX(neighbor.loc)+n.loc.DeltaY(neighbor.loc) > 1 {
-		stepPrice = math.Sqrt2
-	}
-	return n.gCost + stepPrice
-}
-
-type tileQueue []*tileNode
-
-func (q tileQueue) Len() int {
-	return len(q)
-}
-
-func (q tileQueue) Less(i, j int) bool {
-	return q[i].nCost < q[j].nCost
-}
-
-func (q tileQueue) Swap(i, j int) {
-	q[i], q[j] = q[j], q[i]
-	q[i].index = i
-	q[j].index = j
-}
-
-func (q *tileQueue) Push(x interface{}) {
-	n := len(*q)
-	node := x.(*tileNode)
-	node.index = n
-	*q = append(*q, node)
-}
-
-func (q *tileQueue) Pop() interface{} {
-	old := *q
-	n := len(old)
-	node := old[n-1]
-	old[n-1] = nil
-	node.index = -1
-	*q = old[0 : n-1]
-	return node
-}
 
 type Pathfinder struct {
 	tileQueue
@@ -69,12 +20,6 @@ type Pathfinder struct {
 	last        Location
 	start       Location
 	end         Location
-}
-
-// This produces a unique hash for each tile possible within the current game world; in this sense, it is a perfect hashing algorithm.
-// If the world ever expands a great deal, this may need to change to accomodate larger values.
-func (l Location) Hash() int {
-	return (l.X() << 14) | l.Y()
 }
 
 //NewPathfinder Returns a new A* pathfinder instance to derive an optimal path from start to end.
@@ -86,7 +31,7 @@ func NewPathfinder(start, end Location) *Pathfinder {
 }
 
 func (p *Pathfinder) node(l Location) *tileNode {
-	hash := (l.X() << 16) | l.Y()
+	hash := l.Hash()
 	if v, ok := p.activeTiles[hash]; !ok || v == nil {
 		p.activeTiles[hash] = &tileNode{loc: l}
 	}
@@ -117,7 +62,7 @@ func (p *Pathfinder) MakePath() *Pathway {
 		position := active.loc
 		// if p.last.LongestDelta(position) == 0 /*|| p.tileQueue.Len() > 512*/ {
 			// DoS prevention measures; astar will run forever if you let it
-			//			return makePath(active)
+			// return makePath(active)
 			// return nil
 		// }
 		if position.Equals(p.end) {
@@ -129,14 +74,13 @@ func (p *Pathfinder) MakePath() *Pathway {
 		// OrderedDirections is ordered as orthogonal then diagonals.
 		// Direction precedent: E,W,N,S,SW,SE,NW,NE
 		for _, direction := range OrderedDirections {
-			//			node := &tileNode{loc: active.loc.Step(direction), open: false, closed: false}
+			// node := &tileNode{loc: active.loc.Step(direction), open: false, closed: false}
 			neighbor := p.node(active.loc.Step(direction))
 			if IsTileBlocking(neighbor.loc.X(), neighbor.loc.Y(), active.loc.Mask(neighbor.loc), false) {
 //			if !active.loc.Reachable(neighbor.loc) {
 				continue
 			}
-			gCost := active.gCostFrom(neighbor)
-			if !neighbor.open || gCost < neighbor.gCost {
+			if gCost := active.gCostFrom(neighbor); !neighbor.open || gCost < neighbor.gCost {
 				if neighbor.hCost == 0 {
 					neighbor.hCost = neighbor.loc.EuclideanDistance(p.end)
 				}
