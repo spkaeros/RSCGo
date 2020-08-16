@@ -7,7 +7,7 @@
  *
  */
 
-package ipThrottle
+package throttle
 
 import (
 	"time"
@@ -18,21 +18,21 @@ import (
 type ipThrottle map[int][]time.Time
 
 func (l ipThrottle) Add(ip string) {
-	l[strutil.IPToInteger(ip)] = append(l[strutil.IPToInteger(ip)], time.Now())
+	l[strutil.AddrToInt(ip)] = append(l[strutil.AddrToInt(ip)], time.Now())
 }
 
-//Recent returns the number of entries that match the provided IP which were added within the past specified timeFrame
-func (l ipThrottle) Recent(ip string, timeFrame time.Duration) int {
+//CountSince returns the number of entries that match the provided IP which were added within the past specified timeFrame
+func (l ipThrottle) CountSince(ip string, timeFrame time.Duration) int {
 	valid := 0
-	var removing []string
-	addrIntegral := strutil.IPToInteger(ip)
+	var removing []int
+	addrIntegral := strutil.AddrToInt(ip)
 	if attempts, ok := l[addrIntegral]; ok {
 		for _, v := range attempts {
 			if time.Since(v) < timeFrame {
 				valid++
 				continue
 			}
-			removing = append(removing, ip)
+			removing = append(removing, addrIntegral)
 		}
 		for i := range removing {
 			if i == len(attempts) {
@@ -45,11 +45,12 @@ func (l ipThrottle) Recent(ip string, timeFrame time.Duration) int {
 	return valid
 }
 
-type NetworkThrottle interface {
-	Recent(string, time.Duration) int
+//Throttle An API that any structs acting as a throttle must provide.
+type Throttle interface {
+	CountSince(string, time.Duration) int
 	Add(string)
 }
 
-func NewThrottle() NetworkThrottle {
+func NewThrottle() Throttle {
 	return make(ipThrottle)
 }

@@ -29,9 +29,20 @@ type CollisionMask int16
 type Sector struct {
 	Tiles []CollisionMask
 }
+type SectorMap map[int]*Sector
 
 //Sectors A map to store landscape sectors by their hashed file name.
-var Sectors = make(map[int]*Sector)
+var Sectors = struct {
+	SectorMap
+	sync.RWMutex
+} {
+	make(SectorMap),
+	sync.RWMutex{},
+}
+
+func (s SectorMap) Size() int {
+	return len(s)
+}
 var SectorsLock sync.RWMutex
 
 //LoadCollisionData Loads the JAG archive './data/landscape.jag', decodes it, and stores the map sectors it holds in
@@ -40,15 +51,13 @@ func LoadCollisionData() {
 	archive := jag.New(config.DataDir() + string(os.PathSeparator) + "landscape.jag")
 
 	fileOffset := 0
-	metaDataOffset := 0
 	// Sectors begin at: offsetX=48, offsetY=96
 	for i := 0; i < archive.FileCount; i++ {
-		id := int(binary.BigEndian.Uint32(archive.MetaData[metaDataOffset:]))
-		compSz :=  int(uint32(archive.MetaData[metaDataOffset+7]&0xFF)<<16 | uint32(archive.MetaData[metaDataOffset+8]&0xFF)<<8 | uint32(archive.MetaData[metaDataOffset+9]&0xFF))
+		id := int(binary.BigEndian.Uint32(archive.MetaData[i*10:]))
+		compSz :=  int(uint32(archive.MetaData[i*10+7]&0xFF)<<16 | uint32(archive.MetaData[i*10+8]&0xFF)<<8 | uint32(archive.MetaData[i*10+9]&0xFF))
 		SectorsLock.Lock()
-		Sectors[id] = loadSector(archive.FileData[fileOffset:fileOffset+compSz])
+		Sectors.SectorMap[id] = loadSector(archive.FileData[fileOffset:fileOffset+compSz])
 		SectorsLock.Unlock()
-		metaDataOffset += 10
 		fileOffset += compSz
 	}
 }
@@ -62,6 +71,7 @@ const (
 	ClipSouth
 	//ClipWest Bitmask to represent a wall to the east.
 	ClipWest
+	//ClipCanProjectile TODO: Make this useful
 	ClipCanProjectile
 	//ClipDiag1 Bitmask to represent a diagonal wall.
 	ClipSwNe
@@ -72,7 +82,7 @@ const (
 	// TODO: handle projectiles properly, after I define what properly means in this context
 )
 
-func ClipBit(direction int) int {
+func ClipBit(direction Direction) int {
 	var mask int
 	if direction == North || direction == NorthEast || direction == NorthWest {
 		mask |= ClipNorth
@@ -144,7 +154,7 @@ func sectorName(x, y int) string {
 func sectorFromCoords(x, y int) *Sector {
 	SectorsLock.RLock()
 	defer SectorsLock.RUnlock()
-	if s, ok := Sectors[strutil.JagHash(sectorName(x, y))]; ok && s != nil {
+	if s, ok := Sectors.SectorMap[strutil.JagHash(sectorName(x, y))]; ok && s != nil {
 		return s
 	}
 	// Default to returning a blank sector filled with zero-value tiles.
@@ -152,8 +162,8 @@ func sectorFromCoords(x, y int) *Sector {
 }
 
 func (s *Sector) tile(x, y int) CollisionMask {
-	areaX := (2304 + x) % RegionSize
-	areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
+	areaX := (RegionSize*48 + x) % RegionSize
+	areaY := (RegionSize*37 + y - (944 * ((y + 100) / 944))) % RegionSize
 	if len(s.Tiles) <= 0 {
 		return 0
 	}
@@ -177,6 +187,13 @@ func loadSector(data []byte) (s *Sector) {
 	blankCount := 0
 	for x := 0; x < RegionSize; x++ {
 		for y := 0; y < RegionSize; y++ {
+			// Sector file format as follows:
+			//  tileTexture uint8
+			//  tileColor uint8
+			//  roofTexture uint8
+			//  horizontalWall uint8
+			//  verticalWall uint8
+			//   uint32
 			groundTexture := data[offset+1] & 0xFF
 			groundOverlay := data[offset+2] & 0xFF
 			//roofTexture := data[offset+3] & 0xFF
@@ -213,7 +230,8 @@ func loadSector(data []byte) (s *Sector) {
 					}
 				}
 			}
-			// TODO: Affect adjacent tiles in an intelligent way to determine which are solid and which are not
+			// scenary locs start at 48000??  All of these bits do nearly the same thing, the whole tile blocks
+			// but the distinction is that some have directional implications.
 			if diagonalWalls < 24000 && diagonalWalls > 0 {
 				if diagonalWalls > 12000 {
 					diagonalWalls -= 12000

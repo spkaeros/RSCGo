@@ -33,13 +33,13 @@ func NewPathfinder(start, end Location) *Pathfinder {
 func (p *Pathfinder) node(l Location) *tileNode {
 	hash := l.Hash()
 	if v, ok := p.activeTiles[hash]; !ok || v == nil {
-		p.activeTiles[hash] = &tileNode{loc: l}
+		p.activeTiles[hash] = &tileNode{loc: l, open: true}
 	}
 	return p.activeTiles[hash]
 }
 
 func (p *Pathfinder) MakePath() *Pathway {
-	if IsTileBlocking(p.end.X(), p.end.Y(), 0, false) {
+	if IsTileBlocking(p.end.X(), p.end.Y(), ClipFullBlock, false) {
 		return NewPathwayToLocation(p.end)
 	}
 	defer func() {

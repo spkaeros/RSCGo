@@ -77,14 +77,14 @@ func (p *Pathway) waypointY(w int) int {
 //nextTile Returns the next destination within our path.  If our current waypoint is out of bounds, it will return
 // the same value as startingTile.
 func (p *Pathway) nextTile() Location {
-	return NewLocation(p.waypointX(p.CurrentWaypoint), p.waypointY(p.CurrentWaypoint))
+	return *NewLocation(p.waypointX(p.CurrentWaypoint), p.waypointY(p.CurrentWaypoint))
 }
 
 //startingTile Returns the location of the start of the path,  This location is actually not our starting location,
 // but the first tile that we begin traversing our waypoint deltas from.  Required to walk to this location to start
 // traversing waypoints,
 func (p *Pathway) startingTile() Location {
-	return NewLocation(p.StartX, p.StartY)
+	return *NewLocation(p.StartX, p.StartY)
 }
 
 //addFirstWaypoint Prepends a waypoint to this path.
@@ -101,7 +101,7 @@ func (p *Pathway) nextTileFrom(currentLocation Location) Location {
 	dest := p.nextTile()
 	destX, destY := dest.X(), dest.Y()
 	currentX, currentY := currentLocation.X(), currentLocation.Y()
-	destination := NewLocation(currentX, currentY)
+	destination := *NewLocation(currentX, currentY)
 	switch {
 	case currentX > destX:
 		destination.x.Dec()

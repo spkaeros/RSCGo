@@ -3,10 +3,10 @@ package world
 import (
 	"fmt"
 	"math"
-
-	"github.com/spkaeros/rscgo/pkg/rand"
-	"github.com/spkaeros/rscgo/pkg/game/entity"
+	
 	"go.uber.org/atomic"
+	
+	"github.com/spkaeros/rscgo/pkg/rand"
 )
 
 type Direction = int
@@ -115,7 +115,7 @@ type Location struct {
 }
 
 //Clone returns a new Location that points to the same coordinates as the receiver.
-func (l Location) Clone() Location {
+func (l *Location) Clone() *Location {
 	return NewLocation(l.X(), l.Y())
 }
 
@@ -177,7 +177,7 @@ var (
 	//DeathSpot The spot where NPCs go to be dead.
 	DeathPoint = NewLocation(0, 0)
 	//SpawnPoint The default spawn point, where new players start and dead players respawn.
-	SpawnPoint = Lumbridge
+	SpawnPoint = Lumbridge.Clone()
 	//Lumbridge Lumbridge teleport point
 	Lumbridge = NewLocation(122, 647)
 	//Varrock Varrock teleport point
@@ -187,16 +187,20 @@ var (
 )
 
 //NewLocation Returns a reference to a new instance of the Location data structure.
-func NewLocation(x, y int) Location {
-	return Location{x: atomic.NewUint32(uint32(x)), y: atomic.NewUint32(uint32(y))}
+func NewLocation(x, y int) *Location {
+	return &Location{x: atomic.NewUint32(uint32(x)), y: atomic.NewUint32(uint32(y))}
 }
 
-func (l Location) Point() entity.Location {
-	return l.Clone()
+func (l Location) Point() Location {
+	return *l.Clone()
 }
 
-func (l Location) DirectionTo(destX, destY int) int {
-	sprites := [3][3]int{{SouthWest, West, NorthWest}, {South, -1, North}, {SouthEast, East, NorthEast}}
+func (l Location) DirectionTo(destX, destY int) Direction {
+	sprites := [3][3]Direction{
+		{SouthWest, West, NorthWest},
+		{South, -1, North},
+		{SouthEast, East, NorthEast},
+	}
 	xIndex, yIndex := l.X()-destX+1, l.Y()-destY+1
 	if xIndex >= 3 || yIndex >= 3 || yIndex < 0 || xIndex < 0 {
 		xIndex, yIndex = 1, 2 // North
@@ -207,7 +211,7 @@ func (l Location) DirectionTo(destX, destY int) int {
 //NewRandomLocation Returns a new random location within the specified bounds.  bounds[0] should be lowest corner, and
 // bounds[1] should be the highest corner.
 func NewRandomLocation(bounds [2]Location) Location {
-	return NewLocation(rand.Rng.Intn(bounds[1].X()-bounds[0].X())+bounds[0].X(), rand.Rng.Intn(bounds[1].Y()-bounds[0].Y())+bounds[0].Y())
+	return *NewLocation(rand.Rng.Intn(bounds[1].X()-bounds[0].X())+bounds[0].X(), rand.Rng.Intn(bounds[1].Y()-bounds[0].Y())+bounds[0].Y())
 }
 
 //String Returns a string representation of the location
@@ -216,12 +220,12 @@ func (l *Location) String() string {
 }
 
 func (l Location) Within(minX, maxX, minY, maxY int) bool {
-	return l.WithinArea([2]Location { NewLocation(minX, minY), NewLocation(maxX, maxY) })
+	return l.WithinArea([2]Location { *NewLocation(minX, minY), *NewLocation(maxX, maxY) })
 }
 
 //IsValid Returns true if the tile at x,y is within world boundaries, false otherwise.
 func (l Location) IsValid() bool {
-	return l.WithinArea([2]Location { NewLocation(0, 0), NewLocation(MaxX, MaxY)})
+	return l.WithinArea([2]Location { *NewLocation(0, 0), *NewLocation(MaxX, MaxY)})
 }
 
 func (l *Location) NextStep(d Location) Location {
@@ -254,7 +258,7 @@ func (l *Location) NextStep(d Location) Location {
 	return next
 }
 
-func (l *Location) Step(dir int) Location {
+func (l *Location) Step(dir Direction) Location {
 	loc := l.Clone()
 	if dir == 0 || dir == 1 || dir == 7 {
 		loc.y.Dec()
@@ -266,36 +270,13 @@ func (l *Location) Step(dir int) Location {
 	} else if dir == 5 || dir == 6 || dir == 7 {
 		loc.x.Dec()
 	}
-	return loc
+	return *loc
 }
 
 //Equals Returns true if this location points to the same location as o
 func (l *Location) Equals(o interface{}) bool {
-	switch o.(type) {
-	case Location:
-		return l.LongestDelta(o.(Location)) == 0
-	case *Location:
-		return l.LongestDelta(*o.(*Location)) == 0
-	case *Player:
-		return l.LongestDelta(o.(*Player).Mob.Entity.Location) == 0
-	case Player:
-		return l.LongestDelta(o.(Player).Mob.Entity.Location) == 0
-	case *NPC:
-		return l.LongestDelta(o.(*NPC).Mob.Entity.Location) == 0
-	case NPC:
-		return l.LongestDelta(o.(NPC).Mob.Entity.Location) == 0
-	case *Object:
-		return l.LongestDelta(o.(*Object).Entity.Location) == 0
-	case Object:
-		return l.LongestDelta(o.(Object).Entity.Location) == 0
-	case *GroundItem:
-		return l.LongestDelta(o.(*GroundItem).Entity.Location) == 0
-	case GroundItem:
-		return l.LongestDelta(o.(GroundItem).Entity.Location) == 0
-	case *Mob:
-		return l.LongestDelta(o.(*Mob).Entity.Location) == 0
-	case Mob:
-		return l.LongestDelta(o.(Mob).Entity.Location) == 0
+	if e, ok := o.(Entity); ok && e != nil {
+		return e.Location() == l
 	}
 	return false
 }
@@ -337,7 +318,7 @@ func (l *Location) LongestDelta(other Location) int {
 
 //LongestDeltaCoords returns the number of tiles the coordinates provided
 func (l *Location) LongestDeltaCoords(x, y int) int {
-	return l.LongestDelta(NewLocation(x, y))
+	return l.LongestDelta(*NewLocation(x, y))
 }
 
 func (l Location) EuclideanDistance(other Location) float64 {
@@ -345,31 +326,36 @@ func (l Location) EuclideanDistance(other Location) float64 {
 }
 
 //WithinRange Returns true if the other location is within radius tiles of the receiver location, otherwise false.
-func (l *Location) WithinRange(other entity.Location, radius int) bool {
+func (l *Location) WithinRange(other Location, radius int) bool {
 	return l.Near(other, radius)
 }
 
+//WithinRange Returns true if the other location is within radius tiles of the receiver location, otherwise false.
+func (l *Location) WithinRadius(other Entity, radius int) bool {
+	return l.Near(*other.Location(), radius)
+}
+
 //EntityWithin Returns true if the other location is within radius tiles of the receiver location, otherwise false.
-func (l *Location) Near(other entity.Location, radius int) bool {
+func (l *Location) Near(other Location, radius int) bool {
 	return l.LongestDeltaCoords(other.X(), other.Y()) <= radius
 }
 
 //Plane Calculates and returns the plane that this location is on.
 func (l *Location) Plane() int {
-	return int(l.y.Load()+100) / 944 // / 1000
+	return int(l.y.Load()) / 944 // / 1000
 }
 
 //Above Returns the location directly above this one, if any.  Otherwise, if we are on the top floor, returns itself.
 func (l *Location) Above() Location {
-	return NewLocation(l.X(), l.PlaneY(true))
+	return *NewLocation(l.X(), l.PlaneY(true))
 }
 
 //Below Returns the location directly below this one, if any.  Otherwise, if we are on the bottom floor, returns itself.
 func (l *Location) Below() Location {
-	return NewLocation(l.X(), l.PlaneY(false))
+	return *NewLocation(l.X(), l.PlaneY(false))
 }
 
-func (l *Location) DirectionToward(end Location) int {
+func (l *Location) DirectionToward(end Location) Direction {
 	tile := l.NextTileToward(end)
 	return l.DirectionTo(tile.X(), tile.Y())
 }
@@ -414,7 +400,7 @@ func (l Location) NextTileToward(dst Location) Location {
 	} else if delta > 0 {
 		nextStep.y.Dec()
 	}
-	return nextStep
+	return *nextStep
 }
 
 func (l *Location) CanReach(bounds [2]Location) bool {
@@ -453,7 +439,7 @@ func (l Location) WithinArea(area [2]Location) bool {
 }
 
 //ParseDirection Tries to parse the direction indicated in s.  If it can not match any direction, returns the zero-value for direction: north.
-func ParseDirection(s string) int {
+func ParseDirection(s string) Direction {
 	switch s {
 	case "northeast":
 		return NorthEast

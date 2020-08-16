@@ -7,15 +7,14 @@ import (
 	"strconv"
 	"sync"
 	"time"
-
+	
 	"go.uber.org/atomic"
-
+	
 	"github.com/spkaeros/rscgo/pkg/definitions"
-	"github.com/spkaeros/rscgo/pkg/tasks"
 	"github.com/spkaeros/rscgo/pkg/errors"
-	"github.com/spkaeros/rscgo/pkg/strutil"
-	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/log"
+	"github.com/spkaeros/rscgo/pkg/strutil"
+	"github.com/spkaeros/rscgo/pkg/tasks"
 )
 
 //DefaultDrop returns the default item ID all mobs should drop on death
@@ -84,7 +83,7 @@ func (i *Item) ScalePrice(percent int) int {
 // Upper bound for percent intended to basically not exist; in practice it's limited by the data type of the argument.
 // Lower bound for percent is 10, anything lower will be treated as if it were 10%.
 func (p Price) Scale(percent int) Price {
-	return Price(int(math.Max(10, float64(percent)))*int(p)) / 100
+	return Price(int(math.Max(10, float64(percent))) * int(p) / 100)
 }
 
 //Command Returns the item command, or nil if none
@@ -119,8 +118,41 @@ func (i *Item) Stackable() bool {
 type GroundItem struct {
 	ID, Amount int
 	Owner string
-	*entity.AttributeList
-	Entity
+	*AttributeList
+	Index int
+	position *Location
+}
+
+func (i *GroundItem) Location() *Location {
+	return i.position
+}
+
+func (i *GroundItem) X() int {
+	return i.Location().X()
+}
+
+func (i *GroundItem) Y() int {
+	return i.Location().Y()
+}
+
+func (i *GroundItem) ServerIndex() int {
+	return i.Index
+}
+
+func (i *GroundItem) IsPlayer() bool {
+	return false
+}
+
+func (i *GroundItem) IsNpc() bool {
+	return false
+}
+
+func (i *GroundItem) IsObject() bool {
+	return false
+}
+
+func (i *GroundItem) IsGroundItem() bool {
+	return true
 }
 
 //ItemIndexer Ensures unique indexes for ground items.
@@ -151,11 +183,9 @@ func (i *GroundItem) SpawnedTime() time.Time {
 //NewPersistentGroundItem Returns a new ground item that respawns at a set rate after pickup.
 func NewPersistentGroundItem(id, amount, x, y, respawn int) *GroundItem {
 	item := &GroundItem{ID: id, Amount: amount,
-		AttributeList: entity.NewAttributeList(),
-		Entity: Entity{
-			Location: NewLocation(x, y),
-			Index:    int(ItemIndexer.Swap(ItemIndexer.Load() + 1)),
-		},
+		AttributeList: NewAttributeList(),
+		position:      NewLocation(x, y),
+		Index:         int(ItemIndexer.Swap(ItemIndexer.Load() + 1)),
 	}
 	item.SetVar("visibility", 2)
 	item.SetVar("respawnTime", respawn)
@@ -166,11 +196,9 @@ func NewPersistentGroundItem(id, amount, x, y, respawn int) *GroundItem {
 //NewGroundItem Creates a new ground item in the game world and returns a reference to it.
 func NewGroundItem(id, amount, x, y int) *GroundItem {
 	item := &GroundItem{ID: id, Amount: amount,
-		AttributeList: entity.NewAttributeList(),
-		Entity: Entity{
-			Location: NewLocation(x, y),
-			Index:    int(ItemIndexer.Swap(ItemIndexer.Load() + 1)),
-		},
+		AttributeList: NewAttributeList(),
+		position:      NewLocation(x, y),
+		Index:         int(ItemIndexer.Swap(ItemIndexer.Load() + 1)),
 	}
 	item.SetVar("visibility", 1)
 	tasks.TickList.Add(func() bool {
@@ -310,7 +338,7 @@ type Inventory struct {
 	Owner           *Player
 	Capacity        int
 	stackEverything bool
-	Lock            sync.RWMutex
+	sync.RWMutex
 }
 
 type itemSorter []*Item
@@ -327,7 +355,7 @@ func (s itemSorter) Less(i, j int) bool {
 	if !s[j].Stackable() && !s[i].Stackable() {
 		return s[i].Price() > s[j].Price()
 	}
-	return !s[i].Stackable() && s[j].Stackable()
+	return !s[i].Stackable()
 }
 
 //Clone returns a copy of this inventory in a new inventory.
@@ -348,11 +376,11 @@ func (i *Inventory) DeathDrops(keep int) []*GroundItem {
 	// clone so we don't modify the players inventory during the sorting process
 	var pile []*GroundItem
 	if keep <= 0 {
-		i.Lock.RLock()
+		i.RLock()
 		for _, item := range i.List {
 			pile = append(pile, NewGroundItem(item.ID, item.Amount, i.Owner.X(), i.Owner.Y()))
 		}
-		i.Lock.RUnlock()
+		i.RUnlock()
 	} else {
 		deathItems := i.Clone()
 		sort.Sort(itemSorter(deathItems.List))
@@ -373,8 +401,8 @@ func (i *Inventory) DeathDrops(keep int) []*GroundItem {
 
 //Range Calls fn for each item in the inventory list.
 func (i *Inventory) Range(fn func(*Item) bool) int {
-	i.Lock.RLock()
-	defer i.Lock.RUnlock()
+	i.RLock()
+	defer i.RUnlock()
 	for idx, item := range i.List {
 		if !fn(item) {
 			return idx
@@ -385,8 +413,8 @@ func (i *Inventory) Range(fn func(*Item) bool) int {
 
 //RangeRev Calls fn for each item in the inventory list, in reverse.
 func (i *Inventory) RangeRev(fn func(*Item) bool) int {
-	i.Lock.RLock()
-	defer i.Lock.RUnlock()
+	i.RLock()
+	defer i.RUnlock()
 	for idx := len(i.List) - 1; idx >= 0; idx-- {
 		if !fn(i.List[idx]) {
 			return idx
@@ -397,8 +425,8 @@ func (i *Inventory) RangeRev(fn func(*Item) bool) int {
 
 //Equipped Returns true if the item with the given ID exists and is wielded in this inventory
 func (i *Inventory) Equipped(id int) bool {
-	i.Lock.RLock()
-	defer i.Lock.RUnlock()
+	i.RLock()
+	defer i.RUnlock()
 	for _, item := range i.List {
 		if item.ID == id && item.Worn {
 			return true
@@ -409,8 +437,8 @@ func (i *Inventory) Equipped(id int) bool {
 
 //Size Returns the number of items currently in this inventory.
 func (i *Inventory) Size() int {
-	i.Lock.RLock()
-	defer i.Lock.RUnlock()
+	i.RLock()
+	defer i.RUnlock()
 	return len(i.List)
 }
 
@@ -418,18 +446,18 @@ func (i *Inventory) Size() int {
 func (i *Inventory) CanHold(id, amount int) bool {
 	var slotsReq int
 	if definitions.Items[id].Stackable || i.stackEverything {
-		if i.GetByID(id) == nil {
-			slotsReq += 1 + (amount / math.MaxInt32)
-		} else {
-			for i.GetByID(id).Amount+amount > math.MaxInt32 {
-				slotsReq++
-				amount -= math.MaxInt32
-			}
+		curAmt := 0
+		if item := i.GetByID(id); item != nil {
+			curAmt += item.Amount
+		}
+		for i1 := curAmt + amount; i1 > math.MaxInt32; i1 -= math.MaxInt32 {
+			slotsReq += 1
 		}
 	} else {
-		slotsReq++
+		slotsReq += 1
 	}
-	return i.Size()+slotsReq-1 < i.Capacity
+	//return i.Size()+slotsReq-1 < i.Capacity
+	return i.Capacity - i.Size() - 1 >= slotsReq
 }
 
 //Add Puts an item into the inventory with the specified id and quantity, and returns its index.
@@ -446,8 +474,22 @@ func (i *Inventory) Add(id int, qty int) int {
 		if item.Amount < 0 {
 			log.Suspicious.Println(errors.NewArgsError("*Inventory.Add(id,amt) Resulting item amount less than zero: " + strconv.FormatUint(uint64(item.Amount+qty), 10)))
 		}
-		if item.Amount+qty > math.MaxInt32 {
-			item.Amount = math.MaxInt32
+		if item.Amount + qty > math.MaxInt32 {
+			for item.Amount + qty > math.MaxInt32 {
+				item.Amount = math.MaxInt32
+				newAmount := qty - math.MaxInt32
+				item = &Item{ID: id, Amount: newAmount}
+				//newItem := &Item{ID: id, Amount: newAmount}
+				qty /= math.MaxInt32
+				if i.Capacity - i.Size() > 0 {
+					i.Lock()
+					i.List = append(i.List, item)
+					i.Unlock()
+				} else {
+					AddItem(NewGroundItemFor(i.Owner.UsernameHash(), id, newAmount, i.Owner.X(), i.Owner.Y()))
+					i.Owner.Message("Your inventory is full, the " + definitions.Item(id).Name + " drops to the ground!")
+				}
+			}
 			return i.GetIndex(id)
 		}
 		item.Amount += qty
@@ -459,9 +501,9 @@ func (i *Inventory) Add(id int, qty int) int {
 	}
 
 	newItem := &Item{ID: id, Amount: qty}
-	i.Lock.Lock()
+	i.Lock()
 	i.List = append(i.List, newItem)
-	i.Lock.Unlock()
+	i.Unlock()
 	return i.Size() - 1
 }
 
@@ -475,8 +517,8 @@ func (i *Inventory) Remove(index int) bool {
 	if i.Owner != nil && i.Owner.Connected() {
 		i.Owner.DequipItem(item)
 	}
-	i.Lock.Lock()
-	defer i.Lock.Unlock()
+	i.Lock()
+	defer i.Unlock()
 	size := len(i.List)
 	if index >= size {
 		log.Cheatf("Attempted removing item out of inventory bounds.  index:%d,size:%d,capacity:%d\n", index, size, i.Capacity)
@@ -518,8 +560,8 @@ func (i *Inventory) Get(index int) *Item {
 	if index >= i.Size() || index < 0 {
 		return nil
 	}
-	i.Lock.RLock()
-	defer i.Lock.RUnlock()
+	i.RLock()
+	defer i.RUnlock()
 	return i.List[index]
 }
 
@@ -567,8 +609,8 @@ func (i *Inventory) RemoveAll(offer *Inventory) int {
 
 //Clear Clears all items out of the inventory.
 func (i *Inventory) Clear() {
-	i.Lock.Lock()
-	defer i.Lock.Unlock()
+	i.Lock()
+	defer i.Unlock()
 	i.List = i.List[:0]
 }
 

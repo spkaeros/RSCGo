@@ -1,4 +1,4 @@
-			/*
+/*
  * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
@@ -97,17 +97,17 @@ func init() {
 				return true
 			}
 			if target == nil || !target.Connected() ||
-				!player.WithinRange(target.Location, 16) {
+				!player.WithinRadius(target, 16) {
 				// We think we have a target, but they're miles away now or no longer exist
 				player.UnsetVar("following")
 				return true
 			}
-			if !player.FinishedPath() && player.WithinRange(target.Location, rad) {
+			if !player.FinishedPath() && player.WithinRadius(target, rad) {
 				// We're not done moving toward our target, but we're close enough that we should stop
 				player.ResetPath()
-			} else if !player.WithinRange(target.Location, rad) {
+			} else if !player.WithinRadius(target, rad) {
 				// We're not moving, but our target is moving away, so we must try to get closer
-				if !player.WalkTo(target.Location) {
+				if !player.WalkTo(*target.Location()) {
 					return true
 				}
 			}

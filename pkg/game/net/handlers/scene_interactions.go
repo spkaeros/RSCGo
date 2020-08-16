@@ -10,8 +10,8 @@
 package handlers
 
 import (
-	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/definitions"
+	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -188,9 +188,9 @@ func init() {
 			for _, triggerDef := range world.NpcTriggers {
 				if triggerDef.Check(npc) {
 					npc.ResetPath()
-					if player.Location.Equals(npc.Location) {
+					if player.Location().Equals(npc.Location) {
 						for _, direction := range world.OrderedDirections {
-							neighbor := npc.Step(direction)
+							neighbor := npc.Location().Step(direction)
 							if npc.Reachable(neighbor) {
 								npc.SetLocation(neighbor, true)
 								break
@@ -198,9 +198,9 @@ func init() {
 						}
 					}
 
-					if !player.Location.Equals(npc.Location) {
-						player.SetDirection(player.DirectionTo(npc.X(), npc.Y()))
-						npc.SetDirection(npc.DirectionTo(player.X(), player.Y()))
+					if !player.Location().Equals(npc.Location) {
+						player.SetDirection(player.Location().DirectionTo(npc.X(), npc.Y()))
+						npc.SetDirection(npc.Location().DirectionTo(player.X(), player.Y()))
 					}
 					go func() {
 						player.SetVar("targetMob", npc)
@@ -260,7 +260,7 @@ func init() {
 				}()
 				return true
 			}
-			player.WalkTo(object.Location)
+			player.WalkTo(*object.Location())
 			return false
 		})
 	})
@@ -290,7 +290,7 @@ func init() {
 			if player.Busy() || !player.Connected() || target == nil || target.Busy() || !target.Connected() {
 				return true
 			}
-			if player.WithinRange(target.Location, 1) && player.NextTo(target.Location) {
+			if player.WithinRadius(target, 1) && player.NextTo(*target.Location()) {
 				player.ResetPath()
 				player.AddState(world.MSBatching)
 				target.AddState(world.MSBatching)
@@ -309,7 +309,7 @@ func init() {
 				}()
 				return true
 			}
-			player.WalkTo(target.Location)
+			player.WalkTo(*target.Location())
 			return false
 		})
 	})
@@ -332,7 +332,7 @@ func init() {
 		}
 		invItem := player.Inventory.Get(invIndex)
 		bounds := object.Boundaries()
-		player.WalkTo(object.Location)
+		player.WalkTo(*object.Location())
 		player.SetTickAction(func() bool {
 			if player.Busy() || world.GetObject(object.X(), object.Y()) != object {
 				// If somehow we became busy, the object changed before arriving, we do nothing.
@@ -355,7 +355,7 @@ func init() {
 					}()
 					return true
 				}
-				player.WalkTo(object.Location)
+				player.WalkTo(*object.Location())
 				return false
 			}
 			if player.AtObject(object) {
@@ -374,7 +374,7 @@ func init() {
 				}()
 				return true
 			}
-			player.WalkTo(object.Location)
+			player.WalkTo(*object.Location())
 			return false
 		})
 	})

@@ -6,12 +6,82 @@ import (
 	"strconv"
 	"sync"
 	"time"
-
-	"github.com/spkaeros/rscgo/pkg/game/entity"
+	
 	"github.com/spkaeros/rscgo/pkg/isaac"
 	"github.com/spkaeros/rscgo/pkg/log"
 	rscRand "github.com/spkaeros/rscgo/pkg/rand"
 )
+
+
+type MobileEntity interface {
+	Wilderness() int
+	MeleeDamage(target MobileEntity) int
+	DefensePoints() float64
+	AttackPoints() float64
+	MaxMeleeDamage() float64
+	IsFighting() bool
+	FightTarget() MobileEntity
+	SetFightTarget(MobileEntity)
+	FightRound() int
+	SetFightRound(int)
+	ResetFighting()
+	HasState(...int) bool
+	AddState(int)
+	RemoveState(int)
+	State() int
+	Busy() bool
+	SetX(int)
+	SetY(int)
+	SetCoords(int, int, bool)
+	Teleport(int, int)
+	Direction() Direction
+	SetDirection(Direction)
+	ResetPath()
+	TraversePath()
+	FinishedPath() bool
+	UpdateLastFight()
+	LastFight() time.Time
+	UpdateLastRetreat()
+	LastRetreat() time.Time
+	SetRegionMoved()
+	SetRegionRemoved()
+	SetSpriteUpdated()
+	SetAppearanceChanged()
+	ResetRegionMoved()
+	ResetRegionRemoved()
+	ResetSpriteUpdated()
+	ResetAppearanceChanged()
+	Killed(MobileEntity)
+	Damage(int)
+	StyleBonus(int) int
+	PrayerModifier(int) int
+	Skills() *SkillTable
+	TargetMob() MobileEntity
+	SessionCache() *AttributeList
+	Skulls() map[uint64]time.Time
+	WithinRadius(Entity,int) bool
+	Reachable(Location) bool
+	Equals(interface{}) bool
+	Location() *Location
+	X() int
+	Y() int
+	ServerIndex() int
+	IsPlayer() bool
+	IsNpc() bool
+	IsObject() bool
+	IsGroundItem() bool
+	Type() EntityType
+	
+	//type *Mob,*NPC,*Player,Mob,NPC,Player,Entity
+}
+
+func (m *Mob) IsObject() bool {
+	return false
+}
+
+func (m *Mob) IsGroundItem() bool {
+	return false
+}
 
 type MobState = int
 
@@ -54,8 +124,10 @@ const (
 	StateWaitEvent = StateMenu | StateChatting | MSItemAction | MSBatching
 )
 
+type SyncMask int
+
 const (
-	SyncInit = 1 << iota
+	SyncInit = SyncMask(1 << iota)
 	SyncSprite
 	SyncMoved
 	SyncRemoved
@@ -64,35 +136,32 @@ const (
 	SyncNeedsPosition = SyncRemoved | SyncMoved | SyncSprite | SyncInit
 )
 
-// mobSet a collection of entity.MobileEntitys
-type mobSet []entity.MobileEntity
 
-//MobList a container type for holding entity.MobileEntitys
-type MobList struct {
-	mobSet
-	sync.RWMutex
-}
+type (
+	//MobList a container type for holding Entitys
+	MobList EntityList
+)
 
 //NewMobList returns a pointer to a newly pre-allocated MobList, with an initial capacity
 // of 255.
 func NewMobList() *MobList {
-	return &MobList{mobSet: make(mobSet, 0, 255)}
+	return &MobList{}
 }
 
-//Add Adds a entity.MobileEntity to this MobList
-func (l *MobList) Add(m entity.MobileEntity) int {
+//Add Adds a Entity to this MobList
+func (l *MobList) Add(m Entity) int {
 	l.Lock()
 	defer l.Unlock()
-	l.mobSet = append(l.mobSet, m)
-	return len(l.mobSet)
+	l.entityVec = append(l.entityVec, m)
+	return len(l.entityVec)
 }
 
-//Range Runs action(entity.MobileEntity) for each entity.MobileEntity in the lists collection, until
-// either running out of entries, or action returns true.
-func (l *MobList) Range(action func(entity.MobileEntity) bool) int {
+//Range Runs action(Entity) for each Entity in the lists collection, until
+// either running out of set, or action returns true.
+func (l *MobList) Range(action func(Entity) bool) int {
 	l.RLock()
 	defer l.RUnlock()
-	for i, v := range l.mobSet {
+	for i, v := range l.entityVec {
 		if action(v) {
 			return i
 		}
@@ -104,26 +173,30 @@ func (l *MobList) Range(action func(entity.MobileEntity) bool) int {
 func (l *MobList) Size() int {
 	l.RLock()
 	defer l.RUnlock()
-	return len(l.mobSet)
+	return len(l.entityVec)
 }
 
 //Size returns the number of mobile entitys entered into this list.
-func (l *MobList) Contains(mob entity.MobileEntity) bool {
-	return l.Range(func(m entity.MobileEntity) bool {
+func (l *MobList) Contains(mob Entity) bool {
+	return l.Range(func(m Entity) bool {
 		return m == mob
 	}) > -1
 }
 
-//Remove removes a entity.MobileEntity from this list and reslices the collection.
-func (l *MobList) Remove(m entity.MobileEntity) bool {
+func (m *Mob) Location() *Location {
+	return m.position
+}
+
+//Remove removes a Entity from this list and reslices the collection.
+func (l *MobList) Remove(m Entity) bool {
 	l.Lock()
 	defer l.Unlock()
-	for i, v := range l.mobSet {
+	for i, v := range l.entityVec {
 		if v == m {
-			if len(l.mobSet) >= i+1 {
-				l.mobSet = append(l.mobSet[:i], l.mobSet[i+1:]...)
+			if len(l.entityVec) > i {
+				l.entityVec= append(l.entityVec[:i], l.entityVec[i+1:]...)
 			} else {
-				l.mobSet = l.mobSet[:i]
+				l.entityVec = l.entityVec[:i]
 			}
 			return true
 		}
@@ -132,16 +205,31 @@ func (l *MobList) Remove(m entity.MobileEntity) bool {
 }
 
 func (l *MobList) RangePlayers(action func(*Player) bool) int {
-	return l.Range(func(m entity.MobileEntity) bool {
-		if p, ok := m.(*Player); ok {
+	return l.Range(func(e Entity) bool {
+		if p, ok := e.(*Player); ok {
 			return action(p)
+		}
+		if e.IsPlayer() {
+			return action(coercePlayer(e))
 		}
 		return false
 	})
 }
 
+func (m *Mob) WithinRadius(e Entity, r int) bool {
+	return m.Location().WithinRadius(e, r)
+}
+
+func (m *Mob) SetX(x int) {
+	m.position.SetX(x)
+}
+
+func (m *Mob) SetY(y int) {
+	m.position.SetY(y)
+}
+
 func (l *MobList) RangeNpcs(action func(*NPC) bool) int {
-	return l.Range(func(m entity.MobileEntity) bool {
+	return l.Range(func(m Entity) bool {
 		if n, ok := m.(*NPC); ok {
 			return action(n)
 		}
@@ -149,58 +237,88 @@ func (l *MobList) RangeNpcs(action func(*NPC) bool) int {
 	})
 }
 
-func (l *MobList) Get(idx int) entity.MobileEntity {
+func (l *MobList) Get(idx int) Entity {
 	l.RLock()
 	defer l.RUnlock()
-	for _, v := range l.mobSet {
-		if v.ServerIndex() == idx {
-			return v
-		}
+	//location := l.Range(func (e Entity) bool {
+	//	if e.ServerIndex() == idx {
+	//		return true
+	//	}
+	//	return false
+	//})
+	if idx >= 0 {
+		return l.entityVec[idx]
 	}
 	return nil
 }
 
+func (m *Mob) X() int {
+	return m.Location().X()
+}
+
+func (m *Mob) Y() int {
+	return m.Location().Y()
+}
+
 //Mob Represents a mobile entity within the game world.
 type Mob struct {
-	SyncMask       int
-	skills		   entity.SkillTable
-	path		   *Pathway
-	Prayers		   [15]bool
+	SyncMask SyncMask
+	skills   SkillTable
+	path     *Pathway
+	Prayers  [15]bool
+	position *Location
+	Index    int
 	Entity
-	*entity.AttributeList
+	*AttributeList
 	sync.RWMutex
 }
 
 //ExperienceReward returns the total rewarded experience upon killing a mob.
 func (m *Mob) ExperienceReward() int {
-	meleeTotal := (m.Skills().Current(entity.StatStrength) + m.Skills().Current(entity.StatAttack) + m.Skills().Current(entity.StatDefense)) * 2
-	return (int(math.Floor(float64(m.Skills().Current(entity.StatHits)+meleeTotal)/7)) * 2) + 20
+	meleeTotal := (m.Skills().Current(StatStrength) + m.Skills().Current(StatAttack) + m.Skills().Current(StatDefense)) * 2
+	return (int(math.Floor(float64(m.Skills().Current(StatHits)+meleeTotal)/7)) * 2) + 20
 }
 
-func (m *Mob) TargetMob() entity.MobileEntity {
+func (m *Mob) ServerIndex() int {
+	return m.Index
+}
+
+func (m *Mob) TargetMob() MobileEntity {
 	return m.VarMob("targetMob")
 }
 
 func (m *Mob) TargetNpc() *NPC {
-	if n, ok := m.TargetMob().(*NPC); ok {
-		return n
+	if m.TargetMob().IsNpc() {
+		return coerceNpc(m)
 	}
 	return nil
 }
 
 func (m *Mob) TargetPlayer() *Player {
-	if p, ok := m.TargetMob().(*Player); ok {
-		return p
+	if m.TargetMob().IsPlayer() {
+		return coercePlayer(m)
 	}
 	return nil
 }
 
 func (p *Player) IsPlayer() bool {
-	return p.Type() == entity.TypePlayer
+	return p.Type() == TypePlayer
 }
 
-func (p *Player) Type() entity.Type {
-	return entity.TypePlayer
+func (p *Player) Type() EntityType {
+	return TypePlayer
+}
+func (p *NPC) Type() EntityType {
+	return TypePlayer
+}
+func (p *GroundItem) Type() EntityType {
+	return TypeGroundItem
+}
+func (o *Object) Type() EntityType {
+	if o.Boundary {
+		return TypeDoor
+	}
+	return TypeObject
 }
 
 func (p *Player) ServerIndex() int {
@@ -210,16 +328,20 @@ func (p *Player) ServerIndex() int {
 	return p.Index
 }
 
+func (p *Player) AtLocation(location Location) bool {
+	return p.Location().LongestDelta(location) <= 0
+}
+
+func (n *NPC) AtLocation(location Location) bool {
+	return n.Location().LongestDelta(location) <= 0
+}
+
 func (n *NPC) ServerIndex() int {
 	return n.Index
 }
 
 func (p *Player) IsNpc() bool {
 	return false
-}
-
-func (n *NPC) Type() entity.Type {
-	return entity.TypeNpc
 }
 
 func (n *NPC) IsPlayer() bool {
@@ -249,11 +371,11 @@ func (m *Mob) IsFighting() bool {
 	return m.HasState(StateFighting)
 }
 
-func (m *Mob) FightTarget() entity.MobileEntity {
+func (m *Mob) FightTarget() MobileEntity {
 	return m.VarMob("fightTarget")
 }
 
-func (m *Mob) SetFightTarget(m2 entity.MobileEntity) {
+func (m *Mob) SetFightTarget(m2 Entity) {
 	m.SetVar("fightTarget", m2)
 }
 
@@ -282,12 +404,12 @@ func (m *Mob) UpdateLastFight() {
 }
 
 //Direction Returns the mobs direction.
-func (m *Mob) Direction() int {
-	return m.VarInt("direction", North)
+func (m *Mob) Direction() Direction {
+	return Direction(m.VarInt("direction", 3))
 }
 
 //SetDirection Sets the mobs direction.
-func (m *Mob) SetDirection(direction int) {
+func (m *Mob) SetDirection(direction Direction) {
 	m.SetVar("direction", direction)
 	m.SetSpriteUpdated()
 }
@@ -368,7 +490,7 @@ func (m *Mob) StanceChanged() bool {
 }
 
 //SyncFlag returns true if this mob's SyncMask shares any of the activated bits with the provided mask.
-func (m *Mob) SyncFlag(mask int) bool {
+func (m *Mob) SyncFlag(mask SyncMask) bool {
 	m.RLock()
 	defer m.RUnlock()
 	return m.SyncMask&mask != 0
@@ -381,7 +503,7 @@ func (m *Mob) SetPath(path *Pathway) {
 }
 
 func (m *Mob) WalkTo(end Location) bool {
-	path, ok := MakePath(m.Location, end)
+	path, ok := MakePath(*m.Location(), end)
 	m.SetPath(path)
 	return ok
 }
@@ -403,7 +525,7 @@ func (m *Mob) FinishedPath() bool {
 	if path == nil {
 		return m.VarInt("pathLength", 0) <= 0
 	}
-	return path.CurrentWaypoint >= path.countWaypoints() || !path.nextTileFrom(m.Location).IsValid()
+	return path.CurrentWaypoint >= path.countWaypoints() || !path.nextTileFrom(*m.Location()).IsValid()
 }
 
 //SetLocation Sets the mobs location.
@@ -424,13 +546,13 @@ func (n *NPC) SetLocation(l Location, teleport bool) {
 //SetCoords Sets the mobs locations coordinates.
 func (m *Mob) SetCoords(x, y int, teleport bool) {
 	if !teleport {
-		m.SetDirection(m.DirectionTo(x, y))
+		m.SetDirection(m.Location().DirectionTo(x, y))
 		m.SetRegionMoved()
 	} else {
 		m.SetRegionRemoved()
 	}
-	m.SetX(x)
-	m.SetY(y)
+	m.Location().SetX(x)
+	m.Location().SetY(y)
 }
 
 func (p *Player) SetCoords(x, y int, teleport bool) {
@@ -451,7 +573,7 @@ func (n *NPC) Teleport(x, y int) {
 	n.SetCoords(x, y, true)
 }
 
-func (m *Mob) SessionCache() *entity.AttributeList {
+func (m *Mob) SessionCache() *AttributeList {
 	return m.AttributeList
 }
 
@@ -636,7 +758,7 @@ func (m *Mob) SetRangedPoints(i int) {
 	m.SetVar("ranged_points", i)
 }
 
-func (m *Mob) Skills() *entity.SkillTable {
+func (m *Mob) Skills() *SkillTable {
 	return &m.skills
 }
 
@@ -647,7 +769,7 @@ func (m *Mob) PrayerModifier(skill int) int {
 		log.Warn("Skill index provided for PrayerModifier call was out of bounds!  Only skills 0-2 inclusive are valid; got:", strconv.Itoa(skill))
 		return 0
 	}
-	prayers := [3] [3]int { [3]int { 0, 3, 9 }, [3]int { 1, 4, 10 }, [3]int { 2, 5, 11 }}
+	prayers := [3] [3]int {{0, 3, 9}, {1, 4, 10}, {2, 5, 11}}
 	for idx, prayer := range prayers[skill] {
 		if m.VarBool("prayer" + strconv.Itoa(prayer), false) {
 			// Each tier of offensive prayers yields 5% improvement
@@ -693,13 +815,13 @@ func (m *Mob) StyleBonus(stat int) int {
 
 //MaxMeleeDamage Calculates and returns the current max hit for this mob, based on many variables.
 func (m *Mob) MaxMeleeDamage() float64 {
-	return (float64(m.Skills().Current(entity.StatStrength) * ((100.0+m.PrayerModifier(entity.StatStrength))/100.0) + m.StyleBonus(entity.StatStrength))) * (float64(m.PowerPoints()) * 0.00175 + 0.1) + 1.05
+	return (float64(m.Skills().Current(StatStrength) * ((100.0+m.PrayerModifier(StatStrength))/100.0) + m.StyleBonus(StatStrength))) * (float64(m.PowerPoints()) * 0.00175 + 0.1) + 1.05
 //	return ((float64(m.Skills().Current(entity.StatStrength))*m.PrayerModifiers()[entity.StatStrength])+float64(m.StyleBonus(entity.StatStrength)))*((float64(m.PowerPoints())*0.00175)+0.1) + 1.05
 }
 
 //AttackPoints Calculates and returns the accuracy capability of this mob, based on many variables, as a single variable.
 func (m *Mob) AttackPoints() float64 {
-	return (float64(m.Skills().Current(entity.StatAttack) * ((100.0+m.PrayerModifier(entity.StatAttack))/100.0) + m.StyleBonus(entity.StatAttack))) * (float64(m.AimPoints()) * 0.00175 + 0.1) + 1.05
+	return (float64(m.Skills().Current(StatAttack) * ((100.0+m.PrayerModifier(StatAttack))/100.0) + m.StyleBonus(StatAttack))) * (float64(m.AimPoints()) * 0.00175 + 0.1) + 1.05
 //	return ((float64(m.Skills().Current(entity.StatAttack))*m.PrayerModifiers()[entity.StatAttack])+float64(m.StyleBonus(entity.StatAttack)))*((float64(m.AimPoints())*0.00175)+0.1) + 1.05
 }
 
@@ -707,13 +829,13 @@ func (m *Mob) AttackPoints() float64 {
 // Designed for determining whether a spell hits or misses when casting an offensive missile spell on another mob.
 func (m *Mob) MagicPower() float64 {
 	// curMagic*(magicPoints*0.00175+0.1)+1.05
-	return float64(m.Skills().Current(entity.StatMagic)) * (float64(m.MagicPoints())*0.00175+0.1) + 1.05
+	return float64(m.Skills().Current(StatMagic)) * (float64(m.MagicPoints())*0.00175+0.1) + 1.05
 }
 
 //DefensePoints Calculates and returns the defensive capability of this mob, based on many variables, as a single variable.
 func (m *Mob) DefensePoints() float64 {
 	// return ((float64(m.Skills().Current(entity.StatDefense))*m.PrayerModifiers()[entity.StatDefense])+float64(m.StyleBonus(entity.StatDefense)))*((float64(m.ArmourPoints())*0.00175)+0.1) + 1.05
-	return (float64(m.Skills().Current(entity.StatAttack) * ((100.0+m.PrayerModifier(entity.StatAttack))/100.0) + m.StyleBonus(entity.StatStrength))) * (float64(m.AimPoints()) * 0.00175 + 0.1) + 1.05
+	return (float64(m.Skills().Current(StatAttack) * ((100.0+m.PrayerModifier(StatAttack))/100.0) + m.StyleBonus(StatStrength))) * (float64(m.AimPoints()) * 0.00175 + 0.1) + 1.05
 }
 
 func (m *Mob) CombatRng() *rand.Rand {
@@ -737,7 +859,7 @@ func (m *Mob) Isaac() *rand.Rand {
 //MagicDamage Calculates and returns a combat spells damage from the
 // receiver mob cast unto the target MobileEntity.  This basically wraps a statistically
 // random percentage check around a call to GenerateHit.
-func (m *Mob) MagicDamage(target entity.MobileEntity, maximum float64) int {
+func (m *Mob) MagicDamage(target MobileEntity, maximum float64) int {
 	// TODO: Tweak the defense/armor hit/miss formula to better match RSC--or at least verify this is somewhat close?
 	if m.CombatRng().Float64() <= math.Max(0.625, math.Min(0.0, float64(m.MagicPoints())/(target.DefensePoints()*4))) {
 	// if BoundedChance(float64(m.MagicPoints())/(target.DefensePoints()*4)*100, 0.0, 82.0) {
@@ -764,7 +886,7 @@ func (m *Mob) GenerateHit(max float64) int {
 // Generally believed to be a near-perfect approximation of canonical Jagex RSClassic melee damage formula.
 // Kenix mentioned running monte-carlo sims when coming up with it, so presumably this formula matched up
 // statistically fairly well to the real game.  I can not say for sure as I didn't do these things myself, though.
-func (m *Mob) MeleeDamage(target entity.MobileEntity) int {
+func (m *Mob) MeleeDamage(target MobileEntity) int {
 	if m.CombatRng().Float64() <= math.Max(0.82, math.Min(0.0, m.AttackPoints()/(target.DefensePoints()*4))) {
 	// if BoundedChance(m.AttackPoints()/(target.DefensePoints()*4)*100, 0.0, 82.0) {
 		return m.GenerateHit(m.MaxMeleeDamage())
@@ -778,10 +900,10 @@ func (m *Mob) Random(low, high int) int {
 }
 
 type HitSplat struct {
-	Owner entity.MobileEntity
+	Owner MobileEntity
 	Damage int
 }
 
-func NewHitsplat(target entity.MobileEntity, damage int) HitSplat {
+func NewHitsplat(target MobileEntity, damage int) HitSplat {
 	return HitSplat{target, damage}
 }

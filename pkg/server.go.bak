@@ -1,4 +1,4 @@
-	/*
+/*
  * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
@@ -476,7 +476,7 @@ func (s *Server) Start() {
 				return
 			}
 			s.handlePackets(p)
-			p.Tickables.Call(p)
+			p.Tickables.Call(interface{}(p))
 
 			if fn := p.TickAction(); fn != nil && !fn() {
 				p.ResetTickAction()

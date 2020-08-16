@@ -5,11 +5,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/spkaeros/rscgo/pkg/definitions"
-	"github.com/spkaeros/rscgo/pkg/game/entity"
-
+	
 	"github.com/spkaeros/rscgo/pkg/config"
+	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -364,7 +362,7 @@ func (s *sqlService) PlayerLoad(player *world.Player) bool {
 			var cur, exp int
 			rows.Scan(&cur, &exp)
 			player.Skills().SetCur(i, cur)
-			player.Skills().SetMax(i, entity.ExperienceToLevel(exp))
+			player.Skills().SetMax(i, world.ExperienceToLevel(exp))
 			player.Skills().SetExp(i, exp)
 			i++
 		}

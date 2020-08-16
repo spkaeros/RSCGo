@@ -7,7 +7,7 @@
  *
  */
 
-package entity
+package world
 
 import (
 	"math"
@@ -147,10 +147,10 @@ func (s *SkillTable) String() (s1 string) {
 func (s *SkillTable) CombatLevel() int {
 	s.RLock()
 	defer s.RUnlock()
-	strengthAvg := (float64(s.maximum[StatAttack]+s.maximum[StatStrength]) * .25)
-	defenseAvg := (float64(s.maximum[StatDefense]+s.maximum[StatHits]) * .25)
-	magicAvg := (float64(s.maximum[StatPrayer]+s.maximum[StatMagic]) * .125)
-	rangedAvg := (float64(s.maximum[4]) * .375)
+	strengthAvg := float64(s.maximum[StatAttack]+s.maximum[StatStrength]) * .25
+	defenseAvg := float64(s.maximum[StatDefense]+s.maximum[StatHits]) * .25
+	magicAvg := float64(s.maximum[StatPrayer]+s.maximum[StatMagic]) * .125
+	rangedAvg := float64(s.maximum[4]) * .375
 	return int(math.Floor(defenseAvg + magicAvg + math.Max(strengthAvg, rangedAvg)))
 }
 

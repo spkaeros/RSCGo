@@ -11,7 +11,6 @@ package handlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/game"
-	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -26,7 +25,7 @@ func init() {
 			log.Suspicious.Printf("%v turned on a prayer that doesn't exist: %d\n", player, idx)
 			return
 		}
-		if requiredLevels[idx] > player.Skills().Maximum(entity.StatPrayer) {
+		if requiredLevels[idx] > player.Skills().Maximum(world.StatPrayer) {
 			log.Suspicious.Printf("%v turned on a prayer that he is too low level for: %d\n", player, idx)
 			return
 		}
@@ -40,7 +39,7 @@ func init() {
 			log.Suspicious.Printf("%v turned off a prayer that doesn't exist: %d\n", player, idx)
 			return
 		}
-		if requiredLevels[idx] > player.Skills().Maximum(entity.StatPrayer) {
+		if requiredLevels[idx] > player.Skills().Maximum(world.StatPrayer) {
 			log.Suspicious.Printf("%v turned off a prayer that he is too low level for: %d\n", player, idx)
 			return
 		}

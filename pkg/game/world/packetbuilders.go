@@ -11,7 +11,6 @@ package world
 
 import (
 	"github.com/spkaeros/rscgo/pkg/definitions"
-	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/strutil"
@@ -47,7 +46,7 @@ func PrivateMessage(hash uint64, msg string) (p *net.Packet) {
 	return p
 }
 
-//func CreateProjectile(owner *Player, target entity.MobileEntity, projectileID int) (p *net.Packet) {
+//func CreateProjectile(owner *Player, target Entity, projectileID int) (p *net.Packet) {
 //	p := net.NewEmptyPacket(234)
 //	return p
 //}
@@ -91,8 +90,8 @@ func NpcEvents(player *Player) (p *net.Packet) {
 				p.AddUint16(uint16(splat.Owner.ServerIndex()))
 				p.AddUint8(2)
 				p.AddUint8(uint8(splat.Damage))
-				p.AddUint8(uint8(splat.Owner.Skills().Current(entity.StatHits)))
-				p.AddUint8(uint8(splat.Owner.Skills().Maximum(entity.StatHits)))
+				p.AddUint8(uint8(splat.Owner.Skills().Current(StatHits)))
+				p.AddUint8(uint8(splat.Owner.Skills().Maximum(StatHits)))
 				updateSize++
 			} else {
 				newList = append(newList, splat)
@@ -164,31 +163,10 @@ func SleepFatigue(player *Player) (p *net.Packet) {
 	return net.NewEmptyPacket(244).AddUint16(uint16(player.VarInt("sleepFatigue", 0)))
 }
 
-var SleepClose = net.NewEmptyPacket(84)
-
-var SleepWrong = net.NewEmptyPacket(194)
-
-func NpcMessage(sender *NPC, message string, target *Player) (p *net.Packet) {
-	target.QueueNpcChat(sender, target, message)
-/*	p = net.NewEmptyPacket(104)
-	p.AddUint16(1)
-	p.AddUint16(uint16(sender.Index))
-	p.AddUint8(1)
-	p.AddUint16(uint16(target.Index))
-	if len(message) > 255 {
-		message = message[:255]
-	}
-	message = strutil.ChatFilter.Format(message)
-	// messageRaw := strutil.ChatFilter.Pack(message)
-	messageRaw := message
-	p.AddUint8(uint8(len(messageRaw)))
-	for _, c := range messageRaw {
-		p.AddUint8(byte(c))
-	}
-	return*/
-	// return net.NewEmptyPacket(6)
-	return nil
-}
+var (
+	SleepClose = net.NewEmptyPacket(84)
+	SleepWrong = net.NewEmptyPacket(194)
+)
 
 //PrivacySettings Builds a packet containing the players privacy settings for display in the settings menu.
 func PrivacySettings(player *Player) (p *net.Packet) {
@@ -217,7 +195,7 @@ func NPCPositions(player *Player) (p *net.Packet) {
 		changed++
 		n.RLock()
 		mask := n.SyncMask
-		if !player.WithinRange(player.Location, player.VarInt("viewRadius", 16)) || mask&SyncRemoved == SyncRemoved || n.Location.Equals(DeathPoint) || n.VarBool("removed", false) {
+		if !player.WithinRadius(player, player.ViewRadius()) || mask&SyncRemoved == SyncRemoved || n.Location().Equals(DeathPoint) || n.VarBool("removed", false) {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(1, 1)
 			p.AddBitmask(3, 2)
@@ -225,11 +203,11 @@ func NPCPositions(player *Player) (p *net.Packet) {
 		} else if mask&SyncMoved == SyncMoved {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(0, 1)
-			p.AddBitmask(n.Direction(), 3)
+			p.AddBitmask(int(n.Direction()), 3)
 		} else if mask&SyncSprite == SyncSprite {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(1, 1)
-			p.AddBitmask(n.Direction(), 4)
+			p.AddBitmask(int(n.Direction()), 4)
 		} else {
 			p.AddBitmask(0, 1)
 			changed--
@@ -263,7 +241,7 @@ func NPCPositions(player *Player) (p *net.Packet) {
 		// bitwise trick avoids branching to do a manual addition, and maintains binary compatibility with the original protocol
 		p.AddSignedBits(n.X()-player.X(), 5)
 		p.AddSignedBits(n.Y()-player.Y(), 5)
-		p.AddBitmask(n.Direction(), 4)
+		p.AddBitmask(int(n.Direction()), 4)
 		p.AddBitmask(n.ID, 10)
 		changed++
 	}
@@ -289,7 +267,7 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 	//  Presumably, Jagex used 11 and 13 to evenly fill 3 bytes of data?
 	p.AddBitmask(player.X(), 11)
 	p.AddBitmask(player.Y(), 13)
-	p.AddBitmask(player.Direction(), 4)
+	p.AddBitmask(int(player.Direction()), 4)
 	p.AddBitmask(player.LocalPlayers.Size(), 8)
 	changed := 0
 	if player.SyncMask&SyncNeedsPosition != 0 {
@@ -305,7 +283,7 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 	player.LocalPlayers.RangePlayers(func(p1 *Player) bool {
 		p1.RLock()
 		defer p1.RUnlock()
-		removing := p1.SyncMask&SyncRemoved != 0 || !player.Near(p1.Point(), player.VarInt("viewRadius", RegionSize/3))
+		removing := p1.SyncMask&SyncRemoved != 0 || !player.WithinRadius(p1, player.ViewRadius())
 		changing, moving := p1.SyncMask&SyncSprite != 0, p1.SyncMask&SyncMoved != 0
 		if !removing && !changing && !moving {
 			p.AddBitmask(0, 1)
@@ -329,7 +307,7 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		}
 		if moving {
 			p.AddBitmask(0, 1)
-			p.AddBitmask(p1.Direction(), 3)
+			p.AddBitmask(int(p1.Direction()), 3)
 //			p1.PostTickables.Add(func(p1 *Player) bool {
 //				p1.ResetRegionMoved()
 //				p1.ResetSpriteUpdated()
@@ -338,7 +316,7 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 			return false
 		}
 		p.AddBitmask(1, 1)
-		p.AddBitmask(p1.Direction(), 4)
+		p.AddBitmask(int(p1.Direction()), 4)
 		// if mask&(SyncRemoved|SyncSprite) != 0 || !player.Near(p1.Point(), player.VarInt("viewRadius", RegionSize/3)) {
 			// p.AddBitmask(1, 1)
 			// if mask&SyncRemoved != 0 {
@@ -375,7 +353,7 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		p.AddBitmask(p1.Index, 11)
 		p.AddSignedBits(p1.X()-player.X(), 5)
 		p.AddSignedBits(p1.Y()-player.Y(), 5)
-		p.AddBitmask(p1.Direction(), 4)
+		p.AddBitmask(int(p1.Direction()), 4)
 		if ticket, ok := player.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
 			player.AppearanceReq = append(player.AppearanceReq, p1)
 			p.AddBitmask(1, 1)
@@ -417,6 +395,7 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 			}
 			p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
 			p.AddUint8(uint8(updateType)) // Update Type
+			
 			// TODO: Is this better or is end of message indicator better
 			p.AddUint8(uint8(len(msg.string))) // Count of UTF-8 characters in message
 			p.AddBytes([]byte(msg.string)) // UTF-8 encoded message
@@ -427,11 +406,11 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	updateType += 1
 	if list, ok := ourPlayer.Var("hitsplatQ"); ok {
 		for _, splat := range list.([]HitSplat) {
-			p.AddUint16(uint16(splat.Owner.ServerIndex())) // Index
-			p.AddUint8(uint8(updateType)) // Update Type
-			p.AddUint8(uint8(splat.Damage)) // How much damage was done
-			p.AddUint8(uint8(splat.Owner.Skills().Current(entity.StatHits))) // Current hitpoints level, for healthbar percentage 
-			p.AddUint8(uint8(splat.Owner.Skills().Maximum(entity.StatHits))) // Maximum hitpoints level, for healthbar percentage
+			p.AddUint16(uint16(splat.Owner.ServerIndex()))            // Index
+			p.AddUint8(uint8(updateType))                             // Update Type
+			p.AddUint8(uint8(splat.Damage))                           // How much damage was done
+			p.AddUint8(uint8(splat.Owner.Skills().Current(StatHits))) // Current hitpoints level, for healthbar percentage
+			p.AddUint8(uint8(splat.Owner.Skills().Maximum(StatHits))) // Maximum hitpoints level, for healthbar percentage
 			updateSize++
 		}
 		ourPlayer.UnsetVar("hitsplatQ")
@@ -458,6 +437,7 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 		for _, msg := range list.([]ChatMessage) {
 			p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
 			p.AddUint8(uint8(updateType)) // Update Type
+			
 			// Format chat messages to match the rules of Jagex chat format
 			// Examples: First letters capitalized for every sentence, color-codes are properly identified, etc.
 			msg.string = strutil.ChatFilter.Format(msg.string)
@@ -554,19 +534,19 @@ func ClearDistantChunks(player *Player) (p *net.Packet) {
 func ObjectLocations(player *Player) (p *net.Packet) {
 	changed := 0
 	p = net.NewEmptyPacket(48)
-	var removing = []*Object{}
-	for _, o := range player.LocalObjects.set {
+	var removing []*Object
+	for _, o := range player.LocalObjects.entityVec {
 		if o, ok := o.(*Object); ok {
 			if o.Boundary {
 				continue
 			}
-			if !player.WithinRange(o.Location, player.VarInt("viewRadius", 16)+5) || GetObject(o.X(), o.Y()) != o {
-				if !player.WithinRange(o.Location, 144) {
+			if !player.WithinRadius(o, player.VarInt("viewRadius", 16)+5) || GetObject(o.Location().X(), o.Location().Y()) != o {
+				if !player.WithinRadius(o, 144) {
 					// suddenly this local entity is now miles away which isn't very local
 					if chunks, ok := player.Var("distantChunks"); ok {
-						player.SetVar("distantChunks", append(chunks.([]Location), o.Location.Clone()))
+						player.SetVar("distantChunks", append(chunks.([]Location), *o.Location().Clone()))
 					} else {
-						player.SetVar("distantChunks", []Location{o.Location.Clone()})
+						player.SetVar("distantChunks", []Location{*o.Location().Clone()})
 					}
 				} else {
 					p.AddUint16(60000)
@@ -588,7 +568,7 @@ func ObjectLocations(player *Player) (p *net.Packet) {
 		p.AddUint16(uint16(o.ID))
 		p.AddUint8(byte(o.X() - player.X()))
 		p.AddUint8(byte(o.Y() - player.Y()))
-		player.LocalObjects.Add(o)
+		player.LocalObjects.entityVec.Put(o)
 		changed++
 	}
 	if changed == 0 {
@@ -602,18 +582,18 @@ func ObjectLocations(player *Player) (p *net.Packet) {
 func BoundaryLocations(player *Player) (p *net.Packet) {
 	changed := 0
 	p = net.NewEmptyPacket(91)
-	var removing = []*Object{}
-	for _, o := range player.LocalObjects.set {
-		if o, ok := o.(*Object); ok {
-			if !o.Boundary {
+	var removing []*Object
+	for _, o := range player.LocalObjects.entityVec {
+		if o.Type() == TypeObject|TypeDoor {
+			if o.Type() != TypeDoor {
 				continue
 			}
-			if !player.WithinRange(o.Location, player.VarInt("viewRadius", 16)+5) || GetObject(o.X(), o.Y()) != o {
-				if !player.WithinRange(o.Location, 144) {
+			if !player.WithinRadius(o, player.VarInt("viewRadius", 16)+5) || GetObject(o.Location().X(), o.Location().Y()) != o {
+				if !player.WithinRadius(o, 144) {
 					if chunks, ok := player.Var("distantChunks"); ok {
-						player.SetVar("distantChunks", append(chunks.([]Location), o.Location.Clone()))
+						player.SetVar("distantChunks", append(chunks.([]Location), *o.Location().Clone()))
 					} else {
-						player.SetVar("distantChunks", []Location{o.Location.Clone()})
+						player.SetVar("distantChunks", []Location{*o.Location().Clone()})
 					}
 				} else {
 					// network protocol does not support actual removal of previously existing boundary objects
@@ -622,10 +602,10 @@ func BoundaryLocations(player *Player) (p *net.Packet) {
 					p.AddUint16(16)
 					p.AddUint8(uint8(o.X() - player.X()))
 					p.AddUint8(uint8(o.Y() - player.Y()))
-					p.AddUint8(o.Direction)
+					p.AddUint8(uint8(coerceObject(o).Direction()))
 					changed++
 				}
-				removing = append(removing, o)
+				removing = append(removing, coerceObject(o))
 			}
 		}
 	}
@@ -639,8 +619,8 @@ func BoundaryLocations(player *Player) (p *net.Packet) {
 		p.AddUint16(uint16(o.ID))
 		p.AddUint8(byte(o.X() - player.X()))
 		p.AddUint8(byte(o.Y() - player.Y()))
-		p.AddUint8(o.Direction)
-		player.LocalObjects.Add(o)
+		p.AddUint8(uint8(o.Direction()))
+		player.LocalObjects.entityVec.Put(o)
 		changed++
 	}
 	if changed == 0 {
@@ -654,16 +634,16 @@ func BoundaryLocations(player *Player) (p *net.Packet) {
 func ItemLocations(player *Player) (p *net.Packet) {
 	changed := 0
 	p = net.NewEmptyPacket(99)
-	var removing = []*GroundItem{}
-	for _, i := range player.LocalItems.set {
+	var removing []*GroundItem
+	for _, i := range player.LocalItems.entityVec {
 		if i, ok := i.(*GroundItem); ok {
 			x, y := i.X(), i.Y()
-			if !player.WithinRange(i.Location, player.VarInt("viewRadius", 16)) {
-				if !player.WithinRange(i.Location, 144) {
+			if !player.WithinRadius(i, player.ViewRadius()) {
+				if !player.WithinRadius(i, 144) {
 					if chunks, ok := player.Var("distantChunks"); ok {
-						player.SetVar("distantChunks", append(chunks.([]Location), i.Location.Clone()))
+						player.SetVar("distantChunks", append(chunks.([]Location), *i.Location().Clone()))
 					} else {
-						player.SetVar("distantChunks", []Location{i.Location.Clone()})
+						player.SetVar("distantChunks", []Location{*i.Location().Clone()})
 					}
 				} else {
 					// If first byte is 0xFF, all ground items at this location get cleared
@@ -689,7 +669,7 @@ func ItemLocations(player *Player) (p *net.Packet) {
 		p.AddUint16(uint16(i.ID))
 		p.AddUint8(byte(i.X() - player.X()))
 		p.AddUint8(byte(i.Y() - player.Y()))
-		player.LocalItems.Add(i)
+		player.LocalItems.entityVec.Put(i)
 		changed++
 	}
 	if changed == 0 {
@@ -988,8 +968,8 @@ func Sound(name string) (p *net.Packet) {
 //LoginBox Builds a packet to create a welcome box on the client with the inactiveDays since login, and lastIP connected from.
 func LoginBox(inactiveDays int, lastIP string) (p *net.Packet) {
 	p = net.NewEmptyPacket(182)
-	p.AddUint32(uint32(strutil.IPToInteger(lastIP))) // IP
-	p.AddUint16(uint16(inactiveDays))                // Last logged in
+	p.AddUint32(uint32(strutil.AddrToInt(lastIP))) // IP
+	p.AddUint16(uint16(inactiveDays))              // Last logged in
 	// TODO: Recoverys
 	p.AddUint8(201) // recovery questions set days, 200 = unset, 201 = set
 	// TODO: Message center
@@ -1019,7 +999,7 @@ func PlaneInfo(player *Player) (p *net.Packet) {
 	playerInfo.AddUint16(2304) // alleged width, tiles per sector also...
 	playerInfo.AddUint16(1776) // alleged height
 
-	playerInfo.AddUint16(uint16(player.Plane())) // plane
+	playerInfo.AddUint16(uint16(player.Location().Plane())) // plane
 
 	playerInfo.AddUint16(944) // REAL plane height
 	return playerInfo

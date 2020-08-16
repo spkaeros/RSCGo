@@ -19,34 +19,33 @@ import (
 	"strings"
 	"sync"
 	"time"
-
+	
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
-
+	
 	"github.com/spkaeros/rscgo/pkg/definitions"
-	"github.com/spkaeros/rscgo/pkg/tasks"
 	"github.com/spkaeros/rscgo/pkg/errors"
-	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/social"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
+	"github.com/spkaeros/rscgo/pkg/tasks"
 )
 
 type (
 	//Player A player in our game world.
 	Player struct {
+		Socket           stdnet.Conn
 		LocalPlayers     *MobList
 		LocalNPCs        *MobList
-		LocalObjects     *entityList
-		LocalItems       *entityList
+		LocalObjects     *EntityList
+		LocalItems       *EntityList
 		FriendList       *social.FriendsList
 		IgnoreList       []uint64
-		Appearance       entity.AppearanceTable
+		Appearance       AppearanceTable
 		KnownAppearances map[int]int
 		AppearanceReq    []*Player
-		Socket           stdnet.Conn
-		Attributes       *entity.AttributeList
+		Attributes       *AttributeList
 		Inventory        *Inventory
 		bank             *Inventory
 		TradeOffer       *Inventory
@@ -72,6 +71,22 @@ type (
 	}
 )
 
+func (p *Player) Wilderness() int {
+	return p.Location().Wilderness()
+}
+
+func (p *Player) FightTarget() MobileEntity {
+	return p.VarMob("fightTarget")
+}
+
+func (p *Player) Reachable(location Location) bool {
+	return p.Location().Reachable(location)
+}
+
+func (p *Player) Equals(o interface{}) bool {
+	return p.Location().Equals(o)
+}
+
 func (p *Player) UsernameHash() uint64 {
 	if p == nil {
 		return 0
@@ -83,16 +98,16 @@ func (p *Player) Bank() *Inventory {
 	return p.bank
 }
 
-func (p *Player) CanAttack(target entity.MobileEntity) bool {
-	if target := AsNpc(target); target != nil {
-		return target.Attackable()
+func (p *Player) CanAttack(target MobileEntity) bool {
+	if target.IsNpc() {
+		return coerceNpc(target).Attackable()
 	}
 	if p.State()&StateFightingDuel == StateFightingDuel {
-		return p.Duel.Target == target && p.DuelMagic()
+		return coercePlayer(target) == p.Duel.Target && p.DuelMagic()
 	}
-	targetp := AsPlayer(target)
-	ourWild := p.Wilderness()
-	targetWild := targetp.Wilderness()
+	targetp := coercePlayer(target)
+	ourWild := p.Location().Wilderness()
+	targetWild := targetp.Location().Wilderness()
 	if ourWild < 1 || targetWild < 1 {
 		p.Message("You cannot attack other players outside of the wilderness!")
 		return false
@@ -212,7 +227,7 @@ func (p *Player) UpdateStatus(status bool) {
 //WalkingRangedAction Runs `fn` once arriving anywhere within 5 tiles in any direction of `t`,
 // with a straight line of sight, e.g no intersecting boundaries, large objects, walls, etc.
 // Runs everything on game engine ticks, retries until catastrophic failure or success.
-func (p *Player) WalkingRangedAction(t entity.MobileEntity, fn func()) {
+func (p *Player) WalkingRangedAction(t Entity, fn func()) {
 	//if t == nil || p.State()&StateFightingDuel == 0 || (p.State()&StateFightingDuel == StateFightingDuel &&
 	//		(!p.VarBool("duelCanMagic", true) || t != p.DuelTarget())) {
 	//	p.ResetPath()
@@ -225,22 +240,22 @@ func (p *Player) WalkingRangedAction(t entity.MobileEntity, fn func()) {
 // of `target` mob, with a straight line of sight, e.g no intersecting boundaries, large
 // objects, walls, etc.
 // Runs everything on game engine ticks, retries until catastrophic failure or success.
-func (p *Player) WalkingArrivalAction(t entity.MobileEntity, dist int, action func()) {
+func (p *Player) WalkingArrivalAction(t Entity, dist int, action func()) {
 	p.SetTickAction(func() bool {
-		if p.Near(t, dist) {
-			if !p.ReachableCoords(t.X(), t.Y()) {
+		if p.Location().WithinRadius(t, dist) {
+			if !p.Location().Reachable(*t.Location().Clone()) {
 				return true
 			}
 			action()
 			return false
 		}
-		return p.WalkTo(NewLocation(t.X(), t.Y()))
+		return p.WalkTo(*NewLocation(t.Location().X(), t.Location().Y()))
 	})
 }
 
 //CanReachMob Check if we can reach a mob traversing the most direct tiles toward them, e.g straight lines.
 // Used to check ranged combat attacks, or trade requests, basically anything needing local interactions.
-func (p *Player) CanReachMob(target entity.MobileEntity) bool {
+func (p *Player) CanReachMob(target Entity) bool {
 	if p.FinishedPath() && p.VarInt("triedReach", 0) >= 5 {
 		// Tried reaching one mob >=5 times without single success, abort early.
 		//		p.ResetPath()
@@ -249,13 +264,13 @@ func (p *Player) CanReachMob(target entity.MobileEntity) bool {
 	}
 	p.Inc("triedReach", 1)
 
-	pathX, pathY := p.X(), p.Y()
+	pathX, pathY := p.Location().X(), p.Location().Y()
 	for steps := 0; steps < 256; steps++ {
-		if !p.ReachableCoords(pathX, pathY) {
+		if !p.Location().ReachableCoords(pathX, pathY) {
 			return false
 		}
 		// check deltas
-		if pathX == target.X() && pathY == target.Y() {
+		if pathX == target.Location().X() && pathY == target.Location().Y() {
 			p.UnsetVar("triedReach")
 			return true
 		}
@@ -269,7 +284,7 @@ func (p *Player) CanReachMob(target entity.MobileEntity) bool {
 
 		if pathY < target.Y() {
 			pathY++
-		} else if pathY > target.Y() {
+		} else if pathY > target.Location().Y() {
 			pathY--
 		}
 	}
@@ -349,11 +364,11 @@ func (p *Player) SetFirstLogin(flag bool) {
 //NextTo returns true if we can walk a straight line to target without colliding with any walls or objects,
 // otherwise returns false.
 func (p *Player) NextTo(target Location) bool {
-	return p.Reachable(target)
+	return p.Location().Reachable(target)
 }
 
 func (p *Player) NextToCoords(x, y int) bool {
-	return p.NextTo(NewLocation(x, y))
+	return p.NextTo(*NewLocation(x, y))
 }
 
 //TraversePath if the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
@@ -365,14 +380,14 @@ func (p *Player) TraversePath() {
 	if p.AtLocation(path.nextTile()) {
 		path.CurrentWaypoint++
 	}
-	dst := p.NextTileToward(path.nextTile())
+	dst := p.Location().NextTileToward(path.nextTile())
 
 	if p.FinishedPath() {
 		p.ResetPath()
 		return
 	}
 
-	if !p.Reachable(dst) {
+	if !p.Location().Reachable(dst) {
 		p.ResetPath()
 		return
 	}
@@ -419,8 +434,8 @@ func (l Location) ReachableCoords(x, y int) bool {
 
 		return true
 	}
-	cur := l.Clone()
-	end := NewLocation(x, y)
+	cur := *l.Clone()
+	end := *NewLocation(x, y)
 
 	for !cur.Equals(end) {
 		next := cur.Step(cur.DirectionToward(end))
@@ -434,7 +449,7 @@ func (l Location) ReachableCoords(x, y int) bool {
 
 //UpdateRegion if this player is currently in a region, removes it from that region, and adds it to the region at x,y
 func (p *Player) UpdateRegion(x, y int) {
-	curArea := Region(p.X(), p.Y())
+	curArea := Region(p.Location().X(), p.Location().Y())
 	newArea := Region(x, y)
 	if newArea != curArea {
 		if curArea.Players.Contains(p) {
@@ -456,13 +471,13 @@ func (p *Player) DistributeMeleeExp(experience int) {
 			p.IncExp(i, experience)
 		}
 	case 1:
-		p.IncExp(entity.StatStrength, experience*3)
+		p.IncExp(StatStrength, experience*3)
 	case 2:
-		p.IncExp(entity.StatAttack, experience*3)
+		p.IncExp(StatAttack, experience*3)
 	case 3:
-		p.IncExp(entity.StatDefense, experience*3)
+		p.IncExp(StatDefense, experience*3)
 	}
-	p.IncExp(entity.StatHits, experience)
+	p.IncExp(StatHits, experience)
 }
 
 //EquipItem equips an item to this player, and sends inventory and equipment bonuses.
@@ -472,7 +487,7 @@ func (p *Player) EquipItem(item *Item) {
 		var needed string
 		for skill, lvl := range reqs {
 			if p.Skills().Current(skill) < lvl {
-				needed += strconv.Itoa(lvl) + " " + entity.SkillName(skill) + ", "
+				needed += strconv.Itoa(lvl) + " " + SkillName(skill) + ", "
 			}
 		}
 		if len(needed) > 0 {
@@ -601,10 +616,11 @@ func (p *Player) SetFatigue(i int) {
 
 //NearbyPlayers Returns nearby players.
 func (p *Player) NearbyPlayers() (players []*Player) {
-	for _, r := range Region(p.X(), p.Y()).neighbors() {
+	for _, r := range Region(p.Location().X(), p.Location().Y()).neighbors() {
 		r.Players.RangePlayers(func(p1 *Player) bool {
-			if p.WithinRange(p1.Location, 16) && p != p1 {
+			if p.Location().WithinRadius(p1, 16) && p != p1 {
 				players = append(players, p1)
+				
 			}
 			return false
 		})
@@ -615,9 +631,9 @@ func (p *Player) NearbyPlayers() (players []*Player) {
 
 //NearbyNpcs Returns nearby NPCs.
 func (p *Player) NearbyNpcs() (npcs []*NPC) {
-	for _, r := range Region(p.X(), p.Y()).neighbors() {
+	for _, r := range Region(p.Location().X(), p.Location().Y()).neighbors() {
 		r.NPCs.RangeNpcs(func(n *NPC) bool {
-			if p.WithinRange(n.Location, 16) && !n.Location.Equals(DeathPoint) {
+			if p.Location().WithinRadius(n, p.ViewRadius()) && !n.Location().Equals(DeathPoint) {
 				npcs = append(npcs, n)
 			}
 			return false
@@ -629,19 +645,45 @@ func (p *Player) NearbyNpcs() (npcs []*NPC) {
 
 //NearbyObjects Returns nearby objects.
 func (p *Player) NearbyObjects() (objects []*Object) {
-	for _, r := range Region(p.X(), p.Y()).neighbors() {
-		objects = append(objects, r.Objects.NearbyObjects(p)...)
+	for _, r := range Region(p.Location().X(), p.Location().Y()).neighbors() {
+		for _, val := range r.Objects.Visible(p, p.ViewRadius() + 5) {
+			if val.IsObject() {
+				objects = append(objects, coerceObject(val))
+			}
+		}
 	}
 
 	return
 }
 
+func (p *Player) ViewRadius() int {
+	return p.VarInt("viewRadius", 16)
+}
+
+func (p *Player) IsObject() bool {
+	return false
+}
+
+func (n *NPC) IsObject() bool {
+	return false
+}
+
+func (p *Player) IsGroundItem() bool {
+	return false
+}
+func (n *NPC) IsGroundItem() bool {
+	return false
+}
+func (o *Object) IsGroundItem() bool {
+	return false
+}
+
 //NewObjects Returns nearby objects that this player is unaware of.
 func (p *Player) NewObjects() (objects []*Object) {
-	for _, r := range Region(p.X(), p.Y()).neighbors() {
-		for _, o := range r.Objects.NearbyObjects(p) {
-			if !p.LocalObjects.Contains(o) {
-				objects = append(objects, o)
+	for _, r := range Region(p.Location().X(), p.Location().Y()).neighbors() {
+		for _, o := range r.Objects.Visible(p, p.ViewRadius()+5) {
+			if o.IsObject() && !p.LocalObjects.Contains(o) {
+				objects = append(objects, coerceObject(o))
 			}
 		}
 	}
@@ -651,10 +693,10 @@ func (p *Player) NewObjects() (objects []*Object) {
 
 //NewItems Returns nearby ground items that this player is unaware of.
 func (p *Player) NewItems() (items []*GroundItem) {
-	for _, r := range Region(p.X(), p.Y()).neighbors() {
-		for _, i := range r.Items.NearbyItems(p) {
-			if !p.LocalItems.Contains(i) {
-				items = append(items, i)
+	for _, r := range Region(p.Location().X(), p.Location().Y()).neighbors() {
+		for _, i := range r.Items.Visible(p, p.ViewRadius()) {
+			if !p.LocalNPCs.Contains(i) {
+				items = append(items, coerceItem(i))
 			}
 		}
 	}
@@ -665,9 +707,9 @@ func (p *Player) NewItems() (items []*GroundItem) {
 //NewPlayers Returns nearby players that this player is unaware of.
 func (p *Player) NewPlayers() (players *MobList) {
 	list := &MobList{}
-	for _, r := range Region(p.X(), p.Y()).neighbors() {
+	for _, r := range Region(p.Location().X(), p.Location().Y()).neighbors() {
 		r.Players.RangePlayers(func(p1 *Player) bool {
-			if !p.LocalPlayers.Contains(p1) && p != p1 && p.WithinRange(p1.Location, 15) {
+			if !p.LocalPlayers.Contains(p1) && p != p1 && p.WithinRadius(p1, p.ViewRadius()) {
 				list.Add(p1)
 			}
 			return false
@@ -679,9 +721,9 @@ func (p *Player) NewPlayers() (players *MobList) {
 
 //NewNPCs Returns nearby NPCs that this player is unaware of.
 func (p *Player) NewNPCs() (npcs []*NPC) {
-	for _, r := range Region(p.X(), p.Y()).neighbors() {
+	for _, r := range Region(p.Location().X(), p.Location().Y()).neighbors() {
 		r.NPCs.RangeNpcs(func(n *NPC) bool {
-			if !n.VarBool("removed", false) && !p.LocalNPCs.Contains(n) && p.WithinRange(n.Location, 15) {
+			if !n.VarBool("removed", false) && !p.LocalNPCs.Contains(n) && p.WithinRadius(n, p.ViewRadius()) {
 				npcs = append(npcs, n)
 			}
 			return false
@@ -722,7 +764,7 @@ func (p *Player) TradeTarget() int {
 }
 
 //CombatDelta returns the difference between our combat level and the other mobs combat level
-func (p *Player) CombatDelta(other entity.MobileEntity) int {
+func (p *Player) CombatDelta(other MobileEntity) int {
 	delta := p.Skills().CombatLevel() - other.Skills().CombatLevel()
 	if delta < 0 {
 		return -delta
@@ -830,7 +872,9 @@ var DefaultPlayerService PlayerService
 //Destroy sends a kill signal to the underlying client to tear down all of the I/O routines and save the player.
 func (p *Player) Destroy() {
 	p.WritePacket(Logout)
-	p.Writer.Flush()
+	if err := p.Writer.Flush(); err != nil {
+		log.Warn("Could not flush player socket for logout packet upon destroy:", err)
+	}
 	p.PostTickables.Add(func() bool {
 		p.killer.Do(func() {
 			if err := p.Socket.Close(); err != nil {
@@ -859,43 +903,43 @@ func (p *Player) AtObject(object *Object) bool {
 	bounds := object.Boundaries()
 	if definitions.ScenaryObjects[object.ID].CollisionType == 2 || definitions.ScenaryObjects[object.ID].CollisionType == 3 {
 		// door types
-		return (p.Reachable(bounds[0]) || p.Reachable(bounds[1])) && p.WithinArea(bounds)
+		return (p.Location().Reachable(bounds[0]) || p.Location().Reachable(bounds[1])) && p.Location().Within(bounds[0].X(), bounds[1].X(), bounds[0].Y(), bounds[1].Y())
 	}
 
 	// TODO: Maybe replace this with the following:
 	//	return (p.Reachable(bounds[0]), bounds[1]) || p.Reachable(bounds[1])) || (p.FinishedPath() && p.CanReachDiag(bounds))
 	//	return p.Reachable(bounds[0]) || p.Reachable(bounds[1]) && p.WithinArea(bounds) p.CanReach(bounds) ||  (p.FinishedPath() && p.CanReachDiag(bounds))
 
-	return p.CanReach(bounds) || (p.FinishedPath() && p.CanReachDiag(bounds))
+	return p.Location().Reachable(*object.Location()) || (p.FinishedPath() && p.CanReachDiag(bounds))
 }
 
 func (p *Player) CanReachDiag(bounds [2]Location) bool {
 	/*
-		x, y := p.X(), p.Y()
-		if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y-1 >= bounds[0].Y() && y-1 <= bounds[1].Y() &&
+		x, y := p.Location().X(), p.Location().Y()
+		if x-1 >= bounds[0].Location().X() && x-1 <= bounds[1].Location().X() && y-1 >= bounds[0].Location().Y() && y-1 <= bounds[1].Location().Y() &&
 			(CollisionData(x-1, y-1).CollisionMask&ClipSouth|ClipWest) == 0 {
 			return true
 		}
-		if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y+1 >= bounds[0].Y() && y+1 <= bounds[1].Y() &&
+		if x-1 >= bounds[0].Location().X() && x-1 <= bounds[1].Location().X() && y+1 >= bounds[0].Location().Y() && y+1 <= bounds[1].Location().Y() &&
 			(CollisionData(x-1, y+1).CollisionMask&ClipNorth|ClipWest) == 0 {
 			return true
 		}
-		if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y-1 >= bounds[0].Y() && y-1 <= bounds[1].Y() &&
+		if x+1 >= bounds[0].Location().X() && x+1 <= bounds[1].Location().X() && y-1 >= bounds[0].Location().Y() && y-1 <= bounds[1].Location().Y() &&
 			(CollisionData(x+1, y-1).CollisionMask&ClipSouth|ClipEast) == 0 {
 			return true
 		}
-		if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y+1 >= bounds[0].Y() && y+1 <= bounds[1].Y() &&
+		if x+1 >= bounds[0].Location().X() && x+1 <= bounds[1].Location().X() && y+1 >= bounds[0].Location().Y() && y+1 <= bounds[1].Location().Y() &&
 			(CollisionData(x+1, y+1).CollisionMask&ClipNorth|ClipEast) == 0 {
 			return true
 		}
 
-		low, high := p.Masks(bounds[0].X(), bounds[0].Y()), p.Masks(bounds[1].X(), bounds[1].Y())
-		mixedNS, mixedEW := p.Masks(bounds[0].X(), bounds[1].Y()), p.Masks(bounds[1].X(), bounds[0].Y())
+		low, high := p.Masks(bounds[0].Location().X(), bounds[0].Location().Y()), p.Masks(bounds[1].Location().X(), bounds[1].Location().Y())
+		mixedNS, mixedEW := p.Masks(bounds[0].Location().X(), bounds[1].Location().Y()), p.Masks(bounds[1].Location().X(), bounds[0].Location().Y())
 	*/
 	/*
 		tile := p.Location.Clone()
-		lowX, lowY := p.X() - bounds[0].X(), p.Y() - bounds[0].Y()
-		highX, highY := p.X() - bounds[1].X(), p.Y() - bounds[1].Y()
+		lowX, lowY := p.Location().X() - bounds[0].Location().X(), p.Location().Y() - bounds[0].Location().Y()
+		highX, highY := p.Location().X() - bounds[1].Location().X(), p.Location().Y() - bounds[1].Location().Y()
 		masks := byte(0)
 		if (lowX == 0 || highX == 0) && (lowY == 0 || highY == 0  {
 			if lowX < 0 {
@@ -922,40 +966,40 @@ func (p *Player) CanReachDiag(bounds [2]Location) bool {
 		return CollisionData&masks != 0
 	*/
 	// Northeast target
-	if p.X()-1 >= bounds[0].X() && p.X()-1 <= bounds[1].X() && p.Y()-1 >= bounds[0].Y() && p.Y()-1 <= bounds[1].Y() {
-		return CollisionData(p.X()-1, p.Y()-1)&(ClipSouth|ClipWest) == 0
+	if p.Location().X()-1 >= bounds[0].X() && p.Location().X()-1 <= bounds[1].X() && p.Location().Y()-1 >= bounds[0].Y() && p.Location().Y()-1 <= bounds[1].Y() {
+		return CollisionData(p.Location().X()-1, p.Location().Y()-1)&(ClipSouth|ClipWest) == 0
 	}
 	// Northwest target
-	if p.X()+1 >= bounds[0].X() && p.X()+1 <= bounds[1].X() && p.Y()-1 >= bounds[0].Y() && p.Y()-1 <= bounds[1].Y() {
-		return CollisionData(p.X()-1, p.Y()-1)&(ClipSouth|ClipEast) == 0
+	if p.Location().X()+1 >= bounds[0].X() && p.Location().X()+1 <= bounds[1].X() && p.Location().Y()-1 >= bounds[0].Y() && p.Location().Y()-1 <= bounds[1].Y() {
+		return CollisionData(p.Location().X()-1, p.Location().Y()-1)&(ClipSouth|ClipEast) == 0
 	}
 	// Southeast target
-	if p.X()-1 >= bounds[0].X() && p.X()-1 <= bounds[1].X() && p.Y()+1 >= bounds[0].Y() && p.Y()+1 <= bounds[1].Y() {
-		return CollisionData(p.X()-1, p.Y()-1)&(ClipNorth|ClipWest) == 0
+	if p.Location().X()-1 >= bounds[0].X() && p.Location().X()-1 <= bounds[1].X() && p.Location().Y()+1 >= bounds[0].Y() && p.Location().Y()+1 <= bounds[1].Y() {
+		return CollisionData(p.Location().X()-1, p.Location().Y()-1)&(ClipNorth|ClipWest) == 0
 	}
 	// Southwest target
-	if p.X()+1 >= bounds[0].X() && p.X()+1 <= bounds[1].X() && p.Y()+1 >= bounds[0].Y() && p.Y()+1 <= bounds[1].Y() {
-		return CollisionData(p.X()-1, p.Y()-1)&(ClipNorth|ClipEast) == 0
+	if p.Location().X()+1 >= bounds[0].X() && p.Location().X()+1 <= bounds[1].X() && p.Location().Y()+1 >= bounds[0].Y() && p.Location().Y()+1 <= bounds[1].Y() {
+		return CollisionData(p.X()-1, p.Location().Y()-1)&(ClipNorth|ClipEast) == 0
 	}
 	return false
 	/*
 		// Southeast target
 		if lowX >= 1 && lowY <= -1 {
-			return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipNorth|ClipWest) == 0
+			return CollisionData(p.Location().X()-1, p.Location().Y()-1).CollisionMask&(ClipNorth|ClipWest) == 0
 		}
 		// Southwest target
 		if lowX <= -1 && lowY <= -1 {
-			return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipNorth|ClipEast)
+			return CollisionData(p.Location().X()-1, p.Location().Y()-1).CollisionMask&(ClipNorth|ClipEast)
 		}
 		// Northeast target
 		if lowX >= 1 && lowY >= 1 {
-			return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipSouth|ClipWest) == 0
+			return CollisionData(p.Location().X()-1, p.Location().Y()-1).CollisionMask&(ClipSouth|ClipWest) == 0
 		}
 		// Northwest target
 		if lowX <= -1 && lowY >= 1 {
-			return CollisionData(p.X()-1, p.Y()-1).CollisionMask&(ClipSouth|ClipEast)
+			return CollisionData(p.Location().X()-1, p.Location().Y()-1).CollisionMask&(ClipSouth|ClipEast)
 		}
-		return CollisionData(tile.X(), tile.Y()).CollisionMask&() == 0
+		return CollisionData(tile.Location().X(), tile.Location().Y()).CollisionMask&() == 0
 	*/
 }
 
@@ -1003,9 +1047,17 @@ func (p *Player) Initialize() {
 	}
 }
 func (p *Player) WritePacket(packet *net.Packet) {
-	defer p.Writer.Flush()
+	defer func() {
+		if err := p.Writer.Flush(); err != nil {
+			log.Warn("Could not flush player socket on packet write:", err)
+		}
+	}()
 	if packet.Opcode == 0 {
-		p.Writer.Write(packet.FrameBuffer)
+		if n, err := p.Writer.Write(packet.FrameBuffer); err != nil {
+			log.Warn("Could not write to player socket:", err)
+		} else if n < len(packet.FrameBuffer) {
+			log.Warn("wrote less bytes than intended to player socket: expected", len(packet.FrameBuffer), "got", n)
+		}
 		return
 	}
 	header := []byte{0, 0}
@@ -1020,7 +1072,13 @@ func (p *Player) WritePacket(packet *net.Packet) {
 			header[1] = packet.FrameBuffer[frameLength]
 		}
 	}
-	p.Writer.Write(append(header, packet.FrameBuffer[:frameLength]...))
+	packetBuffer := append(header, packet.FrameBuffer[:frameLength]...)
+	if n, err := p.Writer.Write(packetBuffer); err != nil {
+		log.Warn("Could not write to player socket:", err)
+	} else if n < len(packetBuffer) {
+		log.Warn("wrote less bytes than intended to player socket: expected", len(packetBuffer), "got", n)
+	}
+	
 }
 
 //NewPlayer Returns a reference to a new player.
@@ -1028,17 +1086,15 @@ func NewPlayer(socket stdnet.Conn) *Player {
 	p := &Player{
 		Socket: socket,
 		Mob: Mob{
-			Entity: Entity{
-				Location: Lumbridge.Clone(),
-			},
-			AttributeList: entity.NewAttributeList(),
+			position: Lumbridge.Clone(),
+			AttributeList: NewAttributeList(),
 		},
-		Attributes:       entity.NewAttributeList(),
+		Attributes:       NewAttributeList(),
 		LocalPlayers:     NewMobList(),
 		LocalNPCs:        NewMobList(),
-		LocalObjects:     &entityList{},
-		LocalItems:       &entityList{},
-		Appearance:       entity.DefaultAppearance(),
+		LocalObjects:     MakeEntityList(),
+		LocalItems:       MakeEntityList(),
+		Appearance:       DefaultAppearance(),
 		FriendList:       social.New(),
 		KnownAppearances: make(map[int]int),
 		bank:             &Inventory{Capacity: 48 * 4, stackEverything: true},
@@ -1046,11 +1102,11 @@ func NewPlayer(socket stdnet.Conn) *Player {
 		TradeOffer:       &Inventory{Capacity: 12},
 		DuelOffer:        &Inventory{Capacity: 8},
 		InQueue:          make(chan *net.Packet, 50),
-		Reader:			  bufio.NewReader(socket),
+		Reader:           bufio.NewReader(socket),
 	}
 	// TODO: Get rid of this self-referential member; figure out better way to handle client item updating
 	p.Inventory.Owner = p
-	p.SetVar("sprites", []int{entity.DefaultAppearance().Head, entity.DefaultAppearance().Body, entity.DefaultAppearance().Legs, -1, -1, -1, -1, -1, -1, -1, -1, -1})
+	p.SetVar("sprites", []int{DefaultAppearance().Head, DefaultAppearance().Body, DefaultAppearance().Legs, -1, -1, -1, -1, -1, -1, -1, -1, -1})
 	return p
 }
 
@@ -1086,7 +1142,7 @@ func (p *Player) Chat(msgs ...string) {
 }
 
 //QueuePublicChat Adds a message to a locked public-chat queue
-func (p *Player) QueuePublicChat(owner entity.MobileEntity, message string) {
+func (p *Player) QueuePublicChat(owner MobileEntity, message string) {
 	if !p.Contains("publicChatQ") {
 		p.SetVar("publicChatQ", []ChatMessage{NewChatMessage(owner, message)})
 		return
@@ -1094,17 +1150,21 @@ func (p *Player) QueuePublicChat(owner entity.MobileEntity, message string) {
 	p.SetVar("publicChatQ", append(p.VarChecked("publicChatQ").([]ChatMessage), NewChatMessage(owner, message)))
 }
 
+func (p *Player) MeleeDamage(mobileEntity MobileEntity) int {
+	return p.MeleeDamage(mobileEntity)
+}
+
 //QueueQuestChat Adds a message to a locked quest-chat queue
-func (p *Player) QueueQuestChat(owner, target entity.MobileEntity, message string) {
+func (p *Player) QueueQuestChat(owner, target MobileEntity, message string) {
 	if !p.Contains("questChatQ") {
-		p.SetVar("questChatQ", []ChatMessage{NewChatMessage(owner, message)})
+		p.SetVar("questChatQ", []ChatMessage{NewTargetedMessage(owner, target, message)})
 		return
 	}
-	p.SetVar("questChatQ", append(p.VarChecked("questChatQ").([]ChatMessage), NewChatMessage(owner, message)))
+	p.SetVar("questChatQ", append(p.VarChecked("questChatQ").([]ChatMessage), NewTargetedMessage(owner, target, message)))
 }
 
 //QueueNpcChat Adds a message to a locked quest-chat queue
-func (p *Player) QueueNpcChat(owner, target entity.MobileEntity, message string) {
+func (p *Player) QueueNpcChat(owner, target MobileEntity, message string) {
 	if !p.Contains("npcChatQ") {
 		p.SetVar("npcChatQ", []ChatMessage{NewTargetedMessage(owner, target, message)})
 		return
@@ -1113,7 +1173,7 @@ func (p *Player) QueueNpcChat(owner, target entity.MobileEntity, message string)
 }
 
 //QueueNpcSplat Adds a message to a locked quest-chat queue
-func (p *Player) QueueNpcSplat(owner *NPC, dmg int) {
+func (p *Player) QueueNpcSplat(owner MobileEntity, dmg int) {
 	if !p.Contains("npcSplatQ") {
 		p.SetVar("npcSplatQ", []HitSplat{NewHitsplat(owner, dmg)})
 		return
@@ -1122,7 +1182,7 @@ func (p *Player) QueueNpcSplat(owner *NPC, dmg int) {
 }
 
 //QueueProjectile Adds a missile to a locked projectile queue
-func (p *Player) QueueProjectile(owner, target entity.MobileEntity, kind int) {
+func (p *Player) QueueProjectile(owner, target MobileEntity, kind int) {
 	if !p.Contains("projectileQ") {
 		p.SetVar("projectileQ", []Projectile{NewProjectile(owner, target, kind)})
 		return
@@ -1131,7 +1191,7 @@ func (p *Player) QueueProjectile(owner, target entity.MobileEntity, kind int) {
 }
 
 //QueueHitsplat Adds a hit splat to a locked hit-splat queue
-func (p *Player) QueueHitsplat(owner entity.MobileEntity, dmg int) {
+func (p *Player) QueueHitsplat(owner MobileEntity, dmg int) {
 	if !p.Contains("hitsplatQ") {
 		p.SetVar("hitsplatQ", []HitSplat{NewHitsplat(owner, dmg)})
 		return
@@ -1173,7 +1233,6 @@ func (p *Player) OpenOptionMenu(options ...string) int {
 		}
 		return int(r)
 	}
-	return -1
 }
 
 //CloseOptionMenu closes any open option menus.
@@ -1243,10 +1302,10 @@ func (p *Player) IncExp(idx int, amt int) {
 	amt *= 20
 	p.Skills().IncExp(idx, amt)
 	// TODO: Fatigue
-	delta := entity.ExperienceToLevel(p.Skills().Experience(idx)) - p.Skills().Maximum(idx)
+	delta := ExperienceToLevel(p.Skills().Experience(idx)) - p.Skills().Maximum(idx)
 	if delta > 0 {
 		p.PlaySound("advance")
-		p.Message("@gre@You just advanced " + strconv.Itoa(delta) + " " + entity.SkillName(idx) + " level!")
+		p.Message("@gre@You just advanced " + strconv.Itoa(delta) + " " + SkillName(idx) + " level!")
 		oldCombat := p.Skills().CombatLevel()
 		p.Skills().IncreaseCur(idx, delta)
 		p.Skills().IncreaseMax(idx, delta)
@@ -1262,7 +1321,7 @@ func (p *Player) IncExp(idx int, amt int) {
 //SetMaxStat sets this players maximum stat at idx to lvl and updates the client about it.
 func (p *Player) SetMaxStat(idx int, lvl int) {
 	p.Skills().SetMax(idx, lvl)
-	p.Skills().SetExp(idx, entity.LevelToExperience(lvl) / 4)
+	p.Skills().SetExp(idx, LevelToExperience(lvl) / 4)
 	p.SendStat(idx)
 }
 
@@ -1376,31 +1435,59 @@ func (p *Player) AddSkull(user uint64) {
 	p.Skulls()[user] = time.Now()
 }
 
-func AsPlayer(m entity.MobileEntity) *Player {
+func AsPlayer(m Entity) *Player {
 	if p, ok := m.(*Player); ok {
 		return p
 	}
 	return nil
 }
 
-func AsNpc(m entity.MobileEntity) *NPC {
+func AsNpc(m Entity) *NPC {
 	if n, ok := m.(*NPC); ok {
 		return n
 	}
 	return nil
 }
 
-func (p *Player) SetTarget(m entity.MobileEntity) {
+func (p *Player) SetTarget(m MobileEntity) {
 	p.SetVar("targetMob", m)
 }
 
-func (p *Player) SetFightTarget(m entity.MobileEntity) {
+func (p *Player) SetFightTarget(m MobileEntity) {
 	p.SetVar("fightTarget", m)
 }
+type EntityCoercer interface {
+	Entity
+}
 
-func (p *Player) StartCombat(defender entity.MobileEntity) {
-	attacker := entity.MobileEntity(p)
-	if targetp := AsPlayer(defender); targetp != nil {
+func coercePlayer(e EntityCoercer) *Player {
+	if p, ok := e.(*Player); ok && p != nil {
+		return p
+	}
+	return nil
+}
+func coerceNpc(e EntityCoercer) *NPC {
+	if n, ok := e.(*NPC); ok && n != nil {
+		return n
+	}
+	return nil
+}
+func coerceObject(e EntityCoercer) *Object {
+	if o, ok := e.(*Object); ok && o != nil {
+		return o
+	}
+	return nil
+}
+func coerceItem(e EntityCoercer) *GroundItem {
+	if i, ok := e.(*GroundItem); ok && i != nil {
+		return i
+	}
+	return nil
+}
+
+func (p *Player) StartCombat(defender MobileEntity) {
+	var attacker MobileEntity = p
+	if targetp := coercePlayer(defender); targetp != nil {
 		targetp.PlaySound("underattack")
 		if !p.IsDueling() && !targetp.SkulledOn(p.UsernameHash()) {
 			p.SkullOn(targetp)
@@ -1419,11 +1506,11 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 	defender.SetDirection(LeftFighting)
 
 	defender.SetRegionRemoved()
-	p.Teleport(defender.X(), defender.Y())
+	p.Teleport(defender.Location().X(), defender.Location().Y())
 
 	tasks.Schedule(2, func() bool {
-		if (defender.IsPlayer() && !AsPlayer(defender).Connected()) || !defender.HasState(StateFighting) ||
-			!p.HasState(StateFighting) || !p.Connected() || p.LongestDeltaCoords(defender.X(), defender.Y()) > 0 {
+		if (defender.IsPlayer() && !coercePlayer(defender).Connected()) || !defender.HasState(StateFighting) ||
+			!p.HasState(StateFighting) || !p.Connected() || p.Location().LongestDeltaCoords(defender.Location().X(), defender.Location().Y()) > 0 {
 			// target is a disconnected player, we are disconnected,
 			// one of us is not in a fight, or we are distanced somehow unexpectedly.  Kill tasks.
 			// quickfix for possible bugs I imagined will exist
@@ -1437,22 +1524,19 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 		attacker.SessionCache().Inc("fightRound", 1)
 
 		// Paralyze Monster blocker here
-		if attacker.IsNpc() && defender.IsPlayer() && AsPlayer(defender).PrayerActivated(12) {
+		if attacker.IsNpc() && defender.IsPlayer() && coercePlayer(defender).PrayerActivated(12) {
 			return false
 		}
 		
-		nextHit := int(math.Min(float64(defender.Skills().Current(entity.StatHits)), float64(attacker.MeleeDamage(defender))))
-		defender.Skills().DecreaseCur(entity.StatHits, nextHit)
+		nextHit := int(math.Min(float64(defender.Skills().Current(StatHits)), float64(attacker.MeleeDamage(defender))))
+		defender.Skills().DecreaseCur(StatHits, nextHit)
 		if defender.IsNpc() && attacker.IsPlayer() {
-			AsNpc(defender).CacheDamage(AsPlayer(attacker).UsernameHash(), nextHit)
+			coerceNpc(defender).CacheDamage(coercePlayer(attacker).UsernameHash(), nextHit)
 		}
 		defender.Damage(nextHit)
-		if defender.Skills().Current(entity.StatHits) <= 0 {
+		if defender.Skills().Current(StatHits) <= 0 {
 			if attacker.IsPlayer() {
-				AsPlayer(attacker).PlaySound("victory")
-			}
-			if attackerp := AsPlayer(attacker); attackerp != nil {
-				attackerp.PlaySound("victory")
+				coercePlayer(attacker).PlaySound("victory")
 			}
 			defender.Killed(attacker)
 			return true
@@ -1469,11 +1553,11 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 
 
 		if attacker.IsPlayer() {
-			AsPlayer(attacker).PlaySound(sound)
+			coercePlayer(attacker).PlaySound(sound)
 		}
 		
 		if defender.IsPlayer() {
-			AsPlayer(defender).PlaySound(sound)
+			coercePlayer(defender).PlaySound(sound)
 		}
 		
 		// if attackerp := AsPlayer(attacker); attackerp != nil {
@@ -1489,7 +1573,7 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 }
 
 //Killed kills this player, dropping all of its items where it stands.
-func (p *Player) Killed(killer entity.MobileEntity) {
+func (p *Player) Killed(killer MobileEntity) {
 	p.SessionCache().SetVar("deathTime", time.Now())
 	p.PlaySound("death")
 	p.SendPacket(Death)
@@ -1503,7 +1587,7 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 	p.SendStats()
 	p.SetDirection(North)
 
-	deathItems := []*GroundItem{NewGroundItem(DefaultDrop, 1, p.X(), p.Y())}
+	deathItems := []*GroundItem{NewGroundItem(DefaultDrop, 1, p.Location().X(), p.Location().Y())}
 	if !p.IsDueling() {
 		keepCount := 0
 		if p.PrayerActivated(8) {
@@ -1515,11 +1599,11 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 		}
 		deathItems = append(deathItems, p.Inventory.DeathDrops(keepCount)...)
 	} else {
-		p.DuelOffer.Lock.RLock()
+		p.DuelOffer.RLock()
 		for _, i := range p.DuelOffer.List {
-			deathItems = append(deathItems, NewGroundItem(i.ID, i.Amount, p.X(), p.Y()))
+			deathItems = append(deathItems, NewGroundItem(i.ID, i.Amount, p.Location().X(), p.Location().Y()))
 		}
-		p.DuelOffer.Lock.RUnlock()
+		p.DuelOffer.RUnlock()
 		if p.Duel.Target != nil {
 			p.Duel.Target.ResetDuel()
 		}
@@ -1527,7 +1611,7 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 	}
 
 	if killer != nil && killer.IsPlayer() {
-		killerp := AsPlayer(killer)
+		killerp := coercePlayer(killer)
 		killerp.DistributeMeleeExp(p.ExperienceReward() / 4)
 		killerp.Message("You have defeated " + p.Username() + "!")
 	}
@@ -1535,7 +1619,7 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 		// becomes universally visible on NPCs, or temporarily private otherwise
 		if i == 0 || p.Inventory.RemoveByID(v.ID, v.Amount) > -1 {
 			if killer != nil && killer.IsPlayer() {
-				v.Owner = AsPlayer(killer).Username()
+				v.Owner = coercePlayer(killer).Username()
 			}
 			AddItem(v)
 		} else {
@@ -1547,15 +1631,15 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 	p.ResetFighting()
 	p.SetSkulled(false)
 
-	plane := p.Plane()
-	p.SetLocation(SpawnPoint, true)
-	if p.Plane() != plane {
+	plane := p.Location().Plane()
+	p.SetLocation(*SpawnPoint, true)
+	if p.Location().Plane() != plane {
 		p.SendPlane()
 	}
 }
 
 func (p *Player) NpcWithin(id int, rad int) *NPC {
-	return NpcNearest(id, p.X(), p.Y())
+	return NpcWithinRad(id, p.Location().X(), p.Location().Y(), rad)
 }
 
 //SendPlane sends the current plane of this player.
@@ -1610,7 +1694,7 @@ func (p *Player) ItemBubble(id int) {
 func (p *Player) SetStat(idx, lvl int) {
 	p.Skills().SetCur(idx, lvl)
 	p.Skills().SetMax(idx, lvl)
-	p.Skills().SetExp(idx, entity.LevelToExperience(lvl))
+	p.Skills().SetExp(idx, LevelToExperience(lvl))
 	p.SendStat(idx)
 }
 

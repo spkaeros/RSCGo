@@ -13,8 +13,8 @@ import (
 	"github.com/spkaeros/rscgo/pkg/throttle"
 )
 
-var LoginThrottle = ipThrottle.NewThrottle()
-var RegisterThrottle = ipThrottle.NewThrottle()
+var LoginThrottle = throttle.NewThrottle()
+var RegisterThrottle = throttle.NewThrottle()
 
 type (
 	//ResponseType A networking handshake response identifier code.
@@ -33,7 +33,7 @@ func (r ResponseCode) IsValid() bool {
 			return true
 		}
 	}
-	return int(r)&64 == 64
+	return int(r)&ResponseLoginAcceptBit == ResponseLoginAcceptBit
 }
 
 const (
@@ -125,9 +125,4 @@ const (
 	//ResponseLoginAcceptBit bitmask to use for valid login response.  the network protocol of revisions > 204 rely on this.
 	ResponseLoginAcceptBit = 1 << 6
 	ResponseUsernameTaken  = ResponseBadPassword
-)
-
-const (
-	LoginCode ResponseType = iota
-	RegisterCode
 )

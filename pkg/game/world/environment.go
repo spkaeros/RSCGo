@@ -24,7 +24,6 @@ import (
 	`github.com/mattn/anko/vm`
 	
 	"github.com/spkaeros/rscgo/pkg/definitions"
-	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/strutil"
@@ -52,6 +51,7 @@ func init() {
 		"removeItem":             reflect.ValueOf(RemoveItem),
 		"getObjectAt":            reflect.ValueOf(GetObject),
 		"getNpc":                 reflect.ValueOf(GetNpc),
+		"findNpc":                 reflect.ValueOf(NpcWithinRad),
 		"checkCollisions":        reflect.ValueOf(IsTileBlocking),
 		"tileData":               reflect.ValueOf(CollisionData),
 		"kickPlayer": reflect.ValueOf(func(client *Player) {
@@ -66,7 +66,7 @@ func init() {
 			})
 		}),
 		"walkTo": reflect.ValueOf(func(target *Player, x, y int) {
-			target.WalkTo(NewLocation(x, y))
+			target.WalkTo(*NewLocation(x, y))
 		}),
 		"systemUpdate": reflect.ValueOf(func(t int) {
 			UpdateTime = time.Now().Add(time.Second * time.Duration(t))
@@ -95,14 +95,14 @@ func init() {
 					nearbyPlayer.SendPacket(TeleBubble(target.X()-nearbyPlayer.X(), target.Y()-nearbyPlayer.Y()))
 				}
 			}
-			plane := target.Plane()
+			plane := target.Location().Plane()
 			target.ResetPath()
 			target.Teleport(x, y)
-			if target.Plane() != plane {
+			if target.Location().Plane() != plane {
 				target.SendPacket(PlaneInfo(target))
 			}
 		}),
-		"curTick":		  reflect.ValueOf(Ticks.Load()),
+		"curTick":		  reflect.ValueOf(CurrentTick()),
 		"newShop":        reflect.ValueOf(NewShop),
 		"newLocation":    reflect.ValueOf(NewLocation),
 		"newGeneralShop": reflect.ValueOf(NewGeneralShop),
@@ -314,24 +314,24 @@ func ScriptEnv() *env.Env {
 	// 64 minutes; or 600 ticks, which is a game-hour
 	e.Define("Hour", TickDuration*TicksMinute*60)
 	// Skill indexes to help make clean, concise, easy to read code
-	e.Define("ATTACK", entity.StatAttack)
-	e.Define("DEFENSE", entity.StatDefense)
-	e.Define("STRENGTH", entity.StatStrength)
-	e.Define("HITPOINTS", entity.StatHits)
-	e.Define("RANGED", entity.StatRanged)
-	e.Define("PRAYER", entity.StatPrayer)
-	e.Define("MAGIC", entity.StatMagic)
-	e.Define("COOKING", entity.StatCooking)
-	e.Define("WOODCUTTING", entity.StatWoodcutting)
-	e.Define("FLETCHING", entity.StatFletching)
-	e.Define("FISHING", entity.StatFishing)
-	e.Define("FIREMAKING", entity.StatFiremaking)
-	e.Define("CRAFTING", entity.StatCrafting)
-	e.Define("SMITHING", entity.StatSmithing)
-	e.Define("MINING", entity.StatMining)
-	e.Define("HERBLAW", entity.StatHerblaw)
-	e.Define("AGILITY", entity.StatAgility)
-	e.Define("THIEVING", entity.StatThieving)
+	e.Define("ATTACK", StatAttack)
+	e.Define("DEFENSE", StatDefense)
+	e.Define("STRENGTH", StatStrength)
+	e.Define("HITPOINTS", StatHits)
+	e.Define("RANGED", StatRanged)
+	e.Define("PRAYER", StatPrayer)
+	e.Define("MAGIC", StatMagic)
+	e.Define("COOKING", StatCooking)
+	e.Define("WOODCUTTING", StatWoodcutting)
+	e.Define("FLETCHING", StatFletching)
+	e.Define("FISHING", StatFishing)
+	e.Define("FIREMAKING", StatFiremaking)
+	e.Define("CRAFTING", StatCrafting)
+	e.Define("SMITHING", StatSmithing)
+	e.Define("MINING", StatMining)
+	e.Define("HERBLAW", StatHerblaw)
+	e.Define("AGILITY", StatAgility)
+	e.Define("THIEVING", StatThieving)
 	// Prayer indexes, for cleaner, more concise, easier to read code.
 	e.Define("PRAYER_THICK_SKIN", 0)
 	e.Define("PRAYER_BURST_OF_STRENGTH", 1)
@@ -358,15 +358,15 @@ func ScriptEnv() *env.Env {
 	// NPC definitions
 	e.Define("npcDefs", definitions.Npcs)
 	// Convert skill level to experience units
-	e.Define("lvlToExp", entity.LevelToExperience)
+	e.Define("lvlToExp", LevelToExperience)
 	// Convert experience units to skill level.
-	e.Define("expToLvl", entity.ExperienceToLevel)
+	e.Define("expToLvl", ExperienceToLevel)
 	// Check if a location is within the physical defined world boundaries
 	e.Define("withinWorld", WithinWorld)
 	// Finds the index of a skill by name
-	e.Define("skillIndex", entity.SkillIndex)
+	e.Define("skillIndex", SkillIndex)
 	// Finds the name of a skill by index
-	e.Define("skillName", entity.SkillName)
+	e.Define("skillName", SkillName)
 	// Creates a new NPC
 	e.Define("newNpc", NewNpc)
 	// Creates a new game object
@@ -525,8 +525,8 @@ func ScriptEnv() *env.Env {
 		}
 		return nil
 	})
-	e.Define("toMob", func(v interface{}) entity.MobileEntity {
-		if m, ok := v.(entity.MobileEntity); ok {
+	e.Define("toMob", func(v interface{}) MobileEntity {
+		if m, ok := v.(MobileEntity); ok {
 			return m
 		}
 		return nil

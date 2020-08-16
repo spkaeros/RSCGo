@@ -220,7 +220,7 @@ func (p *Packet) AddUint32(i uint32) *Packet {
 
 func (p *Packet) AddSmart08_32(i int) *Packet {
 	if i >= 0x80 {
-		p.AddUint32(0x80<<24|uint32(i))
+		p.AddUint32(0x80<<24 | uint32(i))
 		return p
 	}
 	p.AddUint8(uint8(i))

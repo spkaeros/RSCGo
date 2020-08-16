@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Zachariah Knilght <aeros.storkpk@gmail.com>
+ * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
  * Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
  *
@@ -7,20 +7,26 @@
  *
  */
 
-package entity
+package world
 
 import (
 	"fmt"
 	"strconv"
 	"sync"
 	"time"
-
+	
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 
+type value interface{}
+
 type entry struct {
 	key   string
-	Value interface{}
+	Value value
+}
+
+func newEntry(key string, val value) *entry {
+	return &entry{key: key, Value: val}
 }
 
 func (e entry) String() string {
@@ -247,11 +253,11 @@ func (a *AttributeList) CheckMask(name string, mask int) bool {
 	return a.VarInt(name, 0)&mask != 0
 }
 
-//VarMob checks if there is a entity.MobileEntity attribute assigned to the specified name, and returns it.
+//VarMob checks if there is a Entity attribute assigned to the specified name, and returns it.
 // Otherwise, returns nil.
 func (a *AttributeList) VarEntity(name string) Entity {
 	if e := a.VarChecked(name); e != nil {
-		if e, ok := e.(Entity); ok && e.Type()&(TypeMob|TypeEntity) != 0 {
+		if e, ok := e.(Entity); ok {
 			return e
 		}
 	}
@@ -259,26 +265,26 @@ func (a *AttributeList) VarEntity(name string) Entity {
 	return nil
 }
 
-//VarMob checks if there is a entity.MobileEntity attribute assigned to the specified name, and returns it.
+//VarMob checks if there is a Entity attribute assigned to the specified name, and returns it.
 // Otherwise, returns nil.
 func (a *AttributeList) VarMob(name string) MobileEntity {
-	if e := a.VarEntity(name); e != nil && (e.Type()&TypeMob) != 0 {
+	if e := a.VarEntity(name); e != nil && (e.IsNpc() || e.IsPlayer()) {
 		return e.(MobileEntity)
 	}
-
+	
 	return nil
 }
 
-func (a *AttributeList) VarNpc(name string) MobileEntity {
-	if m := a.VarMob(name); m != nil && m.Type()&TypeNpc != 0 && m.IsNpc() {
-		return m
+func (a *AttributeList) VarNpc(name string) Entity {
+	if m := a.VarMob(name); m != nil && m.IsNpc(){
+		return coerceNpc(m)
 	}
 	return nil
 }
 
-func (a *AttributeList) VarPlayer(name string) MobileEntity {
-	if m := a.VarMob(name); m != nil && m.Type()&TypePlayer != 0 && m.IsPlayer() {
-		return m
+func (a *AttributeList) VarPlayer(name string) Entity {
+	if m := a.VarMob(name); m != nil && m.IsPlayer() {
+		return coercePlayer(m)
 	}
 	return nil
 }

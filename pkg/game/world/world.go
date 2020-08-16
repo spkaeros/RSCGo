@@ -3,17 +3,16 @@ package world
 import (
 	"fmt"
 	"math"
-	"strconv"
 	"math/rand"
+	"strconv"
 	"sync"
+	`sync/atomic`
 	"time"
-
+	
 	"github.com/spkaeros/rscgo/pkg/definitions"
+	"github.com/spkaeros/rscgo/pkg/isaac"
 	"github.com/spkaeros/rscgo/pkg/log"
 	rscRand "github.com/spkaeros/rscgo/pkg/rand"
-	"github.com/spkaeros/rscgo/pkg/isaac"
-
-	"go.uber.org/atomic"
 )
 
 const (
@@ -33,13 +32,19 @@ const (
 
 var (
 	//Ticks keeps track of the number of ticks the engine has run for, used to time things
-	Ticks = atomic.NewUint64(0)
+	//Ticks = atomic.NewUint64(0)
+	Ticks = new(uint64)
 )
 
 
 //CurrentTick returns the current game engine tick.
 func CurrentTick() int {
-	return int(Ticks.Load())
+	return int(atomic.LoadUint64(Ticks))
+}
+
+//IncrementTicker returns the current game engine tick.
+func IncrementTicker() {
+	atomic.AddUint64(Ticks, 1)
 }
 
 const (
@@ -196,8 +201,8 @@ type region struct {
 	y int
 	Players *MobList
 	NPCs    *MobList
-	Objects *entityList
-	Items   *entityList
+	Objects *EntityList
+	Items   *EntityList
 }
 
 var regions [HorizontalPlanes][VerticalPlanes]*region
@@ -209,7 +214,7 @@ func WithinWorld(x, y int) bool {
 
 //AddPlayer Add a player to a region of the game world.
 func AddPlayer(p *Player) {
-	Region(p.X(), p.Y()).Players.Add(p)
+	Region(p.Location().X(), p.Location().Y()).Players.Add(p)
 	Players.Put(p)
 	Players.Range(func(player *Player) {
 		if player.FriendList.Contains(p.Username()) && (!p.FriendBlocked() || p.FriendList.Contains(player.Username())) {
@@ -226,7 +231,7 @@ func AddPlayer(p *Player) {
 func RemovePlayer(p *Player) {
 	p.SetRegionRemoved()
 	Players.Remove(p)
-	Region(p.X(), p.Y()).Players.Remove(p)
+	Region(p.Location().X(), p.Location().Y()).Players.Remove(p)
 	Players.Range(func(player *Player) {
 		if player.FriendList.Contains(p.Username()) && (!p.FriendBlocked() || p.FriendList.Contains(player.Username())) {
 			player.FriendList.Set(p.Username(), false)
@@ -237,28 +242,28 @@ func RemovePlayer(p *Player) {
 
 //AddNpc Add a NPC to the region.
 func AddNpc(n *NPC) {
-	Region(n.X(), n.Y()).NPCs.Add(n)
+	Region(n.Location().X(), n.Location().Y()).NPCs.Add(n)
 }
 
 //RemoveNpc SetRegionRemoved a NPC from the region.
 func RemoveNpc(n *NPC) {
-	Region(n.X(), n.Y()).NPCs.Remove(n)
+	Region(n.Location().X(), n.Location().Y()).NPCs.Remove(n)
 }
 
 //AddItem Add a ground item to the region.
 func AddItem(i *GroundItem) {
-	Region(i.X(), i.Y()).Items.Add(i)
+	Region(i.Location().X(), i.Location().Y()).Items.entityVec.Put(i)
 }
 
 //GetItem Returns the item at x,y with the specified id.  Returns nil if it can not find the item.
 func GetItem(x, y, id int) *GroundItem {
 	
 	region := Region(x, y)
-	region.Items.lock.RLock()
-	defer region.Items.lock.RUnlock()
-	for _, i := range region.Items.set {
+	region.Items.RLock()
+	defer region.Items.RUnlock()
+	for _, i := range region.Items.entityVec {
 		if i, ok := i.(*GroundItem); ok {
-			if i.ID == id && i.X() == x && i.Y() == y {
+			if i.ID == id && i.Location().X() == x && i.Location().Y() == y {
 				return i
 			}
 		}
@@ -269,12 +274,12 @@ func GetItem(x, y, id int) *GroundItem {
 
 //RemoveItem SetRegionRemoved a ground item to the region.
 func RemoveItem(i *GroundItem) {
-	Region(i.X(), i.Y()).Items.Remove(i)
+	Region(i.Location().X(), i.Location().Y()).Items.Remove(i)
 }
 
 //AddObject Add an object to the region.
 func AddObject(o *Object) {
-	Region(o.X(), o.Y()).Objects.Add(o)
+	Region(o.Location().X(), o.Location().Y()).Objects.entityVec.Put(o)
 	if !o.Boundary {
 		scenary := definitions.ScenaryObjects[o.ID]
 		// type 0 is used when the object causes no collisions of any sort.
@@ -287,12 +292,12 @@ func AddObject(o *Object) {
 		width := scenary.Height
 		height := scenary.Width
 		//if o.Direction == 0 || o.Direction == 4 {
-		if o.Direction%4 == 0 {
+		if o.Direction()%4 == 0 {
 			width = scenary.Width
 			height = scenary.Height
 		}
-		for x := o.X(); x < o.X()+width; x++ {
-			for y := o.Y(); y < o.Y()+height; y++ {
+		for x := o.Location().X(); x < o.Location().X()+width; x++ {
+			for y := o.Location().Y(); y < o.Location().Y()+height; y++ {
 				areaX := (2304 + x) % RegionSize
 				areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
 				if len(sectorFromCoords(x, y).Tiles) <= 0 {
@@ -306,7 +311,7 @@ func AddObject(o *Object) {
 				}
 
 				// If it's gone this far, collisionType is 2 (directional blocking, e.g gates etc)
-				if o.Direction == byte(North) {
+				if o.Direction() == North {
 					// Block the tiles east side
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipEast
 					// ensure that the neighbors index is valid
@@ -314,19 +319,19 @@ func AddObject(o *Object) {
 						// then block the eastern neighbors west side
 						sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY] |= ClipWest
 					}
-				} else if o.Direction == byte(West) {
+				} else if o.Direction() == West {
 					// Block the tiles south side
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipSouth
 					// then block the southern neighbors north side
 					sectorFromCoords(x, y+1).Tiles[areaX*RegionSize+areaY+1] |= ClipNorth
-				} else if o.Direction == byte(South) {
+				} else if o.Direction() == South {
 					// Block the tiles west side
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipWest
 					// then block the western neighbors east side
 					if areaX, areaY := (2304+x+1)%RegionSize, (1776+y-(944*((y+100)/944)))%RegionSize; (areaX+1)*RegionSize+areaY > 2304 {
 						sectorFromCoords(x+1, y).Tiles[areaX*RegionSize+areaY] |= ClipEast
 					}
-				} else if o.Direction == byte(East) {
+				} else if o.Direction() == East {
 					// Block the tiles north side
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipNorth
 					// ensure that the neighbors index is valid
@@ -344,26 +349,26 @@ func AddObject(o *Object) {
 			// Doorframes and some other stuff collide with nothing.
 			return
 		}
-		x, y := o.X(), o.Y()
+		x, y := o.Location().X(), o.Location().Y()
 		areaX := (2304 + x) % RegionSize
 		areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
 		if len(sectorFromCoords(x, y).Tiles) <= 0 {
 			log.Warn("ERROR: Sector with no tiles at:" + strconv.Itoa(x) + "," + strconv.Itoa(y) + " (" + strconv.Itoa(areaX) + "," + strconv.Itoa(areaY) + "\n")
 			return
 		}
-		if o.Direction == 0 {
+		if o.Direction() == 0 {
 			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipNorth
 			if areaX+areaY > 0 {
 				sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1] |= ClipSouth
 			}
-		} else if o.Direction == 1 {
+		} else if o.Direction() == 1 {
 			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipEast
 			if areaX > 0 || areaY >= 48 {
 				sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY] |= ClipWest
 			}
-		} else if o.Direction == 2 {
+		} else if o.Direction() == 2 {
 			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipSwNe
-		} else if o.Direction == 3 {
+		} else if o.Direction() == 3 {
 			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipSeNw
 		}
 	}
@@ -371,7 +376,7 @@ func AddObject(o *Object) {
 
 //RemoveObject SetRegionRemoved an object from the region.
 func RemoveObject(o *Object) {
-	Region(o.X(), o.Y()).Objects.Remove(o)
+	Region(o.Location().X(), o.Location().Y()).Objects.Remove(o)
 	if !o.Boundary {
 		scenary := definitions.ScenaryObjects[o.ID]
 		// type 0 is used when the object causes no collisions of any sort.
@@ -385,35 +390,35 @@ func RemoveObject(o *Object) {
 		height := scenary.Width
 
 		//if o.Direction == byte(North) || o.Direction == byte(South) {
-		if o.Direction%4 == 0 {
+		if o.Direction()%4 == 0 {
 			// reverse measurements for directions 0(North) and 4(South), as scenary measurements
 			// are oriented vertically by default
 			width = scenary.Width
 			height = scenary.Height
 		}
-		for x := o.X(); x < o.X()+width; x++ {
-			for y := o.Y(); y < o.Y()+height; y++ {
+		for x := o.Location().X(); x < o.Location().X()+width; x++ {
+			for y := o.Location().Y(); y < o.Location().Y()+height; y++ {
 				areaX := (2304 + x) % RegionSize
 				areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
 				if scenary.CollisionType == 1 {
 					// This indicates a solid object.  Impassable and blocks the whole tile.
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipFullBlock
-				} else if o.Direction == 0 {
+				} else if o.Direction() == 0 {
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipEast
 					if sectorFromCoords(x-1, y) != nil {
 						sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY] &= ^ClipWest
 					}
-				} else if o.Direction == 2 {
+				} else if o.Direction() == 2 {
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipSouth
 					if sectorFromCoords(x, y+1) != nil {
 						sectorFromCoords(x, y+1).Tiles[areaX*RegionSize+areaY+1] &= ^ClipNorth
 					}
-				} else if o.Direction == 4 {
+				} else if o.Direction() == 4 {
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipWest
 					if sectorFromCoords(x+1, y) != nil {
 						sectorFromCoords(x+1, y).Tiles[(areaX+1)*RegionSize+areaY] &= ^ClipEast
 					}
-				} else if o.Direction == 6 {
+				} else if o.Direction() == 6 {
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipNorth
 					if sectorFromCoords(x, y-1) != nil {
 						sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1] &= ^ClipSouth
@@ -428,22 +433,22 @@ func RemoveObject(o *Object) {
 			return
 		}
 
-		x, y := o.X(), o.Y()
+		x, y := o.Location().X(), o.Location().Y()
 		areaX := (2304 + x) % RegionSize
 		areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
-		if o.Direction == 0 { // Vertical wall ('| ',' |') North<->South
+		if o.Direction() == 0 { // Vertical wall ('| ',' |') North<->South
 			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipNorth
 			if areaX+areaY > 0 {
 				sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1] &= ^ClipSouth
 			}
-		} else if o.Direction == 1 { // Horizontal wall ('__','‾‾') East<->West
+		} else if o.Direction() == 1 { // Horizontal wall ('__','‾‾') East<->West
 			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipEast
 			if areaX > 0 || areaY >= 48 {
 				sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY] &= ^ClipWest
 			}
-		} else if o.Direction == 2 { // Diagonal wall ('\','‾|','|_') Southwest<->Northeast
+		} else if o.Direction() == 2 { // Diagonal wall ('\','‾|','|_') Southwest<->Northeast
 			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipSwNe
-		} else if o.Direction == 3 { // Diagonal wall ('/','|‾','_|') Southeast<->Northwest
+		} else if o.Direction() == 3 { // Diagonal wall ('/','|‾','_|') Southeast<->Northwest
 			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipSeNw
 		}
 	}
@@ -452,7 +457,7 @@ func RemoveObject(o *Object) {
 //ReplaceObject Replaces old with a new game object with all of the same characteristics, except it's ID set to newID.
 func ReplaceObject(old *Object, newID int) *Object {
 	RemoveObject(old)
-	object := NewObject(newID, int(old.Direction), old.X(), old.Y(), old.Boundary)
+	object := NewObject(newID, old.Direction(), old.Location().X(), old.Location().Y(), old.Boundary)
 	AddObject(object)
 	return object
 }
@@ -464,13 +469,13 @@ func GetAllObjects() (list []*Object) {
 	for x := 0; x < MaxX; x += RegionSize {
 		for y := 0; y < MaxY; y += RegionSize {
 			if r := regions[x/RegionSize][y/RegionSize]; r != nil {
-				r.Objects.lock.RLock()
-				for _, o := range r.Objects.set {
+				r.Objects.RLock()
+				for _, o := range r.Objects.entityVec {
 					if o, ok := o.(*Object); ok {
 						list = append(list, o)
 					}
 				}
-				r.Objects.lock.RUnlock()
+				r.Objects.RUnlock()
 			}
 		}
 	}
@@ -481,11 +486,11 @@ func GetAllObjects() (list []*Object) {
 //GetObject If there is an object at these coordinates, returns it.  Otherwise, returns nil.
 func GetObject(x, y int) *Object {
 	r := Region(x, y)
-	r.Objects.lock.RLock()
-	defer r.Objects.lock.RUnlock()
-	for _, o := range r.Objects.set {
+	r.Objects.RLock()
+	defer r.Objects.RUnlock()
+	for _, o := range r.Objects.entityVec {
 		if o, ok := o.(*Object); ok {
-			if o.X() == x && o.Y() == y {
+			if o.Location().X() == x && o.Location().Y() == y {
 				return o
 			}
 		}
@@ -503,30 +508,27 @@ func GetNpc(index int) *NPC {
 	return m.(*NPC)
 }
 
-//NpcNearest looks for the NPC with the given ID, that is the closest to the given coordinates
+//NpcWithinRad looks for the NPC with the given ID, that is the closest to the given coordinates
 // and then returns it.
 // Returns nil if it can not find an NPC to fit the given description.
-func NpcNearest(id, x, y int) *NPC {
+func NpcWithinRad(id, x, y, rad int) *NPC {
 	point := NewLocation(x, y)
-	minDelta := 16
-	var npc *NPC
+	minDist := rad
+	var nearestNpc *NPC
 	regionLock.RLock()
 	defer regionLock.RUnlock()
-	for x := 0; x < MaxX; x += RegionSize {
-		for y := 0; y < MaxY; y += RegionSize {
-			if r := regions[x/RegionSize][y/RegionSize]; r != nil {
-				r.NPCs.RangeNpcs(func(n *NPC) bool {
-					if n.ID == id && n.LongestDelta(point) < minDelta {
-						minDelta = n.LongestDelta(point)
-						npc = n
-					}
-					return false
-				})
-			}
+	for _, neighbor := range get(x, y).neighbors() {
+		if neighbor != nil {
+			neighbor.NPCs.RangeNpcs(func(n *NPC) bool {
+				if distance := n.Location().LongestDelta(*point); n.ID == id && distance < rad && distance <= minDist {
+					nearestNpc = n
+					minDist = distance
+				}
+				return false
+			})
 		}
-
 	}
-	return npc
+	return nearestNpc
 }
 
 //NpcVisibleFrom looks for any NPC with the given ID, that is within a 16x16 square
@@ -534,24 +536,34 @@ func NpcNearest(id, x, y int) *NPC {
 // Returns nil if it can not find an NPC to fit the given parameters.
 func NpcVisibleFrom(id, x, y int) *NPC {
 	point := NewLocation(x, y)
-	minDelta := 16
-	var npc *NPC
-	
-	for x := 0; x < MaxX; x += RegionSize {
-		for y := 0; y < MaxY; y += RegionSize {
-			if r := regions[x/RegionSize][y/RegionSize]; r != nil {
-				r.NPCs.RangeNpcs(func(n *NPC) bool {
-					if n.ID == id && n.LongestDelta(point) < minDelta {
-						minDelta = n.LongestDelta(point)
-						npc = n
-					}
-					return false
-				})
-			}
+	minDist := 16
+	var nearestNpc *NPC
+	for _, neighbor := range get(x, y).neighbors() {
+		if neighbor != nil {
+			neighbor.NPCs.RangeNpcs(func(n *NPC) bool {
+				if distance := n.Location().LongestDelta(*point); n.ID == id && distance <= minDist {
+					nearestNpc = n
+					minDist = distance
+				}
+				return false
+			})
 		}
-
 	}
-	return npc
+	//for x := 0; x < MaxX; x += RegionSize {
+	//	for y := 0; y < MaxY; y += RegionSize {
+	//		if r := regions[x/RegionSize][y/RegionSize]; r != nil {
+	//			r.NPCs.RangeNpcs(func(n *NPC) bool {
+	//				if n.ID == id && n.LongestDelta(point) < minDelta {
+	//					minDelta = n.LongestDelta(point)
+	//					npc = n
+	//				}
+	//				return false
+	//			})
+	//		}
+	//	}
+	//
+	//}
+	return nearestNpc
 }
 
 var regionLock = sync.RWMutex{}
@@ -575,7 +587,7 @@ func get(x, y int) *region {
 	regionLock.Lock()
 	defer regionLock.Unlock()
 	if regions[x][y] == nil {
-		regions[x][y] = &region{x, y, &MobList{}, &MobList{}, &entityList{}, &entityList{}}
+		regions[x][y] = &region{x, y, &MobList{}, &MobList{}, &EntityList{}, &EntityList{}}
 	}
 	return regions[x][y]
 }
@@ -586,7 +598,7 @@ func Region(x, y int) *region {
 	regionLock.Lock()
 	defer regionLock.Unlock()
 	if regions[x/RegionSize][y/RegionSize] == nil {
-		regions[x/RegionSize][y/RegionSize] = &region{x, y, &MobList{}, &MobList{}, &entityList{}, &entityList{}}
+		regions[x/RegionSize][y/RegionSize] = &region{x, y, &MobList{}, &MobList{}, &EntityList{}, &EntityList{}}
 	}
 	return regions[x/RegionSize][y/RegionSize]}
 

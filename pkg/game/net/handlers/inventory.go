@@ -10,8 +10,8 @@
 package handlers
 
 import (
-	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/definitions"
+	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
@@ -86,7 +86,7 @@ func init() {
 			if world.IsTileBlocking(x, y, 0x40, false) {
 				maxDelta++
 			}
-			if delta := player.Delta(item.Location); delta > maxDelta || delta == 1 && !player.ReachableCoords(item.X(), item.Y()) {
+			if delta := player.Location().Delta(*item.Location()); delta > maxDelta || delta == 1 && !player.Location().ReachableCoords(item.X(), item.Y()) {
 				return player.FinishedPath()
 			}
 

@@ -5,14 +5,15 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 //MaxBase37 Max base37 string hash for 12-rune usernames. (999999999999)
 const MaxBase37 = 6582952005840035281
 
-//IPToInteger Converts a string representation of an IPv4 address(e.g 127.0.0.1) to a 4-byte integer, each byte containing the information from one octet.
-func IPToInteger(s string) (ip int) {
+//AddrToInt Converts a string representation of an IPv4 address(e.g 127.0.0.1) to a 4-byte integer, each byte containing the information from one octet.
+func AddrToInt(s string) (ip int) {
 	if octets := strings.Split(s, "."); len(octets) > 0 {
 		for index, octet := range octets {
 			numericOctet, err := strconv.Atoi(strings.Split(octet, ":")[0])
@@ -27,7 +28,7 @@ func IPToInteger(s string) (ip int) {
 }
 
 func IPToHexidecimal(s string) string {
-	return Base16.String(uint64(IPToInteger(s)))
+	return Base16.String(uint64(AddrToInt(s)))
 }
 
 func JagHash(s string) int {
@@ -83,87 +84,87 @@ func CmdArgs(s string) []string {
 func CombatPrefix(delta int) string {
 	// They're stronger
 	if delta < 0 {
-/*		switch delta {
-		default:
-			return "@red@"
-		case -9:
-			fallthrough
-		case -8:
-			fallthrough
-		case -7:
-			return "@or3@"
-		case -6:
-			fallthrough
-		case -5:
-			fallthrough
-		case -4:
-			return "@or2@"
-		case -3:
-			fallthrough
-		case -2:
-			fallthrough
-		case -1:
-			return "@or1@"
-		}*/
-		if (-delta - 1) / 3 < 3 {
-			return "@or" + strconv.Itoa((-delta - 1) / 3) + "@"
+		/*		switch delta {
+				default:
+					return "@red@"
+				case -9:
+					fallthrough
+				case -8:
+					fallthrough
+				case -7:
+					return "@or3@"
+				case -6:
+					fallthrough
+				case -5:
+					fallthrough
+				case -4:
+					return "@or2@"
+				case -3:
+					fallthrough
+				case -2:
+					fallthrough
+				case -1:
+					return "@or1@"
+				}*/
+		if (-delta-1)/3 < 3 {
+			return "@or" + strconv.Itoa((-delta-1)/3) + "@"
 		}
 		return "@red@"
 	} else if delta > 0 {
-		if (delta - 1) / 3 < 3 {
-			return "@gr" + strconv.Itoa((delta - 1) / 3) + "@"
+		if (delta-1)/3 < 3 {
+			return "@gr" + strconv.Itoa((delta-1)/3) + "@"
 		}
 		return "@gre@"
-/*		switch delta {
-		default:
-			return "@gre@"
-		case 9:
-			fallthrough
-		case 8:
-			fallthrough
-		case 7:
-			return "@gr3@"
-		case 6:
-			fallthrough
-		case 5:
-			fallthrough
-		case 4:
-			return "@gr2@"
-		case 3:
-			fallthrough
-		case 2:
-			fallthrough
-		case 1:
-			return "@gr1@"
-		}*/
+		/*		switch delta {
+				default:
+					return "@gre@"
+				case 9:
+					fallthrough
+				case 8:
+					fallthrough
+				case 7:
+					return "@gr3@"
+				case 6:
+					fallthrough
+				case 5:
+					fallthrough
+				case 4:
+					return "@gr2@"
+				case 3:
+					fallthrough
+				case 2:
+					fallthrough
+				case 1:
+					return "@gr1@"
+				}*/
 	}
-/*	if delta < -9 {
-		return "@red@"
-	}
-	if delta < -6 {
-		return "@or3@"
-	}
-	if delta < -3 {
-		return "@or2@"
-	}
-	if delta < 0 {
-		return "@or1@"
-	}
+	/*	if delta < -9 {
+			return "@red@"
+		}
+		if delta < -6 {
+			return "@or3@"
+		}
+		if delta < -3 {
+			return "@or2@"
+		}
+		if delta < 0 {
+			return "@or1@"
+		}
 
-	// They're weaker
-	if delta > 9 {
-		return "@gre@"
-	}
-	if delta > 6 {
-		return "@gr3@"
-	}
-	if delta > 3 {
-		return "@gr2@"
-	}
-	if delta > 0 {
-		return "@gr1@"
-	}
-*/
+		// They're weaker
+		if delta > 9 {
+			return "@gre@"
+		}
+		if delta > 6 {
+			return "@gr3@"
+		}
+		if delta > 3 {
+			return "@gr2@"
+		}
+		if delta > 0 {
+			return "@gr1@"
+		}
+	*/
 	// They're the same
 	return "@whi@"
 }
@@ -295,11 +296,11 @@ func init() {
 		for i := 0; i < len(msg); i++ {
 			c := rune(msg[i])
 			if unicode.IsGraphic(c) {
-				if c == '@' && i + 4 < len(msg) && msg[i+4] == '@' {
+				if c == '@' && i+4 < len(msg) && msg[i+4] == '@' {
 					c = ' '
 					i += 5
 					startingSentence = true
-				} else if c == '~' && i + 4 < len(msg) && msg[i+4] == '~' {
+				} else if c == '~' && i+4 < len(msg) && msg[i+4] == '~' {
 					c = ' '
 					i += 5
 					startingSentence = true
@@ -361,12 +362,12 @@ func init() {
 				chars = append([]rune{' '}, chars...)
 			} else if remainder < 27 {
 				remainder += 64
-				if i % 37 != 0 {
+				if i%37 != 0 {
 					remainder += 32
 				}
 				chars = append([]rune{rune(remainder)}, chars...)
 			} else {
-				chars = append([]rune{rune(remainder+21)}, chars...)
+				chars = append([]rune{rune(remainder + 21)}, chars...)
 			}
 		}
 
@@ -416,10 +417,10 @@ func init() {
 			remainder := i % uint64(base)
 			i /= uint64(base)
 			if remainder >= 10 {
-				c := rune(remainder+'A'-10)
+				c := rune(remainder + 'A' - 10)
 				s = string(c) + s
 			} else {
-				c := rune(remainder+'0')
+				c := rune(remainder + '0')
 				s = string(c) + s
 			}
 		}

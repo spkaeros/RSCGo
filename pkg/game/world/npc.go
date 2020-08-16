@@ -12,11 +12,10 @@ package world
 import (
 	"sync"
 	"time"
-
+	
 	"github.com/spkaeros/rscgo/pkg/definitions"
-	"github.com/spkaeros/rscgo/pkg/tasks"
-	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/rand"
+	"github.com/spkaeros/rscgo/pkg/tasks"
 )
 
 //Npcs A collection of every NPC in the game, sorted by index
@@ -33,6 +32,22 @@ type NPC struct {
 	meleeRangeDamage damages
 }
 
+func (p *NPC) Wilderness() int {
+	return p.Location().Wilderness()
+}
+
+func (p *NPC) SetFightTarget(mobileEntity MobileEntity) {
+	p.Mob.SetFightTarget(mobileEntity)
+}
+
+func (p *NPC) Reachable(location Location) bool {
+	return p.Location().Reachable(location)
+}
+
+func (p *NPC) Equals(i interface{}) bool {
+	return p.Location().Equals(i)
+}
+
 type (
 	damageTable = map[uint64]int
 	damages     = struct {
@@ -46,19 +61,17 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 	n := &NPC{
 		ID: id,
 		Mob: Mob{
-			skills: entity.SkillTable{},
-			Entity: Entity{
-				Index:    Npcs.Size(),
-				Location: NewLocation(startX, startY),
-			},
-			AttributeList: entity.NewAttributeList(),
+			skills:        SkillTable{},
+			Index:         Npcs.Size(),
+			position:      NewLocation(startX, startY),
+			AttributeList: NewAttributeList(),
 		},
 		meleeRangeDamage: damages{
 			damageTable: make(damageTable),
 		},
-		Boundaries: [2]Location{NewLocation(minX, minY), NewLocation(maxX, maxY)},
+		Boundaries: [2]Location{*NewLocation(minX, minY), *NewLocation(maxX, maxY)},
 	}
-	n.StartPoint = n.Location.Clone()
+	n.StartPoint = *n.Location().Clone()
 	if id < len(definitions.Npcs)-1 {
 		n.Skills().SetCur(0, definitions.Npcs[id].Attack)
 		n.Skills().SetCur(1, definitions.Npcs[id].Defense)
@@ -126,15 +139,15 @@ func (n *NPC) Command() string {
 	return definitions.Npcs[n.ID].Command
 }
 
-//UpdateNPCPositions Loops through the global NPC entityList and, if they are by a player, updates their path to a new path every so often,
-// within their boundaries, and traverses each NPC along said path if necessary.
+//UpdateNPCPositions Loops through the global NPC entityList and updates their path every so often,
+// moving them within their bounds if they are close enough to a player.
 func UpdateNPCPositions() {
 	wait := sync.WaitGroup{}
 	Npcs.RangeNpcs(func(n *NPC) bool {
 		wait.Add(1)
 		go func() {
 			defer wait.Done()
-			if n.Busy() || n.IsFighting() || n.Equals(DeathPoint) {
+			if n.Busy() || n.IsFighting() || n.Location().Equals(DeathPoint) {
 				return
 			}
 			if n.pathSteps == 0 && (n.lastMoved.IsZero() || time.Now().After(n.lastMoved)) {
@@ -152,7 +165,7 @@ func UpdateNPCPositions() {
 }
 
 func (n *NPC) UpdateRegion(x, y int) {
-	curArea := Region(n.X(), n.Y())
+	curArea := Region(n.Location().X(), n.Location().Y())
 	newArea := Region(x, y)
 	if newArea != curArea {
 		if curArea.NPCs.Contains(n) {
@@ -192,9 +205,9 @@ type NpcBlockingTrigger struct {
 var NpcDeathTriggers []NpcBlockingTrigger
 
 func (n *NPC) Damage(dmg int) {
-	for _, r := range Region(n.X(), n.Y()).neighbors() {
+	for _, r := range Region(n.Location().X(), n.Location().Y()).neighbors() {
 		r.Players.RangePlayers(func(p1 *Player) bool {
-			if !n.WithinRange(p1.Location, 16) {
+			if !n.WithinRadius(p1, 16) {
 				return false
 			}
 			p1.QueueNpcSplat(n, dmg)
@@ -227,7 +240,7 @@ func (n *NPC) TotalDamage() (total int) {
 	return
 }
 
-func (n *NPC) Killed(killer entity.MobileEntity) {
+func (n *NPC) Killed(killer MobileEntity) {
 	if killer, ok := killer.(*Player); ok {
 		for _, t := range NpcDeathTriggers {
 			if t.Check(killer, n) {
@@ -257,9 +270,9 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 	n.meleeRangeDamage.RUnlock()
 
 	if dropPlayer != nil {
-		AddItem(NewGroundItemFor(dropPlayer.UsernameHash(), DefaultDrop, 1, n.X(), n.Y()))
+		AddItem(NewGroundItemFor(dropPlayer.UsernameHash(), DefaultDrop, 1, n.Location().X(), n.Location().Y()))
 	} else {
-		AddItem(NewGroundItem(DefaultDrop, 1, n.X(), n.Y()))
+		AddItem(NewGroundItem(DefaultDrop, 1, n.Location().X(), n.Location().Y()))
 	}
 	
 	killer.ResetFighting()
@@ -290,10 +303,10 @@ func (n *NPC) Respawn() {
 
 //TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
 func (n *NPC) TraversePath() {
-	dst := n.Location.Clone()
+	dst := n.Location().Clone()
 	dir := n.Direction()
 	if Chance(25) {
-		dir = rand.Rng.Intn(8)
+		dir = Direction(rand.Rng.Intn(8))
 	}
 	if dir == East || dir == SouthEast || dir == NorthEast {
 		dst.x.Dec()
@@ -306,12 +319,12 @@ func (n *NPC) TraversePath() {
 		dst.y.Inc()
 	}
 
-	if !n.Reachable(dst) || !dst.WithinArea(n.Boundaries) {
+	if !n.Location().Reachable(*dst) || !dst.WithinArea(n.Boundaries) {
 		return
 	}
 
 	n.pathSteps -= 1
-	n.SetLocation(dst, false)
+	n.SetLocation(*dst.Clone(), false)
 	//	}
 }
 

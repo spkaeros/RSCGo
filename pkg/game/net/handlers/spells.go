@@ -11,19 +11,19 @@ package handlers
 
 import (
 	"github.com/spkaeros/rscgo/pkg/game"
-
-	"github.com/spkaeros/rscgo/pkg/game/entity"
+	
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 
-// thin wrapper around Anko spell handling subroutines.
-// Utilizing the scripting environments runtime we can gain cool benefits, e.g
-// fully dynamic spell dispatching, since the scripts and their env are all loaded at runtime.
-// This also means that it is easier to shoot oneself in the foot (without realizing it, at times).
-// For this reason, the API for scripts to use is implemented in stable fast Go, while scripts using said API
-// can get away with suffering a minor performance decrease without causing any issues to the game.
+// thin wrapper around Anko spell handling subroutines. Utilizing the scripting
+// environments runtime we can gain cool benefits, e.g fully dynamic spell
+// dispatching, since the scripts and their env are all loaded at runtime. This
+// also means that it is easier to shoot oneself in the foot (without realizing
+// it, at times). For this reason, the API for scripts to use is implemented in
+// stable fast Go, while scripts using said API can get away with suffering a
+// minor performance decrease without causing any issues to the game.
 
 func init() {
 	game.AddHandler("spellnpc", func(player *world.Player, p *net.Packet) {
@@ -69,7 +69,7 @@ func init() {
 	})
 }
 
-func dispatchSpellAction(player *world.Player, idx int, target entity.MobileEntity) {
+func dispatchSpellAction(player *world.Player, idx int, target world.MobileEntity) {
 	s, ok := world.SpellTriggers[idx]
 	if !ok || s == nil {
 		log.Info.Printf("Couldn't find spell handler ID: %v, status=`%v`\n", idx, ok)

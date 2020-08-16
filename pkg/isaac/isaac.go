@@ -42,7 +42,7 @@ func (r *ISAAC) shake(i int, mixed uint64) {
 	// supposed to remove the reported biases
 	//r.state[i] = (r.acc1 ^ r.acc2) + r.state[int(bits.RotateLeft64(prevState&MixMask, 3))&0xFF]
 	// ISAAC64 non-modified:
-	r.state[i] = (r.acc2) + r.state[prevState&MixMask>>3&0xFF]
+	r.state[i] = (r.acc2) + r.state[prevState&MixMask>>3]
 	// XOR op was added to result value calculation in ISAAC64
 	// supposed to reduce the linearity over ZsubText(pow(2,32))
 	//	r.acc2 = prevState + (r.acc1 ^ r.state[bits.RotateLeft64(r.state[i]&MixMask, 11)&0xFF])
@@ -58,8 +58,7 @@ func (r *ISAAC) generateNextSet() {
 	r.acc2 += r.counter
 
 	for i := 0; i < 256; i += 1 {
-		// ISAAC64 plus cipher code, with modifications recommended by Jean-Phillipe Aumasson to avoid a discovered bias,
-		// and strengthen the output stream.
+		// ISAAC64 cipher code
 		r.shake(i, ^(r.acc1 ^ r.acc1<<21))
 		i += 1
 		r.shake(i, r.acc1^r.acc1>>5)
@@ -127,11 +126,8 @@ func (r *ISAAC) randInit() {
 		mix1(6, ia[5]>>17)
 		mix1(7, ia[6]<<14)
 	}
-	for i := 0; i < 4; i++ {
-		mix()
-	}
-	messify := func(ia2 [256]uint64) {
-		for i := 0; i < 256; i += 8 { // fill state[] with messy stuff
+	shake := func(ia2 [256]uint64) {
+		for i := 0; i < 256; i += 8 {
 			for i1, v := range ia2[i : i+8] {
 				ia[i1] += v
 			}
@@ -141,12 +137,15 @@ func (r *ISAAC) randInit() {
 			}
 		}
 	}
-	r.Lock()
-	messify(r.randrsl)
-	messify(r.state)
+	for i := 0; i < 4; i++ {
+		mix()
+	}
 
-	r.generateNextSet() /* fill in the first set of results */
-	r.randcnt = 0       /* reset the counter for the first set of results */
+	r.Lock()
+	shake(r.randrsl)
+	shake(r.state)
+	r.generateNextSet()
+	r.randcnt = 0
 	r.Unlock()
 }
 
@@ -331,9 +330,9 @@ again:
 // Initial padding algorithm copied out of an implementation of the Mersenne twister.
 func padSeed(key ...uint64) (seed [256]uint64) {
 	if len(key) > 256 {
-		log.Warning.Println("Problem initializing ISAAC64+ PRNG seed: Provided key too long; only 256 values will be used.")
+		log.Warning.Println("Problem initializing ISAAC64 PRNG seed: Provided key too long; only 256 values will be used.")
 	} else if len(key) == 0 {
-		log.Warning.Println("Problem initializing ISAAC64+ PRNG seed: Provided key too short; you should provide at least one seed value to randomize the output.")
+		log.Warning.Println("Problem initializing ISAAC64 PRNG seed: Provided key too short; you should provide at least one seed value to randomize the output.")
 		key[0] = 0xDEADBEEF
 	}
 

@@ -1,4 +1,3 @@
- 
 /*
  * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
@@ -12,12 +11,11 @@ package tasks
 
 import (
 	"context"
-	"sync"
 	"reflect"
+	"sync"
 	
-	`github.com/spkaeros/rscgo/pkg/config`
-	`github.com/spkaeros/rscgo/pkg/game/entity`
-	`github.com/spkaeros/rscgo/pkg/log`
+	"github.com/spkaeros/rscgo/pkg/config"
+	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 // tickable script procedure
@@ -37,12 +35,12 @@ type (
 
 // Call function type aliases for tickables etc
 type (
-	call = func()
-	StatusReturnCall = func() bool
-	dualReturnCall = func(context.Context) (reflect.Value,reflect.Value)
-	singleArgDualReturnCall = func(context.Context, reflect.Value) (reflect.Value,reflect.Value)
-	playerArgCall = func(player entity.MobileEntity)
-	playerArgStatusReturnCall = func(player entity.MobileEntity) bool
+	call                      = func()
+	StatusReturnCall          = func() bool
+	dualReturnCall            = func(context.Context) (reflect.Value, reflect.Value)
+	singleArgDualReturnCall   = func(context.Context, reflect.Value) (reflect.Value, reflect.Value)
+	playerArgCall             = func(player interface{})
+	playerArgStatusReturnCall = func(player interface{}) bool
 )
 
 //Task is a single func that takes no args and returns a bool to indicate whether or not it
@@ -122,7 +120,7 @@ func (t *TaskList) RunSynchronous() Tasks {
 			retainedTasks = append(retainedTasks, task)
 		}
 	}
-//	t.Tasks = append(t.Tasks[:0], retainedTasks[:]...)
+	//	t.Tasks = append(t.Tasks[:0], retainedTasks[:]...)
 	return retainedTasks
 }
 
@@ -159,13 +157,13 @@ func (t *TaskList) RunAsynchronous() {
 	t.Tasks = t.Tasks[:0]
 	// select {
 	// case task, ok := <-retainedTasks:
-		// if !ok {
-			// break
-		// }
-		// 
+	// if !ok {
+	// break
+	// }
+	//
 	// default: return
 	// }
-//	t.tasks = append(t.tasks[:0], retainedTasks[:]...)
+	//	t.tasks = append(t.tasks[:0], retainedTasks[:]...)
 	return
 }
 
@@ -181,7 +179,7 @@ func (t *TaskList) Add(fn Task) int {
 	t.Lock()
 	defer t.Unlock()
 	t.Tasks = append(t.Tasks, fn)
-	return len(t.Tasks)-1
+	return len(t.Tasks) - 1
 }
 
 func (s *Scripts) Add(fn scriptCall) {
@@ -209,7 +207,7 @@ func (s *Scripts) Call(v interface{}) {
 				(script.(call))()
 			// A function call taking a *world.Player as an argument
 			case playerArgCall:
-				(script.(playerArgCall))(v.(entity.MobileEntity))
+				(script.(playerArgCall))(v)
 			// A function call returning its active status.
 			case StatusReturnCall:
 				if (script.(StatusReturnCall))() {
@@ -217,7 +215,7 @@ func (s *Scripts) Call(v interface{}) {
 				}
 			// A function call taking a *world.Player as an argument and returning its active status.
 			case playerArgStatusReturnCall:
-				if (script.(playerArgStatusReturnCall))(v.(entity.MobileEntity)) {
+				if (script.(playerArgStatusReturnCall))(v) {
 					removing = append(removing, i)
 				}
 			// A function call that returns two values, the first a result value, and the second an error value
@@ -250,7 +248,8 @@ func (s *Scripts) Call(v interface{}) {
 					log.Debug(ret)
 					return
 				}
-			default: return
+			default:
+				return
 			}
 		}(script)
 	}

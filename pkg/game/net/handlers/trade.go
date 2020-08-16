@@ -27,10 +27,10 @@ func init() {
 			log.Suspicious.Printf("%v attempted to trade a player that does not exist.\n", player.String())
 			return
 		}
-		if !player.WithinRange(p1.Location, 16) || player.Busy() {
+		if !player.WithinRadius(p1, p1.ViewRadius()) || player.Busy() {
 			return
 		}
-		if !player.WithinRange(p1.Location, 5) {
+		if !player.WithinRadius(p1, 5) {
 			player.Message("You are too far away to do that")
 			return
 		}
