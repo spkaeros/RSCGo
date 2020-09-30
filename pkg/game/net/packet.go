@@ -10,14 +10,14 @@
 package net
 
 import (
-	"fmt"
 	//	"math"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"runtime/debug"
 	"strconv"
 	"strings"
-
+	
 	"github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
@@ -193,10 +193,10 @@ func (p *Packet) ReadString() string {
 		if end <= 0 {
 			continue
 		}
-		p.Skip(end + 1)
+		_ = p.Skip(end + 1)
 		return availableData[:end]
 	}
-	p.Skip(len(availableData))
+	_ = p.Skip(len(availableData))
 	return availableData
 }
 
@@ -218,7 +218,7 @@ func (p *Packet) AddUint32(i uint32) *Packet {
 	return p
 }
 
-func (p *Packet) AddSmart08_32(i int) *Packet {
+func (p *Packet) AddSmart0832(i int) *Packet {
 	if i >= 0x80 {
 		p.AddUint32(0x80<<24|uint32(i))
 		return p
@@ -230,7 +230,7 @@ func (p *Packet) AddSmart08_32(i int) *Packet {
 //AddUint8or32 Adds a 32-bit integer or an 8-byte integer to the handlers payload, depending on value.
 // TODO: Deprecate and remove this in favor of above, improved name
 func (p *Packet) AddUint8or32(i uint32) *Packet {
-	return p.AddSmart08_32(int(i))
+	return p.AddSmart0832(int(i))
 }
 
 //SetUint16At Rewrites the data at offset to the provided short uint value
@@ -279,7 +279,7 @@ func (p *Packet) AddInt8(b int8) *Packet {
 func (p *Packet) AddBytes(b []byte) *Packet {
 	for _, v := range b {
 		//		p.EnsureCapacity(1)
-		p.AddUint8(uint8(v))
+		p.AddUint8(v)
 	}
 	return p
 }
@@ -288,7 +288,7 @@ var bitmasks [66]int32
 
 func init() {
 	for i := 0; i <= 64; i++ {
-		bitmasks[i] = (1 << i) - 1
+		bitmasks[i] = (1 << uint(i)) - 1
 	}
 	bitmasks[65] = -1
 }

@@ -86,7 +86,7 @@ func NewPathfinder(start, end Location) *Pathfinder {
 }
 
 func (p *Pathfinder) node(l Location) *tileNode {
-	hash := (l.X() << 16) | l.Y()
+	hash := l.Hash()
 	if v, ok := p.activeTiles[hash]; !ok || v == nil {
 		p.activeTiles[hash] = &tileNode{loc: l}
 	}

@@ -540,7 +540,7 @@ func ClearDistantChunks(player *Player) (p *net.Packet) {
 func ObjectLocations(player *Player) (p *net.Packet) {
 	changed := 0
 	p = net.NewEmptyPacket(48)
-	var removing = []*Object{}
+	var removing []*Object
 	for _, o := range player.LocalObjects.set {
 		if o, ok := o.(*Object); ok {
 			if o.Boundary {
@@ -588,7 +588,7 @@ func ObjectLocations(player *Player) (p *net.Packet) {
 func BoundaryLocations(player *Player) (p *net.Packet) {
 	changed := 0
 	p = net.NewEmptyPacket(91)
-	var removing = []*Object{}
+	var removing []*Object
 	for _, o := range player.LocalObjects.set {
 		if o, ok := o.(*Object); ok {
 			if !o.Boundary {
@@ -640,7 +640,7 @@ func BoundaryLocations(player *Player) (p *net.Packet) {
 func ItemLocations(player *Player) (p *net.Packet) {
 	changed := 0
 	p = net.NewEmptyPacket(99)
-	var removing = []*GroundItem{}
+	var removing []*GroundItem
 	for _, i := range player.LocalItems.set {
 		if i, ok := i.(*GroundItem); ok {
 			x, y := i.X(), i.Y()
@@ -699,7 +699,7 @@ func InventoryItems(player *Player) (p *net.Packet) {
 			p.AddUint16(uint16(item.ID))
 		}
 		if definitions.Items[item.ID].Stackable {
-			p.AddSmart08_32(item.Amount)
+			p.AddSmart0832(item.Amount)
 		}
 		return true
 	})
@@ -799,7 +799,7 @@ func BankOpen(player *Player) (p *net.Packet) {
 	p.AddUint8(uint8(player.bank.Capacity))
 	player.bank.Range(func(item *Item) bool {
 		p.AddUint16(uint16(item.ID))
-		p.AddSmart08_32(item.Amount)
+		p.AddSmart0832(item.Amount)
 		return false
 	})
 	return p
@@ -809,7 +809,7 @@ func BankUpdateItem(index, id, amount int) (p *net.Packet) {
 	p = net.NewEmptyPacket(249)
 	p.AddUint8(uint8(index))
 	p.AddUint16(uint16(id))
-	p.AddSmart08_32(amount)
+	p.AddSmart0832(amount)
 	return p
 }
 

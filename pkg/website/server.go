@@ -80,7 +80,7 @@ func init() {
 */
 
 func render(w http.ResponseWriter, r *http.Request) {
-	name := strings.ReplaceAll(filepath.Clean(r.URL.Path), ".ws", ".html")
+	name := strings.Replace(filepath.Clean(r.URL.Path), ".ws", ".html", -1)
 	file := filepath.Join("website", name)
 
 	// check template files cache

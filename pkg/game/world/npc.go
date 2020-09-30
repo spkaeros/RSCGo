@@ -12,11 +12,11 @@ package world
 import (
 	"sync"
 	"time"
-
+	
 	"github.com/spkaeros/rscgo/pkg/definitions"
-	"github.com/spkaeros/rscgo/pkg/tasks"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/rand"
+	"github.com/spkaeros/rscgo/pkg/tasks"
 )
 
 //Npcs A collection of every NPC in the game, sorted by index

@@ -74,8 +74,8 @@ func bindGameProcManager() {
 			}
 			done <- struct{}{}
 			if ServerCmd != nil && ServerCmd.ProcessState != nil {
-				if failureCode := ServerCmd.ProcessState.ExitCode(); failureCode != 0 {
-					log.Warn("Server exited with failure code:", failureCode)
+				if ServerCmd.ProcessState.Exited() {
+					log.Warn("Server exited")
 					log.Warn(ServerCmd.ProcessState.String())
 				}
 			}

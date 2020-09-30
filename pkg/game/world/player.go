@@ -19,18 +19,18 @@ import (
 	"strings"
 	"sync"
 	"time"
-
+	
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
-
+	
 	"github.com/spkaeros/rscgo/pkg/definitions"
-	"github.com/spkaeros/rscgo/pkg/tasks"
 	"github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/social"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
+	"github.com/spkaeros/rscgo/pkg/tasks"
 )
 
 type (
@@ -830,7 +830,9 @@ var DefaultPlayerService PlayerService
 //Destroy sends a kill signal to the underlying client to tear down all of the I/O routines and save the player.
 func (p *Player) Destroy() {
 	p.WritePacket(Logout)
-	p.Writer.Flush()
+	if err := p.Writer.Flush(); err != nil {
+		log.Warn("Failed to flush player socket!")
+	}
 	p.PostTickables.Add(func() bool {
 		p.killer.Do(func() {
 			if err := p.Socket.Close(); err != nil {
@@ -1003,9 +1005,15 @@ func (p *Player) Initialize() {
 	}
 }
 func (p *Player) WritePacket(packet *net.Packet) {
-	defer p.Writer.Flush()
+	defer func() {
+		if err := p.Writer.Flush(); err != nil {
+			log.Warn("Failed to flush player socket!")
+		}
+	}()
 	if packet.Opcode == 0 {
-		p.Writer.Write(packet.FrameBuffer)
+		if count, err := p.Writer.Write(packet.FrameBuffer); err != nil || count < packet.Length() {
+			log.Warn("Failed to write raw packet to player socket!")
+		}
 		return
 	}
 	header := []byte{0, 0}
@@ -1020,7 +1028,9 @@ func (p *Player) WritePacket(packet *net.Packet) {
 			header[1] = packet.FrameBuffer[frameLength]
 		}
 	}
-	p.Writer.Write(append(header, packet.FrameBuffer[:frameLength]...))
+	if count, err := p.Writer.Write(append(header, packet.FrameBuffer[:frameLength]...)); err != nil || count < packet.Length()+2 {
+		log.Warn("Failed to write formatted packet to player socket!")
+	}
 }
 
 //NewPlayer Returns a reference to a new player.
@@ -1095,7 +1105,8 @@ func (p *Player) QueuePublicChat(owner entity.MobileEntity, message string) {
 }
 
 //QueueQuestChat Adds a message to a locked quest-chat queue
-func (p *Player) QueueQuestChat(owner, target entity.MobileEntity, message string) {
+// Second arg reserved as target for message
+func (p *Player) QueueQuestChat(owner, _ entity.MobileEntity, message string) {
 	if !p.Contains("questChatQ") {
 		p.SetVar("questChatQ", []ChatMessage{NewChatMessage(owner, message)})
 		return
@@ -1173,7 +1184,6 @@ func (p *Player) OpenOptionMenu(options ...string) int {
 		}
 		return int(r)
 	}
-	return -1
 }
 
 //CloseOptionMenu closes any open option menus.
@@ -1528,10 +1538,6 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 	}
 }
 
-func (p *Player) NpcWithin(id int, rad int) *NPC {
-	return NpcNearest(id, p.X(), p.Y())
-}
-
 //SendPlane sends the current plane of this player.
 func (p *Player) SendPlane() {
 	p.SendPacket(PlaneInfo(p))
@@ -1637,7 +1643,7 @@ func (p *Player) CloseBank() {
 
 //SendUpdateTimer sends a system update countdown timer to the client.
 func (p *Player) SendUpdateTimer() {
-	p.SendPacket(SystemUpdate(time.Until(UpdateTime).Milliseconds()))
+	p.SendPacket(SystemUpdate(time.Until(UpdateTime).Nanoseconds() / 1000))
 }
 
 func (p *Player) SendMessageBox(msg string, big bool) {

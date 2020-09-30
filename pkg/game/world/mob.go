@@ -18,7 +18,7 @@ type MobState = int
 //StateIdle The default MobState, means doing nothing.
 const (
 	//StateIdle The default MobState, means doing nothing.
-	StateIdle MobState = 0
+	StateIdle MobState = 1 << iota
 	//StateChatting The mob is chatting with another mob.
 	StateChatting = 1 << iota
 	//StateFighting The mob is fighting.

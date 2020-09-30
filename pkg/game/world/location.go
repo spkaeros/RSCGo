@@ -3,10 +3,11 @@ package world
 import (
 	"fmt"
 	"math"
-
-	"github.com/spkaeros/rscgo/pkg/rand"
-	"github.com/spkaeros/rscgo/pkg/game/entity"
+	
 	"go.uber.org/atomic"
+	
+	"github.com/spkaeros/rscgo/pkg/game/entity"
+	"github.com/spkaeros/rscgo/pkg/rand"
 )
 //OrderedDirections This is an array containing all of the directions a mob can walk in, ordered by path finder precedent.
 // West, East, North, South, SouthWest, SouthEast, NorthWest, NorthEast

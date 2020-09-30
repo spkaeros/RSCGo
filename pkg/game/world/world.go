@@ -3,16 +3,16 @@ package world
 import (
 	"fmt"
 	"math"
-	"strconv"
 	"math/rand"
+	"strconv"
 	"sync"
 	"time"
-
+	
 	"github.com/spkaeros/rscgo/pkg/definitions"
+	"github.com/spkaeros/rscgo/pkg/isaac"
 	"github.com/spkaeros/rscgo/pkg/log"
 	rscRand "github.com/spkaeros/rscgo/pkg/rand"
-	"github.com/spkaeros/rscgo/pkg/isaac"
-
+	
 	"go.uber.org/atomic"
 )
 
@@ -595,19 +595,19 @@ func (r *region) neighbors() (regions [4]*region) {
 		regions[1] = get((r.x/RegionSize)-1, r.y/RegionSize)
 		if regionY <= LowerBound {
 			regions[2] = get((r.x/RegionSize)-1, (r.y/RegionSize)-1)
-			regions[3] = get((r.x/RegionSize), (r.y/RegionSize)-1)
+			regions[3] = get(r.x/RegionSize, (r.y/RegionSize)-1)
 		} else {
 			regions[2] = get((r.x/RegionSize)-1, (r.y/RegionSize)+1)
-			regions[3] = get((r.x/RegionSize), (r.y/RegionSize)+1)
+			regions[3] = get(r.x/RegionSize, (r.y/RegionSize)+1)
 		}
 	} else if regionY <= LowerBound {
-		regions[1] = get((r.x/RegionSize)+1, (r.y/RegionSize))
+		regions[1] = get((r.x/RegionSize)+1, r.y/RegionSize)
 		regions[2] = get((r.x/RegionSize)+1, (r.y/RegionSize)-1)
-		regions[3] = get((r.x/RegionSize), (r.y/RegionSize)-1)
+		regions[3] = get(r.x/RegionSize, (r.y/RegionSize)-1)
 	} else {
-		regions[1] = get((r.x/RegionSize)+1, (r.y/RegionSize))
+		regions[1] = get((r.x/RegionSize)+1, r.y/RegionSize)
 		regions[2] = get((r.x/RegionSize)+1, (r.y/RegionSize)+1)
-		regions[3] = get((r.x/RegionSize), (r.y/RegionSize)+1)
+		regions[3] = get(r.x/RegionSize, (r.y/RegionSize)+1)
 	}
 
 	return
