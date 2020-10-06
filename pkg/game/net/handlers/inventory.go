@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	game.AddHandler("invwield", func(player *world.Player, p *net.Packet) {
+/*	game.AddHandler("invwield", func(player *world.Player, p *net.Packet) {
 		if player.IsDueling() && player.IsFighting() && !player.DuelEquipment() {
 			player.Message("You can not use equipment in this duel")
 			return
@@ -52,7 +52,7 @@ func init() {
 		player.DequipItem(item)
 		player.PlaySound("click")
 	})
-	game.AddHandler("takeitem", func(player *world.Player, p *net.Packet) {
+*/	game.AddHandler("takeitem", func(player *world.Player, p *net.Packet) {
 		if player.Busy() || player.IsFighting() {
 			return
 		}

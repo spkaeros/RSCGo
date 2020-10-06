@@ -96,6 +96,8 @@ var NpcTriggers []NpcTrigger
 
 var SpellTriggers = make(map[int]Trigger)
 
+var PacketTriggers = make(map[byte]Trigger)
+
 type SpellDef map[string]interface{}
 
 //NpcAtkTriggers List of script callbacks to run when you attack an NPC

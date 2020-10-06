@@ -449,8 +449,13 @@ func (s *Server) handlePackets(p *world.Player) {
 				if !ok || p1 == nil {
 					return
 				}
+				if handler := world.PacketTriggers[p1.Opcode]; handler != nil {
+					handler(p, p1)
+					return
+				}
 				if handlePacket := game.Handler(p1.Opcode); handlePacket != nil {
 					handlePacket(p, p1)
+					return
 				}
 			}
 		}

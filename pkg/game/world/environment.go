@@ -265,6 +265,12 @@ func init() {
 				SpellTriggers[int(ident.(int64))] = fn
 			}
 		}),
+		"packet": reflect.ValueOf(func(ident interface{}, fn func(player *Player, packet interface{})) {
+			switch ident.(type) {
+			case int64:
+				PacketTriggers[byte(ident.(int64))] = fn
+			}
+		}),
 		"npcAttack": reflect.ValueOf(func(pred NpcActionPredicate, fn func(player *Player, npc *NPC)) {
 			NpcAtkTriggers = append(NpcAtkTriggers, NpcBlockingTrigger{pred, fn})
 		}),
