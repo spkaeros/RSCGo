@@ -1,0 +1,40 @@
+bind = import("bind")
+log = import("log")
+
+// Item equip
+bind.packet(169, func(player, packet) {
+		if player.IsDueling() && player.IsFighting() && !player.DuelEquipment() {
+			player.Message("You can not use equipment in this duel")
+			return
+		}
+
+		index := p.ReadUint16()
+		if index < 0 || index > player.Inventory.Size() {
+			log.cheatf("Player[%v] tried to wield an item with an out-of-bounds inventory index: %d\n", player, index)
+			return
+		}
+
+		item := player.Inventory.Get(index)
+		if item == nil || item.Worn {
+			return
+		}
+
+		player.EquipItem(item)
+})
+
+// Item unequip
+bind.packet(170, func(player, packet) {
+		index := p.ReadUint16()
+		if index < 0 || index > player.Inventory.Size() {
+			log.cheatf("Player[%v] tried to unwield an item with an out-of-bounds inventory index: %d\n", player, index)
+			return
+		}
+
+		item := player.Inventory.Get(index)
+		if item == nil || !item.Worn {
+			return
+		}
+
+		player.DequipItem(item)
+		player.PlaySound("click")
+})
