@@ -12,11 +12,13 @@ package world
 import (
 	"container/heap"
 	"math"
+
+	"github.com/spkaeros/rscgo/pkg/game/entity"
 )
 
 type tileNode struct {
 	parent              *tileNode
-	loc                 Location
+	loc                 entity.Location
 	hCost, gCost, nCost float64
 	index               int
 	open, closed        bool
@@ -66,9 +68,9 @@ func (q *tileQueue) Pop() interface{} {
 type Pathfinder struct {
 	tileQueue
 	activeTiles map[int]*tileNode
-	last        Location
-	start       Location
-	end         Location
+	last        entity.Location
+	start       entity.Location
+	end         entity.Location
 }
 
 // This produces a unique hash for each tile possible within the current game world; in this sense, it is a perfect hashing algorithm.
@@ -78,14 +80,14 @@ func (l Location) Hash() int {
 }
 
 //NewPathfinder Returns a new A* pathfinder instance to derive an optimal path from start to end.
-func NewPathfinder(start, end Location) *Pathfinder {
+func NewPathfinder(start, end entity.Location) *Pathfinder {
 	startNode := &tileNode{loc: start, open: true}
 	p := &Pathfinder{start: start, end: end, tileQueue: tileQueue{startNode}, activeTiles: map[int]*tileNode{start.Hash(): startNode, end.Hash(): {loc: end}}}
 	heap.Init(&p.tileQueue)
 	return p
 }
 
-func (p *Pathfinder) node(l Location) *tileNode {
+func (p *Pathfinder) node(l entity.Location) *tileNode {
 	hash := l.Hash()
 	if v, ok := p.activeTiles[hash]; !ok || v == nil {
 		p.activeTiles[hash] = &tileNode{loc: l}

@@ -7,7 +7,7 @@ import (
 
 //Entity A stationary scene entity within the game world.
 type Entity struct {
-	Location
+	entity.Location
 	Index int
 }
 

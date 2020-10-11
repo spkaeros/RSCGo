@@ -7,7 +7,7 @@
 	                return;
 	            }
 
-	            let ws = new WebSocket('wss://rscturmoil.com/api/' + endpoint);
+	            let ws = new WebSocket('wss://' + window.location.hostname + '/api/' + endpoint);
 
 	            ws.onmessage = function(event) {
 	                appendOutput(event.data);

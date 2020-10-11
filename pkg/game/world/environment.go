@@ -37,6 +37,8 @@ func init() {
 	env.Packages["world"] = map[string]reflect.Value{
 		"getPlayer":              reflect.ValueOf(Players.FindIndex),
 		"getPlayerByName":        reflect.ValueOf(Players.FindHash),
+		"getNpcNear":             reflect.ValueOf(NpcNearest),
+		"getGridNpc":             reflect.ValueOf(NpcVisibleFrom),
 		"players":                reflect.ValueOf(Players),
 		"getEquipmentDefinition": reflect.ValueOf(definitions.Equip),
 		"replaceObject":          reflect.ValueOf(ReplaceObject),
@@ -268,7 +270,11 @@ func init() {
 		"packet": reflect.ValueOf(func(ident interface{}, fn func(player *Player, packet interface{})) {
 			switch ident.(type) {
 			case int64:
+				log.Debug("Packet", ident, "@ ",fn)
 				PacketTriggers[byte(ident.(int64))] = fn
+			default:
+				log.Debugf("%v, %T", ident, ident)
+			
 			}
 		}),
 		"npcAttack": reflect.ValueOf(func(pred NpcActionPredicate, fn func(player *Player, npc *NPC)) {

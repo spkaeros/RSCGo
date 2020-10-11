@@ -15,7 +15,6 @@ import (
 
 type MobileEntity interface {
 	Entity
-	Wilderness() int
 	IsNpc() bool
 	IsPlayer() bool
 	MeleeDamage(target MobileEntity) int
@@ -33,8 +32,6 @@ type MobileEntity interface {
 	RemoveState(int)
 	State() int
 	Busy() bool
-	SetX(int)
-	SetY(int)
 	SetCoords(int, int, bool)
 	Teleport(int, int)
 	Direction() int
@@ -62,4 +59,5 @@ type MobileEntity interface {
 	TargetMob() MobileEntity
 	SessionCache() *AttributeList
 	Skulls() map[uint64]time.Time
+	SetLocation(Location,bool)
 }

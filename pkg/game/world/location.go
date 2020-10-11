@@ -9,11 +9,16 @@ import (
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/rand"
 )
+
+//Direction represents directions that mobs can face within the game world.  Ranges from 1-8
+type (
+	Direction = int
+	Plane = int
+)
+
 //OrderedDirections This is an array containing all of the directions a mob can walk in, ordered by path finder precedent.
 // West, East, North, South, SouthWest, SouthEast, NorthWest, NorthEast
-var OrderedDirections = [...]int{2, 6, 0, 4, 3, 5, 1, 7}
-
-type Direction = int
+var OrderedDirections = [...]Direction{West, East, North, South, SouthWest, SouthEast, NorthWest, NorthEast}
 
 const (
 	North Direction = iota
@@ -32,7 +37,7 @@ const (
 
 const (
 	//PlaneGround Represents the value for the ground-level plane
-	PlaneGround int = iota
+	PlaneGround Plane = iota
 	//PlaneSecond Represents the value for the second-story plane
 	PlaneSecond
 	//PlaneThird Represents the value for the third-story plane
@@ -43,11 +48,10 @@ const (
 
 //Location A tile in the game world.
 type Location struct {
-	x *atomic.Uint32
-	y *atomic.Uint32
+	x, y *atomic.Uint32
 }
 
-func (l Location) Clone() Location {
+func (l Location) Clone() entity.Location {
 	return NewLocation(l.X(), l.Y())
 }
 
@@ -121,20 +125,20 @@ func NewRandomLocation(bounds [2]Location) Location {
 }
 
 //String Returns a string representation of the location
-func (l *Location) String() string {
+func (l Location) String() string {
 	return fmt.Sprintf("[%d,%d]", l.X(), l.Y())
 }
 
 func (l Location) Within(minX, maxX, minY, maxY int) bool {
-	return l.WithinArea([2]Location { NewLocation(minX, minY), NewLocation(maxX, maxY) })
+	return l.WithinArea([2]entity.Location { NewLocation(minX, minY), NewLocation(maxX, maxY) })
 }
 
 //IsValid Returns true if the tile at x,y is within world boundaries, false otherwise.
 func (l Location) IsValid() bool {
-	return l.WithinArea([2]Location { NewLocation(0, 0), NewLocation(MaxX, MaxY)})
+	return l.WithinArea([2]entity.Location { NewLocation(0, 0), NewLocation(MaxX, MaxY)})
 }
 
-func (l *Location) NextStep(d Location) Location {
+func (l Location) NextStep(d entity.Location) entity.Location {
 	next := l.Step(l.DirectionToward(d))
 	if !l.Reachable(next) {
 //	if !l.Reachable(d) {
@@ -164,23 +168,23 @@ func (l *Location) NextStep(d Location) Location {
 	return next
 }
 
-func (l *Location) Step(dir int) Location {
+func (l Location) Step(dir int) entity.Location {
 	loc := l.Clone()
 	if dir == 0 || dir == 1 || dir == 7 {
-		loc.y.Dec()
+		loc.SetY(loc.Y()-1)
 	} else if dir == 4 || dir == 5 || dir == 3 {
-		loc.y.Inc()
+		loc.SetY(loc.Y()+1)
 	}
 	if dir == 1 || dir == 2 || dir == 3 {
-		loc.x.Inc()
+		loc.SetX(loc.X()+1)
 	} else if dir == 5 || dir == 6 || dir == 7 {
-		loc.x.Dec()
+		loc.SetX(loc.X()-1)
 	}
 	return loc
 }
 
 //Equals Returns true if this location points to the same location as o
-func (l *Location) Equals(o interface{}) bool {
+func (l Location) Equals(o interface{}) bool {
 	switch o.(type) {
 	case Location:
 		return l.LongestDelta(o.(Location)) == 0
@@ -210,12 +214,12 @@ func (l *Location) Equals(o interface{}) bool {
 	return false
 }
 
-func (l *Location) Delta(other Location) (delta int) {
+func (l Location) Delta(other entity.Location) (delta int) {
 	return l.LongestDelta(other)
 }
 
 //DeltaX Returns the difference between this locations x coord and the other locations x coord
-func (l *Location) DeltaX(other Location) (deltaX int) {
+func (l Location) DeltaX(other entity.Location) (deltaX int) {
 	deltaX = int(math.Abs(float64(other.X()) - float64(l.X())))
 	// if ourX > theirX {
 		// deltaX = ourX - theirX
@@ -226,7 +230,7 @@ func (l *Location) DeltaX(other Location) (deltaX int) {
 }
 
 //DeltaY Returns the difference between this locations y coord and the other locations y coord
-func (l *Location) DeltaY(other Location) (deltaY int) {
+func (l Location) DeltaY(other entity.Location) (deltaY int) {
 	deltaY = int(math.Abs(float64(other.Y()) - float64(l.Y())))
 	// if ourY > theirY {
 		// deltaY = ourY - theirY
@@ -237,7 +241,7 @@ func (l *Location) DeltaY(other Location) (deltaY int) {
 }
 
 //LongestDelta Returns the largest difference in coordinates between receiver and other
-func (l *Location) LongestDelta(other Location) int {
+func (l Location) LongestDelta(other entity.Location) int {
 	if x, y := l.DeltaX(other), l.DeltaY(other); x > y {
 		return x
 	} else {
@@ -246,46 +250,46 @@ func (l *Location) LongestDelta(other Location) int {
 }
 
 //LongestDeltaCoords returns the number of tiles the coordinates provided
-func (l *Location) LongestDeltaCoords(x, y int) int {
+func (l Location) LongestDeltaCoords(x, y int) int {
 	return l.LongestDelta(NewLocation(x, y))
 }
 
-func (l Location) EuclideanDistance(other Location) float64 {
+func (l Location) EuclideanDistance(other entity.Location) float64 {
 	return math.Sqrt(math.Pow(float64(l.DeltaX(other)), 2) + math.Pow(float64(l.DeltaY(other)), 2))
 }
 
 //WithinRange Returns true if the other location is within radius tiles of the receiver location, otherwise false.
-func (l *Location) WithinRange(other entity.Location, radius int) bool {
+func (l Location) WithinRange(other entity.Location, radius int) bool {
 	return l.Near(other, radius)
 }
 
 //EntityWithin Returns true if the other location is within radius tiles of the receiver location, otherwise false.
-func (l *Location) Near(other entity.Location, radius int) bool {
+func (l Location) Near(other entity.Location, radius int) bool {
 	return l.LongestDeltaCoords(other.X(), other.Y()) <= radius
 }
 
 //Plane Calculates and returns the plane that this location is on.
-func (l *Location) Plane() int {
+func (l Location) Plane() int {
 	return int(l.y.Load()+100) / 944 // / 1000
 }
 
 //Above Returns the location directly above this one, if any.  Otherwise, if we are on the top floor, returns itself.
-func (l *Location) Above() Location {
+func (l Location) Above() entity.Location {
 	return NewLocation(l.X(), l.PlaneY(true))
 }
 
 //Below Returns the location directly below this one, if any.  Otherwise, if we are on the bottom floor, returns itself.
-func (l *Location) Below() Location {
+func (l Location) Below() entity.Location {
 	return NewLocation(l.X(), l.PlaneY(false))
 }
 
-func (l *Location) DirectionToward(end Location) int {
+func (l Location) DirectionToward(end entity.Location) int {
 	tile := l.NextTileToward(end)
 	return l.DirectionTo(tile.X(), tile.Y())
 }
 
 //PlaneY Updates the location's y coordinate, going up by one plane if up is true, else going down by one plane.  Valid planes: ground=0, 2nd story=1, 3rd story=2, basement=3
-func (l *Location) PlaneY(up bool) int {
+func (l Location) PlaneY(up bool) int {
 	curPlane := l.Plane()
 	var newPlane int
 	if up {
@@ -311,23 +315,23 @@ func (l *Location) PlaneY(up bool) int {
 }
 
 //NextTileToward Returns the next tile toward the final destination of this pathway from currentLocation
-func (l Location) NextTileToward(dst Location) Location {
+func (l Location) NextTileToward(dst entity.Location) entity.Location {
 	nextStep := l.Clone()
 	if delta := l.X() - dst.X(); delta < 0 {
-		nextStep.x.Inc()
+		nextStep.SetX(nextStep.X()+1)
 	} else if delta > 0 {
-		nextStep.x.Dec()
+		nextStep.SetX(nextStep.X()-1)
 	}
 
 	if delta := l.Y() - dst.Y(); delta < 0 {
-		nextStep.y.Inc()
+		nextStep.SetY(nextStep.Y()+1)
 	} else if delta > 0 {
-		nextStep.y.Dec()
+		nextStep.SetY(nextStep.Y()-1)
 	}
 	return nextStep
 }
 
-func (l *Location) CanReach(bounds [2]Location) bool {
+func (l Location) CanReach(bounds [2]entity.Location) bool {
 	x, y := l.X(), l.Y()
 
 	if x >= bounds[0].X() && x <= bounds[1].X() && y >= bounds[0].Y() && y <= bounds[1].Y() {
@@ -352,7 +356,7 @@ func (l *Location) CanReach(bounds [2]Location) bool {
 	return false
 }
 
-func (l Location) WithinArea(area [2]Location) bool {
+func (l Location) WithinArea(area [2]entity.Location) bool {
 	return l.X() >= area[0].X() && l.X() <= area[1].X() && l.Y() >= area[0].Y() && l.Y() <= area[1].Y()
 }
 

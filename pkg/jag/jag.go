@@ -30,6 +30,15 @@ type Archive struct {
 	MetaData []byte
 	//FileData The raw, consecutive file data.
 	FileData []byte
+	Files []Entry
+}
+
+type Entry struct {
+	Data []byte
+	CompressedLength int
+	Length int
+	Index int
+	Hash int
 }
 
 //decoder Returns an io.Reader that reads JAG archive file data and turns it into the raw, decompressed data that
@@ -53,5 +62,19 @@ func New(file string) *Archive {
 		return nil
 	}
 	count := int(binary.BigEndian.Uint16(buf[:]))
-	return &Archive{count, buf[2 : count*10+2], buf[count*10+2:]}
+	archive :=  &Archive{count, buf[2 : count*10+2], buf[count*10+2:], make([]Entry, 0, count)}
+	fileOffset := 0
+	headerOffset := 0
+	idx := 0
+	// Sectors begin at: offsetX=48, offsetY=96
+	for i := 0; i < archive.FileCount; i++ {
+		hash := int(binary.BigEndian.Uint32(archive.MetaData[headerOffset:]))
+		length :=  int(uint32(archive.MetaData[headerOffset+4]&0xFF)<<16 | uint32(archive.MetaData[headerOffset+5]&0xFF)<<8 | uint32(archive.MetaData[headerOffset+6]&0xFF))
+		compressedLength :=  int(uint32(archive.MetaData[headerOffset+7]&0xFF)<<16 | uint32(archive.MetaData[headerOffset+8]&0xFF)<<8 | uint32(archive.MetaData[headerOffset+9]&0xFF))
+		archive.Files = append(archive.Files, Entry{Hash: hash, Length: length, CompressedLength: compressedLength, Index: idx, Data: archive.FileData[fileOffset:fileOffset+compressedLength]})
+		idx++
+		headerOffset += 10
+		fileOffset += compressedLength
+	}
+	return archive
 }

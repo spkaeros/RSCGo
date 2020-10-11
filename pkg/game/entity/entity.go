@@ -32,5 +32,32 @@ type Entity interface {
 type Location interface {
 	X() int
 	Y() int
+	SetX(int)
+	SetY(int)
+	Wilderness() int
+	Hash() int
+	EuclideanDistance(o Location) float64
+	Mask(o Location) byte
 	Point() Location
+	Clone() Location
+	Reachable(Location) bool
+	NextTo(Location) bool
+	ReachableCoords(int,int) bool
+	CanReach([2]Location) bool
+	Near(Location,int) bool
+	IsValid() bool
+	Step(int) Location
+	NextTileToward(o Location) Location
+	DirectionToward(o Location) int
+	DirectionTo(int,int) int
+	WithinArea([2]Location) bool
+	WithinReach(Location) bool
+	LongestDelta(o Location) int
+	LongestDeltaCoords(int,int) int
+	DeltaX(o Location) int
+	Delta(o Location) int
+	DeltaY(o Location) int
+	Equals(o interface{}) bool
+	WithinRange(o Location, rad int) bool
+	Plane() int
 }

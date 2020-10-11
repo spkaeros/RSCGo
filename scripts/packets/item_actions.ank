@@ -8,13 +8,13 @@ bind.packet(169, func(player, packet) {
 			return
 		}
 
-		index := p.ReadUint16()
+		index = packet.ReadUint16()
 		if index < 0 || index > player.Inventory.Size() {
 			log.cheatf("Player[%v] tried to wield an item with an out-of-bounds inventory index: %d\n", player, index)
 			return
 		}
 
-		item := player.Inventory.Get(index)
+		item = player.Inventory.Get(index)
 		if item == nil || item.Worn {
 			return
 		}
@@ -24,13 +24,13 @@ bind.packet(169, func(player, packet) {
 
 // Item unequip
 bind.packet(170, func(player, packet) {
-		index := p.ReadUint16()
+		index = packet.ReadUint16()
 		if index < 0 || index > player.Inventory.Size() {
 			log.cheatf("Player[%v] tried to unwield an item with an out-of-bounds inventory index: %d\n", player, index)
 			return
 		}
 
-		item := player.Inventory.Get(index)
+		item = player.Inventory.Get(index)
 		if item == nil || !item.Worn {
 			return
 		}

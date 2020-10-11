@@ -11,21 +11,22 @@ package ipThrottle
 
 import (
 	"time"
+	"net"
 
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
-type ipThrottle map[int][]time.Time
+type ipThrottle map[string][]time.Time
 
 func (l ipThrottle) Add(ip string) {
-	l[strutil.IPToInteger(ip)] = append(l[strutil.IPToInteger(ip)], time.Now())
+	l[net.ParseIP(ip).String()] = append(l[strutil.IPToInteger(ip).String()], time.Now())
 }
 
 //Recent returns the number of entries that match the provided IP which were added within the past specified timeFrame
 func (l ipThrottle) Recent(ip string, timeFrame time.Duration) int {
 	valid := 0
 	var removing []string
-	if attempts, ok := l[strutil.IPToInteger(ip)]; ok {
+	if attempts, ok := l[strutil.IPToInteger(ip).String()]; ok {
 		for _, v := range attempts {
 			if time.Since(v) < timeFrame {
 				valid++
@@ -35,9 +36,9 @@ func (l ipThrottle) Recent(ip string, timeFrame time.Duration) int {
 		}
 		for i := range removing {
 			if i == len(attempts) {
-				l[strutil.IPToInteger(ip)] = attempts[:i]
+				l[strutil.IPToInteger(ip).String()] = attempts[:i]
 			} else {
-				l[strutil.IPToInteger(ip)] = append(attempts[:i], attempts[i+1:]...)
+				l[strutil.IPToInteger(ip).String()] = append(attempts[:i], attempts[i+1:]...)
 			}
 		}
 	}

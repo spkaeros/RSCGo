@@ -6,6 +6,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/spkaeros/rscgo/pkg/definitions"
+	"github.com/spkaeros/rscgo/pkg/game/entity"
 )
 
 //Object Represents a game object in the world.
@@ -93,7 +94,7 @@ func (o *Object) Height() int {
 	return 1
 }
 
-func (o *Object) Boundaries() [2]Location {
+func (o *Object) Boundaries() [2]entity.Location {
 	dir := o.Direction
 	minX := o.X()
 	minY := o.Y()
@@ -142,5 +143,5 @@ func (o *Object) Boundaries() [2]Location {
 			maxY++
 		}
 	}
-	return [2]Location{NewLocation(minX, minY), NewLocation(maxX, maxY)}
+	return [2]entity.Location{NewLocation(minX, minY), NewLocation(maxX, maxY)}
 }

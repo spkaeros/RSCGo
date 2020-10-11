@@ -20,6 +20,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/jag"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
+	"github.com/spkaeros/rscgo/pkg/game/entity"
 )
 
 //CollisionMask Represents a single tile in the game's landscape.
@@ -39,18 +40,22 @@ var SectorsLock sync.RWMutex
 func LoadCollisionData() {
 	archive := jag.New(config.DataDir() + string(os.PathSeparator) + "landscape.jag")
 
-	fileOffset := 0
-	metaDataOffset := 0
+	// fileOffset := 0
+	// metaDataOffset := 0
 	// Sectors begin at: offsetX=48, offsetY=96
-	for i := 0; i < archive.FileCount; i++ {
-		id := int(binary.BigEndian.Uint32(archive.MetaData[metaDataOffset:]))
-		compSz :=  int(uint32(archive.MetaData[metaDataOffset+7]&0xFF)<<16 | uint32(archive.MetaData[metaDataOffset+8]&0xFF)<<8 | uint32(archive.MetaData[metaDataOffset+9]&0xFF))
-		SectorsLock.Lock()
-		Sectors[id] = loadSector(archive.FileData[fileOffset:fileOffset+compSz])
-		SectorsLock.Unlock()
-		metaDataOffset += 10
-		fileOffset += compSz
+	for _, v := range archive.Files {
+		Sectors[v.Hash] = loadSector(v.Data)
 	}
+	// for i := 0; i < archive.FileCount; i++ {
+		// 
+		// id := int(binary.BigEndian.Uint32(archive.MetaData[metaDataOffset:]))
+		// compSz :=  int(uint32(archive.MetaData[metaDataOffset+7]&0xFF)<<16 | uint32(archive.MetaData[metaDataOffset+8]&0xFF)<<8 | uint32(archive.MetaData[metaDataOffset+9]&0xFF))
+		// SectorsLock.Lock()
+		// Sectors[id] = loadSector(archive.FileData[fileOffset:fileOffset+compSz])
+		// SectorsLock.Unlock()
+		// metaDataOffset += 10
+		// fileOffset += compSz
+	// }
 }
 
 const (
@@ -108,7 +113,7 @@ func (l Location) Masks(x, y int) (masks [2]byte) {
 }
 
 //
-func (l Location) Mask(toward Location) byte {
+func (l Location) Mask(toward entity.Location) byte {
 	masks := l.Masks(toward.X(), toward.Y())
 	return masks[0] | masks[1]
 }
@@ -194,7 +199,7 @@ func loadSector(data []byte) (s *Sector) {
 			if groundOverlay > 0 && int(groundOverlay) < len(definitions.TileOverlays) && definitions.TileOverlays[groundOverlay-1].Blocked != 0 {
 				s.Tiles[tileIdx] |= ClipFullBlock
 			}
-			walls := [][]int{
+			walls := [2][3]int{
 				{int(verticalWalls) - 1, ClipNorth, y},
 				{int(horizontalWalls) - 1, ClipEast, x},
 			}

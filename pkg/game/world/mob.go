@@ -18,7 +18,7 @@ type MobState = int
 //StateIdle The default MobState, means doing nothing.
 const (
 	//StateIdle The default MobState, means doing nothing.
-	StateIdle MobState = 1 << iota
+	StateIdle MobState = 0
 	//StateChatting The mob is chatting with another mob.
 	StateChatting = 1 << iota
 	//StateFighting The mob is fighting.
@@ -76,7 +76,7 @@ type MobList struct {
 //NewMobList returns a pointer to a newly pre-allocated MobList, with an initial capacity
 // of 255.
 func NewMobList() *MobList {
-	return &MobList{mobSet: make(mobSet, 0, 255)}
+	return &MobList{mobSet: make(mobSet, 0, 1250)}
 }
 
 //Add Adds a entity.MobileEntity to this MobList
@@ -98,6 +98,10 @@ func (l *MobList) Range(action func(entity.MobileEntity) bool) int {
 		}
 	}
 	return -1
+}
+
+func (l *MobList) Set(mobs []entity.MobileEntity) {
+	l.mobSet = mobSet(mobs)
 }
 
 //Size returns the number of mobile entitys entered into this list.
@@ -349,10 +353,11 @@ func (m *Mob) SetPath(path *Pathway) {
 	
 }
 
-func (m *Mob) WalkTo(end Location) bool {
-	path, ok := MakePath(m.Location, end)
+func (m *Mob) WalkTo(end entity.Location) bool {
+	path := NewPathfinder(m.Point(), end.Clone()).MakePath()
+	
 	m.SetPath(path)
-	return ok
+	return path != nil
 }
 
 //Path returns the path that this mob is trying to traverse.
@@ -372,20 +377,20 @@ func (m *Mob) FinishedPath() bool {
 	if path == nil {
 		return m.VarInt("pathLength", 0) <= 0
 	}
-	return path.CurrentWaypoint >= path.countWaypoints() || !path.nextTileFrom(m.Location).IsValid()
+	return path.CurrentWaypoint >= path.countWaypoints() || !path.nextTileFrom(m.Location.Clone()).IsValid()
 }
 
 //SetLocation Sets the mobs location.
-func (m *Mob) SetLocation(location Location, teleport bool) {
+func (m *Mob) SetLocation(location entity.Location, teleport bool) {
 	m.SetCoords(location.X(), location.Y(), teleport)
 }
 
-func (p *Player) SetLocation(l Location, teleport bool) {
+func (p *Player) SetLocation(l entity.Location, teleport bool) {
 	p.UpdateRegion(l.X(), l.Y())
 	p.Mob.SetLocation(l, teleport)
 }
 
-func (n *NPC) SetLocation(l Location, teleport bool) {
+func (n *NPC) SetLocation(l entity.Location, teleport bool) {
 	n.UpdateRegion(l.X(), l.Y())
 	n.Mob.SetLocation(l, teleport)
 }
@@ -718,8 +723,16 @@ func (m *Mob) MeleeDamage(target entity.MobileEntity) int {
 	return 0
 }
 
+//Random This generates a pseudo-random integer using a member instance of ISAAC.
+// Note: Generated integers are high-exclusive and low-inclusive.
 func (m *Mob) Random(low, high int) int {
-	return int(m.Isaac().Int63n(int64(high-low))) + low
+	return int(m.Isaac().Float64() * float64(high - low)) + low
+}
+
+//RandomIncl This generates a pseudo-random integer using a member instance of ISAAC.
+// Note: Generated integers are high and low inclusive.
+func (m *Mob) RandomIncl(low, high int) int {
+	return int(m.Isaac().Float64() * float64(high - low + 1)) + low
 }
 
 type HitSplat struct {

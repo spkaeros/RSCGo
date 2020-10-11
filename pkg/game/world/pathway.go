@@ -1,6 +1,10 @@
 package world
 
-import "sync"
+import (
+	"github.com/spkaeros/rscgo/pkg/game/entity"
+
+	"sync"
+)
 
 //Pathway Represents a path for a mobile entity to traverse across the virtual world.
 type Pathway struct {
@@ -19,7 +23,7 @@ func NewPathwayToCoords(destX, destY int) *Pathway {
 
 //NewPathwayToLocation returns a new Pathway pointing to the specified location.  Will attempt traversal to l via a
 // simple algorithm: if curX < destX then increase, if curX > destX then decrease, same for y, until equal.
-func NewPathwayToLocation(l Location) *Pathway {
+func NewPathwayToLocation(l entity.Location) *Pathway {
 	return &Pathway{StartX: l.X(), StartY: l.Y()}
 }
 
@@ -97,7 +101,7 @@ func (p *Pathway) addFirstWaypoint(x, y int) *Pathway {
 }
 
 //NextTileToward Returns the next tile toward the final destination of this pathway from currentLocation
-func (p *Pathway) nextTileFrom(currentLocation Location) Location {
+func (p *Pathway) nextTileFrom(currentLocation entity.Location) entity.Location {
 	dest := p.nextTile()
 	destX, destY := dest.X(), dest.Y()
 	currentX, currentY := currentLocation.X(), currentLocation.Y()

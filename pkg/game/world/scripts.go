@@ -155,7 +155,7 @@ func RunScripts() {
 	}
 
 	err = filepath.Walk("./scripts", func(path string, info os.FileInfo, err error) error {
-		if !info.Mode().IsDir() && strings.HasSuffix(path, "ank") && !strings.Contains(path, "defyyyyyyyt6") && !strings.Contains(path, "lib") {
+		if !info.Mode().IsDir() && strings.HasSuffix(path, "ank") && !strings.Contains(path, "def") && !strings.Contains(path, "lib") {
 
 			_, err := vm.Execute(ScriptEnv(), &vm.Options{Debug: true}, "bind = import(\"bind\")\nworld = import(\"world\")\nlog = import(\"log\")\nids = import(\"ids\")\n\n"+load(path))
 			//stmt, err := parser.ParseSrc(load(path))

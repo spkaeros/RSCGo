@@ -118,6 +118,9 @@ func (p *Player) Username() string {
 
 //CurrentIP returns the remote IP address this player connected from
 func (p *Player) CurrentIP() string {
+	if strings.HasPrefix(p.RemoteAddress(), "[") {
+		return p.RemoteAddress()[1:strings.LastIndex(p.RemoteAddress(), "]:")]
+	}
 	return strings.Split(p.RemoteAddress(), ":")[0]
 }
 
@@ -179,19 +182,34 @@ func (p *Player) Ignoring(hash uint64) bool {
 	return false
 }
 
+func (p *Player) Attribute(id string) interface{} {
+	attr, ok := p.Attributes.Var(id)
+	if ok {
+		return attr
+	}
+	return nil
+}
+
+func (p *Player) BoolAttribute(id string) bool {
+	if ret := p.Attribute(id); ret != nil {
+		return ret.(bool)
+	}
+	return false
+}
+
 //ChatBlocked returns true if public chat is blocked for this player.
 func (p *Player) ChatBlocked() bool {
-	return p.Attributes.VarBool("chat_block", false)
+	return p.BoolAttribute("chat_block")
 }
 
 //FriendBlocked returns true if private chat is blocked for this player.
 func (p *Player) FriendBlocked() bool {
-	return p.Attributes.VarBool("friend_block", false)
+	return p.BoolAttribute("friend_block")
 }
 
 //TradeBlocked returns true if trade requests are blocked for this player.
 func (p *Player) TradeBlocked() bool {
-	return p.Attributes.VarBool("trade_block", false)
+	return p.BoolAttribute("trade_block")
 }
 
 //DuelBlocked returns true if duel requests are blocked for this player.
@@ -303,7 +321,7 @@ func (p *Player) SetClientSetting(id int, flag bool) {
 //GetClientSetting looks up the client setting with the specified ID, and returns it.  If it can't be found, returns false.
 func (p *Player) GetClientSetting(id int) bool {
 	// TODO: Meaningful names mapped to IDs
-	return p.Attributes.VarBool("client_setting_"+strconv.Itoa(id), false)
+	return p.BoolAttribute("client_setting_"+strconv.Itoa(id))
 }
 
 //ServerSeed returns the seed for the ISAAC cipher provided by the game for this player, if set, otherwise returns 0
@@ -348,8 +366,8 @@ func (p *Player) SetFirstLogin(flag bool) {
 
 //NextTo returns true if we can walk a straight line to target without colliding with any walls or objects,
 // otherwise returns false.
-func (p *Player) NextTo(target Location) bool {
-	return p.Reachable(target)
+func (l Location) NextTo(target entity.Location) bool {
+	return l.Reachable(target)
 }
 
 func (p *Player) NextToCoords(x, y int) bool {
@@ -392,11 +410,11 @@ func (l Location) Targetable(other Location) bool {
 
 //WithinReach returns true if you are able to physically touch the other person you are so close without obstacles
 // Otherwise returns false.
-func (l Location) WithinReach(other Location) bool {
+func (l Location) WithinReach(other entity.Location) bool {
 	return l.WithinRange(other, 2) && l.Reachable(other)
 }
 
-func (l Location) Reachable(other Location) bool {
+func (l Location) Reachable(other entity.Location) bool {
 	return l.ReachableCoords(other.X(), other.Y())
 }
 func (l Location) RD(x, y int) bool {
@@ -409,7 +427,7 @@ func (l Location) RD(x, y int) bool {
 }
 
 func (l Location) ReachableCoords(x, y int) bool {
-	check := func(l, dst Location) bool {
+	check := func(l, dst entity.Location) bool {
 		bitmask := byte(ClipBit(l.DirectionToward(dst)))
 		dstmask := byte(ClipBit(dst.DirectionToward(l)))
 		// check mask of our tile and dst tile
@@ -871,7 +889,7 @@ func (p *Player) AtObject(object *Object) bool {
 	return p.CanReach(bounds) || (p.FinishedPath() && p.CanReachDiag(bounds))
 }
 
-func (p *Player) CanReachDiag(bounds [2]Location) bool {
+func (p *Player) CanReachDiag(bounds [2]entity.Location) bool {
 	/*
 		x, y := p.X(), p.Y()
 		if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y-1 >= bounds[0].Y() && y-1 <= bounds[1].Y() &&
@@ -1028,7 +1046,7 @@ func (p *Player) WritePacket(packet *net.Packet) {
 			header[1] = packet.FrameBuffer[frameLength]
 		}
 	}
-	if count, err := p.Writer.Write(append(header, packet.FrameBuffer[:frameLength]...)); err != nil || count < packet.Length()+2 {
+	if count, err := p.Writer.Write(append(header, packet.FrameBuffer[:frameLength]...)); err != nil || count < packet.Length()+1 {
 		log.Warn("Failed to write formatted packet to player socket!")
 	}
 }
@@ -1078,85 +1096,162 @@ func (p *Player) OpenAppearanceChanger() {
 	p.SendPacket(OpenChangeAppearance)
 }
 
+const questChatHandle = "questChatQ"
+const publicChatHandle = "publicChatQ"
+const npcChatHandle = "npcChatQ"
+const npcSplatHandle = "npcSplatQ"
+const playerSplatHandle = "playerSplatQ"
+const bubblesHandle = "bubbleQ"
+const projectilesHandle = "projectileQ"
+
 //Chat sends a player NPC chat message packet to the player and all other players around it.  If multiple msgs are
 // provided, will sleep the goroutine for 3-4 ticks between each message, depending on length of message.
 func (p *Player) Chat(msgs ...string) {
-	for _, msg := range msgs {
-		sleep := 3
-		if len(msg) >= 83 {
-			sleep = 4
-		}
-		m := p.TargetMob()
-		for _, player := range p.NearbyPlayers() {
-			player.QueueQuestChat(p, m, msg)
-		}
-		p.QueueQuestChat(p, m, msg)
-		time.Sleep(time.Millisecond*640*time.Duration(sleep))
+	for i, msg := range msgs {
+		p.Tickables.Schedule(3*i, func() bool {
+			p.QuestBroadcast(p, /*p.TargetMob()*/ nil, msg)
+			return true
+		})
 	}
+	p.QuestBroadcast(p, nil, msgs[0])
+	wait := time.Duration(3)
+	if len(msgs[0]) >= 84 {
+		wait++
+	}
+	time.Sleep(TickMillis*wait)
+	if len(msgs) > 1 {
+		p.Chat(msgs[1:]...)
+	}
+	// for _, msg := range msgs {
+		// sleep := 3
+		// if len(msg) >= 83 {
+			// sleep = 4
+		// }
+		// m := p.TargetMob()
+		// for _, player := range p.NearbyPlayers() {
+			// player.QueueQuestChat(p, m, msg)
+			// // p.enqueue(questChatHandle, NewTargetedMessage(p, p.TargetMob(), message))
+		// }
+		// p.QueueQuestChat(p, m, msg)
+		// time.Sleep(time.Millisecond*640*time.Duration(sleep))
+		// 
+	// }
 }
+
+//QuestBroadcast Broadcasts a string as a message posted into the players quest chat history to the player and any nearby players.
+func (p *Player) QuestBroadcast(owner, target entity.MobileEntity, message string) {
+	msg := NewTargetedMessage(owner, target, message)
+	for _, p1 := range p.NearbyPlayers() {
+		p1.enqueue(questChatHandle, msg)
+	}
+	p.enqueue(questChatHandle, msg)
+}
+
 
 //QueuePublicChat Adds a message to a locked public-chat queue
 func (p *Player) QueuePublicChat(owner entity.MobileEntity, message string) {
-	if !p.Contains("publicChatQ") {
-		p.SetVar("publicChatQ", []ChatMessage{NewChatMessage(owner, message)})
-		return
-	}
-	p.SetVar("publicChatQ", append(p.VarChecked("publicChatQ").([]ChatMessage), NewChatMessage(owner, message)))
+	// if !p.Contains("publicChatQ") {
+		// p.SetVar("publicChatQ", []ChatMessage{NewChatMessage(owner, message)})
+		// return
+	// }
+	// p.SetVar("publicChatQ", append(p.VarChecked("publicChatQ").([]ChatMessage), NewChatMessage(owner, message)))
+	p.enqueue(publicChatHandle, NewChatMessage(owner, message))
 }
 
 //QueueQuestChat Adds a message to a locked quest-chat queue
 // Second arg reserved as target for message
 func (p *Player) QueueQuestChat(owner, _ entity.MobileEntity, message string) {
-	if !p.Contains("questChatQ") {
-		p.SetVar("questChatQ", []ChatMessage{NewChatMessage(owner, message)})
-		return
+	// if !p.Contains("questChatQ") {
+		// p.SetVar("questChatQ", []ChatMessage{NewChatMessage(owner, message)})
+		// return
+	// }
+	// p.SetVar("questChatQ", append(p.VarChecked("questChatQ").([]ChatMessage), NewChatMessage(owner, message)))
+
+	msg := NewTargetedMessage(owner, nil, message)
+	for _, p1 := range p.NearbyPlayers() {
+		p1.enqueue(questChatHandle, msg)
 	}
-	p.SetVar("questChatQ", append(p.VarChecked("questChatQ").([]ChatMessage), NewChatMessage(owner, message)))
+	p.enqueue(questChatHandle, msg)
+	//p.enqueue(questChatHandle, NewChatMessage(owner, message))
 }
 
 //QueueNpcChat Adds a message to a locked quest-chat queue
 func (p *Player) QueueNpcChat(owner, target entity.MobileEntity, message string) {
-	if !p.Contains("npcChatQ") {
-		p.SetVar("npcChatQ", []ChatMessage{NewTargetedMessage(owner, target, message)})
+//	if !p.Contains("npcChatQ") {
+//		p.SetVar("npcChatQ", []ChatMessage{NewTargetedMessage(owner, target, message)})
+//		return
+//	}
+
+	msg := NewTargetedMessage(owner, target, message)
+	for _, p1 := range p.NearbyPlayers() {
+		p1.enqueue(questChatHandle, msg)
+	}
+	p.enqueue(questChatHandle, msg)
+	// p.enqueue(questChatHandle, NewTargetedMessage(owner, target, message))
+}
+
+func (p *Player) enqueue(id string, e interface{}) {
+	if queue, ok := p.VarChecked(id).([]interface{}); queue != nil && ok {
+		p.SetVar(id, append(queue, e))
 		return
 	}
-	p.SetVar("npcChatQ", append(p.VarChecked("npcChatQ").([]ChatMessage), NewTargetedMessage(owner, target, message)))
+	p.SetVar(id, []interface{} { e })
 }
 
 //QueueNpcSplat Adds a message to a locked quest-chat queue
 func (p *Player) QueueNpcSplat(owner *NPC, dmg int) {
-	if !p.Contains("npcSplatQ") {
-		p.SetVar("npcSplatQ", []HitSplat{NewHitsplat(owner, dmg)})
-		return
-	}
-	p.SetVar("npcSplatQ", append(p.VarChecked("npcSplatQ").([]HitSplat), NewHitsplat(owner, dmg)))
+//	if !p.Contains("npcSplatQ") {
+//		p.SetVar("npcSplatQ", []HitSplat{NewHitsplat(owner, dmg)})
+//		return
+//	}
+	p.enqueue(playerSplatHandle, NewHitsplat(owner, dmg))
+	// p.SetVar("npcSplatQ", append(p.VarChecked("npcSplatQ").([]HitSplat), NewHitsplat(owner, dmg)))
 }
 
 //QueueProjectile Adds a missile to a locked projectile queue
 func (p *Player) QueueProjectile(owner, target entity.MobileEntity, kind int) {
-	if !p.Contains("projectileQ") {
-		p.SetVar("projectileQ", []Projectile{NewProjectile(owner, target, kind)})
-		return
-	}
-	p.SetVar("projectileQ", append(p.VarChecked("projectileQ").([]Projectile), NewProjectile(owner, target, kind)))
+	// if !p.Contains("projectileQ") {
+		// p.SetVar("projectileQ", []Projectile{NewProjectile(owner, target, kind)})
+		// return
+	// }
+	p.enqueue(projectilesHandle, NewProjectile(owner, target, kind))
+	// p.SetVar("projectileQ", append(p.VarChecked("projectileQ").([]Projectile), NewProjectile(owner, target, kind)))
 }
 
 //QueueHitsplat Adds a hit splat to a locked hit-splat queue
 func (p *Player) QueueHitsplat(owner entity.MobileEntity, dmg int) {
-	if !p.Contains("hitsplatQ") {
-		p.SetVar("hitsplatQ", []HitSplat{NewHitsplat(owner, dmg)})
-		return
-	}
-	p.SetVar("hitsplatQ", append(p.VarChecked("hitsplatQ").([]HitSplat), NewHitsplat(owner, dmg)))
+	// if !p.Contains("hitsplatQ") {
+		// p.SetVar("hitsplatQ", []HitSplat{NewHitsplat(owner, dmg)})
+		// return
+	// }
+	p.enqueue(playerSplatHandle, NewHitsplat(owner, dmg))
+	// p.SetVar("hitsplatQ", append(p.VarChecked(playerSplatHandle).([]HitSplat), NewHitsplat(owner, dmg)))
 }
 
 //QueueItemBubble Adds an action item bubble to a locked item bubble queue
 func (p *Player) QueueItemBubble(owner *Player, id int) {
-	if !p.Contains("bubbleQ") {
-		p.SetVar("bubbleQ", []ItemBubble{{owner, id}})
-		return
+	// if !p.Contains("bubbleQ") {
+		// p.SetVar("bubbleQ", []ItemBubble{{owner, id}})
+		// return
+	// }
+	// p.SetVar("bubbleQ", append(p.VarChecked("bubbleQ").([]ItemBubble), ItemBubble{owner, id}))
+	p.enqueue(bubblesHandle, ItemBubble{owner, id})
+}
+
+func (p *Player) enqueueArea(id string, radius int, e interface{}) {
+	for _, region := range Region(p.X(),p.Y()).neighbors() {
+		region.Players.RangePlayers(func(p1 *Player) bool {
+			p1.enqueue(id, e)
+			return false
+		})
 	}
-	p.SetVar("bubbleQ", append(p.VarChecked("bubbleQ").([]ItemBubble), ItemBubble{owner, id}))
+	// p.LocalPlayers.RangePlayers(func(p1 *Player) bool {
+		// if p.WithinReach(p1.Location) {
+			// p1.enqueue(id, e)
+		// }
+		// return false
+	// })
+	p.enqueue(id, e)
 }
 
 func (p *Player) OpenOptionMenu(options ...string) int {
@@ -1440,11 +1535,12 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 		nextHit := int(math.Min(float64(defender.Skills().Current(entity.StatHits)), float64(attacker.MeleeDamage(defender))))
 		defender.Skills().DecreaseCur(entity.StatHits, nextHit)
 		if defender.IsNpc() && attacker.IsPlayer() {
-			AsNpc(defender).CacheDamage(AsPlayer(attacker).UsernameHash(), nextHit)
+			AsNpc(defender).meleeRangeDamage.Put(AsPlayer(attacker).UsernameHash(), nextHit)
 		}
 		defender.Damage(nextHit)
 		if defender.Skills().Current(entity.StatHits) <= 0 {
 			if attackerp := AsPlayer(attacker); attackerp != nil {
+				// AsPlayer(attackerp).PlaySound("victory")
 				attackerp.PlaySound("victory")
 			}
 			defender.Killed(attacker)
@@ -1550,40 +1646,27 @@ func (p *Player) SendEquipBonuses() {
 
 //Damage sends a player damage bubble for this player to itself and any nearby players.
 func (p *Player) Damage(amt int) {
-	splat := NewHitsplat(p, amt)
-	for _, player := range p.NearbyPlayers() {
-		q, ok := player.Var("hitsplatQ")
-		if !ok {
-			player.SetVar("hitsplatQ", []HitSplat{splat})
-			continue
-		}
-		player.SetVar("hitsplatQ", append(q.([]HitSplat), splat))
-	}
-	q, ok := p.Var("hitsplatQ")
-	if !ok {
-		p.SetVar("hitsplatQ", []HitSplat{splat})
-		return
-	}
-	p.SetVar("hitsplatQ", append(q.([]HitSplat), splat))
+	p.enqueueArea(playerSplatHandle, 15, NewHitsplat(p, amt))
 }
 
 //ItemBubble sends an item action bubble for this player to itself and any nearby players.
 func (p *Player) ItemBubble(id int) {
-	bubble := ItemBubble{p, id}
-	for _, player := range p.NearbyPlayers() {
-		q, ok := player.Var("bubbleQ")
-		if !ok {
-			player.SetVar("bubbleQ", []ItemBubble{bubble})
-			continue
-		}
-		player.SetVar("bubbleQ", append(q.([]ItemBubble), bubble))
-	}
-	q, ok := p.Var("bubbleQ")
-	if !ok {
-		p.SetVar("bubbleQ", []ItemBubble{bubble})
-		return
-	}
-	p.SetVar("bubbleQ", append(q.([]ItemBubble)))
+	// bubble := ItemBubble{p, id}
+	// for _, player := range p.NearbyPlayers() {
+		// q, ok := player.Var("bubbleQ")
+		// if !ok {
+			// player.SetVar("bubbleQ", []ItemBubble{bubble})
+			// continue
+		// }
+		// player.SetVar("bubbleQ", append(q.([]ItemBubble), bubble))
+	// }
+	// q, ok := p.Var("bubbleQ")
+	// if !ok {
+		// p.SetVar("bubbleQ", []ItemBubble{bubble})
+		// return
+	// }
+	// p.SetVar("bubbleQ", append(q.([]ItemBubble)))
+	p.enqueueArea(bubblesHandle, 15, ItemBubble{p, id})
 }
 
 //SetStat sets the current, maximum, and experience levels of the skill at idx to lvl, and updates the client about it.

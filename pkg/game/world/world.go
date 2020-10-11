@@ -1,7 +1,7 @@
 package world
 
 import (
-	"fmt"
+	// "fmt"
 	"math"
 	"math/rand"
 	"strconv"
@@ -21,6 +21,10 @@ const (
 	TicksHour      = 5625
 	TicksTwentyMin = 1875
 	TicksMinute    = 100
+	TickMinute     = TicksMinute*TickMillis
+	TickHour       = TicksHour*TickMillis
+	TickDay       = TicksDay*TickMillis
+	TickMillis     = 640*time.Millisecond
 
 	//MaxX Width of the game
 	MaxX = 944
@@ -52,46 +56,60 @@ const (
 // Before the command is issued to set this time, it is initialized to time.Time{} zero value.
 var UpdateTime time.Time
 
+type indexQueue []int
+
+func (q *indexQueue) Push(i int) {
+	*q = append(*q, i)
+}
+
+func (q *indexQueue) Pop() int {
+	if len(*q) <= 0 {
+		return -1
+	}
+	idx := (*q)[0]
+	if len(*q) == 1 {
+		*q = (*q)[:0]
+	} else {
+		*q = (*q)[1:]
+	}
+	return idx
+}
+
+type playerList [1250]*Player
+
 type PlayerList struct {
-	players [1250]*Player
-	curIdx int
-	free []int
 	sync.RWMutex
+	playerList
+	free indexQueue
+	curIdx int
 }
 
 //Players Collection containing all of the active client, by index and username hash, guarded by a mutex
-var Players = &PlayerList{free: make([]int, 0, 1250)}
+var Players = &PlayerList{free: make(indexQueue, 0, 1250)}
 
 //FindHash Returns the client with the base37 username `hash` if it exists and true, otherwise returns nil and false.
 func (m *PlayerList) FindHash(hash uint64) (*Player, bool) {
-	m.RLock()
-	defer m.RUnlock()
-	for _, p := range m.players {
-		if p.UsernameHash() == hash {
-			return p, true
-		}
-	}
-	return nil, false
+	idx := m.ForEach(func(p *Player) bool {
+		return p.UsernameHash() == hash
+	})
+	return m.FindIndex(idx)
 }
 
 //FromIndex Returns the client with the index `index` if it exists and true, otherwise returns nil and false.
 func (m *PlayerList) FindIndex(index int) (*Player, bool) {
+	if index == -1 {
+		return nil, false
+	}
 	m.RLock()
 	defer m.RUnlock()
-	return m.players[index], m.players[index] != nil
+	return m.playerList[index], m.playerList[index] != nil
 }
 
 //Find Returns the slot that this player occupies in the set.
 func (m *PlayerList) Find(player *Player) int {
-	m.RLock()
-	defer m.RUnlock()
-	for i, v := range m.players {
-		if v == player {
-			return i
-		}
-	}
-
-	return -1
+	return m.ForEach(func(p *Player) bool {
+		return p == player
+	})
 }
 
 //Contains Returns true if this player is assigned to a slot in the set, otherwise returns false.
@@ -101,87 +119,97 @@ func (m *PlayerList) Contains(player *Player) bool {
 
 //ContainsHash Returns true if there is a client mapped to this username hash is in this collection, otherwise returns false.
 func (m *PlayerList) ContainsHash(hash uint64) bool {
-	player, ret := m.FindHash(hash)
-	return ret && player != nil
+	_, ret := m.FindHash(hash)
+	return ret
 }
 
 
 //Put Finds the lowest available empty slot in the list, and puts the player there.
 // This will also assign the players server index variable (*Player.Index) to the assigned slot.
 func (m *PlayerList) Put(player *Player) {
-	if i := m.Find(player); i > -1 {
-		log.Debug("Player list double-put attempted; old index is", i)
+	if m.Contains(player) {
+		log.Warn("Player list double-entry attempted!")
 		return
 	}
 	player.Index = m.nextSlot()
 	m.Lock()
 	defer m.Unlock()
-	m.players[player.Index] = player
+	m.playerList[player.Index] = player
 }
 
 //Remove Removes a client from the set.
 func (m *PlayerList) Remove(player *Player) {
-	freedSlot := player.ServerIndex()
-	log.Debug("free slot: ",freedSlot)
+	slot := player.ServerIndex()
+	if slot == -1 {
+		log.Warn("Error: Player with non-valid index being removed!")
+		return
+	}
+	player.Index = -1
 	m.Lock()
 	defer m.Unlock()
-	m.players[freedSlot].Index = -1
-	m.players[freedSlot] = nil
-	m.free = append(m.free, freedSlot)
-	
+	m.playerList[slot] = nil
+	m.free.Push(slot)
 }
 
 //Range Calls action for every active client in the collection.
 func (m *PlayerList) Range(action func(*Player)) {
 	m.RLock()
 	defer m.RUnlock()
-	for _, p := range m.players {
+	for _, p := range m.playerList {
 		if p != nil {
 			action(p)
 		}
 	}
 }
 
+//Range Calls action for every active client in the collection.
+func (m *PlayerList) ForEach(action func(*Player) bool) int {
+	m.RLock()
+	defer m.RUnlock()
+	for i, p := range m.playerList {
+		if p != nil {
+			if action(p) {
+				return i
+			}
+		}
+	}
+	
+	return -1
+}
+
 //Size Returns the size of the active client collection.
 func (m *PlayerList) Size() int {
 	m.RLock()
 	defer m.RUnlock()
-	return len(m.players)
+	return len(m.playerList)
 }
 
 //NextIndex Returns the lowest available index for the client to be mapped to.
 func (m *PlayerList) nextSlot() int {
 	m.Lock()
 	defer m.Unlock()
-	if len(m.free) > 0 {
-		idx := m.free[0]
-		if len(m.free) > 1 {
-			m.free = m.free[1:]
-		} else {
-			m.free = []int{}
-		}
-		return idx
+	idx := m.free.Pop()
+	if idx == -1 {
+		defer func() { m.curIdx += 1 }()
+		return m.curIdx
 	}
-	defer func() { m.curIdx += 1 }()
-	return m.curIdx
+	return idx
 }
 
 func (m *PlayerList) AsyncRange(fn func(*Player)) {
 	w := sync.WaitGroup{}
 	m.RLock()
-	defer m.RUnlock()
-	for _, p := range m.players {
+	for _, p := range m.playerList {
 		if p == nil {
 			continue
 		}
-		if p != nil {
-			w.Add(1)
-			go func() {
-				fn(p)
-				w.Done()
-			}()
-		}
+		w.Add(1)
+		go func() {
+			fn(p)
+			w.Done()
+		}()
 	}
+	m.RUnlock()
 	w.Wait()
 }
 
@@ -197,6 +225,15 @@ type region struct {
 
 var regions [HorizontalPlanes][VerticalPlanes]*region
 
+
+func init() {
+	for x := 0; x < MaxX; x += RegionSize {
+		for y := 0; y < MaxY; y += RegionSize {
+			regions[x/RegionSize][y/RegionSize] = &region{x,y,NewMobList(), NewMobList(), &entityList{}, &entityList{}}
+			// if r := regions[x/RegionSize][y/RegionSize]; r != nil {
+		}
+	}
+}
 //IsValid Returns true if the tile at x,y is within world boundaries, false otherwise.
 func WithinWorld(x, y int) bool {
 	return x <= MaxX && x >= 0 && y >= 0 && y <= MaxY
@@ -248,7 +285,6 @@ func AddItem(i *GroundItem) {
 
 //GetItem Returns the item at x,y with the specified id.  Returns nil if it can not find the item.
 func GetItem(x, y, id int) *GroundItem {
-	
 	region := Region(x, y)
 	region.Items.lock.RLock()
 	defer region.Items.lock.RUnlock()
@@ -459,15 +495,16 @@ func GetAllObjects() (list []*Object) {
 	defer regionLock.RUnlock()
 	for x := 0; x < MaxX; x += RegionSize {
 		for y := 0; y < MaxY; y += RegionSize {
-			if r := regions[x/RegionSize][y/RegionSize]; r != nil {
-				r.Objects.lock.RLock()
-				for _, o := range r.Objects.set {
-					if o, ok := o.(*Object); ok {
-						list = append(list, o)
-					}
+			// if r := regions[x/RegionSize][y/RegionSize]; r != nil {
+			r := Region(x,y)
+			r.Objects.lock.RLock()
+			for _, o := range r.Objects.set {
+				if o, ok := o.(*Object); ok {
+					list = append(list, o)
 				}
-				r.Objects.lock.RUnlock()
 			}
+			r.Objects.lock.RUnlock()
+			// }
 		}
 	}
 
@@ -510,15 +547,13 @@ func NpcNearest(id, x, y int) *NPC {
 	defer regionLock.RUnlock()
 	for x := 0; x < MaxX; x += RegionSize {
 		for y := 0; y < MaxY; y += RegionSize {
-			if r := regions[x/RegionSize][y/RegionSize]; r != nil {
-				r.NPCs.RangeNpcs(func(n *NPC) bool {
-					if n.ID == id && n.LongestDelta(point) < minDelta {
-						minDelta = n.LongestDelta(point)
-						npc = n
-					}
-					return false
-				})
-			}
+			Region(x,y).NPCs.RangeNpcs(func(n *NPC) bool {
+				if n.ID == id && n.LongestDelta(point) < minDelta {
+					minDelta = n.LongestDelta(point)
+					npc = n
+				}
+				return false
+			})
 		}
 
 	}
@@ -535,15 +570,15 @@ func NpcVisibleFrom(id, x, y int) *NPC {
 	
 	for x := 0; x < MaxX; x += RegionSize {
 		for y := 0; y < MaxY; y += RegionSize {
-			if r := regions[x/RegionSize][y/RegionSize]; r != nil {
-				r.NPCs.RangeNpcs(func(n *NPC) bool {
-					if n.ID == id && n.LongestDelta(point) < minDelta {
-						minDelta = n.LongestDelta(point)
-						npc = n
-					}
-					return false
-				})
-			}
+			// if r := regions[x/RegionSize][y/RegionSize]; r != nil {
+			Region(x,y).NPCs.RangeNpcs(func(n *NPC) bool {
+				if n.ID == id && n.LongestDelta(point) < minDelta {
+					minDelta = n.LongestDelta(point)
+					npc = n
+				}
+				return false
+			})
+			// }
 		}
 
 	}
@@ -558,33 +593,44 @@ func get(x, y int) *region {
 		x = 0
 	}
 	if x >= HorizontalPlanes {
-		fmt.Println("planeX index out of range", x)
+		log.Warn("planeX", x, "out of bounds")
 		x = HorizontalPlanes-1
 	}
 	if y < 0 {
 		y = 0
 	}
 	if y >= VerticalPlanes {
-		fmt.Println("planeY out of range", y)
+		log.Warn("planeY", y, " out of bounds")
 		y = VerticalPlanes-1
 	}
 	regionLock.Lock()
 	defer regionLock.Unlock()
-	if regions[x][y] == nil {
-		regions[x][y] = &region{x, y, &MobList{}, &MobList{}, &entityList{}, &entityList{}}
+	// if regions[x][y] == nil {
+		// regions[x][y] = &region{x, y, &MobList{}, &MobList{}, &entityList{}, &entityList{}}
+	// }
+	if regions[x][y].Initialized() {
+		regions[x][y] = &region{x,y,NewMobList(),NewMobList(),&entityList{},&entityList{}}
 	}
 	return regions[x][y]
 }
 
+//Initialized returns true if the region has been initialized, otherwise returns false
+func (r *region) Initialized() bool {
+	return r != nil
+}
+
 //Region Returns the region that corresponds with the given coordinates.  If it does not exist yet, it will allocate a new onr and store it for the lifetime of the application in the regions map.
 func Region(x, y int) *region {
-
 	regionLock.Lock()
 	defer regionLock.Unlock()
-	if regions[x/RegionSize][y/RegionSize] == nil {
-		regions[x/RegionSize][y/RegionSize] = &region{x, y, &MobList{}, &MobList{}, &entityList{}, &entityList{}}
+	// if regions[x/RegionSize][y/RegionSize] == nil {
+		// regions[x/RegionSize][y/RegionSize] = &region{x, y, &MobList{}, &MobList{}, &entityList{}, &entityList{}}
+	// }
+	if !regions[x/RegionSize][y/RegionSize].Initialized() {
+		regions[x/RegionSize][y/RegionSize] = &region{x,y,NewMobList(),NewMobList(),&entityList{},&entityList{}}
 	}
-	return regions[x/RegionSize][y/RegionSize]}
+	return regions[x/RegionSize][y/RegionSize]
+}
 
 //surroundingRegions Returns the regions surrounding the given coordinates.  It wil
 func (r *region) neighbors() (regions [4]*region) {
