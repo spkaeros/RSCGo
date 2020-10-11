@@ -292,7 +292,20 @@ func (s *Server) Bind(port int) bool {
 				login = second
 			}
 			if login.Opcode == 2 {
-				defer func() {
+				if version := login.ReadUint16(); version != config.Version() {
+					player.WritePacket(world.HandshakeResponse(int(handshake.ResponseUpdated)))
+					if err := player.Writer.Flush(); err != nil {
+						log.Warnf("Problem flushing player writer during new player registration!")
+					}
+					return
+				}
+				username := strutil.Base37.Decode(login.ReadUint64())
+				password := strings.TrimSpace(login.ReadString())
+				reply := func(i handshake.ResponseCode, reason string) {
+					player.WritePacket(world.HandshakeResponse(int(i)))
+					if err := player.Writer.Flush(); err != nil {
+						log.Warnf("Problem flushing player writer during new player registration!")
+					}
 					close(player.InQueue)
 					err := player.Socket.Close()
 					if err != nil {
@@ -300,17 +313,6 @@ func (s *Server) Bind(port int) bool {
 						return
 					}
 					player.Inventory.Owner = nil
-				}()
-				if version := login.ReadUint16(); version != config.Version() {
-					player.WritePacket(world.HandshakeResponse(int(handshake.ResponseUpdated)))
-					player.Writer.Flush()
-					return
-				}
-				username := strutil.Base37.Decode(login.ReadUint64())
-				password := strings.TrimSpace(login.ReadString())
-				reply := func(i handshake.ResponseCode, reason string) {
-					player.WritePacket(world.HandshakeResponse(int(i)))
-					player.Writer.Flush()
 					if reason == "" {
 						log.Debug("[REGISTER] Player", "'" + username + "'", "created successfully for:", player.CurrentIP())
 						return

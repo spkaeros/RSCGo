@@ -101,7 +101,7 @@ func (l *MobList) Range(action func(entity.MobileEntity) bool) int {
 }
 
 func (l *MobList) Set(mobs []entity.MobileEntity) {
-	l.mobSet = mobSet(mobs)
+	l.mobSet = mobs
 }
 
 //Size returns the number of mobile entitys entered into this list.

@@ -3,22 +3,22 @@ math = import("math")
 
 bind.onLogin(func(player) {
 	player.Tickables.Add(func() {
-		if (CurTick() % (player.PrayerActivated(PRAYER_RAPID_RESTORE) ? 50 : 100)) == 0 {
-			for i in range(THIEVING) {
+		if CurTick() % (player.PrayerActivated(PRAYER_RAPID_RESTORE) ? 50 : 100) == 0 {
+			for i in [ ATTACK, DEFENSE, STRENGTH, RANGED, MAGIC, COOKING, WOODCUTTING, FIREMAKING, FISHING, MINING,
+					SMITHING, HERBLAW, FLETCHING, CRAFTING, AGILITY, THIEVING ]
 				delta = player.Skills().DeltaMax(i)
-				if i == HITPOINTS || i == PRAYER || delta == 0 {
-					// Handled elsewhere
+				if player.Skills.DeltaMax(i) == 0 {
+					// already normal
 					continue
 				}
 				if math.Abs(delta) == 1 {
+					// we are one level off normal, and after this tick we are normal
 					player.Message("Your " + skillName(i) + " level has returned to normal")
 				}
 				player.IncCurStat(i, delta / math.Abs(delta))
 			}
 		}
-	})
-	player.Tickables.Add(func() {
-		if (CurTick() % (player.PrayerActivated(PRAYER_RAPID_HEAL) ? 50 : 100)) == 0 {
+		if CurTick() % (player.PrayerActivated(PRAYER_RAPID_HEAL) ? 50 : 100) == 0 {
 			delta = player.Skills().DeltaMax(HITPOINTS)
 			if delta != 0 {
 				player.IncCurStat(HITPOINTS, delta / math.Abs(delta))
