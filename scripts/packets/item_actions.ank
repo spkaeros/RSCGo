@@ -38,3 +38,89 @@ bind.packet(170, func(player, packet) {
 		player.DequipItem(item)
 		player.PlaySound("click")
 })
+
+
+
+// drop item
+bind.packet(246, func(player, packet) {
+	if player.Busy() || player.IsFighting() {
+		return
+	}
+	index = packet.ReadUint16()
+	// Just to prevent drops mid-path, and perform drop on path completion
+	player.SetTickAction(func() {
+		if player.Busy() {
+			return false
+		}
+		if !player.FinishedPath() {
+			return true
+		}
+
+		if player.Inventory.Size() < index {
+			return false
+		}
+
+		item = player.Inventory.Get(index)
+		if !player.Inventory.Remove(index) {
+			return false
+		}
+		world.addItem(world.newGroundItemFor(player.UsernameHash(), item.ID, item.Amount, player.X(), player.Y()))
+		player.PlaySound("dropobject")
+		player.SendInventory()
+		return true
+	})
+})
+
+// pickup item	
+bind.packet(247, func(player, packet) {
+	if player.Busy() || player.IsFighting() {
+		return
+	}
+	x = packet.ReadUint16()
+	y = packet.ReadUint16()
+	if x < 0 || x >= world.maxX || y < 0 || y >= world.maxY {
+		log.debugf("%v attempted to pick up an item at an invalid location: [%d,%d]\n", player, x, y)
+		return
+	}
+
+	id = packet.ReadUint16()
+	if id < 0 || id > len(itemDefs)-1 {
+		log.debugf("%v attempted to pick up an item with an out-of-bounds ID: %d\n", player, id)
+		return
+	}
+
+	packet.ReadUint16() // Unused in this opcode this variable is what affect-type we are applying to the ground item, e.g casting, using item with, etc...but we are not using any affects
+
+	player.SetTickAction(func() {
+		if player.Busy() {
+			return false
+		}
+
+		item = world.getItem(x, y, id)
+		if item == nil || !item.VisibleTo(player) {
+			log.debugf("%v attempted to pick up an item that doesn't exist: %s@{%d,%d}\n", player, definitions.Items[id].Name, x, y)
+			return false
+		}
+
+		maxDelta = 0
+		if world.checkCollisions(x, y, 0x40, false) {
+			maxDelta++
+		}
+		delta = player.Delta(item.Location)
+		if delta > maxDelta || delta == 1 && !player.ReachableCoords(item.X(), item.Y()) {
+			return player.FinishedPath()
+		}
+
+		if !player.Inventory.CanHold(item.ID, item.Amount) {
+			player.Message("You do not have room for that item in your inventory.")
+			return false
+		}
+
+		player.ResetPath()
+		item.Remove()
+		player.Inventory.Add(item.ID, item.Amount)
+		player.SendInventory()
+		player.PlaySound("takeobject")
+		return false
+	})
+})

@@ -46,8 +46,11 @@ func init() {
 		"removeObject":           reflect.ValueOf(RemoveObject),
 		"addNpc":                 reflect.ValueOf(AddNpc),
 		"removeNpc":              reflect.ValueOf(RemoveNpc),
+		"getItem":              reflect.ValueOf(GetItem),
 		"addItem":                reflect.ValueOf(AddItem),
 		"removeItem":             reflect.ValueOf(RemoveItem),
+		"maxX":                   reflect.ValueOf(MaxX),
+		"maxY":                   reflect.ValueOf(MaxY),
 		"getObjectAt":            reflect.ValueOf(GetObject),
 		"getNpc":                 reflect.ValueOf(GetNpc),
 		"checkCollisions":        reflect.ValueOf(IsTileBlocking),
@@ -100,12 +103,14 @@ func init() {
 				target.SendPacket(PlaneInfo(target))
 			}
 		}),
-		"curTick":		  reflect.ValueOf(Ticks.Load()),
-		"newShop":        reflect.ValueOf(NewShop),
-		"newLocation":    reflect.ValueOf(NewLocation),
-		"newGeneralShop": reflect.ValueOf(NewGeneralShop),
-		"getShop":        reflect.ValueOf(Shops.Get),
-		"hasShop":        reflect.ValueOf(Shops.Contains),
+		"newGroundItemFor": reflect.ValueOf(NewGroundItemFor),
+		"newGroundItem":    reflect.ValueOf(NewGroundItem),
+		"curTick":		    reflect.ValueOf(Ticks.Load()),
+		"newShop":          reflect.ValueOf(NewShop),
+		"newLocation":      reflect.ValueOf(NewLocation),
+		"newGeneralShop":   reflect.ValueOf(NewGeneralShop),
+		"getShop":          reflect.ValueOf(Shops.Get),
+		"hasShop":          reflect.ValueOf(Shops.Contains),
 	}
 	env.PackageTypes["world"] = map[string]reflect.Type{
 		"players":    reflect.TypeOf(Players),
