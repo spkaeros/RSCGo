@@ -292,20 +292,7 @@ func (s *Server) Bind(port int) bool {
 				login = second
 			}
 			if login.Opcode == 2 {
-				if version := login.ReadUint16(); version != config.Version() {
-					player.WritePacket(world.HandshakeResponse(int(handshake.ResponseUpdated)))
-					if err := player.Writer.Flush(); err != nil {
-						log.Warnf("Problem flushing player writer during new player registration!")
-					}
-					return
-				}
-				username := strutil.Base37.Decode(login.ReadUint64())
-				password := strings.TrimSpace(login.ReadString())
-				reply := func(i handshake.ResponseCode, reason string) {
-					player.WritePacket(world.HandshakeResponse(int(i)))
-					if err := player.Writer.Flush(); err != nil {
-						log.Warnf("Problem flushing player writer during new player registration!")
-					}
+				defer func() {
 					close(player.InQueue)
 					err := player.Socket.Close()
 					if err != nil {
@@ -313,6 +300,17 @@ func (s *Server) Bind(port int) bool {
 						return
 					}
 					player.Inventory.Owner = nil
+				}()
+				if version := login.ReadUint16(); version != config.Version() {
+					player.WritePacket(world.HandshakeResponse(int(handshake.ResponseUpdated)))
+					player.Writer.Flush()
+					return
+				}
+				username := strutil.Base37.Decode(login.ReadUint64())
+				password := strings.TrimSpace(login.ReadString())
+				reply := func(i handshake.ResponseCode, reason string) {
+					player.WritePacket(world.HandshakeResponse(int(i)))
+					player.Writer.Flush()
 					if reason == "" {
 						log.Debug("[REGISTER] Player", "'" + username + "'", "created successfully for:", player.CurrentIP())
 						return
@@ -451,10 +449,12 @@ func (s *Server) handlePackets(p *world.Player) {
 				if !ok || p1 == nil {
 					return
 				}
+				// script packet handlers are the most `modern` solution, and will be the default selected for any incoming packet
 				if handler := world.PacketTriggers[p1.Opcode]; handler != nil {
 					handler(p, p1)
 					return
 				}
+				// This is old legacy go code handlers that are deprecated and being replaced with the aforementioned scripting API
 				if handlePacket := game.Handler(p1.Opcode); handlePacket != nil {
 					handlePacket(p, p1)
 					return
@@ -468,23 +468,28 @@ func (s *Server) Start() {
 	s.Bind(config.Port())
 	defer s.Ticker.Stop()
 	for range s.C {
-		tasks.TickList.Tick()
-
-		world.Players.Range(func(p *world.Player) {
+		tasks.TickList.Call(nil)
+		world.Players.AsyncRange(func(p *world.Player) {
 			if p == nil {
 				return
 			}
 			s.handlePackets(p)
-			p.Tickables.Call(interface{}(p))
-			
+			go p.Tickables.Call(interface{}(p))
 			if fn := p.TickAction(); fn != nil && !fn() {
 				p.ResetTickAction()
 			}
 			p.TraversePath()
 		})
+
+		// world.Players.Range(func(p *world.Player) {
+			// if p == nil {
+				// return
+			// }
+			// 
+		// })
 		world.UpdateNPCPositions()
 
-		world.Players.Range(func(p *world.Player) {
+		world.Players.AsyncRange(func(p *world.Player) {
 			if p == nil {
 				return
 			}
@@ -514,11 +519,11 @@ func (s *Server) Start() {
 			}
 		})
 
-		world.Players.Range(func(p *world.Player) {
+		world.Players.AsyncRange(func(p *world.Player) {
 			if p == nil {
 				return
 			}
-			p.PostTickables.Call(interface{}(p))
+			go p.PostTickables.Call(interface{}(p))
 			p.ResetRegionRemoved()
 			p.ResetRegionMoved()
 			p.ResetSpriteUpdated()

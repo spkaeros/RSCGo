@@ -174,7 +174,8 @@ var SleepClose = net.NewEmptyPacket(84)
 var SleepWrong = net.NewEmptyPacket(194)
 
 func NpcMessage(sender *NPC, message string, target *Player) (p *net.Packet) {
-	target.QueueNpcChat(sender, target, message)
+	// target.QueueNpcChat(sender, target, message)
+	sender.enqueueArea(npcChatHandle, NewTargetedMessage(sender, target, message))
 /*	p = net.NewEmptyPacket(104)
 	p.AddUint16(1)
 	p.AddUint16(uint16(sender.Index))
@@ -217,13 +218,15 @@ func NPCPositions(player *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(79)
 	changed := 0
 	p.AddBitmask(player.LocalNPCs.Size(), 8)
-	var local []entity.MobileEntity
+	// var local []entity.MobileEntity
+	// var local = player.LocalNPCs.mobSet[:0]
+	var local mobSet
 	player.LocalNPCs.RangeNpcs(func(n *NPC) bool {
 		local = append(local, n)
 		changed++
 		n.RLock()
 		mask := n.SyncMask
-		if !player.WithinRange(player.Location, player.VarInt("viewRadius", 16)) || mask&SyncRemoved == SyncRemoved || n.Location.Equals(DeathPoint) || n.VarBool("removed", false) {
+		if !player.WithinRange(player.Point(), player.VarInt("viewRadius", 16)) || mask&SyncRemoved == SyncRemoved || n.Point().LongestDelta(DeathPoint) == 0 || n.VarBool("removed", false) {
 			p.AddBitmask(1, 1)
 			p.AddBitmask(1, 1)
 			p.AddBitmask(3, 2)
@@ -261,7 +264,7 @@ func NPCPositions(player *Player) (p *net.Packet) {
 		}
 		newCount++
 		player.LocalNPCs.Add(n)
-		p.AddBitmask(n.Index, 12)
+		p.AddBitmask(n.ServerIndex(), 12)
 		// bitwise trick avoids branching to do a manual addition, and maintains binary compatibility with the original protocol
 		p.AddSignedBits(n.X()-player.X(), 5)
 		p.AddSignedBits(n.Y()-player.Y(), 5)
@@ -296,66 +299,104 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 	changed := 0
 	if player.SyncMask&SyncNeedsPosition != 0 {
 		changed++
-		player.PostTickables.Add(func() bool {
-			player.ResetRegionRemoved()
-			player.ResetRegionMoved()
-			player.ResetSpriteUpdated()
-			return true
-		})
 	}
+	player.PostTickables.Add(func() bool {
+		player.ResetRegionRemoved()
+		player.ResetRegionMoved()
+		player.ResetSpriteUpdated()
+		return true
+	})
 	// var removing []*Player
-	var local []entity.MobileEntity
+	var local mobSet
 	player.LocalPlayers.RangePlayers(func(p1 *Player) bool {
-		p1.RLock()
-		defer p1.RUnlock()
-		changed++
-		mask := p1.SyncMask
 		local = append(local, p1)
-		if mask&SyncRemoved == SyncRemoved {
-			p.AddBitmask(1, 1)
-			p.AddBitmask(1, 1)
+		changed++
+		p1.RLock()
+		mask := p1.SyncMask
+		if !player.WithinRange(player.Point(), player.VarInt("viewRadius", 16)) || mask&SyncRemoved == SyncRemoved {
+			// flips on the next 4 bits
+			p.AddBitmask(0xF, 4)
+			// p.AddBitmask(1, 1)
+			// p.AddBitmask(1, 1)
+			// p.AddBitmask(3, 2)
+			local = local[:len(local)-1]
+		} else if mask&SyncMoved == SyncMoved {
+			// p.AddBitmask(1, 1)
+			// p.AddBitmask(0, 1)
+			// Sets next 2 bits as 1, 0 consecutively
+			p.AddBitmask(2, 2)
+			p.AddBitmask(p1.Direction(), 3)
+			// p1.PostTickables.Add(func(p1 *Player) bool {
+				// p1.ResetRegionMoved()
+				// p1.ResetSpriteUpdated()
+				// return true
+			// })
+		} else if mask&SyncSprite == SyncSprite {
 			p.AddBitmask(3, 2)
-			if len(local) > 0 {
-				local = local[:len(local)-1]
-			} else {
-				local = local[:0]
-			}
-			return false
-		}
-		if mask&(SyncRemoved|SyncMoved|SyncSprite) == 0 {
+			// p.AddBitmask(1, 1)
+			// p.AddBitmask(1, 1)
+			p.AddBitmask(p1.Direction(), 4)
+		} else {
 			p.AddBitmask(0, 1)
 			changed--
-			return false
 		}
-		p.AddBitmask(1, 1)
-		if mask&SyncMoved == SyncMoved {
-			p.AddBitmask(0, 1)
-			p.AddBitmask(p1.Direction(), 3)
-			p1.PostTickables.Add(func(p1 *Player) bool {
-				p1.ResetRegionMoved()
-				p1.ResetSpriteUpdated()
-				return true
-			})
-			return false
-		}
-		if p1.LongestDelta(player.Location) >= player.VarInt("viewRadius", 16) || mask&(SyncRemoved|SyncSprite) != 0 {
-			p.AddBitmask(1, 1)
-			if mask&SyncSprite != 0 {
-				p.AddBitmask(p1.Direction(), 4)
-			}
-			p1.PostTickables.Add(func(p1 *Player) bool {
-				if mask&SyncSprite != 0 {
-					p1.ResetSpriteUpdated()
-					return true
-				}
-				p1.ResetRegionRemoved()
-				p1.ResetRegionMoved()
-				return true
-			})
-		}
+		p1.RUnlock()
 		return false
 	})
+	// player.PostTickables.Add(func(p1 *Player) bool {
+		// p1.ResetRegionMoved()
+		// p1.ResetSpriteUpdated()
+		// p1.ResetRegionRemoved()
+		// return true
+	// })
 	player.LocalPlayers.Set(local)
+	// var local []entity.MobileEntity
+	// player.LocalPlayers.RangePlayers(func(p1 *Player) bool {
+		// p1.RLock()
+		// defer p1.RUnlock()
+		// changed++
+		// mask := p1.SyncMask
+		// local = append(local, p1)
+		// if mask&SyncRemoved == SyncRemoved {
+			// p.AddBitmask(1, 1)
+			// p.AddBitmask(1, 1)
+			// p.AddBitmask(3, 2)
+			// if len(local) > 0 {
+				// local = local[:len(local)-1]
+			// } else {
+				// local = local[:0]
+			// }
+			// return false
+		// }
+		// if mask&(SyncRemoved|SyncMoved|SyncSprite) == 0 {
+			// p.AddBitmask(0, 1)
+			// changed--
+			// return false
+		// }
+		// p.AddBitmask(1, 1)
+		// if mask&SyncMoved == SyncMoved {
+			// p.AddBitmask(0, 1)
+			// p.AddBitmask(p1.Direction(), 3)
+			// return false
+		// }
+		// if p1.LongestDelta(player.Point()) >= player.VarInt("viewRadius", 16) || mask&(SyncRemoved|SyncSprite) != 0 {
+			// p.AddBitmask(1, 1)
+			// if mask&SyncSprite != 0 {
+				// p.AddBitmask(p1.Direction(), 4)
+			// }
+			// p1.PostTickables.Add(func(p1 *Player) bool {
+				// if mask&SyncSprite != 0 {
+					// p1.ResetSpriteUpdated()
+					// return true
+				// }
+				// p1.ResetRegionRemoved()
+				// p1.ResetRegionMoved()
+				// return true
+			// })
+		// }
+		// return false
+	// })
+	// player.LocalPlayers.Set(local)
 	
 	// for _, p1 := range removing {
 		// player.LocalPlayers.Remove(p1)
@@ -378,12 +419,12 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		}
 		newPlayerCount++
 		player.LocalPlayers.Add(p1)
-		p.AddBitmask(p1.Index, 11)
+		p.AddBitmask(p1.ServerIndex(), 11)
 		// bitwise trick avoids branching to do a manual addition, and maintains binary compatibility with the original protocol
 		p.AddSignedBits(p1.X()-player.X(), 5)
 		p.AddSignedBits(p1.Y()-player.Y(), 5)
 		p.AddBitmask(p1.Direction(), 4)
-		if ticket, ok := player.KnownAppearances[p1.Index]; !ok || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance)!=0 {
+		if ticket, ok := player.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance)!=0 {
 			p.AddBitmask(1, 1)
 			player.AppearanceReq = append(player.AppearanceReq, p1)
 		} else {
@@ -512,14 +553,14 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 		return false
 	})
 	for _, player := range appearanceList {
-		p.AddUint16(uint16(player.Index)) // index
+		p.AddUint16(uint16(player.ServerIndex())) // index
 		p.AddUint8(5) // update type
 		// This ticket is to track changes to the players around us
 		// Everytime this ticket changes, we must send this block out regionally,
 		// containing data that identifies all of the owning players characteristics
 		p.AddUint16(uint16(player.AppearanceTicket())) // appearance uuid
 		p.AddUint64(player.UsernameHash()) // base37 encoded username
-		ourPlayer.KnownAppearances[player.Index] = player.AppearanceTicket()
+		ourPlayer.KnownAppearances[player.ServerIndex()] = player.AppearanceTicket()
 		sprites := player.Equips()
 		p.AddUint8(uint8(len(sprites))) // length of equipped item sprites  If length less than 12 any ones after length will get set to 0
 		for i := 0; i < len(sprites); i++ {
@@ -1039,7 +1080,7 @@ func HandshakeResponse(v int) (p *net.Packet) {
 //PlaneInfo Builds a packet to update information about the client environment, e.g height, player index...
 func PlaneInfo(player *Player) (p *net.Packet) {
 	playerInfo := net.NewEmptyPacket(25)
-	playerInfo.AddUint16(uint16(player.Index))
+	playerInfo.AddUint16(uint16(player.ServerIndex()))
 	playerInfo.AddUint16(2304) // alleged width, tiles per sector also...
 	playerInfo.AddUint16(1776) // alleged height
 

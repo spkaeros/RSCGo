@@ -188,7 +188,7 @@ func init() {
 			for _, triggerDef := range world.NpcTriggers {
 				if triggerDef.Check(npc) {
 					npc.ResetPath()
-					if player.Location.Equals(npc.Location) {
+					if player.Point().Equals(npc.Point()) {
 						for _, direction := range world.OrderedDirections {
 							neighbor := npc.Step(direction)
 							if npc.Reachable(neighbor) {
@@ -198,7 +198,7 @@ func init() {
 						}
 					}
 
-					if !player.Location.Equals(npc.Location) {
+					if !player.Point().Equals(npc.Point()) {
 						player.SetDirection(player.DirectionTo(npc.X(), npc.Y()))
 						npc.SetDirection(npc.DirectionTo(player.X(), player.Y()))
 					}
@@ -260,7 +260,7 @@ func init() {
 				}()
 				return true
 			}
-			player.WalkTo(object.Location)
+			player.WalkTo(object.Point())
 			return false
 		})
 	})
@@ -271,7 +271,7 @@ func init() {
 		targetIndex := p.ReadUint16()
 		invIndex := p.ReadUint16()
 
-		if targetIndex == player.Index {
+		if targetIndex == player.ServerIndex() {
 			log.Suspicious.Printf("%s attempted to use an inventory item on themself\n", player.String())
 			return
 		}
@@ -290,7 +290,7 @@ func init() {
 			if player.Busy() || !player.Connected() || target == nil || target.Busy() || !target.Connected() {
 				return true
 			}
-			if player.WithinRange(target.Location, 1) && player.NextTo(target.Location) {
+			if player.WithinRange(target.Point(), 1) && player.NextTo(target.Point()) {
 				player.ResetPath()
 				player.AddState(world.MSBatching)
 				target.AddState(world.MSBatching)
@@ -309,7 +309,7 @@ func init() {
 				}()
 				return true
 			}
-			player.WalkTo(target.Location)
+			player.WalkTo(target.Point())
 			return false
 		})
 	})
@@ -332,7 +332,7 @@ func init() {
 		}
 		invItem := player.Inventory.Get(invIndex)
 		bounds := object.Boundaries()
-		player.WalkTo(object.Location)
+		player.WalkTo(object.Point())
 		player.SetTickAction(func() bool {
 			if player.Busy() || world.GetObject(object.X(), object.Y()) != object {
 				// If somehow we became busy, the object changed before arriving, we do nothing.
@@ -355,7 +355,7 @@ func init() {
 					}()
 					return true
 				}
-				player.WalkTo(object.Location)
+				player.WalkTo(object.Point())
 				return false
 			}
 			if player.AtObject(object) {
@@ -374,7 +374,7 @@ func init() {
 				}()
 				return true
 			}
-			player.WalkTo(object.Location)
+			player.WalkTo(object.Point())
 			return false
 		})
 	})

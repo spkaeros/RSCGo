@@ -26,6 +26,7 @@ const (
 type Entity interface {
 	Location
 	ServerIndex() int
+	SetServerIndex(int)
 	Type() Type
 }
 

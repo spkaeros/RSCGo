@@ -39,23 +39,9 @@ var SectorsLock sync.RWMutex
 // memory for quick access.
 func LoadCollisionData() {
 	archive := jag.New(config.DataDir() + string(os.PathSeparator) + "landscape.jag")
-
-	// fileOffset := 0
-	// metaDataOffset := 0
-	// Sectors begin at: offsetX=48, offsetY=96
 	for _, v := range archive.Files {
 		Sectors[v.Hash] = loadSector(v.Data)
 	}
-	// for i := 0; i < archive.FileCount; i++ {
-		// 
-		// id := int(binary.BigEndian.Uint32(archive.MetaData[metaDataOffset:]))
-		// compSz :=  int(uint32(archive.MetaData[metaDataOffset+7]&0xFF)<<16 | uint32(archive.MetaData[metaDataOffset+8]&0xFF)<<8 | uint32(archive.MetaData[metaDataOffset+9]&0xFF))
-		// SectorsLock.Lock()
-		// Sectors[id] = loadSector(archive.FileData[fileOffset:fileOffset+compSz])
-		// SectorsLock.Unlock()
-		// metaDataOffset += 10
-		// fileOffset += compSz
-	// }
 }
 
 const (
@@ -99,14 +85,25 @@ func ClipBit(direction int) int {
 // Returns: [2]byte {verticalMasks, horizontalMasks}
 func (l Location) Masks(x, y int) (masks [2]byte) {
 	if y > l.Y() {
+		if x > l.X() {
+			masks[1] |= ClipWest
+		} else if x < l.X() {
+			masks[1] |= ClipEast
+		}
 		masks[0] |= ClipNorth
 	} else if y < l.Y() {
+		if x > l.X() {
+			masks[1] |= ClipWest
+		} else if x < l.X() {
+			masks[1] |= ClipEast
+		}
 		masks[0] |= ClipSouth
-	}
-	if x > l.X() {
-		masks[1] |= ClipEast
-	} else if x < l.X() {
-		masks[1] |= ClipWest
+	} else {
+		if x > l.X() {
+			masks[1] |= ClipEast
+		} else if x < l.X() {
+			masks[1] |= ClipWest
+		}
 	}
 	// diags and solid objects are checked for automatically in the functions that you'd use this with, so
 	return masks

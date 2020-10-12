@@ -146,7 +146,7 @@ func (p *Player) AppearanceTicket() int {
 
 //String returns a string populated with the more identifying features of this player.
 func (p *Player) String() string {
-	return fmt.Sprintf("'%s'[%d]@'%s'", p.Username(), p.Index, p.CurrentIP())
+	return fmt.Sprintf("'%s'[%d]@'%s'", p.Username(), p.ServerIndex(), p.CurrentIP())
 }
 
 //SetTickAction queues a distanced action to run every game engine tick before path traversal, if action returns true, it will be reset.
@@ -214,7 +214,7 @@ func (p *Player) TradeBlocked() bool {
 
 //DuelBlocked returns true if duel requests are blocked for this player.
 func (p *Player) DuelBlocked() bool {
-	return p.Attributes.VarBool("duel_block", false)
+	return p.BoolAttribute("duel_block")
 }
 
 func (p *Player) UpdateStatus(status bool) {
@@ -380,7 +380,7 @@ func (p *Player) TraversePath() {
 	if path == nil {
 		return
 	}
-	if p.AtLocation(path.nextTile()) {
+	if p.Point().LongestDelta(path.nextTile()) == 0 {
 		path.CurrentWaypoint++
 	}
 	dst := p.NextTileToward(path.nextTile())
@@ -439,7 +439,6 @@ func (l Location) ReachableCoords(x, y int) bool {
 	}
 	cur := l.Clone()
 	end := NewLocation(x, y)
-
 	for !cur.Equals(end) {
 		next := cur.Step(cur.DirectionToward(end))
 		if !check(cur, next) {
@@ -621,7 +620,7 @@ func (p *Player) SetFatigue(i int) {
 func (p *Player) NearbyPlayers() (players []*Player) {
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.Players.RangePlayers(func(p1 *Player) bool {
-			if p.WithinRange(p1.Location, 16) && p != p1 {
+			if p.WithinRange(p1.Point(), 16) && p != p1 {
 				players = append(players, p1)
 			}
 			return false
@@ -635,7 +634,7 @@ func (p *Player) NearbyPlayers() (players []*Player) {
 func (p *Player) NearbyNpcs() (npcs []*NPC) {
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.NPCs.RangeNpcs(func(n *NPC) bool {
-			if p.WithinRange(n.Location, 16) && !n.Location.Equals(DeathPoint) {
+			if p.WithinRange(n.Point(), 16) && !n.Point().Equals(DeathPoint) {
 				npcs = append(npcs, n)
 			}
 			return false
@@ -646,9 +645,9 @@ func (p *Player) NearbyNpcs() (npcs []*NPC) {
 }
 
 //NearbyObjects Returns nearby objects.
-func (p *Player) NearbyObjects() (objects []*Object) {
-	for _, r := range Region(p.X(), p.Y()).neighbors() {
-		objects = append(objects, r.Objects.NearbyObjects(p)...)
+func (m *Mob) NearbyObjects() (objects []*Object) {
+	for _, r := range Region(m.X(), m.Y()).neighbors() {
+		objects = append(objects, r.Objects.NearbyObjects(m)...)
 	}
 
 	return
@@ -685,7 +684,7 @@ func (p *Player) NewPlayers() (players *MobList) {
 	list := &MobList{}
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.Players.RangePlayers(func(p1 *Player) bool {
-			if !p.LocalPlayers.Contains(p1) && p != p1 && p.WithinRange(p1.Location, 15) {
+			if !p.LocalPlayers.Contains(p1) && p != p1 && p.WithinRange(p1.Point(), 15) {
 				list.Add(p1)
 			}
 			return false
@@ -699,7 +698,7 @@ func (p *Player) NewPlayers() (players *MobList) {
 func (p *Player) NewNPCs() (npcs []*NPC) {
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.NPCs.RangeNpcs(func(n *NPC) bool {
-			if !n.VarBool("removed", false) && !p.LocalNPCs.Contains(n) && p.WithinRange(n.Location, 15) {
+			if !n.VarBool("removed", false) && !p.LocalNPCs.Contains(n) && p.WithinRange(n.Point(), 15) {
 				npcs = append(npcs, n)
 			}
 			return false
@@ -1056,7 +1055,7 @@ func NewPlayer(socket stdnet.Conn) *Player {
 	p := &Player{
 		Socket: socket,
 		Mob: Mob{
-			Entity: Entity{
+			Entity: &Entity{
 				Location: Lumbridge.Clone(),
 			},
 			AttributeList: entity.NewAttributeList(),
@@ -1141,10 +1140,13 @@ func (p *Player) Chat(msgs ...string) {
 //QuestBroadcast Broadcasts a string as a message posted into the players quest chat history to the player and any nearby players.
 func (p *Player) QuestBroadcast(owner, target entity.MobileEntity, message string) {
 	msg := NewTargetedMessage(owner, target, message)
-	for _, p1 := range p.NearbyPlayers() {
-		p1.enqueue(questChatHandle, msg)
+	for _, r := range Region(p.X(), p.Y()).neighbors() {
+		r.Players.RangePlayers(func(p1 *Player) bool {
+			p1.enqueue(questChatHandle, msg)
+			return false
+		})
 	}
-	p.enqueue(questChatHandle, msg)
+	// p.enqueue(questChatHandle, msg)
 }
 
 
@@ -1200,41 +1202,21 @@ func (p *Player) enqueue(id string, e interface{}) {
 
 //QueueNpcSplat Adds a message to a locked quest-chat queue
 func (p *Player) QueueNpcSplat(owner *NPC, dmg int) {
-//	if !p.Contains("npcSplatQ") {
-//		p.SetVar("npcSplatQ", []HitSplat{NewHitsplat(owner, dmg)})
-//		return
-//	}
-	p.enqueue(playerSplatHandle, NewHitsplat(owner, dmg))
-	// p.SetVar("npcSplatQ", append(p.VarChecked("npcSplatQ").([]HitSplat), NewHitsplat(owner, dmg)))
+	p.enqueue(npcSplatHandle, NewHitsplat(owner, dmg))
 }
 
 //QueueProjectile Adds a missile to a locked projectile queue
 func (p *Player) QueueProjectile(owner, target entity.MobileEntity, kind int) {
-	// if !p.Contains("projectileQ") {
-		// p.SetVar("projectileQ", []Projectile{NewProjectile(owner, target, kind)})
-		// return
-	// }
 	p.enqueue(projectilesHandle, NewProjectile(owner, target, kind))
-	// p.SetVar("projectileQ", append(p.VarChecked("projectileQ").([]Projectile), NewProjectile(owner, target, kind)))
 }
 
 //QueueHitsplat Adds a hit splat to a locked hit-splat queue
 func (p *Player) QueueHitsplat(owner entity.MobileEntity, dmg int) {
-	// if !p.Contains("hitsplatQ") {
-		// p.SetVar("hitsplatQ", []HitSplat{NewHitsplat(owner, dmg)})
-		// return
-	// }
 	p.enqueue(playerSplatHandle, NewHitsplat(owner, dmg))
-	// p.SetVar("hitsplatQ", append(p.VarChecked(playerSplatHandle).([]HitSplat), NewHitsplat(owner, dmg)))
 }
 
 //QueueItemBubble Adds an action item bubble to a locked item bubble queue
 func (p *Player) QueueItemBubble(owner *Player, id int) {
-	// if !p.Contains("bubbleQ") {
-		// p.SetVar("bubbleQ", []ItemBubble{{owner, id}})
-		// return
-	// }
-	// p.SetVar("bubbleQ", append(p.VarChecked("bubbleQ").([]ItemBubble), ItemBubble{owner, id}))
 	p.enqueue(bubblesHandle, ItemBubble{owner, id})
 }
 
@@ -1245,13 +1227,6 @@ func (p *Player) enqueueArea(id string, radius int, e interface{}) {
 			return false
 		})
 	}
-	// p.LocalPlayers.RangePlayers(func(p1 *Player) bool {
-		// if p.WithinReach(p1.Location) {
-			// p1.enqueue(id, e)
-		// }
-		// return false
-	// })
-	p.enqueue(id, e)
 }
 
 func (p *Player) OpenOptionMenu(options ...string) int {
@@ -1533,11 +1508,13 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 		}
 		
 		nextHit := int(math.Min(float64(defender.Skills().Current(entity.StatHits)), float64(attacker.MeleeDamage(defender))))
-		defender.Skills().DecreaseCur(entity.StatHits, nextHit)
 		if defender.IsNpc() && attacker.IsPlayer() {
 			AsNpc(defender).meleeRangeDamage.Put(AsPlayer(attacker).UsernameHash(), nextHit)
+			AsNpc(defender).DamageFrom(attacker,nextHit, 0)
+		} else {
+			defender.Skills().DecreaseCur(entity.StatHits, nextHit)
+			defender.Damage(nextHit)
 		}
-		defender.Damage(nextHit)
 		if defender.Skills().Current(entity.StatHits) <= 0 {
 			if attackerp := AsPlayer(attacker); attackerp != nil {
 				// AsPlayer(attackerp).PlaySound("victory")
@@ -1651,21 +1628,6 @@ func (p *Player) Damage(amt int) {
 
 //ItemBubble sends an item action bubble for this player to itself and any nearby players.
 func (p *Player) ItemBubble(id int) {
-	// bubble := ItemBubble{p, id}
-	// for _, player := range p.NearbyPlayers() {
-		// q, ok := player.Var("bubbleQ")
-		// if !ok {
-			// player.SetVar("bubbleQ", []ItemBubble{bubble})
-			// continue
-		// }
-		// player.SetVar("bubbleQ", append(q.([]ItemBubble), bubble))
-	// }
-	// q, ok := p.Var("bubbleQ")
-	// if !ok {
-		// p.SetVar("bubbleQ", []ItemBubble{bubble})
-		// return
-	// }
-	// p.SetVar("bubbleQ", append(q.([]ItemBubble)))
 	p.enqueueArea(bubblesHandle, 15, ItemBubble{p, id})
 }
 

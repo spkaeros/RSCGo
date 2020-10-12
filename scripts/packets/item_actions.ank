@@ -1,5 +1,6 @@
+state = import("state")
 bind = import("bind")
-log = import("log")
+world = import("world")
 
 // Item equip
 bind.packet(169, func(player, packet) {
@@ -40,7 +41,6 @@ bind.packet(170, func(player, packet) {
 })
 
 
-
 // drop item
 bind.packet(246, func(player, packet) {
 	if player.Busy() || player.IsFighting() {
@@ -67,7 +67,7 @@ bind.packet(246, func(player, packet) {
 		world.addItem(world.newGroundItemFor(player.UsernameHash(), item.ID, item.Amount, player.X(), player.Y()))
 		player.PlaySound("dropobject")
 		player.SendInventory()
-		return true
+		return false
 	})
 })
 
@@ -98,7 +98,7 @@ bind.packet(247, func(player, packet) {
 
 		item = world.getItem(x, y, id)
 		if item == nil || !item.VisibleTo(player) {
-			log.debugf("%v attempted to pick up an item that doesn't exist: %s@{%d,%d}\n", player, definitions.Items[id].Name, x, y)
+			log.debugf("%v attempted to pick up an item that doesn't exist: %s@{%d,%d}\n", player, world.itemDefs[id].Name, x, y)
 			return false
 		}
 
@@ -123,4 +123,25 @@ bind.packet(247, func(player, packet) {
 		player.PlaySound("takeobject")
 		return false
 	})
+})
+
+bind.packet(90, func(player, packet) {
+	index = packet.ReadUint16()
+	item = player.Inventory.Get(index)
+	if item == nil || player.Busy() || player.IsFighting() {
+		return
+	}
+	player.AddState(state.UsingItem)
+	go func() {
+		for trigger in *world.itemActions {
+			if trigger.Check(item) {
+				trigger.Action(player, item)
+				player.RemoveState(state.UsingItem)
+				return
+			}
+		}
+		player.SendPacket(world.unhandledMessage)
+		player.RemoveState(state.UsingItem)
+		return
+	}()	
 })

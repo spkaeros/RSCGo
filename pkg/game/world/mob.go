@@ -170,7 +170,7 @@ type Mob struct {
 	skills		   entity.SkillTable
 	path		   *Pathway
 	Prayers		   [15]bool
-	Entity
+	entity.Entity
 	*entity.AttributeList
 	sync.RWMutex
 }
@@ -205,17 +205,6 @@ func (p *Player) IsPlayer() bool {
 
 func (p *Player) Type() entity.Type {
 	return entity.TypePlayer
-}
-
-func (p *Player) ServerIndex() int {
-	if p == nil {
-		return -1
-	}
-	return p.Index
-}
-
-func (n *NPC) ServerIndex() int {
-	return n.Index
 }
 
 func (p *Player) IsNpc() bool {
@@ -377,7 +366,7 @@ func (m *Mob) FinishedPath() bool {
 	if path == nil {
 		return m.VarInt("pathLength", 0) <= 0
 	}
-	return path.CurrentWaypoint >= path.countWaypoints() || !path.nextTileFrom(m.Location.Clone()).IsValid()
+	return path.CurrentWaypoint >= path.countWaypoints() || !path.nextTileFrom(m.Clone()).IsValid()
 }
 
 //SetLocation Sets the mobs location.

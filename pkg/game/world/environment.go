@@ -34,6 +34,9 @@ import (
 var CommandHandlers = make(map[string]func(*Player, []string))
 
 func init() {
+	env.Packages["state"] = map[string]reflect.Value{
+		"UsingItem":			  reflect.ValueOf(MSItemAction),
+	}
 	env.Packages["world"] = map[string]reflect.Value{
 		"getPlayer":              reflect.ValueOf(Players.FindIndex),
 		"getPlayerByName":        reflect.ValueOf(Players.FindHash),
@@ -46,7 +49,9 @@ func init() {
 		"removeObject":           reflect.ValueOf(RemoveObject),
 		"addNpc":                 reflect.ValueOf(AddNpc),
 		"removeNpc":              reflect.ValueOf(RemoveNpc),
-		"getItem":              reflect.ValueOf(GetItem),
+		"getItem":                reflect.ValueOf(GetItem),
+		"itemActions":            reflect.ValueOf(&ItemTriggers),
+		"unhandledMessage":       reflect.ValueOf(DefaultActionMessage),
 		"addItem":                reflect.ValueOf(AddItem),
 		"removeItem":             reflect.ValueOf(RemoveItem),
 		"maxX":                   reflect.ValueOf(MaxX),

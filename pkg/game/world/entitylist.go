@@ -32,12 +32,12 @@ type entityList struct {
 
 //NearbyPlayers creates a slice of *Player and populates it with players within p's view area that are in this region,
 // and returns it.
-func (l *entityList) NearbyPlayers(p *Player) []*Player {
+func (l *entityList) NearbyPlayers(e entity.Entity) []*Player {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
 	var players []*Player
 	for _, v := range l.set {
-		if v, ok := v.(*Player); ok && v.Index != p.Index && p.LongestDelta(v.Location) < p.VarInt("viewRadius", 16) {
+		if v, ok := v.(*Player); ok && v.ServerIndex() != e.ServerIndex() && e.LongestDelta(v.Point()) < 16 {
 			players = append(players, v)
 		}
 	}
@@ -46,12 +46,12 @@ func (l *entityList) NearbyPlayers(p *Player) []*Player {
 
 //NearbyNpcs creates a slice of *NPC and populates it with npcs within p's view area that are in this region,
 // and returns it.
-func (l *entityList) NearbyNpcs(p *Player) []*NPC {
+func (l *entityList) NearbyNpcs(e entity.Entity) []*NPC {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
 	var npcs []*NPC
 	for _, v := range l.set {
-		if v, ok := v.(*NPC); ok && p.LongestDelta(v.Location) < p.VarInt("viewRadius", 16) {
+		if v, ok := v.(*NPC); ok && e.LongestDelta(v.Point()) < 16 {
 			npcs = append(npcs, v)
 		}
 	}
@@ -60,12 +60,12 @@ func (l *entityList) NearbyNpcs(p *Player) []*NPC {
 
 //NearbyObjects creates a slice of *Object and populates it with objects within p's view area that are in this region,
 // and returns it.
-func (l *entityList) NearbyObjects(p *Player) []*Object {
+func (l *entityList) NearbyObjects(e entity.Entity) []*Object {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
 	var objects []*Object
 	for _, o1 := range l.set {
-		if o1, ok := o1.(*Object); ok && p.LongestDelta(o1.Location) < p.VarInt("viewRadius", 16)+5 {
+		if o1, ok := o1.(*Object); ok && e.LongestDelta(o1.Location) < 21 {
 			objects = append(objects, o1)
 		}
 	}

@@ -97,17 +97,17 @@ func init() {
 				return true
 			}
 			if target == nil || !target.Connected() ||
-				!player.WithinRange(target.Location, 16) {
+				!player.WithinRange(target.Point(), 16) {
 				// We think we have a target, but they're miles away now or no longer exist
 				player.UnsetVar("following")
 				return true
 			}
-			if !player.FinishedPath() && player.WithinRange(target.Location, rad) {
+			if !player.FinishedPath() && player.WithinRange(target.Point(), rad) {
 				// We're not done moving toward our target, but we're close enough that we should stop
 				player.ResetPath()
-			} else if !player.WithinRange(target.Location, rad) {
+			} else if !player.WithinRange(target.Point(), rad) {
 				// We're not moving, but our target is moving away, so we must try to get closer
-				if !player.WalkTo(target.Location) {
+				if !player.WalkTo(target.Point()) {
 					return true
 				}
 			}

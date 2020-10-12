@@ -27,10 +27,10 @@ func init() {
 			log.Suspicious.Printf("%v attempted to trade a player that does not exist.\n", player.String())
 			return
 		}
-		if !player.WithinRange(p1.Location, 16) || player.Busy() {
+		if !player.WithinRange(p1.Point(), 16) || player.Busy() {
 			return
 		}
-		if !player.WithinRange(p1.Location, 5) {
+		if !player.WithinRange(p1.Point(), 5) {
 			player.Message("You are too far away to do that")
 			return
 		}
@@ -39,17 +39,17 @@ func init() {
 			return
 		}
 		player.SetTradeTarget(index)
-		if p1.TradeTarget() == player.Index {
+		if p1.TradeTarget() == player.ServerIndex() {
 			if player.Busy() || p1.Busy() {
 				return
 			}
 			player.AddState(world.StateTrading)
 			player.ResetPath()
-			player.SendPacket(world.TradeOpen(p1.Index))
+			player.SendPacket(world.TradeOpen(p1.ServerIndex()))
 
 			p1.AddState(world.StateTrading)
 			p1.ResetPath()
-			p1.SendPacket(world.TradeOpen(player.Index))
+			p1.SendPacket(world.TradeOpen(player.ServerIndex()))
 		} else {
 			player.Message("Sending trade request.")
 			p1.Message(player.Username() + " wishes to trade with you.")
@@ -69,7 +69,7 @@ func init() {
 			player.SendPacket(world.TradeClose)
 			return
 		}
-		if !c1.IsTrading() || c1.TradeTarget() != player.Index || player.TradeTarget() != c1.Index {
+		if !c1.IsTrading() || c1.TradeTarget() != player.ServerIndex() || player.TradeTarget() != c1.ServerIndex() {
 			log.Suspicious.Printf("Players{ %v;2:%v } involved in trade with apparently bad trade variables!\n", player.String(), c1.String())
 			player.ResetTrade()
 			c1.ResetTrade()
@@ -118,7 +118,7 @@ func init() {
 			player.SendPacket(world.TradeClose)
 			return
 		}
-		if !c1.IsTrading() || c1.TradeTarget() != player.Index || player.TradeTarget() != c1.Index {
+		if !c1.IsTrading() || c1.TradeTarget() != player.ServerIndex() || player.TradeTarget() != c1.ServerIndex() {
 			log.Suspicious.Printf("Players{ %v;2:%v } involved in trade with apparently bad trade variables!\n", player.String(), c1.String())
 		}
 		player.ResetTrade()
@@ -140,7 +140,7 @@ func init() {
 			player.SendPacket(world.TradeClose)
 			return
 		}
-		if !c1.IsTrading() || c1.TradeTarget() != player.Index || player.TradeTarget() != c1.Index {
+		if !c1.IsTrading() || c1.TradeTarget() != player.ServerIndex() || player.TradeTarget() != c1.ServerIndex() {
 			log.Suspicious.Printf("Players{ %v;2:%v } involved in trade with apparently bad trade variables!\n", player.String(), c1.String())
 			player.ResetTrade()
 			c1.ResetTrade()
@@ -170,7 +170,7 @@ func init() {
 			player.SendPacket(world.TradeClose)
 			return
 		}
-		if !target.IsTrading() || target.TradeTarget() != player.Index || player.TradeTarget() != target.Index || !target.VarBool("trade1accept", false) {
+		if !target.IsTrading() || target.TradeTarget() != player.ServerIndex() || player.TradeTarget() != target.ServerIndex() || !target.VarBool("trade1accept", false) {
 			log.Suspicious.Printf("Players{ 1:%v; 2:%v } involved in trade with apparently bad trade variables!\n", player.String(), target.String())
 			player.ResetTrade()
 			target.ResetTrade()

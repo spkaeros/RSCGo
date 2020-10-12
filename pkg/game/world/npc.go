@@ -31,6 +31,7 @@ type NPC struct {
 	StartPoint       entity.Location
 	Boundaries       [2]entity.Location
 	meleeRangeDamage damages
+	magicDamage      damages
 }
 
 type (
@@ -42,13 +43,21 @@ type (
 	}
 )
 
+func (e *Entity) Type() entity.Type {
+	return entity.Type(-1)
+}
+
+func (e *Entity) SetServerIndex(i int) {
+	e.Index = i
+}
+
 //NewNpc Creates a new NPC and returns a reference to it
 func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 	n := &NPC{
 		ID: id,
 		Mob: Mob{
 			skills: entity.SkillTable{},
-			Entity: Entity{
+			Entity: &Entity{
 				Index:    Npcs.Size(),
 				Location: NewLocation(startX, startY),
 			},
@@ -57,9 +66,12 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 		meleeRangeDamage: damages{
 			damageTable: make(damageTable),
 		},
+		magicDamage: damages{
+			damageTable: make(damageTable),
+		},
 		Boundaries: [2]entity.Location{NewLocation(minX, minY), NewLocation(maxX, maxY)},
 	}
-	n.StartPoint = n.Location.Point()
+	n.StartPoint = n.Point()
 	if id < len(definitions.Npcs)-1 {
 		n.Skills().SetCur(0, definitions.Npcs[id].Attack)
 		n.Skills().SetCur(1, definitions.Npcs[id].Defense)
@@ -145,11 +157,11 @@ func UpdateNPCPositions() {
 			if n.Busy() || n.IsFighting() || n.Equals(DeathPoint) {
 				return
 			}
-			if n.pathSteps == 0 && (n.lastMoved.IsZero() || time.Now().After(n.lastMoved)) {
+			if Chance(25) && n.pathSteps == 0 && (n.lastMoved.IsZero() || time.Now().After(n.lastMoved)) {
 				// schedule when to start wandering again
-				n.lastMoved = time.Now().Add(time.Second * time.Duration(rand.Rng.Intn(15)+5))
+				n.lastMoved = time.Now().Add(time.Second * (time.Duration(rand.Rng.Float64()*15-5)+5))
 				// set how many steps we should wander for before taking a break
-				n.pathSteps = rand.Rng.Intn(15)
+				n.pathSteps = int(rand.Rng.Float64()*15)
 			}
 			// wander aimlessly until we run out of scheduled steps
 			n.TraversePath()
@@ -163,7 +175,7 @@ func (n *NPC) UpdateRegion(x, y int) {
 	curArea := Region(n.X(), n.Y())
 	newArea := Region(x, y)
 	if newArea != curArea {
-		if curArea.NPCs.Contains(n) {
+	 	if curArea.NPCs.Contains(n) {
 			curArea.NPCs.Remove(n)
 		}
 		newArea.NPCs.Add(n)
@@ -195,6 +207,16 @@ var NpcDeathTriggers []NpcBlockingTrigger
 
 func (n *NPC) Damage(dmg int) {
 	n.enqueueArea(npcSplatHandle, HitSplat{n, dmg})
+	n.Skills().DecreaseCur(entity.StatHits, dmg)
+}
+
+func (n *NPC) DamageFrom(m entity.MobileEntity, dmg, dmgKind int) {
+	if dmgKind == 0 {
+		n.meleeRangeDamage.Put(m.(*Player).UsernameHash(), dmg)
+	} else if dmgKind == 1 {
+		n.magicDamage.Put(m.(*Player).UsernameHash(), dmg)
+	}
+	n.Damage(dmg)
 }
 
 func (n *NPC) rewardKillers() (winner *Player) {
@@ -242,23 +264,26 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 
 func (n *NPC) Remove() {
 	n.SetVar("removed", true)
-	n.Location = DeathPoint.Clone()
+	n.SetLocation(DeathPoint.Clone(), true)
 }
 
 func (n *NPC) Respawn() {
 	for i := 0; i <= 3; i++ {
 		n.Skills().SetCur(i, n.Skills().Maximum(i))
 	}
-	n.SetLocation(n.StartPoint.Clone(), true)
 	n.SetVar("removed", false)
+	n.SetLocation(n.StartPoint.Clone(), true)
 	n.meleeRangeDamage.Lock()
 	defer n.meleeRangeDamage.Unlock()
 	n.meleeRangeDamage.damageTable = make(damageTable)
+	n.magicDamage.Lock()
+	defer n.magicDamage.Unlock()
+	n.magicDamage.damageTable = make(damageTable)
 }
 
 //TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
 func (n *NPC) TraversePath() {
-	dst := n.Location.Point()
+	dst := n.Point().Clone()
 	dir := n.Direction()
 	if Chance(25) {
 		dir = rand.Rng.Intn(8)
@@ -278,9 +303,8 @@ func (n *NPC) TraversePath() {
 		return
 	}
 
-	n.pathSteps -= 1
-	n.SetLocation(dst.Clone(), false)
-	//	}
+	n.pathSteps--
+	n.SetLocation(dst, false)
 }
 
 //ChatIndirect sends a chat message to target and all of target's view area players, without any delay.
@@ -319,13 +343,13 @@ func (n *NPC) Chat(target *Player, msgs ...string) {
 	// n.enqueueArea(questChatHandle, NewTargetedMessage(n, target, msgs[0]))
 	n.enqueueArea(questChatHandle, NewTargetedMessage(n, target, msgs[0]))
 	if len(msgs) > 1 {
-		wait := 3
+		wait := time.Duration(3)
 		if len(msgs[0]) >= 84 {
 			wait++
 		}
-		time.Sleep(TickMillis*time.Duration(wait))
+		time.Sleep(TickMillis*wait)
 		// tasks.TickList.Schedule(wait, func() bool {
-		n.Chat(target, msgs[1:]...)
+		n.Chat(target, (msgs[1:])...)
 			// return true
 		// })
 	}

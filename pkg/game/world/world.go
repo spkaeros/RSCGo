@@ -131,10 +131,10 @@ func (m *PlayerList) Put(player *Player) {
 		log.Warn("Player list double-entry attempted!")
 		return
 	}
-	player.Index = m.nextSlot()
+	player.SetServerIndex(m.nextSlot())
 	m.Lock()
 	defer m.Unlock()
-	m.playerList[player.Index] = player
+	m.playerList[player.ServerIndex()] = player
 }
 
 //Remove Removes a client from the set.
@@ -144,7 +144,7 @@ func (m *PlayerList) Remove(player *Player) {
 		log.Warn("Error: Player with non-valid index being removed!")
 		return
 	}
-	player.Index = -1
+	player.SetServerIndex(-1)
 	m.Lock()
 	defer m.Unlock()
 	m.playerList[slot] = nil
@@ -198,19 +198,28 @@ func (m *PlayerList) nextSlot() int {
 
 func (m *PlayerList) AsyncRange(fn func(*Player)) {
 	w := sync.WaitGroup{}
-	m.RLock()
-	for _, p := range m.playerList {
-		if p == nil {
-			continue
-		}
+	m.Range(func(p *Player) {
 		w.Add(1)
 		go func() {
+			defer w.Done()
 			fn(p)
-			w.Done()
 		}()
-	}
-	m.RUnlock()
+	})
 	w.Wait()
+	// m.RLock()
+	// 
+	// for _, p := range m.playerList {
+		// if p == nil {
+			// continue
+		// }
+		// w.Add(1)
+		// go func() {
+			// fn(p)
+			// w.Done()
+		// }()
+	// }
+	// m.RUnlock()
+	// w.Wait()
 }
 
 //region Represents a 48x48 section of map.  The purpose of this is to keep track of entities in the entire world without having to allocate tiles individually, which would make search algorithms slower and utilizes a great deal of memory.
@@ -226,14 +235,14 @@ type region struct {
 var regions [HorizontalPlanes][VerticalPlanes]*region
 
 
-func init() {
-	for x := 0; x < MaxX; x += RegionSize {
-		for y := 0; y < MaxY; y += RegionSize {
-			regions[x/RegionSize][y/RegionSize] = &region{x,y,NewMobList(), NewMobList(), &entityList{}, &entityList{}}
-			// if r := regions[x/RegionSize][y/RegionSize]; r != nil {
-		}
-	}
-}
+// func init() {
+	// for x := 0; x < MaxX; x += RegionSize {
+		// for y := 0; y < MaxY; y += RegionSize {
+			// regions[x/RegionSize][y/RegionSize] = &region{x,y,NewMobList(), NewMobList(), &entityList{}, &entityList{}}
+			// // if r := regions[x/RegionSize][y/RegionSize]; r != nil {
+		// }
+	// }
+// }
 //IsValid Returns true if the tile at x,y is within world boundaries, false otherwise.
 func WithinWorld(x, y int) bool {
 	return x <= MaxX && x >= 0 && y >= 0 && y <= MaxY
@@ -258,8 +267,8 @@ func AddPlayer(p *Player) {
 //RemovePlayer Remove a player from the game world.
 func RemovePlayer(p *Player) {
 	p.SetRegionRemoved()
-	Players.Remove(p)
 	Region(p.X(), p.Y()).Players.Remove(p)
+	Players.Remove(p)
 	Players.Range(func(player *Player) {
 		if player.FriendList.Contains(p.Username()) && (!p.FriendBlocked() || p.FriendList.Contains(player.Username())) {
 			player.FriendList.Set(p.Username(), false)
@@ -726,17 +735,3 @@ func WeightedChoice(choices map[int]float64) int {
 
 	return Statistical(rscRand.Rng, choices)
 }
-/*
-func init() {
-for i := 0; i < 50; i+=1 {
-	WeightedChoice( map[int]float64 {
-		1: 25.0,
-		3: 25.5,
-		6: 66.66,
-		21: 25.0,
-		23: 25.5,
-		26: 66.66,
-	})
-	}
-}
-*/

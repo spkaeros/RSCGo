@@ -33,7 +33,7 @@ func init() {
 		if !player.LocalPlayers.Contains(target) || player.Busy() {
 			return
 		}
-		if !player.WithinRange(target.Location, 5) {
+		if !player.WithinRange(target.Point(), 5) {
 			player.Message("You are too far away to do that")
 			return
 		}
@@ -53,11 +53,11 @@ func init() {
 		}
 		player.AddState(world.StateDueling)
 		player.ResetPath()
-		player.SendPacket(world.DuelOpen(target.Index))
+		player.SendPacket(world.DuelOpen(target.ServerIndex()))
 
 		target.AddState(world.StateDueling)
 		target.ResetPath()
-		target.SendPacket(world.DuelOpen(player.Index))
+		target.SendPacket(world.DuelOpen(player.ServerIndex()))
 	})
 	game.AddHandler("duelupdate", func(player *world.Player, p *net.Packet) {
 		if !player.IsDueling() {

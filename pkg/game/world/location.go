@@ -191,13 +191,13 @@ func (l Location) Equals(o interface{}) bool {
 	case *Location:
 		return l.LongestDelta(*o.(*Location)) == 0
 	case *Player:
-		return l.LongestDelta(o.(*Player).Mob.Entity.Location) == 0
+		return l.LongestDelta(o.(*Player).Point()) == 0
 	case Player:
-		return l.LongestDelta(o.(Player).Mob.Entity.Location) == 0
+		return l.LongestDelta(o.(Player).Point()) == 0
 	case *NPC:
-		return l.LongestDelta(o.(*NPC).Mob.Entity.Location) == 0
+		return l.LongestDelta(o.(*NPC).Point()) == 0
 	case NPC:
-		return l.LongestDelta(o.(NPC).Mob.Entity.Location) == 0
+		return l.LongestDelta(o.(NPC).Point()) == 0
 	case *Object:
 		return l.LongestDelta(o.(*Object).Entity.Location) == 0
 	case Object:
@@ -207,9 +207,9 @@ func (l Location) Equals(o interface{}) bool {
 	case GroundItem:
 		return l.LongestDelta(o.(GroundItem).Entity.Location) == 0
 	case *Mob:
-		return l.LongestDelta(o.(*Mob).Entity.Location) == 0
+		return l.LongestDelta(o.(*Mob).Point()) == 0
 	case Mob:
-		return l.LongestDelta(o.(Mob).Entity.Location) == 0
+		return l.LongestDelta(o.(Mob).Point()) == 0
 	}
 	return false
 }
