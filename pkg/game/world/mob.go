@@ -137,7 +137,7 @@ func (l *MobList) Remove(m entity.MobileEntity) bool {
 
 func (l *MobList) RangePlayers(action func(*Player) bool) int {
 	return l.Range(func(m entity.MobileEntity) bool {
-		if p, ok := m.(*Player); ok {
+		if p := AsPlayer(m); p != nil {
 			return action(p)
 		}
 		return false
@@ -146,7 +146,7 @@ func (l *MobList) RangePlayers(action func(*Player) bool) int {
 
 func (l *MobList) RangeNpcs(action func(*NPC) bool) int {
 	return l.Range(func(m entity.MobileEntity) bool {
-		if n, ok := m.(*NPC); ok {
+		if n := AsNpc(m); n != nil {
 			return action(n)
 		}
 		return false
@@ -186,17 +186,11 @@ func (m *Mob) TargetMob() entity.MobileEntity {
 }
 
 func (m *Mob) TargetNpc() *NPC {
-	if n, ok := m.TargetMob().(*NPC); ok {
-		return n
-	}
-	return nil
+	return AsNpc(m.TargetMob())
 }
 
 func (m *Mob) TargetPlayer() *Player {
-	if p, ok := m.TargetMob().(*Player); ok {
-		return p
-	}
-	return nil
+	return AsPlayer(m.TargetMob())
 }
 
 func (p *Player) IsPlayer() bool {
@@ -343,7 +337,7 @@ func (m *Mob) SetPath(path *Pathway) {
 }
 
 func (m *Mob) WalkTo(end entity.Location) bool {
-	path := NewPathfinder(m.Point(), end.Clone()).MakePath()
+	path := NewPathfinder(m.Clone(), end.Clone()).MakePath()
 	
 	m.SetPath(path)
 	return path != nil
@@ -374,20 +368,34 @@ func (m *Mob) SetLocation(location entity.Location, teleport bool) {
 	m.SetCoords(location.X(), location.Y(), teleport)
 }
 
+func UpdateRegions(m entity.MobileEntity, x, y int) {
+	if p := AsPlayer(m); p != nil {
+		next := Region(x, y)
+		if cur := Region(m.X(), m.Y()); next != cur {
+			if cur.Players.Contains(p) {
+				cur.Players.Remove(p)
+			}
+			next.Players.Add(p)
+		}
+	}
+}
+
 func (p *Player) SetLocation(l entity.Location, teleport bool) {
-	p.UpdateRegion(l.X(), l.Y())
+	UpdateRegions(p, l.X(), l.Y())
 	p.Mob.SetLocation(l, teleport)
 }
 
 func (n *NPC) SetLocation(l entity.Location, teleport bool) {
-	n.UpdateRegion(l.X(), l.Y())
+	UpdateRegions(n, l.X(), l.Y())
 	n.Mob.SetLocation(l, teleport)
 }
 
 //SetCoords Sets the mobs locations coordinates.
 func (m *Mob) SetCoords(x, y int, teleport bool) {
 	if !teleport {
-		m.SetDirection(m.DirectionTo(x, y))
+		if m.LongestDeltaCoords(x, y) <= 1 {
+			m.SetDirection(m.DirectionTo(x, y))
+		}
 		m.SetRegionMoved()
 	} else {
 		m.SetRegionRemoved()
@@ -462,16 +470,16 @@ func (m *Mob) ResetFighting() {
 			m.RemoveState(StateDueling)
 		}
 		m.UpdateLastFight()
-	}
-	if target != nil && target.IsFighting() {
-		target.SessionCache().UnsetVar("fightTarget")
-		target.SessionCache().UnsetVar("fightRound")
-		target.SetDirection(NorthWest)
-		target.RemoveState(StateFighting)
-		if target.HasState(StateDueling) {
-			target.RemoveState(StateDueling)
+		if target != nil && target.IsFighting() {
+			target.SessionCache().UnsetVar("fightTarget")
+			target.SessionCache().UnsetVar("fightRound")
+			target.SetDirection(NorthWest)
+			target.RemoveState(StateFighting)
+			if target.HasState(StateDueling) {
+				target.RemoveState(StateDueling)
+			}
+			target.UpdateLastFight()
 		}
-		target.UpdateLastFight()
 	}
 }
 
@@ -722,13 +730,4 @@ func (m *Mob) Random(low, high int) int {
 // Note: Generated integers are high and low inclusive.
 func (m *Mob) RandomIncl(low, high int) int {
 	return int(m.Isaac().Float64() * float64(high - low + 1)) + low
-}
-
-type HitSplat struct {
-	Owner entity.MobileEntity
-	Damage int
-}
-
-func NewHitsplat(target entity.MobileEntity, damage int) HitSplat {
-	return HitSplat{target, damage}
 }

@@ -116,15 +116,17 @@ func NpcEvents(player *Player) (p *net.Packet) {
 					p.AddUint16(uint16(msg.Owner.ServerIndex()))
 					p.AddUint8(1)
 					p.AddUint16(uint16(msg.Target.ServerIndex()))
-					if len(msg.string) > 255 {
-						msg.string = msg.string[:255]
-					}
 					message := strutil.ChatFilter.Format(msg.string)
-					// messageRaw := strutil.ChatFilter.Pack(message)
-					p.AddUint8(uint8(len(message)))
+					size := len(message)
+					if size > 0 && size < 128 {
+						p.AddUint8(uint8(size))
+					} else if size >= 0 && size < 0x8000 {
+						p.AddUint16(uint16(size))
+					}
 					for _, c := range message {
 						p.AddUint8(byte(c))
 					}
+					p.AddBytes([]byte(message))
 					updateSize++
 				} else {
 					newList = append(newList, msg)
@@ -227,17 +229,20 @@ func NPCPositions(player *Player) (p *net.Packet) {
 		n.RLock()
 		mask := n.SyncMask
 		if !player.WithinRange(player.Point(), player.VarInt("viewRadius", 16)) || mask&SyncRemoved == SyncRemoved || n.Point().LongestDelta(DeathPoint) == 0 || n.VarBool("removed", false) {
-			p.AddBitmask(1, 1)
-			p.AddBitmask(1, 1)
-			p.AddBitmask(3, 2)
+			// p.AddBitmask(1, 1)
+			// p.AddBitmask(1, 1)
+			// p.AddBitmask(3, 2)
+			p.AddBitmask(0xF, 4)
 			local = local[:len(local)-1]
 		} else if mask&SyncMoved == SyncMoved {
-			p.AddBitmask(1, 1)
-			p.AddBitmask(0, 1)
+			// p.AddBitmask(1, 1)
+			// p.AddBitmask(0, 1)
+			p.AddBitmask(2, 2)
 			p.AddBitmask(n.Direction(), 3)
 		} else if mask&SyncSprite == SyncSprite {
-			p.AddBitmask(1, 1)
-			p.AddBitmask(1, 1)
+			// p.AddBitmask(1, 1)
+			// p.AddBitmask(1, 1)
+			p.AddBitmask(3, 2)
 			p.AddBitmask(n.Direction(), 4)
 		} else {
 			p.AddBitmask(0, 1)

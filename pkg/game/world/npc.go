@@ -264,7 +264,7 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 
 func (n *NPC) Remove() {
 	n.SetVar("removed", true)
-	n.SetLocation(DeathPoint.Clone(), true)
+	n.SetLocation(DeathPoint, true)
 }
 
 func (n *NPC) Respawn() {
@@ -313,13 +313,17 @@ func (n *NPC) ChatIndirect(target *Player, msg string) {
 		// player.QueueNpcChat(n, target, msg)
 	// }
 	// target.QueueNpcChat(n, target, msg)
-	n.enqueueArea(questChatHandle, NewTargetedMessage(n,target,msg))
+	n.enqueueArea(npcChatHandle, NewTargetedMessage(n,target,msg))
 }
 
 func (n *NPC) enqueueArea(handle string, e interface{}) {
+	updated := NewMobList()
 	for _, region := range Region(n.X(), n.Y()).neighbors() {
-		go region.Players.RangePlayers(func(p *Player) bool {
-			p.enqueue(handle, e)
+		region.Players.RangePlayers(func(p *Player) bool {
+			if !updated.Contains(p) && p.Near(n, 15) {
+				p.enqueue(handle, e)
+				updated.Add(p)
+			}
 			return false
 		})
 	}
@@ -332,25 +336,28 @@ func (n *NPC) Chat(target *Player, msgs ...string) {
 		return
 	}
 
-	// for _, msg := range msgs {
-		// sleep := 3
-		// if len(msg) >= 83 {
-			// sleep = 4
-		// }
-		// n.ChatIndirect(target, msg)
-		// time.Sleep(time.Millisecond*640*time.Duration(sleep))
-	// }
-	// n.enqueueArea(questChatHandle, NewTargetedMessage(n, target, msgs[0]))
-	n.enqueueArea(questChatHandle, NewTargetedMessage(n, target, msgs[0]))
-	if len(msgs) > 1 {
-		wait := time.Duration(3)
+	// n.enqueueArea(npcChatHandle, NewTargetedMessage(n, target, msgs[0]))
+	wait := time.Duration(0)
+	for _, v := range msgs {
+		// tasks.TickList.Schedule(wait, func() bool {
+			n.enqueueArea(npcChatHandle, NewTargetedMessage(n, target, v))
+			// return true
+		// })
+		wait += 3
 		if len(msgs[0]) >= 84 {
 			wait++
 		}
 		time.Sleep(TickMillis*wait)
+	}
+	// if len(msgs) > 1 {
+		// wait := 3
+		// if len(msgs[0]) >= 84 {
+			// wait++
+		// }
+		// // time.Sleep(TickMillis*wait)
 		// tasks.TickList.Schedule(wait, func() bool {
-		n.Chat(target, (msgs[1:])...)
+			// n.Chat(target, (msgs[1:])...)
 			// return true
 		// })
-	}
+	// }
 }

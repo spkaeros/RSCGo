@@ -235,14 +235,14 @@ type region struct {
 var regions [HorizontalPlanes][VerticalPlanes]*region
 
 
-// func init() {
-	// for x := 0; x < MaxX; x += RegionSize {
-		// for y := 0; y < MaxY; y += RegionSize {
-			// regions[x/RegionSize][y/RegionSize] = &region{x,y,NewMobList(), NewMobList(), &entityList{}, &entityList{}}
-			// // if r := regions[x/RegionSize][y/RegionSize]; r != nil {
-		// }
-	// }
-// }
+func init() {
+	for x := 0; x < MaxX; x += RegionSize {
+		for y := 0; y < MaxY; y += RegionSize {
+			regions[x/RegionSize][y/RegionSize] = &region{x,y,NewMobList(), NewMobList(), &entityList{}, &entityList{}}
+			// if r := regions[x/RegionSize][y/RegionSize]; r != nil {
+		}
+	}
+}
 //IsValid Returns true if the tile at x,y is within world boundaries, false otherwise.
 func WithinWorld(x, y int) bool {
 	return x <= MaxX && x >= 0 && y >= 0 && y <= MaxY

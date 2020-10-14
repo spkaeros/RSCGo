@@ -452,6 +452,11 @@ func (l Location) ReachableCoords(x, y int) bool {
 //UpdateRegion if this player is currently in a region, removes it from that region, and adds it to the region at x,y
 func (p *Player) UpdateRegion(x, y int) {
 	curArea := Region(p.X(), p.Y())
+	if !curArea.Players.Contains(p) {
+		curArea.Players.Add(p)
+		return
+	}
+		
 	newArea := Region(x, y)
 	if newArea != curArea {
 		if curArea.Players.Contains(p) {
@@ -889,73 +894,40 @@ func (p *Player) AtObject(object *Object) bool {
 }
 
 func (p *Player) CanReachDiag(bounds [2]entity.Location) bool {
-	/*
 		x, y := p.X(), p.Y()
 		if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y-1 >= bounds[0].Y() && y-1 <= bounds[1].Y() &&
-			(CollisionData(x-1, y-1).CollisionMask&ClipSouth|ClipWest) == 0 {
+			(CollisionData(x-1, y-1)&ClipSouth|ClipWest) == 0 {
 			return true
 		}
 		if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y+1 >= bounds[0].Y() && y+1 <= bounds[1].Y() &&
-			(CollisionData(x-1, y+1).CollisionMask&ClipNorth|ClipWest) == 0 {
+			(CollisionData(x-1, y+1)&ClipNorth|ClipWest) == 0 {
 			return true
 		}
 		if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y-1 >= bounds[0].Y() && y-1 <= bounds[1].Y() &&
-			(CollisionData(x+1, y-1).CollisionMask&ClipSouth|ClipEast) == 0 {
+			(CollisionData(x+1, y-1)&ClipSouth|ClipEast) == 0 {
 			return true
 		}
 		if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y+1 >= bounds[0].Y() && y+1 <= bounds[1].Y() &&
-			(CollisionData(x+1, y+1).CollisionMask&ClipNorth|ClipEast) == 0 {
+			(CollisionData(x+1, y+1)&ClipNorth|ClipEast) == 0 {
 			return true
 		}
 
-		low, high := p.Masks(bounds[0].X(), bounds[0].Y()), p.Masks(bounds[1].X(), bounds[1].Y())
-		mixedNS, mixedEW := p.Masks(bounds[0].X(), bounds[1].Y()), p.Masks(bounds[1].X(), bounds[0].Y())
-	*/
-	/*
-		tile := p.Location.Clone()
-		lowX, lowY := p.X() - bounds[0].X(), p.Y() - bounds[0].Y()
-		highX, highY := p.X() - bounds[1].X(), p.Y() - bounds[1].Y()
-		masks := byte(0)
-		if (lowX == 0 || highX == 0) && (lowY == 0 || highY == 0  {
-			if lowX < 0 {
-				masks |= ClipWest
-			}
-			if lowY < 0 {
-				masks |=
-			}
-		}
-		if lowX >= 1 && highX <= -1 {
-			masks |= ClipWest
-			tile.x.Dec()
-		} else if lowX <= -1  && highX >= 1 {
-			masks |= ClipEast
-			tile.x.Inc()
-		}
-		if lowY >= 1 {
-			masks |= ClipSouth
-			tile.y.Dec()
-		} else if lowY <= -1 {
-			masks |= ClipNorth
-			tile.y.Inc()
-		}
-		return CollisionData&masks != 0
-	*/
 	// Northeast target
-	if p.X()-1 >= bounds[0].X() && p.X()-1 <= bounds[1].X() && p.Y()-1 >= bounds[0].Y() && p.Y()-1 <= bounds[1].Y() {
-		return CollisionData(p.X()-1, p.Y()-1)&(ClipSouth|ClipWest) == 0
-	}
-	// Northwest target
-	if p.X()+1 >= bounds[0].X() && p.X()+1 <= bounds[1].X() && p.Y()-1 >= bounds[0].Y() && p.Y()-1 <= bounds[1].Y() {
-		return CollisionData(p.X()-1, p.Y()-1)&(ClipSouth|ClipEast) == 0
-	}
-	// Southeast target
-	if p.X()-1 >= bounds[0].X() && p.X()-1 <= bounds[1].X() && p.Y()+1 >= bounds[0].Y() && p.Y()+1 <= bounds[1].Y() {
-		return CollisionData(p.X()-1, p.Y()-1)&(ClipNorth|ClipWest) == 0
-	}
-	// Southwest target
-	if p.X()+1 >= bounds[0].X() && p.X()+1 <= bounds[1].X() && p.Y()+1 >= bounds[0].Y() && p.Y()+1 <= bounds[1].Y() {
-		return CollisionData(p.X()-1, p.Y()-1)&(ClipNorth|ClipEast) == 0
-	}
+	// if p.X()-1 >= bounds[0].X() && p.X()-1 <= bounds[1].X() && p.Y()-1 >= bounds[0].Y() && p.Y()-1 <= bounds[1].Y() {
+		// return CollisionData(p.X()-1, p.Y()-1)&(ClipSouth|ClipWest) == 0
+	// }
+	// // Northwest target
+	// if p.X()+1 >= bounds[0].X() && p.X()+1 <= bounds[1].X() && p.Y()-1 >= bounds[0].Y() && p.Y()-1 <= bounds[1].Y() {
+		// return CollisionData(p.X()-1, p.Y()-1)&(ClipSouth|ClipEast) == 0
+	// }
+	// // Southeast target
+	// if p.X()-1 >= bounds[0].X() && p.X()-1 <= bounds[1].X() && p.Y()+1 >= bounds[0].Y() && p.Y()+1 <= bounds[1].Y() {
+		// return CollisionData(p.X()-1, p.Y()-1)&(ClipNorth|ClipWest) == 0
+	// }
+	// // Southwest target
+	// if p.X()+1 >= bounds[0].X() && p.X()+1 <= bounds[1].X() && p.Y()+1 >= bounds[0].Y() && p.Y()+1 <= bounds[1].Y() {
+		// return CollisionData(p.X()-1, p.Y()-1)&(ClipNorth|ClipEast) == 0
+	// }
 	return false
 	/*
 		// Southeast target
@@ -1106,21 +1078,34 @@ const projectilesHandle = "projectileQ"
 //Chat sends a player NPC chat message packet to the player and all other players around it.  If multiple msgs are
 // provided, will sleep the goroutine for 3-4 ticks between each message, depending on length of message.
 func (p *Player) Chat(msgs ...string) {
-	for i, msg := range msgs {
-		p.Tickables.Schedule(3*i, func() bool {
-			p.QuestBroadcast(p, /*p.TargetMob()*/ nil, msg)
-			return true
-		})
+	// for i, msg := range msgs {
+		// p.Tickables.Schedule(3*i, func() bool {
+			// p.QuestBroadcast(p, /*p.TargetMob()*/ nil, msg)
+			// return true
+		// })
+	// }
+
+	wait := time.Duration(0)
+	for _, v := range msgs {
+		// tasks.TickList.Schedule(wait, func() bool {
+			p.enqueueArea(questChatHandle, 15, NewTargetedMessage(p, nil, v))
+			// return true
+		// })
+		wait += 3
+		if len(msgs[0]) >= 84 {
+			wait++
+		}
+		time.Sleep(TickMillis*wait)
 	}
-	p.QuestBroadcast(p, nil, msgs[0])
-	wait := time.Duration(3)
-	if len(msgs[0]) >= 84 {
-		wait++
-	}
-	time.Sleep(TickMillis*wait)
-	if len(msgs) > 1 {
-		p.Chat(msgs[1:]...)
-	}
+	// p.QuestBroadcast(p, nil, msgs[0])
+	// wait := time.Duration(3)
+	// if len(msgs[0]) >= 84 {
+		// wait++
+	// }
+	// time.Sleep(TickMillis*wait)
+	// if len(msgs) > 1 {
+		// p.Chat(msgs[1:]...)
+	// }
 	// for _, msg := range msgs {
 		// sleep := 3
 		// if len(msg) >= 83 {
@@ -1139,13 +1124,7 @@ func (p *Player) Chat(msgs ...string) {
 
 //QuestBroadcast Broadcasts a string as a message posted into the players quest chat history to the player and any nearby players.
 func (p *Player) QuestBroadcast(owner, target entity.MobileEntity, message string) {
-	msg := NewTargetedMessage(owner, target, message)
-	for _, r := range Region(p.X(), p.Y()).neighbors() {
-		r.Players.RangePlayers(func(p1 *Player) bool {
-			p1.enqueue(questChatHandle, msg)
-			return false
-		})
-	}
+	p.enqueueArea(questChatHandle, 15, NewTargetedMessage(owner, target, message))
 	// p.enqueue(questChatHandle, msg)
 }
 
@@ -1169,11 +1148,12 @@ func (p *Player) QueueQuestChat(owner, _ entity.MobileEntity, message string) {
 	// }
 	// p.SetVar("questChatQ", append(p.VarChecked("questChatQ").([]ChatMessage), NewChatMessage(owner, message)))
 
-	msg := NewTargetedMessage(owner, nil, message)
-	for _, p1 := range p.NearbyPlayers() {
-		p1.enqueue(questChatHandle, msg)
-	}
-	p.enqueue(questChatHandle, msg)
+	// msg := NewTargetedMessage(owner, nil, message)
+	// for _, p1 := range p.NearbyPlayers() {
+		// p1.enqueue(questChatHandle, msg)
+	// }
+	// p.enqueue(questChatHandle, msg)
+	p.enqueueArea(questChatHandle, 15, NewTargetedMessage(owner,nil,message))
 	//p.enqueue(questChatHandle, NewChatMessage(owner, message))
 }
 
@@ -1184,11 +1164,7 @@ func (p *Player) QueueNpcChat(owner, target entity.MobileEntity, message string)
 //		return
 //	}
 
-	msg := NewTargetedMessage(owner, target, message)
-	for _, p1 := range p.NearbyPlayers() {
-		p1.enqueue(questChatHandle, msg)
-	}
-	p.enqueue(questChatHandle, msg)
+	p.enqueueArea(npcChatHandle, 15, NewTargetedMessage(owner,target,message))
 	// p.enqueue(questChatHandle, NewTargetedMessage(owner, target, message))
 }
 
@@ -1221,9 +1197,13 @@ func (p *Player) QueueItemBubble(owner *Player, id int) {
 }
 
 func (p *Player) enqueueArea(id string, radius int, e interface{}) {
+	updated := NewMobList()
 	for _, region := range Region(p.X(),p.Y()).neighbors() {
 		region.Players.RangePlayers(func(p1 *Player) bool {
-			p1.enqueue(id, e)
+			if !updated.Contains(p1) && p.Near(p1, radius) {
+				p1.enqueue(id, e)
+				updated.Add(p1)
+			}
 			return false
 		})
 	}
@@ -1483,6 +1463,7 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 	defender.SessionCache().SetVar("fightTarget", p)
 	defender.SetRegionRemoved()
 	p.Teleport(defender.X(), defender.Y())
+	p.SetLocation(defender.Point(), true)
 	p.AddState(StateFighting)
 	defender.AddState(StateFighting)
 	p.SetDirection(RightFighting)
