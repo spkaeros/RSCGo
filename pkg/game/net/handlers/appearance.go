@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/spkaeros/rscgo/pkg/config"
+	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
-	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 
@@ -51,9 +51,9 @@ func init() {
 			return
 		}
 		isMale := p.ReadBoolean()
-		headType := int(p.ReadUint8()+1)
-		bodyType := int(p.ReadUint8()+1)
-		legType := int(p.ReadUint8()+1) // appearance2Colour, seems to be a client const, value seems to remain 2.  ofc, legs never change
+		headType := int(p.ReadUint8() + 1)
+		bodyType := int(p.ReadUint8() + 1)
+		legType := int(p.ReadUint8() + 1) // appearance2Colour, seems to be a client const, value seems to remain 2.  ofc, legs never change
 		hairColor := int(p.ReadUint8())
 		topColor := int(p.ReadUint8())
 		legColor := int(p.ReadUint8())

@@ -17,10 +17,10 @@ import (
 
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/definitions"
+	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/jag"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
-	"github.com/spkaeros/rscgo/pkg/game/entity"
 )
 
 //CollisionMask Represents a single tile in the game's landscape.

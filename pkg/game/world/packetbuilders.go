@@ -26,7 +26,7 @@ func FriendList(player *Player) (p *net.Packet) {
 	for s := range player.FriendList.EntrySet() {
 		hash := strutil.Base37.Encode(s)
 		p.AddUint64(hash)
-		
+
 		p1, ok := Players.FindHash(hash)
 		if p1 != nil && ok && (p1.FriendList.Contains(player.Username()) || !p1.FriendBlocked()) {
 			p.AddUint8(0xFF)
@@ -78,17 +78,17 @@ func FriendUpdate(hash uint64, online bool) (p *net.Packet) {
 
 func NpcEvents(player *Player) (p *net.Packet) {
 	updateSize := 0
-	
+
 	p = net.NewEmptyPacket(104)
 	p.AddUint16(uint16(updateSize))
 	// if list, ok := player.Var(npcSplatHandle); ok {
-		// if list, ok := list.([]interface{}); ok {
-			// for _, splat := range list {
-				// if splat, ok := splat.(HitSplat); ok {
-					// 
-				// }
-			// }
-		// }
+	// if list, ok := list.([]interface{}); ok {
+	// for _, splat := range list {
+	// if splat, ok := splat.(HitSplat); ok {
+	//
+	// }
+	// }
+	// }
 	// }
 	if list, ok := player.VarChecked(npcSplatHandle).([]interface{}); ok {
 		var newList []interface{}
@@ -178,22 +178,22 @@ var SleepWrong = net.NewEmptyPacket(194)
 func NpcMessage(sender *NPC, message string, target *Player) (p *net.Packet) {
 	// target.QueueNpcChat(sender, target, message)
 	sender.enqueueArea(npcChatHandle, NewTargetedMessage(sender, target, message))
-/*	p = net.NewEmptyPacket(104)
-	p.AddUint16(1)
-	p.AddUint16(uint16(sender.Index))
-	p.AddUint8(1)
-	p.AddUint16(uint16(target.Index))
-	if len(message) > 255 {
-		message = message[:255]
-	}
-	message = strutil.ChatFilter.Format(message)
-	// messageRaw := strutil.ChatFilter.Pack(message)
-	messageRaw := message
-	p.AddUint8(uint8(len(messageRaw)))
-	for _, c := range messageRaw {
-		p.AddUint8(byte(c))
-	}
-	return*/
+	/*	p = net.NewEmptyPacket(104)
+		p.AddUint16(1)
+		p.AddUint16(uint16(sender.Index))
+		p.AddUint8(1)
+		p.AddUint16(uint16(target.Index))
+		if len(message) > 255 {
+			message = message[:255]
+		}
+		message = strutil.ChatFilter.Format(message)
+		// messageRaw := strutil.ChatFilter.Pack(message)
+		messageRaw := message
+		p.AddUint8(uint8(len(messageRaw)))
+		for _, c := range messageRaw {
+			p.AddUint8(byte(c))
+		}
+		return*/
 	// return net.NewEmptyPacket(6)
 	return nil
 }
@@ -332,9 +332,9 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 			p.AddBitmask(2, 2)
 			p.AddBitmask(p1.Direction(), 3)
 			// p1.PostTickables.Add(func(p1 *Player) bool {
-				// p1.ResetRegionMoved()
-				// p1.ResetSpriteUpdated()
-				// return true
+			// p1.ResetRegionMoved()
+			// p1.ResetSpriteUpdated()
+			// return true
 			// })
 		} else if mask&SyncSprite == SyncSprite {
 			p.AddBitmask(3, 2)
@@ -349,62 +349,62 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		return false
 	})
 	// player.PostTickables.Add(func(p1 *Player) bool {
-		// p1.ResetRegionMoved()
-		// p1.ResetSpriteUpdated()
-		// p1.ResetRegionRemoved()
-		// return true
+	// p1.ResetRegionMoved()
+	// p1.ResetSpriteUpdated()
+	// p1.ResetRegionRemoved()
+	// return true
 	// })
 	player.LocalPlayers.Set(local)
 	// var local []entity.MobileEntity
 	// player.LocalPlayers.RangePlayers(func(p1 *Player) bool {
-		// p1.RLock()
-		// defer p1.RUnlock()
-		// changed++
-		// mask := p1.SyncMask
-		// local = append(local, p1)
-		// if mask&SyncRemoved == SyncRemoved {
-			// p.AddBitmask(1, 1)
-			// p.AddBitmask(1, 1)
-			// p.AddBitmask(3, 2)
-			// if len(local) > 0 {
-				// local = local[:len(local)-1]
-			// } else {
-				// local = local[:0]
-			// }
-			// return false
-		// }
-		// if mask&(SyncRemoved|SyncMoved|SyncSprite) == 0 {
-			// p.AddBitmask(0, 1)
-			// changed--
-			// return false
-		// }
-		// p.AddBitmask(1, 1)
-		// if mask&SyncMoved == SyncMoved {
-			// p.AddBitmask(0, 1)
-			// p.AddBitmask(p1.Direction(), 3)
-			// return false
-		// }
-		// if p1.LongestDelta(player.Point()) >= player.VarInt("viewRadius", 16) || mask&(SyncRemoved|SyncSprite) != 0 {
-			// p.AddBitmask(1, 1)
-			// if mask&SyncSprite != 0 {
-				// p.AddBitmask(p1.Direction(), 4)
-			// }
-			// p1.PostTickables.Add(func(p1 *Player) bool {
-				// if mask&SyncSprite != 0 {
-					// p1.ResetSpriteUpdated()
-					// return true
-				// }
-				// p1.ResetRegionRemoved()
-				// p1.ResetRegionMoved()
-				// return true
-			// })
-		// }
-		// return false
+	// p1.RLock()
+	// defer p1.RUnlock()
+	// changed++
+	// mask := p1.SyncMask
+	// local = append(local, p1)
+	// if mask&SyncRemoved == SyncRemoved {
+	// p.AddBitmask(1, 1)
+	// p.AddBitmask(1, 1)
+	// p.AddBitmask(3, 2)
+	// if len(local) > 0 {
+	// local = local[:len(local)-1]
+	// } else {
+	// local = local[:0]
+	// }
+	// return false
+	// }
+	// if mask&(SyncRemoved|SyncMoved|SyncSprite) == 0 {
+	// p.AddBitmask(0, 1)
+	// changed--
+	// return false
+	// }
+	// p.AddBitmask(1, 1)
+	// if mask&SyncMoved == SyncMoved {
+	// p.AddBitmask(0, 1)
+	// p.AddBitmask(p1.Direction(), 3)
+	// return false
+	// }
+	// if p1.LongestDelta(player.Point()) >= player.VarInt("viewRadius", 16) || mask&(SyncRemoved|SyncSprite) != 0 {
+	// p.AddBitmask(1, 1)
+	// if mask&SyncSprite != 0 {
+	// p.AddBitmask(p1.Direction(), 4)
+	// }
+	// p1.PostTickables.Add(func(p1 *Player) bool {
+	// if mask&SyncSprite != 0 {
+	// p1.ResetSpriteUpdated()
+	// return true
+	// }
+	// p1.ResetRegionRemoved()
+	// p1.ResetRegionMoved()
+	// return true
+	// })
+	// }
+	// return false
 	// })
 	// player.LocalPlayers.Set(local)
-	
+
 	// for _, p1 := range removing {
-		// player.LocalPlayers.Remove(p1)
+	// player.LocalPlayers.Remove(p1)
 	// }
 	newPlayerCount := 0
 	player.NewPlayers().RangePlayers(func(p1 *Player) bool {
@@ -429,7 +429,7 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		p.AddSignedBits(p1.X()-player.X(), 5)
 		p.AddSignedBits(p1.Y()-player.Y(), 5)
 		p.AddBitmask(p1.Direction(), 4)
-		if ticket, ok := player.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance)!=0 {
+		if ticket, ok := player.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
 			p.AddBitmask(1, 1)
 			player.AppearanceReq = append(player.AppearanceReq, p1)
 		} else {
@@ -437,9 +437,9 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		}
 		return false
 	})
-//	if changed+newPlayerCount <= 0 {
-//		return nil
-//	}
+	//	if changed+newPlayerCount <= 0 {
+	//		return nil
+	//	}
 	return
 }
 
@@ -452,8 +452,8 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 		for _, bubble := range list {
 			if bubble, ok := bubble.(ItemBubble); ok {
 				p.AddUint16(uint16(bubble.Owner.ServerIndex())) // Index
-				p.AddUint8(0) // Update Type
-				p.AddUint16(uint16(bubble.Item)) // Item ID
+				p.AddUint8(0)                                   // Update Type
+				p.AddUint16(uint16(bubble.Item))                // Item ID
 				updateSize++
 			}
 		}
@@ -463,14 +463,14 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 		for _, msg := range list {
 			if msg, ok := msg.(ChatMessage); ok {
 				p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
-				p.AddUint8(1) // Update Type
+				p.AddUint8(1)                                // Update Type
 				// TODO: Is this better or is end of message indicator better
 				size := uint8(len(msg.string))
 				if size > 84 {
 					size = 84
 					msg.string = msg.string[:size]
 				}
-				p.AddUint8(size) // Count of UTF-8 characters in message
+				p.AddUint8(size)               // Count of UTF-8 characters in message
 				p.AddBytes([]byte(msg.string)) // UTF-8 encoded message
 				updateSize++
 			}
@@ -484,10 +484,10 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 				if splat.Owner.IsNpc() {
 					newList = append(newList, splat)
 				}
-				p.AddUint16(uint16(splat.Owner.ServerIndex())) // Index
-				p.AddUint8(2) // Update Type
-				p.AddUint8(uint8(splat.Damage)) // How much damage was done
-				p.AddUint8(uint8(splat.Owner.Skills().Current(entity.StatHits))) // Current hitpoints level, for healthbar percentage 
+				p.AddUint16(uint16(splat.Owner.ServerIndex()))                   // Index
+				p.AddUint8(2)                                                    // Update Type
+				p.AddUint8(uint8(splat.Damage))                                  // How much damage was done
+				p.AddUint8(uint8(splat.Owner.Skills().Current(entity.StatHits))) // Current hitpoints level, for healthbar percentage
 				p.AddUint8(uint8(splat.Owner.Skills().Maximum(entity.StatHits))) // Maximum hitpoints level, for healthbar percentage
 				updateSize++
 			}
@@ -506,7 +506,7 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 					p.Rewind(2)
 					continue
 				}
-				p.AddUint16(uint16(shot.Kind)) // Projectile Type, this is large bit-length for such small data
+				p.AddUint16(uint16(shot.Kind))                 // Projectile Type, this is large bit-length for such small data
 				p.AddUint16(uint16(shot.Target.ServerIndex())) // Projectile target index
 				updateSize++
 			}
@@ -522,7 +522,7 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 					continue
 				}
 				p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
-				p.AddUint8(6) // Update Type
+				p.AddUint8(6)                                // Update Type
 				// Format chat messages to match the rules of Jagex chat format
 				// Examples: First letters capitalized for every sentence, color-codes are properly identified, etc.
 				msg.string = strutil.ChatFilter.Format(msg.string)
@@ -551,7 +551,7 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	appearanceList = append(appearanceList, ourPlayer.AppearanceReq...)
 	ourPlayer.AppearanceReq = ourPlayer.AppearanceReq[:0]
 	ourPlayer.LocalPlayers.RangePlayers(func(p1 *Player) bool {
-		if ticket, ok := ourPlayer.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.AppearanceTicket() {//||
+		if ticket, ok := ourPlayer.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.AppearanceTicket() { //||
 			// p1.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
 			appearanceList = append(appearanceList, p1)
 		}
@@ -559,12 +559,12 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	})
 	for _, player := range appearanceList {
 		p.AddUint16(uint16(player.ServerIndex())) // index
-		p.AddUint8(5) // update type
+		p.AddUint8(5)                             // update type
 		// This ticket is to track changes to the players around us
 		// Everytime this ticket changes, we must send this block out regionally,
 		// containing data that identifies all of the owning players characteristics
 		p.AddUint16(uint16(player.AppearanceTicket())) // appearance uuid
-		p.AddUint64(player.UsernameHash()) // base37 encoded username
+		p.AddUint64(player.UsernameHash())             // base37 encoded username
 		ourPlayer.KnownAppearances[player.ServerIndex()] = player.AppearanceTicket()
 		sprites := player.Equips()
 		p.AddUint8(uint8(len(sprites))) // length of equipped item sprites  If length less than 12 any ones after length will get set to 0
@@ -581,7 +581,7 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 		p.AddUint8(uint8(player.Appearance.SkinColor))
 
 		// Combat level is the publically shown level of this player; it gives a general
-		// idea of how good this player is in combat, it's calculated from the levels of the 
+		// idea of how good this player is in combat, it's calculated from the levels of the
 		// first 6 skill types
 		p.AddUint8(uint8(player.Skills().CombatLevel()))
 		p.AddBoolean(player.Skulled())
@@ -837,7 +837,7 @@ func PlayerStats(player *Player) (p *net.Packet) {
 func PlayerExperience(player *Player, idx int) (p *net.Packet) {
 	p = net.NewEmptyPacket(33)
 	p.AddUint8(byte(idx))
-	p.AddUint32(uint32(player.Skills().Experience(idx)) )
+	p.AddUint32(uint32(player.Skills().Experience(idx)))
 	return p
 }
 
@@ -929,7 +929,7 @@ func DuelConfirmationOpen(player, other *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(172)
 
 	p.AddUint64(other.UsernameHash())
-	
+
 	p.AddUint8(uint8(other.DuelOffer.Size()))
 	other.DuelOffer.Range(func(item *Item) bool {
 		p.AddUint16(uint16(item.ID))
@@ -1059,7 +1059,7 @@ func LoginBox(inactiveDays int, lastIP string) (p *net.Packet) {
 	} else {
 		p.AddUint32(uint32(i)) // IP
 	}
-	p.AddUint16(uint16(inactiveDays))                // Last logged in
+	p.AddUint16(uint16(inactiveDays)) // Last logged in
 	// TODO: Recoverys
 	p.AddUint8(201) // recovery questions set days, 200 = unset, 201 = set
 	// TODO: Message center
@@ -1079,7 +1079,7 @@ func InformationBox(msg string) (p *net.Packet) {
 
 //HandshakeResponse Builds a bare net with the login response code.
 func HandshakeResponse(v int) (p *net.Packet) {
-	return &net.Packet{FrameBuffer: []byte{ byte(v) }}
+	return &net.Packet{FrameBuffer: []byte{byte(v)}}
 }
 
 //PlaneInfo Builds a packet to update information about the client environment, e.g height, player index...

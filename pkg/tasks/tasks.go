@@ -1,4 +1,3 @@
- 
 /*
  * Copyright (c) 2020 Zachariah Knight <aeros.storkpk@gmail.com>
  *
@@ -12,12 +11,12 @@ package tasks
 
 import (
 	"context"
-	"sync"
 	"reflect"
-	
-	`github.com/spkaeros/rscgo/pkg/config`
-	`github.com/spkaeros/rscgo/pkg/game/entity`
-	`github.com/spkaeros/rscgo/pkg/log`
+	"sync"
+
+	"github.com/spkaeros/rscgo/pkg/config"
+	"github.com/spkaeros/rscgo/pkg/game/entity"
+	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 // tickable script procedure
@@ -37,11 +36,11 @@ type (
 
 // Call function type aliases for tickables etc
 type (
-	call = func()
-	StatusReturnCall = func() bool
-	dualReturnCall = func(context.Context) (reflect.Value,reflect.Value)
-	singleArgDualReturnCall = func(context.Context, reflect.Value) (reflect.Value,reflect.Value)
-	playerArgCall = func(player entity.MobileEntity)
+	call                      = func()
+	StatusReturnCall          = func() bool
+	dualReturnCall            = func(context.Context) (reflect.Value, reflect.Value)
+	singleArgDualReturnCall   = func(context.Context, reflect.Value) (reflect.Value, reflect.Value)
+	playerArgCall             = func(player entity.MobileEntity)
 	playerArgStatusReturnCall = func(player entity.MobileEntity) bool
 )
 
@@ -122,7 +121,7 @@ func (t *TaskList) RunSynchronous() Tasks {
 			retainedTasks = append(retainedTasks, task)
 		}
 	}
-//	t.Tasks = append(t.Tasks[:0], retainedTasks[:]...)
+	//	t.Tasks = append(t.Tasks[:0], retainedTasks[:]...)
 	return retainedTasks
 }
 
@@ -159,13 +158,13 @@ func (t *TaskList) RunAsynchronous() {
 	t.Tasks = t.Tasks[:0]
 	// select {
 	// case task, ok := <-retainedTasks:
-		// if !ok {
-			// break
-		// }
-		// 
+	// if !ok {
+	// break
+	// }
+	//
 	// default: return
 	// }
-//	t.tasks = append(t.tasks[:0], retainedTasks[:]...)
+	//	t.tasks = append(t.tasks[:0], retainedTasks[:]...)
 	return
 }
 
@@ -181,7 +180,7 @@ func (t *TaskList) Add(fn Task) int {
 	t.Lock()
 	defer t.Unlock()
 	t.Tasks = append(t.Tasks, fn)
-	return len(t.Tasks)-1
+	return len(t.Tasks) - 1
 }
 
 func (s *Scripts) Add(fn scriptCall) {

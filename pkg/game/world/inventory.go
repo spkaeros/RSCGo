@@ -11,11 +11,11 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/spkaeros/rscgo/pkg/definitions"
-	"github.com/spkaeros/rscgo/pkg/tasks"
 	"github.com/spkaeros/rscgo/pkg/errors"
-	"github.com/spkaeros/rscgo/pkg/strutil"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/log"
+	"github.com/spkaeros/rscgo/pkg/strutil"
+	"github.com/spkaeros/rscgo/pkg/tasks"
 )
 
 //DefaultDrop returns the default item ID all mobs should drop on death
@@ -118,7 +118,7 @@ func (i *Item) Stackable() bool {
 //GroundItem Represents a single ground item within the game.
 type GroundItem struct {
 	ID, Amount int
-	Owner string
+	Owner      string
 	*entity.AttributeList
 	Entity
 }

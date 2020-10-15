@@ -67,10 +67,8 @@ func (q *tileQueue) Pop() interface{} {
 
 type Pathfinder struct {
 	tileQueue
-	activeTiles map[int]*tileNode
-	last        entity.Location
-	start       entity.Location
-	end         entity.Location
+	activeTiles      map[int]*tileNode
+	last, start, end entity.Location
 }
 
 // This produces a unique hash for each tile possible within the current game world; in this sense, it is a perfect hashing algorithm.
@@ -118,9 +116,9 @@ func (p *Pathfinder) MakePath() *Pathway {
 		}
 		position := active.loc
 		// if p.last.LongestDelta(position) == 0 /*|| p.tileQueue.Len() > 512*/ {
-			// DoS prevention measures; astar will run forever if you let it
-			//			return makePath(active)
-			// return nil
+		// DoS prevention measures; astar will run forever if you let it
+		//			return makePath(active)
+		// return nil
 		// }
 		if position.Equals(p.end) {
 			// We made it!
@@ -132,9 +130,9 @@ func (p *Pathfinder) MakePath() *Pathway {
 		// Direction precedent: E,W,N,S,SW,SE,NW,NE
 		for _, direction := range OrderedDirections {
 			//			node := &tileNode{loc: active.loc.Step(direction), open: false, closed: false}
-			neighbor := p.node(active.loc.Step(direction))
-			if IsTileBlocking(neighbor.loc.X(), neighbor.loc.Y(), active.loc.Mask(neighbor.loc), false) {
-//			if !active.loc.Reachable(neighbor.loc) {
+			neighbor := p.node(active.loc.ClippedStep(direction))
+			// if IsTileBlocking(neighbor.loc.X(), neighbor.loc.Y(), active.loc.Mask(neighbor.loc), false) {
+			if !active.loc.Reachable(neighbor.loc) {
 				continue
 			}
 			gCost := active.gCostFrom(neighbor)

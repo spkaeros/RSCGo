@@ -1,8 +1,8 @@
 package world
 
 import (
-	"sync"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
+	"sync"
 )
 
 //Entity A stationary scene entity within the game world.
@@ -60,12 +60,12 @@ func (l *entityList) NearbyNpcs(e entity.Entity) []*NPC {
 
 //NearbyObjects creates a slice of *Object and populates it with objects within p's view area that are in this region,
 // and returns it.
-func (l *entityList) NearbyObjects(e entity.Entity) []*Object {
+func (l *entityList) NearbyObjects(e entity.Entity) []entity.Entity {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
-	var objects []*Object
+	var objects []entity.Entity
 	for _, o1 := range l.set {
-		if o1, ok := o1.(*Object); ok && e.LongestDelta(o1.Location) < 21 {
+		if o1, ok := o1.(entity.Entity); ok && e.LongestDelta(o1) < 21 {
 			objects = append(objects, o1)
 		}
 	}
@@ -87,14 +87,14 @@ func (l *entityList) NearbyItems(p *Player) []*GroundItem {
 }
 
 //Add puts e entity into the collection set.
-func (l *entityList) Add(e interface{}) {
+func (l *entityList) Add(e entity.Entity) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 	l.set = append(l.set, e)
 }
 
 //Contains checks the collection set for e and returns true if it finds it.
-func (l *entityList) Contains(e interface{}) bool {
+func (l *entityList) Contains(e entity.Entity) bool {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
 	for _, v := range l.set {
@@ -108,7 +108,7 @@ func (l *entityList) Contains(e interface{}) bool {
 }
 
 //Remove removes e from the collection set.
-func (l *entityList) Remove(e interface{}) {
+func (l *entityList) Remove(e entity.Entity) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 	elems := l.set

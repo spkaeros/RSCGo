@@ -37,7 +37,7 @@ func (s *sqlService) sqlOpen(addr string) *sql.DB {
 // Implements PlayerService interface and sqlService.
 type sqlService struct {
 	database *sql.DB
-	conn *sql.Conn
+	conn     *sql.Conn
 	Driver   string
 	context  context.Context
 	sync.RWMutex

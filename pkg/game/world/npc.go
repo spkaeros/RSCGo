@@ -12,7 +12,7 @@ package world
 import (
 	"sync"
 	"time"
-	
+
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/rand"
@@ -159,9 +159,9 @@ func UpdateNPCPositions() {
 			}
 			if Chance(25) && n.pathSteps == 0 && (n.lastMoved.IsZero() || time.Now().After(n.lastMoved)) {
 				// schedule when to start wandering again
-				n.lastMoved = time.Now().Add(time.Second * (time.Duration(rand.Rng.Float64()*15-5)+5))
+				n.lastMoved = time.Now().Add(time.Second * (time.Duration(rand.Rng.Float64()*15-5) + 5))
 				// set how many steps we should wander for before taking a break
-				n.pathSteps = int(rand.Rng.Float64()*15)
+				n.pathSteps = int(rand.Rng.Float64() * 15)
 			}
 			// wander aimlessly until we run out of scheduled steps
 			n.TraversePath()
@@ -175,7 +175,7 @@ func (n *NPC) UpdateRegion(x, y int) {
 	curArea := Region(n.X(), n.Y())
 	newArea := Region(x, y)
 	if newArea != curArea {
-	 	if curArea.NPCs.Contains(n) {
+		if curArea.NPCs.Contains(n) {
 			curArea.NPCs.Remove(n)
 		}
 		newArea.NPCs.Add(n)
@@ -197,8 +197,9 @@ func ResetNpcUpdateFlags() {
 		return false
 	})
 }
+
 type NpcBlockingTrigger struct {
-	Check func(*Player, *NPC) bool
+	Check  func(*Player, *NPC) bool
 	Action func(*Player, *NPC)
 }
 
@@ -251,7 +252,7 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 	} else {
 		AddItem(NewGroundItem(DefaultDrop, 1, n.X(), n.Y()))
 	}
-	
+
 	killer.ResetFighting()
 	n.ResetFighting()
 	n.Remove()
@@ -289,14 +290,14 @@ func (n *NPC) TraversePath() {
 		dir = rand.Rng.Intn(8)
 	}
 	if dir == East || dir == SouthEast || dir == NorthEast {
-		dst.SetX(dst.X()-1)
+		dst.SetX(dst.X() - 1)
 	} else if dir == West || dir == SouthWest || dir == NorthWest {
-		dst.SetX(dst.X()+1)
+		dst.SetX(dst.X() + 1)
 	}
 	if dir == North || dir == NorthWest || dir == NorthEast {
-		dst.SetY(dst.Y()-1)
+		dst.SetY(dst.Y() - 1)
 	} else if dir == South || dir == SouthWest || dir == SouthEast {
-		dst.SetY(dst.Y()+1)
+		dst.SetY(dst.Y() + 1)
 	}
 
 	if !n.Reachable(dst) || !dst.WithinArea(n.Boundaries) {
@@ -310,10 +311,10 @@ func (n *NPC) TraversePath() {
 //ChatIndirect sends a chat message to target and all of target's view area players, without any delay.
 func (n *NPC) ChatIndirect(target *Player, msg string) {
 	// for _, player := range target.NearbyPlayers() {
-		// player.QueueNpcChat(n, target, msg)
+	// player.QueueNpcChat(n, target, msg)
 	// }
 	// target.QueueNpcChat(n, target, msg)
-	n.enqueueArea(npcChatHandle, NewTargetedMessage(n,target,msg))
+	n.enqueueArea(npcChatHandle, NewTargetedMessage(n, target, msg))
 }
 
 func (n *NPC) enqueueArea(handle string, e interface{}) {
@@ -340,24 +341,24 @@ func (n *NPC) Chat(target *Player, msgs ...string) {
 	wait := time.Duration(0)
 	for _, v := range msgs {
 		// tasks.TickList.Schedule(wait, func() bool {
-			n.enqueueArea(npcChatHandle, NewTargetedMessage(n, target, v))
-			// return true
+		n.enqueueArea(npcChatHandle, NewTargetedMessage(n, target, v))
+		// return true
 		// })
 		wait += 3
 		if len(msgs[0]) >= 84 {
 			wait++
 		}
-		time.Sleep(TickMillis*wait)
+		time.Sleep(TickMillis * wait)
 	}
 	// if len(msgs) > 1 {
-		// wait := 3
-		// if len(msgs[0]) >= 84 {
-			// wait++
-		// }
-		// // time.Sleep(TickMillis*wait)
-		// tasks.TickList.Schedule(wait, func() bool {
-			// n.Chat(target, (msgs[1:])...)
-			// return true
-		// })
+	// wait := 3
+	// if len(msgs[0]) >= 84 {
+	// wait++
+	// }
+	// // time.Sleep(TickMillis*wait)
+	// tasks.TickList.Schedule(wait, func() bool {
+	// n.Chat(target, (msgs[1:])...)
+	// return true
+	// })
 	// }
 }

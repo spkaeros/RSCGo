@@ -36,6 +36,9 @@ type Location interface {
 	SetX(int)
 	SetY(int)
 	Wilderness() int
+	Above() Location
+	Below() Location
+	PlaneY(bool) int
 	Hash() int
 	EuclideanDistance(o Location) float64
 	Mask(o Location) byte
@@ -43,18 +46,19 @@ type Location interface {
 	Clone() Location
 	Reachable(Location) bool
 	NextTo(Location) bool
-	ReachableCoords(int,int) bool
+	ReachableCoords(int, int) bool
 	CanReach([2]Location) bool
-	Near(Location,int) bool
+	Near(Location, int) bool
 	IsValid() bool
 	Step(int) Location
+	ClippedStep(int) Location
 	NextTileToward(o Location) Location
 	DirectionToward(o Location) int
-	DirectionTo(int,int) int
+	DirectionTo(int, int) int
 	WithinArea([2]Location) bool
 	WithinReach(Location) bool
 	LongestDelta(o Location) int
-	LongestDeltaCoords(int,int) int
+	LongestDeltaCoords(int, int) int
 	DeltaX(o Location) int
 	Delta(o Location) int
 	DeltaY(o Location) int

@@ -10,40 +10,40 @@
 package main
 
 import (
+	"bufio"
 	"crypto/tls"
+	"math"
 	stdnet "net"
 	"os"
-	"sync"
 	"strconv"
-	"time"
 	"strings"
-	"math"
-	"bufio"
+	"sync"
+	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/jessevdk/go-flags"
-	"github.com/BurntSushi/toml"
 
-	"github.com/spkaeros/rscgo/pkg/crypto"
 	"github.com/spkaeros/rscgo/pkg/config"
-	"github.com/spkaeros/rscgo/pkg/definitions"
-	"github.com/spkaeros/rscgo/pkg/tasks"
-	rscerrors "github.com/spkaeros/rscgo/pkg/errors"
+	"github.com/spkaeros/rscgo/pkg/crypto"
 	"github.com/spkaeros/rscgo/pkg/db"
-	"github.com/spkaeros/rscgo/pkg/isaac"
-	"github.com/spkaeros/rscgo/pkg/strutil"
-	"github.com/spkaeros/rscgo/pkg/game/net"
+	"github.com/spkaeros/rscgo/pkg/definitions"
+	rscerrors "github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/game"
+	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/net/handshake"
 	"github.com/spkaeros/rscgo/pkg/game/world"
+	"github.com/spkaeros/rscgo/pkg/isaac"
 	"github.com/spkaeros/rscgo/pkg/log"
-	
+	"github.com/spkaeros/rscgo/pkg/strutil"
+	"github.com/spkaeros/rscgo/pkg/tasks"
+
 	_ "github.com/spkaeros/rscgo/pkg/game/net/handlers"
 )
 
 const (
-	TickMillis = time.Millisecond*640
+	TickMillis = time.Millisecond * 640
 )
 
 type (
@@ -54,18 +54,18 @@ type (
 		UseCipher bool   `short:"e" long:"encryption" description:"Enable command opcode encryption using a variant of ISAAC to encrypt net opcodes."`
 	}
 	Server struct {
-		port int
+		port     int
 		listener stdnet.Listener
 		*time.Ticker
 	}
 )
 
 var (
-	cliFlags = &Flags{}
-	start = time.Now()
-	newPlayers chan *world.Player
+	cliFlags           = &Flags{}
+	start              = time.Now()
+	newPlayers         chan *world.Player
 	tlsCerts, tlsError = tls.LoadX509KeyPair("./data/ssl/fullchain.pem", "./data/ssl/privkey.pem")
-	wsUpgrader = ws.Upgrader{
+	wsUpgrader         = ws.Upgrader{
 		Protocol: func(protocol []byte) bool {
 			// Chrome is picky, won't work without explicit protocol acceptance
 			return true
@@ -97,11 +97,11 @@ func main() {
 		cliFlags.Config = "config.toml"
 	}
 	if _, err := toml.DecodeFile(cliFlags.Config, &config.TomlConfig); err != nil {
-		log.Warn("Error decoding server TOML configuration file `" + cliFlags.Config + "`:", err)
-		log.Fatal("Error decoding server TOML configuration file:", "`" + cliFlags.Config + "`")
+		log.Warn("Error decoding server TOML configuration file `"+cliFlags.Config+"`:", err)
+		log.Fatal("Error decoding server TOML configuration file:", "`"+cliFlags.Config+"`")
 		log.Fatal(err)
 		os.Exit(101)
-		return 
+		return
 	}
 
 	// TODO: data backend default to JSON or BSON maybe?
@@ -122,7 +122,7 @@ func main() {
 	if config.Port() >= 65534 || config.Port() < 0 {
 		log.Warn("Error: Invalid port number specified.")
 		log.Warn("Valid port numbers are 1-65533 (needs the port 1 above it open to bind a websockets listener).")
-		return 
+		return
 	}
 
 	config.Verbosity = len(cliFlags.Verbose)
@@ -148,14 +148,14 @@ func main() {
 			log.Debugf("Triggers[\n\t%d item actions,\n\t%d scenary actions,\n\t%d boundary actions,\n\t%d npc actions,\n\t%d item->boundary actions,\n\t%d item->scenary actions,\n\t%d attacking NPC actions,\n\t%d killing NPC actions\n];\n", len(world.ItemTriggers), len(world.ObjectTriggers), len(world.BoundaryTriggers), len(world.NpcTriggers), len(world.InvOnBoundaryTriggers), len(world.InvOnObjectTriggers), len(world.NpcAtkTriggers), len(world.NpcDeathTriggers))
 		}
 	}
-	log.Debug("Listening at TCP port " + strconv.Itoa(config.Port()))// + " (TCP), " + strconv.Itoa(config.WSPort()) + " (websockets)")
+	log.Debug("Listening at TCP port " + strconv.Itoa(config.Port())) // + " (TCP), " + strconv.Itoa(config.WSPort()) + " (websockets)")
 	log.Debug()
 	log.Debug("RSCGo has finished initializing world; we hope you enjoy it")
 	Instance.Start()
 }
 
-
 var Instance = &Server{Ticker: time.NewTicker(TickMillis)}
+
 func readPacket(player *world.Player) (*net.Packet, error) {
 	header := make([]byte, 2)
 	n, err := player.Read(header)
@@ -167,14 +167,14 @@ func readPacket(player *world.Player) (*net.Packet, error) {
 			}
 		}
 		log.Warn("Error reading packet header:", err)
-		return nil, rscerrors.NewNetworkError("Error reading header for packet:" + err.Error(), true)
+		return nil, rscerrors.NewNetworkError("Error reading header for packet:"+err.Error(), true)
 	}
 	if n < 2 {
-		return nil, rscerrors.NewNetworkError("Invalid packet-frame length recv; got " + strconv.Itoa(n), false)
+		return nil, rscerrors.NewNetworkError("Invalid packet-frame length recv; got "+strconv.Itoa(n), false)
 	}
 	length := int(header[0] & 0xFF)
 	if length >= 160 {
-		length = (length-160) << 8|int(header[1] & 0xFF)
+		length = (length-160)<<8 | int(header[1]&0xFF)
 	} else {
 		length -= 1
 	}
@@ -182,12 +182,12 @@ func readPacket(player *world.Player) (*net.Packet, error) {
 	frame := make([]byte, length)
 	if length > 0 {
 		// for written := 0; written < length; {
-			_, err := player.Read(frame)
-			if err != nil {
-				log.Warn("Error reading packet frame:", err)
-				return nil, err
-			}
-			// written += n
+		_, err := player.Read(frame)
+		if err != nil {
+			log.Warn("Error reading packet frame:", err)
+			return nil, err
+		}
+		// written += n
 		// }
 	}
 
@@ -214,11 +214,10 @@ func run(fns ...func()) {
 	w.Wait()
 }
 
-
 func (s *Server) tlsAccept(l stdnet.Listener) *world.Player {
 	socket, err := l.Accept()
 	if err != nil {
-		log.Errorf("Error: Could not accept new player websocket (%v):%v\n", socket,  err.Error())
+		log.Errorf("Error: Could not accept new player websocket (%v):%v\n", socket, err.Error())
 		return nil
 	}
 	if tlsError == nil {
@@ -241,7 +240,6 @@ func (s *Server) tlsAccept(l stdnet.Listener) *world.Player {
 
 	return p
 }
-
 
 //Bind binds to the TCP port at port, and the websocket port at port+1.
 func (s *Server) Bind(port int) bool {
@@ -312,10 +310,10 @@ func (s *Server) Bind(port int) bool {
 					player.WritePacket(world.HandshakeResponse(int(i)))
 					player.Writer.Flush()
 					if reason == "" {
-						log.Debug("[REGISTER] Player", "'" + username + "'", "created successfully for:", player.CurrentIP())
+						log.Debug("[REGISTER] Player", "'"+username+"'", "created successfully for:", player.CurrentIP())
 						return
 					}
-					log.Debug("[REGISTER] Player creation failed for:", "'" + username + "'@'" + player.CurrentIP() + "'")
+					log.Debug("[REGISTER] Player creation failed for:", "'"+username+"'@'"+player.CurrentIP()+"'")
 					return
 				}
 				go func() {
@@ -364,9 +362,9 @@ func (s *Server) Bind(port int) bool {
 								}
 							}
 						}()
-						log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "successfully logged in")
+						log.Debug("[LOGIN]", player.Username()+"@"+player.CurrentIP(), "successfully logged in")
 					} else {
-						log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "failed to login (" + reason + ")")
+						log.Debug("[LOGIN]", player.Username()+"@"+player.CurrentIP(), "failed to login ("+reason+")")
 						close(player.InQueue)
 						player.Destroy()
 					}
@@ -386,7 +384,7 @@ func (s *Server) Bind(port int) bool {
 
 				player.SetReconnecting(login.ReadBoolean())
 				if ver := login.ReadUint16(); ver != config.Version() {
-					sendReply(handshake.ResponseUpdated, "Invalid client version (" + strconv.Itoa(ver) + ")")
+					sendReply(handshake.ResponseUpdated, "Invalid client version ("+strconv.Itoa(ver)+")")
 					continue
 				}
 
@@ -482,10 +480,10 @@ func (s *Server) Start() {
 		})
 
 		// world.Players.Range(func(p *world.Player) {
-			// if p == nil {
-				// return
-			// }
-			// 
+		// if p == nil {
+		// return
+		// }
+		//
 		// })
 		world.UpdateNPCPositions()
 

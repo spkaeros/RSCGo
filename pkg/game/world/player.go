@@ -19,10 +19,10 @@ import (
 	"strings"
 	"sync"
 	"time"
-	
+
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
-	
+
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
@@ -66,7 +66,7 @@ type (
 		Websocket     bool
 		InQueue       chan *net.Packet
 		Reader        *bufio.Reader
-		Writer		  net.WriteFlusher
+		Writer        net.WriteFlusher
 		DatabaseIndex int
 		Mob
 	}
@@ -321,7 +321,7 @@ func (p *Player) SetClientSetting(id int, flag bool) {
 //GetClientSetting looks up the client setting with the specified ID, and returns it.  If it can't be found, returns false.
 func (p *Player) GetClientSetting(id int) bool {
 	// TODO: Meaningful names mapped to IDs
-	return p.BoolAttribute("client_setting_"+strconv.Itoa(id))
+	return p.BoolAttribute("client_setting_" + strconv.Itoa(id))
 }
 
 //ServerSeed returns the seed for the ISAAC cipher provided by the game for this player, if set, otherwise returns 0
@@ -419,10 +419,10 @@ func (l Location) Reachable(other entity.Location) bool {
 }
 func (l Location) RD(x, y int) bool {
 	if l.ReachableCoords(x, y) {
-		log.Debug(x,y,"reachable!")
+		log.Debug(x, y, "reachable!")
 		return true
 	}
-	log.Debug("Unreachable:{from:", l.String(), "to:", x,y)
+	log.Debug("Unreachable:{from:", l.String(), "to:", x, y)
 	return false
 }
 
@@ -440,8 +440,8 @@ func (l Location) ReachableCoords(x, y int) bool {
 	cur := l.Clone()
 	end := NewLocation(x, y)
 	for !cur.Equals(end) {
-		next := cur.Step(cur.DirectionToward(end))
-		if !check(cur, next) {
+		next := cur.ClippedStep(cur.DirectionToward(end))
+		if next.Equals(cur) || !check(cur, next) {
 			return false
 		}
 		cur = next
@@ -456,7 +456,7 @@ func (p *Player) UpdateRegion(x, y int) {
 		curArea.Players.Add(p)
 		return
 	}
-		
+
 	newArea := Region(x, y)
 	if newArea != curArea {
 		if curArea.Players.Contains(p) {
@@ -625,7 +625,7 @@ func (p *Player) SetFatigue(i int) {
 func (p *Player) NearbyPlayers() (players []*Player) {
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.Players.RangePlayers(func(p1 *Player) bool {
-			if p.WithinRange(p1.Point(), 16) && p != p1 {
+			if p.Near(p1, 15) && p.ServerIndex() != p1.ServerIndex() {
 				players = append(players, p1)
 			}
 			return false
@@ -639,7 +639,7 @@ func (p *Player) NearbyPlayers() (players []*Player) {
 func (p *Player) NearbyNpcs() (npcs []*NPC) {
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.NPCs.RangeNpcs(func(n *NPC) bool {
-			if p.WithinRange(n.Point(), 16) && !n.Point().Equals(DeathPoint) {
+			if p.Near(n, 15) && !n.Point().Equals(DeathPoint) {
 				npcs = append(npcs, n)
 			}
 			return false
@@ -650,7 +650,7 @@ func (p *Player) NearbyNpcs() (npcs []*NPC) {
 }
 
 //NearbyObjects Returns nearby objects.
-func (m *Mob) NearbyObjects() (objects []*Object) {
+func (m *Mob) NearbyObjects() (objects []entity.Entity) {
 	for _, r := range Region(m.X(), m.Y()).neighbors() {
 		objects = append(objects, r.Objects.NearbyObjects(m)...)
 	}
@@ -662,8 +662,8 @@ func (m *Mob) NearbyObjects() (objects []*Object) {
 func (p *Player) NewObjects() (objects []*Object) {
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		for _, o := range r.Objects.NearbyObjects(p) {
-			if !p.LocalObjects.Contains(o) {
-				objects = append(objects, o)
+			if !p.LocalObjects.Contains(o) && p.Near(o, 21) {
+				objects = append(objects, o.(*Object))
 			}
 		}
 	}
@@ -675,7 +675,7 @@ func (p *Player) NewObjects() (objects []*Object) {
 func (p *Player) NewItems() (items []*GroundItem) {
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		for _, i := range r.Items.NearbyItems(p) {
-			if !p.LocalItems.Contains(i) {
+			if !p.LocalItems.Contains(i) && p.Near(i, 21) {
 				items = append(items, i)
 			}
 		}
@@ -689,7 +689,7 @@ func (p *Player) NewPlayers() (players *MobList) {
 	list := &MobList{}
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.Players.RangePlayers(func(p1 *Player) bool {
-			if !p.LocalPlayers.Contains(p1) && p != p1 && p.WithinRange(p1.Point(), 15) {
+			if !p.LocalPlayers.Contains(p1) && p != p1 && p.Near(p1, 15) {
 				list.Add(p1)
 			}
 			return false
@@ -703,7 +703,7 @@ func (p *Player) NewPlayers() (players *MobList) {
 func (p *Player) NewNPCs() (npcs []*NPC) {
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.NPCs.RangeNpcs(func(n *NPC) bool {
-			if !n.VarBool("removed", false) && !p.LocalNPCs.Contains(n) && p.WithinRange(n.Point(), 15) {
+			if !n.VarBool("removed", false) && !p.LocalNPCs.Contains(n) && p.Near(n, 15) {
 				npcs = append(npcs, n)
 			}
 			return false
@@ -894,39 +894,39 @@ func (p *Player) AtObject(object *Object) bool {
 }
 
 func (p *Player) CanReachDiag(bounds [2]entity.Location) bool {
-		x, y := p.X(), p.Y()
-		if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y-1 >= bounds[0].Y() && y-1 <= bounds[1].Y() &&
-			(CollisionData(x-1, y-1)&ClipSouth|ClipWest) == 0 {
-			return true
-		}
-		if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y+1 >= bounds[0].Y() && y+1 <= bounds[1].Y() &&
-			(CollisionData(x-1, y+1)&ClipNorth|ClipWest) == 0 {
-			return true
-		}
-		if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y-1 >= bounds[0].Y() && y-1 <= bounds[1].Y() &&
-			(CollisionData(x+1, y-1)&ClipSouth|ClipEast) == 0 {
-			return true
-		}
-		if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y+1 >= bounds[0].Y() && y+1 <= bounds[1].Y() &&
-			(CollisionData(x+1, y+1)&ClipNorth|ClipEast) == 0 {
-			return true
-		}
+	x, y := p.X(), p.Y()
+	if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y-1 >= bounds[0].Y() && y-1 <= bounds[1].Y() &&
+		(CollisionData(x-1, y-1)&ClipSouth|ClipWest) == 0 {
+		return true
+	}
+	if x-1 >= bounds[0].X() && x-1 <= bounds[1].X() && y+1 >= bounds[0].Y() && y+1 <= bounds[1].Y() &&
+		(CollisionData(x-1, y+1)&ClipNorth|ClipWest) == 0 {
+		return true
+	}
+	if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y-1 >= bounds[0].Y() && y-1 <= bounds[1].Y() &&
+		(CollisionData(x+1, y-1)&ClipSouth|ClipEast) == 0 {
+		return true
+	}
+	if x+1 >= bounds[0].X() && x+1 <= bounds[1].X() && y+1 >= bounds[0].Y() && y+1 <= bounds[1].Y() &&
+		(CollisionData(x+1, y+1)&ClipNorth|ClipEast) == 0 {
+		return true
+	}
 
 	// Northeast target
 	// if p.X()-1 >= bounds[0].X() && p.X()-1 <= bounds[1].X() && p.Y()-1 >= bounds[0].Y() && p.Y()-1 <= bounds[1].Y() {
-		// return CollisionData(p.X()-1, p.Y()-1)&(ClipSouth|ClipWest) == 0
+	// return CollisionData(p.X()-1, p.Y()-1)&(ClipSouth|ClipWest) == 0
 	// }
 	// // Northwest target
 	// if p.X()+1 >= bounds[0].X() && p.X()+1 <= bounds[1].X() && p.Y()-1 >= bounds[0].Y() && p.Y()-1 <= bounds[1].Y() {
-		// return CollisionData(p.X()-1, p.Y()-1)&(ClipSouth|ClipEast) == 0
+	// return CollisionData(p.X()-1, p.Y()-1)&(ClipSouth|ClipEast) == 0
 	// }
 	// // Southeast target
 	// if p.X()-1 >= bounds[0].X() && p.X()-1 <= bounds[1].X() && p.Y()+1 >= bounds[0].Y() && p.Y()+1 <= bounds[1].Y() {
-		// return CollisionData(p.X()-1, p.Y()-1)&(ClipNorth|ClipWest) == 0
+	// return CollisionData(p.X()-1, p.Y()-1)&(ClipNorth|ClipWest) == 0
 	// }
 	// // Southwest target
 	// if p.X()+1 >= bounds[0].X() && p.X()+1 <= bounds[1].X() && p.Y()+1 >= bounds[0].Y() && p.Y()+1 <= bounds[1].Y() {
-		// return CollisionData(p.X()-1, p.Y()-1)&(ClipNorth|ClipEast) == 0
+	// return CollisionData(p.X()-1, p.Y()-1)&(ClipNorth|ClipEast) == 0
 	// }
 	return false
 	/*
@@ -1045,7 +1045,7 @@ func NewPlayer(socket stdnet.Conn) *Player {
 		TradeOffer:       &Inventory{Capacity: 12},
 		DuelOffer:        &Inventory{Capacity: 8},
 		InQueue:          make(chan *net.Packet, 50),
-		Reader:			  bufio.NewReader(socket),
+		Reader:           bufio.NewReader(socket),
 	}
 	// TODO: Get rid of this self-referential member; figure out better way to handle client item updating
 	p.Inventory.Owner = p
@@ -1079,46 +1079,46 @@ const projectilesHandle = "projectileQ"
 // provided, will sleep the goroutine for 3-4 ticks between each message, depending on length of message.
 func (p *Player) Chat(msgs ...string) {
 	// for i, msg := range msgs {
-		// p.Tickables.Schedule(3*i, func() bool {
-			// p.QuestBroadcast(p, /*p.TargetMob()*/ nil, msg)
-			// return true
-		// })
+	// p.Tickables.Schedule(3*i, func() bool {
+	// p.QuestBroadcast(p, /*p.TargetMob()*/ nil, msg)
+	// return true
+	// })
 	// }
 
 	wait := time.Duration(0)
 	for _, v := range msgs {
 		// tasks.TickList.Schedule(wait, func() bool {
-			p.enqueueArea(questChatHandle, 15, NewTargetedMessage(p, nil, v))
-			// return true
+		p.enqueueArea(questChatHandle, 15, NewTargetedMessage(p, nil, v))
+		// return true
 		// })
 		wait += 3
 		if len(msgs[0]) >= 84 {
 			wait++
 		}
-		time.Sleep(TickMillis*wait)
+		time.Sleep(TickMillis * wait)
 	}
 	// p.QuestBroadcast(p, nil, msgs[0])
 	// wait := time.Duration(3)
 	// if len(msgs[0]) >= 84 {
-		// wait++
+	// wait++
 	// }
 	// time.Sleep(TickMillis*wait)
 	// if len(msgs) > 1 {
-		// p.Chat(msgs[1:]...)
+	// p.Chat(msgs[1:]...)
 	// }
 	// for _, msg := range msgs {
-		// sleep := 3
-		// if len(msg) >= 83 {
-			// sleep = 4
-		// }
-		// m := p.TargetMob()
-		// for _, player := range p.NearbyPlayers() {
-			// player.QueueQuestChat(p, m, msg)
-			// // p.enqueue(questChatHandle, NewTargetedMessage(p, p.TargetMob(), message))
-		// }
-		// p.QueueQuestChat(p, m, msg)
-		// time.Sleep(time.Millisecond*640*time.Duration(sleep))
-		// 
+	// sleep := 3
+	// if len(msg) >= 83 {
+	// sleep = 4
+	// }
+	// m := p.TargetMob()
+	// for _, player := range p.NearbyPlayers() {
+	// player.QueueQuestChat(p, m, msg)
+	// // p.enqueue(questChatHandle, NewTargetedMessage(p, p.TargetMob(), message))
+	// }
+	// p.QueueQuestChat(p, m, msg)
+	// time.Sleep(time.Millisecond*640*time.Duration(sleep))
+	//
 	// }
 }
 
@@ -1128,12 +1128,11 @@ func (p *Player) QuestBroadcast(owner, target entity.MobileEntity, message strin
 	// p.enqueue(questChatHandle, msg)
 }
 
-
 //QueuePublicChat Adds a message to a locked public-chat queue
 func (p *Player) QueuePublicChat(owner entity.MobileEntity, message string) {
 	// if !p.Contains("publicChatQ") {
-		// p.SetVar("publicChatQ", []ChatMessage{NewChatMessage(owner, message)})
-		// return
+	// p.SetVar("publicChatQ", []ChatMessage{NewChatMessage(owner, message)})
+	// return
 	// }
 	// p.SetVar("publicChatQ", append(p.VarChecked("publicChatQ").([]ChatMessage), NewChatMessage(owner, message)))
 	p.enqueue(publicChatHandle, NewChatMessage(owner, message))
@@ -1143,28 +1142,28 @@ func (p *Player) QueuePublicChat(owner entity.MobileEntity, message string) {
 // Second arg reserved as target for message
 func (p *Player) QueueQuestChat(owner, _ entity.MobileEntity, message string) {
 	// if !p.Contains("questChatQ") {
-		// p.SetVar("questChatQ", []ChatMessage{NewChatMessage(owner, message)})
-		// return
+	// p.SetVar("questChatQ", []ChatMessage{NewChatMessage(owner, message)})
+	// return
 	// }
 	// p.SetVar("questChatQ", append(p.VarChecked("questChatQ").([]ChatMessage), NewChatMessage(owner, message)))
 
 	// msg := NewTargetedMessage(owner, nil, message)
 	// for _, p1 := range p.NearbyPlayers() {
-		// p1.enqueue(questChatHandle, msg)
+	// p1.enqueue(questChatHandle, msg)
 	// }
 	// p.enqueue(questChatHandle, msg)
-	p.enqueueArea(questChatHandle, 15, NewTargetedMessage(owner,nil,message))
+	p.enqueueArea(questChatHandle, 15, NewTargetedMessage(owner, nil, message))
 	//p.enqueue(questChatHandle, NewChatMessage(owner, message))
 }
 
 //QueueNpcChat Adds a message to a locked quest-chat queue
 func (p *Player) QueueNpcChat(owner, target entity.MobileEntity, message string) {
-//	if !p.Contains("npcChatQ") {
-//		p.SetVar("npcChatQ", []ChatMessage{NewTargetedMessage(owner, target, message)})
-//		return
-//	}
+	//	if !p.Contains("npcChatQ") {
+	//		p.SetVar("npcChatQ", []ChatMessage{NewTargetedMessage(owner, target, message)})
+	//		return
+	//	}
 
-	p.enqueueArea(npcChatHandle, 15, NewTargetedMessage(owner,target,message))
+	p.enqueueArea(npcChatHandle, 15, NewTargetedMessage(owner, target, message))
 	// p.enqueue(questChatHandle, NewTargetedMessage(owner, target, message))
 }
 
@@ -1173,7 +1172,7 @@ func (p *Player) enqueue(id string, e interface{}) {
 		p.SetVar(id, append(queue, e))
 		return
 	}
-	p.SetVar(id, []interface{} { e })
+	p.SetVar(id, []interface{}{e})
 }
 
 //QueueNpcSplat Adds a message to a locked quest-chat queue
@@ -1198,7 +1197,7 @@ func (p *Player) QueueItemBubble(owner *Player, id int) {
 
 func (p *Player) enqueueArea(id string, radius int, e interface{}) {
 	updated := NewMobList()
-	for _, region := range Region(p.X(),p.Y()).neighbors() {
+	for _, region := range Region(p.X(), p.Y()).neighbors() {
 		region.Players.RangePlayers(func(p1 *Player) bool {
 			if !updated.Contains(p1) && p.Near(p1, radius) {
 				p1.enqueue(id, e)
@@ -1322,7 +1321,7 @@ func (p *Player) IncExp(idx int, amt int) {
 //SetMaxStat sets this players maximum stat at idx to lvl and updates the client about it.
 func (p *Player) SetMaxStat(idx int, lvl int) {
 	p.Skills().SetMax(idx, lvl)
-	p.Skills().SetExp(idx, entity.LevelToExperience(lvl) / 4)
+	p.Skills().SetExp(idx, entity.LevelToExperience(lvl)/4)
 	p.SendStat(idx)
 }
 
@@ -1487,11 +1486,11 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 		if attacker.IsNpc() && defender.IsPlayer() && AsPlayer(defender).PrayerActivated(12) {
 			return false
 		}
-		
+
 		nextHit := int(math.Min(float64(defender.Skills().Current(entity.StatHits)), float64(attacker.MeleeDamage(defender))))
 		if defender.IsNpc() && attacker.IsPlayer() {
 			AsNpc(defender).meleeRangeDamage.Put(AsPlayer(attacker).UsernameHash(), nextHit)
-			AsNpc(defender).DamageFrom(attacker,nextHit, 0)
+			AsNpc(defender).DamageFrom(attacker, nextHit, 0)
 		} else {
 			defender.Skills().DecreaseCur(entity.StatHits, nextHit)
 			defender.Damage(nextHit)
@@ -1513,11 +1512,11 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 		} else {
 			sound += "a"
 		}
-		
+
 		if attackerp := AsPlayer(attacker); attackerp != nil {
 			attackerp.PlaySound(sound)
 		}
-		
+
 		if defenderp := AsPlayer(defender); defenderp != nil {
 			defenderp.PlaySound(sound)
 		}

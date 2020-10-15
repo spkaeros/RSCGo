@@ -59,5 +59,5 @@ type MobileEntity interface {
 	TargetMob() MobileEntity
 	SessionCache() *AttributeList
 	Skulls() map[uint64]time.Time
-	SetLocation(Location,bool)
+	SetLocation(Location, bool)
 }

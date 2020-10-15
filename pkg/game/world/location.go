@@ -3,9 +3,9 @@ package world
 import (
 	"fmt"
 	"math"
-	
+
 	"go.uber.org/atomic"
-	
+
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/rand"
 )
@@ -13,7 +13,7 @@ import (
 //Direction represents directions that mobs can face within the game world.  Ranges from 1-8
 type (
 	Direction = int
-	Plane = int
+	Plane     = int
 )
 
 //OrderedDirections This is an array containing all of the directions a mob can walk in, ordered by path finder precedent.
@@ -33,7 +33,6 @@ const (
 	LeftFighting
 	RightFighting
 )
-
 
 const (
 	//PlaneGround Represents the value for the ground-level plane
@@ -59,7 +58,7 @@ func (l Location) X() int {
 	if l.x == nil {
 		return -1
 	}
-	
+
 	return int(l.x.Load())
 }
 
@@ -67,7 +66,7 @@ func (l Location) Y() int {
 	if l.y == nil {
 		return -1
 	}
-	
+
 	return int(l.y.Load())
 }
 
@@ -91,7 +90,7 @@ var (
 	//DeathSpot The spot where NPCs go to be dead.
 	DeathPoint = NewLocation(0, 0)
 	//SpawnPoint The default spawn point, where new players start and dead players respawn.
-	SpawnPoint = Lumbridge
+	SpawnPoint = Lumbridge.Clone()
 	//Lumbridge Lumbridge teleport point
 	Lumbridge = NewLocation(122, 647)
 	//Varrock Varrock teleport point
@@ -130,55 +129,97 @@ func (l Location) String() string {
 }
 
 func (l Location) Within(minX, maxX, minY, maxY int) bool {
-	return l.WithinArea([2]entity.Location { NewLocation(minX, minY), NewLocation(maxX, maxY) })
+	return l.WithinArea([2]entity.Location{NewLocation(minX, minY), NewLocation(maxX, maxY)})
 }
 
 //IsValid Returns true if the tile at x,y is within world boundaries, false otherwise.
 func (l Location) IsValid() bool {
-	return l.WithinArea([2]entity.Location { NewLocation(0, 0), NewLocation(MaxX, MaxY)})
+	return l.WithinArea([2]entity.Location{NewLocation(0, 0), NewLocation(MaxX, MaxY)})
 }
 
 func (l Location) NextStep(d entity.Location) entity.Location {
 	next := l.Step(l.DirectionToward(d))
 	if !l.Reachable(next) {
-//	if !l.Reachable(d) {
-			if l.X() < d.X() {
-				if next = l.Step(West); l.Reachable(next) {
-					return next
-				}
+		//	if !l.Reachable(d) {
+		if l.X() < d.X() {
+			if next = l.Step(West); l.Reachable(next) {
+				return next
 			}
-			if l.X() > d.X() {
-				if next = l.Step(East); l.Reachable(next) {
-					return next
-				}
+		}
+		if l.X() > d.X() {
+			if next = l.Step(East); l.Reachable(next) {
+				return next
 			}
-			if l.Y() < d.Y() {
-				if next = l.Step(South); l.Reachable(next) {
-					return next
-				}
-				next = l.Step(South)
+		}
+		if l.Y() < d.Y() {
+			if next = l.Step(South); l.Reachable(next) {
+				return next
 			}
-			if l.Y() > d.Y() {
-				if next = l.Step(North); l.Reachable(next) {
-					return next
-				}
-				next = l.Step(North)
+			next = l.Step(South)
+		}
+		if l.Y() > d.Y() {
+			if next = l.Step(North); l.Reachable(next) {
+				return next
 			}
+			next = l.Step(North)
+		}
 	}
 	return next
 }
 
 func (l Location) Step(dir int) entity.Location {
-	loc := l.Clone()
+	loc := NewLocation(l.X(), l.Y())
 	if dir == 0 || dir == 1 || dir == 7 {
-		loc.SetY(loc.Y()-1)
+		loc.y.Dec()
 	} else if dir == 4 || dir == 5 || dir == 3 {
-		loc.SetY(loc.Y()+1)
+		loc.y.Inc()
 	}
 	if dir == 1 || dir == 2 || dir == 3 {
-		loc.SetX(loc.X()+1)
+		loc.x.Inc()
 	} else if dir == 5 || dir == 6 || dir == 7 {
-		loc.SetX(loc.X()-1)
+		loc.x.Dec()
+	}
+	return loc
+}
+
+func (l Location) ClippedStep(dir int) entity.Location {
+	loc := NewLocation(l.X(), l.Y())
+	if dir == 1 || dir == 2 || dir == 3 {
+		if dir == 1 {
+			if !IsTileBlocking(l.X(), l.Y()-1, ClipSouth, false) && !IsTileBlocking(l.X()+1, l.Y(), ClipSouth|ClipEast, false) {
+				loc.y.Dec()
+			}
+		}
+		if dir == 3 { // se
+			if !IsTileBlocking(l.X(), l.Y()+1, ClipNorth, false) {
+				loc.y.Inc()
+			}
+		}
+		if !IsTileBlocking(loc.X()+1, loc.Y(), ClipEast, false) {
+			loc.x.Inc()
+		}
+	} else if dir == 5 || dir == 6 || dir == 7 {
+		if dir == 7 {
+			if !IsTileBlocking(l.X(), l.Y()-1, ClipSouth, false) && !IsTileBlocking(l.X()-1, l.Y(), ClipSouth|ClipWest, false) {
+				loc.y.Dec()
+			}
+		}
+		if dir == 5 { // se
+			if !IsTileBlocking(l.X(), l.Y()+1, ClipNorth, false) {
+				loc.y.Inc()
+			}
+		}
+		if !IsTileBlocking(loc.X()-1, loc.Y(), ClipWest, false) {
+			loc.x.Dec()
+		}
+	} else if dir == 0 {
+		if !IsTileBlocking(l.X(), l.Y()-1, ClipSouth, false) {
+			loc.y.Dec()
+		}
+	} else if dir == 4 {
+		if !IsTileBlocking(l.X(), l.Y()+1, ClipNorth, false) {
+			loc.y.Inc()
+		}
 	}
 	return loc
 }
@@ -222,9 +263,9 @@ func (l Location) Delta(other entity.Location) (delta int) {
 func (l Location) DeltaX(other entity.Location) (deltaX int) {
 	deltaX = int(math.Abs(float64(other.X()) - float64(l.X())))
 	// if ourX > theirX {
-		// deltaX = ourX - theirX
+	// deltaX = ourX - theirX
 	// } else if theirX > ourX {
-		// deltaX = theirX - ourX
+	// deltaX = theirX - ourX
 	// }
 	return
 }
@@ -233,9 +274,9 @@ func (l Location) DeltaX(other entity.Location) (deltaX int) {
 func (l Location) DeltaY(other entity.Location) (deltaY int) {
 	deltaY = int(math.Abs(float64(other.Y()) - float64(l.Y())))
 	// if ourY > theirY {
-		// deltaY = ourY - theirY
+	// deltaY = ourY - theirY
 	// } else if theirY > ourY {
-		// deltaY = theirY - ourY
+	// deltaY = theirY - ourY
 	// }
 	return
 }
@@ -318,15 +359,15 @@ func (l Location) PlaneY(up bool) int {
 func (l Location) NextTileToward(dst entity.Location) entity.Location {
 	nextStep := l.Clone()
 	if delta := l.X() - dst.X(); delta < 0 {
-		nextStep.SetX(nextStep.X()+1)
+		nextStep.SetX(nextStep.X() + 1)
 	} else if delta > 0 {
-		nextStep.SetX(nextStep.X()-1)
+		nextStep.SetX(nextStep.X() - 1)
 	}
 
 	if delta := l.Y() - dst.Y(); delta < 0 {
-		nextStep.SetY(nextStep.Y()+1)
+		nextStep.SetY(nextStep.Y() + 1)
 	} else if delta > 0 {
-		nextStep.SetY(nextStep.Y()-1)
+		nextStep.SetY(nextStep.Y() - 1)
 	}
 	return nextStep
 }

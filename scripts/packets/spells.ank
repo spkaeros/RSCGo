@@ -1,0 +1,81 @@
+bind = import("bind")
+log = import("log")
+world = import("world")
+packets = import("packets")
+load("scripts/def/magic.ank")
+
+for idx in range(len(defs)) {
+	fn = defs[idx].handler
+	if fn == nil {
+		bind.spell(idx, func(player, spell) {
+			player.Message("Not yet added")
+		})
+		continue
+	}
+	bind.spell(idx, fn)
+}
+
+// cast on NPC
+bind.packet(packets.spellOnNpc, func(player, packet) {
+	targetIdx = packet.ReadUint16()
+	target = world.getNpc(targetIdx)
+	spell = packet.ReadUint16()
+	fn = bind.spells[spell]
+	if fn == nil {
+		log.debug("Couldn't find handler for spell:", spell)
+		return
+	}
+	fn(player, {"idx": spell, "target": target})
+})
+
+//cast on ground item
+bind.packet(packets.spellOnGroundItem, func(player, packet) {
+	// TODO: This
+	itemX = packet.ReadUint16()
+	itemY = packet.ReadUint16()
+	itemID = packet.ReadUint16()
+	spell = packet.ReadUint16()
+	fn = bind.spells[spell]
+	if fn == nil {
+		log.debug("Couldn't find handler for spell:", spell)
+		return
+	}
+	fn(player, {"idx": spell, "target": nil})
+})
+
+//cast on inventory item
+bind.packet(packets.spellOnInvItem, func(player, packet) {
+	// TODO: This
+	itemIdx = packet.ReadUint16()
+	spell = packet.ReadUint16()
+	fn = bind.spells[spell]
+	if fn == nil {
+		log.debug("Couldn't find handler for spell:", spell)
+		return
+	}
+	fn(player, {"idx": spell, "target": nil})
+})
+
+//cast on player
+bind.packet(packets.spellOnPlayer, func(player, packet) {
+	targetIdx = packet.ReadUint16()
+	target = world.getPlayer(targetIdx)
+	spell = packet.ReadUint16()
+	fn = bind.spells[spell]
+	if fn == nil {
+		log.debug("Couldn't find handler for spell:", spell)
+		return
+	}
+	fn(player, {"idx": spell, "target": target})
+})
+
+//cast on self
+bind.packet(packets.spellOnSelf, func(player, packet) {
+	spell = packet.ReadUint16()
+	fn = bind.spells[spell]
+	if fn == nil {
+		log.debug("Couldn't find handler for spell:", spell)
+		return
+	}
+	fn(player, {"idx": spell})
+})

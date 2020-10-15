@@ -17,7 +17,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
-	
+
 	"github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/log"
 )
@@ -220,7 +220,7 @@ func (p *Packet) AddUint32(i uint32) *Packet {
 
 func (p *Packet) AddSmart0832(i int) *Packet {
 	if i >= 0x80 {
-		p.AddUint32(0x80<<24|uint32(i))
+		p.AddUint32(0x80<<24 | uint32(i))
 		return p
 	}
 	p.AddUint8(uint8(i))

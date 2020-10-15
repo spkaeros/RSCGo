@@ -1,9 +1,9 @@
 package world
 
-import `github.com/spkaeros/rscgo/pkg/game/entity`
+import "github.com/spkaeros/rscgo/pkg/game/entity"
 
 type HitSplat struct {
-	Owner entity.MobileEntity
+	Owner  entity.MobileEntity
 	Damage int
 }
 

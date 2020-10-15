@@ -10,8 +10,8 @@
 package ipThrottle
 
 import (
-	"time"
 	"net"
+	"time"
 
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )

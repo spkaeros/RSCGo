@@ -45,7 +45,7 @@ func init() {
 		player.Duel.Target = target
 		if target.Duel.Target != player {
 			player.Message("Sending duel request")
-			target.Message(player.Username() + " " + strutil.CombatPrefix(target.Skills().CombatLevel() - player.Skills().CombatLevel()) + "(level-" + strconv.Itoa(player.Skills().CombatLevel()) + ")@whi@ wishes to duel with you")
+			target.Message(player.Username() + " " + strutil.CombatPrefix(target.Skills().CombatLevel()-player.Skills().CombatLevel()) + "(level-" + strconv.Itoa(player.Skills().CombatLevel()) + ")@whi@ wishes to duel with you")
 			return
 		}
 		if target.Busy() {
@@ -82,7 +82,7 @@ func init() {
 			return
 		}
 		if player.IsFighting() || target.IsFighting() {
-			log.Cheat(player, "attempted modifying duel state (with", target.String() + ") during the duels fight!!")
+			log.Cheat(player, "attempted modifying duel state (with", target.String()+") during the duels fight!!")
 			return
 		}
 		if (target.DuelAccepted(1) && player.DuelAccepted(1)) || (target.DuelAccepted(2) && player.DuelAccepted(2)) {

@@ -1,12 +1,12 @@
 package strutil
 
 import (
-	"fmt"
+	// "fmt"
 	"math"
 	// "strconv"
+	"net"
 	"strings"
 	"unicode"
-	"net"
 )
 
 //MaxBase37 Max base37 string hash for 12-rune usernames. (999999999999)
@@ -15,31 +15,32 @@ const MaxBase37 = 6582952005840035281
 //IPToInteger Converts a string representation of an IPv4 address(e.g 127.0.0.1) to a 4-byte integer, each byte containing the information from one octet.
 func IPToInteger(s string) (ip net.IP) {
 	return net.ParseIP(s)
-/*	if strings.HasPrefix(s, "[") {
-		// IPv6, I think
-		if octets := strings.Split(strings.Replace(strings.Replace(s, "[", "", -1), "]", "", -1), ":"); len(octets) > 0 {
+	/*	if strings.HasPrefix(s, "[") {
+			// IPv6, I think
+			if octets := strings.Split(strings.Replace(strings.Replace(s, "[", "", -1), "]", "", -1), ":"); len(octets) > 0 {
+				for index, octet := range octets {
+					numericOctet, err := strconv.Atoi(strings.Split(octet, ":")[0])
+					if err != nil {
+						fmt.Println("Error parsing IP address to integer:", err)
+						return -1
+					}
+					ip |= numericOctet << uint((len(octets)-index)*8)
+				}
+			}
+		}
+		if octets := strings.Split(s, "."); len(octets) > 0 {
 			for index, octet := range octets {
 				numericOctet, err := strconv.Atoi(strings.Split(octet, ":")[0])
 				if err != nil {
 					fmt.Println("Error parsing IP address to integer:", err)
 					return -1
 				}
-				ip |= numericOctet << uint((len(octets)-index)*8)
+				ip |= numericOctet << uint((3-index)*8)
 			}
 		}
-	}
-	if octets := strings.Split(s, "."); len(octets) > 0 {
-		for index, octet := range octets {
-			numericOctet, err := strconv.Atoi(strings.Split(octet, ":")[0])
-			if err != nil {
-				fmt.Println("Error parsing IP address to integer:", err)
-				return -1
-			}
-			ip |= numericOctet << uint((3-index)*8)
-		}
-	}
-	return ip
-*/}
+		return ip
+	*/
+}
 
 func IPToHexidecimal(s string) string {
 	return net.ParseIP(s).String()
@@ -309,8 +310,6 @@ func init() {
 		}
 		return l
 	}
-
-	fmt.Println(Base37.Encode("hawkmeathead"))
 
 	Base37.Decode = func(i uint64) string {
 		if i < 0 || i >= math.MaxUint64 {

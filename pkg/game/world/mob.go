@@ -55,7 +55,7 @@ const (
 )
 
 const (
-	SyncInit = 0
+	SyncInit   = 0
 	SyncSprite = 1 << iota
 	SyncMoved
 	SyncRemoved
@@ -166,10 +166,10 @@ func (l *MobList) Get(idx int) entity.MobileEntity {
 
 //Mob Represents a mobile entity within the game world.
 type Mob struct {
-	SyncMask       int
-	skills		   entity.SkillTable
-	path		   *Pathway
-	Prayers		   [15]bool
+	SyncMask int
+	skills   entity.SkillTable
+	path     *Pathway
+	Prayers  [15]bool
 	entity.Entity
 	*entity.AttributeList
 	sync.RWMutex
@@ -333,12 +333,12 @@ func (m *Mob) ResetSpriteUpdated() {
 //SetPath Sets the mob's current pathway to path.  If path is nil, effectively resets the mobs path.
 func (m *Mob) SetPath(path *Pathway) {
 	m.path = path
-	
+
 }
 
 func (m *Mob) WalkTo(end entity.Location) bool {
 	path := NewPathfinder(m.Clone(), end.Clone()).MakePath()
-	
+
 	m.SetPath(path)
 	return path != nil
 }
@@ -723,11 +723,11 @@ func (m *Mob) MeleeDamage(target entity.MobileEntity) int {
 //Random This generates a pseudo-random integer using a member instance of ISAAC.
 // Note: Generated integers are high-exclusive and low-inclusive.
 func (m *Mob) Random(low, high int) int {
-	return int(m.Isaac().Float64() * float64(high - low)) + low
+	return int(m.Isaac().Float64()*float64(high-low)) + low
 }
 
 //RandomIncl This generates a pseudo-random integer using a member instance of ISAAC.
 // Note: Generated integers are high and low inclusive.
 func (m *Mob) RandomIncl(low, high int) int {
-	return int(m.Isaac().Float64() * float64(high - low + 1)) + low
+	return int(m.Isaac().Float64()*float64(high-low+1)) + low
 }

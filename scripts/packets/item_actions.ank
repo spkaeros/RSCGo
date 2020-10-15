@@ -1,9 +1,10 @@
 state = import("state")
+packets = import("packets")
 bind = import("bind")
 world = import("world")
 
 // Item equip
-bind.packet(169, func(player, packet) {
+bind.packet(packets.equip, func(player, packet) {
 		if player.IsDueling() && player.IsFighting() && !player.DuelEquipment() {
 			player.Message("You can not use equipment in this duel")
 			return
@@ -24,7 +25,7 @@ bind.packet(169, func(player, packet) {
 })
 
 // Item unequip
-bind.packet(170, func(player, packet) {
+bind.packet(packets.unequip, func(player, packet) {
 		index = packet.ReadUint16()
 		if index < 0 || index > player.Inventory.Size() {
 			log.cheatf("Player[%v] tried to unwield an item with an out-of-bounds inventory index: %d\n", player, index)
@@ -42,7 +43,7 @@ bind.packet(170, func(player, packet) {
 
 
 // drop item
-bind.packet(246, func(player, packet) {
+bind.packet(packets.dropItem, func(player, packet) {
 	if player.Busy() || player.IsFighting() {
 		return
 	}
@@ -72,7 +73,7 @@ bind.packet(246, func(player, packet) {
 })
 
 // pickup item	
-bind.packet(247, func(player, packet) {
+bind.packet(packets.pickupItem, func(player, packet) {
 	if player.Busy() || player.IsFighting() {
 		return
 	}
@@ -125,7 +126,7 @@ bind.packet(247, func(player, packet) {
 	})
 })
 
-bind.packet(90, func(player, packet) {
+bind.packet(packets.itemAction, func(player, packet) {
 	index = packet.ReadUint16()
 	item = player.Inventory.Get(index)
 	if item == nil || player.Busy() || player.IsFighting() {
