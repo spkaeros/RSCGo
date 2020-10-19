@@ -12,7 +12,7 @@ package world
 import (
 	"sync"
 	"time"
-
+	
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/rand"
@@ -27,18 +27,18 @@ type NPC struct {
 	Mob
 	ID               int
 	pathSteps        int
-	lastMoved        time.Time
+	moveTick         int
+	// lastMoved        time.Time
 	StartPoint       entity.Location
 	Boundaries       [2]entity.Location
-	meleeRangeDamage damages
-	magicDamage      damages
+	meleeRangeDamage, magicDamage damages
 }
 
 type (
 	damageTable = map[uint64]int
 	damages     struct {
-		damageTable
 		total int
+		damageTable
 		sync.RWMutex
 	}
 )
@@ -52,7 +52,7 @@ func (e *Entity) SetServerIndex(i int) {
 }
 
 //NewNpc Creates a new NPC and returns a reference to it
-func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
+func NewNpc(id, startX, startY, minX, maxX, minY, maxY int) *NPC {
 	n := &NPC{
 		ID: id,
 		Mob: Mob{
@@ -71,7 +71,7 @@ func NewNpc(id int, startX int, startY int, minX, maxX, minY, maxY int) *NPC {
 		},
 		Boundaries: [2]entity.Location{NewLocation(minX, minY), NewLocation(maxX, maxY)},
 	}
-	n.StartPoint = n.Point()
+	n.StartPoint = n.Clone()
 	if id < len(definitions.Npcs)-1 {
 		n.Skills().SetCur(0, definitions.Npcs[id].Attack)
 		n.Skills().SetCur(1, definitions.Npcs[id].Defense)
@@ -157,11 +157,14 @@ func UpdateNPCPositions() {
 			if n.Busy() || n.IsFighting() || n.Equals(DeathPoint) {
 				return
 			}
-			if Chance(25) && n.pathSteps == 0 && (n.lastMoved.IsZero() || time.Now().After(n.lastMoved)) {
-				// schedule when to start wandering again
-				n.lastMoved = time.Now().Add(time.Second * (time.Duration(rand.Rng.Float64()*15-5) + 5))
-				// set how many steps we should wander for before taking a break
-				n.pathSteps = int(rand.Rng.Float64() * 15)
+			if n.moveTick > 0 {
+				n.moveTick--
+			}
+			if Chance(25) && n.pathSteps == 0 && n.moveTick <= 0 {
+				// move some amount between 2-15 tiles, moving 1 tile per tick
+				n.pathSteps = int(rand.Rng.Float64() * 15 - 2) + 2
+				// wait some amount between 25-50 ticks before doing this again
+				n.moveTick = int(rand.Rng.Float64() * 50 - 25) + 25
 			}
 			// wander aimlessly until we run out of scheduled steps
 			n.TraversePath()
@@ -175,7 +178,7 @@ func (n *NPC) UpdateRegion(x, y int) {
 	curArea := Region(n.X(), n.Y())
 	newArea := Region(x, y)
 	if newArea != curArea {
-		if curArea.NPCs.Contains(n) {
+	 	if curArea.NPCs.Contains(n) {
 			curArea.NPCs.Remove(n)
 		}
 		newArea.NPCs.Add(n)
@@ -196,10 +199,10 @@ func ResetNpcUpdateFlags() {
 		}()
 		return false
 	})
+	wait.Wait()
 }
-
 type NpcBlockingTrigger struct {
-	Check  func(*Player, *NPC) bool
+	Check func(*Player, *NPC) bool
 	Action func(*Player, *NPC)
 }
 
@@ -213,9 +216,9 @@ func (n *NPC) Damage(dmg int) {
 
 func (n *NPC) DamageFrom(m entity.MobileEntity, dmg, dmgKind int) {
 	if dmgKind == 0 {
-		n.meleeRangeDamage.Put(m.(*Player).UsernameHash(), dmg)
+		n.meleeRangeDamage.Put(AsPlayer(m).UsernameHash(), dmg)
 	} else if dmgKind == 1 {
-		n.magicDamage.Put(m.(*Player).UsernameHash(), dmg)
+		n.magicDamage.Put(AsPlayer(m).UsernameHash(), dmg)
 	}
 	n.Damage(dmg)
 }
@@ -244,10 +247,11 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 			}
 		}
 	}
+	dropPlayer := n.rewardKillers()
 	// first pass is to find the total so we can split up the exp properly
 	// this is because the total is not guaranteed to match max hitpoints since
 	// the NPC can heal after damage has been dealt, among other things
-	if dropPlayer := n.rewardKillers(); dropPlayer != nil {
+	if dropPlayer != nil {
 		AddItem(NewGroundItemFor(dropPlayer.UsernameHash(), DefaultDrop, 1, n.X(), n.Y()))
 	} else {
 		AddItem(NewGroundItem(DefaultDrop, 1, n.X(), n.Y()))
@@ -290,14 +294,14 @@ func (n *NPC) TraversePath() {
 		dir = rand.Rng.Intn(8)
 	}
 	if dir == East || dir == SouthEast || dir == NorthEast {
-		dst.SetX(dst.X() - 1)
+		dst.SetX(dst.X()-1)
 	} else if dir == West || dir == SouthWest || dir == NorthWest {
-		dst.SetX(dst.X() + 1)
+		dst.SetX(dst.X()+1)
 	}
 	if dir == North || dir == NorthWest || dir == NorthEast {
-		dst.SetY(dst.Y() - 1)
+		dst.SetY(dst.Y()-1)
 	} else if dir == South || dir == SouthWest || dir == SouthEast {
-		dst.SetY(dst.Y() + 1)
+		dst.SetY(dst.Y()+1)
 	}
 
 	if !n.Reachable(dst) || !dst.WithinArea(n.Boundaries) {
@@ -311,10 +315,10 @@ func (n *NPC) TraversePath() {
 //ChatIndirect sends a chat message to target and all of target's view area players, without any delay.
 func (n *NPC) ChatIndirect(target *Player, msg string) {
 	// for _, player := range target.NearbyPlayers() {
-	// player.QueueNpcChat(n, target, msg)
+		// player.QueueNpcChat(n, target, msg)
 	// }
 	// target.QueueNpcChat(n, target, msg)
-	n.enqueueArea(npcChatHandle, NewTargetedMessage(n, target, msg))
+	n.enqueueArea(npcChatHandle, NewTargetedMessage(n,target,msg))
 }
 
 func (n *NPC) enqueueArea(handle string, e interface{}) {
@@ -337,28 +341,28 @@ func (n *NPC) Chat(target *Player, msgs ...string) {
 		return
 	}
 
-	// n.enqueueArea(npcChatHandle, NewTargetedMessage(n, target, msgs[0]))
+	n.enqueueArea(npcChatHandle, NewTargetedMessage(n, target, msgs[0]))
 	wait := time.Duration(0)
 	for _, v := range msgs {
 		// tasks.TickList.Schedule(wait, func() bool {
-		n.enqueueArea(npcChatHandle, NewTargetedMessage(n, target, v))
-		// return true
+			n.enqueueArea(npcChatHandle, NewTargetedMessage(n, target, v))
+			// return true
 		// })
 		wait += 3
 		if len(msgs[0]) >= 84 {
 			wait++
 		}
-		time.Sleep(TickMillis * wait)
+		time.Sleep(TickMillis*wait)
 	}
 	// if len(msgs) > 1 {
-	// wait := 3
-	// if len(msgs[0]) >= 84 {
-	// wait++
-	// }
-	// // time.Sleep(TickMillis*wait)
-	// tasks.TickList.Schedule(wait, func() bool {
-	// n.Chat(target, (msgs[1:])...)
-	// return true
-	// })
+		// wait := 3
+		// if len(msgs[0]) >= 84 {
+			// wait++
+		// }
+		// // time.Sleep(TickMillis*wait)
+		// tasks.TickList.Schedule(wait, func() bool {
+			// n.Chat(target, (msgs[1:])...)
+			// return true
+		// })
 	// }
 }

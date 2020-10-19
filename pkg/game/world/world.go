@@ -7,12 +7,12 @@ import (
 	"strconv"
 	"sync"
 	"time"
-
+	
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/isaac"
 	"github.com/spkaeros/rscgo/pkg/log"
 	rscRand "github.com/spkaeros/rscgo/pkg/rand"
-
+	
 	"go.uber.org/atomic"
 )
 
@@ -21,10 +21,10 @@ const (
 	TicksHour      = 5625
 	TicksTwentyMin = 1875
 	TicksMinute    = 100
-	TickMinute     = TicksMinute * TickMillis
-	TickHour       = TicksHour * TickMillis
-	TickDay        = TicksDay * TickMillis
-	TickMillis     = 640 * time.Millisecond
+	TickMinute     = TicksMinute*TickMillis
+	TickHour       = TicksHour*TickMillis
+	TickDay       = TicksDay*TickMillis
+	TickMillis     = 640*time.Millisecond
 
 	//MaxX Width of the game
 	MaxX = 944
@@ -35,6 +35,7 @@ const (
 var (
 	Ticks = atomic.NewUint64(0)
 )
+
 
 func CurrentTick() int {
 	return int(Ticks.Load())
@@ -79,7 +80,7 @@ type playerList [1250]*Player
 type PlayerList struct {
 	sync.RWMutex
 	playerList
-	free   indexQueue
+	free indexQueue
 	curIdx int
 }
 
@@ -121,6 +122,7 @@ func (m *PlayerList) ContainsHash(hash uint64) bool {
 	_, ret := m.FindHash(hash)
 	return ret
 }
+
 
 //Put Finds the lowest available empty slot in the list, and puts the player there.
 // This will also assign the players server index variable (*Player.Index) to the assigned slot.
@@ -171,7 +173,7 @@ func (m *PlayerList) ForEach(action func(*Player) bool) int {
 			}
 		}
 	}
-
+	
 	return -1
 }
 
@@ -205,16 +207,16 @@ func (m *PlayerList) AsyncRange(fn func(*Player)) {
 	})
 	w.Wait()
 	// m.RLock()
-	//
+	// 
 	// for _, p := range m.playerList {
-	// if p == nil {
-	// continue
-	// }
-	// w.Add(1)
-	// go func() {
-	// fn(p)
-	// w.Done()
-	// }()
+		// if p == nil {
+			// continue
+		// }
+		// w.Add(1)
+		// go func() {
+			// fn(p)
+			// w.Done()
+		// }()
 	// }
 	// m.RUnlock()
 	// w.Wait()
@@ -222,8 +224,8 @@ func (m *PlayerList) AsyncRange(fn func(*Player)) {
 
 //region Represents a 48x48 section of map.  The purpose of this is to keep track of entities in the entire world without having to allocate tiles individually, which would make search algorithms slower and utilizes a great deal of memory.
 type region struct {
-	x       int
-	y       int
+	x int
+	y int
 	Players *MobList
 	NPCs    *MobList
 	Objects *entityList
@@ -231,15 +233,6 @@ type region struct {
 }
 
 var regions [HorizontalPlanes][VerticalPlanes]*region
-
-func init() {
-	for x := 0; x < MaxX; x += RegionSize {
-		for y := 0; y < MaxY; y += RegionSize {
-			regions[x/RegionSize][y/RegionSize] = &region{x, y, NewMobList(), NewMobList(), &entityList{}, &entityList{}}
-			// if r := regions[x/RegionSize][y/RegionSize]; r != nil {
-		}
-	}
-}
 
 //IsValid Returns true if the tile at x,y is within world boundaries, false otherwise.
 func WithinWorld(x, y int) bool {
@@ -255,10 +248,10 @@ func AddPlayer(p *Player) {
 			player.FriendList.Set(p.Username(), true)
 			player.SendPacket(FriendUpdate(p.UsernameHash(), true))
 		}
-
-		//		if player.FriendList.Contains(p.Username()) {
-		//			player.SendPacket(FriendUpdate(p.UsernameHash(), p.FriendList.Contains(player.Username()) || !p.FriendBlocked()))
-		//		}
+		
+//		if player.FriendList.Contains(p.Username()) {
+//			player.SendPacket(FriendUpdate(p.UsernameHash(), p.FriendList.Contains(player.Username()) || !p.FriendBlocked()))
+//		}
 	})
 }
 
@@ -503,7 +496,7 @@ func GetAllObjects() (list []*Object) {
 	for x := 0; x < MaxX; x += RegionSize {
 		for y := 0; y < MaxY; y += RegionSize {
 			// if r := regions[x/RegionSize][y/RegionSize]; r != nil {
-			r := Region(x, y)
+			r := Region(x,y)
 			r.Objects.lock.RLock()
 			for _, o := range r.Objects.set {
 				if o, ok := o.(*Object); ok {
@@ -554,7 +547,7 @@ func NpcNearest(id, x, y int) *NPC {
 	defer regionLock.RUnlock()
 	for x := 0; x < MaxX; x += RegionSize {
 		for y := 0; y < MaxY; y += RegionSize {
-			Region(x, y).NPCs.RangeNpcs(func(n *NPC) bool {
+			Region(x,y).NPCs.RangeNpcs(func(n *NPC) bool {
 				if n.ID == id && n.LongestDelta(point) < minDelta {
 					minDelta = n.LongestDelta(point)
 					npc = n
@@ -574,11 +567,11 @@ func NpcVisibleFrom(id, x, y int) *NPC {
 	point := NewLocation(x, y)
 	minDelta := 16
 	var npc *NPC
-
+	
 	for x := 0; x < MaxX; x += RegionSize {
 		for y := 0; y < MaxY; y += RegionSize {
 			// if r := regions[x/RegionSize][y/RegionSize]; r != nil {
-			Region(x, y).NPCs.RangeNpcs(func(n *NPC) bool {
+			Region(x,y).NPCs.RangeNpcs(func(n *NPC) bool {
 				if n.ID == id && n.LongestDelta(point) < minDelta {
 					minDelta = n.LongestDelta(point)
 					npc = n
@@ -601,22 +594,22 @@ func get(x, y int) *region {
 	}
 	if x >= HorizontalPlanes {
 		log.Warn("planeX", x, "out of bounds")
-		x = HorizontalPlanes - 1
+		x = HorizontalPlanes-1
 	}
 	if y < 0 {
 		y = 0
 	}
 	if y >= VerticalPlanes {
 		log.Warn("planeY", y, " out of bounds")
-		y = VerticalPlanes - 1
+		y = VerticalPlanes-1
 	}
 	regionLock.Lock()
 	defer regionLock.Unlock()
 	// if regions[x][y] == nil {
-	// regions[x][y] = &region{x, y, &MobList{}, &MobList{}, &entityList{}, &entityList{}}
+		// regions[x][y] = &region{x, y, &MobList{}, &MobList{}, &entityList{}, &entityList{}}
 	// }
-	if regions[x][y].Initialized() {
-		regions[x][y] = &region{x, y, NewMobList(), NewMobList(), &entityList{}, &entityList{}}
+	if !regions[x][y].Initialized() {
+		regions[x][y] = &region{x*RegionSize,y*RegionSize,NewMobList(),NewMobList(),&entityList{},&entityList{}}
 	}
 	return regions[x][y]
 }
@@ -628,13 +621,14 @@ func (r *region) Initialized() bool {
 
 //Region Returns the region that corresponds with the given coordinates.  If it does not exist yet, it will allocate a new onr and store it for the lifetime of the application in the regions map.
 func Region(x, y int) *region {
+	// return get(x/RegionS1ize, y/RegionSize)
 	regionLock.Lock()
 	defer regionLock.Unlock()
 	// if regions[x/RegionSize][y/RegionSize] == nil {
-	// regions[x/RegionSize][y/RegionSize] = &region{x, y, &MobList{}, &MobList{}, &entityList{}, &entityList{}}
+		// regions[x/RegionSize][y/RegionSize] = &region{x, y, &MobList{}, &MobList{}, &entityList{}, &entityList{}}
 	// }
 	if !regions[x/RegionSize][y/RegionSize].Initialized() {
-		regions[x/RegionSize][y/RegionSize] = &region{x, y, NewMobList(), NewMobList(), &entityList{}, &entityList{}}
+		regions[x/RegionSize][y/RegionSize] = &region{x,y,NewMobList(),NewMobList(),&entityList{},&entityList{}}
 	}
 	return regions[x/RegionSize][y/RegionSize]
 }
@@ -679,9 +673,9 @@ func BoundedChance(percent float64, minPercent, maxPercent float64) bool {
 	if minPercent < 0.0 {
 		minPercent = 0.0
 	}
-	//	if maxPercent > 100.0 {
-	//		maxPercent = 100.0
-	//	}
+//	if maxPercent > 100.0 {
+//		maxPercent = 100.0
+//	}
 	if minPercent > maxPercent {
 		maxPercent, minPercent = minPercent, maxPercent
 	}
@@ -699,7 +693,7 @@ func Chance(percent float64) bool {
 //probWeights
 type IntProbabilitys = map[int]float64
 
-//Statistical
+//Statistical 
 func Statistical(rng *rand.Rand, options IntProbabilitys) int {
 	if rng == nil {
 		rng = rand.New(isaac.New(uint64(time.Now().UnixNano())))
@@ -710,12 +704,12 @@ func Statistical(rng *rand.Rand, options IntProbabilitys) int {
 		total += p
 	}
 
-	rolled := rng.Float64() * total
+	rolled := rng.Float64()*total
 	prob := 0.0
 	for i, p := range options {
 		prob += p
 		if rolled <= prob {
-			log.Debug("Chose", i, "; hit", rolled, "probability =", prob, "/", total)
+			log.Debug("Chose", i, "; hit", rolled,"probability =", prob, "/", total)
 			return i
 		}
 	}
@@ -729,7 +723,7 @@ func Statistical(rng *rand.Rand, options IntProbabilitys) int {
 // E.g, if the sum of all probabilities is 100, and you have a total probability of 100, where the first retVal maps to 25.0, the chance it will be returned is 25%
 //
 // You can make the total anything. Useful for anything that needs to return certain values deterministically more often than others, but randomly.
-func WeightedChoice(choices map[int]float64) int {
+func WeightedChoice(choices IntProbabilitys) int {
 
 	return Statistical(rscRand.Rng, choices)
 }

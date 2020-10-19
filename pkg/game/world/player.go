@@ -558,8 +558,8 @@ func (p *Player) Equips() []int {
 }
 
 func (p *Player) UpdateAppearance() {
-	p.SetAppearanceChanged()
 	p.SetVar("appearanceTicket", p.AppearanceTicket()+1)
+	p.SetAppearanceChanged()
 }
 
 //DequipItem removes an item from this players equips, and sends inventory and equipment bonuses.
@@ -855,7 +855,7 @@ func (p *Player) Destroy() {
 	if err := p.Writer.Flush(); err != nil {
 		log.Warn("Failed to flush player socket!")
 	}
-	p.PostTickables.Add(func() bool {
+	// p.PostTickables.Add(func() bool {
 		p.killer.Do(func() {
 			if err := p.Socket.Close(); err != nil {
 				log.Warn("Couldn't close socket:", err)
@@ -875,8 +875,8 @@ func (p *Player) Destroy() {
 			}
 			log.Debug("Unregistered:{'" + p.CurrentIP() + "'}")
 		})
-		return true
-	})
+		// return true
+	// })
 }
 
 func (p *Player) AtObject(object *Object) bool {
@@ -1488,9 +1488,8 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 		}
 
 		nextHit := int(math.Min(float64(defender.Skills().Current(entity.StatHits)), float64(attacker.MeleeDamage(defender))))
-		if defender.IsNpc() && attacker.IsPlayer() {
-			AsNpc(defender).meleeRangeDamage.Put(AsPlayer(attacker).UsernameHash(), nextHit)
-			AsNpc(defender).DamageFrom(attacker, nextHit, 0)
+		if npc := AsNpc(defender); npc != nil {
+		npc.DamageFrom(attacker, nextHit, 0)
 		} else {
 			defender.Skills().DecreaseCur(entity.StatHits, nextHit)
 			defender.Damage(nextHit)
