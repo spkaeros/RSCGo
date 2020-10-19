@@ -26,6 +26,7 @@ type PlayerService interface {
 	PlayerLoadRecoverys(uint64) []string
 	PlayerLoad(*world.Player) bool
 	PlayerSave(*world.Player)
+	OnlineCount() int
 }
 
 //NewPlayerServiceSql Returns a new SqlPlayerService to manage the specified *sql.DB instance, configured against
@@ -126,6 +127,42 @@ func (s *sqlService) PlayerNameExists(username string) bool {
 	}
 	defer stmt.Close()
 	return stmt.Next()
+}
+
+//OnlineCount Returns number of online players total.
+func (s *sqlService) OnlineCount() int {
+	database := s.connect(context.Background())
+	// defer database.Close()
+	stmt, err := database.QueryContext(context.Background(), "SELECT COUNT(id) FROM player WHERE loggedIn=TRUE")
+	if err != nil {
+		log.Info.Println("UsernameTaken: Could not query player profile information:", err)
+		// return true just to be safe since we could not check
+		return -1
+	}
+
+	defer stmt.Close()
+	if stmt.Next() {
+		var online int
+		stmt.Scan(&online)
+		return online
+	}
+
+	return 0
+}
+
+func (s *sqlService) PlayerUpdateStatus(id int, in bool) {
+	database := s.connect(context.Background())
+	result, err := database.ExecContext(context.Background(), "UPDATE player SET loggedIn=$1 WHERE id=$2", in, id)
+	if err != nil {
+		log.Info.Println("Load error: Could not prepare statement:", err)
+		return
+	}
+	count, err := result.RowsAffected()
+	if count <= 0 || err != nil {
+		log.Info.Println("PlayerUpdateStatus: Could not update player status:", err)
+		return
+	}
+	return
 }
 
 //PlayerValidLogin Returns true if it finds a user with this username hash and password in the database, otherwise returns false
@@ -393,6 +430,7 @@ func (s *sqlService) PlayerLoad(player *world.Player) bool {
 	if err := loadStats(); err != nil {
 		return false
 	}
+	s.PlayerUpdateStatus(player.DatabaseIndex, true)
 	return true
 }
 
@@ -616,6 +654,10 @@ func (s *sqlService) PlayerSave(player *world.Player) {
 		insertBank(item.ID, item.Amount)
 		return true
 	})
+	_, err = tx.Exec("UPDATE player SET loggedIn=$1 WHERE id=$2", false, player.DatabaseIndex)
+	if err != nil {
+		log.Info.Println("Load error: Could not prepare statement:", err)
+	}
 
 	if err := tx.Commit(); err != nil {
 		log.Warning.Println("Save(): Error committing transaction for player update:", err)

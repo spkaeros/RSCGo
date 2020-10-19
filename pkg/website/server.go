@@ -17,24 +17,25 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
+	"github.com/spkaeros/rscgo/pkg/db"
 )
 
 var muxCtx = http.NewServeMux()
 
 type InformationData struct {
-	PageTitle string
-	Title     string
-	Owner     string
-	Copyright string
+	PageTitle       string
+	Title           string
+	Owner, OwnerBio string
+	Copyright       string
 }
 
 var Information = InformationData{
 	PageTitle: "",
 	Title:     "RSCGo",
+	OwnerBio:  "https://github.com/spkaeros/",
 	Owner:     "Zach Knight",
-	Copyright: "2019-2020, Zach Knight and the 2003scape team",
+	Copyright: "2019-2020",
 }
 
 func (s InformationData) ToLower(s2 string) string {
@@ -42,7 +43,7 @@ func (s InformationData) ToLower(s2 string) string {
 }
 
 func (s InformationData) OnlineCount() int {
-	return world.Players.Size()
+	return db.DefaultPlayerService.OnlineCount()
 }
 
 //writeContent is a helper function to write to a http.ResponseWriter easily with error handling
@@ -82,15 +83,21 @@ func init() {
 func render(w http.ResponseWriter, r *http.Request) {
 	name := strings.Replace(filepath.Clean(r.URL.Path), ".ws", ".html", -1)
 	file := filepath.Join("website", name)
+	if strings.HasSuffix(file, "/game") {
+		file += "/index.html"
+	}
+	if strings.HasSuffix(file, "/game/") {
+		file += "index.html"
+	}
 
 	// check template files cache
 	tmpl, ok := pageTemplates[name]
 	if !ok {
 		// Return a 404 if the template doesn't exist or the request is for a directory
 		info, err := os.Stat(file)
-		if (err != nil && os.IsNotExist(err)) || info.IsDir() {
-			log.Warning.Printf("Website page: '%s' could not be served as HTML: (File exists:%b; File is directory:%b)\n", file, os.IsNotExist(err), !os.IsNotExist(err))
-			log.Error.Println(err)
+		if err != nil && os.IsNotExist(err) {
+			
+			log.Errorf("Website error at '%v' (exists:%v; directory:%v):\t%v\n", file, os.IsNotExist(err), info != nil && info.IsDir(), err)
 			http.NotFound(w, r)
 			return
 		}
@@ -123,12 +130,13 @@ func render(w http.ResponseWriter, r *http.Request) {
 // Note: This is a blocking call, it will not return to caller.
 func Start() {
 	mime.AddExtensionType(".js", "application/javascript; charset=utf-8")
+	mime.AddExtensionType(".wasm", "application/wasm; charset=utf-8")
 	muxCtx.HandleFunc("/", render)
 	muxCtx.HandleFunc("/game/", render)
-	muxCtx.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./data/client"))))
+	// muxCtx.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./data/client"))))
+	muxCtx.Handle("/game/static/", http.StripPrefix("/game/static/", http.FileServer(http.Dir("./website/game"))))
 	bindGameProcManager()
-	err := http.ListenAndServe(":8080", muxCtx)
-	if err != nil {
+	if err := http.ListenAndServe(":8080", muxCtx); err != nil {
 		log.Error.Println("Could not bind to website port:", err)
 		os.Exit(99)
 	}

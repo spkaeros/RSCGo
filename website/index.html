@@ -1,10 +1,11 @@
 {{define "header"}}
 		<title>{{.Title}} by {{.Owner}}</title>
 {{end}}
+{.PageTitle="hi"}
 {{define "content"}}
 		<div class="rsc-wrap">
 			<img class="rsc-logo" src="/res/{{ .ToLower .Title }}.webp" alt="{{.Title}} logo">
-			<p class="rsc-player-count">There are currently {{.OnlineCount}} people playing!</p>
+			<p class="rsc-player-count">There are currently {{ .OnlineCount }} people playing!</p>
 			<section class="rsc-button-wheel">
 				<a class="rsc-button rsc-play-button" href="/play.ws">Play Game</a>
 				<a class="rsc-button rsc-stone-button" href="/manual.ws">Manual</a>
