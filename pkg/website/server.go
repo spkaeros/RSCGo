@@ -17,8 +17,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/db"
+	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 var muxCtx = http.NewServeMux()
@@ -96,7 +96,7 @@ func render(w http.ResponseWriter, r *http.Request) {
 		// Return a 404 if the template doesn't exist or the request is for a directory
 		info, err := os.Stat(file)
 		if err != nil && os.IsNotExist(err) {
-			
+
 			log.Errorf("Website error at '%v' (exists:%v; directory:%v):\t%v\n", file, os.IsNotExist(err), info != nil && info.IsDir(), err)
 			http.NotFound(w, r)
 			return

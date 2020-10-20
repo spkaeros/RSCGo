@@ -46,6 +46,23 @@ const (
 	TickMillis = time.Millisecond * 640
 )
 
+//run Helper function for concurrently running a bunch of functions and waiting for them to complete
+func run(fns ...func()) {
+	w := &sync.WaitGroup{}
+	do := func(fn func()) {
+		w.Add(1)
+		go func(fn func()) {
+			defer w.Done()
+			fn()
+		}(fn)
+	}
+
+	for _, fn := range fns {
+		do(fn)
+	}
+	w.Wait()
+}
+
 type (
 	Flags struct {
 		Verbose   []bool `short:"v" long:"verbose" description:"Display more verbose output"`
@@ -114,6 +131,9 @@ func main() {
 		return
 	}
 
+	//	run(db.ConnectEntityService, func() {
+	//		db.DefaultPlayerService, world.DefaultPlayerService = db.NewPlayerServiceSql(), db.NewPlayerServiceSql()
+	//	})
 	run(game.UnmarshalPackets)
 
 	if cliFlags.Port > 0 {
@@ -195,23 +215,6 @@ func readPacket(player *world.Player) (*net.Packet, error) {
 		frame = append(frame, header[1])
 	}
 	return net.NewPacket(frame[0], frame[1:]), nil
-}
-
-//run Helper function for concurrently running a bunch of functions and waiting for them to complete
-func run(fns ...func()) {
-	w := &sync.WaitGroup{}
-	do := func(fn func()) {
-		w.Add(1)
-		go func(fn func()) {
-			defer w.Done()
-			fn()
-		}(fn)
-	}
-
-	for _, fn := range fns {
-		do(fn)
-	}
-	w.Wait()
 }
 
 func (s *Server) tlsAccept(l stdnet.Listener) *world.Player {
@@ -416,6 +419,7 @@ func (s *Server) Bind(port int) bool {
 					continue
 				}
 
+				s.handlePackets(player)
 				if player.Reconnecting() {
 					sendReply(handshake.ResponseReconnected, "")
 					continue
@@ -442,20 +446,20 @@ func (s *Server) handlePackets(p *world.Player) {
 		for {
 			select {
 			default:
-				return
+				// return
 			case p1, ok := <-p.InQueue:
 				if !ok || p1 == nil {
-					return
+					continue
 				}
 				// script packet handlers are the most `modern` solution, and will be the default selected for any incoming packet
 				if handler := world.PacketTriggers[p1.Opcode]; handler != nil {
 					handler(p, p1)
-					return
+					continue
 				}
 				// This is old legacy go code handlers that are deprecated and being replaced with the aforementioned scripting API
 				if handlePacket := game.Handler(p1.Opcode); handlePacket != nil {
 					handlePacket(p, p1)
-					return
+					continue
 				}
 			}
 		}
@@ -471,7 +475,7 @@ func (s *Server) Start() {
 			if p == nil {
 				return
 			}
-			s.handlePackets(p)
+
 			go p.Tickables.Call(interface{}(p))
 			if fn := p.TickAction(); fn != nil && !fn() {
 				p.ResetTickAction()
@@ -479,42 +483,77 @@ func (s *Server) Start() {
 			p.TraversePath()
 		})
 
+		wait := sync.WaitGroup{}
+		world.Npcs.RangeNpcs(func(n *world.NPC) bool {
+			wait.Add(1)
+			go func() {
+				defer wait.Done()
+				if n.Busy() || n.IsFighting() || n.Equals(world.DeathPoint) {
+					return
+				}
+				if n.MoveTick > 0 {
+					n.MoveTick--
+				}
+				if world.Chance(25) && n.PathSteps <= 0 && n.MoveTick <= 0 {
+					// move some amount between 2-15 tiles, moving 1 tile per tick
+					n.PathSteps = int(n.Isaac().Float64()*15-2) + 2
+					// wait some amount between 25-50 ticks before doing this again
+					n.MoveTick = int(n.Isaac().Float64()*50-25) + 25
+				}
+				// wander aimlessly until we run out of scheduled steps
+				n.TraversePath()
+			}()
+			return false
+		})
+		wait.Wait()
+
 		// world.Players.Range(func(p *world.Player) {
 		// if p == nil {
 		// return
 		// }
 		//
 		// })
-		world.UpdateNPCPositions()
 
 		world.Players.AsyncRange(func(p *world.Player) {
 			if p == nil {
 				return
 			}
-			if positions := world.PlayerPositions(p); positions != nil {
+			positions := world.PlayerPositions(p)
+			npcUpdates := world.NPCPositions(p)
+			appearances := world.PlayerAppearances(p)
+			npcEvents := world.NpcEvents(p)
+			objectUpdates := world.ObjectLocations(p)
+			boundaryUpdates := world.BoundaryLocations(p)
+			itemUpdates := world.ItemLocations(p)
+			clearDistantChunks := world.ClearDistantChunks(p)
+			if positions != nil {
 				p.SendPacket(positions)
 			}
-			if appearances := world.PlayerAppearances(p); appearances != nil {
+			if npcUpdates != nil {
+				p.SendPacket(npcUpdates)
+			}
+			p.Writer.Flush()
+			if appearances != nil {
 				p.SendPacket(appearances)
 			}
-			if npcUpdates := world.NPCPositions(p); npcUpdates != nil {
-				p.SendPacket(npcUpdates)
+			if npcEvents != nil {
+				p.SendPacket(npcEvents)
 			}
-			if npcUpdates := world.NpcEvents(p); npcUpdates != nil {
-				p.SendPacket(npcUpdates)
-			}
-			if objectUpdates := world.ObjectLocations(p); objectUpdates != nil {
+			p.Writer.Flush()
+			if objectUpdates != nil {
 				p.SendPacket(objectUpdates)
 			}
-			if boundaryUpdates := world.BoundaryLocations(p); boundaryUpdates != nil {
+			if boundaryUpdates != nil {
 				p.SendPacket(boundaryUpdates)
 			}
-			if itemUpdates := world.ItemLocations(p); itemUpdates != nil {
+			if itemUpdates != nil {
 				p.SendPacket(itemUpdates)
 			}
-			if clearDistantChunks := world.ClearDistantChunks(p); clearDistantChunks != nil {
+			p.Writer.Flush()
+			if clearDistantChunks != nil {
 				p.SendPacket(clearDistantChunks)
 			}
+			p.Writer.Flush()
 		})
 
 		world.Players.AsyncRange(func(p *world.Player) {
@@ -522,10 +561,10 @@ func (s *Server) Start() {
 				return
 			}
 			go p.PostTickables.Call(interface{}(p))
-			p.ResetRegionRemoved()
-			p.ResetRegionMoved()
-			p.ResetSpriteUpdated()
-			p.ResetAppearanceChanged()
+			// p.ResetRegionRemoved()
+			// p.ResetRegionMoved()
+			// p.ResetSpriteUpdated()
+			// p.ResetAppearanceChanged()
 			// p.Writer.Flush()
 		})
 		world.ResetNpcUpdateFlags()

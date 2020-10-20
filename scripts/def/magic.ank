@@ -177,7 +177,7 @@ func fireMissile(player, spell, dmg) {
 		p.QueueProjectile(player, spell.target, 1)
 	}
 	player.QueueProjectile(player, spell.target, 1)
-	spell.target.Damage(hit)
+	spell.target.DamageFrom(player, hit, 1)
 	targetp = asPlayer(spell.target)
 	if targetp != nil {
 		targetp.Message("Warning! " + player.Username() + " is shooting at you!")

@@ -52,7 +52,7 @@ type MobileEntity interface {
 	ResetSpriteUpdated()
 	ResetAppearanceChanged()
 	Killed(MobileEntity)
-	Damage(int)
+	DamageFrom(MobileEntity, int, int)
 	StyleBonus(int) int
 	PrayerModifiers() [3]float64
 	Skills() *SkillTable

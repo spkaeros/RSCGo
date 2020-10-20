@@ -14,10 +14,10 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/spkaeros/rscgo/pkg/website"
 	"github.com/spkaeros/rscgo/pkg/config"
-	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/db"
+	"github.com/spkaeros/rscgo/pkg/log"
+	"github.com/spkaeros/rscgo/pkg/website"
 )
 
 //run Helper function for concurrently running a bunch of functions and waiting for them to complete
@@ -51,19 +51,19 @@ func main() {
 	config.TomlConfig.Port = 43594 // +1 for websockets
 
 	// if _, err := flags.Parse(cliFlags); err != nil {
-		// log.Warn("Error parsing command arguments:", cliFlags)
-		// return
+	// log.Warn("Error parsing command arguments:", cliFlags)
+	// return
 	// }
 	// Default to config.toml for config file
 	// if len(cliFlags.Config) == 0 {
-		// cliFlags.Config = "config.toml"
+	// cliFlags.Config = "config.toml"
 	// }
 	// if _, err := toml.DecodeFile(cliFlags.Config, &config.TomlConfig); err != nil {
-		// log.Warn("Error decoding server TOML configuration file `" + cliFlags.Config + "`:", err)
-		// log.Fatal("Error decoding server TOML configuration file:", "`" + cliFlags.Config + "`")
-		// log.Fatal(err)
-		// os.Exit(101)
-		// return
+	// log.Warn("Error decoding server TOML configuration file `" + cliFlags.Config + "`:", err)
+	// log.Fatal("Error decoding server TOML configuration file:", "`" + cliFlags.Config + "`")
+	// log.Fatal(err)
+	// os.Exit(101)
+	// return
 	// }
 
 	// TODO: data backend default to JSON or BSON maybe?

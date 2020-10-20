@@ -19,6 +19,10 @@ import (
 func init() {
 	game.AddHandler("chatmsg", func(player *world.Player, p *net.Packet) {
 		for _, p1 := range player.NearbyPlayers() {
+			p1, ok := p1.(*world.Player)
+			if !ok {
+				return
+			}
 			if !p1.ChatBlocked() || p1.FriendsWith(player.UsernameHash()) {
 				//p1.SendPacket(world.PlayerChat(player.Index, string(p.FrameBuffer)))
 				p1.QueuePublicChat(player, string(p.FrameBuffer))

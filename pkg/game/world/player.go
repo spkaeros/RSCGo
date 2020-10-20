@@ -380,17 +380,12 @@ func (p *Player) TraversePath() {
 	if path == nil {
 		return
 	}
-	if p.Point().LongestDelta(path.nextTile()) == 0 {
+	if p.Point().Equals(path.nextTile()) {
 		path.CurrentWaypoint++
 	}
 	dst := p.NextTileToward(path.nextTile())
 
-	if p.FinishedPath() {
-		p.ResetPath()
-		return
-	}
-
-	if !p.Reachable(dst) {
+	if p.FinishedPath() || !p.Reachable(dst) {
 		p.ResetPath()
 		return
 	}
@@ -440,7 +435,14 @@ func (l Location) ReachableCoords(x, y int) bool {
 	cur := l.Clone()
 	end := NewLocation(x, y)
 	for !cur.Equals(end) {
-		next := cur.ClippedStep(cur.DirectionToward(end))
+		dir := cur.DirectionToward(end)
+		if dir == NorthWest || dir == SouthWest {
+			dir = West
+		}
+		if dir == NorthEast || dir == SouthEast {
+			dir = East
+		}
+		next := cur.ClippedStep(dir)
 		if next.Equals(cur) || !check(cur, next) {
 			return false
 		}
@@ -622,7 +624,7 @@ func (p *Player) SetFatigue(i int) {
 }
 
 //NearbyPlayers Returns nearby players.
-func (p *Player) NearbyPlayers() (players []*Player) {
+func (p *Player) NearbyPlayers() (players mobSet) {
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.Players.RangePlayers(func(p1 *Player) bool {
 			if p.Near(p1, 15) && p.ServerIndex() != p1.ServerIndex() {
@@ -636,10 +638,10 @@ func (p *Player) NearbyPlayers() (players []*Player) {
 }
 
 //NearbyNpcs Returns nearby NPCs.
-func (p *Player) NearbyNpcs() (npcs []*NPC) {
+func (p *Player) NearbyNpcs() (npcs mobSet) {
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.NPCs.RangeNpcs(func(n *NPC) bool {
-			if p.Near(n, 15) && !n.Point().Equals(DeathPoint) {
+			if p.Near(n, 15) && !n.VarBool("removed", false) {
 				npcs = append(npcs, n)
 			}
 			return false
@@ -689,7 +691,7 @@ func (p *Player) NewPlayers() (players *MobList) {
 	list := &MobList{}
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.Players.RangePlayers(func(p1 *Player) bool {
-			if !p.LocalPlayers.Contains(p1) && p != p1 && p.Near(p1, 15) {
+			if !p.LocalPlayers.Contains(p1) && p != p1 && !list.Contains(p1) && p.Near(p1, 15) {
 				list.Add(p1)
 			}
 			return false
@@ -700,17 +702,18 @@ func (p *Player) NewPlayers() (players *MobList) {
 }
 
 //NewNPCs Returns nearby NPCs that this player is unaware of.
-func (p *Player) NewNPCs() (npcs []*NPC) {
+func (p *Player) NewNPCs() (npcs *MobList) {
+	list := NewMobList()
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.NPCs.RangeNpcs(func(n *NPC) bool {
-			if !n.VarBool("removed", false) && !p.LocalNPCs.Contains(n) && p.Near(n, 15) {
-				npcs = append(npcs, n)
+			if !list.Contains(n) && !p.LocalNPCs.Contains(n) && p.Near(n, 15) && !n.VarBool("removed", false) {
+				list.Add(n)
 			}
 			return false
 		})
 	}
 
-	return
+	return list
 }
 
 //SetTradeTarget Sets the variable for the index of the player we are trying to trade
@@ -855,7 +858,7 @@ func (p *Player) Destroy() {
 	if err := p.Writer.Flush(); err != nil {
 		log.Warn("Failed to flush player socket!")
 	}
-	// p.PostTickables.Add(func() bool {
+	p.PostTickables.Add(func() bool {
 		p.killer.Do(func() {
 			if err := p.Socket.Close(); err != nil {
 				log.Warn("Couldn't close socket:", err)
@@ -875,8 +878,8 @@ func (p *Player) Destroy() {
 			}
 			log.Debug("Unregistered:{'" + p.CurrentIP() + "'}")
 		})
-		// return true
-	// })
+		return true
+	})
 }
 
 func (p *Player) AtObject(object *Object) bool {
@@ -1460,40 +1463,35 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 	p.SetVar("targetMob", defender)
 	p.SetVar("fightTarget", defender)
 	defender.SessionCache().SetVar("fightTarget", p)
-	defender.SetRegionRemoved()
-	p.Teleport(defender.X(), defender.Y())
-	p.SetLocation(defender.Point(), true)
-	p.AddState(StateFighting)
+	attacker.SessionCache().SetVar("fightTarget", p)
+	attacker.AddState(StateFighting)
 	defender.AddState(StateFighting)
-	p.SetDirection(RightFighting)
+	attacker.SetDirection(RightFighting)
 	defender.SetDirection(LeftFighting)
+	defender.SetRegionRemoved()
+	attacker.SetLocation(defender.Clone(), true)
 	tasks.Schedule(2, func() bool {
 		if (defender.IsPlayer() && !AsPlayer(defender).Connected()) || !defender.HasState(StateFighting) ||
-			!p.HasState(StateFighting) || !p.Connected() || p.LongestDeltaCoords(defender.X(), defender.Y()) > 0 {
+			!attacker.HasState(StateFighting) || (attacker.IsPlayer() && !AsPlayer(attacker).Connected()) || !p.Near(defender, 0) {
 			// target is a disconnected player, we are disconnected,
 			// one of us is not in a fight, or we are distanced somehow unexpectedly.  Kill tasks.
 			// quickfix for possible bugs I imagined will exist
-			p.ResetFighting()
+			attacker.ResetFighting()
 			defender.ResetFighting()
 			return true
 		}
 		defer func() {
+			attacker.SessionCache().Inc("fightRound", 1)
 			attacker, defender = defender, attacker
 		}()
-		attacker.SessionCache().Inc("fightRound", 1)
 
 		// Paralyze Monster blocker here
-		if attacker.IsNpc() && defender.IsPlayer() && AsPlayer(defender).PrayerActivated(12) {
+		if defenderp := AsPlayer(defender); defenderp != nil && attacker.IsNpc() && defenderp.PrayerActivated(12) {
 			return false
 		}
 
 		nextHit := int(math.Min(float64(defender.Skills().Current(entity.StatHits)), float64(attacker.MeleeDamage(defender))))
-		if npc := AsNpc(defender); npc != nil {
-		npc.DamageFrom(attacker, nextHit, 0)
-		} else {
-			defender.Skills().DecreaseCur(entity.StatHits, nextHit)
-			defender.Damage(nextHit)
-		}
+		defender.DamageFrom(attacker, nextHit, 0)
 		if defender.Skills().Current(entity.StatHits) <= 0 {
 			if attackerp := AsPlayer(attacker); attackerp != nil {
 				// AsPlayer(attackerp).PlaySound("victory")
@@ -1537,7 +1535,7 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 	}
 	p.SendPrayers()
 	p.SendStats()
-	p.SetDirection(North)
+	p.SetDirection(NorthWest)
 
 	deathItems := []*GroundItem{NewGroundItem(DefaultDrop, 1, p.X(), p.Y())}
 	if !p.IsDueling() {
@@ -1562,11 +1560,11 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 		p.ResetDuel()
 	}
 
-	if killer != nil && killer.IsPlayer() {
-		killerp := AsPlayer(killer)
+	if killerp := AsPlayer(killer); killerp != nil {
 		killerp.DistributeMeleeExp(p.ExperienceReward() / 4)
 		killerp.Message("You have defeated " + p.Username() + "!")
 	}
+
 	for i, v := range deathItems {
 		// becomes universally visible on NPCs, or temporarily private otherwise
 		if i == 0 || p.Inventory.RemoveByID(v.ID, v.Amount) > -1 {

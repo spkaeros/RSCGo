@@ -94,9 +94,11 @@ func init() {
 		"teleport": reflect.ValueOf(func(target *Player, x, y int, bubble bool) {
 			if bubble {
 				target.SendPacket(TeleBubble(0, 0))
-				for _, nearbyPlayer := range target.NearbyPlayers() {
-					nearbyPlayer.SendPacket(TeleBubble(target.X()-nearbyPlayer.X(), target.Y()-nearbyPlayer.Y()))
-				}
+				nearList := &MobList{mobSet: target.NearbyPlayers()}
+				nearList.RangePlayers(func(p1 *Player) bool {
+					p1.SendPacket(TeleBubble(target.X()-p1.X(), target.Y()-p1.Y()))
+					return false
+				})
 			}
 			plane := target.Plane()
 			target.ResetPath()
@@ -295,7 +297,6 @@ func init() {
 				PacketTriggers[byte(ident.(int))] = fn
 			default:
 				log.Debugf("%v, %T", ident, ident)
-
 			}
 		}),
 		"npcAttack": reflect.ValueOf(func(pred NpcActionPredicate, fn func(player *Player, npc *NPC)) {
@@ -380,8 +381,15 @@ func ScriptEnv() *env.Env {
 	e.Define("newNpc", NewNpc)
 	e.Define("newObject", NewObject)
 	e.Define("base37", strutil.Base37.Encode)
+
 	e.Define("rand", func(low, high int) int {
-		return int(rand.Rng.Float64()*float64(high+1)) - low
+		return int((rand.Rng.Float64())*float64(high-low+1)) + low
+	})
+	e.Define("randExcl", func(low, high int) int {
+		return int((rand.Rng.Float64())*float64(high-low)) + low
+	})
+	e.Define("randIncl", func(low, high int) int {
+		return int((rand.Rng.Float64())*float64(high-low+1)) + low
 	})
 
 	e.Define("NORTH", North)
