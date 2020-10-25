@@ -10,6 +10,7 @@ import (
 
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/isaac"
+	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/log"
 	rscRand "github.com/spkaeros/rscgo/pkg/rand"
 
@@ -204,20 +205,6 @@ func (m *PlayerList) AsyncRange(fn func(*Player)) {
 		}()
 	})
 	w.Wait()
-	// m.RLock()
-	//
-	// for _, p := range m.playerList {
-	// if p == nil {
-	// continue
-	// }
-	// w.Add(1)
-	// go func() {
-	// fn(p)
-	// w.Done()
-	// }()
-	// }
-	// m.RUnlock()
-	// w.Wait()
 }
 
 //region Represents a 48x48 section of map.  The purpose of this is to keep track of entities in the entire world without having to allocate tiles individually, which would make search algorithms slower and utilizes a great deal of memory.
@@ -284,8 +271,8 @@ func AddItem(i *GroundItem) {
 //GetItem Returns the item at x,y with the specified id.  Returns nil if it can not find the item.
 func GetItem(x, y, id int) *GroundItem {
 	region := Region(x, y)
-	region.Items.lock.RLock()
-	defer region.Items.lock.RUnlock()
+	region.Items.RLock()
+	defer region.Items.RUnlock()
 	for _, i := range region.Items.set {
 		if i, ok := i.(*GroundItem); ok {
 			if i.ID == id && i.X() == x && i.Y() == y {
@@ -488,32 +475,27 @@ func ReplaceObject(old *Object, newID int) *Object {
 }
 
 //GetAllObjects Returns a slice containing all objects in the game
-func GetAllObjects() (list []*Object) {
+func GetAllObjects() (list []entity.Entity) {
 	regionLock.RLock()
 	defer regionLock.RUnlock()
-	for x := 0; x < MaxX; x += RegionSize {
-		for y := 0; y < MaxY; y += RegionSize {
-			// if r := regions[x/RegionSize][y/RegionSize]; r != nil {
-			r := Region(x, y)
-			r.Objects.lock.RLock()
-			for _, o := range r.Objects.set {
-				if o, ok := o.(*Object); ok {
-					list = append(list, o)
-				}
+	for _, xR := range regions {
+		for _, yR := range xR {
+			if yR != nil {
+				yR.Objects.Range(func(e entity.Entity) {
+					list = append(list, e)
+				})
 			}
-			r.Objects.lock.RUnlock()
-			// }
 		}
+			
 	}
-
-	return
+	return list
 }
 
 //GetObject If there is an object at these coordinates, returns it.  Otherwise, returns nil.
 func GetObject(x, y int) *Object {
 	r := Region(x, y)
-	r.Objects.lock.RLock()
-	defer r.Objects.lock.RUnlock()
+	r.Objects.RLock()
+	defer r.Objects.RUnlock()
 	for _, o := range r.Objects.set {
 		if o, ok := o.(*Object); ok {
 			if o.X() == x && o.Y() == y {
@@ -677,7 +659,7 @@ func BoundedChance(percent float64, minPercent, maxPercent float64) bool {
 	if minPercent > maxPercent {
 		maxPercent, minPercent = minPercent, maxPercent
 	}
-	return rscRand.Rng.Float64() <= math.Max(minPercent, math.Min(maxPercent, percent))/maxPercent
+	return int(rscRand.Source().Uint8()) <= int((math.Max(minPercent, math.Min(maxPercent, percent))/maxPercent)*256.0)
 }
 
 //Chance should return true (percent)% of the time, and false (100-percent)% of the time.
@@ -694,7 +676,7 @@ type IntProbabilitys = map[int]float64
 //Statistical
 func Statistical(rng *rand.Rand, options IntProbabilitys) int {
 	if rng == nil {
-		rng = rand.New(isaac.New(uint64(time.Now().UnixNano())))
+		rng = rand.New(isaac.New(uint32(time.Now().UnixNano())))
 	}
 
 	total := 0.0

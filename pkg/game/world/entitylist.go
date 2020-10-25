@@ -1,8 +1,8 @@
 package world
 
 import (
-	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"sync"
+	"github.com/spkaeros/rscgo/pkg/game/entity"
 )
 
 //Entity A stationary scene entity within the game world.
@@ -26,19 +26,19 @@ func (e *Entity) AtLocation(location Location) bool {
 
 //entityList Represents a entityList of scene entities.
 type entityList struct {
-	set  []interface{}
-	lock sync.RWMutex
+	set  []entity.Entity
+	sync.RWMutex
 }
 
 //NearbyPlayers creates a slice of *Player and populates it with players within p's view area that are in this region,
 // and returns it.
-func (l *entityList) NearbyPlayers(e entity.Entity) []*Player {
-	l.lock.RLock()
-	defer l.lock.RUnlock()
-	var players []*Player
+func (l *entityList) NearbyPlayers(e entity.MobileEntity) []entity.MobileEntity {
+	l.RLock()
+	defer l.RUnlock()
+	var players []entity.MobileEntity
 	for _, v := range l.set {
-		if v, ok := v.(*Player); ok && v.ServerIndex() != e.ServerIndex() && e.LongestDelta(v.Point()) < 16 {
-			players = append(players, v)
+		if p, ok := v.(*Player); ok && p.ServerIndex() != e.ServerIndex() && p.Near(e, e.SessionCache().VarInt("viewRadius", 16)) {
+			players = append(players, p)
 		}
 	}
 	return players
@@ -46,59 +46,74 @@ func (l *entityList) NearbyPlayers(e entity.Entity) []*Player {
 
 //NearbyNpcs creates a slice of *NPC and populates it with npcs within p's view area that are in this region,
 // and returns it.
-func (l *entityList) NearbyNpcs(e entity.Entity) []*NPC {
-	l.lock.RLock()
-	defer l.lock.RUnlock()
-	var npcs []*NPC
+func (l *entityList) NearbyNpcs(e entity.MobileEntity) []entity.MobileEntity {
+	l.RLock()
+	defer l.RUnlock()
+	var npcs []entity.MobileEntity
 	for _, v := range l.set {
-		if v, ok := v.(*NPC); ok && e.LongestDelta(v.Point()) < 16 {
-			npcs = append(npcs, v)
+		if n, ok := v.(*NPC); ok && n.Near(e, e.SessionCache().VarInt("viewRadius", 16)) {
+			npcs = append(npcs, n)
 		}
 	}
+	
 	return npcs
 }
 
 //NearbyObjects creates a slice of *Object and populates it with objects within p's view area that are in this region,
 // and returns it.
-func (l *entityList) NearbyObjects(e entity.Entity) []entity.Entity {
-	l.lock.RLock()
-	defer l.lock.RUnlock()
+func (l *entityList) NearbyObjects(e entity.MobileEntity) []entity.Entity {
+	l.RLock()
+	defer l.RUnlock()
 	var objects []entity.Entity
 	for _, o1 := range l.set {
-		if o1, ok := o1.(entity.Entity); ok && e.LongestDelta(o1) < 21 {
-			objects = append(objects, o1)
+		if o, ok := o1.(*Object); ok && o.Near(e, e.SessionCache().VarInt("viewRadius", 16)) {
+			objects = append(objects, o)
 		}
 	}
 	return objects
 }
 
+//NearbyObjects creates a slice of *Object and populates it with objects within p's view area that are in this region,
+// and returns it.
+func (l *entityList) Range(fn func(entity.Entity)) {
+	l.RLock()
+	defer l.RUnlock()
+	for _, o1 := range l.set {
+		fn(o1)
+	}
+}
+
 //NearbyItems creates a slice of *GroundItem and populates it with ground items within p's view area that are in this region,
 // and returns it.
-func (l *entityList) NearbyItems(p *Player) []*GroundItem {
-	l.lock.RLock()
-	defer l.lock.RUnlock()
-	var items []*GroundItem
+func (l *entityList) NearbyItems(e entity.MobileEntity) []entity.Entity {
+	l.RLock()
+	defer l.RUnlock()
+	var items []entity.Entity
 	for _, i := range l.set {
-		if i, ok := i.(*GroundItem); ok && i.VisibleTo(p) && p.WithinRange(i.Location, p.VarInt("viewRadius", 16)) {
+		if i, ok := i.(*GroundItem); ok && i.Near(e, e.SessionCache().VarInt("viewRadius", 16)) {
+			if p := AsPlayer(e); p != nil && !i.VisibleTo(p) {
+				continue
+			}
 			items = append(items, i)
 		}
 	}
+	
 	return items
 }
 
 //Add puts e entity into the collection set.
 func (l *entityList) Add(e entity.Entity) {
-	l.lock.Lock()
-	defer l.lock.Unlock()
+	l.Lock()
+	defer l.Unlock()
 	l.set = append(l.set, e)
 }
 
 //Contains checks the collection set for e and returns true if it finds it.
 func (l *entityList) Contains(e entity.Entity) bool {
-	l.lock.RLock()
-	defer l.lock.RUnlock()
+	l.RLock()
+	defer l.RUnlock()
 	for _, v := range l.set {
-		if v == e {
+		if (v.ServerIndex() == e.ServerIndex() && v.Type() == e.Type()) || e == v {
 			// Pointers should be comparable?
 			return true
 		}
@@ -109,8 +124,8 @@ func (l *entityList) Contains(e entity.Entity) bool {
 
 //Remove removes e from the collection set.
 func (l *entityList) Remove(e entity.Entity) {
-	l.lock.Lock()
-	defer l.lock.Unlock()
+	l.Lock()
+	defer l.Unlock()
 	elems := l.set
 	for i, v := range elems {
 		if v == e {

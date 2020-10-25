@@ -35,7 +35,7 @@ type WriteFlusher interface {
 type Packet struct {
 	Opcode      byte
 	FrameBuffer []byte
-	readIndex   int
+	ReadIndex   int
 	bitIndex    int
 }
 
@@ -54,14 +54,9 @@ func NewReplyPacket(src []byte) *Packet {
 	return &Packet{FrameBuffer: src}
 }
 
-//ReadUint128 Read the next 128-bit integer from the handlers payload.
-func (p *Packet) ReadUint128() (msb uint64, lsb uint64) {
-	if checkError(p.Skip(16)) {
-		return 0, 0
-	}
-	msb = binary.BigEndian.Uint64(p.FrameBuffer[p.readIndex-16:])
-	lsb = binary.BigEndian.Uint64(p.FrameBuffer[p.readIndex-8:])
-	return
+//ReadUint128 Read the next 128-bit integer from the handlers payload, returns it as 2 uint64 words, 
+func (p *Packet) ReadUint128() (lsb uint64, msb uint64) {
+	return p.ReadUint64(), p.ReadUint64()
 }
 
 //ReadUint64 Read the next 64-bit integer from the handlers payload.
@@ -69,7 +64,8 @@ func (p *Packet) ReadUint64() uint64 {
 	if checkError(p.Skip(8)) {
 		return 0
 	}
-	return binary.BigEndian.Uint64(p.FrameBuffer[p.readIndex-8:])
+	// return uint64((p.ReadUint32() << 32) | p.ReadUint32())
+	return binary.BigEndian.Uint64(p.FrameBuffer[p.ReadIndex-8:])
 }
 
 //ReadUint32 Read the next 32-bit integer from the handlers payload.
@@ -77,21 +73,23 @@ func (p *Packet) ReadUint32() int {
 	if checkError(p.Skip(4)) {
 		return 0
 	}
-	return int(binary.BigEndian.Uint32(p.FrameBuffer[p.readIndex-4:]))
+	// return int((p.ReadUint16() << 16) | p.ReadUint16())
+	return int(binary.BigEndian.Uint32(p.FrameBuffer[p.ReadIndex-4:]))
 }
 
 //ReadUint16 Read the next 16-bit integer from the handlers payload.
 func (p *Packet) ReadUint16() int {
+	// return int((p.ReadUint8() << 8) | p.ReadUint8())
 	if checkError(p.Skip(2)) {
 		return 0
 	}
-	return int(binary.BigEndian.Uint16(p.FrameBuffer[p.readIndex-2:]))
+	return int(binary.BigEndian.Uint16(p.FrameBuffer[p.ReadIndex-2:]))
 }
 
 func checkError(err error) bool {
 	if err != nil {
 		debug.PrintStack()
-		log.Warn(err)
+		log.Warn("Packet error:", err)
 		return true
 	}
 	return false
@@ -102,7 +100,7 @@ func (p *Packet) ReadUint8() uint8 {
 	if checkError(p.Skip(1)) {
 		return 0
 	}
-	return p.FrameBuffer[p.readIndex-1] & 0xFF
+	return p.FrameBuffer[p.ReadIndex-1] & 0xFF
 }
 
 func (p *Packet) ReadUByte() byte {
@@ -114,7 +112,7 @@ func (p *Packet) ReadInt8() int8 {
 	if checkError(p.Skip(1)) {
 		return 0
 	}
-	return int8(p.FrameBuffer[p.readIndex-1])
+	return int8(p.FrameBuffer[p.ReadIndex-1])
 }
 
 //ReadBoolean Returns true if the next payload byte isn't 0
@@ -122,7 +120,7 @@ func (p *Packet) ReadBoolean() bool {
 	if checkError(p.Skip(1)) {
 		return false
 	}
-	return p.FrameBuffer[p.readIndex-1] != 0
+	return p.FrameBuffer[p.ReadIndex-1] != 0
 }
 
 func (p *Packet) Read(buf []byte) int {
@@ -131,7 +129,7 @@ func (p *Packet) Read(buf []byte) int {
 		log.Warning.Println("PacketBufferError[OutOfBounds:Read] Tried to read too many bytes (" + strconv.Itoa(n) + ") from read buffer (length " + strconv.Itoa(p.Available()) + ")")
 		return -1
 	}
-	copy(buf, p.FrameBuffer[p.readIndex:])
+	copy(buf, p.FrameBuffer[p.ReadIndex:])
 	if checkError(p.Skip(n)) {
 		return -1
 	}
@@ -140,7 +138,7 @@ func (p *Packet) Read(buf []byte) int {
 
 //Flip Resets the read buffer caret to zero.
 func (p *Packet) Flip() {
-	p.readIndex = 0
+	p.ReadIndex = 0
 }
 
 //Rewind rewinds the reader index by n bytes
@@ -149,11 +147,11 @@ func (p *Packet) Rewind(n int) error {
 		debug.PrintStack()
 		return errors.NewNetworkError("Packet.Skip,BufferOutOfBounds; Rewinding the buffer by less than 0 bytes is not permitted.  Perhaps you need *Packet.Skip ?", false)
 	}
-	if n > p.readIndex {
-		p.readIndex = 0
-		return errors.NewNetworkError("Packet.Skip,BufferOutOfBounds; Tried to rewind reader caret ("+strconv.Itoa(p.readIndex)+") passed the start of the buffer (0)", false)
+	if n > p.ReadIndex {
+		p.ReadIndex = 0
+		return errors.NewNetworkError("Packet.Skip,BufferOutOfBounds; Tried to rewind reader caret ("+strconv.Itoa(p.ReadIndex)+") passed the start of the buffer (0)", false)
 	}
-	p.readIndex -= n
+	p.ReadIndex -= n
 	return nil
 }
 
@@ -164,10 +162,10 @@ func (p *Packet) Skip(n int) error {
 		return errors.NewNetworkError("BufferOutOfBounds; Skipping the buffer by less than 0 bytes is not permitted.  Perhaps you need *Packet.Rewind ?", false)
 	}
 	if p.Available() < n {
-		p.readIndex = p.Length()
-		return errors.NewNetworkError("Packet.Skip,BufferOutOfBounds; Tried to skip reader caret ("+strconv.Itoa(p.readIndex)+") passed the length of the buffer ("+strconv.Itoa(p.Length())+")", false)
+		p.ReadIndex = p.Length()
+		return errors.NewNetworkError("Packet.Skip,BufferOutOfBounds; Tried to skip reader caret ("+strconv.Itoa(p.ReadIndex)+") passed the length of the buffer ("+strconv.Itoa(p.Length())+")", false)
 	}
-	p.readIndex += n
+	p.ReadIndex += n
 	return nil
 }
 
@@ -176,8 +174,8 @@ func (p *Packet) ReadStringN(n int) (val string) {
 	buf := make([]byte, n)
 	readLen := p.Read(buf)
 	if readLen < 0 {
-		p.readIndex = p.Length()
-		return string(p.FrameBuffer[p.readIndex:])
+		p.ReadIndex = p.Length()
+		return string(p.FrameBuffer[p.ReadIndex:])
 	}
 	return string(buf)
 }
@@ -185,19 +183,25 @@ func (p *Packet) ReadStringN(n int) (val string) {
 //ReadString Read the next variable-length C-string from the handlers payload and return it as a Go-string.
 // This will keep reading data until it reaches a string termination byte.
 // String termination bytes in order of precedence:
-// NULL (0x0,'\x00',0), LineFeed (0xA,'\n',10), and space (0x20,' ',32)
+// NULL (hex:0x00, escape-seq:'\x00', decimal:0);
+// NewLine/LineFeed (hex:0xA, escape-seq:'\n', decimal:10)
 func (p *Packet) ReadString() string {
-	availableData := string(p.FrameBuffer[p.readIndex:])
-	for _, separator := range []byte{0x0, 0xA, 0x20} {
-		end := strings.IndexByte(availableData, separator)
+	for _, separator := range []byte{0x00, 0x0A} {
+		end := strings.IndexByte(string(p.FrameBuffer[p.ReadIndex:]), separator)
 		if end <= 0 {
 			continue
 		}
-		_ = p.Skip(end + 1)
-		return availableData[:end]
+		s := p.FrameBuffer[p.ReadIndex:p.ReadIndex+end]
+		if checkError(p.Skip(end+1)) {
+			log.Debug("Error caused by skipping bytes in ReadString")
+		}
+		return string(s)
 	}
-	_ = p.Skip(len(availableData))
-	return availableData
+	s := p.FrameBuffer[p.ReadIndex:]
+	if checkError(p.Skip(len(p.FrameBuffer) - p.ReadIndex)) {
+		log.Debug("Error caused by skipping bytes in ReadString")
+	}
+	return string(s)
 }
 
 func (p *Packet) EnsureCapacity(l int) {
@@ -308,12 +312,15 @@ func (p *Packet) AddBitmask(value int, numBits int) *Packet {
 	bitOffset := 8 - (p.bitIndex & 7)
 	// increment written bits count
 	p.bitIndex += numBits
-	for ((p.bitIndex+7)/8)+1 > len(p.FrameBuffer) {
-		p.FrameBuffer = append(p.FrameBuffer, 0)
+	if numBytes := ((p.bitIndex+7) >> 3)+1; numBytes > len(p.FrameBuffer)-1 {
+		p.FrameBuffer = append(p.FrameBuffer, make([]byte, numBytes-len(p.FrameBuffer))...)
 	}
+	// for ((p.bitIndex+7)/8) > len(p.FrameBuffer)-1 {
+		// p.FrameBuffer = append(p.FrameBuffer, 0)
+	// }
 	// Write our value, using some bitwise tricks to only take up the specified bits
 	for numBits > bitOffset {
-		// prepare the byte we're writing into for the new data
+		// prepare the byte we're writing into for the new data, by masking away the bits we will not need
 		p.FrameBuffer[byteOffset] &= byte(^bitmasks[bitOffset])
 		// append bits of our value that fit onto byte
 		p.FrameBuffer[byteOffset] |= byte(value >> uint(numBits-bitOffset&int(bitmasks[bitOffset])))
@@ -344,7 +351,7 @@ func (p *Packet) Length() int {
 
 //Available returns available read buffer bytes count.
 func (p *Packet) Available() int {
-	return p.Length() - p.readIndex
+	return p.Length() - p.ReadIndex
 }
 
 //Capacity returns the byte capacity left for this buffer
@@ -354,10 +361,6 @@ func (p *Packet) Capacity() int {
 
 func (p *Packet) String() string {
 	return fmt.Sprintf("Packet{opcode:%d,available:%d,capacity:%d,payload:%v}", p.Opcode, p.Available(), p.Capacity(), p.FrameBuffer)
-}
-
-func (p *Packet) ReadIndex() int {
-	return p.readIndex
 }
 
 func (p *Packet) WriteIndex() int {

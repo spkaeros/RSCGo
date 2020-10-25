@@ -3,7 +3,7 @@
 # TOML file defining the data backends for the entity unmarshaller services 
 dbio_defs = './data/dbio.conf'
 # The version number of the latest client release.
-version = 204
+version = 235
 # TCP/IP port number to listen for incoming connections on.
 port = 43594
 # Maximum number of players that this server can support.

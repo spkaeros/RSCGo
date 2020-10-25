@@ -55,7 +55,7 @@ const (
 )
 
 const (
-	SyncInit   = 0
+	SyncInit = 0
 	SyncSprite = 1 << iota
 	SyncMoved
 	SyncRemoved
@@ -166,10 +166,10 @@ func (l *MobList) Get(idx int) entity.MobileEntity {
 
 //Mob Represents a mobile entity within the game world.
 type Mob struct {
-	SyncMask int
-	skills   entity.SkillTable
-	path     *Pathway
-	Prayers  [15]bool
+	SyncMask       int
+	skills		   entity.SkillTable
+	path		   *Pathway
+	Prayers		   [15]bool
 	entity.Entity
 	*entity.AttributeList
 	sync.RWMutex
@@ -333,12 +333,11 @@ func (m *Mob) ResetSpriteUpdated() {
 //SetPath Sets the mob's current pathway to path.  If path is nil, effectively resets the mobs path.
 func (m *Mob) SetPath(path *Pathway) {
 	m.path = path
-
+	
 }
 
 func (m *Mob) WalkTo(end entity.Location) bool {
 	path := NewPathfinder(m.Clone(), end.Clone()).MakePath()
-
 	m.SetPath(path)
 	return path != nil
 }
@@ -363,31 +362,32 @@ func (m *Mob) FinishedPath() bool {
 	return path.CurrentWaypoint >= path.countWaypoints() || !path.nextTileFrom(m.Clone()).IsValid()
 }
 
-//SetLocation Sets the mobs location.
-func (m *Mob) SetLocation(location entity.Location, teleport bool) {
-	m.SetCoords(location.X(), location.Y(), teleport)
-}
-
 func UpdateRegions(m entity.MobileEntity, x, y int) {
-	if p := AsPlayer(m); p != nil {
-		next := Region(x, y)
-		if cur := Region(m.X(), m.Y()); next != cur {
+	next := Region(x, y)
+	if cur := Region(m.X(), m.Y()); next != cur {
+		if p, ok := m.(*Player); ok && p != nil {
 			if cur.Players.Contains(p) {
 				cur.Players.Remove(p)
 			}
 			next.Players.Add(p)
+		} else if n, ok := m.(*NPC); ok && n != nil {
+			if cur.NPCs.Contains(n) {
+				cur.NPCs.Remove(n)
+			}
+			next.NPCs.Add(n)
 		}
 	}
 }
 
 func (p *Player) SetLocation(l entity.Location, teleport bool) {
 	UpdateRegions(p, l.X(), l.Y())
-	p.Mob.SetLocation(l, teleport)
+	// p.Mob.SetLocation(l, teleport)
+	p.Mob.SetCoords(l.X(), l.Y(), teleport)
 }
 
 func (n *NPC) SetLocation(l entity.Location, teleport bool) {
 	UpdateRegions(n, l.X(), l.Y())
-	n.Mob.SetLocation(l, teleport)
+	n.Mob.SetCoords(l.X(), l.Y(), teleport)
 }
 
 //SetCoords Sets the mobs locations coordinates.
@@ -460,7 +460,6 @@ func (m *Mob) RemoveState(state int) {
 
 //ResetFighting Resets melee fight related variables
 func (m *Mob) ResetFighting() {
-	target := m.VarMob("fightTarget")
 	if m.IsFighting() {
 		m.UnsetVar("fightTarget")
 		m.UnsetVar("fightRound")
@@ -470,16 +469,17 @@ func (m *Mob) ResetFighting() {
 			m.RemoveState(StateDueling)
 		}
 		m.UpdateLastFight()
-		if target != nil && target.IsFighting() {
-			target.SessionCache().UnsetVar("fightTarget")
-			target.SessionCache().UnsetVar("fightRound")
-			target.SetDirection(NorthWest)
-			target.RemoveState(StateFighting)
-			if target.HasState(StateDueling) {
-				target.RemoveState(StateDueling)
-			}
-			target.UpdateLastFight()
+	}
+	target := m.VarMob("fightTarget")
+	if target != nil && target.IsFighting() {
+		target.SessionCache().UnsetVar("fightTarget")
+		target.SessionCache().UnsetVar("fightRound")
+		target.SetDirection(NorthWest)
+		target.RemoveState(StateFighting)
+		if target.HasState(StateDueling) {
+			target.RemoveState(StateDueling)
 		}
+		target.UpdateLastFight()
 	}
 }
 
@@ -614,11 +614,11 @@ func (m *Mob) Skills() *entity.SkillTable {
 func (m *Mob) PrayerModifiers() [3]float64 {
 	var modifiers = [...]float64{1.0, 1.0, 1.0}
 
-	mods := []float64{1.05, 1.10, 1.15}
+	mods := [...]float64{1.05, 1.10, 1.15}
 
-	defenseMods := []int{0, 3, 9}
-	strengthMods := []int{1, 4, 10}
-	attackMods := []int{2, 5, 11}
+	defenseMods := [...]int{0, 3, 9}
+	strengthMods := [...]int{1, 4, 10}
+	attackMods := [...]int{2, 5, 11}
 	for idx, prayer := range defenseMods {
 		if m.VarBool("prayer"+strconv.Itoa(prayer), false) {
 			modifiers[entity.StatDefense] = mods[idx]
@@ -668,7 +668,7 @@ func (m *Mob) DefensePoints() float64 {
 func (m *Mob) CombatRng() *rand.Rand {
 	rng, ok := m.VarChecked("isaacRng").(*rand.Rand)
 	if !ok || rng == nil {
-		rng = rand.New(isaac.New(rscRand.Rng.Uint64()))
+		rng = rand.New(isaac.New(rscRand.Rng.Uint32()))
 		m.SetVar("isaacRng", rng)
 	}
 	return rng
@@ -677,7 +677,7 @@ func (m *Mob) CombatRng() *rand.Rand {
 func (m *Mob) Isaac() *rand.Rand {
 	rng, ok := m.VarChecked("isaac").(*rand.Rand)
 	if !ok || rng == nil {
-		rng = rand.New(isaac.New(rscRand.Rng.Uint64()))
+		rng = rand.New(isaac.New(rscRand.Rng.Uint32()))
 		m.SetVar("isaac", rng)
 	}
 	return rng
@@ -723,11 +723,11 @@ func (m *Mob) MeleeDamage(target entity.MobileEntity) int {
 //Random This generates a pseudo-random integer using a member instance of ISAAC.
 // Note: Generated integers are high-exclusive and low-inclusive.
 func (m *Mob) Random(low, high int) int {
-	return int(m.Isaac().Float64()*float64(high-low)) + low
+	return int(m.Isaac().Float64() * float64(high - low)) + low
 }
 
 //RandomIncl This generates a pseudo-random integer using a member instance of ISAAC.
 // Note: Generated integers are high and low inclusive.
 func (m *Mob) RandomIncl(low, high int) int {
-	return int(m.Isaac().Float64()*float64(high-low+1)) + low
+	return int(m.Isaac().Float64() * float64(high - low + 1)) + low
 }

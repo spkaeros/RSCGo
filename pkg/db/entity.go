@@ -30,9 +30,7 @@ func (s *sqlService) Objects() (objects []definitions.ScenaryDefinition) {
 	s.Lock()
 	defer s.Unlock()
 	s.context = context.Background()
-	db := s.connect(s.context)
-	// defer db.Close()
-	rows, err := db.QueryContext(s.context, "SELECT id, name, description, LOWER(command_one), LOWER(command_two), type, width, height, modelHeight FROM game_objects ORDER BY id")
+	rows, err := s.connect(s.context).QueryContext(s.context, "SELECT id, name, description, LOWER(command_one), LOWER(command_two), type, width, height, modelHeight FROM game_objects ORDER BY id")
 	if err != nil {
 		log.Warn("Couldn't load entity definitions from sqlService:", err)
 		return
@@ -53,9 +51,7 @@ func (s *sqlService) Boundarys() (boundarys []definitions.BoundaryDefinition) {
 	s.Lock()
 	defer s.Unlock()
 	s.context = context.Background()
-	db := s.connect(s.context)
-	// defer db.Close()
-	rows, err := db.QueryContext(s.context, "SELECT id, name, description, LOWER(command_one), LOWER(command_two), solid, door FROM boundarys ORDER BY id")
+	rows, err := s.connect(s.context).QueryContext(s.context, "SELECT id, name, description, LOWER(command_one), LOWER(command_two), solid, door FROM boundarys ORDER BY id")
 	if err != nil {
 		log.Warn("Couldn't load entity definitions from sqlService:", err)
 		return
@@ -76,9 +72,7 @@ func (s *sqlService) Tiles() (overlays []definitions.TileDefinition) {
 	s.Lock()
 	defer s.Unlock()
 	s.context = context.Background()
-	db := s.connect(s.context)
-	// defer db.Close()
-	rows, err := db.QueryContext(s.context, "SELECT colour, unknown, objectType FROM tiles")
+	rows, err := s.connect(s.context).QueryContext(s.context, "SELECT colour, unknown, objectType FROM tiles")
 	if err != nil {
 		log.Warn("Couldn't load entity definitions from sqlService:", err)
 		return
@@ -150,9 +144,7 @@ func (s *sqlService) Npcs() (npcs []definitions.NpcDefinition) {
 	s.Lock()
 	defer s.Unlock()
 	s.context = context.Background()
-	db := s.connect(s.context)
-	// defer db.Close()
-	rows, err := db.QueryContext(s.context, "SELECT id, name, description, command, hits, attack, strength, defense, hostility FROM npcs ORDER BY id")
+	rows, err := s.connect(s.context).QueryContext(s.context, "SELECT id, name, description, command, hits, attack, strength, defense, hostility FROM npcs ORDER BY id")
 	if err != nil {
 		log.Warn("Couldn't load entity definitions from sqlService:", err)
 		return
@@ -195,9 +187,8 @@ func LoadNpcDefinitions() {
 
 //LoadObjectLocations Loads the game objects into memory from the SQLite3 database.
 func LoadObjectLocations() {
-	database := DefaultEntityService.sqlOpen(config.WorldDB())
-	// defer database.Close()
-	rows, err := database.Query("SELECT id, direction, boundary, x, y FROM game_object_locations")
+	ctx := context.Background()
+	rows, err := DefaultEntityService.sqlOpen(config.WorldDB()).QueryContext(ctx, "SELECT id, direction, boundary, x, y FROM game_object_locations")
 	if err != nil {
 		log.Warn("Couldn't load SQLite3 database:", err)
 		return
@@ -215,9 +206,8 @@ func LoadObjectLocations() {
 
 //LoadNpcLocations Loads the games NPCs into memory from the SQLite3 database.
 func LoadNpcLocations() {
-	database := DefaultEntityService.sqlOpen(config.WorldDB())
-	// defer database.Close()
-	rows, err := database.Query("SELECT id, startX, minX, maxX, startY, minY, maxY FROM npc_locations")
+	ctx := context.Background()
+	rows, err := DefaultEntityService.sqlOpen(config.WorldDB()).QueryContext(ctx, "SELECT id, startX, minX, maxX, startY, minY, maxY FROM npc_locations")
 	if err != nil {
 		log.Warn("Couldn't load SQLite3 database:", err)
 		return
@@ -232,9 +222,8 @@ func LoadNpcLocations() {
 
 //LoadItemLocations Loads the games ground items into memory from the SQLite3 database.
 func LoadItemLocations() {
-	database := DefaultEntityService.sqlOpen(config.WorldDB())
-	// defer database.Close()
-	rows, err := database.Query("SELECT id, amount, x, y, respawn FROM item_locations")
+	ctx := context.Background()
+	rows, err := DefaultEntityService.sqlOpen(config.WorldDB()).QueryContext(ctx, "SELECT id, amount, x, y, respawn FROM item_locations")
 	if err != nil {
 		log.Warn("Couldn't load SQLite3 database:", err)
 		return
@@ -250,7 +239,6 @@ func LoadItemLocations() {
 //SaveObjectLocations Clears definitions.db game object locations and repopulates it with the current game locations.
 func SaveObjectLocations() int {
 	database := DefaultEntityService.sqlOpen(config.WorldDB())
-	// defer database.Close()
 	tx, err := database.Begin()
 	if err != nil {
 		log.Info.Println("Error starting transaction for saving object locations:", err)
@@ -274,20 +262,22 @@ func SaveObjectLocations() int {
 
 	totalInserts := 0
 	for _, v := range world.GetAllObjects() {
-		stmt, err := tx.Exec("INSERT INTO game_object_locations(id, direction, x, y, boundary) VALUES(?, ?, ?, ?, ?)", v.ID, v.Direction, v.X(), v.Y(), v.Boundary)
-		if err != nil {
-			log.Warn("Error inserting game object location to database:", err)
-			continue
-		}
-		if count, err := stmt.RowsAffected(); count < 1 || err != nil {
+		if o, ok := v.(*world.Object); ok {
+			stmt, err := tx.Exec("INSERT INTO game_object_locations(id, direction, x, y, boundary) VALUES(?, ?, ?, ?, ?)", o.ID, o.Direction, o.X(), o.Y(), o.Boundary)
 			if err != nil {
-				log.Warn("Error inserting new game object location to definitions.db:", err)
+				log.Warn("Error inserting game object location to database:", err)
 				continue
 			}
-			log.Warn("Rows affected < 1 in game object location insert:%d\n", count)
-			continue
+			if count, err := stmt.RowsAffected(); count < 1 || err != nil {
+				if err != nil {
+					log.Warn("Error inserting new game object location to definitions.db:", err)
+					continue
+				}
+				log.Warn("Rows affected < 1 in game object location insert:%d\n", count)
+				continue
+			}
+			totalInserts++
 		}
-		totalInserts++
 	}
 
 	if err := tx.Commit(); err != nil {

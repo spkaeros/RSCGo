@@ -12,8 +12,8 @@ package world
 import (
 	"os"
 	"reflect"
-	"strings"
 	"time"
+	"strings"
 
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/mattn/anko/core"
@@ -22,9 +22,9 @@ import (
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/log"
+	"github.com/spkaeros/rscgo/pkg/tasks"
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/strutil"
-	"github.com/spkaeros/rscgo/pkg/tasks"
 
 	// Defines various package-related scripting utilities
 	_ "github.com/mattn/anko/packages"
@@ -35,7 +35,7 @@ var CommandHandlers = make(map[string]func(*Player, []string))
 
 func init() {
 	env.Packages["state"] = map[string]reflect.Value{
-		"UsingItem": reflect.ValueOf(MSItemAction),
+		"UsingItem":			  reflect.ValueOf(MSItemAction),
 	}
 	env.Packages["world"] = map[string]reflect.Value{
 		"getPlayer":              reflect.ValueOf(Players.FindIndex),
@@ -109,7 +109,7 @@ func init() {
 		}),
 		"newGroundItemFor": reflect.ValueOf(NewGroundItemFor),
 		"newGroundItem":    reflect.ValueOf(NewGroundItem),
-		"curTick":          reflect.ValueOf(Ticks.Load()),
+		"curTick":		    reflect.ValueOf(Ticks.Load()),
 		"newShop":          reflect.ValueOf(NewShop),
 		"newLocation":      reflect.ValueOf(NewLocation),
 		"newGeneralShop":   reflect.ValueOf(NewGeneralShop),
@@ -126,16 +126,16 @@ func init() {
 		"location":   reflect.TypeOf(Location{}),
 	}
 	env.Packages["packets"] = map[string]reflect.Value{
-		"equip":             reflect.ValueOf(169),
-		"unequip":           reflect.ValueOf(170),
-		"dropItem":          reflect.ValueOf(246),
-		"pickupItem":        reflect.ValueOf(247),
-		"itemAction":        reflect.ValueOf(90),
-		"spellOnNpc":        reflect.ValueOf(50),
+		"equip": reflect.ValueOf(169),
+		"unequip": reflect.ValueOf(170),
+		"dropItem": reflect.ValueOf(246),
+		"pickupItem": reflect.ValueOf(247),
+		"itemAction": reflect.ValueOf(90),
+		"spellOnNpc": reflect.ValueOf(50),
 		"spellOnGroundItem": reflect.ValueOf(249),
-		"spellOnInvItem":    reflect.ValueOf(4),
-		"spellOnPlayer":     reflect.ValueOf(229),
-		"spellOnSelf":       reflect.ValueOf(137),
+		"spellOnInvItem": reflect.ValueOf(4),
+		"spellOnPlayer": reflect.ValueOf(229),
+		"spellOnSelf": reflect.ValueOf(137),
 	}
 	env.Packages["ids"] = map[string]reflect.Value{
 		"COOKEDMEAT":               reflect.ValueOf(132),
@@ -383,15 +383,19 @@ func ScriptEnv() *env.Env {
 	e.Define("base37", strutil.Base37.Encode)
 
 	e.Define("rand", func(low, high int) int {
-		return int((rand.Rng.Float64())*float64(high-low+1)) + low
+		return int((rand.Rng.Float64())*float64(high-low+1))+low
 	})
 	e.Define("randExcl", func(low, high int) int {
-		return int((rand.Rng.Float64())*float64(high-low)) + low
+		return int((rand.Rng.Float64())*float64(high-low))+low
 	})
 	e.Define("randIncl", func(low, high int) int {
-		return int((rand.Rng.Float64())*float64(high-low+1)) + low
+		return int((rand.Rng.Float64())*float64(high-low+1))+low
 	})
 
+	e.Define("random", func() int {
+		return rand.Rng.Int()
+	})
+	
 	e.Define("NORTH", North)
 	e.Define("NORTHEAST", NorthEast)
 	e.Define("NORTHWEST", NorthWest)
@@ -457,9 +461,9 @@ func ScriptEnv() *env.Env {
 		// maxRank := 0
 		for id, item := range definitions.Items {
 			if fuzzy.MatchNormalized(strings.ToLower(input), strings.ToLower(item.Name)) {
-				rank := fuzzy.LevenshteinDistance(input, item.Name)
+				 rank := fuzzy.LevenshteinDistance(input, item.Name)
 				itemList = append(itemList, map[string]interface{}{"name": item.Name, "id": id, "rank": rank})
-				for idx := len(itemList) - 1; idx > 0; idx-- {
+				for idx := len(itemList)-1; idx > 0; idx-- {
 					if itemList[idx]["rank"].(int) <= itemList[idx-1]["rank"].(int) {
 						itemList[idx-1], itemList[idx] = itemList[idx], itemList[idx-1]
 					}
@@ -467,6 +471,7 @@ func ScriptEnv() *env.Env {
 			}
 		}
 
+		
 		return itemList
 	})
 

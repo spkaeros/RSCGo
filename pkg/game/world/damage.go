@@ -1,10 +1,10 @@
 package world
 
-import "github.com/spkaeros/rscgo/pkg/game/entity"
-import "math"
+import `github.com/spkaeros/rscgo/pkg/game/entity`
+import `math`
 
 type HitSplat struct {
-	Owner  entity.MobileEntity
+	Owner entity.MobileEntity
 	Damage int
 }
 
@@ -20,17 +20,17 @@ func (p *Player) DamageFrom(m entity.MobileEntity, damage int, kind int) {
 		r.Players.RangePlayers(func(p1 *Player) bool {
 			if p.Near(p1, 16) && !list.Contains(p1) {
 				list.Add(p1)
-				p1.enqueue(playerSplatHandle, splat)
+				p1.enqueue(playerEvents, splat)
 			}
 			return false
 		})
 	}
 	// p.Skills().SetCur(entity.StatHits, p.Skills().Current(entity.StatHits) - damage)
 	// if p.Skills().Current(entity.StatHits) <= 0 {
-	// if attacker := AsPlayer(m); attacker != nil {
-	// attacker.PlaySound("victory")
-	// }
-	// p.Killed(m)
+		// if attacker := AsPlayer(m); attacker != nil {
+			// attacker.PlaySound("victory")
+		// }
+		// p.Killed(m)
 	// }
 }
 
@@ -42,19 +42,19 @@ func (n *NPC) DamageFrom(m entity.MobileEntity, damage int, kind int) {
 		r.Players.RangePlayers(func(p1 *Player) bool {
 			if n.Near(p1, 16) && !list.Contains(p1) {
 				list.Add(p1)
-				p1.enqueue(npcSplatHandle, splat)
+				p1.enqueue(npcEvents, splat)
 			}
 			return false
 		})
 	}
-	n.Skills().SetCur(entity.StatHits, n.Skills().Current(entity.StatHits)-damage)
+	n.Skills().SetCur(entity.StatHits, n.Skills().Current(entity.StatHits) - damage)
 	if attacker := AsPlayer(m); attacker != nil {
 		n.meleeRangeDamage.Put(attacker.UsernameHash(), damage)
 	}
 	// if n.Skills().Current(entity.StatHits) <= 0 {
-	// if attacker := AsPlayer(m); attacker != nil {
-	// attacker.PlaySound("victory")
-	// }
-	// n.Killed(m)
+		// if attacker := AsPlayer(m); attacker != nil {
+			// attacker.PlaySound("victory")
+		// }
+		// n.Killed(m)
 	// }
 }

@@ -75,10 +75,9 @@ const (
 	// In either case, there are better ways to reach their goal, and hopefully getting this reply for the next
 	// 5 minutes will make them realize this.
 	ResponseSpamTimeout
-	// TODO: With the recent use of the TLS stack over RSA/ISAAC, is codes 8/9 legacy now or what?
-	//ResponseServerRejection is sent when the game server rejects the session being used.
+	//ResponseServerRejection is sent when the game server rejects the session.
 	ResponseServerRejection
-	//ResponseLoginServerRejection is sent when the login server rejects the session being used.
+	//ResponseLoginServerRejection is sent when the login server rejects the session.
 	ResponseLoginServerRejection
 	// TODO: Distinct from LoggedIn?  LoggedIn maybe for logged in on another world, and this same world??
 	//ResponseInUse is sent when the server realizes that the username provided is already in use.

@@ -28,6 +28,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/social"
+	// "github.com/spkaeros/rscgo/pkg/isaac"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 	"github.com/spkaeros/rscgo/pkg/tasks"
@@ -36,38 +37,39 @@ import (
 type (
 	//Player A player in our game world.
 	Player struct {
-		LocalPlayers     *MobList
-		LocalNPCs        *MobList
-		LocalObjects     *entityList
-		LocalItems       *entityList
-		FriendList       *social.FriendsList
-		IgnoreList       []uint64
-		Appearance       entity.AppearanceTable
-		KnownAppearances map[int]int
-		AppearanceReq    []*Player
-		Socket           stdnet.Conn
-		Attributes       *entity.AttributeList
-		Inventory        *Inventory
-		bank             *Inventory
-		TradeOffer       *Inventory
-		DuelOffer        *Inventory
-		Duel             struct {
+		LocalPlayers      *MobList
+		LocalNPCs         *MobList
+		LocalObjects      *entityList
+		LocalItems        *entityList
+		FriendList        *social.FriendsList
+		IgnoreList        []uint64
+		Appearance        entity.AppearanceTable
+		KnownAppearances  map[int]int
+		AppearanceReq     []*Player
+		Socket            stdnet.Conn
+		Attributes        *entity.AttributeList
+		Inventory         *Inventory
+		bank              *Inventory
+		TradeOffer        *Inventory
+		DuelOffer         *Inventory
+		Duel              struct {
 			Rules    [4]bool
 			Accepted [2]bool
 			Target   *Player
+			Inventory
 		}
-		Tickables     tasks.Scripts
-		PostTickables tasks.Scripts
-		tickAction    tasks.StatusReturnCall
-		ActionLock    sync.RWMutex
-		ReplyMenuC    chan int8
-		killer        sync.Once
-		hasReader     bool
-		Websocket     bool
-		InQueue       chan *net.Packet
-		Reader        *bufio.Reader
-		Writer        net.WriteFlusher
-		DatabaseIndex int
+		Tickables         tasks.Scripts
+		PostTickables     tasks.Scripts
+		tickAction        tasks.StatusReturnCall
+		ActionLock        sync.RWMutex
+		ReplyMenuC        chan int8
+		killer            sync.Once
+		hasReader         bool
+		Websocket         bool
+		InQueue, OutQueue chan *net.Packet
+		Reader            *bufio.Reader
+		Writer            net.WriteFlusher
+		DatabaseIndex     int
 		Mob
 	}
 )
@@ -151,15 +153,15 @@ func (p *Player) String() string {
 
 //SetTickAction queues a distanced action to run every game engine tick before path traversal, if action returns true, it will be reset.
 func (p *Player) SetTickAction(action func() bool) {
-	p.Lock()
-	defer p.Unlock()
-	p.tickAction = action
+	p.SetVar("tickAction", action)
+	// p.Tickables.Add(action)
 }
 
 func (p *Player) TickAction() func() bool {
-	p.RLock()
-	defer p.RUnlock()
-	return p.tickAction
+	if p.Contains("tickAction") {
+		return p.VarChecked("tickAction").(func() bool)
+	}
+	return nil
 }
 
 //ResetTickAction clears the distanced action, if any is queued.  Should be called any time the player is deliberately performing an action.
@@ -246,8 +248,9 @@ func (p *Player) WalkingRangedAction(t entity.MobileEntity, fn func()) {
 func (p *Player) WalkingArrivalAction(t entity.MobileEntity, dist int, action func()) {
 	p.SetTickAction(func() bool {
 		if p.Near(t, dist) {
-			if !p.ReachableCoords(t.X(), t.Y()) {
-				return true
+			if !p.CanReachMob(t) {//|| !p.ReachableCoords(t.X(), t.Y()) {
+				p.WalkTo(NewLocation(t.X(), t.Y()))
+				return p.FinishedPath()
 			}
 			action()
 			return false
@@ -277,19 +280,21 @@ func (p *Player) CanReachMob(target entity.MobileEntity) bool {
 			p.UnsetVar("triedReach")
 			return true
 		}
+		step := p.Point().Step(p.DirectionToward(p.NextTileToward(target.Point())))
+		pathX, pathY = step.X(), step.Y()
 
 		// Update coords toward target in a straight line
-		if pathX < target.X() {
-			pathX++
-		} else if pathX > target.X() {
-			pathX--
-		}
-
-		if pathY < target.Y() {
-			pathY++
-		} else if pathY > target.Y() {
-			pathY--
-		}
+		// if pathX < target.X() {
+			// pathX++
+		// } else if pathX > target.X() {
+			// pathX--
+		// }
+// 
+		// if pathY < target.Y() {
+			// pathY++
+		// } else if pathY > target.Y() {
+			// pathY--
+		// }
 	}
 	return false
 }
@@ -380,7 +385,7 @@ func (p *Player) TraversePath() {
 	if path == nil {
 		return
 	}
-	if p.Point().Equals(path.nextTile()) {
+	if p.Equals(path.nextTile()) {
 		path.CurrentWaypoint++
 	}
 	dst := p.NextTileToward(path.nextTile())
@@ -400,13 +405,13 @@ func (l Location) Blocked() bool {
 //Targetable returns true if you are able to see the other location from the receiever location without hitting
 // any obstacles, and you are within range.  Otherwise returns false.
 func (l Location) Targetable(other Location) bool {
-	return l.WithinRange(other, 5) && l.Reachable(other)
+	return l.Near(other, 5) && l.Reachable(other)
 }
 
 //WithinReach returns true if you are able to physically touch the other person you are so close without obstacles
 // Otherwise returns false.
 func (l Location) WithinReach(other entity.Location) bool {
-	return l.WithinRange(other, 2) && l.Reachable(other)
+	return l.Near(other, 2) && l.Reachable(other)
 }
 
 func (l Location) Reachable(other entity.Location) bool {
@@ -419,6 +424,40 @@ func (l Location) RD(x, y int) bool {
 	}
 	log.Debug("Unreachable:{from:", l.String(), "to:", x, y)
 	return false
+}
+
+func (p *Player) WriteNow(packet *net.Packet) {
+	if packet.Opcode == 0 {
+		if count, err := p.Writer.Write(packet.FrameBuffer); err != nil || count < packet.Length() {
+			log.Warn("Failed to write raw packet to player socket!")
+		}
+		if err := p.Writer.Flush(); err != nil {
+			log.Warn("Failed to flush player socket!")
+		}
+		// return
+		return
+	}
+	header := []byte{0, 0}
+	frameLength := len(packet.FrameBuffer)
+	if frameLength >= 160 {
+		header[0] = byte(frameLength>>8 + 160)
+		header[1] = byte(frameLength)
+	} else {
+		header[0] = byte(frameLength)
+		if frameLength > 0 {
+			frameLength--
+			header[1] = packet.FrameBuffer[frameLength]
+		}
+	}
+	// if rng, ok := p.VarChecked("ourRng").(*isaac.ISAAC); ok && rng != nil {
+		// packet.FrameBuffer[0] = (packet.FrameBuffer[0] + uint8(rng.Uint32()) & 0xFF)
+	// }
+	if count, err := p.Writer.Write(append(header, packet.FrameBuffer[:frameLength]...)); err != nil || count < packet.Length()+1 {
+		log.Warn("Failed to write formatted packet to player socket!")
+	}
+	if err := p.Writer.Flush(); err != nil {
+		log.Warn("Failed to flush player socket!")
+	}
 }
 
 func (l Location) ReachableCoords(x, y int) bool {
@@ -442,7 +481,7 @@ func (l Location) ReachableCoords(x, y int) bool {
 		if dir == NorthEast || dir == SouthEast {
 			dir = East
 		}
-		next := cur.ClippedStep(dir)
+		next := cur.Step(dir)
 		if next.Equals(cur) || !check(cur, next) {
 			return false
 		}
@@ -453,19 +492,20 @@ func (l Location) ReachableCoords(x, y int) bool {
 
 //UpdateRegion if this player is currently in a region, removes it from that region, and adds it to the region at x,y
 func (p *Player) UpdateRegion(x, y int) {
-	curArea := Region(p.X(), p.Y())
-	if !curArea.Players.Contains(p) {
-		curArea.Players.Add(p)
-		return
-	}
-
-	newArea := Region(x, y)
-	if newArea != curArea {
-		if curArea.Players.Contains(p) {
-			curArea.Players.Remove(p)
-		}
-		newArea.Players.Add(p)
-	}
+	// curArea := Region(p.X(), p.Y())
+	// if !curArea.Players.Contains(p) {
+		// curArea.Players.Add(p)
+		// return
+	// }
+// 
+	// newArea := Region(x, y)
+	// if newArea != curArea {
+		// if curArea.Players.Contains(p) {
+			// curArea.Players.Remove(p)
+		// }
+		// newArea.Players.Add(p)
+	// }
+	UpdateRegions(p, x, y)
 }
 
 //DistributeMeleeExp This is a helper method to distribute experience amongst the players melee stats according to
@@ -475,6 +515,9 @@ func (p *Player) UpdateRegion(x, y int) {
 // Otherwise, whatever fight stance the player was in will get (experience)*3, and hits will get (experience).
 func (p *Player) DistributeMeleeExp(experience int) {
 	switch p.FightMode() {
+	default:
+		p.IncExp(entity.StatHits, experience)
+		fallthrough
 	case 0:
 		for i := 0; i < 3; i++ {
 			p.IncExp(i, experience)
@@ -486,7 +529,6 @@ func (p *Player) DistributeMeleeExp(experience int) {
 	case 3:
 		p.IncExp(entity.StatDefense, experience*3)
 	}
-	p.IncExp(entity.StatHits, experience)
 }
 
 //EquipItem equips an item to this player, and sends inventory and equipment bonuses.
@@ -560,7 +602,7 @@ func (p *Player) Equips() []int {
 }
 
 func (p *Player) UpdateAppearance() {
-	p.SetVar("appearanceTicket", p.AppearanceTicket()+1)
+	p.Inc("appearanceTicket", 1)
 	p.SetAppearanceChanged()
 }
 
@@ -625,36 +667,46 @@ func (p *Player) SetFatigue(i int) {
 
 //NearbyPlayers Returns nearby players.
 func (p *Player) NearbyPlayers() (players mobSet) {
-	for _, r := range Region(p.X(), p.Y()).neighbors() {
-		r.Players.RangePlayers(func(p1 *Player) bool {
-			if p.Near(p1, 15) && p.ServerIndex() != p1.ServerIndex() {
-				players = append(players, p1)
-			}
-			return false
-		})
-	}
-
-	return
+	// for _, r := range Region(p.X(), p.Y()).neighbors() {
+		// r.Players.RangePlayers(func(p1 *Player) bool  {
+			// if p.Near(p1, p.VarInt("viewRadius", 16)) && p1.ServerIndex() != p.ServerIndex() {
+				// players = append(players, p1)
+			// }
+			// return false
+		// })
+	// }
+// 
+	p.LocalPlayers.RLock()
+	defer p.LocalPlayers.RUnlock()
+	return p.LocalPlayers.mobSet
 }
 
 //NearbyNpcs Returns nearby NPCs.
 func (p *Player) NearbyNpcs() (npcs mobSet) {
-	for _, r := range Region(p.X(), p.Y()).neighbors() {
-		r.NPCs.RangeNpcs(func(n *NPC) bool {
-			if p.Near(n, 15) && !n.VarBool("removed", false) {
-				npcs = append(npcs, n)
-			}
-			return false
-		})
-	}
-
-	return
+	p.LocalNPCs.RLock()
+	defer p.LocalNPCs.RUnlock()
+	// list := NewMobList()
+	// for _, r := range Region(p.X(), p.Y()).neighbors() {
+		// // for _, n := range r.NPCs.NearbyNpcs(p) {
+			// // if p.Near(n, p.VarInt("viewRadius", 16)) && !p.VarBool("removed", false) && !n.Point().Equals(DeathPoint) {
+				// // npcs = append(npcs, n)
+			// // }
+			// // return false
+		// // }
+		// r.NPCs.RangeNpcs(func(n *NPC) bool  {
+			// if p.Near(n, p.VarInt("viewRadius", 16)) && !p.VarBool("removed", false) && !n.Point().Equals(DeathPoint) {
+				// npcs = append(npcs, n)
+			// }
+			// return false
+		// })
+	// }
+	return p.LocalNPCs.mobSet
 }
 
 //NearbyObjects Returns nearby objects.
-func (m *Mob) NearbyObjects() (objects []entity.Entity) {
-	for _, r := range Region(m.X(), m.Y()).neighbors() {
-		objects = append(objects, r.Objects.NearbyObjects(m)...)
+func (p *Player) NearbyObjects() (objects []entity.Entity) {
+	for _, r := range Region(p.X(), p.Y()).neighbors() {
+		objects = append(objects, r.Objects.NearbyObjects(p)...)
 	}
 
 	return
@@ -664,21 +716,21 @@ func (m *Mob) NearbyObjects() (objects []entity.Entity) {
 func (p *Player) NewObjects() (objects []*Object) {
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		for _, o := range r.Objects.NearbyObjects(p) {
-			if !p.LocalObjects.Contains(o) && p.Near(o, 21) {
+			if p.Near(o, p.VarInt("viewRadius", 16) * 3) && !p.LocalObjects.Contains(o) {
 				objects = append(objects, o.(*Object))
 			}
 		}
 	}
-
+	
 	return
 }
 
 //NewItems Returns nearby ground items that this player is unaware of.
 func (p *Player) NewItems() (items []*GroundItem) {
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
-		for _, i := range r.Items.NearbyItems(p) {
-			if !p.LocalItems.Contains(i) && p.Near(i, 21) {
-				items = append(items, i)
+		for _, i := range r.Objects.NearbyItems(p) {
+			if p.Near(i, p.VarInt("viewRadius", 16) * 3) && !p.LocalItems.Contains(i) {
+				items = append(items, i.(*GroundItem))
 			}
 		}
 	}
@@ -688,10 +740,10 @@ func (p *Player) NewItems() (items []*GroundItem) {
 
 //NewPlayers Returns nearby players that this player is unaware of.
 func (p *Player) NewPlayers() (players *MobList) {
-	list := &MobList{}
+	list := NewMobList()
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.Players.RangePlayers(func(p1 *Player) bool {
-			if !p.LocalPlayers.Contains(p1) && p != p1 && !list.Contains(p1) && p.Near(p1, 15) {
+			if !p.LocalPlayers.Contains(p1) && p != p1 && !list.Contains(p1) && p.Near(p1, p.VarInt("viewRadius", 16)) {
 				list.Add(p1)
 			}
 			return false
@@ -706,7 +758,7 @@ func (p *Player) NewNPCs() (npcs *MobList) {
 	list := NewMobList()
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.NPCs.RangeNpcs(func(n *NPC) bool {
-			if !list.Contains(n) && !p.LocalNPCs.Contains(n) && p.Near(n, 15) && !n.VarBool("removed", false) {
+			if !list.Contains(n) && !p.LocalNPCs.Contains(n) && p.Near(n, p.VarInt("viewRadius", 16)) && !n.VarBool("removed", false) {
 				list.Add(n)
 			}
 			return false
@@ -854,7 +906,24 @@ var DefaultPlayerService PlayerService
 
 //Destroy sends a kill signal to the underlying client to tear down all of the I/O routines and save the player.
 func (p *Player) Destroy() {
-	p.WritePacket(Logout)
+	header := []byte{0, 0}
+	frameLength := len(Logout.FrameBuffer)
+	if frameLength >= 160 {
+		header[0] = byte(frameLength>>8 + 160)
+		header[1] = byte(frameLength)
+	} else {
+		header[0] = byte(frameLength)
+		if frameLength > 0 {
+			frameLength--
+			header[1] = Logout.FrameBuffer[frameLength]
+		}
+	}
+	// if rng, ok := p.VarChecked("ourRng").(*isaac.ISAAC); ok && rng != nil {
+		// packet.FrameBuffer[0] = (packet.FrameBuffer[0] + uint8(rng.Uint32()) & 0xFF)
+	// }
+	if count, err := p.Writer.Write(append(header, Logout.FrameBuffer[:frameLength]...)); err != nil || count < Logout.Length()+1 {
+		log.Warn("Failed to write formatted packet to player socket!")
+	}
 	if err := p.Writer.Flush(); err != nil {
 		log.Warn("Failed to flush player socket!")
 	}
@@ -997,32 +1066,39 @@ func (p *Player) Initialize() {
 	}
 }
 func (p *Player) WritePacket(packet *net.Packet) {
-	defer func() {
-		if err := p.Writer.Flush(); err != nil {
-			log.Warn("Failed to flush player socket!")
-		}
-	}()
-	if packet.Opcode == 0 {
-		if count, err := p.Writer.Write(packet.FrameBuffer); err != nil || count < packet.Length() {
-			log.Warn("Failed to write raw packet to player socket!")
-		}
-		return
-	}
-	header := []byte{0, 0}
-	frameLength := len(packet.FrameBuffer)
-	if frameLength >= 160 {
-		header[0] = byte(frameLength>>8 + 160)
-		header[1] = byte(frameLength)
-	} else {
-		header[0] = byte(frameLength)
-		if frameLength > 0 {
-			frameLength--
-			header[1] = packet.FrameBuffer[frameLength]
-		}
-	}
-	if count, err := p.Writer.Write(append(header, packet.FrameBuffer[:frameLength]...)); err != nil || count < packet.Length()+1 {
-		log.Warn("Failed to write formatted packet to player socket!")
-	}
+	p.OutQueue <- packet
+	// defer func() {
+	// }()
+	// if packet.Opcode == 0 {
+		// if count, err := p.Writer.Write(packet.FrameBuffer); err != nil || count < packet.Length() {
+			// log.Warn("Failed to write raw packet to player socket!")
+		// }
+		// if err := p.Writer.Flush(); err != nil {
+			// log.Warn("Failed to flush player socket!")
+		// }
+		// return
+	// }
+	// header := []byte{0, 0}
+	// frameLength := len(packet.FrameBuffer)
+	// if frameLength >= 160 {
+		// header[0] = byte(frameLength>>8 + 160)
+		// header[1] = byte(frameLength)
+	// } else {
+		// header[0] = byte(frameLength)
+		// if frameLength > 0 {
+			// frameLength--
+			// header[1] = packet.FrameBuffer[frameLength]
+		// }
+	// }
+	// // if rng, ok := p.VarChecked("ourRng").(*isaac.ISAAC); ok && rng != nil {
+		// // packet.FrameBuffer[0] = (packet.FrameBuffer[0] + uint8(rng.Uint32()) & 0xFF)
+	// // }
+	// if count, err := p.Writer.Write(append(header, packet.FrameBuffer[:frameLength]...)); err != nil || count < packet.Length()+1 {
+		// log.Warn("Failed to write formatted packet to player socket!")
+	// }
+	// if err := p.Writer.Flush(); err != nil {
+		// log.Warn("Failed to flush player socket!")
+	// }
 }
 
 //NewPlayer Returns a reference to a new player.
@@ -1048,6 +1124,7 @@ func NewPlayer(socket stdnet.Conn) *Player {
 		TradeOffer:       &Inventory{Capacity: 12},
 		DuelOffer:        &Inventory{Capacity: 8},
 		InQueue:          make(chan *net.Packet, 50),
+		OutQueue:         make(chan *net.Packet, 50),
 		Reader:           bufio.NewReader(socket),
 	}
 	// TODO: Get rid of this self-referential member; figure out better way to handle client item updating
@@ -1070,13 +1147,8 @@ func (p *Player) OpenAppearanceChanger() {
 	p.SendPacket(OpenChangeAppearance)
 }
 
-const questChatHandle = "questChatQ"
-const publicChatHandle = "publicChatQ"
-const npcChatHandle = "npcChatQ"
-const npcSplatHandle = "npcSplatQ"
-const playerSplatHandle = "playerSplatQ"
-const bubblesHandle = "bubbleQ"
-const projectilesHandle = "projectileQ"
+const npcEvents = "npcEventQ"
+const playerEvents = "playerEventQ"
 
 //Chat sends a player NPC chat message packet to the player and all other players around it.  If multiple msgs are
 // provided, will sleep the goroutine for 3-4 ticks between each message, depending on length of message.
@@ -1091,7 +1163,7 @@ func (p *Player) Chat(msgs ...string) {
 	wait := time.Duration(0)
 	for _, v := range msgs {
 		// tasks.TickList.Schedule(wait, func() bool {
-		p.enqueueArea(questChatHandle, 15, NewTargetedMessage(p, nil, v))
+		p.enqueueArea(playerEvents, 15, NewTargetedMessage(p, p.TargetMob(), v))
 		// return true
 		// })
 		wait += 3
@@ -1117,7 +1189,7 @@ func (p *Player) Chat(msgs ...string) {
 	// m := p.TargetMob()
 	// for _, player := range p.NearbyPlayers() {
 	// player.QueueQuestChat(p, m, msg)
-	// // p.enqueue(questChatHandle, NewTargetedMessage(p, p.TargetMob(), message))
+	// // p.enqueue(playerEvents, NewTargetedMessage(p, p.TargetMob(), message))
 	// }
 	// p.QueueQuestChat(p, m, msg)
 	// time.Sleep(time.Millisecond*640*time.Duration(sleep))
@@ -1127,8 +1199,8 @@ func (p *Player) Chat(msgs ...string) {
 
 //QuestBroadcast Broadcasts a string as a message posted into the players quest chat history to the player and any nearby players.
 func (p *Player) QuestBroadcast(owner, target entity.MobileEntity, message string) {
-	p.enqueueArea(questChatHandle, 15, NewTargetedMessage(owner, target, message))
-	// p.enqueue(questChatHandle, msg)
+	p.enqueueArea(playerEvents, 15, NewTargetedMessage(owner, target, message))
+	// p.enqueue(playerEvents, msg)
 }
 
 //QueuePublicChat Adds a message to a locked public-chat queue
@@ -1138,7 +1210,7 @@ func (p *Player) QueuePublicChat(owner entity.MobileEntity, message string) {
 	// return
 	// }
 	// p.SetVar("publicChatQ", append(p.VarChecked("publicChatQ").([]ChatMessage), NewChatMessage(owner, message)))
-	p.enqueue(publicChatHandle, NewChatMessage(owner, message))
+	p.enqueue(playerEvents, NewChatMessage(owner, message))
 }
 
 //QueueQuestChat Adds a message to a locked quest-chat queue
@@ -1152,11 +1224,11 @@ func (p *Player) QueueQuestChat(owner, _ entity.MobileEntity, message string) {
 
 	// msg := NewTargetedMessage(owner, nil, message)
 	// for _, p1 := range p.NearbyPlayers() {
-	// p1.enqueue(questChatHandle, msg)
+	// p1.enqueue(playerEvents, msg)
 	// }
-	// p.enqueue(questChatHandle, msg)
-	p.enqueueArea(questChatHandle, 15, NewTargetedMessage(owner, nil, message))
-	//p.enqueue(questChatHandle, NewChatMessage(owner, message))
+	// p.enqueue(playerEvents, msg)
+	p.enqueueArea(playerEvents, 15, NewTargetedMessage(owner, nil, message))
+	//p.enqueue(playerEvents, NewChatMessage(owner, message))
 }
 
 //QueueNpcChat Adds a message to a locked quest-chat queue
@@ -1166,8 +1238,8 @@ func (p *Player) QueueNpcChat(owner, target entity.MobileEntity, message string)
 	//		return
 	//	}
 
-	p.enqueueArea(npcChatHandle, 15, NewTargetedMessage(owner, target, message))
-	// p.enqueue(questChatHandle, NewTargetedMessage(owner, target, message))
+	p.enqueueArea(npcEvents, 15, NewTargetedMessage(owner, target, message))
+	// p.enqueue(playerEvents, NewTargetedMessage(owner, target, message))
 }
 
 func (p *Player) enqueue(id string, e interface{}) {
@@ -1180,22 +1252,22 @@ func (p *Player) enqueue(id string, e interface{}) {
 
 //QueueNpcSplat Adds a message to a locked quest-chat queue
 func (p *Player) QueueNpcSplat(owner *NPC, dmg int) {
-	p.enqueue(npcSplatHandle, NewHitsplat(owner, dmg))
+	p.enqueue(npcEvents, NewHitsplat(owner, dmg))
 }
 
 //QueueProjectile Adds a missile to a locked projectile queue
 func (p *Player) QueueProjectile(owner, target entity.MobileEntity, kind int) {
-	p.enqueue(projectilesHandle, NewProjectile(owner, target, kind))
+	p.enqueue(playerEvents, NewProjectile(owner, target, kind))
 }
 
 //QueueHitsplat Adds a hit splat to a locked hit-splat queue
 func (p *Player) QueueHitsplat(owner entity.MobileEntity, dmg int) {
-	p.enqueue(playerSplatHandle, NewHitsplat(owner, dmg))
+	p.enqueue(playerEvents, NewHitsplat(owner, dmg))
 }
 
 //QueueItemBubble Adds an action item bubble to a locked item bubble queue
 func (p *Player) QueueItemBubble(owner *Player, id int) {
-	p.enqueue(bubblesHandle, ItemBubble{owner, id})
+	p.enqueue(playerEvents, ItemBubble{owner, id})
 }
 
 func (p *Player) enqueueArea(id string, radius int, e interface{}) {
@@ -1438,14 +1510,14 @@ func (p *Player) AddSkull(user uint64) {
 	p.Skulls()[user] = time.Now()
 }
 
-func AsPlayer(m entity.MobileEntity) *Player {
+func AsPlayer(m entity.Entity) *Player {
 	if p, ok := m.(*Player); ok {
 		return p
 	}
 	return nil
 }
 
-func AsNpc(m entity.MobileEntity) *NPC {
+func AsNpc(m entity.Entity) *NPC {
 	if n, ok := m.(*NPC); ok {
 		return n
 	}
@@ -1600,12 +1672,12 @@ func (p *Player) SendEquipBonuses() {
 
 //Damage sends a player damage bubble for this player to itself and any nearby players.
 func (p *Player) Damage(amt int) {
-	p.enqueueArea(playerSplatHandle, 15, NewHitsplat(p, amt))
+	p.enqueueArea(playerEvents, 15, NewHitsplat(p, amt))
 }
 
 //ItemBubble sends an item action bubble for this player to itself and any nearby players.
 func (p *Player) ItemBubble(id int) {
-	p.enqueueArea(bubblesHandle, 15, ItemBubble{p, id})
+	p.enqueueArea(playerEvents, 15, ItemBubble{p, id})
 }
 
 //SetStat sets the current, maximum, and experience levels of the skill at idx to lvl, and updates the client about it.

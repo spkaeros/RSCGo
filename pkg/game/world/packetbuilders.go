@@ -77,41 +77,30 @@ func FriendUpdate(hash uint64, online bool) (p *net.Packet) {
 }
 
 func NpcEvents(player *Player) (p *net.Packet) {
-	updateSize := 0
-
+	events, ok := player.VarChecked(npcEvents).([]interface{})
+	// hitSplats, splatsOk := player.VarChecked(npcSplatHandle).([]interface{})
+	// messages, messagesOk := player.VarChecked(npcChatHandle).([]interface{})
 	p = net.NewEmptyPacket(104)
-	p.AddUint16(uint16(updateSize))
-	// if list, ok := player.Var(npcSplatHandle); ok {
-	// if list, ok := list.([]interface{}); ok {
-	// for _, splat := range list {
-	// if splat, ok := splat.(HitSplat); ok {
-	//
-	// }
-	// }
-	// }
-	// }
-	if list, ok := player.VarChecked(npcSplatHandle).([]interface{}); ok {
+	eventCount := uint16(len(events))
+	if eventCount <= 0 {
+		return nil
+	}
+	p.AddUint16(eventCount)
+	if ok && eventCount > 0 {
 		var newList []interface{}
-		for _, splat := range list {
-			if splat, ok := splat.(HitSplat); ok {
+		for _, e := range events {
+			if splat, ok := e.(*HitSplat); ok {
 				if AsNpc(splat.Owner) != nil {
 					p.AddUint16(uint16(splat.Owner.ServerIndex()))
 					p.AddUint8(2)
 					p.AddUint8(uint8(splat.Damage))
 					p.AddUint8(uint8(splat.Owner.Skills().Current(entity.StatHits)))
 					p.AddUint8(uint8(splat.Owner.Skills().Maximum(entity.StatHits)))
-					updateSize++
 				} else {
 					newList = append(newList, splat)
 				}
 			}
-		}
-		player.SetVar(npcSplatHandle, newList)
-	}
-	if list, ok := player.VarChecked(npcChatHandle).([]interface{}); ok {
-		newList := make([]interface{}, 0, len(list))
-		for _, msg := range list {
-			if msg, ok := msg.(ChatMessage); ok {
+			if msg, ok := e.(ChatMessage); ok {
 				if msg.Owner.IsNpc() {
 					p.AddUint16(uint16(msg.Owner.ServerIndex()))
 					p.AddUint8(1)
@@ -127,18 +116,56 @@ func NpcEvents(player *Player) (p *net.Packet) {
 						p.AddUint8(byte(c))
 					}
 					p.AddBytes([]byte(message))
-					updateSize++
 				} else {
 					newList = append(newList, msg)
 				}
 			}
 		}
-		player.SetVar(npcChatHandle, newList)
+		player.SetVar(npcEvents, newList)
 	}
-	p.SetUint16At(1, uint16(updateSize))
-	if updateSize <= 0 {
-		return nil
-	}
+	// if splatsOk && len(hitSplats) > 0 {
+		// var newList []interface{}
+		// for _, splat := range hitSplats {
+			// if splat, ok := splat.(*HitSplat); ok {
+				// if AsNpc(splat.Owner) != nil {
+					// p.AddUint16(uint16(splat.Owner.ServerIndex()))
+					// p.AddUint8(2)
+					// p.AddUint8(uint8(splat.Damage))
+					// p.AddUint8(uint8(splat.Owner.Skills().Current(entity.StatHits)))
+					// p.AddUint8(uint8(splat.Owner.Skills().Maximum(entity.StatHits)))
+				// } else {
+					// newList = append(newList, splat)
+				// }
+			// }
+		// }
+		// player.SetVar(npcSplatHandle, newList)
+	// }
+	// if messagesOk && len(messages) > 0 {
+		// var newList []interface{}
+		// for _, msg := range messages {
+			// if msg, ok := msg.(ChatMessage); ok {
+				// if msg.Owner.IsNpc() {
+					// p.AddUint16(uint16(msg.Owner.ServerIndex()))
+					// p.AddUint8(1)
+					// p.AddUint16(uint16(msg.Target.ServerIndex()))
+					// message := strutil.ChatFilter.Format(msg.string)
+					// size := len(message)
+					// if size > 0 && size < 128 {
+						// p.AddUint8(uint8(size))
+					// } else if size >= 0 && size < 0x8000 {
+						// p.AddUint16(uint16(size))
+					// }
+					// for _, c := range message {
+						// p.AddUint8(byte(c))
+					// }
+					// p.AddBytes([]byte(message))
+				// } else {
+					// newList = append(newList, msg)
+				// }
+			// }
+		// }
+		// player.SetVar(npcChatHandle, newList)
+	// }
 	return
 }
 
@@ -175,29 +202,6 @@ var SleepClose = net.NewEmptyPacket(84)
 
 var SleepWrong = net.NewEmptyPacket(194)
 
-func NpcMessage(sender *NPC, message string, target *Player) (p *net.Packet) {
-	// target.QueueNpcChat(sender, target, message)
-	sender.enqueueArea(npcChatHandle, NewTargetedMessage(sender, target, message))
-	/*	p = net.NewEmptyPacket(104)
-		p.AddUint16(1)
-		p.AddUint16(uint16(sender.Index))
-		p.AddUint8(1)
-		p.AddUint16(uint16(target.Index))
-		if len(message) > 255 {
-			message = message[:255]
-		}
-		message = strutil.ChatFilter.Format(message)
-		// messageRaw := strutil.ChatFilter.Pack(message)
-		messageRaw := message
-		p.AddUint8(uint8(len(messageRaw)))
-		for _, c := range messageRaw {
-			p.AddUint8(byte(c))
-		}
-		return*/
-	// return net.NewEmptyPacket(6)
-	return nil
-}
-
 //PrivacySettings Builds a packet containing the players privacy settings for display in the settings menu.
 func PrivacySettings(player *Player) (p *net.Packet) {
 	return net.NewEmptyPacket(51).AddBoolean(player.ChatBlocked()).AddBoolean(player.FriendBlocked()).AddBoolean(player.TradeBlocked()).AddBoolean(player.DuelBlocked())
@@ -222,13 +226,14 @@ func NPCPositions(player *Player) (p *net.Packet) {
 	p.AddBitmask(player.LocalNPCs.Size(), 8)
 	// var local []entity.MobileEntity
 	// var local = player.LocalNPCs.mobSet[:0]
-	var local mobSet
+	var local = make(mobSet, 0, len(player.NearbyNpcs()))
 	player.LocalNPCs.RangeNpcs(func(n *NPC) bool {
 		local = append(local, n)
 		changed++
 		n.RLock()
 		mask := n.SyncMask
-		if !player.WithinRange(player.Point(), player.VarInt("viewRadius", 16)) || mask&SyncRemoved == SyncRemoved || n.Point().LongestDelta(DeathPoint) == 0 || n.VarBool("removed", false) {
+		n.RUnlock()
+		if !player.Near(n, player.VarInt("viewRadius", 16)) || mask&SyncRemoved == SyncRemoved || n.Point().Equals(DeathPoint) || n.VarBool("removed", false) {
 			// p.AddBitmask(1, 1)
 			// p.AddBitmask(1, 1)
 			// p.AddBitmask(3, 2)
@@ -246,9 +251,8 @@ func NPCPositions(player *Player) (p *net.Packet) {
 			p.AddBitmask(n.Direction(), 4)
 		} else {
 			p.AddBitmask(0, 1)
-			changed--
+			// changed--
 		}
-		n.RUnlock()
 		return false
 	})
 	player.LocalNPCs.Set(local)
@@ -303,9 +307,9 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 	p.AddBitmask(player.Direction(), 4)
 	p.AddBitmask(player.LocalPlayers.Size(), 8)
 	changed := 0
-	if player.SyncMask&SyncNeedsPosition != 0 {
-		changed++
-	}
+	// if player.SyncMask&SyncNeedsPosition != 0 {
+		// changed++
+	// }
 	player.PostTickables.Add(func() bool {
 		player.ResetRegionRemoved()
 		player.ResetRegionMoved()
@@ -319,7 +323,8 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		changed++
 		p1.RLock()
 		mask := p1.SyncMask
-		if !player.Near(player.Point(), player.VarInt("viewRadius", 16)) || mask&SyncRemoved == SyncRemoved {
+		p1.RUnlock()
+		if !player.Near(p1, player.VarInt("viewRadius", 16)) || mask&SyncRemoved == SyncRemoved {
 			// flips on the next 4 bits
 			p.AddBitmask(0xF, 4)
 			local = local[:len(local)-1]
@@ -334,7 +339,6 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 			p.AddBitmask(0, 1)
 			changed--
 		}
-		p1.RUnlock()
 		return false
 	})
 	player.LocalPlayers.Set(local)
@@ -349,7 +353,7 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 			if player.VarInt("viewRadius", 16) > 1 {
 				player.Dec("viewRadius", 1)
 			}
-			return false
+			return true
 		} else if player.VarInt("viewRadius", 16) < 16 {
 			// Grow view area back out after it had been shrunk
 			player.Inc("viewRadius", 1)
@@ -378,57 +382,52 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 //PlayerAppearances Builds a packet with the view-area player appearance profiles in it.
 func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(234)
-	p.AddUint16(2) // reserve a short int worth of bits for storing the number of update actions being transmitted
 	updateSize := 0
-	if list, ok := ourPlayer.VarChecked(bubblesHandle).([]interface{}); ok {
-		for _, bubble := range list {
-			if bubble, ok := bubble.(ItemBubble); ok {
+	list, ok := ourPlayer.VarChecked(playerEvents).([]interface{})
+	p.AddUint16(0)
+	if ok {
+		for _, e := range list {
+			if bubble, ok := e.(ItemBubble); ok {
 				p.AddUint16(uint16(bubble.Owner.ServerIndex())) // Index
 				p.AddUint8(0)                                   // Update Type
 				p.AddUint16(uint16(bubble.Item))                // Item ID
-				updateSize++
 			}
-		}
-		ourPlayer.UnsetVar(bubblesHandle)
-	}
-	if list, ok := ourPlayer.VarChecked(publicChatHandle).([]interface{}); ok {
-		for _, msg := range list {
-			if msg, ok := msg.(ChatMessage); ok {
-				p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
-				p.AddUint8(1)                                // Update Type
-				// TODO: Is this better or is end of message indicator better
-				size := uint8(len(msg.string))
-				if size > 84 {
-					size = 84
-					msg.string = msg.string[:size]
+			if msg, ok := e.(ChatMessage); ok {
+				if msg.Target == nil {
+					p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
+					p.AddUint8(1)                                // Update Type
+					// TODO: Is this better or is end of message indicator better
+					size := uint8(len(msg.string))
+					if size > 84 {
+						size = 84
+						msg.string = msg.string[:size]
+					}
+					p.AddUint8(size)               // Count of UTF-8 characters in message
+					p.AddBytes([]byte(msg.string)) // UTF-8 encoded message
+				} else {
+					p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
+					p.AddUint8(6)                                // Update Type
+					// Format chat messages to match the rules of Jagex chat format
+					// Examples: First letters capitalized for every sentence, color-codes are properly identified, etc.
+					msg.string = strutil.ChatFilter.Format(msg.string)
+					// Too long messages are truncated to 255 bytes
+					if len(msg.string) > 0xFF {
+						msg.string = msg.string[:0xFF]
+					}
+					// Deprecated below call; Go defaults string encoding to UTF-8 and I updated the clients to use UTF-8 as well
+					// messageRaw := strutil.ChatFilter.Encode(message)
+					p.AddUint8(uint8(len(msg.string)))
+					p.AddBytes([]byte(msg.string))
 				}
-				p.AddUint8(size)               // Count of UTF-8 characters in message
-				p.AddBytes([]byte(msg.string)) // UTF-8 encoded message
-				updateSize++
 			}
-		}
-		ourPlayer.UnsetVar(publicChatHandle)
-	}
-	if list, ok := ourPlayer.VarChecked(playerSplatHandle).([]interface{}); ok {
-		var newList []interface{}
-		for _, splat := range list {
-			if splat, ok := splat.(HitSplat); ok {
-				if splat.Owner.IsNpc() {
-					newList = append(newList, splat)
-				}
+			if splat, ok := e.(*HitSplat); ok {
 				p.AddUint16(uint16(splat.Owner.ServerIndex()))                   // Index
 				p.AddUint8(2)                                                    // Update Type
 				p.AddUint8(uint8(splat.Damage))                                  // How much damage was done
 				p.AddUint8(uint8(splat.Owner.Skills().Current(entity.StatHits))) // Current hitpoints level, for healthbar percentage
 				p.AddUint8(uint8(splat.Owner.Skills().Maximum(entity.StatHits))) // Maximum hitpoints level, for healthbar percentage
-				updateSize++
 			}
-		}
-		ourPlayer.SetVar(playerSplatHandle, newList)
-	}
-	if list, ok := ourPlayer.VarChecked(projectilesHandle).([]interface{}); ok {
-		for _, shot := range list {
-			if shot, ok := shot.(Projectile); ok {
+			if shot, ok := e.(Projectile); ok {
 				p.AddUint16(uint16(shot.Owner.ServerIndex())) // Index
 				if shot.Target.IsNpc() {
 					p.AddUint8(3)
@@ -440,37 +439,101 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 				}
 				p.AddUint16(uint16(shot.Kind))                 // Projectile Type, this is large bit-length for such small data
 				p.AddUint16(uint16(shot.Target.ServerIndex())) // Projectile target index
-				updateSize++
 			}
 		}
-		ourPlayer.UnsetVar(projectilesHandle)
+		ourPlayer.UnsetVar(playerEvents)
 	}
-	if list, ok := ourPlayer.VarChecked(questChatHandle).([]interface{}); ok {
-		var newList []interface{}
-		for _, msg := range list {
-			if msg, ok := msg.(ChatMessage); ok {
-				if msg.Owner.IsNpc() {
-					newList = append(newList, msg)
-					continue
-				}
-				p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
-				p.AddUint8(6)                                // Update Type
-				// Format chat messages to match the rules of Jagex chat format
-				// Examples: First letters capitalized for every sentence, color-codes are properly identified, etc.
-				msg.string = strutil.ChatFilter.Format(msg.string)
-				// Too long messages are truncated to 255 bytes
-				if len(msg.string) > 0xFF {
-					msg.string = msg.string[:0xFF]
-				}
-				// Deprecated below call; Go defaults string encoding to UTF-8 and I updated the clients to use UTF-8 as well
-				// messageRaw := strutil.ChatFilter.Encode(message)
-				p.AddUint8(uint8(len(msg.string)))
-				p.AddBytes([]byte(msg.string))
-				updateSize++
-			}
-		}
-		ourPlayer.SetVar(questChatHandle, newList)
-	}
+	// if list, ok := ourPlayer.VarChecked(bubblesHandle).([]interface{}); ok {
+		// for _, bubble := range list {
+			// if bubble, ok := bubble.(ItemBubble); ok {
+				// p.AddUint16(uint16(bubble.Owner.ServerIndex())) // Index
+				// p.AddUint8(0)                                   // Update Type
+				// p.AddUint16(uint16(bubble.Item))                // Item ID
+				// updateSize++
+			// }
+		// }
+		// ourPlayer.UnsetVar(bubblesHandle)
+	// }
+	// if list, ok := ourPlayer.VarChecked(publicChatHandle).([]interface{}); ok {
+		// for _, msg := range list {
+			// if msg, ok := msg.(ChatMessage); ok {
+				// p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
+				// p.AddUint8(1)                                // Update Type
+				// // TODO: Is this better or is end of message indicator better
+				// size := uint8(len(msg.string))
+				// if size > 84 {
+					// size = 84
+					// msg.string = msg.string[:size]
+				// }
+				// p.AddUint8(size)               // Count of UTF-8 characters in message
+				// p.AddBytes([]byte(msg.string)) // UTF-8 encoded message
+				// updateSize++
+			// }
+		// }
+		// ourPlayer.UnsetVar(publicChatHandle)
+	// }
+	// if list, ok := ourPlayer.VarChecked(playerSplatHandle).([]interface{}); ok {
+		// var newList []interface{}
+		// for _, splat := range list {
+			// if splat, ok := splat.(*HitSplat); ok {
+				// if splat.Owner.IsNpc() {
+					// newList = append(newList, splat)
+				// }
+				// p.AddUint16(uint16(splat.Owner.ServerIndex()))                   // Index
+				// p.AddUint8(2)                                                    // Update Type
+				// p.AddUint8(uint8(splat.Damage))                                  // How much damage was done
+				// p.AddUint8(uint8(splat.Owner.Skills().Current(entity.StatHits))) // Current hitpoints level, for healthbar percentage
+				// p.AddUint8(uint8(splat.Owner.Skills().Maximum(entity.StatHits))) // Maximum hitpoints level, for healthbar percentage
+				// updateSize++
+			// }
+		// }
+		// ourPlayer.SetVar(playerSplatHandle, newList)
+	// }
+	// if list, ok := ourPlayer.VarChecked(projectilesHandle).([]interface{}); ok {
+		// for _, shot := range list {
+			// if shot, ok := shot.(Projectile); ok {
+				// p.AddUint16(uint16(shot.Owner.ServerIndex())) // Index
+				// if shot.Target.IsNpc() {
+					// p.AddUint8(3)
+				// } else if shot.Target.IsPlayer() {
+					// p.AddUint8(4)
+				// } else {
+					// p.Rewind(2)
+					// continue
+				// }
+				// p.AddUint16(uint16(shot.Kind))                 // Projectile Type, this is large bit-length for such small data
+				// p.AddUint16(uint16(shot.Target.ServerIndex())) // Projectile target index
+				// updateSize++
+			// }
+		// }
+		// ourPlayer.UnsetVar(projectilesHandle)
+	// }
+	// if list, ok := ourPlayer.VarChecked(questChatHandle).([]interface{}); ok {
+		// var newList []interface{}
+		// for _, msg := range list {
+			// if msg, ok := msg.(ChatMessage); ok {
+				// if msg.Owner.IsNpc() {
+					// newList = append(newList, msg)
+					// continue
+				// }
+				// p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
+				// p.AddUint8(6)                                // Update Type
+				// // Format chat messages to match the rules of Jagex chat format
+				// // Examples: First letters capitalized for every sentence, color-codes are properly identified, etc.
+				// msg.string = strutil.ChatFilter.Format(msg.string)
+				// // Too long messages are truncated to 255 bytes
+				// if len(msg.string) > 0xFF {
+					// msg.string = msg.string[:0xFF]
+				// }
+				// // Deprecated below call; Go defaults string encoding to UTF-8 and I updated the clients to use UTF-8 as well
+				// // messageRaw := strutil.ChatFilter.Encode(message)
+				// p.AddUint8(uint8(len(msg.string)))
+				// p.AddBytes([]byte(msg.string))
+				// updateSize++
+			// }
+		// }
+		// ourPlayer.SetVar(questChatHandle, newList)
+	// }
 	var appearanceList []*Player
 	if ourPlayer.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
 		ourPlayer.PostTickables.Add(func() bool {
@@ -519,10 +582,10 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 		p.AddBoolean(player.Skulled())
 		updateSize++
 	}
-	if updateSize <= 0 {
+	if updateSize+len(list) <= 0 {
 		return nil
 	}
-	p.SetUint16At(1, uint16(updateSize))
+	p.SetUint16At(1, uint16(updateSize+len(list)))
 	return
 }
 
@@ -551,9 +614,10 @@ func ClearDistantChunks(player *Player) (p *net.Packet) {
 func ObjectLocations(player *Player) (p *net.Packet) {
 	changed := 0
 	p = net.NewEmptyPacket(48)
-	var removing []*Object
+	var local []entity.Entity
 	for _, o := range player.LocalObjects.set {
 		if o, ok := o.(*Object); ok {
+			local = append(local, o)
 			if o.Boundary {
 				continue
 			}
@@ -571,13 +635,13 @@ func ObjectLocations(player *Player) (p *net.Packet) {
 					p.AddUint8(byte(o.Y() - player.Y()))
 					changed++
 				}
-				removing = append(removing, o)
+				local = local[:len(local)-1]
 			}
 		}
 	}
-	for _, o := range removing {
-		player.LocalObjects.Remove(o)
-	}
+	player.LocalObjects.Lock()
+	player.LocalObjects.set = local
+	player.LocalObjects.Unlock()
 	for _, o := range player.NewObjects() {
 		if o.Boundary {
 			continue
@@ -599,9 +663,10 @@ func ObjectLocations(player *Player) (p *net.Packet) {
 func BoundaryLocations(player *Player) (p *net.Packet) {
 	changed := 0
 	p = net.NewEmptyPacket(91)
-	var removing []*Object
+	var local []entity.Entity
 	for _, o := range player.LocalObjects.set {
 		if o, ok := o.(*Object); ok {
+			local = append(local, o)
 			if !o.Boundary {
 				continue
 			}
@@ -622,13 +687,13 @@ func BoundaryLocations(player *Player) (p *net.Packet) {
 					p.AddUint8(o.Direction)
 					changed++
 				}
-				removing = append(removing, o)
 			}
 		}
 	}
-	for _, o := range removing {
-		player.LocalObjects.Remove(o)
-	}
+
+	player.LocalObjects.Lock()
+	player.LocalObjects.set = local
+	player.LocalObjects.Unlock()
 	for _, o := range player.NewObjects() {
 		if !o.Boundary {
 			continue

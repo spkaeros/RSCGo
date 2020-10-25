@@ -17,8 +17,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/spkaeros/rscgo/pkg/db"
 	"github.com/spkaeros/rscgo/pkg/log"
+	"github.com/spkaeros/rscgo/pkg/db"
 )
 
 var muxCtx = http.NewServeMux()
@@ -90,13 +90,18 @@ func render(w http.ResponseWriter, r *http.Request) {
 		file += "index.html"
 	}
 
+	if strings.HasSuffix(file, "wasm") || strings.HasSuffix(file, "js") {
+		http.ServeFile(w, r, file)
+		return
+	}
+
 	// check template files cache
 	tmpl, ok := pageTemplates[name]
 	if !ok {
 		// Return a 404 if the template doesn't exist or the request is for a directory
 		info, err := os.Stat(file)
 		if err != nil && os.IsNotExist(err) {
-
+			
 			log.Errorf("Website error at '%v' (exists:%v; directory:%v):\t%v\n", file, os.IsNotExist(err), info != nil && info.IsDir(), err)
 			http.NotFound(w, r)
 			return
@@ -129,8 +134,8 @@ func render(w http.ResponseWriter, r *http.Request) {
 //Start Binds to the web port 8080 and serves HTTP template to it.
 // Note: This is a blocking call, it will not return to caller.
 func Start() {
-	mime.AddExtensionType(".js", "application/javascript; charset=utf-8")
-	mime.AddExtensionType(".wasm", "application/wasm; charset=utf-8")
+	mime.AddExtensionType(".js", "application/javascript")
+	mime.AddExtensionType(".wasm", "application/wasm")
 	muxCtx.HandleFunc("/", render)
 	muxCtx.HandleFunc("/game/", render)
 	// muxCtx.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./data/client"))))

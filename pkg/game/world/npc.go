@@ -12,7 +12,7 @@ package world
 import (
 	"sync"
 	"time"
-
+	
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/rand"
@@ -146,36 +146,36 @@ func (n *NPC) Command() string {
 //UpdateNPCPositions Loops through the global NPC entityList and, if they are by a player, updates their path to a new path every so often,
 // within their boundaries, and traverses each NPC along said path if necessary.
 // func UpdateNPCPositions() {
-// wait := sync.WaitGroup{}
-// Npcs.RangeNpcs(func(n *NPC) bool {
-// wait.Add(1)
-// go func() {
-// defer wait.Done()
-// if n.Busy() || n.IsFighting() || n.Equals(DeathPoint) {
-// return
-// }
-// if n.MoveTick > 0 {
-// n.MoveTick--
-// }
-// if Chance(25) && n.pathSteps == 0 && n.moveTick <= 0 {
-// // move some amount between 2-15 tiles, moving 1 tile per tick
-// n.PathSteps = int(rand.Rng.Float64() * 15 - 2) + 2
-// // wait some amount between 25-50 ticks before doing this again
-// n.MoveTick = int(rand.Rng.Float64() * 50 - 25) + 25
-// }
-// // wander aimlessly until we run out of scheduled steps
-// n.TraversePath()
-// }()
-// return false
-// })
-// wait.Wait()
+	// wait := sync.WaitGroup{}
+	// Npcs.RangeNpcs(func(n *NPC) bool {
+		// wait.Add(1)
+		// go func() {
+			// defer wait.Done()
+			// if n.Busy() || n.IsFighting() || n.Equals(DeathPoint) {
+				// return
+			// }
+			// if n.MoveTick > 0 {
+				// n.MoveTick--
+			// }
+			// if Chance(25) && n.pathSteps == 0 && n.moveTick <= 0 {
+				// // move some amount between 2-15 tiles, moving 1 tile per tick
+				// n.PathSteps = int(rand.Rng.Float64() * 15 - 2) + 2
+				// // wait some amount between 25-50 ticks before doing this again
+				// n.MoveTick = int(rand.Rng.Float64() * 50 - 25) + 25
+			// }
+			// // wander aimlessly until we run out of scheduled steps
+			// n.TraversePath()
+		// }()
+		// return false
+	// })
+	// wait.Wait()
 // }
 
 func (n *NPC) UpdateRegion(x, y int) {
 	curArea := Region(n.X(), n.Y())
 	newArea := Region(x, y)
 	if newArea != curArea {
-		if curArea.NPCs.Contains(n) {
+	 	if curArea.NPCs.Contains(n) {
 			curArea.NPCs.Remove(n)
 		}
 		newArea.NPCs.Add(n)
@@ -198,9 +198,8 @@ func ResetNpcUpdateFlags() {
 	})
 	wait.Wait()
 }
-
 type NpcBlockingTrigger struct {
-	Check  func(*Player, *NPC) bool
+	Check func(*Player, *NPC) bool
 	Action func(*Player, *NPC)
 }
 
@@ -208,17 +207,17 @@ type NpcBlockingTrigger struct {
 var NpcDeathTriggers []NpcBlockingTrigger
 
 // func (n *NPC) Damage(dmg int) {
-// n.enqueueArea(npcSplatHandle, HitSplat{n, dmg})
-// n.Skills().DecreaseCur(entity.StatHits, dmg)
+	// n.enqueueArea(npcSplatHandle, HitSplat{n, dmg})
+	// n.Skills().DecreaseCur(entity.StatHits, dmg)
 // }
-//
+// 
 // func (n *NPC) DamageFrom(m entity.MobileEntity, dmg, dmgKind int) {
-// if dmgKind == 0 {
-// n.meleeRangeDamage.Put(AsPlayer(m).UsernameHash(), dmg)
-// } else if dmgKind == 1 {
-// n.magicDamage.Put(AsPlayer(m).UsernameHash(), dmg)
-// }
-// n.Damage(dmg)
+	// if dmgKind == 0 {
+		// n.meleeRangeDamage.Put(AsPlayer(m).UsernameHash(), dmg)
+	// } else if dmgKind == 1 {
+		// n.magicDamage.Put(AsPlayer(m).UsernameHash(), dmg)
+	// }
+	// n.Damage(dmg)
 // 	}
 
 func (n *NPC) rewardKillers() (winner *Player) {
@@ -292,14 +291,14 @@ func (n *NPC) TraversePath() {
 		dir = rand.Rng.Intn(8)
 	}
 	if dir == East || dir == SouthEast || dir == NorthEast {
-		dst.SetX(dst.X() - 1)
+		dst.SetX(dst.X()-1)
 	} else if dir == West || dir == SouthWest || dir == NorthWest {
-		dst.SetX(dst.X() + 1)
+		dst.SetX(dst.X()+1)
 	}
 	if dir == North || dir == NorthWest || dir == NorthEast {
-		dst.SetY(dst.Y() - 1)
+		dst.SetY(dst.Y()-1)
 	} else if dir == South || dir == SouthWest || dir == SouthEast {
-		dst.SetY(dst.Y() + 1)
+		dst.SetY(dst.Y()+1)
 	}
 
 	if !n.Reachable(dst) || !dst.WithinArea(n.Boundaries) {
@@ -313,10 +312,10 @@ func (n *NPC) TraversePath() {
 //ChatIndirect sends a chat message to target and all of target's view area players, without any delay.
 func (n *NPC) ChatIndirect(target *Player, msg string) {
 	// for _, player := range target.NearbyPlayers() {
-	// player.QueueNpcChat(n, target, msg)
+		// player.QueueNpcChat(n, target, msg)
 	// }
 	// target.QueueNpcChat(n, target, msg)
-	n.enqueueArea(npcChatHandle, NewTargetedMessage(n, target, msg))
+	n.enqueueArea(npcEvents, NewTargetedMessage(n,target,msg))
 }
 
 func (n *NPC) enqueueArea(handle string, e interface{}) {
@@ -339,28 +338,28 @@ func (n *NPC) Chat(target *Player, msgs ...string) {
 		return
 	}
 
-	n.enqueueArea(npcChatHandle, NewTargetedMessage(n, target, msgs[0]))
+	n.enqueueArea(npcEvents, NewTargetedMessage(n, target, msgs[0]))
 	wait := time.Duration(0)
 	for _, v := range msgs {
 		// tasks.TickList.Schedule(wait, func() bool {
-		n.enqueueArea(npcChatHandle, NewTargetedMessage(n, target, v))
-		// return true
+			n.enqueueArea(npcEvents, NewTargetedMessage(n, target, v))
+			// return true
 		// })
 		wait += 3
 		if len(msgs[0]) >= 84 {
 			wait++
 		}
-		time.Sleep(TickMillis * wait)
+		time.Sleep(TickMillis*wait)
 	}
 	// if len(msgs) > 1 {
-	// wait := 3
-	// if len(msgs[0]) >= 84 {
-	// wait++
-	// }
-	// // time.Sleep(TickMillis*wait)
-	// tasks.TickList.Schedule(wait, func() bool {
-	// n.Chat(target, (msgs[1:])...)
-	// return true
-	// })
+		// wait := 3
+		// if len(msgs[0]) >= 84 {
+			// wait++
+		// }
+		// // time.Sleep(TickMillis*wait)
+		// tasks.TickList.Schedule(wait, func() bool {
+			// n.Chat(target, (msgs[1:])...)
+			// return true
+		// })
 	// }
 }
