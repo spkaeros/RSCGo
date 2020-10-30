@@ -7,35 +7,30 @@ load("scripts/def/magic.ank")
 for idx in range(len(defs)) {
 	fn = defs[idx].handler
 	if fn == nil {
-		fn = func(player, spell) {
+		bind.spell(idx, func(player, spell) {
 			player.Message("@que@@or2@Not yet added")
-		}
+		})
+		continue
 	}
 	bind.spell(idx, fn)
 }
 
-//cast on self
 bind.packet(packets.spellOnSelf, func(player, packet) {
 	cast(player, player, packet.ReadUint16())
 })
 
-
-// cast on NPC
 bind.packet(packets.spellOnNpc, func(player, packet) {
 	cast(player, world.getNpc(packet.ReadUint16()), packet.ReadUint16())
 })
 
-// cast on player
 bind.packet(packets.spellOnPlayer, func(player, packet) {
 	cast(player, world.getPlayer(packet.ReadUint16()), packet.ReadUint16())
 })
 
-// cast on lootable item
 bind.packet(packets.spellOnGroundItem, func(player, packet) {
 	cast(player, world.getItem(packet.ReadUint16(), packet.ReadUint16(), packet.ReadUint16()), packet.ReadUint16())
 })
 
-// cast on item
 bind.packet(packets.spellOnGroundItem, func(player, packet) {
 	cast(player, player.Inventory.Get(packet.ReadUint16()), packet.ReadUint16())
 })

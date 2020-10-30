@@ -15,7 +15,6 @@ import (
 	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
-	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 func init() {
@@ -33,48 +32,48 @@ func init() {
 			player.Message("Successfully updated your password to the new password you have provided.")
 		}()
 	})
-	game.AddHandler("clientsetting", func(player *world.Player, p *net.Packet) {
-		// 2 = mouse buttons
-		// 0 = camera angle manual/auto
-		// 3 = soundFX (false=on, wtf)
-		player.SetClientSetting(int(p.ReadUint8()), p.ReadBoolean())
-	})
-	game.AddHandler("privacysettings", func(player *world.Player, p *net.Packet) {
-		chatBlocked := p.ReadBoolean()
-		friendBlocked := p.ReadBoolean()
-		tradeBlocked := p.ReadBoolean()
-		duelBlocked := p.ReadBoolean()
-		if player.FriendBlocked() && !friendBlocked {
-			// turning off private chat block
-			world.Players.Range(func(c1 *world.Player) {
-				if c1.FriendsWith(player.UsernameHash()) && !player.FriendsWith(c1.UsernameHash()) {
-					c1.SendPacket(world.FriendUpdate(player.UsernameHash(), true))
-				}
-			})
-		} else if !player.FriendBlocked() && friendBlocked {
-			// turning on private chat block
-			world.Players.Range(func(c1 *world.Player) {
-				if c1.FriendsWith(player.UsernameHash()) && !player.FriendsWith(c1.UsernameHash()) {
-					c1.SendPacket(world.FriendUpdate(player.UsernameHash(), false))
-				}
-			})
-		}
-		player.SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, duelBlocked)
-	})
-	game.AddHandler("cancelpq", func(player *world.Player, p *net.Packet) {
+	// game.AddHandler("clientsetting", func(player *world.Player, p *net.Packet) {
+		// // 2 = mouse buttons
+		// // 0 = camera angle manual/auto
+		// // 3 = soundFX (false=on, wtf)
+		// player.SetClientSetting(int(p.ReadUint8()), p.ReadBoolean())
+	// })
+	// game.AddHandler("privacysettings", func(player *world.Player, p *net.Packet) {
+		// chatBlocked := p.ReadBoolean()
+		// friendBlocked := p.ReadBoolean()
+		// tradeBlocked := p.ReadBoolean()
+		// duelBlocked := p.ReadBoolean()
+		// if player.FriendBlocked() && !friendBlocked {
+			// // turning off private chat block
+			// world.Players.Range(func(c1 *world.Player) {
+				// if c1.FriendsWith(player.UsernameHash()) && !player.FriendsWith(c1.UsernameHash()) {
+					// c1.SendPacket(world.FriendUpdate(player.UsernameHash(), true))
+				// }
+			// })
+		// } else if !player.FriendBlocked() && friendBlocked {
+			// // turning on private chat block
+			// world.Players.Range(func(c1 *world.Player) {
+				// if c1.FriendsWith(player.UsernameHash()) && !player.FriendsWith(c1.UsernameHash()) {
+					// c1.SendPacket(world.FriendUpdate(player.UsernameHash(), false))
+				// }
+			// })
+		// }
+		// player.SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, duelBlocked)
+	// })
+	// game.AddHandler("cancelpq", func(player *world.Player, p *net.Packet) {
 		// empty net
-	})
-	game.AddHandler("changepq", func(player *world.Player, p *net.Packet) {
-		player.SendPacket(net.NewEmptyPacket(224))
-	})
-	game.AddHandler("setpq", func(player *world.Player, p *net.Packet) {
-		var questions []string
-		var answers []uint64
-		for i := 0; i < 5; i++ {
-			length := p.ReadUint8()
-			questions = append(questions, p.ReadStringN(int(length)))
-			answers = append(answers, p.ReadUint64())
-		}
-		log.Info.Println(questions, answers)
-	})
+	// })
+	// game.AddHandler("changepq", func(player *world.Player, p *net.Packet) {
+		// player.SendPacket(net.NewEmptyPacket(224))
+	// })
+	// game.AddHandler("setpq", func(player *world.Player, p *net.Packet) {
+		// var questions []string
+		// var answers []uint64
+		// for i := 0; i < 5; i++ {
+			// length := p.ReadUint8()
+			// questions = append(questions, p.ReadStringN(int(length)))
+			// answers = append(answers, p.ReadUint64())
+		// }
+		// log.Info.Println(questions, answers)
+	// })
 }

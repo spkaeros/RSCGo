@@ -20,6 +20,7 @@ import (
 	"github.com/mattn/anko/env"
 	"github.com/mattn/anko/parser"
 	"github.com/spkaeros/rscgo/pkg/definitions"
+	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/tasks"
@@ -36,6 +37,7 @@ var CommandHandlers = make(map[string]func(*Player, []string))
 func init() {
 	env.Packages["state"] = map[string]reflect.Value{
 		"UsingItem":			  reflect.ValueOf(MSItemAction),
+		"InDuel":				  reflect.ValueOf(StateDueling),
 	}
 	env.Packages["world"] = map[string]reflect.Value{
 		"getPlayer":              reflect.ValueOf(Players.FindIndex),
@@ -58,6 +60,7 @@ func init() {
 		"maxY":                   reflect.ValueOf(MaxY),
 		"getObjectAt":            reflect.ValueOf(GetObject),
 		"getNpc":                 reflect.ValueOf(GetNpc),
+		"attackNpcCalls":         reflect.ValueOf(NpcAtkTriggers),
 		"checkCollisions":        reflect.ValueOf(IsTileBlocking),
 		"tileData":               reflect.ValueOf(CollisionData),
 		"kickPlayer": reflect.ValueOf(func(client *Player) {
@@ -111,10 +114,14 @@ func init() {
 		"newGroundItem":    reflect.ValueOf(NewGroundItem),
 		"curTick":		    reflect.ValueOf(Ticks.Load()),
 		"newShop":          reflect.ValueOf(NewShop),
+		"newItem":          reflect.ValueOf(NewItem),
 		"newLocation":      reflect.ValueOf(NewLocation),
 		"newGeneralShop":   reflect.ValueOf(NewGeneralShop),
 		"getShop":          reflect.ValueOf(Shops.Get),
 		"hasShop":          reflect.ValueOf(Shops.Contains),
+	}
+	env.Packages["net"] = map[string]reflect.Value {
+		"barePacket": reflect.ValueOf(net.NewEmptyPacket),
 	}
 	env.PackageTypes["world"] = map[string]reflect.Type{
 		"players":    reflect.TypeOf(Players),
@@ -136,6 +143,22 @@ func init() {
 		"spellOnInvItem": reflect.ValueOf(4),
 		"spellOnPlayer": reflect.ValueOf(229),
 		"spellOnSelf": reflect.ValueOf(137),
+		"ticketRequests": reflect.ValueOf(163),
+		"attackNpc": reflect.ValueOf(190),
+		"attackPlayer": reflect.ValueOf(171),
+		"fightMode": reflect.ValueOf(29),
+		"duelRequest": reflect.ValueOf(103),
+		"duelDecline": reflect.ValueOf(197),
+		"duelAccept": reflect.ValueOf(176),
+		"duelAccept2": reflect.ValueOf(77),
+		"duelUpdate": reflect.ValueOf(33),
+		"duelSettings": reflect.ValueOf(8),
+		"settings": reflect.ValueOf(111),
+		"privacySettings": reflect.ValueOf(64),
+		"command": reflect.ValueOf(38),
+		"cancelRecoverys": reflect.ValueOf(196),
+		"changeRecoverys": reflect.ValueOf(203),
+		"recoverys": reflect.ValueOf(208),
 	}
 	env.Packages["ids"] = map[string]reflect.Value{
 		"COOKEDMEAT":               reflect.ValueOf(132),

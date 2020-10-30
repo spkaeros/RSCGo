@@ -34,6 +34,10 @@ type Item struct {
 	Index  int
 }
 
+func NewItem(id, amt, idx int, worn bool) *Item {
+	return &Item { id, amt, worn, idx }
+}
+
 //Name returns the receivers name
 func (i *Item) Name() string {
 	if i.ID >= len(definitions.Items) || i.ID < 0 {

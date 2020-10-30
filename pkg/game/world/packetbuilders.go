@@ -49,11 +49,6 @@ func PrivateMessage(hash uint64, msg string) (p *net.Packet) {
 	return p
 }
 
-//func CreateProjectile(owner *Player, target entity.MobileEntity, projectileID int) (p *net.Packet) {
-//	p := net.NewEmptyPacket(234)
-//	return p
-//}
-
 //IgnoreList Builds a packet with the players ignore entityList information in it.
 func IgnoreList(player *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(109)
@@ -78,8 +73,6 @@ func FriendUpdate(hash uint64, online bool) (p *net.Packet) {
 
 func NpcEvents(player *Player) (p *net.Packet) {
 	events, ok := player.VarChecked(npcEvents).([]interface{})
-	// hitSplats, splatsOk := player.VarChecked(npcSplatHandle).([]interface{})
-	// messages, messagesOk := player.VarChecked(npcChatHandle).([]interface{})
 	p = net.NewEmptyPacket(104)
 	eventCount := uint16(len(events))
 	if eventCount <= 0 {
@@ -123,49 +116,6 @@ func NpcEvents(player *Player) (p *net.Packet) {
 		}
 		player.SetVar(npcEvents, newList)
 	}
-	// if splatsOk && len(hitSplats) > 0 {
-		// var newList []interface{}
-		// for _, splat := range hitSplats {
-			// if splat, ok := splat.(*HitSplat); ok {
-				// if AsNpc(splat.Owner) != nil {
-					// p.AddUint16(uint16(splat.Owner.ServerIndex()))
-					// p.AddUint8(2)
-					// p.AddUint8(uint8(splat.Damage))
-					// p.AddUint8(uint8(splat.Owner.Skills().Current(entity.StatHits)))
-					// p.AddUint8(uint8(splat.Owner.Skills().Maximum(entity.StatHits)))
-				// } else {
-					// newList = append(newList, splat)
-				// }
-			// }
-		// }
-		// player.SetVar(npcSplatHandle, newList)
-	// }
-	// if messagesOk && len(messages) > 0 {
-		// var newList []interface{}
-		// for _, msg := range messages {
-			// if msg, ok := msg.(ChatMessage); ok {
-				// if msg.Owner.IsNpc() {
-					// p.AddUint16(uint16(msg.Owner.ServerIndex()))
-					// p.AddUint8(1)
-					// p.AddUint16(uint16(msg.Target.ServerIndex()))
-					// message := strutil.ChatFilter.Format(msg.string)
-					// size := len(message)
-					// if size > 0 && size < 128 {
-						// p.AddUint8(uint8(size))
-					// } else if size >= 0 && size < 0x8000 {
-						// p.AddUint16(uint16(size))
-					// }
-					// for _, c := range message {
-						// p.AddUint8(byte(c))
-					// }
-					// p.AddBytes([]byte(message))
-				// } else {
-					// newList = append(newList, msg)
-				// }
-			// }
-		// }
-		// player.SetVar(npcChatHandle, newList)
-	// }
 	return
 }
 
@@ -225,15 +175,14 @@ func NPCPositions(player *Player) (p *net.Packet) {
 	changed := 0
 	p.AddBitmask(player.LocalNPCs.Size(), 8)
 	// var local []entity.MobileEntity
-	// var local = player.LocalNPCs.mobSet[:0]
-	var local = make(mobSet, 0, len(player.NearbyNpcs()))
+	var local = player.LocalNPCs.mobSet[:0]
+	// var local = make(mobSet, 0, len(player.NearbyNpcs()))
 	player.LocalNPCs.RangeNpcs(func(n *NPC) bool {
 		local = append(local, n)
 		changed++
 		n.RLock()
 		mask := n.SyncMask
-		n.RUnlock()
-		if !player.Near(n, player.VarInt("viewRadius", 16)) || mask&SyncRemoved == SyncRemoved || n.Point().Equals(DeathPoint) || n.VarBool("removed", false) {
+		if !player.Near(n, player.ViewRadius()) || mask&SyncRemoved == SyncRemoved || n.Point().Equals(DeathPoint) || n.VarBool("removed", false) {
 			// p.AddBitmask(1, 1)
 			// p.AddBitmask(1, 1)
 			// p.AddBitmask(3, 2)
@@ -251,8 +200,9 @@ func NPCPositions(player *Player) (p *net.Packet) {
 			p.AddBitmask(n.Direction(), 4)
 		} else {
 			p.AddBitmask(0, 1)
-			// changed--
+			changed--
 		}
+		n.RUnlock()
 		return false
 	})
 	player.LocalNPCs.Set(local)
@@ -263,25 +213,28 @@ func NPCPositions(player *Player) (p *net.Packet) {
 			return true
 		}
 		if newCount >= 25 {
-			if player.VarInt("viewRadius", 16) > 1 {
+			if player.ViewRadius() > 1 {
 				player.Dec("viewRadius", 1)
 			}
 			return true
 		}
-		if player.VarInt("viewRadius", 16) < 16 {
+		if player.ViewRadius() < 16 {
 			player.Inc("viewRadius", 1)
 		}
 		newCount++
-		player.LocalNPCs.Add(n)
 		p.AddBitmask(n.ServerIndex(), 12)
 		// bitwise trick avoids branching to do a manual addition, and maintains binary compatibility with the original protocol
-		p.AddSignedBits(n.X()-player.X(), 5)
-		p.AddSignedBits(n.Y()-player.Y(), 5)
+		p.AddBitmask(n.X() - player.X() & 0x1F, 5)
+		p.AddBitmask(n.Y() - player.Y() & 0x1F, 5)
 		p.AddBitmask(n.Direction(), 4)
 		p.AddBitmask(n.ID, 10)
 		changed++
+		player.LocalNPCs.Add(n)
 		return false
 	})
+	// if newCount + player.LocalNPCs.Size() <= 0 {
+		// return nil
+	// }
 	if changed <= 0 {
 		return nil
 	}
@@ -310,12 +263,6 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 	// if player.SyncMask&SyncNeedsPosition != 0 {
 		// changed++
 	// }
-	player.PostTickables.Add(func() bool {
-		player.ResetRegionRemoved()
-		player.ResetRegionMoved()
-		player.ResetSpriteUpdated()
-		return true
-	})
 	// var removing []*Player
 	var local mobSet
 	player.LocalPlayers.RangePlayers(func(p1 *Player) bool {
@@ -323,8 +270,7 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		changed++
 		p1.RLock()
 		mask := p1.SyncMask
-		p1.RUnlock()
-		if !player.Near(p1, player.VarInt("viewRadius", 16)) || mask&SyncRemoved == SyncRemoved {
+		if !player.Near(p1, player.ViewRadius()) || mask&SyncRemoved == SyncRemoved {
 			// flips on the next 4 bits
 			p.AddBitmask(0xF, 4)
 			local = local[:len(local)-1]
@@ -339,6 +285,7 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 			p.AddBitmask(0, 1)
 			changed--
 		}
+		p1.RUnlock()
 		return false
 	})
 	player.LocalPlayers.Set(local)
@@ -350,11 +297,11 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		}
 		if newPlayerCount >= 25 {
 			// Shrink view area when too many new players in one tick
-			if player.VarInt("viewRadius", 16) > 1 {
+			if player.ViewRadius() > 1 {
 				player.Dec("viewRadius", 1)
 			}
 			return true
-		} else if player.VarInt("viewRadius", 16) < 16 {
+		} else if player.ViewRadius() < 16 {
 			// Grow view area back out after it had been shrunk
 			player.Inc("viewRadius", 1)
 		}
@@ -365,26 +312,28 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		p.AddSignedBits(p1.X()-player.X(), 5)
 		p.AddSignedBits(p1.Y()-player.Y(), 5)
 		p.AddBitmask(p1.Direction(), 4)
-		if ticket, ok := player.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
-			p.AddBitmask(1, 1)
-			player.AppearanceReq = append(player.AppearanceReq, p1)
-		} else {
+		// if ticket, ok := player.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
+		if ticket, hasPlayerTicket := player.Var(strconv.Itoa(p1.ServerIndex()) + "=" + strconv.Itoa(p1.AppearanceTicket())); !hasPlayerTicket || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
+			player.enqueue(playerEvents, map[string]int {"index": int(p1.ServerIndex()), "ticket": int(p1.AppearanceTicket())})
 			p.AddBitmask(0, 1)
+			return false
+		} else {
+			p.AddBitmask(1, 1)
 		}
 		return false
 	})
-	//	if changed+newPlayerCount <= 0 {
-	//		return nil
-	//	}
 	return
 }
 
 //PlayerAppearances Builds a packet with the view-area player appearance profiles in it.
 func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(234)
-	updateSize := 0
+	// updateSize := 0
 	list, ok := ourPlayer.VarChecked(playerEvents).([]interface{})
-	p.AddUint16(0)
+	if !ok || len(list) == 0 {
+		return nil
+	}
+	p.AddUint16(uint16(len(list)))
 	if ok {
 		for _, e := range list {
 			if bubble, ok := e.(ItemBubble); ok {
@@ -440,152 +389,55 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 				p.AddUint16(uint16(shot.Kind))                 // Projectile Type, this is large bit-length for such small data
 				p.AddUint16(uint16(shot.Target.ServerIndex())) // Projectile target index
 			}
+			if ticket, ok := e.(map[string]int); ok && ticket != nil {
+				idx, ok := ticket["index"]
+				if !ok {
+					// log.Debug("bad ticket: no index; required for any tickets")
+					continue
+				}
+				ticketID, ok := ticket["ticket"]
+				if !ok {
+					// log.Debug("bad ticket: no ticket ID; required for any tickets")
+					continue
+				}
+
+				p1, ok := Players.FindIndex(int(idx))
+				if p1.AppearanceTicket() != int(ticketID) || !ok {
+					// log.Debug("bad ticket ID; player at idx does not match for it")
+					continue
+				}
+				ourPlayer.SetVar("ticket" + strconv.Itoa(p1.ServerIndex()), ticketID)
+				p.AddUint16(uint16(p1.ServerIndex())) // index
+				p.AddUint8(5)                             // update type
+				// This ticket is to track changes to the players around us
+				// Everytime this ticket changes, we must send this block out regionally,
+				// containing data that identifies all of the owning players characteristics
+				p.AddUint16(uint16(ticketID)) // appearance uuid
+				p.AddUint64(p1.UsernameHash())             // base37 encoded username
+				// ourPlayer.KnownAppearances[player.ServerIndex()] = player.AppearanceTicket()
+				sprites := p1.Equips()
+				p.AddUint8(uint8(len(sprites))) // length of equipped item sprites  If length less than 12 any ones after length will get set to 0
+				for i := 0; i < len(sprites); i++ {
+					p.AddUint8(uint8(sprites[i]))
+				}
+
+				// The below colors will set the human character animation colors used for this player,
+				// it will not apply to any equipment on top of said human character
+				// They are simple array indexes corresponding to arrays built in the client
+				p.AddUint8(uint8(p1.Appearance.HeadColor))
+				p.AddUint8(uint8(p1.Appearance.BodyColor))
+				p.AddUint8(uint8(p1.Appearance.LegsColor))
+				p.AddUint8(uint8(p1.Appearance.SkinColor))
+
+				// Combat level is the publically shown level of this player; it gives a general
+				// idea of how good this player is in combat, it's calculated from the levels of the
+				// first 6 skill types
+				p.AddUint8(uint8(p1.Skills().CombatLevel()))
+				p.AddBoolean(p1.Skulled())
+			}
 		}
 		ourPlayer.UnsetVar(playerEvents)
 	}
-	// if list, ok := ourPlayer.VarChecked(bubblesHandle).([]interface{}); ok {
-		// for _, bubble := range list {
-			// if bubble, ok := bubble.(ItemBubble); ok {
-				// p.AddUint16(uint16(bubble.Owner.ServerIndex())) // Index
-				// p.AddUint8(0)                                   // Update Type
-				// p.AddUint16(uint16(bubble.Item))                // Item ID
-				// updateSize++
-			// }
-		// }
-		// ourPlayer.UnsetVar(bubblesHandle)
-	// }
-	// if list, ok := ourPlayer.VarChecked(publicChatHandle).([]interface{}); ok {
-		// for _, msg := range list {
-			// if msg, ok := msg.(ChatMessage); ok {
-				// p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
-				// p.AddUint8(1)                                // Update Type
-				// // TODO: Is this better or is end of message indicator better
-				// size := uint8(len(msg.string))
-				// if size > 84 {
-					// size = 84
-					// msg.string = msg.string[:size]
-				// }
-				// p.AddUint8(size)               // Count of UTF-8 characters in message
-				// p.AddBytes([]byte(msg.string)) // UTF-8 encoded message
-				// updateSize++
-			// }
-		// }
-		// ourPlayer.UnsetVar(publicChatHandle)
-	// }
-	// if list, ok := ourPlayer.VarChecked(playerSplatHandle).([]interface{}); ok {
-		// var newList []interface{}
-		// for _, splat := range list {
-			// if splat, ok := splat.(*HitSplat); ok {
-				// if splat.Owner.IsNpc() {
-					// newList = append(newList, splat)
-				// }
-				// p.AddUint16(uint16(splat.Owner.ServerIndex()))                   // Index
-				// p.AddUint8(2)                                                    // Update Type
-				// p.AddUint8(uint8(splat.Damage))                                  // How much damage was done
-				// p.AddUint8(uint8(splat.Owner.Skills().Current(entity.StatHits))) // Current hitpoints level, for healthbar percentage
-				// p.AddUint8(uint8(splat.Owner.Skills().Maximum(entity.StatHits))) // Maximum hitpoints level, for healthbar percentage
-				// updateSize++
-			// }
-		// }
-		// ourPlayer.SetVar(playerSplatHandle, newList)
-	// }
-	// if list, ok := ourPlayer.VarChecked(projectilesHandle).([]interface{}); ok {
-		// for _, shot := range list {
-			// if shot, ok := shot.(Projectile); ok {
-				// p.AddUint16(uint16(shot.Owner.ServerIndex())) // Index
-				// if shot.Target.IsNpc() {
-					// p.AddUint8(3)
-				// } else if shot.Target.IsPlayer() {
-					// p.AddUint8(4)
-				// } else {
-					// p.Rewind(2)
-					// continue
-				// }
-				// p.AddUint16(uint16(shot.Kind))                 // Projectile Type, this is large bit-length for such small data
-				// p.AddUint16(uint16(shot.Target.ServerIndex())) // Projectile target index
-				// updateSize++
-			// }
-		// }
-		// ourPlayer.UnsetVar(projectilesHandle)
-	// }
-	// if list, ok := ourPlayer.VarChecked(questChatHandle).([]interface{}); ok {
-		// var newList []interface{}
-		// for _, msg := range list {
-			// if msg, ok := msg.(ChatMessage); ok {
-				// if msg.Owner.IsNpc() {
-					// newList = append(newList, msg)
-					// continue
-				// }
-				// p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
-				// p.AddUint8(6)                                // Update Type
-				// // Format chat messages to match the rules of Jagex chat format
-				// // Examples: First letters capitalized for every sentence, color-codes are properly identified, etc.
-				// msg.string = strutil.ChatFilter.Format(msg.string)
-				// // Too long messages are truncated to 255 bytes
-				// if len(msg.string) > 0xFF {
-					// msg.string = msg.string[:0xFF]
-				// }
-				// // Deprecated below call; Go defaults string encoding to UTF-8 and I updated the clients to use UTF-8 as well
-				// // messageRaw := strutil.ChatFilter.Encode(message)
-				// p.AddUint8(uint8(len(msg.string)))
-				// p.AddBytes([]byte(msg.string))
-				// updateSize++
-			// }
-		// }
-		// ourPlayer.SetVar(questChatHandle, newList)
-	// }
-	var appearanceList []*Player
-	if ourPlayer.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
-		ourPlayer.PostTickables.Add(func() bool {
-			ourPlayer.ResetAppearanceChanged()
-			return true
-		})
-		appearanceList = append(appearanceList, ourPlayer)
-	}
-
-	appearanceList = append(appearanceList, ourPlayer.AppearanceReq...)
-	ourPlayer.AppearanceReq = ourPlayer.AppearanceReq[:0]
-	ourPlayer.LocalPlayers.RangePlayers(func(p1 *Player) bool {
-		if ticket, ok := ourPlayer.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.AppearanceTicket() { //||
-			// p1.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
-			appearanceList = append(appearanceList, p1)
-		}
-		return false
-	})
-	for _, player := range appearanceList {
-		p.AddUint16(uint16(player.ServerIndex())) // index
-		p.AddUint8(5)                             // update type
-		// This ticket is to track changes to the players around us
-		// Everytime this ticket changes, we must send this block out regionally,
-		// containing data that identifies all of the owning players characteristics
-		p.AddUint16(uint16(player.AppearanceTicket())) // appearance uuid
-		p.AddUint64(player.UsernameHash())             // base37 encoded username
-		ourPlayer.KnownAppearances[player.ServerIndex()] = player.AppearanceTicket()
-		sprites := player.Equips()
-		p.AddUint8(uint8(len(sprites))) // length of equipped item sprites  If length less than 12 any ones after length will get set to 0
-		for i := 0; i < len(sprites); i++ {
-			p.AddUint8(uint8(sprites[i]))
-		}
-
-		// The below colors will set the human character animation colors used for this player,
-		// it will not apply to any equipment on top of said human character
-		// They are simple array indexes corresponding to arrays built in the client
-		p.AddUint8(uint8(player.Appearance.HeadColor))
-		p.AddUint8(uint8(player.Appearance.BodyColor))
-		p.AddUint8(uint8(player.Appearance.LegsColor))
-		p.AddUint8(uint8(player.Appearance.SkinColor))
-
-		// Combat level is the publically shown level of this player; it gives a general
-		// idea of how good this player is in combat, it's calculated from the levels of the
-		// first 6 skill types
-		p.AddUint8(uint8(player.Skills().CombatLevel()))
-		p.AddBoolean(player.Skulled())
-		updateSize++
-	}
-	if updateSize+len(list) <= 0 {
-		return nil
-	}
-	p.SetUint16At(1, uint16(updateSize+len(list)))
 	return
 }
 
@@ -615,14 +467,14 @@ func ObjectLocations(player *Player) (p *net.Packet) {
 	changed := 0
 	p = net.NewEmptyPacket(48)
 	var local []entity.Entity
-	for _, o := range player.LocalObjects.set {
-		if o, ok := o.(*Object); ok {
+	player.LocalObjects.Range(func(e entity.Entity) {
+		if o, ok := e.(*Object); ok {
 			local = append(local, o)
 			if o.Boundary {
-				continue
+				return
 			}
-			if !player.WithinRange(o.Location, player.VarInt("viewRadius", 16)+5) || GetObject(o.X(), o.Y()) != o {
-				if !player.WithinRange(o.Location, 144) {
+			if !player.Near(o, player.ViewRadius()<<1) || GetObject(o.X(), o.Y()) != o {
+				if !player.Near(o, player.ViewRadius()*3) {
 					// suddenly this local entity is now miles away which isn't very local
 					if chunks, ok := player.Var("distantChunks"); ok {
 						player.SetVar("distantChunks", append(chunks.([]entity.Location), o.Location.Clone()))
@@ -638,14 +490,20 @@ func ObjectLocations(player *Player) (p *net.Packet) {
 				local = local[:len(local)-1]
 			}
 		}
-	}
+		return
+	})
 	player.LocalObjects.Lock()
 	player.LocalObjects.set = local
 	player.LocalObjects.Unlock()
+	newo := 0
 	for _, o := range player.NewObjects() {
 		if o.Boundary {
 			continue
 		}
+		if newo >= 300 {
+			return
+		}
+		newo++
 		p.AddUint16(uint16(o.ID))
 		p.AddUint8(byte(o.X() - player.X()))
 		p.AddUint8(byte(o.Y() - player.Y()))
@@ -666,27 +524,43 @@ func BoundaryLocations(player *Player) (p *net.Packet) {
 	var local []entity.Entity
 	for _, o := range player.LocalObjects.set {
 		if o, ok := o.(*Object); ok {
-			local = append(local, o)
 			if !o.Boundary {
+				local = append(local, o)
 				continue
 			}
-			if !player.WithinRange(o.Location, player.VarInt("viewRadius", 16)+5) || GetObject(o.X(), o.Y()) != o {
-				if !player.WithinRange(o.Location, 144) {
-					if chunks, ok := player.Var("distantChunks"); ok {
-						player.SetVar("distantChunks", append(chunks.([]entity.Location), o.Location.Clone()))
+			if !player.Near(o, player.ViewRadius()*3) {
+				if !player.Near(o, player.ViewRadius()*3) {
+					if !player.Near(o, player.ViewRadius()*9) {
+						if chunks, ok := player.Var("distantChunks"); ok {
+							player.SetVar("distantChunks", append(chunks.([]entity.Location), o.Location.Clone()))
+						} else {
+							player.SetVar("distantChunks", []entity.Location{o.Location.Clone()})
+						}
 					} else {
-						player.SetVar("distantChunks", []entity.Location{o.Location.Clone()})
+						p.AddUint8(0xFF)
+						p.AddUint8(uint8(o.X()))
+						p.AddUint8(uint8(o.Y()))
+						changed++
 					}
-				} else {
-					// network protocol does not support actual removal of previously existing boundary objects
-					// so instead, we replace with an invisible boundary that does not block.
-					// This is seen in canonical game most notably when slicing a spider web with a weapon
-					p.AddUint16(16)
-					p.AddUint8(uint8(o.X() - player.X()))
-					p.AddUint8(uint8(o.Y() - player.Y()))
-					p.AddUint8(o.Direction)
-					changed++
 				}
+			} else if o1 := GetObject(o.X(), o.Y()); o1 != o {
+				// network protocol does not support actual removal of previously existing boundary objects
+				// so instead, we replace with an invisible boundary that does not block.
+				// This is seen in canonical game most notably when slicing a spider web with a weapon
+				changed++
+				if o1 == nil {
+					p.AddUint16(0x10)
+					p.AddUint8(uint8(player.TheirDeltaX(o)))
+					p.AddUint8(uint8(player.TheirDeltaY(o)))
+					p.AddUint8(o.Direction)
+					continue
+				}
+				p.AddUint16(uint16(o1.ID))
+				p.AddUint8(uint8(player.TheirDeltaX(o1)))
+				p.AddUint8(uint8(player.TheirDeltaY(o1)))
+				p.AddUint8(o.Direction)
+			} else {
+				local = append(local, o)
 			}
 		}
 	}
@@ -694,18 +568,19 @@ func BoundaryLocations(player *Player) (p *net.Packet) {
 	player.LocalObjects.Lock()
 	player.LocalObjects.set = local
 	player.LocalObjects.Unlock()
+	
 	for _, o := range player.NewObjects() {
 		if !o.Boundary {
 			continue
 		}
 		p.AddUint16(uint16(o.ID))
-		p.AddUint8(byte(o.X() - player.X()))
-		p.AddUint8(byte(o.Y() - player.Y()))
+		p.AddUint8(byte(player.TheirDeltaX(o)))
+		p.AddUint8(byte(player.TheirDeltaY(o)))
 		p.AddUint8(o.Direction)
 		player.LocalObjects.Add(o)
 		changed++
 	}
-	if changed == 0 {
+	if changed <= 0 {
 		return nil
 	}
 	return
@@ -716,12 +591,12 @@ func BoundaryLocations(player *Player) (p *net.Packet) {
 func ItemLocations(player *Player) (p *net.Packet) {
 	changed := 0
 	p = net.NewEmptyPacket(99)
-	var removing []*GroundItem
+	var local []entity.Entity
 	for _, i := range player.LocalItems.set {
 		if i, ok := i.(*GroundItem); ok {
 			x, y := i.X(), i.Y()
-			if !player.WithinRange(i.Location, player.VarInt("viewRadius", 16)) {
-				if !player.WithinRange(i.Location, 144) {
+			if !player.Near(i, player.ViewRadius()*3) {
+				if !player.Near(i, player.ViewRadius()*9) {
 					if chunks, ok := player.Var("distantChunks"); ok {
 						player.SetVar("distantChunks", append(chunks.([]entity.Location), i.Location.Clone()))
 					} else {
@@ -730,27 +605,27 @@ func ItemLocations(player *Player) (p *net.Packet) {
 				} else {
 					// If first byte is 0xFF, all ground items at this location get cleared
 					p.AddUint8(255)
-					p.AddUint8(byte(x - player.X()))
-					p.AddUint8(byte(y - player.Y()))
+					p.AddUint8(byte(player.TheirDeltaX(i)))
+					p.AddUint8(byte(player.TheirDeltaY(i)))
 					changed++
 				}
-				removing = append(removing, i)
 			} else if !i.VisibleTo(player) || !Region(x, y).Items.Contains(i) {
 				p.AddUint16(uint16(i.ID | 0x8000)) // turn remove by ID bit on
-				p.AddUint8(byte(x - player.X()))
-				p.AddUint8(byte(y - player.Y()))
-				removing = append(removing, i)
+				p.AddUint8(byte(player.TheirDeltaX(i)))
+				p.AddUint8(byte(player.TheirDeltaY(i)))
 				changed++
+			} else {
+				local = append(local, i)
 			}
 		}
 	}
-	for _, i := range removing {
-		player.LocalItems.Remove(i)
-	}
+	player.LocalItems.Lock()
+	player.LocalItems.set = local
+	player.LocalItems.Unlock()
 	for _, i := range player.NewItems() {
 		p.AddUint16(uint16(i.ID))
-		p.AddUint8(byte(i.X() - player.X()))
-		p.AddUint8(byte(i.Y() - player.Y()))
+		p.AddUint8(byte(player.TheirDeltaX(i)))
+		p.AddUint8(byte(player.TheirDeltaY(i)))
 		player.LocalItems.Add(i)
 		changed++
 	}

@@ -15,97 +15,99 @@ import (
 	"runtime/pprof"
 	"strconv"
 	"strings"
-	"sync"
+	// "sync"
 	"time"
 
 	"github.com/mattn/anko/vm"
 	"github.com/spkaeros/rscgo/pkg/game"
+	"github.com/spkaeros/rscgo/pkg/tasks"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
+const serverPrefix = "@que@@whi@[@cya@SERVER@whi@]: "
+
 func init() {
 	game.AddHandler("command", func(player *world.Player, p *net.Packet) {
-		raw := string(p.FrameBuffer[:len(p.FrameBuffer)-1])
+		// raw := string(p.FrameBuffer[:len(p.FrameBuffer)-1])
+		raw := p.ReadString()
 		args := strutil.ParseArgs(raw)
-		// prevent `::` freezing player
 		if len(args) <= 0 {
 			return
 		}
 		handler, ok := world.CommandHandlers[strings.ToLower(args[0])]
 		if !ok {
-			player.Message("@que@Command not found.  Double check your spelling, and try again.")
-			log.Command("%v sent invalid command: ::%v\n", player.Username(), strings.ToLower(args[0]))
+			player.Message(serverPrefix + "Command not found.  Double check your spelling, and try again.")
+			log.Command("%v sent invalid command: ::%v\n", player.Username(), raw)
 			return
 		}
 		log.Commandf("%v: ::%v\n", player.Username(), raw)
 		handler(player, args[1:])
 	})
 	world.CommandHandlers["shutdown"] = func(player *world.Player, args []string) {
-		var wg sync.WaitGroup
-		world.Players.Range(func(p1 *world.Player) {
-			go func() {
-				defer wg.Done()
-				p1.Message("Shutting down.")
-				wg.Add(1)
+		world.Players.AsyncRange(func(p1 *world.Player) {
+			p1.Message(serverPrefix + "Shutting down.")
+			p1.WriteNow(*world.Logout)
+			p1.Socket.Close()
+			tasks.TickList.Schedule(5, func() bool {
 				p1.Destroy()
-			}()
+				return true
+			})
 		})
-		wg.Wait()
-		time.Sleep(1 * time.Second)
+		time.Sleep(world.TickMillis * 6)
 		os.Exit(1)
 	}
 	world.CommandHandlers["memdump"] = func(player *world.Player, args []string) {
 		file, err := os.Create("rscgo.mprof")
 		if err != nil {
 			log.Warning.Println("Could not open file to dump memory profile:", err)
-			player.Message("Error encountered opening profile output file.")
+			player.Message(serverPrefix + "Error encountered opening profile output file.")
 			return
 		}
 		err = pprof.WriteHeapProfile(file)
 		if err != nil {
 			log.Warning.Println("Could not write heap profile to file::", err)
-			player.Message("Error encountered writing profile output file.")
+			player.Message(serverPrefix + "Error encountered writing profile output file.")
 			return
 		}
 		err = file.Close()
 		if err != nil {
 			log.Warning.Println("Could not close heap file::", err)
-			player.Message("Error encountered closing profile output file.")
+			player.Message(serverPrefix + "Error encountered closing profile output file.")
 			return
 		}
-		log.Commands.Println(player.Username() + " dumped memory profile of the game to rscgo.mprof")
-		player.Message("Dumped memory profile.")
+		log.Command(player.Username() + " dumped memory profile of the game to rscgo.mprof")
+		player.Message(serverPrefix + "Dumped memory profile.")
 	}
-	world.CommandHandlers["pprof"] = func(player *world.Player, args []string) {
+	world.CommandHandlers["cpudump"] = func(player *world.Player, args []string) {
 		if len(args) < 1 {
-			player.Message("Invalid args.  Usage: /pprof <start|stop>")
+			player.Message(serverPrefix + "Invalid args.  Usage: /pprof <start|stop>")
 			return
 		}
 		switch args[0] {
 		case "start":
 			file, err := os.Create("rscgo.pprof")
 			if err != nil {
-				log.Warning.Println("Could not open file to dump CPU profile:", err)
-				player.Message("Error encountered opening profile output file.")
+				log.Warn("Could not open file to dump CPU profile:", err)
+				player.Message(serverPrefix + "Error encountered opening profile output file.")
 				return
 			}
 			err = pprof.StartCPUProfile(file)
 			if err != nil {
 				log.Warning.Println("Could not start CPU profile:", err)
-				player.Message("Error encountered starting CPU profile.")
+				player.Message(serverPrefix + "Error encountered starting CPU profile.")
 				return
 			}
-			log.Commands.Println(player.Username() + " began profiling CPU time.")
-			player.Message("CPU profiling started.")
+			log.Command(player.Username() + " began profiling CPU time.")
+			player.Message(serverPrefix + "CPU profiling started.")
 		case "stop":
 			pprof.StopCPUProfile()
-			log.Commands.Println(player.Username() + " has finished profiling CPU time, output should be in rscgo.pprof")
-			player.Message("CPU profiling finished.")
+			log.Command(player.Username() + " has finished profiling CPU time, output should be in rscgo.pprof")
+			player.Message(serverPrefix + "CPU profiling finished.")
 		default:
-			player.Message("Invalid args.  Usage: /pprof <start|stop>")
+			player.Message(serverPrefix + "Invalid args.  Usage: /pprof <start|stop>")
 		}
 	}
 	world.CommandHandlers["run"] = func(player *world.Player, args []string) {
@@ -114,36 +116,35 @@ func init() {
 		env.Define("p", player)
 		env.Define("target", player.TargetMob())
 		env.Define("player", player)
-		ret, err := vm.Execute(env, nil, "bind = import(\"bind\")\nworld = import(\"world\")\nlog = import(\"log\")\nids = import(\"ids\")\n\n"+line)
+		ret, err := vm.Execute(env, nil, "bind = import(\"bind\")\nworld = import(\"world\")\nlog = import(\"log\")\nids = import(\"ids\")\npackets = import(\"packets\")\n\n"+line)
 		if err != nil {
-			player.Message("Error: " + err.Error())
-			log.Info.Println("Anko Error: " + err.Error())
+			player.Message(serverPrefix + "Error: " + err.Error())
+			log.Debug("Anko Error: " + err.Error())
 			return
 		}
 		switch ret.(type) {
 		case string:
-			player.Message(ret.(string))
+			player.Message(serverPrefix + "string(" + ret.(string) + ")")
 		case int64:
-			player.Message("int(" + strconv.Itoa(int(ret.(int64))) + ")")
+			player.Message(serverPrefix + "int(" + strconv.Itoa(int(ret.(int64))) + ")")
 		case int:
-			player.Message("int(" + strconv.Itoa(ret.(int)) + ")")
+			player.Message(serverPrefix + "int(" + strconv.Itoa(ret.(int)) + ")")
 		case bool:
 			if ret.(bool) {
-				player.Message("TRUE")
+				player.Message(serverPrefix + "bool(TRUE)")
 			} else {
-				player.Message("FALSE")
+				player.Message(serverPrefix + "bool(FALSE)")
 			}
 		default:
-			player.Message(fmt.Sprintf("%v", ret))
+			player.Message(serverPrefix + fmt.Sprintf("%v", ret))
 		}
-		log.Info.Println(ret)
+		log.Debugf("%v\n", ret)
 	}
 	world.CommandHandlers["reload"] = func(player *world.Player, args []string) {
 		world.Clear()
 		world.RunScripts()
-		player.Message("Reloaded ./scripts/**.ank from working directory.")
-		player.Message(fmt.Sprintf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill]", len(world.ItemTriggers), len(world.ObjectTriggers), len(world.BoundaryTriggers), len(world.NpcTriggers), len(world.InvOnBoundaryTriggers), len(world.InvOnObjectTriggers), len(world.NpcAtkTriggers), len(world.NpcDeathTriggers)))
-		log.Info.Printf("Bind[%d item, %d obj, %d bound, %d npc, %d invBound, %d invObject, %d npcAtk, %d npcKill] loaded\n", len(world.ItemTriggers), len(world.ObjectTriggers), len(world.BoundaryTriggers), len(world.NpcTriggers), len(world.InvOnBoundaryTriggers), len(world.InvOnObjectTriggers), len(world.NpcAtkTriggers), len(world.NpcDeathTriggers))
+		player.Message(serverPrefix + "Reloaded runtime content scripts from ./scripts/")
+		log.Debugf("Triggers[\n\t%d item actions,\n\t%d scenary actions,\n\t%d boundary actions,\n\t%d npc actions,\n\t%d item->boundary actions,\n\t%d item->scenary actions,\n\t%d attacking NPC actions,\n\t%d killing NPC actions\n];\n", len(world.ItemTriggers), len(world.ObjectTriggers), len(world.BoundaryTriggers), len(world.NpcTriggers), len(world.InvOnBoundaryTriggers), len(world.InvOnObjectTriggers), len(world.NpcAtkTriggers), len(world.NpcDeathTriggers))
 	}
 }
 

@@ -60,8 +60,10 @@ type Location interface {
 	LongestDelta(o Location) int
 	LongestDeltaCoords(int, int) int
 	DeltaX(o Location) int
+	TheirDeltaX(o Location) int
 	Delta(o Location) int
 	DeltaY(o Location) int
+	TheirDeltaY(o Location) int
 	Equals(o interface{}) bool
 	WithinRange(o Location, rad int) bool
 	Plane() int

@@ -1,0 +1,14 @@
+bind = import("bind")
+log = import("log")
+world = import("world")
+packets = import("packets")
+
+bind.packet(packets.ticketRequests, func(player, packet) {
+	count = packet.ReadUint16()
+	for i = 0; i < count; i++ {
+		serverIdx = packet.ReadUint16()
+		appearanceTicket = packet.ReadUint16()
+		player.Enqueue("playerEventQ", {"idx": serverIdx, "ticket": appearanceTicket})
+		// log.debugf("%v wants info about players[%d](info update #%d); scheduling to send data...\n", player, serverIdx, appearanceTicket)
+	}
+})

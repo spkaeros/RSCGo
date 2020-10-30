@@ -1,0 +1,58 @@
+bind.packet(packets.settings, func(player, packet) {
+	if packet.Length() - packet.ReadIndex < 2 {
+		log.warn("invalid packet size recv'd on client settings")
+		return
+	}
+	player.setClientSetting(packet.ReadUint8(), packet.ReadBool())
+})
+
+bind.packet(packets.privacySettings, func(player, packet) {
+	if packet.Length() - packet.ReadIndex < 4 {
+		log.warn("invalid packet size recv'd on client settings")
+		return
+	}
+	chatBlocked = packet.ReadBoolean()
+	friendBlocked = packet.ReadBoolean()
+	tradeBlocked = packet.ReadBoolean()
+	duelBlocked = packet.ReadBoolean()
+	if player.FriendBlocked() && !friendBlocked {
+		// turning off private chat block
+		world.Players.Range(func(c1) {
+			if c1.FriendsWith(player.UsernameHash()) && !player.FriendsWith(c1.UsernameHash()) {
+				c1.SendPacket(world.FriendUpdate(player.UsernameHash(), true))
+			}
+		})
+	} else if !player.FriendBlocked() && friendBlocked {
+		// turning on private chat block
+		world.Players.Range(func(c1) {
+			if c1.FriendsWith(player.UsernameHash()) && !player.FriendsWith(c1.UsernameHash()) {
+				c1.SendPacket(world.FriendUpdate(player.UsernameHash(), false))
+			}
+		})
+	}
+	player.SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, duelBlocked)
+})
+
+bind.packet(packets.recoverys, func(player, packet) {
+	questions = make([]string, 5)
+	answers = make([]string, 5)
+	for i = 0; i < 5; i++ {
+		if packet.Length() - packet.ReadIndex < 1 {
+			return
+		}
+		length = packet.ReadUint8()
+		if packet.Length() - packet.ReadIndex < length {
+			return
+		}
+		questions = append(questions, packet.ReadStringN(int(length)))
+		answers = append(answers, packet.ReadUint64())
+	}
+	log.debug(questions, answers)
+})
+bind.packet(packets.changeRecoverys, func(player, packet) {
+	player.WritePacket(net.barePacket((224)))
+})
+
+bind.packet(packets.cancelRecoverys, func(player, packet) {
+	// TODO: Cancel request to change
+})

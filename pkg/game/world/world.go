@@ -18,19 +18,20 @@ import (
 )
 
 const (
-	TicksDay       = 135000
-	TicksHour      = 5625
-	TicksTwentyMin = 1875
-	TicksMinute    = 100
-	TickMinute     = TicksMinute * TickMillis
-	TickHour       = TicksHour * TickMillis
-	TickDay        = TicksDay * TickMillis
-	TickMillis     = 640 * time.Millisecond
+	TicksDay         = 135000
+	TicksHour        = 5625
+	TicksTwentyMin   = 1875
+	TicksMinute      = 100
+	TickMinute       = TicksMinute * TickMillis
+	TickHour         = TicksHour * TickMillis
+	TickDay          = TicksDay * TickMillis
+	TickMillis       = 640 * time.Millisecond
+	ClientTickMillis = TickMillis << 5
 
 	//MaxX Width of the game
 	MaxX = 944
 	//MaxY Height of the game
-	MaxY = 3776
+	MaxY = 944 << 2 // 4 planes, 944 tiles per plane, shift mimics multiplying by 4
 )
 
 var (
@@ -49,7 +50,7 @@ const (
 	//VerticalPlanes Represents how many rows of regions there are
 	VerticalPlanes = MaxY/RegionSize + 1
 	//LowerBound Represents a dividing line in the exact middle of a region
-	LowerBound = RegionSize / 2
+	LowerBound = RegionSize >> 1
 )
 
 //UpdateTime a point in time in the future to log all active players out and shut down the game for updates.
@@ -589,7 +590,7 @@ func get(x, y int) *region {
 	// regions[x][y] = &region{x, y, &MobList{}, &MobList{}, &entityList{}, &entityList{}}
 	// }
 	if !regions[x][y].Initialized() {
-		regions[x][y] = &region{x * RegionSize, y * RegionSize, NewMobList(), NewMobList(), &entityList{}, &entityList{}}
+		regions[x][y] = &region{x, y, NewMobList(), NewMobList(), &entityList{}, &entityList{}}
 	}
 	return regions[x][y]
 }
@@ -608,7 +609,7 @@ func Region(x, y int) *region {
 	// regions[x/RegionSize][y/RegionSize] = &region{x, y, &MobList{}, &MobList{}, &entityList{}, &entityList{}}
 	// }
 	if !regions[x/RegionSize][y/RegionSize].Initialized() {
-		regions[x/RegionSize][y/RegionSize] = &region{x, y, NewMobList(), NewMobList(), &entityList{}, &entityList{}}
+		regions[x/RegionSize][y/RegionSize] = &region{x/RegionSize, y/RegionSize, NewMobList(), NewMobList(), &entityList{}, &entityList{}}
 	}
 	return regions[x/RegionSize][y/RegionSize]
 }
@@ -704,6 +705,5 @@ func Statistical(rng *rand.Rand, options IntProbabilitys) int {
 //
 // You can make the total anything. Useful for anything that needs to return certain values deterministically more often than others, but randomly.
 func WeightedChoice(choices IntProbabilitys) int {
-
 	return Statistical(rscRand.Rng, choices)
 }

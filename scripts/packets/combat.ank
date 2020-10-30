@@ -1,0 +1,101 @@
+bind = import("bind")
+log = import("log")
+time = import("time")
+world = import("world")
+packets = import("packets")
+
+bind.packet(packets.attackNpc, func(player, packet) {
+	npc = world.getNpc(packet.ReadUint16())
+	if npc == nil || !npc.Attackable() {
+		log.debugf("%v tried to attack nil NPC\n", player)
+		player.Message("The character does not appear interested in fighting")
+		player.ResetPath()
+		return
+	}
+	if player.IsFighting() {
+		player.Message("You're already fighting!")
+		player.ResetPath()
+		return
+	}
+	// if npc.IsFighting() {
+		// player.Message("Your opponent is busy!")
+		// player.ResetPath()
+		// return
+	// }
+	if player.Busy() {
+		return
+	}
+	player.WalkingArrivalAction(npc, 1, func() {
+		if player.IsFighting() {
+			player.Message("You're already fighting!")
+			return
+		}
+		if npc.IsFighting() {
+			player.Message("Your opponent is busy!")
+			return
+		}
+		if player.Busy() {
+			return
+		}
+		player.ResetPath()
+		if time.Since(npc.VarTime("lastFight")) <= time.Second*2 || npc.Busy() {
+			return
+		}
+		npc.ResetPath()
+		for _, trigger in world.attackNpcCalls {
+			if trigger.Check(player, npc) {
+				trigger.Action(player, npc)
+				return
+			}
+		}
+		player.StartCombat(npc)
+	})
+})
+
+bind.packet(packets.attackPlayer, func(player, packet) {
+	affectedPlayer = world.getPlayer(packet.ReadUint16())
+	if affectedPlayer == nil {
+		log.debugf("player[%v] tried to attack nil player\n", player)
+		return
+	}
+	if player.IsFighting() {
+		player.Message("You're already fighting!")
+		return
+	}
+	// if affectedPlayer.IsFighting() {
+		// player.Message("Your opponent is busy!")
+		// return
+	// }
+	if player.Busy() {
+		return
+	}
+	player.WalkingArrivalAction(affectedPlayer, 2, func() {
+		if player.IsFighting() {
+			player.Message("You're already fighting!")
+			return
+		}
+		if affectedPlayer.IsFighting() {
+			player.Message("Your opponent is busy!")
+			return
+		}
+		if player.Busy() || !player.CanAttack(affectedPlayer) {
+			return
+		}
+		player.ResetPath()
+		if time.Since(affectedPlayer.VarTime("lastRetreat")) <= time.Second*3 {
+			return
+		}
+		affectedPlayer.ResetPath()
+		affectedPlayer.Message("You are under attack!")
+		player.StartCombat(affectedPlayer)
+	})
+})
+
+bind.packet(packets.fightMode, func(player, packet) {
+	mode = packet.ReadUint8()
+	if mode < 0 || mode > 3 {
+		log.debugf("Invalid fightmode(%v) selected by %s", mode, player.String())
+		return
+	}
+	player.SetFightMode(toInt(mode))
+})

@@ -504,12 +504,7 @@ func (m *Mob) SetArmourPoints(i int) {
 }
 
 func (m *Mob) IncArmourPoints(i int) {
-	points := m.VarInt("armour_points", 1)
-	if points == 1 {
-		m.SetVar("armour_points", i)
-	} else {
-		m.Inc("armour_points", i)
-	}
+	m.IncPoints("armour", i)
 }
 
 //PowerPoints Returns the players power points.
@@ -523,12 +518,7 @@ func (m *Mob) SetPowerPoints(i int) {
 }
 
 func (m *Mob) IncPowerPoints(i int) {
-	points := m.VarInt("power_points", 1)
-	if points == 1 {
-		m.SetVar("power_points", i)
-	} else {
-		m.Inc("power_points", i)
-	}
+	m.IncPoints("power", i)
 }
 
 //AimPoints Returns the players aim points
@@ -537,12 +527,7 @@ func (m *Mob) AimPoints() int {
 }
 
 func (m *Mob) IncAimPoints(i int) {
-	points := m.VarInt("aim_points", 1)
-	if points == 1 {
-		m.SetVar("aim_points", i)
-	} else {
-		m.Inc("aim_points", i)
-	}
+	m.IncPoints("aim", i)
 }
 
 //SetAimPoints Sets the players aim points to i.
@@ -556,12 +541,7 @@ func (m *Mob) MagicPoints() int {
 }
 
 func (m *Mob) IncMagicPoints(i int) {
-	points := m.VarInt("magic_points", 1)
-	if points == 1 {
-		m.SetVar("magic_points", i)
-	} else {
-		m.Inc("magic_points", i)
-	}
+	m.IncPoints("magic", i)
 }
 
 //SetMagicPoints Sets the players magic points to i
@@ -570,11 +550,22 @@ func (m *Mob) SetMagicPoints(i int) {
 }
 
 func (m *Mob) IncPrayerPoints(i int) {
-	points := m.VarInt("prayer_points", 1)
-	if points == 1 {
-		m.SetVar("prayer_points", i)
-	} else {
-		m.Inc("prayer_points", i)
+	m.IncPoints("prayer", i)
+}
+
+func (m *Mob) IncPoints(id string, amt int) {
+	points := m.VarInt(id+"_points", 0)
+	if points == 0 {
+		m.SetVar(id+"_points", 1)
+	}
+	if amt > 0 {
+		m.SetVar(id+"_points", points+amt)
+	} else if amt < 0 {
+		if points - int(math.Abs(float64(amt))) <= 1 {
+			m.SetVar(id+"_points", 1)
+		} else {
+			m.SetVar(id+"_points", points)
+		}
 	}
 }
 
@@ -594,12 +585,7 @@ func (m *Mob) RangedPoints() int {
 }
 
 func (m *Mob) IncRangedPoints(i int) {
-	points := m.VarInt("ranged_points", 1)
-	if points == 1 {
-		m.SetVar("ranged_points", i)
-	} else {
-		m.Inc("ranged_points", i)
-	}
+	m.IncPoints("ranged", i)
 }
 
 //SetRangedPoints Sets the players ranged points tp i.

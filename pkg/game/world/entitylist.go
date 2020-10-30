@@ -66,7 +66,7 @@ func (l *entityList) NearbyObjects(e entity.MobileEntity) []entity.Entity {
 	defer l.RUnlock()
 	var objects []entity.Entity
 	for _, o1 := range l.set {
-		if o, ok := o1.(*Object); ok && o.Near(e, e.SessionCache().VarInt("viewRadius", 16)) {
+		if o, ok := o1.(*Object); ok && e.Near(o, e.SessionCache().VarInt("viewRadius", 16)<<1) {
 			objects = append(objects, o)
 		}
 	}
@@ -90,7 +90,7 @@ func (l *entityList) NearbyItems(e entity.MobileEntity) []entity.Entity {
 	defer l.RUnlock()
 	var items []entity.Entity
 	for _, i := range l.set {
-		if i, ok := i.(*GroundItem); ok && i.Near(e, e.SessionCache().VarInt("viewRadius", 16)) {
+		if i, ok := i.(*GroundItem); ok && i.Near(e, e.SessionCache().VarInt("viewRadius", 16)<<1) {
 			if p := AsPlayer(e); p != nil && !i.VisibleTo(p) {
 				continue
 			}

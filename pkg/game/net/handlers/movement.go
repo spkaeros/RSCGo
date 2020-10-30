@@ -46,9 +46,11 @@ func init() {
 		}
 		startX := p.ReadUint16()
 		startY := p.ReadUint16()
-		numWaypoints := math.Ceil(float64(p.Length()-5) / 2)
+		// numWaypoints := math.Ceil(float64(p.Length()-5) / 2)
+		// numWaypoints := (p.Length()-5)>>1
+		numWaypoints := math.Ceil(float64(p.Length()-p.ReadIndex) / 2)
 		var waypointsX, waypointsY []int
-		for i := float64(0); i < numWaypoints; i++ {
+		for i := 0; i < int(numWaypoints); i++ {
 			waypointsX = append(waypointsX, int(p.ReadInt8()))
 			waypointsY = append(waypointsY, int(p.ReadInt8()))
 		}
@@ -64,10 +66,9 @@ func init() {
 		}
 		startX := p.ReadUint16()
 		startY := p.ReadUint16()
-		//		numWaypoints := (p.Length()-5) / 2
-		numWaypoints := math.Ceil(float64(p.Length()-5) / 2)
+		numWaypoints := math.Ceil(float64(p.Length()-p.ReadIndex) / 2)
 		var waypointsX, waypointsY []int
-		for i := float64(0); i < numWaypoints; i++ {
+		for i := 0; i < int(numWaypoints); i++ {
 			waypointsX = append(waypointsX, int(p.ReadInt8()))
 			waypointsY = append(waypointsY, int(p.ReadInt8()))
 		}
@@ -113,17 +114,5 @@ func init() {
 			}
 			return false
 		})
-	})
-	game.AddHandler("appearancerequest", func(player *world.Player, p *net.Packet) {
-		playerCount := p.ReadUint16()
-		for i := 0; i < playerCount; i++ {
-			serverIndex := p.ReadUint16()
-			appearanceTicket := p.ReadUint16()
-			if ticket, ok := player.KnownAppearances[serverIndex]; !ok || ticket != appearanceTicket {
-				if c1, ok := world.Players.FindIndex(serverIndex); ok {
-					player.AppearanceReq = append(player.AppearanceReq, c1)
-				}
-			}
-		}
 	})
 }

@@ -10,17 +10,17 @@
 package handlers
 
 import (
-	"strconv"
-
-	"github.com/spkaeros/rscgo/pkg/game"
-	"github.com/spkaeros/rscgo/pkg/game/net"
-	"github.com/spkaeros/rscgo/pkg/game/world"
-	"github.com/spkaeros/rscgo/pkg/log"
-	"github.com/spkaeros/rscgo/pkg/strutil"
+	// "strconv"
+// 
+	// "github.com/spkaeros/rscgo/pkg/game"
+	// "github.com/spkaeros/rscgo/pkg/game/net"
+	// "github.com/spkaeros/rscgo/pkg/game/world"
+	// "github.com/spkaeros/rscgo/pkg/log"
+	// "github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 func init() {
-	game.AddHandler("duelreq", func(player *world.Player, p *net.Packet) {
+/*	game.AddHandler("duelreq", func(player *world.Player, p *net.Packet) {
 		if player.Busy() {
 			return
 		}
@@ -283,5 +283,5 @@ func init() {
 			player.Message("Commencing Duel!")
 			target.Message("Commencing Duel!")
 		}
-	})
+	})*/
 }

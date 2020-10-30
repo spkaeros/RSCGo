@@ -1,0 +1,255 @@
+bind = import("bind")
+log = import("log")
+world = import("world")
+packets = import("packets")
+
+bind.packet(packets.duelRequest, func(player, packet) {
+	if packet.Length()-packet.ReadIndex < 2 {
+		log.warn("Duel request hasn't got enough data in it!  Ignoring...")
+		return
+	}
+	if player.Busy() {
+		return
+	}
+	index = packet.ReadUint16()
+	target, ok = world.Players.FindIndex(index)
+	if !ok {
+		log.cheatf("%v attempted to duel a player that does not exist.\n", player.String())
+		return
+	}
+	if !player.LocalPlayers.Contains(target) || player.Busy() {
+		return
+	}
+	if !player.Near(target, player.ViewArea()) {
+		player.Message("You are too far away to do that")
+		return
+	}
+	if target.DuelBlocked() && !target.FriendsWith(player.UsernameHash()) {
+		player.Message("This player has duel requests blocked.")
+		return
+	}
+	player.SetDuelTarget(target)
+	player.Duel.Target = target
+	if target.Duel.Target != player {
+		player.Message("Sending duel request")
+		target.Message(player.Username() + " " + strutil.CombatPrefix(target.Skills().CombatLevel()-player.Skills().CombatLevel()) + "(level-" + strconv.Itoa(player.Skills().CombatLevel()) + ")@whi@ wishes to duel with you")
+		return
+	}
+	if target.Busy() {
+		return
+	}
+	player.OpenDuelScreen()
+	target.OpenDuelScreen()
+})
+
+bind.packet(packets.duelSettings, func(player, packet) {
+		if !player.IsDueling() {
+			log.cheat(player.String(), "tried changing duel options in a duel that they are not in!")
+			player.ResetDuel()
+			return
+		}
+		target = player.Duel.Target
+		if target == nil {
+			log.cheat(player.String(), "involved in duel with no target!", player.String())
+			player.ResetDuel()
+			return
+		}
+		if !target.IsDueling() || target.Duel.Target != player {
+			log.cheat("bad duel update between", player.String(), "and", target.String())
+			player.ResetDuel()
+			target.ResetDuel()
+			return
+		}
+		if player.IsFighting() || target.IsFighting() {
+			log.cheat(player, "attempted modifying duel with", target.String(), "during the duels fight!!")
+			return
+		}
+		player.ResetDuelAccepted()
+		target.ResetDuelAccepted()
+
+		rules = player.DuelRules()
+		for i = 0; i < packet.Length(); i++ {
+			flag = packet.ReadBoolean()
+			if rules[i] != flag {
+				target.SetDuelRule(i, flag)
+				player.SetDuelRule(i, flag)
+			}
+		}
+		player.UpdateDuelSettings()
+		target.UpdateDuelSettings()
+})
+
+
+bind.packet(packets.duelDecline, func(player, packet) {
+		if !player.IsDueling() {
+			log.cheat(player.String(), "attempted to decline a duel it was not in!")
+			player.ResetDuel()
+			return
+		}
+		target = player.Duel.Target
+		if target == nil {
+			log.cheat(player.String(), "attempted to decline a duel with a non-existent target!")
+			player.ResetDuel()
+			return
+		}
+		if !target.IsDueling() || target.Duel.Target != player {
+			log.cheat("bad duel update between", player.String(), "and", target.String())
+			player.ResetDuel()
+			return
+		}
+		if player.IsFighting() || target.IsFighting() {
+			log.Cheat(player, "attempted modifying duel state (with", target, ") during the duels fight!!")
+			return
+		}
+		player.ResetDuel()
+		target.ResetDuel()
+		target.Message(player.Username() + " has declined the duel")
+})
+
+
+bind.packet(packets.duelAccept, func(player, packet) {
+		if !player.IsDueling() {
+			log.cheat(player.String(), "attempted to decline a duel it was not in!")
+			player.ResetDuel()
+			return
+		}
+		target = player.Duel.Target
+		if target == nil {
+			log.cheat(player.String(), "attempted to accept a duel with a non-existent target!")
+			player.ResetDuel()
+			return
+		}
+		if !target.IsDueling() || target.Duel.Target != player {
+			log.cheat("bad duel update between", player.String(), "and", target.String())
+			player.ResetDuel()
+			target.ResetDuel()
+			return
+		}
+		if player.IsFighting() || target.IsFighting() {
+			log.cheat(player.String(), "attempted modifying duel state (with", target.String(), ") during the duels fight!!")
+			return
+		}
+		player.SetDuelAccepted(1, true)
+		if target.DuelAccepted(1) {
+			player.OpenDuelConfirm(target)
+			target.OpenDuelConfirm(player)
+		} else {
+			target.UpdateDuelAccept(true)
+		}
+})
+bind.packet(packets.duelAccept2, func(player, packet) {
+	if !player.IsDueling() || !player.DuelAccepted(1) {
+		log.cheat(player.String(), "%v attempted to accept a duel confirmation it was not in!")
+		player.ResetDuel()
+		return
+	}
+	target = player.Duel.Target
+	if target == nil {
+		log.cheat(player.String(), "involved in duel with no target!")
+		player.ResetDuel()
+		return
+	}
+	if !target.IsDueling() || target.Duel.Target != player || !target.DuelAccepted(1) {
+		log.cheat("bad duel update between", player.String(), "and", target.String())
+		player.ResetDuel()
+		target.ResetDuel()
+		return
+	}
+	if player.IsFighting() || target.IsFighting() {
+		log.Cheat(player, "attempted modifying duel state (with", target, ") during the duels fight!!")
+		return
+	}
+	player.SetDuelAccepted(2, true)
+	if target.DuelAccepted(2) {
+		player.ResetDuelAccepted()
+		target.ResetDuelAccepted()
+		if !player.DuelPrayer() || target.DuelPrayer() {
+			for i = 0; i < 14; i++ {
+				player.DeactivatePrayer(i)
+			}
+			player.SendPrayers()
+			player.Message("You cannot use prayer in this duel!")
+			for i = 0; i < 14; i++ {
+				target.DeactivatePrayer(i)
+			}
+			target.SendPrayers()
+			target.Message("You cannot use prayer in this duel!")
+		}
+		if !player.DuelEquipment() || !target.DuelPrayer() {
+			player.Inventory.Range(func(item) {
+				if item.Worn {
+					player.DequipItem(item)
+				}
+				return true
+			})
+			player.SendInventory()
+			target.Inventory.Range(func(item) {
+				if item.Worn {
+					target.DequipItem(item)
+				}
+				return true
+			})
+			target.SendInventory()
+		}
+		player.CloseDuel()
+		target.CloseDuel()
+		player.Message("Commencing Duel!")
+		target.Message("Commencing Duel!")
+		player.StartCombat(target)
+	}
+})
+bind.packet(packets.duelUpdate, func(player, packet) {
+		if !player.IsDueling() {
+			log.cheat(player.String(), "attempted to update a duel it was not in!")
+			player.ResetDuel()
+			return
+		}
+		target = player.Duel.Target
+		if target == nil {
+			log.cheat(player.String(), "attempted to update a duel with a non-existent target!")
+			player.ResetDuel()
+			return
+		}
+		if !target.IsDueling() || target.Duel.Target != player {
+			log.cheat("bad duel update between", player.String(), "and", target.String())
+			player.ResetDuel()
+			target.ResetDuel()
+			return
+		}
+		if player.IsFighting() || target.IsFighting() {
+			log.cheat(player, "attempted modifying duel with", target.String(), "during the duels fight!!")
+			player.ResetDuel()
+			return
+		}
+		if (target.DuelAccepted(1) && player.DuelAccepted(1)) || (target.DuelAccepted(2) && player.DuelAccepted(2)) {
+			log.cheat(player, "attempted modifying duel with", target.String(), "after both parties accepted duel!")
+			player.ResetDuel()
+			target.ResetDuel()
+			return
+		}
+		player.ResetDuelAccepted()
+		target.ResetDuelAccepted()
+
+		player.DuelOffer.Clear()
+		if packet.Length()-1 <= 0 {
+			log.cheat(player.String(),"attempted to offer an invalid count of duel items:", itemCount)
+			return
+		}
+		itemCount = packet.ReadUint8()
+		if itemCount < 0 || itemCount > 8 {
+			log.cheatf("%v attempted to offer an invalid amount[%v] of duel items!\n", player.String(), itemCount)
+			return
+		}
+		if itemCount*6+1 > packet.Length()-1 {
+			log.cheatf("%v attempted to send a duel offer update without enough data for the offer.\n", player.String())
+			log.cheat(packet.FrameBuffer)
+			return
+		}
+
+		// list = []
+		for i = 0; i < itemCount; i++ {
+			// list = append(list, NewItem(packet.ReadUint16(), packet.ReadUint32(), i, false))
+			player.DuelOffer.Add(packet.ReadUint16(), packet.ReadUint32())
+		}
+		target.UpdateDuel()
+})

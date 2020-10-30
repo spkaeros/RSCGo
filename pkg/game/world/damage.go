@@ -18,7 +18,7 @@ func (p *Player) DamageFrom(m entity.MobileEntity, damage int, kind int) {
 	list := NewMobList()
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.Players.RangePlayers(func(p1 *Player) bool {
-			if p.Near(p1, 16) && !list.Contains(p1) {
+			if p.Near(p1, p.ViewRadius()-1) && !list.Contains(p1) {
 				list.Add(p1)
 				p1.enqueue(playerEvents, splat)
 			}
@@ -40,7 +40,7 @@ func (n *NPC) DamageFrom(m entity.MobileEntity, damage int, kind int) {
 	list := NewMobList()
 	for _, r := range Region(n.X(), n.Y()).neighbors() {
 		r.Players.RangePlayers(func(p1 *Player) bool {
-			if n.Near(p1, 16) && !list.Contains(p1) {
+			if n.Near(p1, p1.ViewRadius()-1) && !list.Contains(p1) {
 				list.Add(p1)
 				p1.enqueue(npcEvents, splat)
 			}
@@ -49,12 +49,6 @@ func (n *NPC) DamageFrom(m entity.MobileEntity, damage int, kind int) {
 	}
 	n.Skills().SetCur(entity.StatHits, n.Skills().Current(entity.StatHits) - damage)
 	if attacker := AsPlayer(m); attacker != nil {
-		n.meleeRangeDamage.Put(attacker.UsernameHash(), damage)
+		n.CacheDamage(attacker.UsernameHash(), damage)
 	}
-	// if n.Skills().Current(entity.StatHits) <= 0 {
-		// if attacker := AsPlayer(m); attacker != nil {
-			// attacker.PlaySound("victory")
-		// }
-		// n.Killed(m)
-	// }
 }

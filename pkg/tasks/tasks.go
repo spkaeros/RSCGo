@@ -66,7 +66,7 @@ type TaskList struct {
 var TickList = &Scripts{}
 
 func Schedule(ticks int, call Task) {
-TickList.Schedule(ticks, call)
+	TickList.Schedule(ticks, call)
 }
 
 func (s *Scripts) Schedule(ticks int, fn Task) {

@@ -188,7 +188,7 @@ func (r *ISAAC) randInit() {
 	messify(r.state)
 
 	r.generateNextSet() /* fill in the first set of results */
-	r.randcnt = 0       /* reset the counter for the first set of results */
+	r.randcnt = 255       /* reset the counter for the first set of results */
 	r.Unlock()
 }
 
@@ -209,10 +209,10 @@ func (r *ISAAC) Uint32() (number uint32) {
 	r.Lock()
 	defer r.Unlock()
 	number = uint32(r.randrsl[r.randcnt])
-	r.randcnt++
-	if r.randcnt == 256 {
+	r.randcnt--
+	if r.randcnt == 0 {
 		r.generateNextSet()
-		r.randcnt = 0
+		r.randcnt = 255
 	}
 	return
 //	return uint32(r.Int63() >> 31)
@@ -291,7 +291,7 @@ func (r *ISAAC) Uint8() byte {
 
 //NextChar Returns the next ASCII character from the ISAAC CSPRNG receiver instance.
 func (r *ISAAC) NextChar() byte {
-	return byte(r.Intn(95)) + 0x20
+	return r.Uint8n(95) + 0x20
 }
 
 //String Returns the next `len` ASCII characters from the ISAAC CSPRNG receiver instance as a Go string.
@@ -321,31 +321,25 @@ func (r *ISAAC) NextBytes(n int) []byte {
 	r.Lock()
 	defer r.Unlock()
 	buf := make([]byte, n)
-	r.index = 0
-	if len(r.remainder) > 0 {
-		for i := 0; i < len(r.remainder) && r.index < n; i++ {
-			buf[r.index] = r.remainder[i]
-			r.index++
+	for i := 0; i < n;  {
+		if len(r.remainder) > 0 && i < len(r.remainder) {
+			buf[i] = r.remainder[i]
+			r.remainder = r.remainder[i:]
+			i += 1
+			continue
 		}
-		if r.index >= n {
-			r.remainder = r.remainder[r.index:]
-			return buf
-		}
-	}
-	r.remainder = []byte{}
-
-	for r.index < n {
 		r.Unlock()
 		nextInt := r.Uint32()
 		r.Lock()
-		for i := 0; i < 4; i++ {
-			if r.index >= n {
-				r.remainder = append(r.remainder, byte(nextInt>>uint(8*(3-i))))
+		for j := 0; j < 4; j++ {
+			next := byte(nextInt >> uint((3-j)<<3))
+			if i+j >= n {
+				r.remainder = append(r.remainder, next)
 				continue
 			}
-			buf[r.index] = byte(nextInt >> uint(8*(3-i)))
-			r.index++
+			buf[i+j] = next
 		}
+		i += 4
 	}
 
 	return buf
@@ -373,22 +367,15 @@ again:
 // Initial padding algorithm copied out of an implementation of the Mersenne twister.
 func padSeed(key ...uint32) (seed [256]uint32) {
 	if len(key) > 256 {
-		log.Warning.Println("Problem initializing ISAAC64+ PRNG seed: Provided key too long; only 256 values will be used.")
-	// } else if len(key) == 0 {
-		// log.Warning.Println("Problem initializing ISAAC64+ PRNG seed: Provided key too short; you should provide at least one seed value to randomize the output.")
-		// key[0] = 0xDEADBEEF
+		log.Warn("Problem initializing ISAAC64+ PRNG seed: Provided key too long; only 256 values will be used.")
 	}
 
 	for i := range seed {
-		// if i == 0 {
 		if i < len(key) {
 			seed[i] = key[i]
 			continue
 		}
 		seed[i] = 0
-		// }
-		// Commented out bitwise AND because we use 64 bits.  This is fine, right?
-		// seed[i] = (0x6c078965*(seed[i-1]^(seed[i-1]>>30)) + uint64(i)) // & 0xffffffff
 	}
 	return
 }

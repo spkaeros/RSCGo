@@ -28,7 +28,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/social"
-	// "github.com/spkaeros/rscgo/pkg/isaac"
+	"github.com/spkaeros/rscgo/pkg/isaac"
 	"github.com/spkaeros/rscgo/pkg/log"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 	"github.com/spkaeros/rscgo/pkg/tasks"
@@ -67,9 +67,10 @@ type (
 		hasReader         bool
 		Websocket         bool
 		InQueue, OutQueue chan *net.Packet
-		Reader            *bufio.Reader
+		Reader            io.Reader
 		Writer            net.WriteFlusher
 		DatabaseIndex     int
+		OpCiphers         [2]*isaac.ISAAC
 		Mob
 	}
 )
@@ -166,7 +167,7 @@ func (p *Player) TickAction() func() bool {
 
 //ResetTickAction clears the distanced action, if any is queued.  Should be called any time the player is deliberately performing an action.
 func (p *Player) ResetTickAction() {
-	p.SetTickAction(nil)
+	p.UnsetVar("tickAction")
 }
 
 //FriendsWith returns true if specified username is in our friend entityList.
@@ -280,7 +281,7 @@ func (p *Player) CanReachMob(target entity.MobileEntity) bool {
 			p.UnsetVar("triedReach")
 			return true
 		}
-		step := p.Point().Step(p.DirectionToward(p.NextTileToward(target.Point())))
+		step := p.Step(p.DirectionToward(p.NextTileToward(target.Point())))
 		pathX, pathY = step.X(), step.Y()
 
 		// Update coords toward target in a straight line
@@ -388,14 +389,15 @@ func (p *Player) TraversePath() {
 	if p.Equals(path.nextTile()) {
 		path.CurrentWaypoint++
 	}
-	dst := p.NextTileToward(path.nextTile())
+	nextPoint := path.nextTile()
+	dst := p.Step(p.DirectionToward(nextPoint))
 
 	if p.FinishedPath() || !p.Reachable(dst) {
 		p.ResetPath()
 		return
 	}
 
-	p.SetLocation(dst, false)
+	p.SetCoords(dst.X(), dst.Y(), false)
 }
 
 func (l Location) Blocked() bool {
@@ -426,8 +428,8 @@ func (l Location) RD(x, y int) bool {
 	return false
 }
 
-func (p *Player) WriteNow(packet *net.Packet) {
-	if packet.Opcode == 0 {
+func (p *Player) WriteNow(packet net.Packet) {
+	if packet.Bare {
 		if count, err := p.Writer.Write(packet.FrameBuffer); err != nil || count < packet.Length() {
 			log.Warn("Failed to write raw packet to player socket!")
 		}
@@ -449,15 +451,18 @@ func (p *Player) WriteNow(packet *net.Packet) {
 			header[1] = packet.FrameBuffer[frameLength]
 		}
 	}
-	// if rng, ok := p.VarChecked("ourRng").(*isaac.ISAAC); ok && rng != nil {
-		// packet.FrameBuffer[0] = (packet.FrameBuffer[0] + uint8(rng.Uint32()) & 0xFF)
-	// }
+	if cipher := p.OpCiphers[0]; cipher != nil {
+		packet.FrameBuffer[0] = byte(uint32(packet.FrameBuffer[0]) + cipher.Uint32()) & 0xFF
+	}
 	if count, err := p.Writer.Write(append(header, packet.FrameBuffer[:frameLength]...)); err != nil || count < packet.Length()+1 {
 		log.Warn("Failed to write formatted packet to player socket!")
 	}
 	if err := p.Writer.Flush(); err != nil {
 		log.Warn("Failed to flush player socket!")
 	}
+	// if err := p.Writer.Flush(); err != nil {
+		// log.Warn("Failed to flush player socket!")
+	// }
 }
 
 func (l Location) ReachableCoords(x, y int) bool {
@@ -550,7 +555,7 @@ func (p *Player) EquipItem(item *Item) {
 	if def == nil {
 		return
 	}
-	if def.Female && p.Appearance.Male {
+	if def.Female == p.Appearance.Male {
 		// TODO: Look up canonical message
 		p.Message("You must be a female to wear that")
 		return
@@ -561,13 +566,13 @@ func (p *Player) EquipItem(item *Item) {
 		if otherItem == item || !otherItem.Worn || otherDef == nil || def.Type&otherDef.Type == 0 {
 			return true
 		}
-		p.SetAimPoints(p.AimPoints() - otherDef.Aim)
-		p.SetPowerPoints(p.PowerPoints() - otherDef.Power)
-		p.SetArmourPoints(p.ArmourPoints() - otherDef.Armour)
-		p.SetMagicPoints(p.MagicPoints() - otherDef.Magic)
-		p.SetPrayerPoints(p.PrayerPoints() - otherDef.Prayer)
-		p.SetRangedPoints(p.RangedPoints() - otherDef.Ranged)
 		otherItem.Worn = false
+		p.IncAimPoints(-def.Aim)
+		p.IncPowerPoints(-def.Power)
+		p.IncArmourPoints(-def.Armour)
+		p.IncMagicPoints(-def.Magic)
+		p.IncPrayerPoints(-def.Prayer)
+		p.IncRangedPoints(-def.Ranged)
 		if otherDef.Type&1 == 1 {
 			p.Equips()[otherDef.Position] = p.Appearance.Head
 		} else if otherDef.Type&2 == 2 {
@@ -580,17 +585,19 @@ func (p *Player) EquipItem(item *Item) {
 		return true
 	})
 	item.Worn = true
-	p.SetAimPoints(p.AimPoints() + def.Aim)
-	p.SetPowerPoints(p.PowerPoints() + def.Power)
-	p.SetArmourPoints(p.ArmourPoints() + def.Armour)
-	p.SetMagicPoints(p.MagicPoints() + def.Magic)
-	p.SetPrayerPoints(p.PrayerPoints() + def.Prayer)
-	p.SetRangedPoints(p.RangedPoints() + def.Ranged)
+	p.IncAimPoints(def.Aim)
+	p.IncPowerPoints(def.Power)
+	p.IncArmourPoints(def.Armour)
+	p.IncMagicPoints(def.Magic)
+	p.IncPrayerPoints(def.Prayer)
+	p.IncRangedPoints(def.Ranged)
 	p.Equips()[def.Position] = def.Sprite
 	// Below will update our appearance ticket (a counter for the number of times this session we updated this player)
 	p.UpdateAppearance()
 	p.WritePacket(EquipmentStats(p))
 	p.WritePacket(InventoryItems(p))
+	// p.OutQueue <- EquipmentStats(p)
+	// p.OutQueue <- InventoryItems(p)
 }
 
 func (p *Player) Equips() []int {
@@ -604,24 +611,26 @@ func (p *Player) Equips() []int {
 func (p *Player) UpdateAppearance() {
 	p.Inc("appearanceTicket", 1)
 	p.SetAppearanceChanged()
+	p.enqueueArea(playerEvents, p.ViewRadius(), map[string]int {"index": int(p.ServerIndex()), "ticket": int(p.AppearanceTicket())})
+}
+
+func (p *Player) ViewRadius() int {
+	return p.VarInt("viewRadius", 16) - 1
 }
 
 //DequipItem removes an item from this players equips, and sends inventory and equipment bonuses.
 func (p *Player) DequipItem(item *Item) {
 	def := definitions.Equip(item.ID)
-	if def == nil {
-		return
-	}
-	if !item.Worn {
+	if !item.Worn || def == nil {
 		return
 	}
 	item.Worn = false
-	p.SetAimPoints(p.AimPoints() - def.Aim)
-	p.SetPowerPoints(p.PowerPoints() - def.Power)
-	p.SetArmourPoints(p.ArmourPoints() - def.Armour)
-	p.SetMagicPoints(p.MagicPoints() - def.Magic)
-	p.SetPrayerPoints(p.PrayerPoints() - def.Prayer)
-	p.SetRangedPoints(p.RangedPoints() - def.Ranged)
+	p.IncAimPoints(-def.Aim)
+	p.IncPowerPoints(-def.Power)
+	p.IncArmourPoints(-def.Armour)
+	p.IncMagicPoints(-def.Magic)
+	p.IncPrayerPoints(-def.Prayer)
+	p.IncRangedPoints(-def.Ranged)
 	if def.Type&1 == 1 {
 		p.Equips()[def.Position] = p.Appearance.Head
 	} else if def.Type&2 == 2 {
@@ -667,34 +676,26 @@ func (p *Player) SetFatigue(i int) {
 
 //NearbyPlayers Returns nearby players.
 func (p *Player) NearbyPlayers() (players mobSet) {
-	// for _, r := range Region(p.X(), p.Y()).neighbors() {
-		// r.Players.RangePlayers(func(p1 *Player) bool  {
-			// if p.Near(p1, p.VarInt("viewRadius", 16)) && p1.ServerIndex() != p.ServerIndex() {
-				// players = append(players, p1)
-			// }
-			// return false
-		// })
-	// }
-// 
-	p.LocalPlayers.RLock()
-	defer p.LocalPlayers.RUnlock()
-	return p.LocalPlayers.mobSet
+	for _, r := range Region(p.X(), p.Y()).neighbors() {
+		r.Players.RangePlayers(func(p1 *Player) bool  {
+			if p.Near(p1, p.ViewRadius()) && p1.ServerIndex() != p.ServerIndex() {
+				players = append(players, p1)
+			}
+			return false
+		})
+	}
+
+	// p.LocalPlayers.RLock()
+	// defer p.LocalPlayers.RUnlock()
+	// return p.LocalPlayers.mobSet
+	return
 }
 
 //NearbyNpcs Returns nearby NPCs.
 func (p *Player) NearbyNpcs() (npcs mobSet) {
-	p.LocalNPCs.RLock()
-	defer p.LocalNPCs.RUnlock()
-	// list := NewMobList()
 	// for _, r := range Region(p.X(), p.Y()).neighbors() {
-		// // for _, n := range r.NPCs.NearbyNpcs(p) {
-			// // if p.Near(n, p.VarInt("viewRadius", 16)) && !p.VarBool("removed", false) && !n.Point().Equals(DeathPoint) {
-				// // npcs = append(npcs, n)
-			// // }
-			// // return false
-		// // }
 		// r.NPCs.RangeNpcs(func(n *NPC) bool  {
-			// if p.Near(n, p.VarInt("viewRadius", 16)) && !p.VarBool("removed", false) && !n.Point().Equals(DeathPoint) {
+			// if p.Near(n, p.ViewRadius()) && !p.VarBool("removed", false) {
 				// npcs = append(npcs, n)
 			// }
 			// return false
@@ -715,11 +716,13 @@ func (p *Player) NearbyObjects() (objects []entity.Entity) {
 //NewObjects Returns nearby objects that this player is unaware of.
 func (p *Player) NewObjects() (objects []*Object) {
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
-		for _, o := range r.Objects.NearbyObjects(p) {
-			if p.Near(o, p.VarInt("viewRadius", 16) * 3) && !p.LocalObjects.Contains(o) {
+		r.Objects.Lock()
+		for _, o := range r.Objects.set {
+			if p.Near(o, p.ViewRadius() * 2) && !p.LocalObjects.Contains(o) {
 				objects = append(objects, o.(*Object))
 			}
 		}
+		r.Objects.Unlock()
 	}
 	
 	return
@@ -728,11 +731,13 @@ func (p *Player) NewObjects() (objects []*Object) {
 //NewItems Returns nearby ground items that this player is unaware of.
 func (p *Player) NewItems() (items []*GroundItem) {
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
-		for _, i := range r.Objects.NearbyItems(p) {
-			if p.Near(i, p.VarInt("viewRadius", 16) * 3) && !p.LocalItems.Contains(i) {
+		r.Items.Lock()
+		for _, i := range r.Items.set {
+			if p.Near(i, p.ViewRadius() * 2) && !p.LocalItems.Contains(i) {
 				items = append(items, i.(*GroundItem))
 			}
 		}
+		r.Items.Unlock()
 	}
 
 	return
@@ -743,7 +748,7 @@ func (p *Player) NewPlayers() (players *MobList) {
 	list := NewMobList()
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.Players.RangePlayers(func(p1 *Player) bool {
-			if !p.LocalPlayers.Contains(p1) && p != p1 && !list.Contains(p1) && p.Near(p1, p.VarInt("viewRadius", 16)) {
+			if !p.LocalPlayers.Contains(p1) && p != p1 && !list.Contains(p1) && p.Near(p1, p.ViewRadius()) {
 				list.Add(p1)
 			}
 			return false
@@ -758,7 +763,7 @@ func (p *Player) NewNPCs() (npcs *MobList) {
 	list := NewMobList()
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.NPCs.RangeNpcs(func(n *NPC) bool {
-			if !list.Contains(n) && !p.LocalNPCs.Contains(n) && p.Near(n, p.VarInt("viewRadius", 16)) && !n.VarBool("removed", false) {
+			if !list.Contains(n) && !p.LocalNPCs.Contains(n) && p.Near(n, p.ViewRadius()) && !n.VarBool("removed", false) {
 				list.Add(n)
 			}
 			return false
@@ -813,6 +818,14 @@ func (p *Player) DuelAccepted(screen int) bool {
 	return p.Duel.Accepted[screen-1]
 }
 
+func (p *Player) UpdateDuelAccept(accept bool) {
+	p.WritePacket(DuelTargetAccept(accept))
+}
+
+func (p *Player) OpenDuelConfirm(target *Player) {
+	p.WritePacket(DuelConfirmationOpen(p, target))
+}
+
 //DuelAccepted returns the status of the specified duel negotiation screens accepted button for this player.
 // Valid screens are 1 and 2.
 func (p *Player) SetDuelAccepted(screen int, b bool) {
@@ -839,6 +852,10 @@ func (p *Player) DuelRetreating() bool {
 	return p.Duel.Rules[0]
 }
 
+func (p *Player) DuelRules() [4]bool {
+	return [...]bool { p.Duel.Rules[0], p.Duel.Rules[1], p.Duel.Rules[2], p.Duel.Rules[3] }
+}
+
 func (p *Player) DuelMagic() bool {
 	return p.Duel.Rules[1]
 }
@@ -851,6 +868,10 @@ func (p *Player) DuelEquipment() bool {
 	return p.Duel.Rules[3]
 }
 
+func (p *Player) CloseDuel() {
+	p.SendPacket(DuelClose)
+}
+
 //ResetDuel resets duel-related variables.
 func (p *Player) ResetDuel() {
 	//if target := p.DuelTarget(); target != nil && target.IsDueling()
@@ -860,7 +881,16 @@ func (p *Player) ResetDuel() {
 		p.DuelOffer.Clear()
 		p.ResetDuelTarget()
 		p.RemoveState(StateDueling)
+		p.CloseDuel()
 	}
+}
+
+func (p *Player) UpdateDuel() {
+	p.WritePacket(DuelUpdate(p))
+}
+
+func (p *Player) UpdateDuelSettings() {
+	p.WritePacket(DuelOptions(p))
 }
 
 //IsDueling returns true if this player is negotiating a duel, otherwise returns false.
@@ -892,7 +922,7 @@ func (p *Player) ResetDuelRules() {
 
 //SendPacket sends a net to the client.
 func (p *Player) SendPacket(packet *net.Packet) {
-	if p == nil || (!p.Connected() && packet.Opcode != 0) {
+	if p == nil || (!p.Connected() && !packet.Bare) {
 		return
 	}
 	p.WritePacket(packet)
@@ -904,35 +934,25 @@ type PlayerService interface {
 
 var DefaultPlayerService PlayerService
 
+func (p *Player) OpenDuelScreen(target *Player) {
+	p.ResetPath()
+	// target.ResetPath()
+	p.AddState(StateDueling)
+	// target.AddState(StateDueling)
+	p.WritePacket(DuelOpen(target.ServerIndex()))
+	// target.WritePacket(DuelOpen(p.ServerIndex()))
+}
+
 //Destroy sends a kill signal to the underlying client to tear down all of the I/O routines and save the player.
 func (p *Player) Destroy() {
-	header := []byte{0, 0}
-	frameLength := len(Logout.FrameBuffer)
-	if frameLength >= 160 {
-		header[0] = byte(frameLength>>8 + 160)
-		header[1] = byte(frameLength)
-	} else {
-		header[0] = byte(frameLength)
-		if frameLength > 0 {
-			frameLength--
-			header[1] = Logout.FrameBuffer[frameLength]
-		}
-	}
-	// if rng, ok := p.VarChecked("ourRng").(*isaac.ISAAC); ok && rng != nil {
-		// packet.FrameBuffer[0] = (packet.FrameBuffer[0] + uint8(rng.Uint32()) & 0xFF)
-	// }
-	if count, err := p.Writer.Write(append(header, Logout.FrameBuffer[:frameLength]...)); err != nil || count < Logout.Length()+1 {
-		log.Warn("Failed to write formatted packet to player socket!")
-	}
-	if err := p.Writer.Flush(); err != nil {
-		log.Warn("Failed to flush player socket!")
-	}
 	p.PostTickables.Add(func() bool {
 		p.killer.Do(func() {
-			if err := p.Socket.Close(); err != nil {
-				log.Warn("Couldn't close socket:", err)
-			}
-			p.Attributes.SetVar("lastIP", p.CurrentIP())
+			defer func() {
+				p.Attributes.SetVar("lastIP", p.CurrentIP())
+				if err := p.Socket.Close(); err != nil {
+					log.Warn("Couldn't close socket:", err)
+				}
+			}()
 			p.Inventory.Owner = nil
 			if Players.Find(p) > -1 {
 				log.Debug("Unregistered:{'" + p.Username() + "'@'" + p.CurrentIP() + "'}")
@@ -957,10 +977,6 @@ func (p *Player) AtObject(object *Object) bool {
 		// door types
 		return (p.Reachable(bounds[0]) || p.Reachable(bounds[1])) && p.WithinArea(bounds)
 	}
-
-	// TODO: Maybe replace this with the following:
-	//	return (p.Reachable(bounds[0]), bounds[1]) || p.Reachable(bounds[1])) || (p.FinishedPath() && p.CanReachDiag(bounds))
-	//	return p.Reachable(bounds[0]) || p.Reachable(bounds[1]) && p.WithinArea(bounds) p.CanReach(bounds) ||  (p.FinishedPath() && p.CanReachDiag(bounds))
 
 	return p.CanReach(bounds) || (p.FinishedPath() && p.CanReachDiag(bounds))
 }
@@ -1026,6 +1042,7 @@ func (p *Player) CanReachDiag(bounds [2]entity.Location) bool {
 // routine.
 func (p *Player) Initialize() {
 	AddPlayer(p)
+	p.enqueueArea(playerEvents, p.ViewRadius(), map[string]int {"index": int(p.ServerIndex()), "ticket": int(p.AppearanceTicket())})
 	// Mark down time of authentication
 	p.SetVar("authTime", time.Now())
 	// update flags
@@ -1066,39 +1083,8 @@ func (p *Player) Initialize() {
 	}
 }
 func (p *Player) WritePacket(packet *net.Packet) {
-	p.OutQueue <- packet
-	// defer func() {
-	// }()
-	// if packet.Opcode == 0 {
-		// if count, err := p.Writer.Write(packet.FrameBuffer); err != nil || count < packet.Length() {
-			// log.Warn("Failed to write raw packet to player socket!")
-		// }
-		// if err := p.Writer.Flush(); err != nil {
-			// log.Warn("Failed to flush player socket!")
-		// }
-		// return
-	// }
-	// header := []byte{0, 0}
-	// frameLength := len(packet.FrameBuffer)
-	// if frameLength >= 160 {
-		// header[0] = byte(frameLength>>8 + 160)
-		// header[1] = byte(frameLength)
-	// } else {
-		// header[0] = byte(frameLength)
-		// if frameLength > 0 {
-			// frameLength--
-			// header[1] = packet.FrameBuffer[frameLength]
-		// }
-	// }
-	// // if rng, ok := p.VarChecked("ourRng").(*isaac.ISAAC); ok && rng != nil {
-		// // packet.FrameBuffer[0] = (packet.FrameBuffer[0] + uint8(rng.Uint32()) & 0xFF)
-	// // }
-	// if count, err := p.Writer.Write(append(header, packet.FrameBuffer[:frameLength]...)); err != nil || count < packet.Length()+1 {
-		// log.Warn("Failed to write formatted packet to player socket!")
-	// }
-	// if err := p.Writer.Flush(); err != nil {
-		// log.Warn("Failed to flush player socket!")
-	// }
+	// p.OutQueue <- packet
+	p.WriteNow(*packet)
 }
 
 //NewPlayer Returns a reference to a new player.
@@ -1123,9 +1109,11 @@ func NewPlayer(socket stdnet.Conn) *Player {
 		Inventory:        &Inventory{Capacity: 30},
 		TradeOffer:       &Inventory{Capacity: 12},
 		DuelOffer:        &Inventory{Capacity: 8},
-		InQueue:          make(chan *net.Packet, 50),
-		OutQueue:         make(chan *net.Packet, 50),
-		Reader:           bufio.NewReader(socket),
+		InQueue:          make(chan *net.Packet, 4),
+		OutQueue:         make(chan *net.Packet, 2),
+		Reader:           bufio.NewReaderSize(socket, 5000),
+		Writer:			  bufio.NewWriterSize(socket, 5000),
+		OpCiphers:		  [...]*isaac.ISAAC{nil, nil},
 	}
 	// TODO: Get rid of this self-referential member; figure out better way to handle client item updating
 	p.Inventory.Owner = p
@@ -1153,53 +1141,20 @@ const playerEvents = "playerEventQ"
 //Chat sends a player NPC chat message packet to the player and all other players around it.  If multiple msgs are
 // provided, will sleep the goroutine for 3-4 ticks between each message, depending on length of message.
 func (p *Player) Chat(msgs ...string) {
-	// for i, msg := range msgs {
-	// p.Tickables.Schedule(3*i, func() bool {
-	// p.QuestBroadcast(p, /*p.TargetMob()*/ nil, msg)
-	// return true
-	// })
-	// }
-
 	wait := time.Duration(0)
 	for _, v := range msgs {
-		// tasks.TickList.Schedule(wait, func() bool {
-		p.enqueueArea(playerEvents, 15, NewTargetedMessage(p, p.TargetMob(), v))
-		// return true
-		// })
+		p.enqueueArea(playerEvents, p.ViewRadius(), NewTargetedMessage(p, p.TargetMob(), v))
 		wait += 3
 		if len(msgs[0]) >= 84 {
 			wait++
 		}
 		time.Sleep(TickMillis * wait)
 	}
-	// p.QuestBroadcast(p, nil, msgs[0])
-	// wait := time.Duration(3)
-	// if len(msgs[0]) >= 84 {
-	// wait++
-	// }
-	// time.Sleep(TickMillis*wait)
-	// if len(msgs) > 1 {
-	// p.Chat(msgs[1:]...)
-	// }
-	// for _, msg := range msgs {
-	// sleep := 3
-	// if len(msg) >= 83 {
-	// sleep = 4
-	// }
-	// m := p.TargetMob()
-	// for _, player := range p.NearbyPlayers() {
-	// player.QueueQuestChat(p, m, msg)
-	// // p.enqueue(playerEvents, NewTargetedMessage(p, p.TargetMob(), message))
-	// }
-	// p.QueueQuestChat(p, m, msg)
-	// time.Sleep(time.Millisecond*640*time.Duration(sleep))
-	//
-	// }
 }
 
 //QuestBroadcast Broadcasts a string as a message posted into the players quest chat history to the player and any nearby players.
 func (p *Player) QuestBroadcast(owner, target entity.MobileEntity, message string) {
-	p.enqueueArea(playerEvents, 15, NewTargetedMessage(owner, target, message))
+	p.enqueueArea(playerEvents, p.ViewRadius(), NewTargetedMessage(owner, target, message))
 	// p.enqueue(playerEvents, msg)
 }
 
@@ -1227,7 +1182,7 @@ func (p *Player) QueueQuestChat(owner, _ entity.MobileEntity, message string) {
 	// p1.enqueue(playerEvents, msg)
 	// }
 	// p.enqueue(playerEvents, msg)
-	p.enqueueArea(playerEvents, 15, NewTargetedMessage(owner, nil, message))
+	p.enqueueArea(playerEvents, p.ViewRadius(), NewTargetedMessage(owner, nil, message))
 	//p.enqueue(playerEvents, NewChatMessage(owner, message))
 }
 
@@ -1238,10 +1193,13 @@ func (p *Player) QueueNpcChat(owner, target entity.MobileEntity, message string)
 	//		return
 	//	}
 
-	p.enqueueArea(npcEvents, 15, NewTargetedMessage(owner, target, message))
+	p.enqueueArea(npcEvents, p.ViewRadius(), NewTargetedMessage(owner, target, message))
 	// p.enqueue(playerEvents, NewTargetedMessage(owner, target, message))
 }
 
+func (p *Player) Enqueue(id string, e interface{}) {
+	p.enqueue(id, e)
+}
 func (p *Player) enqueue(id string, e interface{}) {
 	if queue, ok := p.VarChecked(id).([]interface{}); queue != nil && ok {
 		p.SetVar(id, append(queue, e))
@@ -1534,17 +1492,17 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 	}
 	p.SetVar("targetMob", defender)
 	p.SetVar("fightTarget", defender)
-	defender.SessionCache().SetVar("fightTarget", p)
-	attacker.SessionCache().SetVar("fightTarget", p)
+	defender.SessionCache().SetVar("fightTarget", attacker)
+	attacker.SessionCache().SetVar("fightTarget", defender)
 	attacker.AddState(StateFighting)
 	defender.AddState(StateFighting)
 	attacker.SetDirection(RightFighting)
 	defender.SetDirection(LeftFighting)
 	defender.SetRegionRemoved()
 	attacker.SetLocation(defender.Clone(), true)
-	tasks.Schedule(2, func() bool {
+	p.Tickables.Schedule(2, func() bool {
 		if (defender.IsPlayer() && !AsPlayer(defender).Connected()) || !defender.HasState(StateFighting) ||
-			!attacker.HasState(StateFighting) || (attacker.IsPlayer() && !AsPlayer(attacker).Connected()) || !p.Near(defender, 0) {
+			!attacker.HasState(StateFighting) || (attacker.IsPlayer() && !AsPlayer(attacker).Connected()) || !p.Equals(defender) {
 			// target is a disconnected player, we are disconnected,
 			// one of us is not in a fight, or we are distanced somehow unexpectedly.  Kill tasks.
 			// quickfix for possible bugs I imagined will exist
@@ -1796,7 +1754,7 @@ func (p *Player) Read(data []byte) (n int, err error) {
 			if p.Reader == nil {
 				p.Reader = bufio.NewReader(io.LimitReader(reader, header.Length))
 			} else {
-				p.Reader.Reset(io.LimitReader(reader, header.Length))
+				p.Reader.(*bufio.Reader).Reset(io.LimitReader(reader, header.Length))
 			}
 		}
 		n, err := p.Reader.Read(data[written:])
@@ -1813,8 +1771,8 @@ func (p *Player) Read(data []byte) (n int, err error) {
 			} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
 				return -1, errors.NewNetworkError("timed out", true)
 			}
-			// continue
-			return -1, errors.NewNetworkError(err.Error(), false)
+			continue
+			// return -1, errors.NewNetworkError(err.Error(), false)
 		}
 		written += n
 	}

@@ -156,17 +156,11 @@ func RunScripts() {
 
 	err = filepath.Walk("./scripts", func(path string, info os.FileInfo, err error) error {
 		if !info.Mode().IsDir() && strings.HasSuffix(path, "ank") && !strings.Contains(path, "def") && !strings.Contains(path, "lib") {
-
-			_, err := vm.Execute(ScriptEnv(), &vm.Options{Debug: true}, "bind = import(\"bind\")\nworld = import(\"world\")\nlog = import(\"log\")\nids = import(\"ids\")\n\n"+load(path))
-			//stmt, err := parser.ParseSrc(load(path))
-			//if err != nil {
-			//	log.Warning.Printf("ParseSrc error - received: %v - script: %v", err, path)
-			//}
+			_, err := vm.Execute(ScriptEnv(), &vm.Options{Debug: true}, "bind = import(\"bind\")\nworld = import(\"world\")\nlog = import(\"log\")\nids = import(\"ids\")\npackets = import(\"packets\")\n\n"+load(path))
 			//// Note: Still want to run the code even after a parse error to see what happens
-			//_, err = vm.Run(ScriptEnv(), &vm.Options{Debug: true}, stmt)
+			// _, err = vm.Run(ScriptEnv(), &vm.Options{Debug: true}, stmt)
 			if err != nil {
 				log.Warn("Anko error ['"+path+"']:", err)
-				//				log.Info.Println(env.String())
 				return nil
 			}
 			//log.Info.Println(val)

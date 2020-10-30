@@ -22,6 +22,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/log"
 )
 
+//WriteFlusher 
 type WriteFlusher interface {
 	io.Writer
 	Flush() error
@@ -37,21 +38,22 @@ type Packet struct {
 	FrameBuffer []byte
 	ReadIndex   int
 	bitIndex    int
+	Bare        bool
 }
 
 //NewPacket Creates a new handlers instance.
 func NewPacket(opcode byte, payload []byte) *Packet {
-	return &Packet{Opcode: opcode, FrameBuffer: payload}
+	return &Packet{Opcode: opcode, FrameBuffer: payload, Bare: false}
 }
 
 //NewEmptyPacket Creates a new handlers instance intended for sending formatted data to the client.
 func NewEmptyPacket(opcode byte) *Packet {
-	return &Packet{Opcode: opcode, FrameBuffer: []byte{opcode}}
+	return &Packet{Opcode: opcode, FrameBuffer: []byte{opcode}, Bare: false}
 }
 
 //NewReplyPacket Creates a new handlers instance intended for sending raw data to the client.
 func NewReplyPacket(src []byte) *Packet {
-	return &Packet{FrameBuffer: src}
+	return &Packet{FrameBuffer: src, Bare: true}
 }
 
 //ReadUint128 Read the next 128-bit integer from the handlers payload, returns it as 2 uint64 words, 
@@ -144,7 +146,6 @@ func (p *Packet) Flip() {
 //Rewind rewinds the reader index by n bytes
 func (p *Packet) Rewind(n int) error {
 	if n < 0 {
-		debug.PrintStack()
 		return errors.NewNetworkError("Packet.Skip,BufferOutOfBounds; Rewinding the buffer by less than 0 bytes is not permitted.  Perhaps you need *Packet.Skip ?", false)
 	}
 	if n > p.ReadIndex {
@@ -158,7 +159,6 @@ func (p *Packet) Rewind(n int) error {
 //Skip skips the reader index by n bytes
 func (p *Packet) Skip(n int) error {
 	if n < 0 {
-		debug.PrintStack()
 		return errors.NewNetworkError("BufferOutOfBounds; Skipping the buffer by less than 0 bytes is not permitted.  Perhaps you need *Packet.Rewind ?", false)
 	}
 	if p.Available() < n {
@@ -237,16 +237,6 @@ func (p *Packet) AddUint8or32(i uint32) *Packet {
 	return p.AddSmart0832(int(i))
 }
 
-//SetUint16At Rewrites the data at offset to the provided short uint value
-func (p *Packet) SetUint16At(offset int, val uint16) *Packet {
-	if offset >= len(p.FrameBuffer) || offset < 0 {
-		log.Warning.Println("Attempted out of bounds Packet.SetUint16At: ", offset, val)
-		return p
-	}
-	binary.BigEndian.PutUint16(p.FrameBuffer[offset:], val)
-	return p
-}
-
 //AddUint16 Adds a 16-bit integer to the handlers payload.
 func (p *Packet) AddUint16(s uint16) *Packet {
 	p.EnsureCapacity(2)
@@ -312,13 +302,10 @@ func (p *Packet) AddBitmask(value int, numBits int) *Packet {
 	bitOffset := 8 - (p.bitIndex & 7)
 	// increment written bits count
 	p.bitIndex += numBits
-	if numBytes := ((p.bitIndex+7) >> 3)+1; numBytes > len(p.FrameBuffer)-1 {
-		p.FrameBuffer = append(p.FrameBuffer, make([]byte, numBytes-len(p.FrameBuffer))...)
+	for ((p.bitIndex+7)>>3)+1 > len(p.FrameBuffer) {
+		p.FrameBuffer = append(p.FrameBuffer, 0)
 	}
-	// for ((p.bitIndex+7)/8) > len(p.FrameBuffer)-1 {
-		// p.FrameBuffer = append(p.FrameBuffer, 0)
-	// }
-	// Write our value, using some bitwise tricks to only take up the specified bits
+	// Write our value, using some bitwise tricks to flip on the correct bits
 	for numBits > bitOffset {
 		// prepare the byte we're writing into for the new data, by masking away the bits we will not need
 		p.FrameBuffer[byteOffset] &= byte(^bitmasks[bitOffset])
@@ -336,7 +323,7 @@ func (p *Packet) AddBitmask(value int, numBits int) *Packet {
 		p.FrameBuffer[byteOffset] &= byte(^bitmasks[bitOffset])
 		p.FrameBuffer[byteOffset] |= byte(value & int(bitmasks[bitOffset]))
 	} else {
-		// we were done encoding our value mid-byte
+		// we were done encoding our value mid-byte, must reposition our bits
 		p.FrameBuffer[byteOffset] &= byte(^(int(bitmasks[numBits]) << uint(bitOffset-numBits)))
 		p.FrameBuffer[byteOffset] |= byte((value & int(bitmasks[numBits])) << uint(bitOffset-numBits))
 	}

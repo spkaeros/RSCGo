@@ -27,9 +27,10 @@ func init() {
 				player.Destroy()
 				return
 			}
-			player.SendPacket(net.NewReplyPacket([]byte{1}))
+			player.OutQueue <- &net.Packet{Bare: true, FrameBuffer: []byte{1}}
 			for _, question := range dataService.PlayerLoadRecoverys(usernameHash) {
-				player.SendPacket(net.NewReplyPacket([]byte{byte(len(question))}).AddBytes([]byte(question)))
+				player.OutQueue <- &net.Packet{Bare: true, FrameBuffer: append([]byte{byte(len(question))}, []byte(question)...)}
+				// player.SendPacket(net.NewReplyPacket([]byte{byte(len(question))}).AddBytes([]byte(question)))
 			}
 		}()
 	})

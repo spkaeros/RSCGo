@@ -18,7 +18,6 @@ import (
 	"time"
 	"strings"
 	"math"
-	"bufio"
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
@@ -89,8 +88,8 @@ var (
 			// Chrome is picky, won't work without explicit protocol acceptance
 			return true
 		},
-		ReadBufferSize:  23768,
-		WriteBufferSize: 23768,
+		ReadBufferSize:  5000,
+		WriteBufferSize: 5000,
 	}
 )
 
@@ -116,7 +115,6 @@ func main() {
 		cliFlags.Config = "config.toml"
 	}
 	if _, err := toml.DecodeFile(cliFlags.Config, &config.TomlConfig); err != nil {
-		log.Warn("Error decoding server TOML configuration file `" + cliFlags.Config + "`:", err)
 		log.Fatal("Error decoding server TOML configuration file:", "`" + cliFlags.Config + "`")
 		log.Fatal(err)
 		os.Exit(101)
@@ -183,10 +181,17 @@ func main() {
 	Instance.Start()
 }
 
+func needsData(err error) bool {
+	return err.Error() == "Socket buffer has less bytes available than we need to form a message packet."
+}
 
 var Instance = &Server{Ticker: time.NewTicker(TickMillis)}
 func readPacket(player *world.Player) (*net.Packet, error) {
+	// if player.Reader.Buffered() < 2 {
+		// return nil, rscerrors.NewNetworkError("Socket buffer has less bytes available than we need to form a message packet.", false)
+	// }
 	header := make([]byte, 2)
+	
 	n, err := player.Read(header)
 	if err != nil {
 		switch err.(type) {
@@ -203,7 +208,7 @@ func readPacket(player *world.Player) (*net.Packet, error) {
 	}
 	length := int(header[0] & 0xFF)
 	if length >= 160 {
-		length = (length-160) << 8|int(header[1] & 0xFF)
+		length = (length-160) << 8 | int(header[1] & 0xFF)
 	} else {
 		length -= 1
 	}
@@ -220,9 +225,10 @@ func readPacket(player *world.Player) (*net.Packet, error) {
 	if length < 160 {
 		frame = append(frame, header[1])
 	}
-	// if rng, ok := player.Var("theirRng"); ok && rng != nil {
-		// return net.NewPacket(frame[0] - byte(rng.(*isaac.ISAAC).Uint32()) & 0xFF, frame[1:]), nil
-	// }
+	if cipher := player.OpCiphers[1]; cipher != nil {
+		frame[0] = byte(uint32(frame[0]) - cipher.Uint32()) & 0xFF
+	}
+
 	return net.NewPacket(frame[0], frame[1:]), nil
 }
 
@@ -235,8 +241,8 @@ func (s *Server) tlsAccept(l stdnet.Listener) *world.Player {
 	}
 	if tlsError == nil {
 		// This block only runs if the certificate chain was initialized right
+		// If we encountered some problem setting up TLS, this should prevent us from losing our original non-encrypted socket hopefully
 		if tmpSock := tls.Server(socket, tlsConfig); tmpSock != nil {
-			// If we encountered some problem setting up TLS, this should prevent us from losing our original non-encrypted socket hopefully
 			socket = tmpSock
 		}
 	} else {
@@ -244,15 +250,13 @@ func (s *Server) tlsAccept(l stdnet.Listener) *world.Player {
 		return nil
 	}
 
-	p := world.NewPlayer(socket)
 	// TODO: See if we can get TLS working on one port for either TCP sockets or websockets
-	_, err = wsUpgrader.Upgrade(p.Socket)
+	p := world.NewPlayer(socket)
+	_, err = wsUpgrader.Upgrade(socket)
 	// err = rscerrors.NewNetworkError("", true)
 	p.Websocket = err == nil
 	if p.IsWebsocket() {
 		p.Writer = wsutil.NewWriter(p.Socket, ws.StateServerSide, ws.OpBinary)
-	} else {
-		p.Writer = bufio.NewWriter(p.Socket)
 	}
 
 	return p
@@ -269,263 +273,351 @@ func (s *Server) Bind(port int) bool {
 	}
 	s.listener = listener
 
-	go func() {
-		defer func() {
-			if err := s.listener.Close(); err != nil {
-				log.Fatal("closing listener failed:", err)
-				os.Exit(1)
-			}
-		}()
+	defer func() {
+		if err := s.listener.Close(); err != nil {
+			log.Fatal("closing listener failed:", err)
+			os.Exit(1)
+		}
+	}()
 		for {
 			player := s.tlsAccept(s.listener)
-			go func() {
-				login, err := readPacket(player)
-				if err != nil {
-					if err, ok := err.(rscerrors.NetError); ok {
-						if err.Fatal {
-							player.Socket.Close()
-							return
-						}
-					}
+again:
+			login, err := readPacket(player)
+			if err != nil {
+				if needsData(err) {
+					time.Sleep(TickMillis)
+					goto again
+				} else if err.(rscerrors.NetError).Fatal {
 					player.Socket.Close()
+					continue
+				}
+			}
+			if login == nil {
+				continue
+			}
+			sendReply := func(i handshake.ResponseCode, reason string) {
+				player.Writer.Write([]byte{byte(i)})
+				player.Writer.Flush()
+				if !i.IsValid() {
+					log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "failed to login (" + reason + ")")
+					player.Destroy()
 					return
 				}
-				if login == nil {
-					player.Socket.Close()
-					return
+			}
+
+
+			if login.Opcode == 0 {
+				if !world.UpdateTime.IsZero() {
+					sendReply(handshake.ResponseServerRejection, "System update in progress")
+					continue
 				}
-				if login.Opcode == 32 {
-					second, err := readPacket(player)
-					if err != nil {
-						if err, ok := err.(rscerrors.NetError); ok {
-							if err.Fatal {
+				if world.Players.Size() >= config.MaxPlayers() {
+					sendReply(handshake.ResponseWorldFull, "Out of usable player slots")
+					continue
+				}
+				if handshake.LoginThrottle.Recent(player.CurrentIP(), time.Second*10) >= 5 {
+					sendReply(handshake.ResponseSpamTimeout, "Too many recent invalid login attempts (5 in 5 minutes)")
+					continue
+				}
+
+				player.SetReconnecting(login.ReadBoolean())
+				if ver := login.ReadUint32(); ver != config.Version() {
+					sendReply(handshake.ResponseUpdated, "Invalid client version (" + strconv.Itoa(ver) + ")")
+					continue
+				}
+
+				rsaSize := login.ReadUint16()
+				data := make([]byte, rsaSize)
+				rsaRead := login.Read(data)
+				if rsaRead < rsaSize {
+					log.Debug("short RSA block")
+					player.Writer.Write([]byte{byte(handshake.ResponseServerRejection)})
+					player.Writer.Flush()
+					continue
+				}
+
+				rsaBlock := net.NewPacket(0, crypto.DecryptRSA(data))
+				checksum := rsaBlock.ReadUint8()
+				// It's been suggested to me that this first byte assures us that the RSA block could decode properly,
+				// it's only wrong for this purpose a statistically insignificant amount of time.  >99% accurate, as I understand it.
+				if checksum != 10 {
+					log.Debug("Bad checksum:", checksum)
+					player.Writer.Write([]byte{byte(handshake.ResponseServerRejection)})
+					player.Writer.Flush()
+					continue
+				}
+				var keys []uint32
+				for i := 0; i < 4; i++ {
+					keys = append(keys, uint32(rsaBlock.ReadUint32()))
+				}
+				player.OpCiphers[0] = isaac.New(keys...)
+				player.OpCiphers[1] = isaac.New(keys...)
+				// for i := 0; i < 256; i++ {
+					// log.Debug(player.OpCiphers[0].Uint32())
+					// log.Debug(player.OpCiphers[1].Uint32())
+				// }
+				password := strings.TrimSpace(rsaBlock.ReadString())
+				// I suppose the next 8 bytes are to ensure the stream gets sufficiently shuffled in each packet, preventing identifying markers appearing
+				rsaBlock.ReadUint32()
+				rsaBlock.ReadUint32()
+				blockSize := login.ReadUint16()
+				var block = make([]byte, blockSize)
+				if login.Available() != blockSize {
+					log.Debug("XTEA block size recv'd doesn't take up the rest of the packets available buffer size! (it should)")
+					log.Debugf("\t{ blockSize:%d, login.Available():%d }\n", blockSize, login.Available())
+				}
+				login.Read(block)
+				xteaKeys := []int{int(keys[0]), int(keys[1]), int(keys[2]), int(keys[3])}
+				usernameData := crypto.DecryptXtea(block, 0, blockSize, xteaKeys)
+				// first byte of this block is limit30 parameter from the game client applet; boolean, use unknown
+				// I suppose the next 24 bytes are to ensure the stream gets sufficiently shuffled in each packet, preventing identifying markers appearing
+				// finally, the null-terminated UTF-8 encoded username comes at offset 25 and beyond.
+				username := string(usernameData[25:])
+				player.SetVar("username", strutil.Base37.Encode(username))
+				if world.Players.ContainsHash(player.UsernameHash()) {
+					sendReply(handshake.ResponseLoggedIn, "Player with same username is already logged in")
+					continue
+				}
+				var dataService = db.DefaultPlayerService
+				if !dataService.PlayerNameExists(player.Username()) || !dataService.PlayerValidLogin(player.UsernameHash(), crypto.Hash(password)) {
+					handshake.LoginThrottle.Add(player.CurrentIP())
+					sendReply(handshake.ResponseBadPassword, "Invalid credentials")
+					continue
+				}
+				if !dataService.PlayerLoad(player) {
+					sendReply(handshake.ResponseDecodeFailure, "Could not load player profile; is the dataService setup properly?")
+					continue
+				}
+
+				if player.Reconnecting() {
+					sendReply(handshake.ResponseReconnected, "")
+					continue
+				}
+				switch player.Rank() {
+				case 2:
+					sendReply(handshake.ResponseAdministrator|handshake.ResponseLoginAcceptBit, "")
+				case 1:
+					sendReply(handshake.ResponseModerator|handshake.ResponseLoginAcceptBit, "")
+				default:
+					sendReply(handshake.ResponseLoginSuccess|handshake.ResponseLoginAcceptBit, "")
+				}
+				go func() {
+					defer close(player.InQueue)
+					defer close(player.OutQueue)
+					defer player.Destroy()
+					for {
+						packet, err := readPacket(player)
+						if err != nil || packet == nil {
+							if needsData(err) {
+								continue
+							} else if err.(rscerrors.NetError).Fatal {
 								player.Socket.Close()
 								return
 							}
 						}
-						player.Socket.Close()
-						return
+						player.InQueue <- packet
 					}
-					login = second
-				}
-				if login.Opcode == 2 {
-					defer func() {
-						close(player.InQueue)
-						err := player.Socket.Close()
-						if err != nil {
-							log.Debug("Error closing socket:", err)
-							return
-						}
-						player.Inventory.Owner = nil
-					}()
-					if version := login.ReadUint16(); version != config.Version() {
-						player.WritePacket(world.HandshakeResponse(int(handshake.ResponseUpdated)))
-						player.Writer.Flush()
-						return
-					}
-					username := strutil.Base37.Decode(login.ReadUint64())
-					password := strings.TrimSpace(login.ReadString())
-					reply := func(i handshake.ResponseCode, reason string) {
-						player.WritePacket(world.HandshakeResponse(int(i)))
-						player.Writer.Flush()
-						if reason == "" {
-							log.Debug("[REGISTER] Player", "'" + username + "'", "created successfully for:", player.CurrentIP())
-							return
-						}
-						log.Debug("[REGISTER] Player creation failed for:", "'" + username + "'@'" + player.CurrentIP() + "'")
-						return
-					}
-					go func() {
-						if userLen, passLen := len(username), len(password); userLen < 2 || userLen > 12 || passLen < 5 || passLen > 20 {
-							reply(handshake.ResponseBadInputLength, "Password and/or username too long and/or too short.")
-							return
-						}
-						dataService := db.DefaultPlayerService
-						if dataService.PlayerNameExists(username) {
-							reply(handshake.ResponseUsernameTaken, "Username is taken by another player already.")
-							return
-						}
-
-						if !dataService.PlayerCreate(username, crypto.Hash(password), player.CurrentIP()) {
-							reply(8, "Data backend seems to have failed creating a player")
-							return
-						}
-						reply(handshake.ResponseRegisterSuccess, "")
-					}()
-				}
-				if login.Opcode == 0 {
-					sendReply := func(i handshake.ResponseCode, reason string) {
-						player.WritePacket(world.HandshakeResponse(int(i)))
-						player.Writer.Flush()
-						if i.IsValid() {
-							go func(p *world.Player) {
-								for {
-									select {
-									case packet, ok := <-p.OutQueue:
-										if !ok {
-											return
-										}
-										p.WriteNow(packet)
-									default:
-										continue
-									}
-									
-									// p.Writer.Flush()
-								}
-							}(player)
-							go func() {
-								for {
-									select {
-									default:
-										// return
-									case p1, ok := <-player.InQueue:
-										if !ok {
-											return
-										}
-										// script packet handlers are the most `modern` solution, and will be the default selected for any incoming packet
-										if handler := world.PacketTriggers[p1.Opcode]; handler != nil {
-											handler(player, p1)
-											continue
-										}
-										// This is old legacy go code handlers that are deprecated and being replaced with the aforementioned scripting API
-										if handlePacket := game.Handler(p1.Opcode); handlePacket != nil {
-											handlePacket(player, p1)
-											continue
-										}
-									}
-								}
-							}()
-							log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "successfully logged in")
-							// go func() {
-							defer close(player.InQueue)
-							defer player.Destroy()
-							defer player.WritePacket(world.Logout)
-							player.Initialize()
-							for {
-								select {
-								default:
-									if p, err := readPacket(player); err != nil {
-										if err, ok := err.(rscerrors.NetError); ok {
-											if err.Fatal {
-												return
-											}
-										}
-										return
-									} else if p == nil {
-										return
-									} else {
-										player.InQueue <- p
-									}
-								}
+				}()
+				go func() {
+					defer player.Destroy()
+					for {
+						select {
+						case packet, ok := <-player.InQueue:
+							if packet == nil || !ok {
+								return
 							}
-							// }()
-						} else {
-							log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "failed to login (" + reason + ")")
-							close(player.InQueue)
-							player.Destroy()
+							// script packet handlers are the most `modern` solution, and will be the default selected for any incoming packet
+							if handlePacket := world.PacketTriggers[packet.Opcode]; handlePacket != nil {
+								handlePacket(player, packet)
+								continue
+							} else if handlePacket := game.Handler(packet.Opcode); handlePacket != nil {
+								// This is old legacy go code handlers that are deprecated and being replaced with the aforementioned scripting API
+								handlePacket(player, packet)
+							}
+						default:
+							continue
 						}
 					}
-					if !world.UpdateTime.IsZero() {
-						sendReply(handshake.ResponseServerRejection, "System update in progress")
-						return
+				}()
+				go func() {
+					for {
+						select {
+						case packet, ok := <-player.OutQueue:
+							if packet != nil && ok {
+								player.WriteNow(*packet)
+							} else {
+								return
+							}
+						}
 					}
-					if world.Players.Size() >= config.MaxPlayers() {
-						sendReply(handshake.ResponseWorldFull, "Out of usable player slots")
-						return
-					}
-					if handshake.LoginThrottle.Recent(player.CurrentIP(), time.Second*10) >= 5 {
-						sendReply(handshake.ResponseSpamTimeout, "Too many recent invalid login attempts (5 in 5 minutes)")
-						return
-					}
+				}()
+				log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "successfully logged in")
+				player.Initialize()
+				continue
+			}
+			
 
-					player.SetReconnecting(login.ReadBoolean())
-					if ver := login.ReadUint32(); ver != config.Version() {
-						sendReply(handshake.ResponseUpdated, "Invalid client version (" + strconv.Itoa(ver) + ")")
-						return
-					}
-
-					rsaSize := login.ReadUint16()
-					data := make([]byte, rsaSize)
-					rsaRead := login.Read(data)
-					if rsaRead < rsaSize {
-						log.Debug("short RSA block")
-						player.WritePacket(world.HandshakeResponse(int(handshake.ResponseServerRejection)))
-						player.Writer.Flush()
-						return
-					}
-
-					rsaBlock := crypto.DecryptRSA(data)
-					packetDec := net.NewPacket(0, rsaBlock)
-					checksum := packetDec.ReadUint8()
-					if checksum != 10 {
-						log.Debug("Bad checksum:", checksum)
-						player.WritePacket(world.HandshakeResponse(int(handshake.ResponseServerRejection)))
-						player.Writer.Flush()
-						return
-					}
-					var keys []uint32
-					for i := 0; i < 4; i++ {
-						keys = append(keys, uint32(packetDec.ReadUint32()))
-					}
-					player.SetVar("ourRng", isaac.New(keys...))
-					player.SetVar("theirRng", isaac.New(keys...))
-					password := strings.TrimSpace(packetDec.ReadString())
-					blockSize := login.ReadUint16()
-					var block = make([]byte, blockSize)
-					if login.Available() != blockSize {
-						log.Debug("XTEA block size recv'd doesn't take up the rest of the packets available buffer size! (it should)")
-						log.Debugf("\t{ blockSize:%d, login.Available():%d }\n", blockSize, login.Available())
-					}
-					login.Read(block)
-					xteaKeys := []int{int(keys[0]), int(keys[1]), int(keys[2]), int(keys[3])}
-					decBlock := crypto.DecryptXtea(block, 0, blockSize, xteaKeys)
-					packetDec = net.NewPacket(0, decBlock)
-					packetDec.Skip(25)
-					username := packetDec.ReadString()
-					player.SetVar("username", strutil.Base37.Encode(username))
-					if world.Players.ContainsHash(player.UsernameHash()) {
-						sendReply(handshake.ResponseLoggedIn, "Player with same username is already logged in")
-						return
-					}
-					var dataService = db.DefaultPlayerService
-					if !dataService.PlayerNameExists(player.Username()) || !dataService.PlayerValidLogin(player.UsernameHash(), crypto.Hash(password)) {
-						handshake.LoginThrottle.Add(player.CurrentIP())
-						sendReply(handshake.ResponseBadPassword, "Invalid credentials")
-						return
-					}
-					if !dataService.PlayerLoad(player) {
-						sendReply(handshake.ResponseDecodeFailure, "Could not load player profile; is the dataService setup properly?")
-						return
-					}
-
-					// s.handlePackets(player)
-					if player.Reconnecting() {
-						sendReply(handshake.ResponseReconnected, "")
-						return
-					}
-					switch player.Rank() {
-					case 2:
-						sendReply(handshake.ResponseAdministrator|handshake.ResponseLoginAcceptBit, "")
-					case 1:
-						sendReply(handshake.ResponseModerator|handshake.ResponseLoginAcceptBit, "")
-					default:
-						sendReply(handshake.ResponseLoginSuccess|handshake.ResponseLoginAcceptBit, "")
-					}
-
-					return
-				}
-			}()
+			// login, ok := readPacket(player)
+			// if err != nil {
+				// if err, ok := err.(rscerrors.NetError); ok {
+					// if err.Fatal {
+						// player.Socket.Close()
+						// return
+					// } else {
+						// if strings.Contains(err.Error(), "has less bytes available") {
+							// time.Sleep(TickMillis)
+							// continue loop
+						// }
+					// }
+				// }
+			// }
+			// if login == nil {
+				// time.Sleep(TickMillis)
+				// continue loop
+				// // player.Socket.Close()
+				// // return
+			// }
+			// if login.Opcode == 32 {
+				// second, err := readPacket(player)
+				// if err != nil {
+					// if err, ok := err.(rscerrors.NetError); ok {
+						// if err.Fatal {
+							// player.Socket.Close()
+							// return
+						// }
+					// }
+					// player.Socket.Close()
+					// return
+				// }
+				// login = second
+			// }
+			// if login.Opcode == 2 {
+				// defer func() {
+					// close(player.InQueue)
+					// err := player.Socket.Close()
+					// if err != nil {
+						// log.Debug("Error closing socket:", err)
+						// return
+					// }
+					// player.Inventory.Owner = nil
+				// }()
+				// if version := login.ReadUint16(); version != config.Version() {
+					// player.WritePacket(world.HandshakeResponse(int(handshake.ResponseUpdated)))
+					// player.Writer.Flush()
+					// return
+				// }
+				// username := strutil.Base37.Decode(login.ReadUint64())
+				// password := strings.TrimSpace(login.ReadString())
+				// reply := func(i handshake.ResponseCode, reason string) {
+					// player.WritePacket(world.HandshakeResponse(int(i)))
+					// player.Writer.Flush()
+					// if reason == "" {
+						// log.Debug("[REGISTER] Player", "'" + username + "'", "created successfully for:", player.CurrentIP())
+						// return
+					// }
+					// log.Debug("[REGISTER] Player creation failed for:", "'" + username + "'@'" + player.CurrentIP() + "'")
+					// return
+				// }
+				// go func() {
+					// if userLen, passLen := len(username), len(password); userLen < 2 || userLen > 12 || passLen < 5 || passLen > 20 {
+						// reply(handshake.ResponseBadInputLength, "Password and/or username too long and/or too short.")
+						// return
+					// }
+					// dataService := db.DefaultPlayerService
+					// if dataService.PlayerNameExists(username) {
+						// reply(handshake.ResponseUsernameTaken, "Username is taken by another player already.")
+						// return
+					// }
+// 
+					// if !dataService.PlayerCreate(username, crypto.Hash(password), player.CurrentIP()) {
+						// reply(8, "Data backend seems to have failed creating a player")
+						// return
+					// }
+					// reply(handshake.ResponseRegisterSuccess, "")
+				// }()
+			// }
+			// log.Debug(login)
+			// if login.Opcode == 0 {
+				// sendReply := func(i handshake.ResponseCode, reason string) {
+					// go func() {
+						// player.Writer.Write([]byte{byte(i)})
+						// player.Writer.Flush()
+						// if !i.IsValid() {
+							// log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "failed to login (" + reason + ")")
+							// close(player.InQueue)
+							// player.Destroy()
+							// return
+						// }
+						// log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "successfully logged in")
+						// player.Initialize()
+						// defer player.Destroy()
+						// defer player.WritePacket(world.Logout)
+						// defer close(player.InQueue)
+						// defer close(player.OutQueue)
+						// go func() {
+							// for {
+								// select {
+								// case packet, ok := <-player.OutQueue:
+									// if !ok {
+										// continue
+									// }
+									// player.WriteNow(packet)
+									// player.Writer.Flush()
+								// case packet, ok := <-player.InQueue:
+									// if !ok {
+										// // return
+										// continue
+									// }
+									// // script packet handlers are the most `modern` solution, and will be the default selected for any incoming packet
+									// if handler := world.PacketTriggers[packet.Opcode]; handler != nil {
+										// handler(player, packet)
+										// continue
+									// }
+									// // This is old legacy go code handlers that are deprecated and being replaced with the aforementioned scripting API
+									// if handlePacket := game.Handler(packet.Opcode); handlePacket != nil {
+										// handlePacket(player, packet)
+										// continue
+									// }
+								// // default:
+									// // continue
+									// // return
+								// }
+								// 
+							// }
+						// }()
+						// for {
+							// select {
+							// default:
+								// if p, err := readPacket(player); err != nil {
+									// if err, ok := err.(rscerrors.NetError); ok {
+										// if err.Fatal {
+											// return
+										// }
+									// }
+									// return
+								// } else if p == nil {
+									// return
+								// } else {
+									// player.InQueue <- p
+								// }
+							// }
+						// }
+					// }()
+					// }()// else {
+						// log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "failed to login (" + reason + ")")
+						// close(player.InQueue)
+						// player.Destroy()
+						// return
+					// }
+				// }
+			// }()
 		}
-	}()
 	config.Verbosity = int(math.Min(math.Max(float64(len(cliFlags.Verbose)), 0), 4))
 	return false
 }
 
-func (s *Server) handlePackets(p *world.Player) {
-}
-
 func (s *Server) Start() {
-	s.Bind(config.Port())
+	go s.Bind(config.Port())
 	defer s.Ticker.Stop()
 	wait := sync.WaitGroup{}
 	for range s.C {
@@ -542,12 +634,11 @@ func (s *Server) Start() {
 				if fn := p.TickAction(); fn != nil && !fn() {
 					p.ResetTickAction()
 				}
+
 				p.TraversePath()
 			}()
-			
 		})
 		wait.Wait()
-
 		world.Npcs.RangeNpcs(func(n *world.NPC) bool {
 			wait.Add(1)
 			go func() {
@@ -555,22 +646,21 @@ func (s *Server) Start() {
 				if n.Busy() || n.IsFighting() || n.Equals(world.DeathPoint) {
 					return
 				}
-				if n.MoveTick > 0 {
-					n.MoveTick--
-				}
-				if world.Chance(25) && n.PathSteps <= 0 && n.MoveTick <= 0 {
+				n.MoveTick--
+				if world.Chance(15) && n.PathSteps <= 0 && n.MoveTick <= 0 {
 					// move some amount between 2-15 tiles, moving 1 tile per tick
 					n.PathSteps = int(rand.Rng.Float64() * 15 - 2) + 2
 					// wait some amount between 25-50 ticks before doing this again
 					n.MoveTick = int(rand.Rng.Float64() * 50 - 25) + 25
 				}
 				// wander aimlessly until we run out of scheduled steps
-				n.TraversePath()
+				if n.PathSteps > 0 {
+					n.TraversePath()
+				}
 			}()
 			return false
 		})
 		wait.Wait()
-
 		world.Players.Range(func(p *world.Player) {
 			if p == nil {
 				return
@@ -579,41 +669,37 @@ func (s *Server) Start() {
 			go func() {
 				defer wait.Done()
 				positions := world.PlayerPositions(p)
-				npcUpdates := world.NPCPositions(p)
 				if positions != nil {
-					p.WriteNow(positions)
+					p.WritePacket(positions)
 				}
+				npcUpdates := world.NPCPositions(p)
 				if npcUpdates != nil {
-					p.WriteNow(npcUpdates)
+					p.WritePacket(npcUpdates)
 				}
-				// p.Writer.Flush()
 				appearances := world.PlayerAppearances(p)
-				npcEvents := world.NpcEvents(p)
 				if appearances != nil {
-					p.WriteNow(appearances)
+					p.WritePacket(appearances)
 				}
+				npcEvents := world.NpcEvents(p)
 				if npcEvents != nil {
-					p.WriteNow(npcEvents)
+					p.WritePacket(npcEvents)
 				}
-				// p.Writer.Flush()
 				objectUpdates := world.ObjectLocations(p)
-				boundaryUpdates := world.BoundaryLocations(p)
-				itemUpdates := world.ItemLocations(p)
 				if objectUpdates != nil {
-					p.WriteNow(objectUpdates)
+					p.WritePacket(objectUpdates)
 				}
+				boundaryUpdates := world.BoundaryLocations(p)
 				if boundaryUpdates != nil {
-					p.WriteNow(boundaryUpdates)
+					p.WritePacket(boundaryUpdates)
 				}
+				itemUpdates := world.ItemLocations(p)
 				if itemUpdates != nil {
-					p.WriteNow(itemUpdates)
+					p.WritePacket(itemUpdates)
 				}
-				// p.Writer.Flush()
 				clearDistantChunks := world.ClearDistantChunks(p)
 				if clearDistantChunks != nil {
-					p.WriteNow(clearDistantChunks)
+					p.WritePacket(clearDistantChunks)
 				}
-				// p.Writer.Flush()
 			}()
 		})
 		wait.Wait()
@@ -626,12 +712,11 @@ func (s *Server) Start() {
 			go func() {
 				defer wait.Done()
 				p.PostTickables.Call(interface{}(p))
+				p.ResetRegionRemoved()
+				p.ResetRegionMoved()
+				p.ResetSpriteUpdated()
+				p.ResetAppearanceChanged()
 			}()
-
-			// p.ResetRegionRemoved()
-			// p.ResetRegionMoved()
-			// p.ResetSpriteUpdated()
-			// p.ResetAppearanceChanged()
 		})
 		wait.Wait()
 		world.ResetNpcUpdateFlags()
@@ -643,3 +728,12 @@ func (s *Server) Stop() {
 	log.Debug("Stopping...")
 	os.Exit(0)
 }
+
+
+
+
+
+
+
+
+

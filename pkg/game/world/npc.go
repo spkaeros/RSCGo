@@ -143,43 +143,16 @@ func (n *NPC) Command() string {
 	return definitions.Npcs[n.ID].Command
 }
 
-//UpdateNPCPositions Loops through the global NPC entityList and, if they are by a player, updates their path to a new path every so often,
-// within their boundaries, and traverses each NPC along said path if necessary.
-// func UpdateNPCPositions() {
-	// wait := sync.WaitGroup{}
-	// Npcs.RangeNpcs(func(n *NPC) bool {
-		// wait.Add(1)
-		// go func() {
-			// defer wait.Done()
-			// if n.Busy() || n.IsFighting() || n.Equals(DeathPoint) {
-				// return
-			// }
-			// if n.MoveTick > 0 {
-				// n.MoveTick--
-			// }
-			// if Chance(25) && n.pathSteps == 0 && n.moveTick <= 0 {
-				// // move some amount between 2-15 tiles, moving 1 tile per tick
-				// n.PathSteps = int(rand.Rng.Float64() * 15 - 2) + 2
-				// // wait some amount between 25-50 ticks before doing this again
-				// n.MoveTick = int(rand.Rng.Float64() * 50 - 25) + 25
-			// }
-			// // wander aimlessly until we run out of scheduled steps
-			// n.TraversePath()
-		// }()
-		// return false
-	// })
-	// wait.Wait()
-// }
-
 func (n *NPC) UpdateRegion(x, y int) {
-	curArea := Region(n.X(), n.Y())
-	newArea := Region(x, y)
-	if newArea != curArea {
-	 	if curArea.NPCs.Contains(n) {
-			curArea.NPCs.Remove(n)
-		}
-		newArea.NPCs.Add(n)
-	}
+	// curArea := Region(n.X(), n.Y())
+	// newArea := Region(x, y)
+	// if newArea != curArea {
+	 	// if curArea.NPCs.Contains(n) {
+			// curArea.NPCs.Remove(n)
+		// }
+		// newArea.NPCs.Add(n)
+	// }
+	UpdateRegions(n,x,y)
 }
 
 //ResetNpcUpdateFlags Resets the synchronization update flags for all NPCs in the game world.
@@ -273,7 +246,7 @@ func (n *NPC) Respawn() {
 	for i := 0; i <= 3; i++ {
 		n.Skills().SetCur(i, n.Skills().Maximum(i))
 	}
-	n.SetVar("removed", false)
+	n.UnsetVar("removed")
 	n.SetLocation(n.StartPoint.Clone(), true)
 	n.meleeRangeDamage.Lock()
 	defer n.meleeRangeDamage.Unlock()
@@ -285,36 +258,22 @@ func (n *NPC) Respawn() {
 
 //TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
 func (n *NPC) TraversePath() {
-	dst := n.Clone()
 	dir := n.Direction()
 	if Chance(25) {
-		dir = rand.Rng.Intn(8)
+		dir = int(rand.Rng.Float64()*8)
 	}
-	if dir == East || dir == SouthEast || dir == NorthEast {
-		dst.SetX(dst.X()-1)
-	} else if dir == West || dir == SouthWest || dir == NorthWest {
-		dst.SetX(dst.X()+1)
-	}
-	if dir == North || dir == NorthWest || dir == NorthEast {
-		dst.SetY(dst.Y()-1)
-	} else if dir == South || dir == SouthWest || dir == SouthEast {
-		dst.SetY(dst.Y()+1)
-	}
-
-	if !n.Reachable(dst) || !dst.WithinArea(n.Boundaries) {
+	dst := n.Clone().ClippedStep(dir)
+	
+	if !n.Clone().Reachable(dst) || !dst.WithinArea(n.Boundaries) {
 		return
 	}
 
 	n.PathSteps--
-	n.SetLocation(dst, false)
+	n.SetCoords(dst.X(), dst.Y(), false)
 }
 
 //ChatIndirect sends a chat message to target and all of target's view area players, without any delay.
 func (n *NPC) ChatIndirect(target *Player, msg string) {
-	// for _, player := range target.NearbyPlayers() {
-		// player.QueueNpcChat(n, target, msg)
-	// }
-	// target.QueueNpcChat(n, target, msg)
 	n.enqueueArea(npcEvents, NewTargetedMessage(n,target,msg))
 }
 
@@ -341,25 +300,11 @@ func (n *NPC) Chat(target *Player, msgs ...string) {
 	n.enqueueArea(npcEvents, NewTargetedMessage(n, target, msgs[0]))
 	wait := time.Duration(0)
 	for _, v := range msgs {
-		// tasks.TickList.Schedule(wait, func() bool {
-			n.enqueueArea(npcEvents, NewTargetedMessage(n, target, v))
-			// return true
-		// })
+		n.enqueueArea(npcEvents, NewTargetedMessage(n, target, v))
 		wait += 3
 		if len(msgs[0]) >= 84 {
 			wait++
 		}
 		time.Sleep(TickMillis*wait)
 	}
-	// if len(msgs) > 1 {
-		// wait := 3
-		// if len(msgs[0]) >= 84 {
-			// wait++
-		// }
-		// // time.Sleep(TickMillis*wait)
-		// tasks.TickList.Schedule(wait, func() bool {
-			// n.Chat(target, (msgs[1:])...)
-			// return true
-		// })
-	// }
 }

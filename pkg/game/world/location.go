@@ -168,7 +168,7 @@ func (l Location) NextStep(d entity.Location) entity.Location {
 	return next
 }
 
-func (l Location) ClippedStep(dir int) entity.Location {
+func (l Location) Step(dir int) entity.Location {
 	loc := NewLocation(l.X(), l.Y())
 	if dir == 0 || dir == 1 || dir == 7 {
 		loc.y.Dec()
@@ -183,7 +183,7 @@ func (l Location) ClippedStep(dir int) entity.Location {
 	return loc
 }
 
-func (l Location) Step(dir int) entity.Location {
+func (l Location) ClippedStep(dir int) entity.Location {
 	loc := NewLocation(l.X(), l.Y())
 	if dir == 2 || dir == 1 || dir == 3 {
 		if !IsTileBlocking(l.X()+1, l.Y(), ClipEast, false) || !IsTileBlocking(l.X(), l.Y(), ClipWest, true) {
@@ -280,6 +280,26 @@ func (l Location) DeltaY(other entity.Location) (deltaY int) {
 		// deltaY = theirY - ourY
 	// }
 	return
+}
+
+//DeltaY Returns the difference between this locations y coord and the other locations y coord
+func (l Location) TheirDeltaY(other entity.Location) (deltaY int) {
+	// if ourY > theirY {
+		// deltaY = ourY - theirY
+	// } else if theirY > ourY {
+		// deltaY = theirY - ourY
+	// }
+	return other.Y() - l.Y()
+}
+
+//DeltaY Returns the difference between this locations y coord and the other locations y coord
+func (l Location) TheirDeltaX(other entity.Location) (deltaY int) {
+	// if ourY > theirY {
+		// deltaY = ourY - theirY
+	// } else if theirY > ourY {
+		// deltaY = theirY - ourY
+	// }
+	return other.X() - l.X()
 }
 
 //LongestDelta Returns the largest difference in coordinates between receiver and other
