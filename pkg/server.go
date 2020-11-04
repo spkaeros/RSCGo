@@ -25,14 +25,13 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/spkaeros/rscgo/pkg/crypto"
-	"github.com/spkaeros/rscgo/pkg/rand"
-	_ "github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/tasks"
 	rscerrors "github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/db"
 	"github.com/spkaeros/rscgo/pkg/isaac"
+	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game"
@@ -151,8 +150,9 @@ func main() {
 	// Three init phases after data backend is connected--Entity definitions, then tile collision bitmask loading, followed by entity spawn locations
 	// So, the order here of these three phases is important.  If you attempt to load object spawn locations during the same phase as the collision
 	// data, it will result in a world filled with objects that are not solid.  Many similar bugs possible.  Best just to leave this be.
-	run(game.UnmarshalPackets, db.LoadTileDefinitions, db.LoadObjectDefinitions, db.LoadBoundaryDefinitions, db.LoadItemDefinitions, db.LoadNpcDefinitions, world.LoadCollisionData)
-	run(db.LoadObjectLocations, db.LoadNpcLocations, db.LoadItemLocations, world.RunScripts)
+	run(db.LoadTileDefinitions, db.LoadObjectDefinitions, db.LoadBoundaryDefinitions, db.LoadItemDefinitions, db.LoadNpcDefinitions)
+	run(world.LoadCollisionData, game.UnmarshalPackets, world.RunScripts)
+	run(db.LoadObjectLocations, db.LoadNpcLocations, db.LoadItemLocations)
 
 	if config.Verbose() {
 		log.Debug("Loaded collision data from", len(world.Sectors), "map sectors")
@@ -316,7 +316,7 @@ again:
 					continue
 				}
 				if handshake.LoginThrottle.Recent(player.CurrentIP(), time.Second*10) >= 5 {
-					sendReply(handshake.ResponseSpamTimeout, "Too many recent invalid login attempts (5 in 5 minutes)")
+					sendReply(handshake.ResponseSpamTimeout, "Too many recent invalid login attempts (5 in 10 seconds)")
 					continue
 				}
 
@@ -336,7 +336,7 @@ again:
 					continue
 				}
 
-				rsaBlock := net.NewPacket(0, crypto.DecryptRSA(data))
+				rsaBlock := net.NewPacket(0, crypto.RsaKeyPair.Decrypt(data))
 				checksum := rsaBlock.ReadUint8()
 				// It's been suggested to me that this first byte assures us that the RSA block could decode properly,
 				// it's only wrong for this purpose a statistically insignificant amount of time.  >99% accurate, as I understand it.
@@ -352,12 +352,9 @@ again:
 				}
 				player.OpCiphers[0] = isaac.New(keys...)
 				player.OpCiphers[1] = isaac.New(keys...)
-				// for i := 0; i < 256; i++ {
-					// log.Debug(player.OpCiphers[0].Uint32())
-					// log.Debug(player.OpCiphers[1].Uint32())
-				// }
 				password := strings.TrimSpace(rsaBlock.ReadString())
-				// I suppose the next 8 bytes are to ensure the stream gets sufficiently shuffled in each packet, preventing identifying markers appearing
+				// The rscplus team viewed this data below as a nonce, but in my opinion, this is not the motivation for this data.
+				// I'd call these more of an initialization vector (IV), as wikipedia defines it, used to make RSA semantically secure.
 				rsaBlock.ReadUint32()
 				rsaBlock.ReadUint32()
 				blockSize := login.ReadUint16()
@@ -367,8 +364,7 @@ again:
 					log.Debugf("\t{ blockSize:%d, login.Available():%d }\n", blockSize, login.Available())
 				}
 				login.Read(block)
-				xteaKeys := []int{int(keys[0]), int(keys[1]), int(keys[2]), int(keys[3])}
-				usernameData := crypto.DecryptXtea(block, 0, blockSize, xteaKeys)
+				usernameData := (&crypto.XteaKeys{[]int{int(keys[0]), int(keys[1]), int(keys[2]), int(keys[3])}}).Decrypt(block)
 				// first byte of this block is limit30 parameter from the game client applet; boolean, use unknown
 				// I suppose the next 24 bytes are to ensure the stream gets sufficiently shuffled in each packet, preventing identifying markers appearing
 				// finally, the null-terminated UTF-8 encoded username comes at offset 25 and beyond.
@@ -430,7 +426,8 @@ again:
 							if handlePacket := world.PacketTriggers[packet.Opcode]; handlePacket != nil {
 								handlePacket(player, packet)
 								continue
-							} else if handlePacket := game.Handler(packet.Opcode); handlePacket != nil {
+							}
+							if handlePacket := game.Handler(packet.Opcode); handlePacket != nil {
 								// This is old legacy go code handlers that are deprecated and being replaced with the aforementioned scripting API
 								handlePacket(player, packet)
 							}
@@ -455,162 +452,6 @@ again:
 				player.Initialize()
 				continue
 			}
-			
-
-			// login, ok := readPacket(player)
-			// if err != nil {
-				// if err, ok := err.(rscerrors.NetError); ok {
-					// if err.Fatal {
-						// player.Socket.Close()
-						// return
-					// } else {
-						// if strings.Contains(err.Error(), "has less bytes available") {
-							// time.Sleep(TickMillis)
-							// continue loop
-						// }
-					// }
-				// }
-			// }
-			// if login == nil {
-				// time.Sleep(TickMillis)
-				// continue loop
-				// // player.Socket.Close()
-				// // return
-			// }
-			// if login.Opcode == 32 {
-				// second, err := readPacket(player)
-				// if err != nil {
-					// if err, ok := err.(rscerrors.NetError); ok {
-						// if err.Fatal {
-							// player.Socket.Close()
-							// return
-						// }
-					// }
-					// player.Socket.Close()
-					// return
-				// }
-				// login = second
-			// }
-			// if login.Opcode == 2 {
-				// defer func() {
-					// close(player.InQueue)
-					// err := player.Socket.Close()
-					// if err != nil {
-						// log.Debug("Error closing socket:", err)
-						// return
-					// }
-					// player.Inventory.Owner = nil
-				// }()
-				// if version := login.ReadUint16(); version != config.Version() {
-					// player.WritePacket(world.HandshakeResponse(int(handshake.ResponseUpdated)))
-					// player.Writer.Flush()
-					// return
-				// }
-				// username := strutil.Base37.Decode(login.ReadUint64())
-				// password := strings.TrimSpace(login.ReadString())
-				// reply := func(i handshake.ResponseCode, reason string) {
-					// player.WritePacket(world.HandshakeResponse(int(i)))
-					// player.Writer.Flush()
-					// if reason == "" {
-						// log.Debug("[REGISTER] Player", "'" + username + "'", "created successfully for:", player.CurrentIP())
-						// return
-					// }
-					// log.Debug("[REGISTER] Player creation failed for:", "'" + username + "'@'" + player.CurrentIP() + "'")
-					// return
-				// }
-				// go func() {
-					// if userLen, passLen := len(username), len(password); userLen < 2 || userLen > 12 || passLen < 5 || passLen > 20 {
-						// reply(handshake.ResponseBadInputLength, "Password and/or username too long and/or too short.")
-						// return
-					// }
-					// dataService := db.DefaultPlayerService
-					// if dataService.PlayerNameExists(username) {
-						// reply(handshake.ResponseUsernameTaken, "Username is taken by another player already.")
-						// return
-					// }
-// 
-					// if !dataService.PlayerCreate(username, crypto.Hash(password), player.CurrentIP()) {
-						// reply(8, "Data backend seems to have failed creating a player")
-						// return
-					// }
-					// reply(handshake.ResponseRegisterSuccess, "")
-				// }()
-			// }
-			// log.Debug(login)
-			// if login.Opcode == 0 {
-				// sendReply := func(i handshake.ResponseCode, reason string) {
-					// go func() {
-						// player.Writer.Write([]byte{byte(i)})
-						// player.Writer.Flush()
-						// if !i.IsValid() {
-							// log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "failed to login (" + reason + ")")
-							// close(player.InQueue)
-							// player.Destroy()
-							// return
-						// }
-						// log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "successfully logged in")
-						// player.Initialize()
-						// defer player.Destroy()
-						// defer player.WritePacket(world.Logout)
-						// defer close(player.InQueue)
-						// defer close(player.OutQueue)
-						// go func() {
-							// for {
-								// select {
-								// case packet, ok := <-player.OutQueue:
-									// if !ok {
-										// continue
-									// }
-									// player.WriteNow(packet)
-									// player.Writer.Flush()
-								// case packet, ok := <-player.InQueue:
-									// if !ok {
-										// // return
-										// continue
-									// }
-									// // script packet handlers are the most `modern` solution, and will be the default selected for any incoming packet
-									// if handler := world.PacketTriggers[packet.Opcode]; handler != nil {
-										// handler(player, packet)
-										// continue
-									// }
-									// // This is old legacy go code handlers that are deprecated and being replaced with the aforementioned scripting API
-									// if handlePacket := game.Handler(packet.Opcode); handlePacket != nil {
-										// handlePacket(player, packet)
-										// continue
-									// }
-								// // default:
-									// // continue
-									// // return
-								// }
-								// 
-							// }
-						// }()
-						// for {
-							// select {
-							// default:
-								// if p, err := readPacket(player); err != nil {
-									// if err, ok := err.(rscerrors.NetError); ok {
-										// if err.Fatal {
-											// return
-										// }
-									// }
-									// return
-								// } else if p == nil {
-									// return
-								// } else {
-									// player.InQueue <- p
-								// }
-							// }
-						// }
-					// }()
-					// }()// else {
-						// log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "failed to login (" + reason + ")")
-						// close(player.InQueue)
-						// player.Destroy()
-						// return
-					// }
-				// }
-			// }()
 		}
 	config.Verbosity = int(math.Min(math.Max(float64(len(cliFlags.Verbose)), 0), 4))
 	return false
@@ -643,11 +484,11 @@ func (s *Server) Start() {
 			wait.Add(1)
 			go func() {
 				defer wait.Done()
-				if n.Busy() || n.IsFighting() || n.Equals(world.DeathPoint) {
+				if n.Busy() || n.IsFighting() {
 					return
 				}
 				n.MoveTick--
-				if world.Chance(15) && n.PathSteps <= 0 && n.MoveTick <= 0 {
+				if world.Chance(25) && n.PathSteps <= 0 && n.MoveTick <= 0 {
 					// move some amount between 2-15 tiles, moving 1 tile per tick
 					n.PathSteps = int(rand.Rng.Float64() * 15 - 2) + 2
 					// wait some amount between 25-50 ticks before doing this again

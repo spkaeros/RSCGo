@@ -2,7 +2,9 @@ package rand
 
 import (
 	stdrand "math/rand"
-	"time"
+	"encoding/binary"
+	crand "crypto/rand"
+	// "time"
 	"github.com/spkaeros/rscgo/pkg/isaac"
 
 	// "github.com/spkaeros/rscgo/pkg/log"
@@ -25,7 +27,18 @@ func init() {
 	// 
 	// }
 
-	fastLockedSrc = isaac.New(uint32(time.Now().UnixNano()))
+
+	seed := make([]byte, 1024)
+	seedWords := make([]uint32, len(seed)>>2)
+	crand.Read(seed)
+	for i := range seedWords {
+		seedWords[i] = binary.LittleEndian.Uint32(seed[i<<2:])
+		// seedWords[i] |= uint32(seed[i+0]) << 24
+		// seedWords[i] |= uint32(seed[i+1]) << 16
+		// seedWords[i] |= uint32(seed[i+2]) << 8
+		// seedWords[i] |= uint32(seed[i+3])
+	}
+	fastLockedSrc = isaac.New(seedWords...)
 	// for _,v := range iv {
 		// log.Debug(v, strutil.Base16.String(uint64(v)))
 	// }

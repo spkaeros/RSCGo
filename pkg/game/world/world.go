@@ -229,16 +229,16 @@ func WithinWorld(x, y int) bool {
 func AddPlayer(p *Player) {
 	Region(p.X(), p.Y()).Players.Add(p)
 	Players.Put(p)
-	Players.Range(func(player *Player) {
-		if player.FriendList.Contains(p.Username()) && (!p.FriendBlocked() || p.FriendList.Contains(player.Username())) {
-			player.FriendList.Set(p.Username(), true)
-			player.SendPacket(FriendUpdate(p.UsernameHash(), true))
-		}
-
-		//		if player.FriendList.Contains(p.Username()) {
-		//			player.SendPacket(FriendUpdate(p.UsernameHash(), p.FriendList.Contains(player.Username()) || !p.FriendBlocked()))
-		//		}
-	})
+	// Players.Range(func(player *Player) {
+		// if player.FriendList.Contains(p.Username()) && (!p.FriendBlocked() || p.FriendList.Contains(player.Username())) {
+			// player.FriendList.Set(p.Username(), true)
+			// player.SendPacket(FriendUpdate(p.UsernameHash(), true))
+		// }
+// 
+		// //		if player.FriendList.Contains(p.Username()) {
+		// //			player.SendPacket(FriendUpdate(p.UsernameHash(), p.FriendList.Contains(player.Username()) || !p.FriendBlocked()))
+		// //		}
+	// })
 }
 
 //RemovePlayer Remove a player from the game world.
@@ -590,7 +590,7 @@ func get(x, y int) *region {
 	// regions[x][y] = &region{x, y, &MobList{}, &MobList{}, &entityList{}, &entityList{}}
 	// }
 	if !regions[x][y].Initialized() {
-		regions[x][y] = &region{x, y, NewMobList(), NewMobList(), &entityList{}, &entityList{}}
+		regions[x][y] = &region{x*RegionSize, y*RegionSize, NewMobList(), NewMobList(), &entityList{}, &entityList{}}
 	}
 	return regions[x][y]
 }
@@ -602,16 +602,16 @@ func (r *region) Initialized() bool {
 
 //Region Returns the region that corresponds with the given coordinates.  If it does not exist yet, it will allocate a new onr and store it for the lifetime of the application in the regions map.
 func Region(x, y int) *region {
-	// return get(x/RegionS1ize, y/RegionSize)
-	regionLock.Lock()
-	defer regionLock.Unlock()
+	return get(x/RegionSize, y/RegionSize)
 	// if regions[x/RegionSize][y/RegionSize] == nil {
 	// regions[x/RegionSize][y/RegionSize] = &region{x, y, &MobList{}, &MobList{}, &entityList{}, &entityList{}}
 	// }
-	if !regions[x/RegionSize][y/RegionSize].Initialized() {
-		regions[x/RegionSize][y/RegionSize] = &region{x/RegionSize, y/RegionSize, NewMobList(), NewMobList(), &entityList{}, &entityList{}}
-	}
-	return regions[x/RegionSize][y/RegionSize]
+	// regionLock.Lock()
+	// defer regionLock.Unlock()
+	// if !regions[x/RegionSize][y/RegionSize].Initialized() {
+		// regions[x/RegionSize][y/RegionSize] = &region{x, y, NewMobList(), NewMobList(), &entityList{}, &entityList{}}
+	// }
+	// return regions[x/RegionSize][y/RegionSize]
 }
 
 //surroundingRegions Returns the regions surrounding the given coordinates.  It wil

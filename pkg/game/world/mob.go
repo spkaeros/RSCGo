@@ -3,7 +3,6 @@ package world
 import (
 	"math"
 	"math/rand"
-	"strconv"
 	"sync"
 	"time"
 
@@ -369,12 +368,16 @@ func UpdateRegions(m entity.MobileEntity, x, y int) {
 			if cur.Players.Contains(p) {
 				cur.Players.Remove(p)
 			}
-			next.Players.Add(p)
+			if !next.Players.Contains(p) {
+				next.Players.Add(p)
+			}
 		} else if n, ok := m.(*NPC); ok && n != nil {
 			if cur.NPCs.Contains(n) {
 				cur.NPCs.Remove(n)
 			}
-			next.NPCs.Add(n)
+			if !next.NPCs.Contains(n) {
+				next.NPCs.Add(n)
+			}
 		}
 	}
 }
@@ -404,22 +407,8 @@ func (m *Mob) SetCoords(x, y int, teleport bool) {
 	m.SetY(y)
 }
 
-func (p *Player) SetCoords(x, y int, teleport bool) {
-	p.UpdateRegion(x, y)
-	p.Mob.SetCoords(x, y, teleport)
-}
-
-func (n *NPC) SetCoords(x, y int, teleport bool) {
-	n.UpdateRegion(x, y)
-	n.Mob.SetCoords(x, y, teleport)
-}
-
-func (p *Player) Teleport(x, y int) {
-	p.SetCoords(x, y, true)
-}
-
-func (n *NPC) Teleport(x, y int) {
-	n.SetCoords(x, y, true)
+func (m *Mob) Teleport(x, y int) {
+	m.SetCoords(x, y, true)
 }
 
 func (m *Mob) SessionCache() *entity.AttributeList {
@@ -597,6 +586,10 @@ func (m *Mob) Skills() *entity.SkillTable {
 	return &m.skills
 }
 
+func (m *Mob) PrayerActivated(i int) bool {
+	return m.Prayers[i]
+}
+
 func (m *Mob) PrayerModifiers() [3]float64 {
 	var modifiers = [...]float64{1.0, 1.0, 1.0}
 
@@ -606,19 +599,19 @@ func (m *Mob) PrayerModifiers() [3]float64 {
 	strengthMods := [...]int{1, 4, 10}
 	attackMods := [...]int{2, 5, 11}
 	for idx, prayer := range defenseMods {
-		if m.VarBool("prayer"+strconv.Itoa(prayer), false) {
+		if m.Prayers[prayer] {
 			modifiers[entity.StatDefense] = mods[idx]
 		}
 	}
 
 	for idx, prayer := range strengthMods {
-		if m.VarBool("prayer"+strconv.Itoa(prayer), false) {
+		if m.Prayers[prayer] {
 			modifiers[entity.StatStrength] = mods[idx]
 		}
 	}
 
 	for idx, prayer := range attackMods {
-		if m.VarBool("prayer"+strconv.Itoa(prayer), false) {
+		if m.Prayers[prayer] {
 			modifiers[entity.StatAttack] = mods[idx]
 		}
 	}

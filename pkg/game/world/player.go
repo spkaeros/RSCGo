@@ -249,7 +249,7 @@ func (p *Player) WalkingRangedAction(t entity.MobileEntity, fn func()) {
 func (p *Player) WalkingArrivalAction(t entity.MobileEntity, dist int, action func()) {
 	p.SetTickAction(func() bool {
 		if p.Near(t, dist) {
-			if !p.CanReachMob(t) {//|| !p.ReachableCoords(t.X(), t.Y()) {
+			if !p.Visible(t) {//|| !p.ReachableCoords(t.X(), t.Y()) {
 				p.WalkTo(NewLocation(t.X(), t.Y()))
 				return p.FinishedPath()
 			}
@@ -263,41 +263,42 @@ func (p *Player) WalkingArrivalAction(t entity.MobileEntity, dist int, action fu
 //CanReachMob Check if we can reach a mob traversing the most direct tiles toward them, e.g straight lines.
 // Used to check ranged combat attacks, or trade requests, basically anything needing local interactions.
 func (p *Player) CanReachMob(target entity.MobileEntity) bool {
-	if p.FinishedPath() && p.VarInt("triedReach", 0) >= 5 {
-		// Tried reaching one mob >=5 times without single success, abort early.
-		//		p.ResetPath()
-		p.UnsetVar("triedReach")
-		return false
-	}
-	p.Inc("triedReach", 1)
+	// if p.FinishedPath() && p.VarInt("triedReach", 0) >= 5 {
+		// // Tried reaching one mob >=5 times without single success, abort early.
+		// //		p.ResetPath()
+		// p.UnsetVar("triedReach")
+		// return false
+	// }
+	// p.Inc("triedReach", 1)
 
-	pathX, pathY := p.X(), p.Y()
-	for steps := 0; steps < 256; steps++ {
-		if !p.ReachableCoords(pathX, pathY) {
-			return false
-		}
-		// check deltas
-		if pathX == target.X() && pathY == target.Y() {
-			p.UnsetVar("triedReach")
-			return true
-		}
-		step := p.Step(p.DirectionToward(p.NextTileToward(target.Point())))
-		pathX, pathY = step.X(), step.Y()
-
-		// Update coords toward target in a straight line
-		// if pathX < target.X() {
-			// pathX++
-		// } else if pathX > target.X() {
-			// pathX--
+	// pathX, pathY := p.X(), p.Y()
+	return p.Visible(target)
+	// for steps := 0; steps < 256; steps++ {
+		// if !p.ReachableCoords(pathX, pathY) {
+			// return false
 		// }
+		// // check deltas
+		// if pathX == target.X() && pathY == target.Y() {
+			// p.UnsetVar("triedReach")
+			// return true
+		// }
+		// step := p.Step(p.DirectionToward(p.NextTileToward(target.Point())))
+		// pathX, pathY = step.X(), step.Y()
 // 
-		// if pathY < target.Y() {
-			// pathY++
-		// } else if pathY > target.Y() {
-			// pathY--
-		// }
-	}
-	return false
+		// // Update coords toward target in a straight line
+		// // if pathX < target.X() {
+			// // pathX++
+		// // } else if pathX > target.X() {
+			// // pathX--
+		// // }
+// //
+		// // if pathY < target.Y() {
+			// // pathY++
+		// // } else if pathY > target.Y() {
+			// // pathY--
+		// // }
+	// }
+	// return false
 }
 
 //SetPrivacySettings sets privacy settings to specified values.
@@ -390,18 +391,18 @@ func (p *Player) TraversePath() {
 		path.CurrentWaypoint++
 	}
 	nextPoint := path.nextTile()
-	dst := p.Step(p.DirectionToward(nextPoint))
+	dst := p.ClippedStep(p.DirectionToward(nextPoint))
 
-	if p.FinishedPath() || !p.Reachable(dst) {
+	bitmask := byte(ClipBit(p.DirectionToward(dst)))
+	dstmask := byte(ClipBit(dst.DirectionToward(p)))
+	// check mask of our tile and dst tile
+	if IsTileBlocking(p.X(), p.Y(), bitmask, true) || IsTileBlocking(dst.X(), dst.Y(), dstmask, false) || p.FinishedPath() {
+	// if p.FinishedPath() || !p.Reachable(dst) {
 		p.ResetPath()
 		return
 	}
 
 	p.SetCoords(dst.X(), dst.Y(), false)
-}
-
-func (l Location) Blocked() bool {
-	return false
 }
 
 //Targetable returns true if you are able to see the other location from the receiever location without hitting
@@ -465,35 +466,35 @@ func (p *Player) WriteNow(packet net.Packet) {
 	// }
 }
 
-func (l Location) ReachableCoords(x, y int) bool {
-	check := func(l, dst entity.Location) bool {
-		bitmask := byte(ClipBit(l.DirectionToward(dst)))
-		dstmask := byte(ClipBit(dst.DirectionToward(l)))
-		// check mask of our tile and dst tile
-		if IsTileBlocking(l.X(), l.Y(), bitmask, true) || IsTileBlocking(dst.X(), dst.Y(), dstmask, false) {
-			return false
-		}
-
-		return true
-	}
-	cur := l.Clone()
-	end := NewLocation(x, y)
-	for !cur.Equals(end) {
-		dir := cur.DirectionToward(end)
-		if dir == NorthWest || dir == SouthWest {
-			dir = West
-		}
-		if dir == NorthEast || dir == SouthEast {
-			dir = East
-		}
-		next := cur.Step(dir)
-		if next.Equals(cur) || !check(cur, next) {
-			return false
-		}
-		cur = next
-	}
-	return true
-}
+// func (l Location) ReachableCoords(x, y int) bool {
+	// check := func(l, dst entity.Location) bool {
+		// bitmask := byte(ClipBit(l.DirectionToward(dst)))
+		// dstmask := byte(ClipBit(dst.DirectionToward(l)))
+		// // check mask of our tile and dst tile
+		// if IsTileBlocking(l.X(), l.Y(), bitmask, true) || IsTileBlocking(dst.X(), dst.Y(), dstmask, false) {
+			// return false
+		// }
+// 
+		// return true
+	// }
+	// cur := l.Clone()
+	// end := NewLocation(x, y)
+	// for !cur.Equals(end) {
+		// dir := cur.DirectionToward(end)
+		// if dir == NorthWest || dir == SouthWest {
+			// dir = West
+		// }
+		// if dir == NorthEast || dir == SouthEast {
+			// dir = East
+		// }
+		// next := cur.ClippedStep(dir)
+		// if next.Equals(cur) || !check(cur, next) {
+			// return false
+		// }
+		// cur = next
+	// }
+	// return true
+// }
 
 //UpdateRegion if this player is currently in a region, removes it from that region, and adds it to the region at x,y
 func (p *Player) UpdateRegion(x, y int) {
@@ -693,15 +694,15 @@ func (p *Player) NearbyPlayers() (players mobSet) {
 
 //NearbyNpcs Returns nearby NPCs.
 func (p *Player) NearbyNpcs() (npcs mobSet) {
-	// for _, r := range Region(p.X(), p.Y()).neighbors() {
-		// r.NPCs.RangeNpcs(func(n *NPC) bool  {
-			// if p.Near(n, p.ViewRadius()) && !p.VarBool("removed", false) {
-				// npcs = append(npcs, n)
-			// }
-			// return false
-		// })
-	// }
-	return p.LocalNPCs.mobSet
+	for _, r := range Region(p.X(), p.Y()).neighbors() {
+		r.NPCs.RangeNpcs(func(n *NPC) bool  {
+			if p.Near(n, p.ViewRadius()) && !p.VarBool("removed", false) {
+				npcs = append(npcs, n)
+			}
+			return false
+		})
+	}
+	return npcs
 }
 
 //NearbyObjects Returns nearby objects.
@@ -1054,8 +1055,8 @@ func (p *Player) Initialize() {
 	p.WritePacket(ClientSettings(p))
 	p.WritePacket(PrivacySettings(p))
 	// social panel
-	p.WritePacket(FriendList(p))
-	p.WritePacket(IgnoreList(p))
+	// p.WritePacket(FriendList(p))
+	// p.WritePacket(IgnoreList(p))
 	// TODO: Not canonical RSC, but definitely good QoL update...
 	//  p.SendPacket(FightMode(p))
 
@@ -1063,7 +1064,7 @@ func (p *Player) Initialize() {
 	p.WritePacket(PlayerStats(p))
 	p.WritePacket(Fatigue(p))
 	p.WritePacket(EquipmentStats(p))
-	p.SendCombatPoints()
+	// p.SendCombatPoints()
 
 	// inventory panel
 	p.WritePacket(InventoryItems(p))
@@ -1073,7 +1074,7 @@ func (p *Player) Initialize() {
 		p.OpenAppearanceChanger()
 	} else {
 		if !p.Reconnecting() {
-			p.SendPacket(WelcomeMessage)
+			// p.SendPacket(WelcomeMessage)
 			p.SendPacket(LoginBox(int(time.Since(p.Attributes.VarTime("lastLogin")).Hours()/24), p.Attributes.VarString("lastIP", "0.0.0.0")))
 		}
 		p.Attributes.SetVar("lastLogin", time.Now())
@@ -1415,10 +1416,6 @@ func (p *Player) DeactivatePrayer(idx int) {
 	p.Mob.Prayers[idx] = false
 }
 
-func (p *Player) PrayerActivated(i int) bool {
-	return p.Mob.Prayers[i]
-}
-
 func (p *Player) SendPrayers() {
 	p.SendPacket(PrayerStatus(p))
 }
@@ -1500,7 +1497,7 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 	defender.SetDirection(LeftFighting)
 	defender.SetRegionRemoved()
 	attacker.SetLocation(defender.Clone(), true)
-	p.Tickables.Schedule(2, func() bool {
+	tasks.TickList.Schedule(3, func() bool {
 		if (defender.IsPlayer() && !AsPlayer(defender).Connected()) || !defender.HasState(StateFighting) ||
 			!attacker.HasState(StateFighting) || (attacker.IsPlayer() && !AsPlayer(attacker).Connected()) || !p.Equals(defender) {
 			// target is a disconnected player, we are disconnected,
@@ -1516,7 +1513,7 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 		}()
 
 		// Paralyze Monster blocker here
-		if defenderp := AsPlayer(defender); defenderp != nil && attacker.IsNpc() && defenderp.PrayerActivated(12) {
+		if defender.IsPlayer() && attacker.IsNpc() && defender.PrayerActivated(12) {
 			return false
 		}
 

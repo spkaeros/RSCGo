@@ -55,6 +55,7 @@ type MobileEntity interface {
 	DamageFrom(MobileEntity, int, int)
 	StyleBonus(int) int
 	PrayerModifiers() [3]float64
+	PrayerActivated(int) bool
 	Skills() *SkillTable
 	TargetMob() MobileEntity
 	SessionCache() *AttributeList

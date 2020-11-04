@@ -194,13 +194,15 @@ func (r *ISAAC) randInit() {
 
 //Uint64 Returns the next 8 bytes as a long integer from the ISAAC CSPRNG receiver instance.
 func (r *ISAAC) Uint64() (number uint64) {
-	return uint64(r.Uint32() << 32 | r.Uint32())
+	return uint64(r.Uint32()) << 32 | uint64(r.Uint32())
 }
 
 //Int63 Returns the next 8 bytes as a long integer from the ISAAC CSPRNG receiver instance.
 // Guarenteed non-negative
 func (r *ISAAC) Int63() (number int64) {
-	return (int64(r.Uint32()) << 1 >> 1) << 32 | int64(r.Uint32())
+	// return int64(r.Uint64())<<1>>1
+	// return (int64(r.Int31()) << 32) | int64(r.Uint32()) & 0x7FFFFFFFFFFFFFFF
+	return int64(r.Uint64()) & 0x7FFFFFFFFFFFFFFF
 }
 
 //Uint32 Returns the next 4 bytes as an integer from the ISAAC CSPRNG receiver instance.
@@ -220,7 +222,7 @@ func (r *ISAAC) Uint32() (number uint32) {
 
 //Int31 returns a non-negative pseudo-random 31-bit integer as an int32
 func (r *ISAAC) Int31() int32 {
-	return int32(r.Uint32() << 1 >> 1)
+	return int32(r.Uint32()) & 0x7FFFFFFF
 }
 
 func (r *ISAAC) Int() int {
@@ -263,7 +265,7 @@ func (r *ISAAC) Int63n(n int64) int64 {
 	if n&(n-1) == 0 { // n is power of two, can mask
 		return r.Int63() & (n - 1)
 	}
-	max := int64((1 << 63) - 1 - (1<<63)%uint64(n))
+	max := int64((1 << 63) - 1 - ((1<<63)%uint64(n)))
 	v := r.Int63()
 	for v > max {
 		v = r.Int63()
@@ -295,8 +297,8 @@ func (r *ISAAC) NextChar() byte {
 }
 
 //String Returns the next `len` ASCII characters from the ISAAC CSPRNG receiver instance as a Go string.
-func (r *ISAAC) String(len int) (ret string) {
-	for i := 0; i < len; i++ {
+func (r *ISAAC) String(n int) (ret string) {
+	for i := 0; i < n; i++ {
 		ret += string(r.NextChar())
 	}
 
@@ -348,7 +350,7 @@ func (r *ISAAC) NextBytes(n int) []byte {
 func (r *ISAAC) Float64() float64 {
 again:
 	f := float64(r.Int63n(1<<53)) / (1 << 53)
-	if f == 1 {
+	if f == 1.0 {
 		goto again
 	}
 	return f

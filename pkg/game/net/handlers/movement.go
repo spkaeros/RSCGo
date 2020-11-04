@@ -93,12 +93,12 @@ func init() {
 		rad := 2
 		player.SetVar("following", true)
 		player.SetTickAction(func() bool {
-			if !player.VarBool("following", false) {
+			// if !player.VarBool("following", false) {
 				// Following vars have been reset.
-				return true
-			}
+				// return true
+			// }
 			if target == nil || !target.Connected() ||
-				!player.WithinRange(target.Point(), 16) {
+				!player.Near(target, player.ViewRadius()) {
 				// We think we have a target, but they're miles away now or no longer exist
 				player.UnsetVar("following")
 				return true
@@ -112,7 +112,7 @@ func init() {
 					return true
 				}
 			}
-			return false
+			return !player.VarBool("following", false)
 		})
 	})
 }

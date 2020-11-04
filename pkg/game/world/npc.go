@@ -143,17 +143,6 @@ func (n *NPC) Command() string {
 	return definitions.Npcs[n.ID].Command
 }
 
-func (n *NPC) UpdateRegion(x, y int) {
-	// curArea := Region(n.X(), n.Y())
-	// newArea := Region(x, y)
-	// if newArea != curArea {
-	 	// if curArea.NPCs.Contains(n) {
-			// curArea.NPCs.Remove(n)
-		// }
-		// newArea.NPCs.Add(n)
-	// }
-	UpdateRegions(n,x,y)
-}
 
 //ResetNpcUpdateFlags Resets the synchronization update flags for all NPCs in the game world.
 func ResetNpcUpdateFlags() {
@@ -262,14 +251,15 @@ func (n *NPC) TraversePath() {
 	if Chance(25) {
 		dir = int(rand.Rng.Float64()*8)
 	}
-	dst := n.Clone().ClippedStep(dir)
+	dst := n.Clone().Step(dir)
 	
 	if !n.Clone().Reachable(dst) || !dst.WithinArea(n.Boundaries) {
 		return
 	}
 
 	n.PathSteps--
-	n.SetCoords(dst.X(), dst.Y(), false)
+	// UpdateRegions(n, dst.X(), dst.Y())
+	n.SetLocation(dst, false)
 }
 
 //ChatIndirect sends a chat message to target and all of target's view area players, without any delay.

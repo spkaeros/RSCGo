@@ -175,14 +175,14 @@ func NPCPositions(player *Player) (p *net.Packet) {
 	changed := 0
 	p.AddBitmask(player.LocalNPCs.Size(), 8)
 	// var local []entity.MobileEntity
-	var local = player.LocalNPCs.mobSet[:0]
-	// var local = make(mobSet, 0, len(player.NearbyNpcs()))
+	// var local = player.LocalNPCs.mobSet[:0]
+	var local = make(mobSet, 0, player.LocalNPCs.Size())
 	player.LocalNPCs.RangeNpcs(func(n *NPC) bool {
 		local = append(local, n)
 		changed++
 		n.RLock()
 		mask := n.SyncMask
-		if !player.Near(n, player.ViewRadius()) || mask&SyncRemoved == SyncRemoved || n.Point().Equals(DeathPoint) || n.VarBool("removed", false) {
+		if !player.Near(n, player.ViewRadius()-1) || mask&SyncRemoved == SyncRemoved || n.VarBool("removed", false) {
 			// p.AddBitmask(1, 1)
 			// p.AddBitmask(1, 1)
 			// p.AddBitmask(3, 2)
@@ -218,14 +218,14 @@ func NPCPositions(player *Player) (p *net.Packet) {
 			}
 			return true
 		}
-		if player.ViewRadius() < 16 {
+		if player.ViewRadius() < 15 {
 			player.Inc("viewRadius", 1)
 		}
 		newCount++
 		p.AddBitmask(n.ServerIndex(), 12)
 		// bitwise trick avoids branching to do a manual addition, and maintains binary compatibility with the original protocol
-		p.AddBitmask(n.X() - player.X() & 0x1F, 5)
-		p.AddBitmask(n.Y() - player.Y() & 0x1F, 5)
+		p.AddSignedBits(n.X() - player.X(), 5)
+		p.AddSignedBits(n.Y() - player.Y(), 5)
 		p.AddBitmask(n.Direction(), 4)
 		p.AddBitmask(n.ID, 10)
 		changed++
@@ -301,7 +301,7 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 				player.Dec("viewRadius", 1)
 			}
 			return true
-		} else if player.ViewRadius() < 16 {
+		} else if player.ViewRadius() < 15 {
 			// Grow view area back out after it had been shrunk
 			player.Inc("viewRadius", 1)
 		}
@@ -751,7 +751,7 @@ func BankOpen(player *Player) (p *net.Packet) {
 	player.bank.Range(func(item *Item) bool {
 		p.AddUint16(uint16(item.ID))
 		p.AddSmart0832(item.Amount)
-		return false
+		return true
 	})
 	return p
 }

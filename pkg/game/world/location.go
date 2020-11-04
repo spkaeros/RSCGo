@@ -168,7 +168,7 @@ func (l Location) NextStep(d entity.Location) entity.Location {
 	return next
 }
 
-func (l Location) Step(dir int) entity.Location {
+func (l Location) ClippedStep(dir int) entity.Location {
 	loc := NewLocation(l.X(), l.Y())
 	if dir == 0 || dir == 1 || dir == 7 {
 		loc.y.Dec()
@@ -183,46 +183,144 @@ func (l Location) Step(dir int) entity.Location {
 	return loc
 }
 
-func (l Location) ClippedStep(dir int) entity.Location {
-	loc := NewLocation(l.X(), l.Y())
-	if dir == 2 || dir == 1 || dir == 3 {
-		if !IsTileBlocking(l.X()+1, l.Y(), ClipEast, false) || !IsTileBlocking(l.X(), l.Y(), ClipWest, true) {
-			loc.x.Inc()
-		}
-		if dir == 3 {
-			if !IsTileBlocking(l.X(), l.Y()+1, ClipNorth, false) || !IsTileBlocking(l.X(), l.Y(), ClipSouth, true) {
-				loc.y.Inc()
-			}
-		}
-		if dir == 1 {
-			if !IsTileBlocking(l.X(), l.Y()-1, ClipSouth, false) || !IsTileBlocking(l.X(), l.Y(), ClipNorth, true) {
-				loc.y.Dec()
-			}
-		}
-	} else if dir == 5 || dir == 6 || dir == 7 {
-		if !IsTileBlocking(l.X()-1, l.Y(), ClipWest, false) || !IsTileBlocking(l.X(), l.Y(), ClipEast, true) {
-			loc.x.Dec()
-		}
-		if dir == 5 {
-			if !IsTileBlocking(l.X(), l.Y()+1, ClipNorth, false) || !IsTileBlocking(l.X(), l.Y(), ClipSouth, true) {
-				loc.y.Inc()
-			}
-		}
-		if dir == 7 {
-			if !IsTileBlocking(l.X(), l.Y()-1, ClipSouth, false) || !IsTileBlocking(l.X(), l.Y(), ClipNorth, true) {
-				loc.y.Dec()
-			}
-		}
-	} else if dir == 0 {
-		if !IsTileBlocking(l.X(), l.Y()-1, ClipSouth, false) || !IsTileBlocking(l.X(), l.Y(), ClipNorth, true) {
-			loc.y.Dec()
-		}
-	} else if dir == 4 {
-		if !IsTileBlocking(l.X(), l.Y()+1, ClipNorth, false) || !IsTileBlocking(l.X(), l.Y(), ClipSouth, true) {
-			loc.y.Inc()
-		}
+func (l Location) Visible(loc entity.Location) bool {
+
+	step := 0.0
+	deltaX := float64(loc.X() - l.X())
+	deltaY := float64(loc.Y() - l.Y())
+	if math.Abs(deltaX) >= math.Abs(deltaY) {
+		step = math.Abs(deltaX)
+	} else {
+		step = math.Abs(deltaY)
 	}
-	return loc
+	deltaX /= step
+	deltaY /= step
+	x, y := float64(l.X()), float64(l.Y())
+	for i := 1.0; i <= step; i++ {
+		if l.ReachableCoords(int(math.Floor(x)),int(math.Floor(y))) {
+		// NewLocation(int(float64(x)+deltaX/step), int(float64(y)+deltaY/step))
+			x += deltaX
+			y += deltaY
+			continue
+		}
+		return false
+	}
+	return true
+}
+func (l Location) ReachableCoords(dstX,dstY int) bool {
+	check := func(l, dst entity.Location) bool {
+		bitmask := byte(ClipBit(l.DirectionToward(dst)))
+		dstmask := byte(ClipBit(dst.DirectionToward(l)))
+		// check mask of our tile and dst tile
+		if IsTileBlocking(l.X(), l.Y(), bitmask, true) || IsTileBlocking(dst.X(), dst.Y(), dstmask, false) {
+			return false
+		}
+/*		if l.DeltaX(dst) > 0 && l.DeltaY(dst) > 0 {
+			if l.X() > dst.X() {
+				diagonal := NewLocation(l.X() - 1, l.Y())
+				if IsTileBlocking(diagonal.X(), diagonal.Y(), byte(ClipBit(diagonal.DirectionToward(l))), false) ||
+					IsTileBlocking(l.X(), l.Y(), byte(ClipBit(l.DirectionToward(diagonal))), true) {
+					return false
+				}
+			} else if l.X() < dst.X() {
+				diagonal := NewLocation(l.X() + 1, l.Y())
+				if IsTileBlocking(diagonal.X(), diagonal.Y(), byte(ClipBit(diagonal.DirectionToward(l))), false) ||
+					IsTileBlocking(l.X(), l.Y(), byte(ClipBit(l.DirectionToward(diagonal))), true) {
+					return false
+				}
+			}
+			if l.Y() > dst.Y() {
+				diagonal := NewLocation(l.X(), l.Y() - 1)
+				if IsTileBlocking(diagonal.X(), diagonal.Y(), byte(ClipBit(diagonal.DirectionToward(l))), false) ||
+					IsTileBlocking(l.X(), l.Y(), byte(ClipBit(l.DirectionToward(diagonal))), true) {
+					// continue
+					return false
+				}
+			} else if l.Y() < dst.Y() {
+				diagonal := NewLocation(l.X(), l.Y() + 1)
+				if IsTileBlocking(diagonal.X(), diagonal.Y(), byte(ClipBit(diagonal.DirectionToward(l))), false) ||
+					IsTileBlocking(l.X(), l.Y(), byte(ClipBit(l.DirectionToward(diagonal))), true) {
+					return false
+				}
+			}
+		}
+
+*/
+		return true
+	}
+	step := 0.0
+	deltaX := float64(dstX - l.X())
+	deltaY := float64(dstY - l.Y())
+	if math.Abs(deltaX) >= math.Abs(deltaY) {
+		step = math.Abs(deltaX)
+	} else {
+		step = math.Abs(deltaY)
+	}
+	deltaX /= step
+	deltaY /= step
+	x, y := float64(l.X()), float64(l.Y())
+	for i := 1.0; i <= step; i++ {
+		if !check(l, NewLocation(int(x),int(y))) {// l.ReachableCoords(int(math.Floor(x)),int(math.Floor(y))) {
+		// NewLocation(int(float64(x)+deltaX/step), int(float64(y)+deltaY/step))
+			return false
+		}
+		x += deltaX
+		y += deltaY
+	}
+	return true
+}
+func (l Location) Step(dir int) entity.Location {
+	loc := NewLocation(l.X(), l.Y()).ClippedStep(dir)
+	step := 0.0
+	deltaX := float64(loc.X() - l.X())
+	deltaY := float64(loc.Y() - l.Y())
+	if math.Abs(deltaX) >= math.Abs(deltaY) {
+		step = math.Abs(deltaX)
+	} else {
+		step = math.Abs(deltaY)
+	}
+	deltaX /= step
+	deltaY /= step
+	x, y := l.X(), l.Y()
+	return NewLocation(int(float64(x)+deltaX/step), int(float64(y)+deltaY/step))
+	// if dir == 2 || dir == 1 || dir == 3 {
+		// if !IsTileBlocking(l.X()+1, l.Y(), ClipEast, false) || !IsTileBlocking(l.X(), l.Y(), ClipWest, true) {
+			// loc.x.Inc()
+		// }
+		// if dir == 3 {
+			// if !IsTileBlocking(l.X(), l.Y()+1, ClipNorth, false) || !IsTileBlocking(l.X(), l.Y(), ClipSouth, true) {
+				// loc.y.Inc()
+			// }
+		// }
+		// if dir == 1 {
+			// if !IsTileBlocking(l.X(), l.Y()-1, ClipSouth, false) || !IsTileBlocking(l.X(), l.Y(), ClipNorth, true) {
+				// loc.y.Dec()
+			// }
+		// }
+	// } else if dir == 5 || dir == 6 || dir == 7 {
+		// if !IsTileBlocking(l.X()-1, l.Y(), ClipWest, false) || !IsTileBlocking(l.X(), l.Y(), ClipEast, true) {
+			// loc.x.Dec()
+		// }
+		// if dir == 5 {
+			// if !IsTileBlocking(l.X(), l.Y()+1, ClipNorth, false) || !IsTileBlocking(l.X(), l.Y(), ClipSouth, true) {
+				// loc.y.Inc()
+			// }
+		// }
+		// if dir == 7 {
+			// if !IsTileBlocking(l.X(), l.Y()-1, ClipSouth, false) || !IsTileBlocking(l.X(), l.Y(), ClipNorth, true) {
+				// loc.y.Dec()
+			// }
+		// }
+	// } else if dir == 0 {
+		// if !IsTileBlocking(l.X(), l.Y()-1, ClipSouth, false) || !IsTileBlocking(l.X(), l.Y(), ClipNorth, true) {
+			// loc.y.Dec()
+		// }
+	// } else if dir == 4 {
+		// if !IsTileBlocking(l.X(), l.Y()+1, ClipNorth, false) || !IsTileBlocking(l.X(), l.Y(), ClipSouth, true) {
+			// loc.y.Inc()
+		// }
+	// }
+	// return loc
 }
 
 //Equals Returns true if this location points to the same location as o
