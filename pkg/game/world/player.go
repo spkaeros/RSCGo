@@ -1775,3 +1775,45 @@ func (p *Player) Read(data []byte) (n int, err error) {
 	}
 	return written, nil
 }
+func (p *Player) ReadPacket() (*net.Packet, error) {
+	header := make([]byte, 2)
+	
+	n, err := p.Read(header)
+	if err != nil {
+		switch err.(type) {
+		case errors.NetError:
+			if err.(errors.NetError).Fatal {
+				p.Destroy()
+			}
+		}
+		log.Warn("Error reading packet header:", err)
+		return nil, errors.NewNetworkError("Error reading header for packet:" + err.Error(), true)
+	}
+	if n < 2 {
+		return nil, errors.NewNetworkError("Invalid packet-frame length recv; got " + strconv.Itoa(n), false)
+	}
+	length := int(header[0] & 0xFF)
+	if length >= 160 {
+		length = (length-160) << 8 | int(header[1] & 0xFF)
+	} else {
+		length -= 1
+	}
+
+	frame := make([]byte, length)
+	if length > 0 {
+		_, err := p.Read(frame)
+		if err != nil {
+			log.Warn("Error reading packet frame:", err)
+			return nil, err
+		}
+	}
+
+	if length < 160 {
+		frame = append(frame, header[1])
+	}
+	if cipher := p.OpCiphers[1]; cipher != nil {
+		frame[0] = byte(uint32(frame[0]) - cipher.Uint32()) & 0xFF
+	}
+
+	return net.NewPacket(frame[0], frame[1:]), nil
+}

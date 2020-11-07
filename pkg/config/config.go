@@ -23,6 +23,24 @@ var TomlConfig struct {
 	} `toml:"crypto"`
 }
 
+func init() {
+	// TomlConfig.MaxPlayers = 1250
+	// TomlConfig.DataDir = "./data/"
+	// TomlConfig.DbioDefs = TomlConfig.DataDir + "dbio.conf"
+	// TomlConfig.PacketHandlerFile = TomlConfig.DataDir + "packets.toml"
+	// TomlConfig.Crypto.HashComplexity = 15
+	// TomlConfig.Crypto.HashLength = 32
+	// TomlConfig.Crypto.HashMemory = 8
+	// TomlConfig.Crypto.HashSalt = "rscgo./GOLANG!RULES/.1994"
+	// TomlConfig.Version = 235
+	// TomlConfig.Port = 43594 // +1 for websockets
+	// // TODO: data backend default to JSON or BSON maybe?
+	// TomlConfig.Database.PlayerDriver = "sqlite3"
+	// TomlConfig.Database.WorldDriver = "sqlite3"
+	// TomlConfig.Database.PlayerDB = "file:./data/players.db"
+	// TomlConfig.Database.WorldDB = "file:./data/world.db"
+}
+
 //Verbosity Represents the level of verbosity with which the game should output debug information.
 var Verbosity = int(0)
 

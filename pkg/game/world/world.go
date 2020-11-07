@@ -1,9 +1,7 @@
 package world
 
 import (
-	// "fmt"
 	"math"
-	"math/rand"
 	"strconv"
 	"sync"
 	"time"
@@ -660,7 +658,7 @@ func BoundedChance(percent float64, minPercent, maxPercent float64) bool {
 	if minPercent > maxPercent {
 		maxPercent, minPercent = minPercent, maxPercent
 	}
-	return int(rscRand.Source().Uint8()) <= int((math.Max(minPercent, math.Min(maxPercent, percent))/maxPercent)*256.0)
+	return int(rscRand.Byte()) <= int((math.Max(minPercent, math.Min(maxPercent, percent))/maxPercent)*256.0)
 }
 
 //Chance should return true (percent)% of the time, and false (100-percent)% of the time.
@@ -675,9 +673,9 @@ func Chance(percent float64) bool {
 type IntProbabilitys = map[int]float64
 
 //Statistical
-func Statistical(rng *rand.Rand, options IntProbabilitys) int {
+func Statistical(rng *isaac.ISAAC, options IntProbabilitys) int {
 	if rng == nil {
-		rng = rand.New(isaac.New(uint32(time.Now().UnixNano())))
+		rng = rscRand.Rng
 	}
 
 	total := 0.0

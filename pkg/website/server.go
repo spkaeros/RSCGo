@@ -90,7 +90,7 @@ func render(w http.ResponseWriter, r *http.Request) {
 		file += "index.html"
 	}
 
-	if strings.HasSuffix(file, "wasm") || strings.HasSuffix(file, "js") {
+	if strings.HasSuffix(file, "wasm") || strings.HasSuffix(file, "png") || strings.HasSuffix(file, "js") {
 		http.ServeFile(w, r, file)
 		return
 	}

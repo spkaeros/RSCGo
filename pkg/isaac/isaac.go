@@ -1,14 +1,12 @@
 package isaac
 
 import (
-	//	"math/bits"
 	"sync"
-
-	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 // MixMask is used to shave off the first 2 LSB from certain values during result generation
 const MixMask = 0xFF << 2
+const phi = 0x9E3779B9
 
 //ISAAC The state representation of the ISAAC CSPRNG
 type ISAAC struct {
@@ -27,7 +25,7 @@ type ISAAC struct {
 // this will attempt to shake up the initial state a bit.  Algorithm based off of Mersenne Twister's init
 // Not sure if it's of any benefit at all, as ISAAC even when initialized to all zeros is non-uniform
 func (r *ISAAC) Seed(seed int64) {
-	r.randrsl = padSeed(uint32(seed))
+	r.randrsl = padKeys(int(seed))
 	r.randInit()
 }
 
@@ -58,8 +56,6 @@ func (r *ISAAC) generateNextSet() {
 	r.acc2 += r.counter
 
 	for i := uint32(0); i < 256; i += 1 {
-		// ISAAC64 plus cipher code, with modifications recommended by Jean-Phillipe Aumasson to avoid a discovered bias,
-		// and strengthen the output stream.
 		r.shake(i, r.acc1^r.acc1<<13)
 		i += 1
 		r.shake(i, r.acc1^r.acc1>>6)
@@ -67,128 +63,52 @@ func (r *ISAAC) generateNextSet() {
 		r.shake(i, r.acc1^r.acc1<<2)
 		i += 1
 		r.shake(i, r.acc1^r.acc1>>16)
-		/*		switch i % 4 {
-				case 0:
-					r.acc1 = ^(r.acc1 ^ r.acc1<<21)
-				case 1:
-					r.acc1 = r.acc1 ^ r.acc1>>5
-				case 2:
-					r.acc1 = r.acc1 ^ r.acc1<<12
-				case 3:
-					r.acc1 = r.acc1 ^ r.acc1>>33
-				}
-				//indirect lookup into the opposite half of state and add to first accumulator
-				r.acc1 += r.state[(i+128)&0xFF]
-				//store previous state[i] for accumulation with the second accumulator
-				prevState := r.state[i]
-				// use old state[i] as the basis for an indirect lookup into the state array
-				// we mask off the first 3 bits and then shift them off the value,
-				// and use that as our indirect access point, we then add that to both
-				// accumulators xored with each other to replace that state variable we just stashed.
-				r.state[i] = (r.acc1 ^ r.acc2) + r.state[prevState&MixMask>>3]
-				// then we use that new state value with a byte shifted off of the start,
-				// those pesky first 3 bits that we don't want get masked and shifted off again
-				// to get our indirect access point, xor that with the first accumulator, and
-				// add it to the previous state variable we stashed earlier, to put some fresh
-				// entropy into our second accumulator variable
-				r.acc2 = prevState + (r.acc1 ^ r.state[r.state[i]>>8&MixMask>>3])
-
-				// The next acc2 start point is the same as our next result, which is handy
-				// since we're now done
-				r.randrsl[i] = r.acc2
-
-				 * Original ISAAC cipher code below
-				x := r.state[i]
-				r.acc1 += r.state[(i+128)&0xFF]           // indirection, accumulation
-				y := r.state[(x>>2)&0xFF] + r.acc1 + r.acc2 // indirection, addition, shifts
-				r.state[i] = y
-				r.acc2 = r.state[(y>>10)&0xFF] + x // indirection, addition, shifts
-				r.randrsl[i] = r.acc2
-		*/
 	}
 }
 
 func (r *ISAAC) randInit() {
-	const gold = 0x9E3779B9
-	var ia [8]uint32//{ gold, gold, gold, gold, gold, gold, gold, gold }
-	for i := range ia {
-		ia[i] = gold
-	}
-// 
-	// mix1 := func(i int, v, v2 int) {
-		// ia[i] ^= v//ia[(i+4)&7]
-		// ia[(i+7)&7] += ia[i]
-		// ia[(i+4)&7] += v2
-	// }
-    mix1 := func(i int, v uint32) {
-        ia[i] ^= v
-        ia[(i+3)%8] += ia[i]
-        ia[(i+1)%8] += ia[(i+2)%8]
-    }
+	var mess = [...]uint32 { phi, phi, phi, phi, phi, phi, phi, phi }
     mix := func() {
-        mix1(0, ia[1]<<11)
-        mix1(1, ia[2]>>2)
-        mix1(2, ia[3]<<8)
-        mix1(3, ia[4]>>16)
-        mix1(4, ia[5]<<10)
-        mix1(5, ia[6]>>4)
-        mix1(6, ia[7]<<8)
-        mix1(7, ia[0]>>9)
+	    mix1 := func(i int, v uint32) {
+	        mess[i] ^= v
+	        mess[(i+3)%8] += mess[i]
+	        mess[(i+1)%8] += mess[(i+2)%8]
+	    }
+        mix1(0, mess[1]<<11)
+        mix1(1, mess[2]>>2)
+        mix1(2, mess[3]<<8)
+        mix1(3, mess[4]>>16)
+        mix1(4, mess[5]<<10)
+        mix1(5, mess[6]>>4)
+        mix1(6, mess[7]<<8)
+        mix1(7, mess[0]>>9)
     }
-    // mix := func() {
-		// ia[0] ^= ia[4] << 11; ia[7] += ia[0]; ia[4] += ia[1];
-		// ia[4] ^= ia[1] >> 2; ia[1] += ia[7]; ia[3] += ia[4];
-		// ia[1] ^= ia[7] << 8; ia[2] += ia[1]; ia[7] += ia[3];
-		// ia[7] ^= ia[3] >> 16; ia[6] += ia[7]; ia[3] += ia[2];
-		// ia[3] ^= ia[2] << 10; ia[2] += ia[6]; ia[5] += ia[3];
-		// ia[2] ^= ia[6] >> 4; ia[6] += ia[5]; ia[0] += ia[2];
-		// ia[6] ^= ia[5] << 8; ia[4] += ia[6]; ia[5] += ia[0];
-		// ia[5] ^= ia[0] >> 9; ia[0] += ia[4]; ia[1] += ia[5];
-		// mix1(0, ia[4]<<11, ia[4]+ia[1])
-		// mix1(4, ia[1]>>2, ia[3]+ia[4])
-		// mix1(1, ia[7]<<8, ia[7]+ia[3])
-		// mix1(7, ia[3]>>16, ia[3]+ia[2])
-		// mix1(3, ia[2]<<10, ia[2])
-		// mix1(2, ia[6]>>4)
-		// mix1(6, ia[5]<<8)
-		// mix1(5, ia[0]>>9)
-	// }
-	for i := 0; i < 4; i++ {
-		mix()
-	}
-	messify := func(ia2 [256]uint32) {
-		for i := 0; i < 256; i += 8 { // fill state[] with messy stuff
-			for i1, v := range ia2[i : i+8] {
-				ia[i1] += v
+	fillMess := func(state [256]uint32) {
+		// for i := 0; i < 256; i += 8 { 
+		for i := 0; i < 256; i += 8 { // fill state or result-set with messy stuff derived of the golden ratio
+			for i1, v := range state[i : i+8] {
+			// for i1 := 0; i1 < 8; i1++ {
+				mess[i1] += v
 			}
-			// ia[0] += ia2[i + 0]
-			// ia[1] += ia2[i + 2]
-			// ia[2] += ia2[i + 5]
-			// ia[3] += ia2[i + 4]
-			// ia[4] += ia2[i + 1]
-			// ia[5] += ia2[i + 7]
- 			// ia[6] += ia2[i + 6]
-			// ia[7] += ia2[i + 3]
 			mix()
-			// r.state[i+0] = ia[0]
-			// r.state[i+1] = ia[4]
-			// r.state[i+2] = ia[1]
-			// r.state[i+3] = ia[7]
-			// r.state[i+4] = ia[3]
-			// r.state[i+5] = ia[2]
-			// r.state[i+6] = ia[6]
-			// r.state[i+7] = ia[5]
-			for i1, v := range ia {
+			for i1, v := range mess {
+			// for i1 := 0; i1 < 8; i1++ {
 				r.state[i+i1] = v
 			}
 		}
 	}
-	r.Lock()
-	messify(r.randrsl)
-	messify(r.state)
 
-	r.generateNextSet() /* fill in the first set of results */
-	r.randcnt = 255       /* reset the counter for the first set of results */
+	// initialize int array to derive messy state from, using initial value derived of the golden ratio because nothing's up our sleeve
+	// Mix up this initial state words array 4 times in a row
+	for i := 0; i < 4; i++ {
+		mix()
+	}
+	r.Lock()
+	fillMess(r.randrsl)
+	fillMess(r.state)
+
+	r.generateNextSet() // run core ISAAC algorithm to fill result-set
+	r.randcnt = 255 // set first output word to last element of result-set
 	r.Unlock()
 }
 
@@ -365,26 +285,36 @@ again:
 	return f
 }
 
-// padSeed returns a 256-entry uint64 array filled with values that have been mutated to provide a better initial state.
-// Initial padding algorithm copied out of an implementation of the Mersenne twister.
-func padSeed(key ...uint32) (seed [256]uint32) {
-	if len(key) > 256 {
-		log.Warn("Problem initializing ISAAC64+ PRNG seed: Provided key too long; only 256 values will be used.")
-	}
-
+func padKeys(key ...int) [256]uint32 {
+	var seed [256]uint32
 	for i := range seed {
-		if i < len(key) {
-			seed[i] = key[i]
+		if i >= len(key) {
+			seed[i] = 0
 			continue
 		}
-		seed[i] = 0
+		seed[i] = uint32(key[i])
 	}
-	return
+	return seed
 }
 
 //New Returns a new ISAAC CSPRNG instance.
-func New(key ...uint32) *ISAAC {
-	stream := &ISAAC{randrsl: padSeed(key...)}
+func New(key ...int) *ISAAC {
+	stream := &ISAAC{randrsl: padKeys(key...)}
+	stream.randInit()
+	return stream
+}
+
+//New Returns a new ISAAC CSPRNG instance.
+func New32(key ...uint32) *ISAAC {
+	var keys [256]uint32
+	for i := range keys {
+		if i >= len(key) {
+			keys[i] = 0
+			continue
+		}
+		keys[i] = key[i]
+	}
+	stream := &ISAAC{randrsl: keys}
 	stream.randInit()
 	return stream
 }

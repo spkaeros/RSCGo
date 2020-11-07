@@ -416,7 +416,7 @@ func ScriptEnv() *env.Env {
 	})
 
 	e.Define("random", func() int {
-		return rand.Rng.Int()
+		return int(rand.Rng.Float64()*float64(1<<53))
 	})
 	
 	e.Define("NORTH", North)
@@ -450,12 +450,13 @@ func ScriptEnv() *env.Env {
 	e.Define("npcPredicate", func(ids ...interface{}) func(*NPC) bool {
 		return func(npc *NPC) bool {
 			for _, id := range ids {
-				if cmd, ok := id.(string); ok {
-					if npc.Name() == cmd {
+				switch id.(type) {
+				case string:
+					if npc.Name() == id.(string) {
 						return true
 					}
-				} else if id, ok := id.(int64); ok {
-					if npc.ID == int(id) {
+				case int64:
+					if npc.ID == int(id.(int64)) {
 						return true
 					}
 				}
@@ -466,12 +467,13 @@ func ScriptEnv() *env.Env {
 	e.Define("npcBlockingPredicate", func(ids ...interface{}) func(*Player, *NPC) bool {
 		return func(player *Player, npc *NPC) bool {
 			for _, id := range ids {
-				if cmd, ok := id.(string); ok {
-					if npc.Name() == cmd {
+				switch id.(type) {
+				case string:
+					if npc.Name() == id.(string) {
 						return true
 					}
-				} else if id, ok := id.(int64); ok {
-					if npc.ID == int(id) {
+				case int64:
+					if npc.ID == int(id.(int64)) {
 						return true
 					}
 				}
@@ -481,7 +483,6 @@ func ScriptEnv() *env.Env {
 	})
 
 	e.Define("fuzzyItem", func(input string) (itemList []map[string]interface{}) {
-		// maxRank := 0
 		for id, item := range definitions.Items {
 			if fuzzy.MatchNormalized(strings.ToLower(input), strings.ToLower(item.Name)) {
 				 rank := fuzzy.LevenshteinDistance(input, item.Name)

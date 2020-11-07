@@ -16,7 +16,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
-	"github.com/spkaeros/rscgo/pkg/rand"
+	// "github.com/spkaeros/rscgo/pkg/rand"
 )
 
 //HandlerFunc Represents a func that is to be called whenever a connected client receives
@@ -43,14 +43,14 @@ type packetList struct {
 
 func init() {
 	// Just to prevent non-handled handlers message from spamming up the logs
-	AddHandler("pingreq", func(*world.Player, *net.Packet) {})
-	AddHandler("sessionreq", func(player *world.Player, p *net.Packet) {
-		// TODO: Remove maybe...TLS deprecates the need for it
-		player.SetConnected(true)
-		p.ReadUint8() // UID, useful?
-		player.SetServerSeed(rand.Rng.Uint64())
-		player.SendPacket(net.NewReplyPacket(nil).AddUint64(player.ServerSeed()))
-	})
+	// AddHandler("pingreq", func(*world.Player, *net.Packet) {})
+	// AddHandler("sessionreq", func(player *world.Player, p *net.Packet) {
+		// // TODO: Remove maybe...TLS deprecates the need for it
+		// player.SetConnected(true)
+		// p.ReadUint8() // UID, useful?
+		// player.SetServerSeed(rand.Rng.Uint64())
+		// player.SendPacket(net.NewReplyPacket(nil).AddUint64(player.ServerSeed()))
+	// })
 }
 
 //UnmarshalPackets Loads the handlers pDefinitions into memory from the configured TOML file

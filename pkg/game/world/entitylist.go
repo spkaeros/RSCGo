@@ -21,7 +21,7 @@ func (e *Entity) ServerIndex() int {
 
 //AtLocation Returns true if the entity is at the specified location, otherwise returns false
 func (e *Entity) AtLocation(location Location) bool {
-	return e.Location.Equals(location)
+	return e.Near(location, 0)
 }
 
 //entityList Represents a entityList of scene entities.
@@ -66,7 +66,7 @@ func (l *entityList) NearbyObjects(e entity.MobileEntity) []entity.Entity {
 	defer l.RUnlock()
 	var objects []entity.Entity
 	for _, o1 := range l.set {
-		if o, ok := o1.(*Object); ok && e.Near(o, e.SessionCache().VarInt("viewRadius", 16)<<1) {
+		if o, ok := o1.(*Object); ok && e.Near(o, e.SessionCache().VarInt("viewRadius", 16)>>1) {
 			objects = append(objects, o)
 		}
 	}
@@ -90,7 +90,7 @@ func (l *entityList) NearbyItems(e entity.MobileEntity) []entity.Entity {
 	defer l.RUnlock()
 	var items []entity.Entity
 	for _, i := range l.set {
-		if i, ok := i.(*GroundItem); ok && i.Near(e, e.SessionCache().VarInt("viewRadius", 16)<<1) {
+		if i, ok := i.(*GroundItem); ok && i.Near(e, e.SessionCache().VarInt("viewRadius", 16)>>1) {
 			if p := AsPlayer(e); p != nil && !i.VisibleTo(p) {
 				continue
 			}

@@ -1,16 +1,20 @@
-package crypto
+package xtea
 
 import "encoding/binary"
 
 const phi = 0x9E3779B9
 
-type XteaKeys struct {
-	Keys []int
+type Xteakeys struct {
+	keys []int
+}
+
+func New(ia []int) *Xteakeys {
+	return &Xteakeys{keys: ia}
 }
 
 //Decrypt Takes an XTEA block as input, and attempts to decrypt it using
 // the stored keys.
-func (x *XteaKeys) Decrypt(in []byte) []byte {
+func (x *Xteakeys) Decrypt(in []byte) []byte {
 	out := make([]byte, len(in))
 	blocks := len(in) >> 3
 
@@ -21,9 +25,9 @@ func (x *XteaKeys) Decrypt(in []byte) []byte {
 		sum := uint64(phi << 5)
 
 		for j := 0; j < 1<<5; j++ {
-			word2 -= uint32(uint64(((word1 << 4) ^ (word1 >> 5)) + word1) ^ uint64(sum + uint64(x.Keys[(sum >> 11) & 3])))
+			word2 -= uint32(uint64(((word1 << 4) ^ (word1 >> 5)) + word1) ^ uint64(sum + uint64(x.keys[(sum >> 11) & 3])))
 			sum -= phi
-			word1 -= uint32(uint64(((word2 << 4) ^ (word2 >> 5)) + word2) ^ uint64(sum + uint64(x.Keys[sum & 3])))
+			word1 -= uint32(uint64(((word2 << 4) ^ (word2 >> 5)) + word2) ^ uint64(sum + uint64(x.keys[sum & 3])))
 		}
 		binary.BigEndian.PutUint32(out[i<<3:], word1)
 		binary.BigEndian.PutUint32(out[i<<3+4:], word2)

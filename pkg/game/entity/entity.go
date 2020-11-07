@@ -38,6 +38,7 @@ type Location interface {
 	Wilderness() int
 	Above() Location
 	Below() Location
+	Collides(Location) bool
 	PlaneY(bool) int
 	Hash() int
 	EuclideanDistance(o Location) float64

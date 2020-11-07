@@ -248,12 +248,13 @@ func (n *NPC) Respawn() {
 //TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
 func (n *NPC) TraversePath() {
 	dir := n.Direction()
-	if Chance(25) {
+	if Chance(15) {
 		dir = int(rand.Rng.Float64()*8)
+		n.SetDirection(dir)
 	}
 	dst := n.Clone().Step(dir)
 	
-	if !n.Clone().Reachable(dst) || !dst.WithinArea(n.Boundaries) {
+	if n.Point().Collides(dst) || !dst.WithinArea(n.Boundaries) {
 		return
 	}
 

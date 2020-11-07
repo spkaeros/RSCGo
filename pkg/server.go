@@ -31,6 +31,8 @@ import (
 	rscerrors "github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/db"
 	"github.com/spkaeros/rscgo/pkg/isaac"
+	"github.com/spkaeros/rscgo/pkg/xtea"
+	"github.com/spkaeros/rscgo/pkg/rsa"
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 	"github.com/spkaeros/rscgo/pkg/game/net"
@@ -70,8 +72,9 @@ type (
 		UseCipher bool   `short:"e" long:"encryption" description:"Enable command opcode encryption using a variant of ISAAC to encrypt net opcodes."`
 	}
 	Server struct {
-		port int
-		listener stdnet.Listener
+		port        int
+		listener    stdnet.Listener
+		tlsListener stdnet.Listener
 		*time.Ticker
 	}
 )
@@ -80,57 +83,74 @@ var (
 	cliFlags = &Flags{}
 	start = time.Now()
 	newPlayers chan *world.Player
-	tlsCerts, tlsError = tls.LoadX509KeyPair("./data/ssl/fullchain.pem", "./data/ssl/privkey.pem")
-	tlsConfig = &tls.Config{Certificates: []tls.Certificate{tlsCerts}, ServerName: "rsclassic.dev", InsecureSkipVerify: true, SessionTicketsDisabled: true}
+	tlsConfig = &tls.Config{
+		Certificates: []tls.Certificate{
+			check(tls.LoadX509KeyPair("./data/ssl/fullchain.pem", "./data/ssl/privkey.pem")).(tls.Certificate),
+		},
+		ServerName: "rsclassic.dev",
+		InsecureSkipVerify: false,
+		SessionTicketsDisabled: true,
+		PreferServerCipherSuites: true,
+		// ClientAuth: tls.RequireAndVerifyClientCert,
+		ClientAuth: tls.NoClientCert,
+		Rand: rand.Rng,
+	}
 	wsUpgrader = ws.Upgrader{
 		Protocol: func(protocol []byte) bool {
-			// Chrome is picky, won't work without explicit protocol acceptance
-			return true
+			// log.Debug(string(protocol), protocol)
+
+			// Chrome acts funny without explicitly specifying the protocol, in my early tests
+			return string(protocol) == "binary"
 		},
 		ReadBufferSize:  5000,
 		WriteBufferSize: 5000,
 	}
 )
 
+func init() {
+}
+
 func main() {
-	// Initialize sane defaults as fallback configuration options, if the config.toml file is not found or if some values are left out of it
+	if check(flags.Parse(cliFlags)) == nil {
+		log.Warn("Error parsing command arguments!")
+		os.Exit(1)
+		return
+	}
+	if len(cliFlags.Config) == 0 {
+		// Default to config.toml for config file
+		cliFlags.Config = "config.toml"
+	}
+
 	config.TomlConfig.MaxPlayers = 1250
 	config.TomlConfig.DataDir = "./data/"
-	config.TomlConfig.DbioDefs = "./data/dbio.conf"
-	config.TomlConfig.PacketHandlerFile = "./data/packets.toml"
+	config.TomlConfig.DbioDefs = config.TomlConfig.DataDir + "dbio.conf"
+	config.TomlConfig.PacketHandlerFile = config.TomlConfig.DataDir + "packets.toml"
 	config.TomlConfig.Crypto.HashComplexity = 15
 	config.TomlConfig.Crypto.HashLength = 32
 	config.TomlConfig.Crypto.HashMemory = 8
 	config.TomlConfig.Crypto.HashSalt = "rscgo./GOLANG!RULES/.1994"
-	config.TomlConfig.Version = 204
+	config.TomlConfig.Version = 235
 	config.TomlConfig.Port = 43594 // +1 for websockets
-
-	if _, err := flags.Parse(cliFlags); err != nil {
-		log.Warn("Error parsing command arguments:", cliFlags)
-		return
-	}
-	// Default to config.toml for config file
-	if len(cliFlags.Config) == 0 {
-		cliFlags.Config = "config.toml"
-	}
-	if _, err := toml.DecodeFile(cliFlags.Config, &config.TomlConfig); err != nil {
-		log.Fatal("Error decoding server TOML configuration file:", "`" + cliFlags.Config + "`")
-		log.Fatal(err)
-		os.Exit(101)
-		return 
-	}
-
 	// TODO: data backend default to JSON or BSON maybe?
 	config.TomlConfig.Database.PlayerDriver = "sqlite3"
-	config.TomlConfig.Database.PlayerDB = "file:./data/players.db"
 	config.TomlConfig.Database.WorldDriver = "sqlite3"
+	config.TomlConfig.Database.PlayerDB = "file:./data/players.db"
 	config.TomlConfig.Database.WorldDB = "file:./data/world.db"
-	if _, err := toml.DecodeFile(config.TomlConfig.DbioDefs, &config.TomlConfig.Database); err != nil {
-		log.Warn("Error reading database config file:", err)
+	if _, err := toml.DecodeFile(cliFlags.Config, &config.TomlConfig); err != nil {
+		log.Fatal("Error decoding server config (file:%s):", err)
+		os.Exit(2)
 		return
 	}
-
-
+	if _, err := toml.DecodeFile(config.TomlConfig.DbioDefs, &config.TomlConfig.Database); err != nil {
+		log.Fatal("Error decoding database i/o config (file:"+config.TomlConfig.DbioDefs+"):", err)
+		os.Exit(3)
+		return
+	}
+	run(db.ConnectEntityService, func() {
+		db.DefaultPlayerService = db.NewPlayerServiceSql()
+	}, func() {
+		world.DefaultPlayerService = db.NewPlayerServiceSql()
+	})
 	if cliFlags.Port > 0 {
 		config.TomlConfig.Port = cliFlags.Port
 	}
@@ -139,14 +159,7 @@ func main() {
 		log.Warn("Valid port numbers are 1-65533 (needs the port 1 above it open to bind a websockets listener).")
 		return 
 	}
-
-	config.Verbosity = len(cliFlags.Verbose)
-
-	run(db.ConnectEntityService, func() {
-		db.DefaultPlayerService = db.NewPlayerServiceSql()
-	}, func() {
-		world.DefaultPlayerService = db.NewPlayerServiceSql()
-	})
+	config.Verbosity = int(math.Min(math.Max(float64(len(cliFlags.Verbose)), 0), 4))
 	// Three init phases after data backend is connected--Entity definitions, then tile collision bitmask loading, followed by entity spawn locations
 	// So, the order here of these three phases is important.  If you attempt to load object spawn locations during the same phase as the collision
 	// data, it will result in a world filled with objects that are not solid.  Many similar bugs possible.  Best just to leave this be.
@@ -178,6 +191,8 @@ func main() {
 	log.Debug("Listening at TCP port " + strconv.Itoa(config.Port()))// + " (TCP), " + strconv.Itoa(config.WSPort()) + " (websockets)")
 	log.Debug()
 	log.Debug("RSCGo has finished initializing world; we hope you enjoy it")
+	go Instance.Bind(config.Port())
+	// go Instance.WsBind()
 	Instance.Start()
 }
 
@@ -186,302 +201,224 @@ func needsData(err error) bool {
 }
 
 var Instance = &Server{Ticker: time.NewTicker(TickMillis)}
-func readPacket(player *world.Player) (*net.Packet, error) {
-	// if player.Reader.Buffered() < 2 {
-		// return nil, rscerrors.NewNetworkError("Socket buffer has less bytes available than we need to form a message packet.", false)
-	// }
-	header := make([]byte, 2)
-	
-	n, err := player.Read(header)
-	if err != nil {
-		switch err.(type) {
-		case rscerrors.NetError:
-			if err.(rscerrors.NetError).Fatal {
-				player.Destroy()
-			}
-		}
-		log.Warn("Error reading packet header:", err)
-		return nil, rscerrors.NewNetworkError("Error reading header for packet:" + err.Error(), true)
-	}
-	if n < 2 {
-		return nil, rscerrors.NewNetworkError("Invalid packet-frame length recv; got " + strconv.Itoa(n), false)
-	}
-	length := int(header[0] & 0xFF)
-	if length >= 160 {
-		length = (length-160) << 8 | int(header[1] & 0xFF)
-	} else {
-		length -= 1
-	}
 
-	frame := make([]byte, length)
-	if length > 0 {
-		_, err := player.Read(frame)
-		if err != nil {
-			log.Warn("Error reading packet frame:", err)
-			return nil, err
-		}
-	}
-
-	if length < 160 {
-		frame = append(frame, header[1])
-	}
-	if cipher := player.OpCiphers[1]; cipher != nil {
-		frame[0] = byte(uint32(frame[0]) - cipher.Uint32()) & 0xFF
-	}
-
-	return net.NewPacket(frame[0], frame[1:]), nil
-}
-
-
-func (s *Server) tlsAccept(l stdnet.Listener) *world.Player {
+func (s *Server) accept(l stdnet.Listener) *world.Player {
 	socket, err := l.Accept()
 	if err != nil {
-		log.Errorf("Error: Could not accept new player websocket (%v):%v\n", socket,  err.Error())
+		log.Warn("Problem accepting incoming TLS connection from '" + socket.RemoteAddr().String() + "':", err)
 		return nil
 	}
-	if tlsError == nil {
-		// This block only runs if the certificate chain was initialized right
-		// If we encountered some problem setting up TLS, this should prevent us from losing our original non-encrypted socket hopefully
-		if tmpSock := tls.Server(socket, tlsConfig); tmpSock != nil {
-			socket = tmpSock
-		}
-	} else {
-		log.Warn("TLS could not be loaded:", tlsError)
-		return nil
+	if check(wsUpgrader.Upgrade(socket)) == nil {
+		log.Debug("could not upgrade to websocket")
+		// return nil
 	}
-
-	// TODO: See if we can get TLS working on one port for either TCP sockets or websockets
 	p := world.NewPlayer(socket)
-	_, err = wsUpgrader.Upgrade(socket)
-	// err = rscerrors.NewNetworkError("", true)
-	p.Websocket = err == nil
-	if p.IsWebsocket() {
-		p.Writer = wsutil.NewWriter(p.Socket, ws.StateServerSide, ws.OpBinary)
-	}
-
+	p.Websocket = true
+	p.Writer = wsutil.NewWriter(p.Socket, ws.StateServerSide, ws.OpBinary)
+	log.Debug(p.Socket)
 	return p
 }
 
-
-//Bind binds to the TCP port at port, and the websocket port at port+1.
 func (s *Server) Bind(port int) bool {
-	listener, err := stdnet.Listen("tcp", ":"+strconv.Itoa(port))
-	if err != nil {
-		log.Fatal("Can't bind to specified port: %d\n", port)
-		log.Fatal(err)
-		os.Exit(1)
-	}
-	s.listener = listener
-
-	defer func() {
-		if err := s.listener.Close(); err != nil {
-			log.Fatal("closing listener failed:", err)
-			os.Exit(1)
-		}
-	}()
-		for {
-			player := s.tlsAccept(s.listener)
+	// listener := check(tls.Listen("tcp", ":"+strconv.Itoa(s.port), tlsConfig)).(stdnet.Listener)
+	listener := tls.NewListener(check(stdnet.Listen("tcp", ":" + strconv.Itoa(port))).(stdnet.Listener), tlsConfig)
+new_plr:
+	for {
+		player := s.accept(listener)
 again:
-			login, err := readPacket(player)
-			if err != nil {
-				if needsData(err) {
-					time.Sleep(TickMillis)
-					goto again
-				} else if err.(rscerrors.NetError).Fatal {
-					player.Socket.Close()
-					continue
-				}
-			}
-			if login == nil {
+		login, err := player.ReadPacket()
+		if err != nil {
+			if needsData(err) {
+				goto again
+			} else if err.(rscerrors.NetError).Fatal {
+				player.Socket.Close()
 				continue
 			}
-			sendReply := func(i handshake.ResponseCode, reason string) {
-				player.Writer.Write([]byte{byte(i)})
-				player.Writer.Flush()
-				if !i.IsValid() {
-					log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "failed to login (" + reason + ")")
-					player.Destroy()
-					return
-				}
+		}
+		if login == nil {
+			goto again
+		}
+		sendReply := func(i handshake.ResponseCode, reason string) {
+			player.Writer.Write([]byte{byte(i)})
+			player.Writer.Flush()
+			if !i.IsValid() {
+				close(player.InQueue)
+				close(player.OutQueue)
+				log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "failed to login (" + reason + ")")
+				player.Destroy()
+			}
+		}
+
+		if login.Opcode == 0 {
+			if !world.UpdateTime.IsZero() {
+				sendReply(handshake.ResponseServerRejection, "System update in progress")
+				continue new_plr
+			}
+			if world.Players.Size() >= config.MaxPlayers() {
+				sendReply(handshake.ResponseWorldFull, "Out of usable player slots")
+				continue new_plr
+			}
+			if handshake.LoginThrottle.Recent(player.CurrentIP(), time.Second*10) >= 5 {
+				sendReply(handshake.ResponseSpamTimeout, "Too many recent invalid login attempts (5 in 10 seconds)")
+				continue new_plr
 			}
 
+			player.SetReconnecting(login.ReadBoolean())
+			if ver := login.ReadUint32(); ver != config.Version() {
+				sendReply(handshake.ResponseUpdated, "Invalid client version (" + strconv.Itoa(ver) + ")")
+				continue new_plr
+			}
 
-			if login.Opcode == 0 {
-				if !world.UpdateTime.IsZero() {
-					sendReply(handshake.ResponseServerRejection, "System update in progress")
-					continue
-				}
-				if world.Players.Size() >= config.MaxPlayers() {
-					sendReply(handshake.ResponseWorldFull, "Out of usable player slots")
-					continue
-				}
-				if handshake.LoginThrottle.Recent(player.CurrentIP(), time.Second*10) >= 5 {
-					sendReply(handshake.ResponseSpamTimeout, "Too many recent invalid login attempts (5 in 10 seconds)")
-					continue
-				}
+			rsaSize := login.ReadUint16()
+			data := make([]byte, rsaSize)
+			rsaRead := login.Read(data)
+			if rsaRead < rsaSize {
+				log.Debug("short RSA block")
+				player.Writer.Write([]byte{byte(handshake.ResponseServerRejection)})
+				player.Writer.Flush()
+				continue
+			}
 
-				player.SetReconnecting(login.ReadBoolean())
-				if ver := login.ReadUint32(); ver != config.Version() {
-					sendReply(handshake.ResponseUpdated, "Invalid client version (" + strconv.Itoa(ver) + ")")
-					continue
-				}
-
-				rsaSize := login.ReadUint16()
-				data := make([]byte, rsaSize)
-				rsaRead := login.Read(data)
-				if rsaRead < rsaSize {
-					log.Debug("short RSA block")
-					player.Writer.Write([]byte{byte(handshake.ResponseServerRejection)})
-					player.Writer.Flush()
-					continue
-				}
-
-				rsaBlock := net.NewPacket(0, crypto.RsaKeyPair.Decrypt(data))
-				checksum := rsaBlock.ReadUint8()
-				// It's been suggested to me that this first byte assures us that the RSA block could decode properly,
-				// it's only wrong for this purpose a statistically insignificant amount of time.  >99% accurate, as I understand it.
-				if checksum != 10 {
-					log.Debug("Bad checksum:", checksum)
-					player.Writer.Write([]byte{byte(handshake.ResponseServerRejection)})
-					player.Writer.Flush()
-					continue
-				}
-				var keys []uint32
-				for i := 0; i < 4; i++ {
-					keys = append(keys, uint32(rsaBlock.ReadUint32()))
-				}
-				player.OpCiphers[0] = isaac.New(keys...)
-				player.OpCiphers[1] = isaac.New(keys...)
-				password := strings.TrimSpace(rsaBlock.ReadString())
+			rsaBlock := net.NewPacket(0, rsa.RsaKeyPair.Decrypt(data))
+			checksum := rsaBlock.ReadUint8()
+			// It's been suggested to me that this first byte assures us that the RSA block could decode properly,
+			// it's only wrong for this purpose a statistically insignificant amount of time.  >99% accurate, as I understand it.
+			if checksum != 10 {
+				log.Debug("Bad checksum:", checksum)
+				player.Writer.Write([]byte{byte(handshake.ResponseServerRejection)})
+				player.Writer.Flush()
+				continue
+			}
+			var keys = make([]int, 4)
+			for i := range keys {
+				keys[i] = rsaBlock.ReadUint32()
+			}
+			player.OpCiphers[0] = isaac.New(keys...)
+			player.OpCiphers[1] = isaac.New(keys...)
+			password := strings.TrimSpace(rsaBlock.ReadString())
+			for i := 0; i < 2; i++ {
 				// The rscplus team viewed this data below as a nonce, but in my opinion, this is not the motivation for this data.
 				// I'd call these more of an initialization vector (IV), as wikipedia defines it, used to make RSA semantically secure.
 				rsaBlock.ReadUint32()
-				rsaBlock.ReadUint32()
-				blockSize := login.ReadUint16()
-				var block = make([]byte, blockSize)
-				if login.Available() != blockSize {
-					log.Debug("XTEA block size recv'd doesn't take up the rest of the packets available buffer size! (it should)")
-					log.Debugf("\t{ blockSize:%d, login.Available():%d }\n", blockSize, login.Available())
-				}
-				login.Read(block)
-				usernameData := (&crypto.XteaKeys{[]int{int(keys[0]), int(keys[1]), int(keys[2]), int(keys[3])}}).Decrypt(block)
-				// first byte of this block is limit30 parameter from the game client applet; boolean, use unknown
-				// I suppose the next 24 bytes are to ensure the stream gets sufficiently shuffled in each packet, preventing identifying markers appearing
-				// finally, the null-terminated UTF-8 encoded username comes at offset 25 and beyond.
-				username := string(usernameData[25:])
-				player.SetVar("username", strutil.Base37.Encode(username))
-				if world.Players.ContainsHash(player.UsernameHash()) {
-					sendReply(handshake.ResponseLoggedIn, "Player with same username is already logged in")
-					continue
-				}
-				var dataService = db.DefaultPlayerService
-				if !dataService.PlayerNameExists(player.Username()) || !dataService.PlayerValidLogin(player.UsernameHash(), crypto.Hash(password)) {
-					handshake.LoginThrottle.Add(player.CurrentIP())
-					sendReply(handshake.ResponseBadPassword, "Invalid credentials")
-					continue
-				}
-				if !dataService.PlayerLoad(player) {
-					sendReply(handshake.ResponseDecodeFailure, "Could not load player profile; is the dataService setup properly?")
-					continue
-				}
+			}
+			blockSize := login.ReadUint16()
+			var block = make([]byte, blockSize)
+			if login.Available() != blockSize {
+				log.Debug("XTEA block size recv'd doesn't take up the rest of the packets available buffer size! (it should)")
+				log.Debugf("\t{ blockSize:%d, login.Available():%d }\n", blockSize, login.Available())
+			}
+			login.Read(block)
+			usernameData := xtea.New(keys).Decrypt(block)
+			// first byte of this block is limit30 parameter from the game client applet; boolean, use unknown
+			// I suppose the next 24 bytes are to ensure the stream gets sufficiently shuffled in each packet, preventing identifying markers appearing
+			// finally, the null-terminated UTF-8 encoded username comes at offset 25 and beyond.
+			username := string(usernameData[25:])
+			player.SetVar("username", strutil.Base37.Encode(username))
+			if world.Players.ContainsHash(player.UsernameHash()) {
+				sendReply(handshake.ResponseLoggedIn, "Player with same username is already logged in")
+				continue new_plr
+			}
+			var dataService = db.DefaultPlayerService
+			if !dataService.PlayerNameExists(player.Username()) || !dataService.PlayerValidLogin(player.UsernameHash(), crypto.Hash(password)) {
+				handshake.LoginThrottle.Add(player.CurrentIP())
+				sendReply(handshake.ResponseBadPassword, "Invalid credentials")
+				continue new_plr
+			}
+			if !dataService.PlayerLoad(player) {
+				sendReply(handshake.ResponseDecodeFailure, "Could not load player profile; is the dataService setup properly?")
+				continue new_plr
+			}
 
-				if player.Reconnecting() {
-					sendReply(handshake.ResponseReconnected, "")
-					continue
-				}
-				switch player.Rank() {
-				case 2:
-					sendReply(handshake.ResponseAdministrator|handshake.ResponseLoginAcceptBit, "")
-				case 1:
-					sendReply(handshake.ResponseModerator|handshake.ResponseLoginAcceptBit, "")
-				default:
-					sendReply(handshake.ResponseLoginSuccess|handshake.ResponseLoginAcceptBit, "")
-				}
-				go func() {
-					defer close(player.InQueue)
-					defer close(player.OutQueue)
-					defer player.Destroy()
-					for {
-						packet, err := readPacket(player)
-						if err != nil || packet == nil {
-							if needsData(err) {
-								continue
-							} else if err.(rscerrors.NetError).Fatal {
-								player.Socket.Close()
-								return
-							}
+			if player.Reconnecting() {
+				sendReply(handshake.ResponseReconnected, "")
+				continue new_plr
+			}
+			switch player.Rank() {
+			case 2:
+				sendReply(handshake.ResponseAdministrator|handshake.ResponseLoginAcceptBit, "")
+			case 1:
+				sendReply(handshake.ResponseModerator|handshake.ResponseLoginAcceptBit, "")
+			default:
+				sendReply(handshake.ResponseLoginSuccess|handshake.ResponseLoginAcceptBit, "")
+			}
+			go func() {
+				defer close(player.InQueue)
+				defer close(player.OutQueue)
+				defer player.Destroy()
+				for {
+					packet, err := player.ReadPacket()
+					if err != nil || packet == nil {
+						if needsData(err) {
+							continue
+						} else if err.(rscerrors.NetError).Fatal {
+							player.Socket.Close()
+							return
 						}
-						player.InQueue <- packet
 					}
-				}()
-				go func() {
-					defer player.Destroy()
-					for {
-						select {
-						case packet, ok := <-player.InQueue:
-							if packet == nil || !ok {
-								return
-							}
-							// script packet handlers are the most `modern` solution, and will be the default selected for any incoming packet
-							if handlePacket := world.PacketTriggers[packet.Opcode]; handlePacket != nil {
-								handlePacket(player, packet)
-								continue
-							}
-							if handlePacket := game.Handler(packet.Opcode); handlePacket != nil {
-								// This is old legacy go code handlers that are deprecated and being replaced with the aforementioned scripting API
-								handlePacket(player, packet)
-							}
-						default:
+					player.InQueue <- packet
+				}
+			}()
+			go func() {
+				defer player.Destroy()
+				for {
+					select {
+					case packet, ok := <-player.InQueue:
+						if packet == nil || !ok {
+							return
+						}
+						// script packet handlers are the most `modern` solution, and will be the default selected for any incoming packet
+						if handlePacket := world.PacketTriggers[packet.Opcode]; handlePacket != nil {
+							handlePacket(player, packet)
 							continue
 						}
+						if handlePacket := game.Handler(packet.Opcode); handlePacket != nil {
+							// This is old legacy go code handlers that are deprecated and being replaced with the aforementioned scripting API
+							handlePacket(player, packet)
+						}
+					default:
+						continue
 					}
-				}()
-				go func() {
-					for {
-						select {
-						case packet, ok := <-player.OutQueue:
-							if packet != nil && ok {
-								player.WriteNow(*packet)
-							} else {
-								return
-							}
+				}
+			}()
+			go func() {
+				for {
+					select {
+					case packet, ok := <-player.OutQueue:
+						if packet != nil && ok {
+							player.WriteNow(*packet)
+						} else {
+							return
 						}
 					}
-				}()
-				log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "successfully logged in")
-				player.Initialize()
-				continue
-			}
+				}
+			}()
+			log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "successfully logged in")
+			player.Initialize()
+			continue new_plr
 		}
-	config.Verbosity = int(math.Min(math.Max(float64(len(cliFlags.Verbose)), 0), 4))
+	}
 	return false
 }
 
+
 func (s *Server) Start() {
-	go s.Bind(config.Port())
 	defer s.Ticker.Stop()
 	wait := sync.WaitGroup{}
 	for range s.C {
-		defer world.Ticks.Inc()
 		tasks.TickList.Call(nil)
-		world.Players.Range(func(p *world.Player) {
+		world.Players.AsyncRange(func(p *world.Player) {
 			if p == nil {
 				return
 			}
-			wait.Add(1)
-			go func() {
-				defer wait.Done()
-				p.Tickables.Call(interface{}(p))
-				if fn := p.TickAction(); fn != nil && !fn() {
-					p.ResetTickAction()
-				}
+			p.Tickables.Call(interface{}(p))
+			if fn := p.TickAction(); fn != nil && !fn() {
+				p.ResetTickAction()
+			}
 
-				p.TraversePath()
-			}()
+			p.TraversePath()
 		})
-		wait.Wait()
+		wait.Add(world.Npcs.Size())
 		world.Npcs.RangeNpcs(func(n *world.NPC) bool {
-			wait.Add(1)
 			go func() {
 				defer wait.Done()
 				if n.Busy() || n.IsFighting() {
@@ -490,9 +427,9 @@ func (s *Server) Start() {
 				n.MoveTick--
 				if world.Chance(25) && n.PathSteps <= 0 && n.MoveTick <= 0 {
 					// move some amount between 2-15 tiles, moving 1 tile per tick
-					n.PathSteps = int(rand.Rng.Float64() * 15 - 2) + 2
+					n.PathSteps = int(rand.Float64() * 15 - 2) + 2
 					// wait some amount between 25-50 ticks before doing this again
-					n.MoveTick = int(rand.Rng.Float64() * 50 - 25) + 25
+					n.MoveTick = int(rand.Float64() * 50 - 25) + 25
 				}
 				// wander aimlessly until we run out of scheduled steps
 				if n.PathSteps > 0 {
@@ -502,65 +439,56 @@ func (s *Server) Start() {
 			return false
 		})
 		wait.Wait()
-		world.Players.Range(func(p *world.Player) {
+		world.Players.AsyncRange(func(p *world.Player) {
 			if p == nil {
 				return
 			}
-			wait.Add(1)
-			go func() {
-				defer wait.Done()
-				positions := world.PlayerPositions(p)
-				if positions != nil {
-					p.WritePacket(positions)
-				}
-				npcUpdates := world.NPCPositions(p)
-				if npcUpdates != nil {
-					p.WritePacket(npcUpdates)
-				}
-				appearances := world.PlayerAppearances(p)
-				if appearances != nil {
-					p.WritePacket(appearances)
-				}
-				npcEvents := world.NpcEvents(p)
-				if npcEvents != nil {
-					p.WritePacket(npcEvents)
-				}
-				objectUpdates := world.ObjectLocations(p)
-				if objectUpdates != nil {
-					p.WritePacket(objectUpdates)
-				}
-				boundaryUpdates := world.BoundaryLocations(p)
-				if boundaryUpdates != nil {
-					p.WritePacket(boundaryUpdates)
-				}
-				itemUpdates := world.ItemLocations(p)
-				if itemUpdates != nil {
-					p.WritePacket(itemUpdates)
-				}
-				clearDistantChunks := world.ClearDistantChunks(p)
-				if clearDistantChunks != nil {
-					p.WritePacket(clearDistantChunks)
-				}
-			}()
+			positions := world.PlayerPositions(p)
+			if positions != nil {
+				p.WritePacket(positions)
+			}
+			npcUpdates := world.NPCPositions(p)
+			if npcUpdates != nil {
+				p.WritePacket(npcUpdates)
+			}
+			appearances := world.PlayerAppearances(p)
+			if appearances != nil {
+				p.WritePacket(appearances)
+			}
+			npcEvents := world.NpcEvents(p)
+			if npcEvents != nil {
+				p.WritePacket(npcEvents)
+			}
+			objectUpdates := world.ObjectLocations(p)
+			if objectUpdates != nil {
+				p.WritePacket(objectUpdates)
+			}
+			boundaryUpdates := world.BoundaryLocations(p)
+			if boundaryUpdates != nil {
+				p.WritePacket(boundaryUpdates)
+			}
+			itemUpdates := world.ItemLocations(p)
+			if itemUpdates != nil {
+				p.WritePacket(itemUpdates)
+			}
+			clearDistantChunks := world.ClearDistantChunks(p)
+			if clearDistantChunks != nil {
+				p.WritePacket(clearDistantChunks)
+			}
 		})
-		wait.Wait()
 
-		world.Players.Range(func(p *world.Player) {
+		world.Players.AsyncRange(func(p *world.Player) {
 			if p == nil {
 				return
 			}
-			wait.Add(1)
-			go func() {
-				defer wait.Done()
-				p.PostTickables.Call(interface{}(p))
-				p.ResetRegionRemoved()
-				p.ResetRegionMoved()
-				p.ResetSpriteUpdated()
-				p.ResetAppearanceChanged()
-			}()
+			p.PostTickables.Call(interface{}(p))
+			p.ResetRegionRemoved()
+			p.ResetRegionMoved()
+			p.ResetSpriteUpdated()
+			p.ResetAppearanceChanged()
 		})
-		wait.Wait()
 		world.ResetNpcUpdateFlags()
+		world.Ticks.Inc()
 	}
 }
 
@@ -570,11 +498,10 @@ func (s *Server) Stop() {
 	os.Exit(0)
 }
 
-
-
-
-
-
-
-
-
+func check(i interface{}, err error) interface{} {
+	if err != nil {
+		log.Debug("Error encountered:", err)
+		return nil
+	}
+	return i
+}

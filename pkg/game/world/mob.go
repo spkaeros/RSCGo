@@ -647,7 +647,7 @@ func (m *Mob) DefensePoints() float64 {
 func (m *Mob) CombatRng() *rand.Rand {
 	rng, ok := m.VarChecked("isaacRng").(*rand.Rand)
 	if !ok || rng == nil {
-		rng = rand.New(isaac.New(rscRand.Rng.Uint32()))
+		rng = rand.New(isaac.New(rscRand.Int()))
 		m.SetVar("isaacRng", rng)
 	}
 	return rng
@@ -656,7 +656,7 @@ func (m *Mob) CombatRng() *rand.Rand {
 func (m *Mob) Isaac() *rand.Rand {
 	rng, ok := m.VarChecked("isaac").(*rand.Rand)
 	if !ok || rng == nil {
-		rng = rand.New(isaac.New(rscRand.Rng.Uint32()))
+		rng = rand.New(isaac.New(rscRand.Int()))
 		m.SetVar("isaac", rng)
 	}
 	return rng

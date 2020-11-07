@@ -161,7 +161,6 @@ func (s *Scripts) Call(v interface{}) {
 	wait.Wait()
 	s.Lock()
 	defer s.Unlock()
-	copy(s.scriptCalls, keep)
-	
-	// s.scriptCalls = keep
+	//copy(s.scriptCalls, keep)
+	s.scriptCalls = keep
 }

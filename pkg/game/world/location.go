@@ -207,47 +207,13 @@ func (l Location) Visible(loc entity.Location) bool {
 	}
 	return true
 }
+func (l Location) Collides(dst entity.Location) bool {
+	bitmask := byte(ClipBit(l.DirectionToward(dst)))
+	dstmask := byte(ClipBit(dst.DirectionToward(l)))
+	// check mask of our tile and dst tile
+	return IsTileBlocking(l.X(), l.Y(), bitmask, true) || IsTileBlocking(dst.X(), dst.Y(), dstmask, false)
+}
 func (l Location) ReachableCoords(dstX,dstY int) bool {
-	check := func(l, dst entity.Location) bool {
-		bitmask := byte(ClipBit(l.DirectionToward(dst)))
-		dstmask := byte(ClipBit(dst.DirectionToward(l)))
-		// check mask of our tile and dst tile
-		if IsTileBlocking(l.X(), l.Y(), bitmask, true) || IsTileBlocking(dst.X(), dst.Y(), dstmask, false) {
-			return false
-		}
-/*		if l.DeltaX(dst) > 0 && l.DeltaY(dst) > 0 {
-			if l.X() > dst.X() {
-				diagonal := NewLocation(l.X() - 1, l.Y())
-				if IsTileBlocking(diagonal.X(), diagonal.Y(), byte(ClipBit(diagonal.DirectionToward(l))), false) ||
-					IsTileBlocking(l.X(), l.Y(), byte(ClipBit(l.DirectionToward(diagonal))), true) {
-					return false
-				}
-			} else if l.X() < dst.X() {
-				diagonal := NewLocation(l.X() + 1, l.Y())
-				if IsTileBlocking(diagonal.X(), diagonal.Y(), byte(ClipBit(diagonal.DirectionToward(l))), false) ||
-					IsTileBlocking(l.X(), l.Y(), byte(ClipBit(l.DirectionToward(diagonal))), true) {
-					return false
-				}
-			}
-			if l.Y() > dst.Y() {
-				diagonal := NewLocation(l.X(), l.Y() - 1)
-				if IsTileBlocking(diagonal.X(), diagonal.Y(), byte(ClipBit(diagonal.DirectionToward(l))), false) ||
-					IsTileBlocking(l.X(), l.Y(), byte(ClipBit(l.DirectionToward(diagonal))), true) {
-					// continue
-					return false
-				}
-			} else if l.Y() < dst.Y() {
-				diagonal := NewLocation(l.X(), l.Y() + 1)
-				if IsTileBlocking(diagonal.X(), diagonal.Y(), byte(ClipBit(diagonal.DirectionToward(l))), false) ||
-					IsTileBlocking(l.X(), l.Y(), byte(ClipBit(l.DirectionToward(diagonal))), true) {
-					return false
-				}
-			}
-		}
-
-*/
-		return true
-	}
 	step := 0.0
 	deltaX := float64(dstX - l.X())
 	deltaY := float64(dstY - l.Y())
@@ -260,7 +226,7 @@ func (l Location) ReachableCoords(dstX,dstY int) bool {
 	deltaY /= step
 	x, y := float64(l.X()), float64(l.Y())
 	for i := 1.0; i <= step; i++ {
-		if !check(l, NewLocation(int(x),int(y))) {// l.ReachableCoords(int(math.Floor(x)),int(math.Floor(y))) {
+		if l.Collides(NewLocation(int(x),int(y))) {// l.ReachableCoords(int(math.Floor(x)),int(math.Floor(y))) {
 		// NewLocation(int(float64(x)+deltaX/step), int(float64(y)+deltaY/step))
 			return false
 		}
