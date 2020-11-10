@@ -8,6 +8,7 @@ import (
 	
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/rand"
+	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 //Direction represents directions that mobs can face within the game world.  Ranges from 1-8
@@ -140,26 +141,26 @@ func (l Location) IsValid() bool {
 
 func (l Location) NextStep(d entity.Location) entity.Location {
 	next := l.Step(l.DirectionToward(d))
-	if !l.Reachable(next) {
+	if l.Collides(next) {
 //	if !l.Reachable(d) {
 			if l.X() < d.X() {
-				if next = l.Step(West); l.Reachable(next) {
+				if next = l.Step(West); l.Collides(next) {
 					return next
 				}
 			}
 			if l.X() > d.X() {
-				if next = l.Step(East); l.Reachable(next) {
+				if next = l.Step(East); l.Collides(next) {
 					return next
 				}
 			}
 			if l.Y() < d.Y() {
-				if next = l.Step(South); l.Reachable(next) {
+				if next = l.Step(South); l.Collides(next) {
 					return next
 				}
 				next = l.Step(South)
 			}
 			if l.Y() > d.Y() {
-				if next = l.Step(North); l.Reachable(next) {
+				if next = l.Step(North); l.Collides(next) {
 					return next
 				}
 				next = l.Step(North)
@@ -168,23 +169,8 @@ func (l Location) NextStep(d entity.Location) entity.Location {
 	return next
 }
 
-func (l Location) ClippedStep(dir int) entity.Location {
-	loc := NewLocation(l.X(), l.Y())
-	if dir == 0 || dir == 1 || dir == 7 {
-		loc.y.Dec()
-	} else if dir == 4 || dir == 5 || dir == 3 {
-		loc.y.Inc()
-	}
-	if dir == 1 || dir == 2 || dir == 3 {
-		loc.x.Inc()
-	} else if dir == 5 || dir == 6 || dir == 7 {
-		loc.x.Dec()
-	}
-	return loc
-}
-
-func (l Location) Visible(loc entity.Location) bool {
-
+func (l Location) BeeLine(loc entity.Location) (path *Pathway) {
+	path = &Pathway{StartX:0, StartY:0}
 	step := 0.0
 	deltaX := float64(loc.X() - l.X())
 	deltaY := float64(loc.Y() - l.Y())
@@ -197,96 +183,99 @@ func (l Location) Visible(loc entity.Location) bool {
 	deltaY /= step
 	x, y := float64(l.X()), float64(l.Y())
 	for i := 1.0; i <= step; i++ {
-		if l.ReachableCoords(int(math.Floor(x)),int(math.Floor(y))) {
-		// NewLocation(int(float64(x)+deltaX/step), int(float64(y)+deltaY/step))
-			x += deltaX
-			y += deltaY
-			continue
-		}
-		return false
-	}
-	return true
-}
-func (l Location) Collides(dst entity.Location) bool {
-	bitmask := byte(ClipBit(l.DirectionToward(dst)))
-	dstmask := byte(ClipBit(dst.DirectionToward(l)))
-	// check mask of our tile and dst tile
-	return IsTileBlocking(l.X(), l.Y(), bitmask, true) || IsTileBlocking(dst.X(), dst.Y(), dstmask, false)
-}
-func (l Location) ReachableCoords(dstX,dstY int) bool {
-	step := 0.0
-	deltaX := float64(dstX - l.X())
-	deltaY := float64(dstY - l.Y())
-	if math.Abs(deltaX) >= math.Abs(deltaY) {
-		step = math.Abs(deltaX)
-	} else {
-		step = math.Abs(deltaY)
-	}
-	deltaX /= step
-	deltaY /= step
-	x, y := float64(l.X()), float64(l.Y())
-	for i := 1.0; i <= step; i++ {
-		if l.Collides(NewLocation(int(x),int(y))) {// l.ReachableCoords(int(math.Floor(x)),int(math.Floor(y))) {
-		// NewLocation(int(float64(x)+deltaX/step), int(float64(y)+deltaY/step))
-			return false
+		if l.Collides(NewLocation(int(math.Floor(x)),int(math.Floor(y)))) {
+			return nil
+		} else {
+			path.addFirstWaypoint(int(x+deltaX), int(y+deltaY))
 		}
 		x += deltaX
 		y += deltaY
 	}
+	return path
+}
+
+func (l Location) Collide(x,y int) bool {
+	c:= l.Collides(NewLocation(x,y))
+	log.Debug(c)
+	return c
+}
+
+func (l Location) Collides(dst entity.Location) bool {
+	return !l.ReachableCoords(dst.X(), dst.Y())
+}
+
+func (l Location) ReachableCoords(x, y int) bool {
+	dst := entity.Location(NewLocation(x, y))
+	if l.LongestDelta(dst) > 1 {
+		dst = l.NextTileToward(dst)
+	}
+	// check mask of our tile and dst tile
+	if IsTileBlocking(l.X(), l.Y(), byte(ClipBit(l.DirectionToward(dst))), true) ||
+			IsTileBlocking(dst.X(), dst.Y(), byte(ClipBit(dst.DirectionToward(l))), false) {
+		return false
+	}
+
+	// does the walk tile affect both X and Y coord at same time
+	// if bitmask&(ClipNorth|ClipSouth))|dstmask&(ClipNorth|ClipSouth) != 0 &&
+	// bitmask&(ClipNorth|ClipSouth))|dstmask&(ClipEast|ClipWest) != 0 {
+	if dst.X() != l.X() && dst.Y() != l.Y() {
+		// check masks diagonally
+		var vmask, hmask byte
+		if dst.X() > l.X() {
+			vmask |= ClipSouth
+		} else {
+			vmask |= ClipNorth
+		}
+		if dst.Y() > l.Y() {
+			hmask |= ClipEast
+		} else {
+			hmask |= ClipWest
+		}
+		if IsTileBlocking(l.X(), dst.Y(), vmask, false) && IsTileBlocking(dst.X(), l.Y(), hmask, false) {
+			return false
+		}
+	}
 	return true
 }
-func (l Location) Step(dir int) entity.Location {
-	loc := NewLocation(l.X(), l.Y()).ClippedStep(dir)
-	step := 0.0
-	deltaX := float64(loc.X() - l.X())
-	deltaY := float64(loc.Y() - l.Y())
-	if math.Abs(deltaX) >= math.Abs(deltaY) {
-		step = math.Abs(deltaX)
-	} else {
-		step = math.Abs(deltaY)
-	}
-	deltaX /= step
-	deltaY /= step
-	x, y := l.X(), l.Y()
-	return NewLocation(int(float64(x)+deltaX/step), int(float64(y)+deltaY/step))
-	// if dir == 2 || dir == 1 || dir == 3 {
-		// if !IsTileBlocking(l.X()+1, l.Y(), ClipEast, false) || !IsTileBlocking(l.X(), l.Y(), ClipWest, true) {
-			// loc.x.Inc()
-		// }
-		// if dir == 3 {
-			// if !IsTileBlocking(l.X(), l.Y()+1, ClipNorth, false) || !IsTileBlocking(l.X(), l.Y(), ClipSouth, true) {
-				// loc.y.Inc()
-			// }
-		// }
-		// if dir == 1 {
-			// if !IsTileBlocking(l.X(), l.Y()-1, ClipSouth, false) || !IsTileBlocking(l.X(), l.Y(), ClipNorth, true) {
-				// loc.y.Dec()
-			// }
-		// }
-	// } else if dir == 5 || dir == 6 || dir == 7 {
-		// if !IsTileBlocking(l.X()-1, l.Y(), ClipWest, false) || !IsTileBlocking(l.X(), l.Y(), ClipEast, true) {
-			// loc.x.Dec()
-		// }
-		// if dir == 5 {
-			// if !IsTileBlocking(l.X(), l.Y()+1, ClipNorth, false) || !IsTileBlocking(l.X(), l.Y(), ClipSouth, true) {
-				// loc.y.Inc()
-			// }
-		// }
-		// if dir == 7 {
-			// if !IsTileBlocking(l.X(), l.Y()-1, ClipSouth, false) || !IsTileBlocking(l.X(), l.Y(), ClipNorth, true) {
-				// loc.y.Dec()
-			// }
-		// }
-	// } else if dir == 0 {
-		// if !IsTileBlocking(l.X(), l.Y()-1, ClipSouth, false) || !IsTileBlocking(l.X(), l.Y(), ClipNorth, true) {
-			// loc.y.Dec()
-		// }
-	// } else if dir == 4 {
-		// if !IsTileBlocking(l.X(), l.Y()+1, ClipNorth, false) || !IsTileBlocking(l.X(), l.Y(), ClipSouth, true) {
-			// loc.y.Inc()
-		// }
+// 
+// func (l Location) ReachableCoords(dstX,dstY int) bool {
+	// step := 0.0
+	// deltaX := float64(dstX - l.X())
+	// deltaY := float64(dstY - l.Y())
+	// if math.Abs(deltaX) >= math.Abs(deltaY) {
+		// step = math.Abs(deltaX)
+	// } else {
+		// step = math.Abs(deltaY)
 	// }
-	// return loc
+	// deltaX /= step
+	// deltaY /= step
+	// x, y := float64(l.X()), float64(l.Y())
+	// start := l.Clone()
+	// for i := 1.0; i <= step; i++ {
+		// if start.Collides(NewLocation(int(x),int(y))) {// l.ReachableCoords(int(math.Floor(x)),int(math.Floor(y))) {
+		// // NewLocation(int(float64(x)+deltaX/step), int(float64(y)+deltaY/step))
+			// return false
+		// }
+		// x += deltaX
+		// y += deltaY
+		// start.SetX(int(x))
+		// start.SetY(int(y))
+	// }
+	// return true
+// }
+func (l Location) Step(dir int) entity.Location {
+	loc := l.Clone()
+	if dir == 2 || dir == 1 || dir == 3 {
+		loc.SetX(loc.X()+1)
+	} else if dir == 5 || dir == 6 || dir == 7 {
+		loc.SetX(loc.X()-1)
+	}
+	if dir == 7 || dir == 0 || dir == 1 {
+		loc.SetY(loc.Y()-1)
+	} else if dir == 4 || dir == 5 || dir == 6 {
+		loc.SetY(loc.Y()+1)
+	}
+	return loc
 }
 
 //Equals Returns true if this location points to the same location as o

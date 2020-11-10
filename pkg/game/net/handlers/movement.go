@@ -14,67 +14,9 @@ import (
 
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
-	"math"
 )
 
 func init() {
-	game.AddHandler("walkto", func(player *world.Player, p *net.Packet) {
-		if player.IsFighting() {
-			target := player.FightTarget()
-			if target == nil {
-				player.ResetFighting()
-				return
-			}
-			if player.IsDueling() && player.IsFighting() && !player.DuelRetreating() {
-				player.Message("You cannot retreat during this duel!")
-				return
-			}
-			curRound := target.FightRound()
-			if curRound < 3 {
-				player.Message("You can't retreat during the first 3 rounds of combat")
-				return
-			}
-			if target, ok := target.(*world.Player); ok {
-				target.PlaySound("retreat")
-				target.Message("Your opponent is retreating")
-			}
-			player.UpdateLastRetreat()
-			player.ResetFighting()
-		}
-		if !player.CanWalk() {
-			return
-		}
-		startX := p.ReadUint16()
-		startY := p.ReadUint16()
-		// numWaypoints := math.Ceil(float64(p.Length()-5) / 2)
-		// numWaypoints := (p.Length()-5)>>1
-		numWaypoints := math.Ceil(float64(p.Length()-p.ReadIndex) / 2)
-		var waypointsX, waypointsY []int
-		for i := 0; i < int(numWaypoints); i++ {
-			waypointsX = append(waypointsX, int(p.ReadInt8()))
-			waypointsY = append(waypointsY, int(p.ReadInt8()))
-		}
-		player.ResetAll()
-		player.SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
-	})
-	game.AddHandler("walktoentity", func(player *world.Player, p *net.Packet) {
-		if player.IsFighting() {
-			return
-		}
-		if !player.CanWalk() {
-			return
-		}
-		startX := p.ReadUint16()
-		startY := p.ReadUint16()
-		numWaypoints := math.Ceil(float64(p.Length()-p.ReadIndex) / 2)
-		var waypointsX, waypointsY []int
-		for i := 0; i < int(numWaypoints); i++ {
-			waypointsX = append(waypointsX, int(p.ReadInt8()))
-			waypointsY = append(waypointsY, int(p.ReadInt8()))
-		}
-		player.ResetAll()
-		player.SetPath(world.NewPathway(startX, startY, waypointsX, waypointsY))
-	})
 	game.AddHandler("followreq", func(player *world.Player, p *net.Packet) {
 		if player.IsFighting() {
 			return

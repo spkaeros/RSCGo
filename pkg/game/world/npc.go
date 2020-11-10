@@ -25,7 +25,7 @@ var Npcs = NewMobList()
 //NPC Represents a single non-playable character within the game world.
 type NPC struct {
 	Mob
-	ID, MoveTick, PathSteps       int
+	ID       int
 	StartPoint                    entity.Location
 	Boundaries                    [2]entity.Location
 	meleeRangeDamage, magicDamage damages
@@ -249,17 +249,15 @@ func (n *NPC) Respawn() {
 func (n *NPC) TraversePath() {
 	dir := n.Direction()
 	if Chance(15) {
-		dir = int(rand.Rng.Float64()*8)
-		n.SetDirection(dir)
+		dir = int(rand.Rng.Uint8n(8))
 	}
-	dst := n.Clone().Step(dir)
+	dst := n.Step(dir)
 	
-	if n.Point().Collides(dst) || !dst.WithinArea(n.Boundaries) {
+	if n.Collides(dst) || !dst.WithinArea(n.Boundaries) {
 		return
 	}
 
-	n.PathSteps--
-	// UpdateRegions(n, dst.X(), dst.Y())
+	n.Dec("steps", 1)
 	n.SetLocation(dst, false)
 }
 
@@ -272,7 +270,7 @@ func (n *NPC) enqueueArea(handle string, e interface{}) {
 	updated := NewMobList()
 	for _, region := range Region(n.X(), n.Y()).neighbors() {
 		region.Players.RangePlayers(func(p *Player) bool {
-			if !updated.Contains(p) && p.Near(n, 15) {
+			if !updated.Contains(p) && p.Near(n, p.ViewRadius()) {
 				p.enqueue(handle, e)
 				updated.Add(p)
 			}
@@ -287,7 +285,6 @@ func (n *NPC) Chat(target *Player, msgs ...string) {
 	if len(msgs) <= 0 {
 		return
 	}
-
 	n.enqueueArea(npcEvents, NewTargetedMessage(n, target, msgs[0]))
 	wait := time.Duration(0)
 	for _, v := range msgs {

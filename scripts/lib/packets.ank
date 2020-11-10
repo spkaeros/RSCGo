@@ -1,0 +1,7 @@
+func checkPacket(packet, length) {
+	if packet.Length() < length {
+		log.cheat("out of bounds packet data, size", packet.Length(), "<", length)
+		return false
+	}
+	return true
+}

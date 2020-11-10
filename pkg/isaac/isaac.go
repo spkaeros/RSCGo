@@ -246,8 +246,8 @@ func (r *ISAAC) NextBytes(n int) []byte {
 	for i := 0; i < n;  {
 		if len(r.remainder) > 0 && i < len(r.remainder) {
 			buf[i] = r.remainder[i]
-			r.remainder = r.remainder[i:]
 			i += 1
+			r.remainder = r.remainder[i:]
 			continue
 		}
 		r.Unlock()

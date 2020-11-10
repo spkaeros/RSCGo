@@ -1,0 +1,6 @@
+packets = import("packets")
+
+bind.packet(packets.ping, func(player, packet) {
+	// keep-alive is triggered by the incoming data for the framing of this packet
+	// no further action required but to handle it so as to avoid debug output of missing opcodes
+})

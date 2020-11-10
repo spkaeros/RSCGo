@@ -12,43 +12,35 @@ func NewHitsplat(target entity.MobileEntity, damage int) interface{} {
 	return &HitSplat{target, damage}
 }
 
-func (p *Player) DamageFrom(m entity.MobileEntity, damage int, kind int) {
+func (p *Player) DamageFrom(m entity.MobileEntity, damage int, kind int) bool {
 	damage = int(math.Min(float64(p.Skills().Current(entity.StatHits)), float64(damage)))
 	splat := NewHitsplat(p, damage)
-	list := NewMobList()
-	for _, r := range Region(p.X(), p.Y()).neighbors() {
-		r.Players.RangePlayers(func(p1 *Player) bool {
-			if p.Near(p1, p.ViewRadius()-1) && !list.Contains(p1) {
-				list.Add(p1)
-				p1.enqueue(playerEvents, splat)
-			}
-			return false
-		})
+	p.Enqueue(playerEvents, splat)
+	p.Skills().SetCur(entity.StatHits, p.Skills().Current(entity.StatHits) - damage)
+	if p.Skills().Current(entity.StatHits) <= 0 {
+		if attacker := AsPlayer(m); attacker != nil {
+			attacker.PlaySound("victory")
+		}
+		p.Killed(m)
+		return true
 	}
-	// p.Skills().SetCur(entity.StatHits, p.Skills().Current(entity.StatHits) - damage)
-	// if p.Skills().Current(entity.StatHits) <= 0 {
-		// if attacker := AsPlayer(m); attacker != nil {
-			// attacker.PlaySound("victory")
-		// }
-		// p.Killed(m)
-	// }
+	return false
 }
 
-func (n *NPC) DamageFrom(m entity.MobileEntity, damage int, kind int) {
+func (n *NPC) DamageFrom(m entity.MobileEntity, damage int, kind int) bool {
 	damage = int(math.Min(float64(n.Skills().Current(entity.StatHits)), float64(damage)))
 	splat := NewHitsplat(n, damage)
-	list := NewMobList()
-	for _, r := range Region(n.X(), n.Y()).neighbors() {
-		r.Players.RangePlayers(func(p1 *Player) bool {
-			if n.Near(p1, p1.ViewRadius()-1) && !list.Contains(p1) {
-				list.Add(p1)
-				p1.enqueue(npcEvents, splat)
-			}
-			return false
-		})
-	}
+	n.enqueueArea(npcEvents, splat)
 	n.Skills().SetCur(entity.StatHits, n.Skills().Current(entity.StatHits) - damage)
-	if attacker := AsPlayer(m); attacker != nil {
-		n.CacheDamage(attacker.UsernameHash(), damage)
+	if damage > 0 {
+		n.CacheDamage(m.SessionCache().VarLong("username", 0), damage)
 	}
+	if n.Skills().Current(entity.StatHits) <= 0 {
+		if attacker := AsPlayer(m); attacker != nil {
+			attacker.PlaySound("victory")
+		}
+		n.Killed(m)
+		return true
+	}
+	return false
 }

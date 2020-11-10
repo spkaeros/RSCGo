@@ -38,6 +38,7 @@ func init() {
 	env.Packages["state"] = map[string]reflect.Value{
 		"UsingItem":			  reflect.ValueOf(MSItemAction),
 		"InDuel":				  reflect.ValueOf(StateDueling),
+		"DoingThing":			  reflect.ValueOf(StateAction),
 	}
 	env.Packages["world"] = map[string]reflect.Value{
 		"getPlayer":              reflect.ValueOf(Players.FindIndex),
@@ -78,19 +79,23 @@ func init() {
 			target.WalkTo(NewLocation(x, y))
 		}),
 		"systemUpdate": reflect.ValueOf(func(t int) {
+			start := time.Now()
 			UpdateTime = time.Now().Add(time.Second * time.Duration(t))
-			go func() {
-				time.Sleep(time.Second * time.Duration(t))
-				Players.Range(func(player *Player) {
-					player.Destroy()
-				})
-				time.Sleep(2 * time.Second)
-				os.Exit(200)
-			}()
-			tasks.Schedule(10, func() bool {
-				Players.Range(func(player *Player) {
-					player.SendUpdateTimer()
-				})
+			tasks.Schedule(1, func() bool {
+				if time.Since(start) >= time.Duration(t) * time.Second {
+					Players.Range(func(player *Player) {
+						player.WriteNow(*Logout)
+						player.Destroy()
+					})
+					time.Sleep(2 * time.Second)
+					os.Exit(200)
+					return true
+				}
+				if CurrentTick() % 10 == 0 {
+					Players.Range(func(player *Player) {
+						player.SendUpdateTimer()
+					})
+				}
 				return false
 			})
 		}),
@@ -133,6 +138,7 @@ func init() {
 		"location":   reflect.TypeOf(Location{}),
 	}
 	env.Packages["packets"] = map[string]reflect.Value{
+		"ping": reflect.ValueOf(67),
 		"equip": reflect.ValueOf(169),
 		"unequip": reflect.ValueOf(170),
 		"dropItem": reflect.ValueOf(246),
@@ -159,6 +165,10 @@ func init() {
 		"cancelRecoverys": reflect.ValueOf(196),
 		"changeRecoverys": reflect.ValueOf(203),
 		"recoverys": reflect.ValueOf(208),
+		"prayerOn": reflect.ValueOf(60),
+		"prayerOff": reflect.ValueOf(254),
+		"walkRequest": reflect.ValueOf(187),
+		"walkAction": reflect.ValueOf(16),
 	}
 	env.Packages["ids"] = map[string]reflect.Value{
 		"COOKEDMEAT":               reflect.ValueOf(132),
@@ -352,6 +362,7 @@ func ScriptEnv() *env.Env {
 	e.Define("sleep", time.Sleep)
 	e.Define("runAfter", time.AfterFunc)
 	e.Define("after", time.After)
+	e.Define("schedule", tasks.TickList.Schedule)
 	e.Define("newProjectile", NewProjectile)
 	e.Define("Minute", time.Second*60)
 	e.Define("Hour", time.Second*60*60)
@@ -403,21 +414,23 @@ func ScriptEnv() *env.Env {
 	e.Define("skillName", entity.SkillName)
 	e.Define("newNpc", NewNpc)
 	e.Define("newObject", NewObject)
+	e.Define("newPath", NewPathway)
 	e.Define("base37", strutil.Base37.Encode)
 
 	e.Define("rand", func(low, high int) int {
-		return int((rand.Rng.Float64())*float64(high-low+1))+low
+		return int(rand.Rng.Float64()*float64(high-low+1))+low
 	})
 	e.Define("randExcl", func(low, high int) int {
-		return int((rand.Rng.Float64())*float64(high-low))+low
+		return int(rand.Rng.Float64()*float64(high-low))+low
 	})
 	e.Define("randIncl", func(low, high int) int {
-		return int((rand.Rng.Float64())*float64(high-low+1))+low
+		return int(rand.Rng.Float64()*float64(high-low+1))+low
 	})
-
-	e.Define("random", func() int {
-		return int(rand.Rng.Float64()*float64(1<<53))
-	})
+	e.Define("random", rand.Rng.Uint8)
+	e.Define("randomWord", rand.Rng.Uint32)
+	e.Define("randomLong", rand.Rng.Uint64)
+	e.Define("randomFloat", rand.Rng.Float64)
+	e.Define("randomBytes", rand.Rng.NextBytes)
 	
 	e.Define("NORTH", North)
 	e.Define("NORTHEAST", NorthEast)
@@ -440,7 +453,7 @@ func ScriptEnv() *env.Env {
 		if cur < req {
 			return false
 		}
-		return rand.Rng.Float64()*127.0+1.0 <= (float64(cur)+40.0)-(float64(req)*1.5)
+		return rand.Rng.Float64()*127.0+1.0 <= float64(cur)+40.0-float64(req)*1.5
 	})
 	e.Define("roll", Chance)
 	e.Define("boundedRoll", BoundedChance)
@@ -459,6 +472,10 @@ func ScriptEnv() *env.Env {
 					if npc.ID == int(id.(int64)) {
 						return true
 					}
+				case int:
+					if npc.ID == id.(int) {
+						return true
+					}
 				}
 			}
 			return false
@@ -474,6 +491,10 @@ func ScriptEnv() *env.Env {
 					}
 				case int64:
 					if npc.ID == int(id.(int64)) {
+						return true
+					}
+				case int:
+					if npc.ID == id.(int) {
 						return true
 					}
 				}
@@ -502,14 +523,21 @@ func ScriptEnv() *env.Env {
 	e.Define("itemPredicate", func(ids ...interface{}) func(*Item) bool {
 		return func(item *Item) bool {
 			for _, id := range ids {
-				if cmd, ok := id.(string); ok {
-					if item.Command() == cmd {
+				switch id.(type) {
+				case string:
+					if item.Command() == id.(string) || item.Name() == id.(string) {
 						return true
 					}
-				} else if id, ok := id.(int64); ok {
-					if item.ID == int(id) {
+				case int64:
+					if item.ID == int(id.(int64)) {
 						return true
 					}
+				case int:
+					if item.ID == id.(int) {
+						return true
+					}
+				default:
+					break
 				}
 			}
 			return false
@@ -518,21 +546,29 @@ func ScriptEnv() *env.Env {
 	e.Define("objectPredicate", func(ids ...interface{}) func(*Object, int) bool {
 		return func(object *Object, click int) bool {
 			for _, id := range ids {
-				if cmd, ok := id.(string); ok {
-					if definitions.ScenaryObjects[object.ID].Commands[click] == cmd {
+				switch id.(type) {
+				case string:
+					if definitions.ScenaryObjects[object.ID].Commands[click] == id.(string) ||
+							definitions.ScenaryObjects[object.ID].Name == id.(string) {
 						return true
 					}
-				} else if id, ok := id.(int64); ok {
-					if object.ID == int(id) {
+				case int64:
+					if object.ID == int(id.(int64)) {
 						return true
 					}
+				case int:
+					if object.ID == id.(int) {
+						return true
+					}
+				default:
+					break
 				}
 			}
 			return false
 		}
 	})
-	e.Define("asPlayer", AsPlayer)
-	e.Define("asNpc", AsNpc)
+	e.Define("toPlayer", AsPlayer)
+	e.Define("toNpc", AsNpc)
 	e = core.Import(e)
 	return e
 }

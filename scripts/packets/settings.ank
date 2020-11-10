@@ -1,14 +1,14 @@
+load("scripts/lib/packets.ank")
+
 bind.packet(packets.settings, func(player, packet) {
-	if packet.Length() - packet.ReadIndex < 2 {
-		log.warn("invalid packet size recv'd on client settings")
+	if !checkPacket(packet, 2) {
 		return
 	}
-	player.setClientSetting(packet.ReadUint8(), packet.ReadBool())
+	player.SetClientSetting(packet.ReadUint8(), packet.ReadBoolean())
 })
 
 bind.packet(packets.privacySettings, func(player, packet) {
-	if packet.Length() - packet.ReadIndex < 4 {
-		log.warn("invalid packet size recv'd on client settings")
+	if !checkPacket(packet, 4) {
 		return
 	}
 	chatBlocked = packet.ReadBoolean()
@@ -36,15 +36,22 @@ bind.packet(packets.privacySettings, func(player, packet) {
 bind.packet(packets.recoverys, func(player, packet) {
 	questions = make([]string, 5)
 	answers = make([]string, 5)
+	offset = 0
 	for i = 0; i < 5; i++ {
-		if packet.Length() - packet.ReadIndex < 1 {
+		offset++
+		if !checkPacket(packet, offset) {
 			return
 		}
 		length = packet.ReadUint8()
-		if packet.Length() - packet.ReadIndex < length {
+		offset += length
+		if !checkPacket(packet, offset) {
 			return
 		}
-		questions = append(questions, packet.ReadStringN(int(length)))
+		questions = append(questions, packet.ReadStringN(length))
+		offset += 8
+		if !checkPacket(packet, offset) {
+			return
+		}
 		answers = append(answers, packet.ReadUint64())
 	}
 	log.debug(questions, answers)

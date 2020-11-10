@@ -52,7 +52,7 @@ type MobileEntity interface {
 	ResetSpriteUpdated()
 	ResetAppearanceChanged()
 	Killed(MobileEntity)
-	DamageFrom(MobileEntity, int, int)
+	DamageFrom(MobileEntity, int, int) bool
 	StyleBonus(int) int
 	PrayerModifiers() [3]float64
 	PrayerActivated(int) bool

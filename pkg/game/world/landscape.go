@@ -28,7 +28,7 @@ type CollisionMask int16
 
 //Sector Represents a sector of 48x48(2304) tiles in the game's landscape.
 type Sector struct {
-	Tiles []CollisionMask
+	Tiles [2304]CollisionMask
 }
 
 //Sectors A map to store landscape sectors by their hashed file name.
@@ -150,7 +150,7 @@ func sectorFromCoords(x, y int) *Sector {
 		return s
 	}
 	// Default to returning a blank sector filled with zero-value tiles.
-	return &Sector{Tiles: make([]CollisionMask, 2304)}
+	return &Sector{}
 }
 
 func (s *Sector) tile(x, y int) CollisionMask {
@@ -173,7 +173,7 @@ func loadSector(data []byte) (s *Sector) {
 		log.Warning.Printf("Too short sector data: %d\n", len(data))
 		return nil
 	}
-	s = &Sector{Tiles: make([]CollisionMask, 2304)}
+	s = &Sector{}
 	offset := 0
 
 	blankCount := 0
@@ -196,33 +196,34 @@ func loadSector(data []byte) (s *Sector) {
 			if groundOverlay > 0 && int(groundOverlay) < len(definitions.TileOverlays) && definitions.TileOverlays[groundOverlay-1].Blocked != 0 {
 				s.Tiles[tileIdx] |= ClipFullBlock
 			}
-			walls := [2][3]int{
-				{int(verticalWalls) - 1, ClipNorth, y},
-				{int(horizontalWalls) - 1, ClipEast, x},
+			if boundary := int(verticalWalls) - 1; boundary < len(definitions.BoundaryObjects) && boundary >= 0 {
+				// log.Debugf("Out of bounds indexing attempted into definitions.BoundaryObjects[%d]; while upper bound is currently %d\n", boundary, len(definitions.BoundaryObjects)-1)
+				if wall := definitions.BoundaryObjects[verticalWalls-1]; !wall.Dynamic && wall.Solid {
+					s.Tiles[x*RegionSize+y] |= ClipNorth
+					if y > 0 {
+						s.Tiles[x*RegionSize+(y-1)] |= ClipSouth
+					}
+				}
 			}
-			for i := 0; i < 2; i++ {
-				if walls[i][0] < 0 {
-					continue
-				}
-				if boundary := walls[i][0]; boundary > len(definitions.BoundaryObjects)-1 {
-					log.Debugf("Out of bounds indexing attempted into definitions.BoundaryObjects[%d]; while upper bound is currently %d\n", boundary, len(definitions.BoundaryObjects)-1)
-					continue
-				}
-				if wall := definitions.BoundaryObjects[walls[i][0]]; !wall.Dynamic && wall.Solid {
-					s.Tiles[x*RegionSize+y] |= CollisionMask(walls[i][1])
-					if walls[i][2] > 0 {
-						s.Tiles[(x-i)*RegionSize+((y-1)+i)] |= CollisionMask(walls[i][1] << 2)
+			if boundary := int(horizontalWalls) - 1; boundary < len(definitions.BoundaryObjects) && boundary >= 0 {
+				// log.Debugf("Out of bounds indexing attempted into definitions.BoundaryObjects[%d]; while upper bound is currently %d\n", boundary, len(definitions.BoundaryObjects)-1)
+				if wall := definitions.BoundaryObjects[horizontalWalls-1]; !wall.Dynamic && wall.Solid {
+					s.Tiles[x*RegionSize+y] |= ClipEast
+					if x > 0 {
+						s.Tiles[(x-1)*RegionSize+y] |= ClipWest
 					}
 				}
 			}
 			// TODO: Affect adjacent tiles in an intelligent way to determine which are solid and which are not
 			if diagonalWalls < 24000 && diagonalWalls > 0 {
-				if diagonalWalls > 12000 {
-					diagonalWalls -= 12000
+				idx := diagonalWalls
+				if idx > 12000 {
+					idx -= 12000
 				}
-				diagonalWalls -= 1
-				if wall := definitions.BoundaryObjects[diagonalWalls]; !wall.Dynamic && wall.Solid {
+				idx -= 1
+				if wall := definitions.BoundaryObjects[idx]; !wall.Dynamic && wall.Solid {
 					if diagonalWalls > 12000 {
+						// diagonal that blocks: SW<->NE (\ aka ‾| or |_)
 						s.Tiles[tileIdx] |= ClipSwNe
 					} else {
 						// diagonal that blocks: SE<->NW (/ aka |‾ or _|)

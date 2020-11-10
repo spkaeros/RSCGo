@@ -2,9 +2,16 @@ bind = import("bind")
 log = import("log")
 world = import("world")
 packets = import("packets")
+load("scripts/lib/packets.ank")
 
 bind.packet(packets.ticketRequests, func(player, packet) {
+	if !checkPacket(packet, 2) {
+		return
+	}
 	count = packet.ReadUint16()
+	if !checkPacket(packet, 2+count*4) {
+		return
+	}
 	for i = 0; i < count; i++ {
 		serverIdx = packet.ReadUint16()
 		appearanceTicket = packet.ReadUint16()

@@ -3,47 +3,58 @@ packets = import("packets")
 bind = import("bind")
 world = import("world")
 
+load("scripts/lib/packets.ank")
+
 // Item equip
 bind.packet(packets.equip, func(player, packet) {
-		if player.IsDueling() && player.IsFighting() && !player.DuelEquipment() {
-			player.Message("You can not use equipment in this duel")
-			return
-		}
+	if !checkPacket(packet, 2) {
+		return
+	}
+	if player.IsDueling() && player.IsFighting() && !player.DuelEquipment() {
+		player.Message("You can not use equipment in this duel")
+		return
+	}
 
-		index = packet.ReadUint16()
-		if index < 0 || index > player.Inventory.Size() {
-			log.cheatf("Player[%v] tried to wield an item with an out-of-bounds inventory index: %d\n", player, index)
-			return
-		}
+	index = packet.ReadUint16()
+	if index < 0 || index > player.Inventory.Size() {
+		log.cheatf("Player[%v] tried to wield an item with an out-of-bounds inventory index: %d\n", player, index)
+		return
+	}
 
-		item = player.Inventory.Get(index)
-		if item == nil || item.Worn {
-			return
-		}
+	item = player.Inventory.Get(index)
+	if item == nil || item.Worn {
+		return
+	}
 
-		player.EquipItem(item)
+	player.EquipItem(item)
 })
 
 // Item unequip
 bind.packet(packets.unequip, func(player, packet) {
-		index = packet.ReadUint16()
-		if index < 0 || index > player.Inventory.Size() {
-			log.cheatf("Player[%v] tried to unwield an item with an out-of-bounds inventory index: %d\n", player, index)
-			return
-		}
+	if !checkPacket(packet, 2) {
+		return
+	}
+	index = packet.ReadUint16()
+	if index < 0 || index > player.Inventory.Size() {
+		log.cheatf("Player[%v] tried to unwield an item with an out-of-bounds inventory index: %d\n", player, index)
+		return
+	}
 
-		item = player.Inventory.Get(index)
-		if item == nil || !item.Worn {
-			return
-		}
+	item = player.Inventory.Get(index)
+	if item == nil || !item.Worn {
+		return
+	}
 
-		player.DequipItem(item)
-		player.PlaySound("click")
+	player.DequipItem(item)
+	player.PlaySound("click")
 })
 
 
 // drop item
 bind.packet(packets.dropItem, func(player, packet) {
+	if !checkPacket(packet, 2) {
+		return
+	}
 	if player.Busy() || player.IsFighting() {
 		return
 	}
@@ -74,6 +85,9 @@ bind.packet(packets.dropItem, func(player, packet) {
 
 // pickup item	
 bind.packet(packets.pickupItem, func(player, packet) {
+	if !checkPacket(packet, 6) {
+		return
+	}
 	if player.Busy() || player.IsFighting() {
 		return
 	}
@@ -108,7 +122,7 @@ bind.packet(packets.pickupItem, func(player, packet) {
 			maxDelta++
 		}
 		delta = player.Delta(item.Location)
-		if delta > maxDelta || delta == 1 && !player.ReachableCoords(item.X(), item.Y()) {
+		if delta > maxDelta || delta == 1 && player.Collides(item.X(), item.Y()) {
 			return player.FinishedPath()
 		}
 
@@ -127,6 +141,10 @@ bind.packet(packets.pickupItem, func(player, packet) {
 })
 
 bind.packet(packets.itemAction, func(player, packet) {
+	if !checkPacket(packet, 2) {
+		return
+	}
+
 	index = packet.ReadUint16()
 	item = player.Inventory.Get(index)
 	if item == nil || player.Busy() || player.IsFighting() {

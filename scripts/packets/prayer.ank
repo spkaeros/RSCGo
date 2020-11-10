@@ -1,0 +1,43 @@
+packets = import("packets")
+log = import("log")
+load("scripts/lib/packets.ank")
+
+requirement = [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40]
+
+bind.packet(packets.prayerOn, func(player, packet) {
+	if !checkPacket(packet, 1) {
+		return
+	}
+	idx = toInt(packet.ReadUint8())
+	if idx < 0 || idx >= len(requirement) {
+		log.cheat(player, "turned on an out-of-bounds prayer (shouldn't happen):", idx)
+		return
+	}
+	if requirement[idx] > player.Skills().Maximum(PRAYER) {
+		log.cheat(player, "turned on a prayer that they have not got the level to use yet (shouldn't happen):", player.Skills().Maximum(PRAYER), "<", requirement[idx])
+		return
+	}
+	player.ActivatePrayer(idx)
+	player.PrayerOn(idx)
+	player.SendPrayers()
+})
+
+bind.packet(packets.prayerOff, func(player, packet) {
+	if !checkPacket(packet, 1) {
+		return
+	}
+	idx = toInt(packet.ReadUint8())
+	if idx < 0 || idx >= len(requirement) {
+		log.cheat(player, "turned on an out-of-bounds prayer (shouldn't happen):", idx)
+		return
+	}
+	if requirement[idx] > player.Skills().Maximum(PRAYER) {
+		log.cheat(player, "turned off a prayer that they have not got the level to use yet (shouldn't happen):", player.Skills().Maximum(PRAYER), "<", requirement[idx])
+		return
+	}
+	if !player.PrayerActivated(toInt(idx)) {
+		return
+	}
+	player.DeactivatePrayer(toInt(idx))
+	player.SendPrayers()
+})

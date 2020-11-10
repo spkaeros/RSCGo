@@ -1,0 +1,66 @@
+bind = import("bind")
+log = import("log")
+world = import("world")
+packets = import("packets")
+load("scripts/lib/packets.ank")
+
+bind.packet(packets.walkRequest, func(player, packet) {
+	if !checkPacket(packet, 4) {
+		return
+	}
+	if !player.CanWalk() {
+		return
+	}
+	if player.IsFighting() {
+		target = player.FightTarget()
+		if target == nil {
+			player.ResetFighting()
+			return
+		}
+		if player.IsDueling() && player.IsFighting() && !player.DuelRetreating() {
+			player.Message("You can not retreat during this duel!")
+			return
+		}
+		if player.FightRound() < 3 {
+			player.Message("You can't retreat during the first 3 rounds of combat")
+			return
+		}
+		if target.IsPlayer() {
+			targetPlr = toPlayer(target)
+			targetPlr.PlaySound("retreat")
+			targetPlr.Message("Your opponent is retreating")
+		}
+		player.UpdateLastRetreat()
+		player.ResetFighting()
+	}
+	startX = packet.ReadUint16()
+	startY = packet.ReadUint16()
+	pivots = (packet.Length() - packet.ReadIndex) / 2
+	pivotsX = []
+	pivotsY = []
+	for i in range(pivots) {
+		pivotsX[i] = packet.ReadInt8()
+		pivotsY[i] = packet.ReadInt8()
+	}
+	player.ResetAll()
+	player.SetPath(world.newPath(startX, startY, pivotsX, pivotsY))
+})
+bind.packet(packets.walkAction, func(player, packet) {
+	if !checkPacket(packet, 4) {
+		return
+	}
+	if !player.CanWalk() || player.IsFighting() {
+		return
+	}
+	startX = packet.ReadUint16()
+	startY = packet.ReadUint16()
+	pivots = (packet.Length() - packet.ReadIndex) / 2
+	pivotsX = []
+	pivotsY = []
+	for i in range(0, pivots) {
+		pivotsX[i] = packet.ReadInt8()
+		pivotsY[i] = packet.ReadInt8()
+	}
+	player.ResetAll()
+	player.SetPath(world.newPath(startX, startY, pivotsX, pivotsY))
+})

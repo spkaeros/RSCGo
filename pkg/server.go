@@ -93,7 +93,7 @@ var (
 		PreferServerCipherSuites: true,
 		// ClientAuth: tls.RequireAndVerifyClientCert,
 		ClientAuth: tls.NoClientCert,
-		Rand: rand.Rng,
+		// Rand: rand.Rng,
 	}
 	wsUpgrader = ws.Upgrader{
 		Protocol: func(protocol []byte) bool {
@@ -410,10 +410,10 @@ func (s *Server) Start() {
 			if p == nil {
 				return
 			}
-			p.Tickables.Call(interface{}(p))
 			if fn := p.TickAction(); fn != nil && !fn() {
 				p.ResetTickAction()
 			}
+			p.Tickables.Call(interface{}(p))
 
 			p.TraversePath()
 		})
@@ -424,15 +424,19 @@ func (s *Server) Start() {
 				if n.Busy() || n.IsFighting() {
 					return
 				}
-				n.MoveTick--
-				if world.Chance(25) && n.PathSteps <= 0 && n.MoveTick <= 0 {
+				if world.Chance(25) && n.VarInt("steps", 0) <= 0 && n.VarInt("ticks", 0) <= 0 {
 					// move some amount between 2-15 tiles, moving 1 tile per tick
-					n.PathSteps = int(rand.Float64() * 15 - 2) + 2
+					// n.PathSteps = int(rand.Float64() * 15 - 2) + 2
+					n.SetVar("steps", int(rand.Rng.Float64()*float64(15-2+1))+2)
 					// wait some amount between 25-50 ticks before doing this again
-					n.MoveTick = int(rand.Float64() * 50 - 25) + 25
+					n.SetVar("ticks", int(rand.Rng.Float64()*float64(50-25+1))+25)
+					// n.MoveTick = int(rand.Float64() * 50 - 25) + 25
+				}
+				if n.VarInt("ticks", 0) > 0 {
+					n.Inc("ticks", -1)
 				}
 				// wander aimlessly until we run out of scheduled steps
-				if n.PathSteps > 0 {
+				if n.VarInt("steps", 0) > 0 {
 					n.TraversePath()
 				}
 			}()

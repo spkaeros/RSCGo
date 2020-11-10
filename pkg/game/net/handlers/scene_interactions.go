@@ -290,7 +290,7 @@ func init() {
 			if player.Busy() || !player.Connected() || target == nil || target.Busy() || !target.Connected() {
 				return true
 			}
-			if player.WithinRange(target.Point(), 1) && player.NextTo(target.Point()) {
+			if player.Near(target.Point(), 1) && player.NextTo(target.Point()) {
 				player.ResetPath()
 				player.AddState(world.MSBatching)
 				target.AddState(world.MSBatching)

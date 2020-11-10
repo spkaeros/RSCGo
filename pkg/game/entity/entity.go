@@ -35,6 +35,7 @@ type Location interface {
 	Y() int
 	SetX(int)
 	SetY(int)
+	Collide(int,int) bool
 	Wilderness() int
 	Above() Location
 	Below() Location
@@ -48,12 +49,10 @@ type Location interface {
 	Reachable(Location) bool
 	NextTo(Location) bool
 	ReachableCoords(int, int) bool
-	Visible(Location) bool
 	CanReach([2]Location) bool
 	Near(Location, int) bool
 	IsValid() bool
 	Step(int) Location
-	ClippedStep(int) Location
 	NextTileToward(o Location) Location
 	DirectionToward(o Location) int
 	DirectionTo(int, int) int

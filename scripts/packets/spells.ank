@@ -3,6 +3,7 @@ log = import("log")
 world = import("world")
 packets = import("packets")
 load("scripts/def/magic.ank")
+load("scripts/lib/packets.ank")
 
 for idx in range(len(defs)) {
 	fn = defs[idx].handler
@@ -16,24 +17,40 @@ for idx in range(len(defs)) {
 }
 
 bind.packet(packets.spellOnSelf, func(player, packet) {
+	if !checkPacket(packet, 2) {
+		return
+	}
 	cast(player, player, packet.ReadUint16())
 })
 
 bind.packet(packets.spellOnNpc, func(player, packet) {
+	if !checkPacket(packet, 4) {
+		return
+	}
 	cast(player, world.getNpc(packet.ReadUint16()), packet.ReadUint16())
 })
 
+bind.packet(packets.spellOnInvItem, func(player, packet) {
+	if !checkPacket(packet, 4) {
+		return
+	}
+	cast(player, player.Inventory.Get(packet.ReadUint16()), packet.ReadUint16())
+})
+
 bind.packet(packets.spellOnPlayer, func(player, packet) {
+	if !checkPacket(packet, 4) {
+		return
+	}
 	cast(player, world.getPlayer(packet.ReadUint16()), packet.ReadUint16())
 })
 
 bind.packet(packets.spellOnGroundItem, func(player, packet) {
+	if !checkPacket(packet, 8) {
+		return
+	}
 	cast(player, world.getItem(packet.ReadUint16(), packet.ReadUint16(), packet.ReadUint16()), packet.ReadUint16())
 })
 
-bind.packet(packets.spellOnGroundItem, func(player, packet) {
-	cast(player, player.Inventory.Get(packet.ReadUint16()), packet.ReadUint16())
-})
 func cast(player, target, spell) {
 	fn = bind.spells[spell]
 	if fn == nil {

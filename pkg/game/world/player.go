@@ -249,56 +249,15 @@ func (p *Player) WalkingRangedAction(t entity.MobileEntity, fn func()) {
 func (p *Player) WalkingArrivalAction(t entity.MobileEntity, dist int, action func()) {
 	p.SetTickAction(func() bool {
 		if p.Near(t, dist) {
-			if !p.Visible(t) {//|| !p.ReachableCoords(t.X(), t.Y()) {
+			if p.Clone().Collides(t) {
 				p.WalkTo(NewLocation(t.X(), t.Y()))
 				return p.FinishedPath()
 			}
 			action()
 			return false
 		}
-		return p.WalkTo(NewLocation(t.X(), t.Y()))
+		return false //p.WalkTo(NewLocation(t.X(), t.Y()))
 	})
-}
-
-//CanReachMob Check if we can reach a mob traversing the most direct tiles toward them, e.g straight lines.
-// Used to check ranged combat attacks, or trade requests, basically anything needing local interactions.
-func (p *Player) CanReachMob(target entity.MobileEntity) bool {
-	// if p.FinishedPath() && p.VarInt("triedReach", 0) >= 5 {
-		// // Tried reaching one mob >=5 times without single success, abort early.
-		// //		p.ResetPath()
-		// p.UnsetVar("triedReach")
-		// return false
-	// }
-	// p.Inc("triedReach", 1)
-
-	// pathX, pathY := p.X(), p.Y()
-	return p.Visible(target)
-	// for steps := 0; steps < 256; steps++ {
-		// if !p.ReachableCoords(pathX, pathY) {
-			// return false
-		// }
-		// // check deltas
-		// if pathX == target.X() && pathY == target.Y() {
-			// p.UnsetVar("triedReach")
-			// return true
-		// }
-		// step := p.Step(p.DirectionToward(p.NextTileToward(target.Point())))
-		// pathX, pathY = step.X(), step.Y()
-// 
-		// // Update coords toward target in a straight line
-		// // if pathX < target.X() {
-			// // pathX++
-		// // } else if pathX > target.X() {
-			// // pathX--
-		// // }
-// //
-		// // if pathY < target.Y() {
-			// // pathY++
-		// // } else if pathY > target.Y() {
-			// // pathY--
-		// // }
-	// }
-	// return false
 }
 
 //SetPrivacySettings sets privacy settings to specified values.
@@ -374,59 +333,86 @@ func (p *Player) SetFirstLogin(flag bool) {
 //NextTo returns true if we can walk a straight line to target without colliding with any walls or objects,
 // otherwise returns false.
 func (l Location) NextTo(target entity.Location) bool {
-	return l.Reachable(target)
+	return !l.Collides(target)
 }
 
 func (p *Player) NextToCoords(x, y int) bool {
 	return p.NextTo(NewLocation(x, y))
 }
-
-//TraversePath if the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
 func (p *Player) TraversePath() {
 	path := p.Path()
 	if path == nil {
 		return
 	}
-	if p.Equals(path.nextTile()) {
+	if p.LongestDelta(path.nextTile()) == 0 {
 		path.CurrentWaypoint++
 	}
-	nextPoint := path.nextTile()
-	dst := p.ClippedStep(p.DirectionToward(nextPoint))
-
-	bitmask := byte(ClipBit(p.DirectionToward(dst)))
-	dstmask := byte(ClipBit(dst.DirectionToward(p)))
-	// check mask of our tile and dst tile
-	if IsTileBlocking(p.X(), p.Y(), bitmask, true) || IsTileBlocking(dst.X(), dst.Y(), dstmask, false) || p.FinishedPath() {
-	// if p.FinishedPath() || !p.Reachable(dst) {
+	dst := p.NextTileToward(path.nextTile())
+	
+	if p.FinishedPath() {
 		p.ResetPath()
 		return
 	}
 
-	p.SetCoords(dst.X(), dst.Y(), false)
+	if !p.ReachableCoords(dst.X(), dst.Y()) {
+		p.ResetPath()
+		return
+	}
+
+	p.SetLocation(dst, false)
 }
+// //TraversePath if the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
+// func (p *Player) TraversePath() {
+	// path := p.Path()
+	// if path == nil {
+		// return
+	// }
+	// if p.LongestDelta(path.nextTile()) == 0 {
+		// path.CurrentWaypoint++
+	// }
+	// dst := p.Step(p.DirectionToward(path.nextTile()))
+// 
+	// // check mask of our tile and dst tile
+	// if p.FinishedPath() || p.Collides(dst) {
+		// if !p.FinishedPath() {
+			// if dx, dy := p.DeltaX(dst), p.DeltaY(dst); dx != 0 && dy != 0 {
+				// attempt := 0
+				// clipped := NewLocation(p.X()+dx, p.Y())
+// check:
+				// if !p.Collides(clipped) {
+					// goto walk
+				// }
+				// if attempt >= 1 {
+					// goto fail
+				// }
+				// attempt++
+				// clipped = NewLocation(p.X(), p.Y()+dy)
+				// goto check
+			// }
+		// }
+// fail:
+		// p.ResetPath()
+		// return
+	// }
+// 
+// walk:
+	// p.SetLocation(dst, false)
+// }
 
 //Targetable returns true if you are able to see the other location from the receiever location without hitting
 // any obstacles, and you are within range.  Otherwise returns false.
 func (l Location) Targetable(other Location) bool {
-	return l.Near(other, 5) && l.Reachable(other)
+	return l.Near(other, 5) && !l.Collides(other)
 }
 
 //WithinReach returns true if you are able to physically touch the other person you are so close without obstacles
 // Otherwise returns false.
 func (l Location) WithinReach(other entity.Location) bool {
-	return l.Near(other, 2) && l.Reachable(other)
+	return l.Near(other, 2) && !l.Collides(other)
 }
 
 func (l Location) Reachable(other entity.Location) bool {
-	return l.ReachableCoords(other.X(), other.Y())
-}
-func (l Location) RD(x, y int) bool {
-	if l.ReachableCoords(x, y) {
-		log.Debug(x, y, "reachable!")
-		return true
-	}
-	log.Debug("Unreachable:{from:", l.String(), "to:", x, y)
-	return false
+	return !l.Collides(other)
 }
 
 func (p *Player) WriteNow(packet net.Packet) {
@@ -466,51 +452,8 @@ func (p *Player) WriteNow(packet net.Packet) {
 	// }
 }
 
-// func (l Location) ReachableCoords(x, y int) bool {
-	// check := func(l, dst entity.Location) bool {
-		// bitmask := byte(ClipBit(l.DirectionToward(dst)))
-		// dstmask := byte(ClipBit(dst.DirectionToward(l)))
-		// // check mask of our tile and dst tile
-		// if IsTileBlocking(l.X(), l.Y(), bitmask, true) || IsTileBlocking(dst.X(), dst.Y(), dstmask, false) {
-			// return false
-		// }
-// 
-		// return true
-	// }
-	// cur := l.Clone()
-	// end := NewLocation(x, y)
-	// for !cur.Equals(end) {
-		// dir := cur.DirectionToward(end)
-		// if dir == NorthWest || dir == SouthWest {
-			// dir = West
-		// }
-		// if dir == NorthEast || dir == SouthEast {
-			// dir = East
-		// }
-		// next := cur.ClippedStep(dir)
-		// if next.Equals(cur) || !check(cur, next) {
-			// return false
-		// }
-		// cur = next
-	// }
-	// return true
-// }
-
 //UpdateRegion if this player is currently in a region, removes it from that region, and adds it to the region at x,y
 func (p *Player) UpdateRegion(x, y int) {
-	// curArea := Region(p.X(), p.Y())
-	// if !curArea.Players.Contains(p) {
-		// curArea.Players.Add(p)
-		// return
-	// }
-// 
-	// newArea := Region(x, y)
-	// if newArea != curArea {
-		// if curArea.Players.Contains(p) {
-			// curArea.Players.Remove(p)
-		// }
-		// newArea.Players.Add(p)
-	// }
 	UpdateRegions(p, x, y)
 }
 
@@ -976,7 +919,7 @@ func (p *Player) AtObject(object *Object) bool {
 	bounds := object.Boundaries()
 	if definitions.ScenaryObjects[object.ID].CollisionType == 2 || definitions.ScenaryObjects[object.ID].CollisionType == 3 {
 		// door types
-		return (p.Reachable(bounds[0]) || p.Reachable(bounds[1])) && p.WithinArea(bounds)
+		return !p.Collides(bounds[0]) && !p.Collides(bounds[1]) && p.WithinArea(bounds)
 	}
 
 	return p.CanReach(bounds) || (p.FinishedPath() && p.CanReachDiag(bounds))
@@ -1390,7 +1333,7 @@ func (p *Player) PrayerOn(idx int) {
 		p.SendPrayers()
 		return
 	}
-	boosterPrayers := [3][3]int{
+	boosterPrayers := [...][3]int{
 		{0, 3, 9},
 		{1, 4, 10},
 		{2, 5, 11},
@@ -1499,7 +1442,7 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 	attacker.SetLocation(defender.Clone(), true)
 	tasks.TickList.Schedule(3, func() bool {
 		if (defender.IsPlayer() && !AsPlayer(defender).Connected()) || !defender.HasState(StateFighting) ||
-			!attacker.HasState(StateFighting) || (attacker.IsPlayer() && !AsPlayer(attacker).Connected()) || !p.Equals(defender) {
+			(attacker.IsPlayer() && !AsPlayer(attacker).Connected()) || !attacker.HasState(StateFighting) || !attacker.Near(defender, 0) {
 			// target is a disconnected player, we are disconnected,
 			// one of us is not in a fight, or we are distanced somehow unexpectedly.  Kill tasks.
 			// quickfix for possible bugs I imagined will exist
@@ -1512,39 +1455,33 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 			attacker, defender = defender, attacker
 		}()
 
-		// Paralyze Monster blocker here
+		// Paralyze Monster goes into effect right here, we just return before the npc can do anything
 		if defender.IsPlayer() && attacker.IsNpc() && defender.PrayerActivated(12) {
 			return false
 		}
 
 		nextHit := int(math.Min(float64(defender.Skills().Current(entity.StatHits)), float64(attacker.MeleeDamage(defender))))
-		defender.DamageFrom(attacker, nextHit, 0)
-		if defender.Skills().Current(entity.StatHits) <= 0 {
-			if attackerp := AsPlayer(attacker); attackerp != nil {
-				// AsPlayer(attackerp).PlaySound("victory")
-				attackerp.PlaySound("victory")
-			}
-			defender.Killed(attacker)
+		if defender.DamageFrom(attacker, nextHit, 0) {
 			return true
 		}
 
-		sound := "combat"
-		// TODO: hit sfx (1/2/3) 1 is standard sound 2 is armor sound 3 is ghostly undead sound
-		sound += "1"
-		if nextHit > 0 {
-			sound += "b"
-		} else {
+		// TODO: hit sfx (1/2/3) 1 is generic hit noise 2 is armor hit noise 3 is ghost hit noise
+		sound := "combat1"
+		if nextHit == 0 {
+			// a is a miss
 			sound += "a"
+		} else {
+			// b is a hit
+			sound += "b"
 		}
 
+		// we send to both parties here, so long as they happen to be a player
 		if attackerp := AsPlayer(attacker); attackerp != nil {
 			attackerp.PlaySound(sound)
 		}
-
 		if defenderp := AsPlayer(defender); defenderp != nil {
 			defenderp.PlaySound(sound)
 		}
-
 		return false
 	})
 }

@@ -129,44 +129,9 @@ func (p *Pathfinder) MakePath() *Pathway {
 		// OrderedDirections is ordered as orthogonal then diagonals.
 		// Direction precedent: E,W,N,S,SW,SE,NW,NE
 		for _, direction := range OrderedDirections {
-			//			node := &tileNode{loc: active.loc.Step(direction), open: false, closed: false}
-			neighbor := p.node(active.loc.ClippedStep(direction))
-			// if IsTileBlocking(neighbor.loc.X(), neighbor.loc.Y(), active.loc.Mask(neighbor.loc), false) {
-			bitmask := byte(ClipBit(active.loc.DirectionToward(neighbor.loc)))
-			dstmask := byte(ClipBit(neighbor.loc.DirectionToward(active.loc)))
-			// check mask of our tile and dst tile
-			if IsTileBlocking(active.loc.X(), active.loc.Y(), bitmask, true) || IsTileBlocking(neighbor.loc.X(), neighbor.loc.Y(), dstmask, false) {
-			// if !active.loc.Reachable(neighbor.loc) {
+			neighbor := p.node(active.loc.Clone().Step(direction))
+			if active.loc.Collides(neighbor.loc) {
 				continue
-			} else {
-				if active.loc.DeltaX(neighbor.loc) > 0 && active.loc.DeltaY(neighbor.loc) > 0 {
-					if active.loc.X() > neighbor.loc.X() {
-						diagonal := NewLocation(active.loc.X() - 1, active.loc.Y())
-						if IsTileBlocking(diagonal.X(), diagonal.Y(), byte(ClipBit(diagonal.DirectionToward(active.loc))), false) ||
-							IsTileBlocking(active.loc.X(), active.loc.Y(), byte(ClipBit(active.loc.DirectionToward(diagonal))), true) {
-							continue
-						}
-					} else if active.loc.X() < neighbor.loc.X() {
-						diagonal := NewLocation(active.loc.X() + 1, active.loc.Y())
-						if IsTileBlocking(diagonal.X(), diagonal.Y(), byte(ClipBit(diagonal.DirectionToward(active.loc))), false) ||
-							IsTileBlocking(active.loc.X(), active.loc.Y(), byte(ClipBit(active.loc.DirectionToward(diagonal))), true) {
-							continue
-						}
-					}
-					if active.loc.Y() > neighbor.loc.Y() {
-						diagonal := NewLocation(active.loc.X(), active.loc.Y() - 1)
-						if IsTileBlocking(diagonal.X(), diagonal.Y(), byte(ClipBit(diagonal.DirectionToward(active.loc))), false) ||
-							IsTileBlocking(active.loc.X(), active.loc.Y(), byte(ClipBit(active.loc.DirectionToward(diagonal))), true) {
-							continue
-						}
-					} else if active.loc.Y() < neighbor.loc.Y() {
-						diagonal := NewLocation(active.loc.X(), active.loc.Y() + 1)
-						if IsTileBlocking(diagonal.X(), diagonal.Y(), byte(ClipBit(diagonal.DirectionToward(active.loc))), false) ||
-							IsTileBlocking(active.loc.X(), active.loc.Y(), byte(ClipBit(active.loc.DirectionToward(diagonal))), true) {
-							continue
-						}
-					}
-				}
 			}
 			gCost := active.gCostFrom(neighbor)
 			if !neighbor.open || gCost < neighbor.gCost {

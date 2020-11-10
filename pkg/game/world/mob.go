@@ -41,6 +41,8 @@ const (
 	StateShopping
 	//MSItemAction Indicates that the mob in this state is doing an inventory action
 	MSItemAction
+	// StateAction
+	StateAction
 
 	StateFightingDuel   = StateDueling | StateFighting
 	StateChatChoosing   = StateMenu | StateChatting
@@ -49,7 +51,7 @@ const (
 
 	StatePanelActive = StateBanking | StateShopping | StateChangingLooks | StateSleeping | StateTrading | StateDueling
 
-	StateBusy      = StatePanelActive | StateChatting | MSItemAction | MSBatching
+	StateBusy      = StatePanelActive | StateChatting | MSItemAction | MSBatching | StateAction
 	StateWaitEvent = StateMenu | StateChatting | MSItemAction | MSBatching
 )
 
@@ -396,9 +398,7 @@ func (n *NPC) SetLocation(l entity.Location, teleport bool) {
 //SetCoords Sets the mobs locations coordinates.
 func (m *Mob) SetCoords(x, y int, teleport bool) {
 	if !teleport {
-		if m.LongestDeltaCoords(x, y) <= 1 {
-			m.SetDirection(m.DirectionTo(x, y))
-		}
+		m.SetDirection(m.DirectionToward(NewLocation(x, y)))
 		m.SetRegionMoved()
 	} else {
 		m.SetRegionRemoved()
@@ -653,6 +653,15 @@ func (m *Mob) CombatRng() *rand.Rand {
 	return rng
 }
 
+func (m *Mob) CombatRngSrc() *isaac.ISAAC {
+	rng, ok := m.VarChecked("isaacRngSrc").(*isaac.ISAAC)
+	if !ok || rng == nil {
+		rng = isaac.New(rscRand.Int())
+		m.SetVar("isaacRngSrc", rng)
+	}
+	return rng
+}
+
 func (m *Mob) Isaac() *rand.Rand {
 	rng, ok := m.VarChecked("isaac").(*rand.Rand)
 	if !ok || rng == nil {
@@ -667,9 +676,13 @@ func (m *Mob) Isaac() *rand.Rand {
 // random percentage check around a call to GenerateHit.
 func (m *Mob) MagicDamage(target entity.MobileEntity, maximum float64) int {
 	// TODO: Tweak the defense/armor hit/miss formula to better match RSC--or at least verify this is somewhat close?
-	if BoundedChance(float64(m.MagicPoints())/(target.DefensePoints()*4)*100, 0.0, 82.0) {
-		return m.GenerateHit(maximum)
+	threshold := int(math.Min(212.0, 256.0*float64(m.MagicPoints())/(target.DefensePoints()*4.0)))
+	if int(m.CombatRngSrc().Uint8()) <= threshold {
+		return m.GenerateHit(m.MaxMeleeDamage())
 	}
+	// if BoundedChance(float64(256.0*m.MagicPoints())/(target.DefensePoints()*4), 0.0, 212.0) {// 82.8125) {
+		// return m.GenerateHit(maximum)
+	// }
 
 	return 0
 }
@@ -680,7 +693,7 @@ func (m *Mob) MagicDamage(target entity.MobileEntity, maximum float64) int {
 func (m *Mob) GenerateHit(max float64) int {
 	var damage float64
 	for damage > max || damage < 1.0 {
-		damage = math.Floor((m.CombatRng().NormFloat64() * (max / 3)) + (max / 2))
+		damage = math.Floor((max / 2.0 + m.CombatRng().NormFloat64()) * (max / 3.0))
 	}
 
 	return int(damage)
@@ -692,9 +705,13 @@ func (m *Mob) GenerateHit(max float64) int {
 // Kenix mentioned running monte-carlo sims when coming up with it, so presumably this formula matched up
 // statistically fairly well to the real game.  I can not say for sure as I didn't do these things myself, though.
 func (m *Mob) MeleeDamage(target entity.MobileEntity) int {
-	if BoundedChance(m.AttackPoints()/(target.DefensePoints()*4)*100, 0.0, 82.0) {
+	threshold := int(math.Min(212.0, 256.0*m.AttackPoints()/(target.DefensePoints()*4.0)))
+	if int(m.CombatRngSrc().Uint8()) <= threshold {
 		return m.GenerateHit(m.MaxMeleeDamage())
 	}
+	// if BoundedChance(256.0*m.AttackPoints()/(target.DefensePoints()*4.0), 0.0, 212.0) {// 82.0) {
+		// return m.GenerateHit(m.MaxMeleeDamage())
+	// }
 
 	return 0
 }

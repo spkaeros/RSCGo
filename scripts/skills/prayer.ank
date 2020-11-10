@@ -1,8 +1,13 @@
 bind = import("bind")
 time = import("time")
+state = import("state")
 strings = import("strings")
 
+drainThesh = 325
 equipModifier = 30.0
+// adding each drainrate up happens to equal 325, and the math adds up that this makes the most logical sense as
+// how jagex managed the prayer draining, more or less exactly to the millisecond I believe
+// some variation from equip related math where I am less certain does apply.
 drainRates = [15,15,15,30,30,30,5,10,10,60,60,60,60,60,60]
 
 bind.onLogin(func(player) {
@@ -12,36 +17,45 @@ bind.onLogin(func(player) {
 		for drainRate in drainRates {
 			if player.PrayerActivated(index) {
 				drained += drainRate
-				if drained >= 325 {
-					drained -= 325
+				if drained >= drainThesh {
+					drained -= drainThesh
 					player.IncCurStat(PRAYER, -1)
 					if player.Skills().Current(PRAYER) <= 0 {
-						player.Message("You have run out of prayer points. Return to a church to recharge")
-						for idx in range(14) {
+						for idx in range(len(drainRates)) {
 							player.PrayerOff(idx)
 						}
 						player.SendPrayers()
+						player.Message("You have run out of prayer points. Return to a church to recharge")
+						return false
 					}
 				}
 			}
 			index++
 		}
+		return false
 	})
 })
 
-bind.item(itemPredicate(20, 413, 604, 814), func(player, item) {
+bind.item(itemPredicate("bury", 20, 413, 604, 814), func(player, item) {
 	player.Message("You dig a hole in the ground")
-	sleep(Millisecond*640)
-	player.Message("You bury the " + strings.ToLower(item.Name()))
-	player.Inventory.RemoveByID(toInt(item.ID), 1)
-	switch item.ID {
-	case 20:
-		player.IncExp(PRAYER, 15/4)
-	case 604:
-		player.IncExp(PRAYER, 18/4)
-	case 413:
-		player.IncExp(PRAYER, 50/4)
-	case 814:
-		player.IncExp(PRAYER, 240/4)
-	}
+	// sleep(Millisecond*640)
+	player.AddState(state.DoingThing)
+	player.Tickables.Schedule(1, func() {
+		player.Message("You bury the " + strings.ToLower(item.Name()))
+		player.Inventory.RemoveByID(toInt(item.ID), 1)
+		switch item.ID {
+		case 20:
+			player.IncExp(PRAYER, 15/4)
+		case 604:
+			player.IncExp(PRAYER, 18/4)
+		case 413:
+			player.IncExp(PRAYER, 50/4)
+		case 814:
+			player.IncExp(PRAYER, 240/4)
+		default:
+			player.Message("Not yet supported, report it to staff.")
+		}
+		player.RemoveState(state.DoingThing)
+		return true
+	})
 })

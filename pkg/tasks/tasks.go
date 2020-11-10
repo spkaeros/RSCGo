@@ -94,9 +94,10 @@ func (s *Scripts) Tick() {
 
 func (s *Scripts) Call(v interface{}) {
 	wait := sync.WaitGroup{}
-	keep := make(scriptCalls, 0, len(s.scriptCalls))
+	// keep := make(scriptCalls, 0, len(s.scriptCalls))
+	removeList := make([]int, 0, len(s.scriptCalls))
 	s.RLock()
-	for _, script := range s.scriptCalls {
+	for i, script := range s.scriptCalls {
 		wait.Add(1)
 		go func(script scriptCall) {
 			defer wait.Done()
@@ -105,21 +106,22 @@ func (s *Scripts) Call(v interface{}) {
 			// Simple function call, no input no input
 			case call:
 				(script.(call))()
-				keep = append(keep, script)
+				// keep = append(keep, script)
 			// A function call taking a *world.Player as an argument
 			case playerArgCall:
 				(script.(playerArgCall))(v.(entity.MobileEntity))
-				keep = append(keep, script)
+				// keep = append(keep, script)
 			// A function call returning its active status.
 			case StatusReturnCall:
-				if !(script.(StatusReturnCall))() {
-					// removing = append(removing, i)
-					keep = append(keep, script)
+				if (script.(StatusReturnCall))() {
+					removeList = append(removeList, i)
+					// keep = append(keep, script)
 				}
 			// A function call taking a *world.Player as an argument and returning its active status.
 			case playerArgStatusReturnCall:
-				if !(script.(playerArgStatusReturnCall))(v.(entity.MobileEntity)) {
-					keep = append(keep, script)
+				if (script.(playerArgStatusReturnCall))(v.(entity.MobileEntity)) {
+					removeList = append(removeList, i)
+					// keep = append(keep, script)
 					// removing = append(removing, i)
 				}
 			// A function call that returns two values, the first a result value, and the second an error value
@@ -128,12 +130,14 @@ func (s *Scripts) Call(v interface{}) {
 			case dualReturnCall:
 				ret, callErr := (script.(dualReturnCall))(context.Background())
 				if !callErr.IsNil() {
+					removeList = append(removeList, i)
 					log.Warn("Error retVal from a dualReturnCall in the Anko ctx:", callErr.Elem())
 					return
 				}
-				if v, ok := ret.Interface().(bool); ok && !v {
+				if v, ok := ret.Interface().(bool); ok && v {
+					removeList = append(removeList, i)
 					// removing = append(removing, i)
-					keep = append(keep, script)
+					// keep = append(keep, script)
 					return
 				}
 			// A function call that returns two values, the first a result value, and the second an error value
@@ -143,13 +147,15 @@ func (s *Scripts) Call(v interface{}) {
 			case singleArgDualReturnCall:
 				ret, callErr := (script.(singleArgDualReturnCall))(context.Background(), reflect.ValueOf(v))
 				if !callErr.IsNil() {
+					removeList = append(removeList, i)
 					// removing = append(removing, i)
 					log.Warn("Error retVal from a singleArgDualReturnCall in the Anko ctx:", callErr.String())
 					return
 				}
-				if v, ok := ret.Interface().(bool); ok && !v {
+				if v, ok := ret.Interface().(bool); ok && v {
+					removeList = append(removeList, i)
 					// removing = append(removing, i)
-					keep = append(keep, script)
+					// keep = append(keep, script)
 					return
 				}
 			default:
@@ -161,6 +167,15 @@ func (s *Scripts) Call(v interface{}) {
 	wait.Wait()
 	s.Lock()
 	defer s.Unlock()
-	//copy(s.scriptCalls, keep)
-	s.scriptCalls = keep
+	for _, i := range removeList {
+		size := len(s.scriptCalls)
+		if i < size-1 {
+			s.scriptCalls = append(s.scriptCalls[:i], s.scriptCalls[i+1:]...)
+		} else {
+			s.scriptCalls = s.scriptCalls[:i]
+		}
+	}
+	// s.scriptCalls = make(scriptCalls, len(keep))
+	// copy(s.scriptCalls, keep)
+	// s.scriptCalls = keep
 }

@@ -24,7 +24,7 @@ const (
 	TickHour         = TicksHour * TickMillis
 	TickDay          = TicksDay * TickMillis
 	TickMillis       = 640 * time.Millisecond
-	ClientTickMillis = TickMillis << 5
+	ClientTickMillis = TickMillis >> 5
 
 	//MaxX Width of the game
 	MaxX = 944
@@ -652,13 +652,12 @@ func BoundedChance(percent float64, minPercent, maxPercent float64) bool {
 	if minPercent < 0.0 {
 		minPercent = 0.0
 	}
-	//	if maxPercent > 100.0 {
-	//		maxPercent = 100.0
-	//	}
 	if minPercent > maxPercent {
 		maxPercent, minPercent = minPercent, maxPercent
 	}
-	return int(rscRand.Byte()) <= int((math.Max(minPercent, math.Min(maxPercent, percent))/maxPercent)*256.0)
+	threshold := uint8(math.Max(minPercent, math.Min(maxPercent, percent)) / maxPercent * 256.0)
+	hit := rscRand.Rng.Uint8()
+	return hit <= threshold
 }
 
 //Chance should return true (percent)% of the time, and false (100-percent)% of the time.
