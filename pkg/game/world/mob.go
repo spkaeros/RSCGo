@@ -407,8 +407,14 @@ func (m *Mob) SetCoords(x, y int, teleport bool) {
 	m.SetY(y)
 }
 
-func (m *Mob) Teleport(x, y int) {
-	m.SetCoords(x, y, true)
+func (p *Player) Teleport(x, y int) {
+	UpdateRegions(p, x, y)
+	p.SetCoords(x, y, true)
+}
+
+func (n *NPC) Teleport(x, y int) {
+	UpdateRegions(n, x, y)
+	n.SetCoords(x, y, true)
 }
 
 func (m *Mob) SessionCache() *entity.AttributeList {
@@ -691,12 +697,16 @@ func (m *Mob) MagicDamage(target entity.MobileEntity, maximum float64) int {
 // between 1 and max, inclusive.  This is widely believed to be how Jagex generated damage hits,
 // and it feels accurate while playing.
 func (m *Mob) GenerateHit(max float64) int {
-	var damage float64
-	for damage > max || damage < 1.0 {
-		damage = math.Floor((max / 2.0 + m.CombatRng().NormFloat64()) * (max / 3.0))
+	mean := max / 2.0
+	value := 0.0
+	for tries := 0; tries < 25; tries++ {
+		value = math.Floor(mean + m.CombatRng().NormFloat64() * (max / 3.0))
+		if value >= 1.0 && value <= max {
+			return int(value)
+		} 
 	}
-
-	return int(damage)
+	// after 25 out of bounds values, we just clamp whatever value we do have into bounds
+	return int(math.Max(1, math.Min(max, value)))
 }
 
 //MeleeDamage Calculates and returns a melee damage from the receiver mob onto the target mob.
@@ -705,13 +715,15 @@ func (m *Mob) GenerateHit(max float64) int {
 // Kenix mentioned running monte-carlo sims when coming up with it, so presumably this formula matched up
 // statistically fairly well to the real game.  I can not say for sure as I didn't do these things myself, though.
 func (m *Mob) MeleeDamage(target entity.MobileEntity) int {
-	threshold := int(math.Min(212.0, 256.0*m.AttackPoints()/(target.DefensePoints()*4.0)))
-	if int(m.CombatRngSrc().Uint8()) <= threshold {
-		return m.GenerateHit(m.MaxMeleeDamage())
-	}
-	// if BoundedChance(256.0*m.AttackPoints()/(target.DefensePoints()*4.0), 0.0, 212.0) {// 82.0) {
+	
+	// threshold := int(math.Max(0.0, math.Min(212.0, 256.0*m.AttackPoints()/(target.DefensePoints()*4.0))))
+	// if int(m.CombatRngSrc().Uint8()) <= threshold {
 		// return m.GenerateHit(m.MaxMeleeDamage())
 	// }
+	if ChanceByte(int(math.Max(0.0, math.Min(212.0, 256.0*m.AttackPoints()/(target.DefensePoints()*4.0))))) {
+	//BoundedChance(256.0*m.AttackPoints()/(target.DefensePoints()*4.0), 0.0, 212.0) {// 82.0) {
+		return m.GenerateHit(m.MaxMeleeDamage())
+	}
 
 	return 0
 }

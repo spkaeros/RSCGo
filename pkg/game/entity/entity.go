@@ -68,4 +68,5 @@ type Location interface {
 	Equals(o interface{}) bool
 	WithinRange(o Location, rad int) bool
 	Plane() int
+	PivotTo(Location) [2][]int
 }

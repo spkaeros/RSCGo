@@ -4,6 +4,8 @@ world = import("world")
 packets = import("packets")
 load("scripts/lib/packets.ank")
 
+// TODO: RSC 235 does away with this--rather than the client asking for tickets, the server just does bookkeeping to notify others
+// as needed, which is a slightly more involved solution for the server, but ultimately is probably a better and simpler solution
 bind.packet(packets.ticketRequests, func(player, packet) {
 	if !checkPacket(packet, 2) {
 		return

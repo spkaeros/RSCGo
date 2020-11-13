@@ -73,8 +73,6 @@ type (
 	}
 	Server struct {
 		port        int
-		listener    stdnet.Listener
-		tlsListener stdnet.Listener
 		*time.Ticker
 	}
 )
@@ -89,26 +87,20 @@ var (
 		},
 		ServerName: "rsclassic.dev",
 		InsecureSkipVerify: false,
-		SessionTicketsDisabled: true,
+		// SessionTicketsDisabled: true,
 		PreferServerCipherSuites: true,
 		// ClientAuth: tls.RequireAndVerifyClientCert,
-		ClientAuth: tls.NoClientCert,
-		// Rand: rand.Rng,
+		// ClientAuth: tls.NoClientCert,
+		// Rand: crand.Reader,
 	}
 	wsUpgrader = ws.Upgrader{
 		Protocol: func(protocol []byte) bool {
-			// log.Debug(string(protocol), protocol)
-
-			// Chrome acts funny without explicitly specifying the protocol, in my early tests
 			return string(protocol) == "binary"
 		},
 		ReadBufferSize:  5000,
 		WriteBufferSize: 5000,
 	}
 )
-
-func init() {
-}
 
 func main() {
 	if check(flags.Parse(cliFlags)) == nil {
@@ -200,7 +192,7 @@ func needsData(err error) bool {
 	return err.Error() == "Socket buffer has less bytes available than we need to form a message packet."
 }
 
-var Instance = &Server{Ticker: time.NewTicker(TickMillis)}
+var Instance = &Server{Ticker: time.NewTicker(world.TickMillis)}
 
 func (s *Server) accept(l stdnet.Listener) *world.Player {
 	socket, err := l.Accept()
@@ -215,7 +207,7 @@ func (s *Server) accept(l stdnet.Listener) *world.Player {
 	p := world.NewPlayer(socket)
 	p.Websocket = true
 	p.Writer = wsutil.NewWriter(p.Socket, ws.StateServerSide, ws.OpBinary)
-	log.Debug(p.Socket)
+	// log.Debug(p.Socket)
 	return p
 }
 
@@ -296,11 +288,9 @@ again:
 			player.OpCiphers[0] = isaac.New(keys...)
 			player.OpCiphers[1] = isaac.New(keys...)
 			password := strings.TrimSpace(rsaBlock.ReadString())
-			for i := 0; i < 2; i++ {
-				// The rscplus team viewed this data below as a nonce, but in my opinion, this is not the motivation for this data.
-				// I'd call these more of an initialization vector (IV), as wikipedia defines it, used to make RSA semantically secure.
-				rsaBlock.ReadUint32()
-			}
+			// The rscplus team viewed this data below as a nonce, but in my opinion, this is not the motivation for this data.
+			// I'd call these more of an initialization vector (IV), as wikipedia defines it, used to make RSA semantically secure.
+			rsaBlock.Skip(8)
 			blockSize := login.ReadUint16()
 			var block = make([]byte, blockSize)
 			if login.Available() != blockSize {
@@ -342,9 +332,12 @@ again:
 				sendReply(handshake.ResponseLoginSuccess|handshake.ResponseLoginAcceptBit, "")
 			}
 			go func() {
-				defer close(player.InQueue)
-				defer close(player.OutQueue)
 				defer player.Destroy()
+				defer func() {
+					// makes the queue goroutines kill themself
+					player.InQueue <- nil
+					player.OutQueue <- nil
+				}()
 				for {
 					packet, err := player.ReadPacket()
 					if err != nil || packet == nil {
@@ -359,7 +352,7 @@ again:
 				}
 			}()
 			go func() {
-				defer player.Destroy()
+				defer close(player.InQueue)
 				for {
 					select {
 					case packet, ok := <-player.InQueue:
@@ -375,20 +368,19 @@ again:
 							// This is old legacy go code handlers that are deprecated and being replaced with the aforementioned scripting API
 							handlePacket(player, packet)
 						}
-					default:
-						continue
 					}
 				}
 			}()
 			go func() {
+				defer close(player.OutQueue)
+				defer player.WriteNow(*world.Logout)
 				for {
 					select {
 					case packet, ok := <-player.OutQueue:
-						if packet != nil && ok {
-							player.WriteNow(*packet)
-						} else {
+						if packet == nil || !ok {
 							return
 						}
+						player.WriteNow(*packet)
 					}
 				}
 			}()
@@ -426,14 +418,12 @@ func (s *Server) Start() {
 				}
 				if world.Chance(25) && n.VarInt("steps", 0) <= 0 && n.VarInt("ticks", 0) <= 0 {
 					// move some amount between 2-15 tiles, moving 1 tile per tick
-					// n.PathSteps = int(rand.Float64() * 15 - 2) + 2
-					n.SetVar("steps", int(rand.Rng.Float64()*float64(15-2+1))+2)
+					n.SetVar("steps", rand.Intn(13+1)+2)
 					// wait some amount between 25-50 ticks before doing this again
-					n.SetVar("ticks", int(rand.Rng.Float64()*float64(50-25+1))+25)
-					// n.MoveTick = int(rand.Float64() * 50 - 25) + 25
+					n.SetVar("ticks", rand.Intn(25+1)+25)
 				}
 				if n.VarInt("ticks", 0) > 0 {
-					n.Inc("ticks", -1)
+					n.Dec("ticks", 1)
 				}
 				// wander aimlessly until we run out of scheduled steps
 				if n.VarInt("steps", 0) > 0 {

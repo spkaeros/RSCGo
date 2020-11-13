@@ -64,10 +64,12 @@ type (
 		ActionLock        sync.RWMutex
 		ReplyMenuC        chan int8
 		killer            sync.Once
+		inFrame			  bool
 		hasReader         bool
 		Websocket         bool
 		InQueue, OutQueue chan *net.Packet
-		Reader            io.Reader
+		Reader            *bufio.Reader
+		webFrame 			  ws.Header
 		Writer            net.WriteFlusher
 		DatabaseIndex     int
 		OpCiphers         [2]*isaac.ISAAC
@@ -249,14 +251,26 @@ func (p *Player) WalkingRangedAction(t entity.MobileEntity, fn func()) {
 func (p *Player) WalkingArrivalAction(t entity.MobileEntity, dist int, action func()) {
 	p.SetTickAction(func() bool {
 		if p.Near(t, dist) {
-			if p.Clone().Collides(t) {
-				p.WalkTo(NewLocation(t.X(), t.Y()))
-				return p.FinishedPath()
+			if p.Collides(t) {
+				// p.WalkTo(NewLocation(t.X(), t.Y()))
+				// p.Message("I can't reach that.")
+				return false
 			}
 			action()
 			return false
 		}
-		return false //p.WalkTo(NewLocation(t.X(), t.Y()))
+		if p.FinishedPath() {
+			pivotList := p.PivotTo(t)
+			if len(pivotList[0]) == 0 || len(pivotList[1]) == 0 {
+				// no reasonable direct path to target
+				p.Message("I can't reach that.")
+				return false
+			}
+			path := NewPathway(p.X(), p.Y(), pivotList[0], pivotList[1])
+			log.Debug(path)
+			p.SetPath(path)
+		}
+		return true
 	})
 }
 
@@ -1027,6 +1041,9 @@ func (p *Player) Initialize() {
 	}
 }
 func (p *Player) WritePacket(packet *net.Packet) {
+	if p == nil || (!p.Connected() && !packet.Bare) {
+		return
+	}
 	// p.OutQueue <- packet
 	p.WriteNow(*packet)
 }
@@ -1055,7 +1072,7 @@ func NewPlayer(socket stdnet.Conn) *Player {
 		DuelOffer:        &Inventory{Capacity: 8},
 		InQueue:          make(chan *net.Packet, 4),
 		OutQueue:         make(chan *net.Packet, 2),
-		Reader:           bufio.NewReaderSize(socket, 5000),
+		Reader:           bufio.NewReader(wsutil.NewServerSideReader(socket)),
 		Writer:			  bufio.NewWriterSize(socket, 5000),
 		OpCiphers:		  [...]*isaac.ISAAC{nil, nil},
 	}
@@ -1431,7 +1448,6 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 		}
 	}
 	p.SetVar("targetMob", defender)
-	p.SetVar("fightTarget", defender)
 	defender.SessionCache().SetVar("fightTarget", attacker)
 	attacker.SessionCache().SetVar("fightTarget", defender)
 	attacker.AddState(StateFighting)
@@ -1463,24 +1479,6 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 		nextHit := int(math.Min(float64(defender.Skills().Current(entity.StatHits)), float64(attacker.MeleeDamage(defender))))
 		if defender.DamageFrom(attacker, nextHit, 0) {
 			return true
-		}
-
-		// TODO: hit sfx (1/2/3) 1 is generic hit noise 2 is armor hit noise 3 is ghost hit noise
-		sound := "combat1"
-		if nextHit == 0 {
-			// a is a miss
-			sound += "a"
-		} else {
-			// b is a hit
-			sound += "b"
-		}
-
-		// we send to both parties here, so long as they happen to be a player
-		if attackerp := AsPlayer(attacker); attackerp != nil {
-			attackerp.PlaySound(sound)
-		}
-		if defenderp := AsPlayer(defender); defenderp != nil {
-			defenderp.PlaySound(sound)
 		}
 		return false
 	})
@@ -1668,16 +1666,17 @@ func (p *Player) Read(data []byte) (n int, err error) {
 	for written < len(data) {
 		err := p.Socket.SetReadDeadline(time.Now().Add(time.Second * time.Duration(15)))
 		if err != nil {
+			// timeout after 15 seconds of nothing
 			return -1, errors.NewNetworkError("Deadline reached", true)
 		}
-		if p.IsWebsocket() && !p.hasReader {
+		if p.IsWebsocket() && len(data) > p.Reader.Buffered() {
 			// reset buffer read index and create the next reader
 			header, reader, err := wsutil.NextReader(p.Socket, ws.StateServerSide)
-			p.hasReader = true
-			p.SetVar("frameFin", header.Fin)
+			// p.hasReader = true
+			p.webFrame = header
 			if err != nil {
 				if err == io.EOF && !header.Fin {
-					return -1, errors.NewNetworkError("End of file mid-read:", true)
+					return -1, errors.NewNetworkError("EOF in the middle of a frame (kill websocket??)", true)
 				} else if err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
 					return -1, errors.NewNetworkError("closed conn", true)
 				} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
@@ -1685,21 +1684,14 @@ func (p *Player) Read(data []byte) (n int, err error) {
 				}
 				log.Warn("Problem creating reader for next websocket frame:", err)
 			}
-			if p.Reader == nil {
-				p.Reader = bufio.NewReader(io.LimitReader(reader, header.Length))
-			} else {
-				p.Reader.(*bufio.Reader).Reset(io.LimitReader(reader, header.Length))
-			}
+			p.Reader.Reset(io.LimitReader(reader, header.Length))
 		}
 		n, err := p.Reader.Read(data[written:])
+		written += n
 		if err != nil {
-			if err == io.EOF && p.IsWebsocket() {
-				p.hasReader = false
-				p.Reader = nil
-				if !p.VarBool("frameFin", false) {
-					return -1, errors.NewNetworkError("closed conn", true)
-				}
-				continue
+			if err == io.EOF && p.IsWebsocket() && !p.webFrame.Fin {
+				// TODO: Figure best actions to take upon these events
+				return -1, errors.NewNetworkError("EOF in the middle of a frame (kill websocket??)", true)
 			} else if err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "use of closed") {
 				return -1, errors.NewNetworkError("closed conn", true)
 			} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
@@ -1708,7 +1700,6 @@ func (p *Player) Read(data []byte) (n int, err error) {
 			continue
 			// return -1, errors.NewNetworkError(err.Error(), false)
 		}
-		written += n
 	}
 	return written, nil
 }

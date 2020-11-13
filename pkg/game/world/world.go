@@ -656,8 +656,12 @@ func BoundedChance(percent float64, minPercent, maxPercent float64) bool {
 		maxPercent, minPercent = minPercent, maxPercent
 	}
 	threshold := uint8(math.Max(minPercent, math.Min(maxPercent, percent)) / maxPercent * 256.0)
-	hit := rscRand.Rng.Uint8()
-	return hit <= threshold
+	return ChanceByte(int(threshold))
+}
+
+//ChanceByte Grabs a single 8-bit unsigned byte out of the rscgo/rand pkg, and returns true if it's less than or equals the provided threshold.
+func ChanceByte(threshold int) bool {
+	return rscRand.Byte() <= uint8(threshold)
 }
 
 //Chance should return true (percent)% of the time, and false (100-percent)% of the time.
@@ -665,7 +669,8 @@ func BoundedChance(percent float64, minPercent, maxPercent float64) bool {
 //
 // percent defines the percentage of chance for this check to pass.
 func Chance(percent float64) bool {
-	return BoundedChance(percent, 0.0, 100.0)
+	return ChanceByte(int(percent/100.0*256.0))
+	// return BoundedChance(percent, 0.0, 100.0)
 }
 
 //probWeights

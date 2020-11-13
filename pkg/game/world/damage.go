@@ -24,6 +24,19 @@ func (p *Player) DamageFrom(m entity.MobileEntity, damage int, kind int) bool {
 		p.Killed(m)
 		return true
 	}
+	sound := "combat1"
+	if damage == 0 {
+		// a is a miss
+		sound += "a"
+	} else {
+		// b is a hit
+		sound += "b"
+	}
+	// we send to both parties here, so long as they happen to be a player
+	if attackerp := AsPlayer(m); attackerp != nil {
+		attackerp.PlaySound(sound)
+	}
+	p.PlaySound(sound)
 	return false
 }
 
@@ -41,6 +54,17 @@ func (n *NPC) DamageFrom(m entity.MobileEntity, damage int, kind int) bool {
 		}
 		n.Killed(m)
 		return true
+	}
+	sound := "combat1"
+	if damage == 0 {
+		// a is a miss
+		sound += "a"
+	} else {
+		// b is a hit
+		sound += "b"
+	}
+	if attackerp := AsPlayer(m); attackerp != nil {
+		attackerp.PlaySound(sound)
 	}
 	return false
 }

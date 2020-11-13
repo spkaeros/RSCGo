@@ -142,35 +142,33 @@ func (l Location) IsValid() bool {
 func (l Location) NextStep(d entity.Location) entity.Location {
 	next := l.Step(l.DirectionToward(d))
 	if l.Collides(next) {
-//	if !l.Reachable(d) {
-			if l.X() < d.X() {
-				if next = l.Step(West); l.Collides(next) {
-					return next
-				}
+		if l.X() < d.X() {
+			if next = l.Step(West); l.Collides(next) {
+				return next
 			}
-			if l.X() > d.X() {
-				if next = l.Step(East); l.Collides(next) {
-					return next
-				}
+		}
+		if l.X() > d.X() {
+			if next = l.Step(East); l.Collides(next) {
+				return next
 			}
-			if l.Y() < d.Y() {
-				if next = l.Step(South); l.Collides(next) {
-					return next
-				}
-				next = l.Step(South)
+		}
+		if l.Y() < d.Y() {
+			if next = l.Step(South); l.Collides(next) {
+				return next
 			}
-			if l.Y() > d.Y() {
-				if next = l.Step(North); l.Collides(next) {
-					return next
-				}
-				next = l.Step(North)
+			next = l.Step(South)
+		}
+		if l.Y() > d.Y() {
+			if next = l.Step(North); l.Collides(next) {
+				return next
 			}
+			next = l.Step(North)
+		}
 	}
 	return next
 }
 
-func (l Location) BeeLine(loc entity.Location) (path *Pathway) {
-	path = &Pathway{StartX:0, StartY:0}
+func (l Location) PivotTo(loc entity.Location) (deltas [2][]int) {
 	step := 0.0
 	deltaX := float64(loc.X() - l.X())
 	deltaY := float64(loc.Y() - l.Y())
@@ -179,19 +177,22 @@ func (l Location) BeeLine(loc entity.Location) (path *Pathway) {
 	} else {
 		step = math.Abs(deltaY)
 	}
+	// queue := make([]entity.Location, 0, 16)
 	deltaX /= step
 	deltaY /= step
 	x, y := float64(l.X()), float64(l.Y())
 	for i := 1.0; i <= step; i++ {
 		if l.Collides(NewLocation(int(math.Floor(x)),int(math.Floor(y)))) {
-			return nil
+			return [2][]int { {}, {} }
 		} else {
-			path.addFirstWaypoint(int(x+deltaX), int(y+deltaY))
+			deltas[0] = append(deltas[0], int(x+deltaX) - l.X())
+			deltas[1] = append(deltas[1], int(y+deltaY) - l.Y())
+			// queue = append(queue, NewLocation(int(x+deltaX),int(y+deltaY)))
 		}
 		x += deltaX
 		y += deltaY
 	}
-	return path
+	return
 }
 
 func (l Location) Collide(x,y int) bool {
