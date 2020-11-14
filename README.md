@@ -43,7 +43,7 @@ This software is distributed under the terms of the ISC license, which basically
 Enjoy!
 
 
-## [Public RSCGo servers](https://rscturmoil.com/)
+## [Public RSCGo servers](https://rsclassic.dev/)
     
 
 I have begun hosting a publicly available RSCGo instance, using the 204 HTML5 webclient written by misterhat, to provide an RSC experience just as it used to be, to the masses without needing to do any downloading, or entering personal information to start playing at the site above, rscturmoil.com
