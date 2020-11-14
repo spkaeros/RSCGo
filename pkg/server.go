@@ -420,7 +420,7 @@ func (s *Server) Start() {
 					// move some amount between 2-15 tiles, moving 1 tile per tick
 					n.SetVar("steps", rand.Intn(13+1)+2)
 					// wait some amount between 25-50 ticks before doing this again
-					n.SetVar("ticks", rand.Intn(25+1)+25)
+					n.SetVar("ticks", rand.Intn(10+1)+25)
 				}
 				if n.VarInt("ticks", 0) > 0 {
 					n.Dec("ticks", 1)

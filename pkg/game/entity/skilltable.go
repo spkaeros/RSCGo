@@ -37,7 +37,7 @@ const (
 	StatAgility
 	StatThieving
 )
-
+var mask = ^3
 //SkillTable Represents a skill table for a mob.
 type SkillTable struct {
 	current    [18]int
@@ -147,10 +147,10 @@ func (s *SkillTable) String() (s1 string) {
 func (s *SkillTable) CombatLevel() int {
 	s.RLock()
 	defer s.RUnlock()
-	strengthAvg := (float64(s.maximum[StatAttack]+s.maximum[StatStrength]) * .25)
-	defenseAvg := (float64(s.maximum[StatDefense]+s.maximum[StatHits]) * .25)
-	magicAvg := (float64(s.maximum[StatPrayer]+s.maximum[StatMagic]) * .125)
-	rangedAvg := (float64(s.maximum[4]) * .375)
+	strengthAvg := float64(s.maximum[StatAttack]+s.maximum[StatStrength]) * .25
+	defenseAvg := float64(s.maximum[StatDefense]+s.maximum[StatHits]) * .25
+	magicAvg := float64(s.maximum[StatPrayer]+s.maximum[StatMagic]) * .125
+	rangedAvg := float64(s.maximum[StatRanged]) * .375
 	return int(math.Floor(defenseAvg + magicAvg + math.Max(strengthAvg, rangedAvg)))
 }
 
@@ -191,7 +191,7 @@ func init() {
 		accumulativeExp += uint64(exp)
 
 		// mask off final 2 bits
-		experienceLevels[lvl] = accumulativeExp & 0xFFFFFFFFFFFFFFFC
+		experienceLevels[lvl] = accumulativeExp & uint64(mask)
 	}
 }
 
@@ -217,6 +217,3 @@ func ExperienceToLevel(exp int) int {
 
 	return len(experienceLevels) - 1
 }
-
-// obase=10; ibase=16; 7FFFFFFFFFFFFFFC 9223372036854775804
-// obase=10; ibase=16; FFFFFFFFFFFFFFFC 18446744073709551612

@@ -54,7 +54,7 @@ type MobileEntity interface {
 	Killed(MobileEntity)
 	DamageFrom(MobileEntity, int, int) bool
 	StyleBonus(int) int
-	PrayerModifiers() [3]float64
+	PrayerModifiers() [3]int
 	PrayerActivated(int) bool
 	Skills() *SkillTable
 	TargetMob() MobileEntity

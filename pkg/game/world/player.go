@@ -476,21 +476,19 @@ func (p *Player) UpdateRegion(x, y int) {
 //
 // If the player is in controlled stance, each melee skill gets (experience).
 // Otherwise, whatever fight stance the player was in will get (experience)*3, and hits will get (experience).
-func (p *Player) DistributeMeleeExp(experience int) {
+func (p *Player) DistributeMeleeExp(experience float64) {
+	p.IncExp(entity.StatHits, int(experience))
 	switch p.FightMode() {
-	default:
-		p.IncExp(entity.StatHits, experience)
-		fallthrough
 	case 0:
 		for i := 0; i < 3; i++ {
-			p.IncExp(i, experience)
+			p.IncExp(i, int(experience))
 		}
 	case 1:
-		p.IncExp(entity.StatStrength, experience*3)
+		p.IncExp(entity.StatStrength, int(experience*3.0))
 	case 2:
-		p.IncExp(entity.StatAttack, experience*3)
+		p.IncExp(entity.StatAttack, int(experience*3.0))
 	case 3:
-		p.IncExp(entity.StatDefense, experience*3)
+		p.IncExp(entity.StatDefense, int(experience*3.0))
 	}
 }
 
@@ -1489,12 +1487,15 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 	p.SessionCache().SetVar("deathTime", time.Now())
 	p.PlaySound("death")
 	p.SendPacket(Death)
+
 	for i := 0; i < 14; i++ {
 		p.DeactivatePrayer(i)
 	}
+
 	for i := 0; i < 18; i++ {
 		p.Skills().SetCur(i, p.Skills().Maximum(i))
 	}
+
 	p.SendPrayers()
 	p.SendStats()
 	p.SetDirection(NorthWest)
@@ -1523,7 +1524,7 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 	}
 
 	if killerp := AsPlayer(killer); killerp != nil {
-		killerp.DistributeMeleeExp(p.ExperienceReward() / 4)
+		killerp.DistributeMeleeExp(p.ExperienceReward() / 4.0)
 		killerp.Message("You have defeated " + p.Username() + "!")
 	}
 

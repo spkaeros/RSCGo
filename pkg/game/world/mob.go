@@ -65,6 +65,8 @@ const (
 	SyncNeedsPosition = SyncRemoved | SyncMoved | SyncSprite
 )
 
+var mask = ^3
+
 // mobSet a collection of entity.MobileEntitys
 type mobSet []entity.MobileEntity
 
@@ -177,9 +179,10 @@ type Mob struct {
 }
 
 //ExperienceReward returns the total rewarded experience upon killing a mob.
-func (m *Mob) ExperienceReward() int {
-	meleeTotal := (m.Skills().Current(entity.StatStrength) + m.Skills().Current(entity.StatAttack) + m.Skills().Current(entity.StatDefense)) * 2
-	return (int(math.Floor(float64(m.Skills().Current(entity.StatHits)+meleeTotal)/7)) * 2) + 20
+func (m *Mob) ExperienceReward() float64 {
+	meleeTotal := (m.Skills().Maximum(entity.StatStrength) + m.Skills().Maximum(entity.StatAttack) + m.Skills().Maximum(entity.StatDefense)) * 2
+	total := float64(m.Skills().Maximum(entity.StatHits) + meleeTotal)
+	return math.Floor(total/7.0) * 2 + 20
 }
 
 func (m *Mob) TargetMob() entity.MobileEntity {
@@ -596,29 +599,22 @@ func (m *Mob) PrayerActivated(i int) bool {
 	return m.Prayers[i]
 }
 
-func (m *Mob) PrayerModifiers() [3]float64 {
-	var modifiers = [...]float64{1.0, 1.0, 1.0}
-
-	mods := [...]float64{1.05, 1.10, 1.15}
-
-	defenseMods := [...]int{0, 3, 9}
-	strengthMods := [...]int{1, 4, 10}
-	attackMods := [...]int{2, 5, 11}
-	for idx, prayer := range defenseMods {
-		if m.Prayers[prayer] {
-			modifiers[entity.StatDefense] = mods[idx]
-		}
+func (m *Mob) PrayerModifiers() (modifiers [3]int) {
+	// how much each tier of prayers affects combat, by percentage
+	power := [3]int{5, 10, 15}
+	
+	// combat prayers ordered as: attack, defense, strength
+	// same as stat panel order; this makes the array index match
+	prayers := [...] [3]int{
+		{2, 5, 11},
+		{0, 3, 9},
+		{1, 4, 10},
 	}
-
-	for idx, prayer := range strengthMods {
-		if m.Prayers[prayer] {
-			modifiers[entity.StatStrength] = mods[idx]
-		}
-	}
-
-	for idx, prayer := range attackMods {
-		if m.Prayers[prayer] {
-			modifiers[entity.StatAttack] = mods[idx]
+	for skillIdx, modifierList := range prayers {
+		for tier, prayer := range modifierList {
+			if m.PrayerActivated(prayer) {
+				modifiers[skillIdx] = power[tier]
+			}
 		}
 	}
 	return modifiers
@@ -637,17 +633,34 @@ func (m *Mob) StyleBonus(stat int) int {
 
 //MaxMeleeDamage Calculates and returns the current max hit for this mob, based on many variables.
 func (m *Mob) MaxMeleeDamage() float64 {
-	return ((float64(m.Skills().Current(entity.StatStrength))*m.PrayerModifiers()[entity.StatStrength])+float64(m.StyleBonus(entity.StatStrength)))*((float64(m.PowerPoints())*0.00175)+0.1) + 1.05
+	skillPower := (float64(m.Skills().Current(entity.StatStrength)) * (float64(m.PrayerModifiers()[entity.StatStrength]) / 100 + 1)) + 
+			float64(m.StyleBonus(entity.StatStrength))
+	weapPower := float64(m.PowerPoints()) * 0.00175 + 0.1
+	return math.Ceil(skillPower * weapPower)
+	// return (
+			// (float64(m.Skills().Current(entity.StatStrength)) * ((float64(m.PrayerModifiers()[entity.StatStrength]) / 100 + 1)) +
+			// float64(m.StyleBonus(entity.StatStrength))) *
+				// float64(m.PowerPoints())*0.00175+0.1) + 1.05
 }
 
 //AttackPoints Calculates and returns the accuracy capability of this mob, based on many variables, as a single variable.
 func (m *Mob) AttackPoints() float64 {
-	return ((float64(m.Skills().Current(entity.StatAttack))*m.PrayerModifiers()[entity.StatAttack])+float64(m.StyleBonus(entity.StatAttack)))*((float64(m.AimPoints())*0.00175)+0.1) + 1.05
+	// skillAccuracy := float64(m.Skills().Current(entity.StatAttack)) * float64(m.PrayerModifiers()[entity.StatAttack] / 100 + 1) +
+	skillAccuracy := (float64(m.Skills().Current(entity.StatAttack)) * (float64(m.PrayerModifiers()[entity.StatAttack]) / 100 + 1)) + 
+			float64(m.StyleBonus(entity.StatAttack))
+	weapAccuracy := float64(m.AimPoints()) * 0.00175 + 0.1
+	return math.Ceil(skillAccuracy * weapAccuracy)
+	// return ((float64(m.Skills().Current(entity.StatAttack))*m.PrayerModifiers()[entity.StatAttack])+float64(m.StyleBonus(entity.StatAttack)))*((float64(m.AimPoints())*0.00175)+0.1) + 1.05
 }
 
 //DefensePoints Calculates and returns the defensive capability of this mob, based on many variables, as a single variable.
 func (m *Mob) DefensePoints() float64 {
-	return ((float64(m.Skills().Current(entity.StatDefense))*m.PrayerModifiers()[entity.StatDefense])+float64(m.StyleBonus(entity.StatDefense)))*((float64(m.ArmourPoints())*0.00175)+0.1) + 1.05
+	// skillAccuracy := float64(m.Skills().Current(entity.StatDefense)) * float64(m.PrayerModifiers()[entity.StatDefense] / 100 + 1) +
+	skillDefense := (float64(m.Skills().Current(entity.StatDefense)) * (float64(m.PrayerModifiers()[entity.StatDefense]) / 100 + 1)) + 
+			float64(m.StyleBonus(entity.StatDefense))
+	armourDefense := float64(m.ArmourPoints()) * 0.00175 + 0.1
+	return math.Ceil(skillDefense * armourDefense)
+	// return ((float64(m.Skills().Current(entity.StatDefense))*m.PrayerModifiers()[entity.StatDefense])+float64(m.StyleBonus(entity.StatDefense)))*((float64(m.ArmourPoints())*0.00175)+0.1) + 1.05
 }
 
 func (m *Mob) CombatRng() *rand.Rand {
@@ -709,6 +722,13 @@ func (m *Mob) GenerateHit(max float64) int {
 	return int(math.Max(1, math.Min(max, value)))
 }
 
+func (n *NPC) MeleeDamage(target entity.MobileEntity) int {
+	if n.Skills().Maximum(entity.StatStrength) < 5 {
+		return 0
+	}
+	return n.Mob.MeleeDamage(target)
+}
+
 //MeleeDamage Calculates and returns a melee damage from the receiver mob onto the target mob.
 // This basically wraps a statistically random percentage check around a call to GenerateHit.
 // Generally believed to be a near-perfect approximation of canonical Jagex RSClassic melee damage formula.
@@ -720,7 +740,7 @@ func (m *Mob) MeleeDamage(target entity.MobileEntity) int {
 	// if int(m.CombatRngSrc().Uint8()) <= threshold {
 		// return m.GenerateHit(m.MaxMeleeDamage())
 	// }
-	if ChanceByte(int(math.Max(0.0, math.Min(212.0, 256.0*m.AttackPoints()/(target.DefensePoints()*4.0))))) {
+	if ChanceByte(int(math.Max(0.0, math.Min(212.0, 256.0 * m.AttackPoints() / (target.DefensePoints()*4.0))))) {
 	//BoundedChance(256.0*m.AttackPoints()/(target.DefensePoints()*4.0), 0.0, 212.0) {// 82.0) {
 		return m.GenerateHit(m.MaxMeleeDamage())
 	}

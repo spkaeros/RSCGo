@@ -34,7 +34,6 @@ type NPC struct {
 type (
 	damageTable = map[uint64]int
 	damages     struct {
-		total int
 		damageTable
 		sync.RWMutex
 	}
@@ -80,6 +79,7 @@ func NewNpc(id, startX, startY, minX, maxX, minY, maxY int) *NPC {
 		n.Skills().SetMax(2, definitions.Npcs[id].Strength)
 		n.Skills().SetMax(3, definitions.Npcs[id].Hits)
 	}
+
 	for i := 4; i < 18; i++ {
 		n.Skills().SetCur(i, 0)
 		n.Skills().SetMax(i, 0)
@@ -92,14 +92,11 @@ func NewNpc(id, startX, startY, minX, maxX, minY, maxY int) *NPC {
 func (d damages) Put(username uint64, dmg int) {
 	d.Lock()
 	defer d.Unlock()
-	d.total += dmg
 	d.damageTable[username] += dmg
 }
 
 func (n *NPC) CacheDamage(hash uint64, dmg int) {
-	n.meleeRangeDamage.Lock()
-	defer n.meleeRangeDamage.Unlock()
-	n.meleeRangeDamage.damageTable[hash] += dmg
+	n.meleeRangeDamage.Put(hash, dmg)
 }
 
 // Returns true if this NPCs definition has the attackable hostility bit set.
@@ -180,19 +177,25 @@ var NpcDeathTriggers []NpcBlockingTrigger
 		// n.magicDamage.Put(AsPlayer(m).UsernameHash(), dmg)
 	// }
 	// n.Damage(dmg)
-// 	}
+// }
 
 func (n *NPC) rewardKillers() (winner *Player) {
 	n.meleeRangeDamage.RLock()
 	defer n.meleeRangeDamage.RUnlock()
-	totalDamage, totalExp, amount := n.meleeRangeDamage.total, n.ExperienceReward() & ^3, 0
+	totalExp := float64(n.ExperienceReward())/* & int(uint32(mask))*/
+	amount := 0
+	total := 0.0
+	for _, damage := range n.meleeRangeDamage.damageTable {
+		total += float64(damage)
+	}
 	for username, damage := range n.meleeRangeDamage.damageTable {
 		if player, ok := Players.FindHash(username); ok {
-			player.DistributeMeleeExp(int(float64(totalExp) / float64(totalDamage) * float64(damage)))
+			// log.Debug(player, damage, totalExp, n.meleeRangeDamage.total, totalExp / float64(n.meleeRangeDamage.total) * damage))
 			if damage > amount || winner == nil {
 				winner = player
 				amount = damage
 			}
+			player.DistributeMeleeExp(totalExp / float64(total) * float64(damage))
 		}
 	}
 	return winner
@@ -232,7 +235,7 @@ func (n *NPC) Remove() {
 }
 
 func (n *NPC) Respawn() {
-	for i := 0; i <= 3; i++ {
+	for i := 0; i < 18; i++ {
 		n.Skills().SetCur(i, n.Skills().Maximum(i))
 	}
 	n.UnsetVar("removed")
@@ -296,3 +299,4 @@ func (n *NPC) Chat(target *Player, msgs ...string) {
 		time.Sleep(TickMillis*wait)
 	}
 }
+

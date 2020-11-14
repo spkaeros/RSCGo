@@ -45,8 +45,12 @@ func (n *NPC) DamageFrom(m entity.MobileEntity, damage int, kind int) bool {
 	splat := NewHitsplat(n, damage)
 	n.enqueueArea(npcEvents, splat)
 	n.Skills().SetCur(entity.StatHits, n.Skills().Current(entity.StatHits) - damage)
-	if damage > 0 {
-		n.CacheDamage(m.SessionCache().VarLong("username", 0), damage)
+	if damage > 0 && m.IsPlayer() {
+		if kind == 0 {
+			n.meleeRangeDamage.Put(AsPlayer(m).UsernameHash(), damage)
+		} else if kind == 1 {
+			n.magicDamage.Put(AsPlayer(m).UsernameHash(), damage)
+		}
 	}
 	if n.Skills().Current(entity.StatHits) <= 0 {
 		if attacker := AsPlayer(m); attacker != nil {
