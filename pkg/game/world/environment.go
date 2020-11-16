@@ -11,13 +11,18 @@ package world
 
 import (
 	"os"
+	"runtime/pprof"
 	"reflect"
 	"time"
 	"strings"
+	"fmt"
+	"strconv"
+	"sync"
 
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/mattn/anko/core"
 	"github.com/mattn/anko/env"
+	"github.com/mattn/anko/vm"
 	"github.com/mattn/anko/parser"
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/game/net"
@@ -34,11 +39,16 @@ import (
 //CommandHandlers A map to assign in-game commands to the functions they should execute.
 var CommandHandlers = make(map[string]func(*Player, []string))
 
+const serverPrefix = "@que@@whi@[@cya@SERVER@whi@]: "
+
 func init() {
 	env.Packages["state"] = map[string]reflect.Value{
 		"UsingItem":			  reflect.ValueOf(MSItemAction),
 		"InDuel":				  reflect.ValueOf(StateDueling),
 		"DoingThing":			  reflect.ValueOf(StateAction),
+		"ChatMenu":				  reflect.ValueOf(StateChatChoosing),
+		"OptionMenu":			  reflect.ValueOf(MSItemAction),
+		"Banking":			  reflect.ValueOf(StateBanking),
 	}
 	env.Packages["world"] = map[string]reflect.Value{
 		"getPlayer":              reflect.ValueOf(Players.FindIndex),
@@ -61,6 +71,7 @@ func init() {
 		"maxY":                   reflect.ValueOf(MaxY),
 		"getObjectAt":            reflect.ValueOf(GetObject),
 		"getNpc":                 reflect.ValueOf(GetNpc),
+		"commands":                 reflect.ValueOf(CommandHandlers),
 		"attackNpcCalls":         reflect.ValueOf(NpcAtkTriggers),
 		"checkCollisions":        reflect.ValueOf(IsTileBlocking),
 		"tileData":               reflect.ValueOf(CollisionData),
@@ -127,6 +138,8 @@ func init() {
 	}
 	env.Packages["net"] = map[string]reflect.Value {
 		"barePacket": reflect.ValueOf(net.NewEmptyPacket),
+		"logout": reflect.ValueOf(Logout),
+		"bankUpdateItem": reflect.ValueOf(BankUpdateItem),
 	}
 	env.PackageTypes["world"] = map[string]reflect.Type{
 		"players":    reflect.TypeOf(Players),
@@ -139,9 +152,17 @@ func init() {
 	}
 	env.Packages["packets"] = map[string]reflect.Value{
 		"ping": reflect.ValueOf(67),
+		"follow": reflect.ValueOf(165),
+		"closeBank": reflect.ValueOf(212),
+		"depositBank": reflect.ValueOf(23),
+		"withdrawBank": reflect.ValueOf(22),
+		"menuAnswer": reflect.ValueOf(116),
 		"equip": reflect.ValueOf(169),
 		"unequip": reflect.ValueOf(170),
 		"dropItem": reflect.ValueOf(246),
+		"recoverAccount": reflect.ValueOf(220),
+		"closeStream": reflect.ValueOf(31),
+		"logout": reflect.ValueOf(102),
 		"pickupItem": reflect.ValueOf(247),
 		"itemAction": reflect.ValueOf(90),
 		"spellOnNpc": reflect.ValueOf(50),
@@ -150,6 +171,8 @@ func init() {
 		"spellOnPlayer": reflect.ValueOf(229),
 		"spellOnSelf": reflect.ValueOf(137),
 		"ticketRequests": reflect.ValueOf(163),
+		"appearance": reflect.ValueOf(235),
+		"report": reflect.ValueOf(206),
 		"attackNpc": reflect.ValueOf(190),
 		"attackPlayer": reflect.ValueOf(171),
 		"fightMode": reflect.ValueOf(29),
@@ -162,7 +185,9 @@ func init() {
 		"settings": reflect.ValueOf(111),
 		"privacySettings": reflect.ValueOf(64),
 		"command": reflect.ValueOf(38),
+		"chat": reflect.ValueOf(216),
 		"cancelRecoverys": reflect.ValueOf(196),
+		"changePassword": reflect.ValueOf(25),
 		"changeRecoverys": reflect.ValueOf(203),
 		"recoverys": reflect.ValueOf(208),
 		"prayerOn": reflect.ValueOf(60),
@@ -343,6 +368,9 @@ func init() {
 		}),
 	}
 	env.Packages["log"] = map[string]reflect.Value{
+		"print":  reflect.ValueOf(fmt.Println),
+		"printf": reflect.ValueOf(fmt.Printf),
+
 		"debug":  reflect.ValueOf(log.Info.Println),
 		"debugf": reflect.ValueOf(log.Info.Printf),
 		"warn":   reflect.ValueOf(log.Warning.Println),
@@ -351,6 +379,7 @@ func init() {
 		"errf":   reflect.ValueOf(log.Error.Printf),
 		"cheat":  reflect.ValueOf(log.Suspicious.Println),
 		"cheatf": reflect.ValueOf(log.Suspicious.Printf),
+
 		"cmd":    reflect.ValueOf(log.Commands.Println),
 		"cmdf":   reflect.ValueOf(log.Commands.Printf),
 	}
@@ -363,12 +392,14 @@ func ScriptEnv() *env.Env {
 	e.Define("runAfter", time.AfterFunc)
 	e.Define("after", time.After)
 	e.Define("schedule", tasks.TickList.Schedule)
+	e.Define("onTick", tasks.TickList.Add)
+	e.Define("newChatMessage", NewChatMessage)
 	e.Define("newProjectile", NewProjectile)
 	e.Define("Minute", time.Second*60)
 	e.Define("Hour", time.Second*60*60)
 	e.Define("Second", time.Second)
 	e.Define("Millisecond", time.Millisecond)
-	e.Define("ChatDelay", time.Millisecond*(640*3))
+	e.Define("ChatDelay", TickMillis*3)
 	e.Define("tNanos", time.Nanosecond)
 	e.Define("ATTACK", entity.StatAttack)
 	e.Define("DEFENSE", entity.StatDefense)
@@ -456,6 +487,7 @@ func ScriptEnv() *env.Env {
 		return rand.Rng.Float64()*127.0+1.0 <= float64(cur)+40.0-float64(req)*1.5
 	})
 	e.Define("roll", Chance)
+	e.Define("parseArgs", strutil.ParseArgs)
 	e.Define("boundedRoll", BoundedChance)
 	e.Define("weightedChance", WeightedChoice)
 	e.Define("statRoll", Statistical)
@@ -571,4 +603,118 @@ func ScriptEnv() *env.Env {
 	e.Define("toNpc", AsNpc)
 	e = core.Import(e)
 	return e
+}
+func init() {
+	CommandHandlers["shutdown"] = func(player *Player, args []string) {
+		wait := sync.WaitGroup{}
+		Players.Range(func(p1 *Player) {
+			wait.Add(1)
+			go func() {
+				defer wait.Done()
+				p1.Message(serverPrefix + "Shutting down.")
+				time.Sleep(TickMillis)
+				p1.WriteNow(*Logout)
+				p1.Destroy()
+			}()
+		})
+		wait.Wait()
+		os.Exit(1)
+	}
+	CommandHandlers["memdump"] = func(player *Player, args []string) {
+		file, err := os.Create("rscgo.mprof")
+		if err != nil {
+			log.Warning.Println("Could not open file to dump memory profile:", err)
+			player.Message(serverPrefix + "Error encountered opening profile output file.")
+			return
+		}
+		err = pprof.WriteHeapProfile(file)
+		if err != nil {
+			log.Warning.Println("Could not write heap profile to file::", err)
+			player.Message(serverPrefix + "Error encountered writing profile output file.")
+			return
+		}
+		err = file.Close()
+		if err != nil {
+			log.Warning.Println("Could not close heap file::", err)
+			player.Message(serverPrefix + "Error encountered closing profile output file.")
+			return
+		}
+		log.Command(player.Username() + " dumped memory profile of the game to rscgo.mprof")
+		player.Message(serverPrefix + "Dumped memory profile.")
+	}
+	CommandHandlers["cpudump"] = func(player *Player, args []string) {
+		if len(args) < 1 {
+			player.Message(serverPrefix + "Invalid args.  Usage: /pprof <start|stop>")
+			return
+		}
+		switch args[0] {
+		case "start":
+			file, err := os.Create("rscgo.pprof")
+			if err != nil {
+				log.Warn("Could not open file to dump CPU profile:", err)
+				player.Message(serverPrefix + "Error encountered opening profile output file.")
+				return
+			}
+			err = pprof.StartCPUProfile(file)
+			if err != nil {
+				log.Warning.Println("Could not start CPU profile:", err)
+				player.Message(serverPrefix + "Error encountered starting CPU profile.")
+				return
+			}
+			log.Command(player.Username() + " began profiling CPU time.")
+			player.Message(serverPrefix + "CPU profiling started.")
+		case "stop":
+			pprof.StopCPUProfile()
+			log.Command(player.Username() + " has finished profiling CPU time, output should be in rscgo.pprof")
+			player.Message(serverPrefix + "CPU profiling finished.")
+		default:
+			player.Message(serverPrefix + "Invalid args.  Usage: /pprof <start|stop>")
+		}
+	}
+	CommandHandlers["run"] = func(player *Player, args []string) {
+		line := strings.Join(args, " ")
+		env := ScriptEnv()
+		env.Define("p", player)
+		env.Define("target", player.TargetMob)
+		env.Define("npc", func() *NPC {
+			return AsNpc(player.TargetMob())
+		})
+		env.Define("n", func() *NPC {
+			return AsNpc(player.TargetMob())
+		})
+		env.Define("p1", func() *Player {
+			return AsPlayer(player.TargetMob())
+		})
+		env.Define("player", player)
+		env.Define("dataService", DefaultPlayerService)
+		ret, err := vm.Execute(env, nil, "bind = import(\"bind\")\nworld = import(\"world\")\nlog = import(\"log\")\nids = import(\"ids\")\npackets = import(\"packets\")\nnet= import(\"net\")\n\n"+line)
+		if err != nil {
+			player.Message(serverPrefix + "Error: " + err.Error())
+			log.Debug("Anko Error: " + err.Error())
+			return
+		}
+		switch ret.(type) {
+		case string:
+			player.Message(serverPrefix + "string(" + ret.(string) + ")")
+		case int64:
+			player.Message(serverPrefix + "int(" + strconv.Itoa(int(ret.(int64))) + ")")
+		case int:
+			player.Message(serverPrefix + "int(" + strconv.Itoa(ret.(int)) + ")")
+		case bool:
+			if ret.(bool) {
+				player.Message(serverPrefix + "bool(TRUE)")
+			} else {
+				player.Message(serverPrefix + "bool(FALSE)")
+			}
+		default:
+			player.Message(serverPrefix + fmt.Sprintf("%v", ret))
+		}
+		log.Debugf("%v\n", ret)
+	}
+	CommandHandlers["reload"] = func(player *Player, args []string) {
+		Clear()
+		RunScripts()
+		player.Message(serverPrefix + "Reloaded runtime content scripts from ./scripts/")
+		log.Debugf("Triggers[\n\t%d item actions,\n\t%d scenary actions,\n\t%d boundary actions,\n\t%d npc actions,\n\t%d item->boundary actions,\n\t%d item->scenary actions,\n\t%d attacking NPC actions,\n\t%d killing NPC actions\n];\n", len(ItemTriggers), len(ObjectTriggers), len(BoundaryTriggers), len(NpcTriggers), len(InvOnBoundaryTriggers), len(InvOnObjectTriggers), len(NpcAtkTriggers), len(NpcDeathTriggers))
+	}
 }

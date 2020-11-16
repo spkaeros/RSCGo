@@ -34,8 +34,8 @@ bind.packet(packets.privacySettings, func(player, packet) {
 })
 
 bind.packet(packets.recoverys, func(player, packet) {
-	questions = make([]string, 5)
-	answers = make([]string, 5)
+	questions = []
+	answers = []
 	offset = 0
 	for i = 0; i < 5; i++ {
 		offset++
@@ -47,19 +47,61 @@ bind.packet(packets.recoverys, func(player, packet) {
 		if !checkPacket(packet, offset) {
 			return
 		}
-		questions = append(questions, packet.ReadStringN(length))
+		questions += packet.ReadStringN(length)
 		offset += 8
 		if !checkPacket(packet, offset) {
 			return
 		}
-		answers = append(answers, packet.ReadUint64())
+		answers += packet.ReadUint64()
 	}
 	log.debug(questions, answers)
 })
 bind.packet(packets.changeRecoverys, func(player, packet) {
-	player.WritePacket(net.barePacket((224)))
+//	player.WritePacket(net.barePacket([223]))
 })
 
 bind.packet(packets.cancelRecoverys, func(player, packet) {
 	// TODO: Cancel request to change
 })
+
+bind.packet(packets.recoverAccount, func(player, packet) {
+	usernameHash = packet.ReadUint64()
+	//dataService is a db.PlayerService that all login-related functions should use to access or change player profile data.
+	go func() {
+		if !dataService.PlayerHasRecoverys(usernameHash) {
+			player.Destroy()
+			return
+		}
+		player.WritePacket(net.barePacket([1]))
+		for _, question in dataService.PlayerLoadRecoverys(usernameHash) {
+			// player.OutQueue <- &net.Packet{Bare: true, FrameBuffer: append([]byte{byte(len(question))}, []byte(question)...)}
+//			player.WritePacket(net.barePacket([len(question), question...]))
+			// player.SendPacket(net.NewReplyPacket([]byte{byte(len(question))}).AddBytes([]byte(question)))
+		}
+	}()
+})
+
+bind.packet(packets.changePassword, func(player, packet) {
+	oldPassword = packet.ReadString()
+	newPassword = packet.ReadString()
+	go func() {
+		//dataService is a db.PlayerService that all login-related functions should use to access or change player profile data.
+		dataService = db.DefaultPlayerService
+		if !dataService.PlayerValidLogin(player.UsernameHash(), crypto.Hash(oldPassword)) {
+			player.Message("The old password you provided does not appear to be valid.  Try again.")
+			return
+		}
+		dataService.PlayerChangePassword(player.UsernameHash(), crypto.Hash(newPassword))
+		player.Message("Successfully updated your password to the new password you have provided.")
+	}()
+})
+
+
+
+
+
+
+
+
+
+

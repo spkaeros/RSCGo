@@ -1,0 +1,55 @@
+load("scripts/lib/packets.ank")
+
+reasons = [
+	"Offensive Language",                // 1
+	"Item scamming",                     // 2
+	"Password scamming",                 // 3
+	"Bug abuse",                         // 4
+	"Staff impersonation",               // 5
+	"Account sharing",                   // 6
+	"Macroing",                          // 7
+	"Multiple logging in",               // 8
+	"Encouraging others to break rules", // 9
+	"Misuse of customer support",        // 10
+	"Advertising/website",               // 11
+	"Real world item trading",           // 12
+]
+
+actions = [
+	"reported",
+	"muted",
+	"banned",
+]
+
+bind.packet(packets.report, func(player, packet) {
+	userHash = packet.ReadUint64()
+	reasonIndex = packet.ReadUint8() - 1
+	actionIndex = packet.ReadUint8()
+
+	if userHash == player.UsernameHash() {
+		player.Message("You can't report yourself!!")
+		return
+	}
+
+	// validate reason for report
+	if reasonIndex < 0 || reasonIndex > len(reasons)-1 {
+		log.cheatf("Report had invalid reason:\n[\n\taction:%d ('%s'),\n\tsender:'%s',\n\ttarget:'%s',\n\treason:%d\n];\n", actionIndex, actions[actionIndex], player.Username(), strutil.Base37.Decode(userHash), reasonIndex+1)
+		return
+	}
+	// validate action report results in
+	if actionIndex < 0 || actionIndex > len(actions)-1 {
+		log.cheatf("Report had invalid action:\n[\n\taction:%d,\n\tsender:'%s',\n\ttarget:'%s',\n\treason:%d ('%s')\n];\n", actionIndex, player.Username(), strutil.Base37.Decode(userHash), reasonIndex+1, reasons[reasonIndex])
+		return
+	}
+	// validate username provided for report is a real player
+	if !db.DefaultPlayerService.PlayerNameExists(strutil.Base37.Decode(userHash)) {
+		player.Message("Invalid player name.")
+		return
+	}
+
+	log.debugf("Report:\n[\n\taction:%d ('%s'),\n\tsender:'%s',\n\ttarget:'%s',\n\treason:%d ('%s')\n];\n", actionIndex, actions[actionIndex], player.Username(), strutil.Base37.Decode(userHash), reasonIndex+1, reasons[reasonIndex])
+
+	log.debugf(player.Username(), actions[actionIndex], base37(userHash), "for breaking rule", reasonIndex+1, "('"+reasons[reasonIndex]+"')")
+	player.Message("Thank-you, your abuse report has been received.")
+
+})

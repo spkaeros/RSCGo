@@ -13,11 +13,13 @@ import (
 	"crypto/tls"
 	stdnet "net"
 	"os"
+	"runtime"
 	"sync"
 	"strconv"
 	"time"
 	"strings"
 	"math"
+	// "math/rand"
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
@@ -36,12 +38,11 @@ import (
 	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 	"github.com/spkaeros/rscgo/pkg/game/net"
-	"github.com/spkaeros/rscgo/pkg/game"
+	// "github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/game/net/handshake"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 	
-	_ "github.com/spkaeros/rscgo/pkg/game/net/handlers"
 )
 
 const (
@@ -87,10 +88,10 @@ var (
 		},
 		ServerName: "rsclassic.dev",
 		InsecureSkipVerify: false,
-		// SessionTicketsDisabled: true,
+		SessionTicketsDisabled: true,
 		PreferServerCipherSuites: true,
 		// ClientAuth: tls.RequireAndVerifyClientCert,
-		// ClientAuth: tls.NoClientCert,
+		ClientAuth: tls.NoClientCert,
 		// Rand: crand.Reader,
 	}
 	wsUpgrader = ws.Upgrader{
@@ -103,6 +104,8 @@ var (
 )
 
 func main() {
+	runtime.GOMAXPROCS(runtime.NumCPU() * 2)
+	// runtime.GOMAXPROCS(1)
 	if check(flags.Parse(cliFlags)) == nil {
 		log.Warn("Error parsing command arguments!")
 		os.Exit(1)
@@ -156,13 +159,13 @@ func main() {
 	// So, the order here of these three phases is important.  If you attempt to load object spawn locations during the same phase as the collision
 	// data, it will result in a world filled with objects that are not solid.  Many similar bugs possible.  Best just to leave this be.
 	run(db.LoadTileDefinitions, db.LoadObjectDefinitions, db.LoadBoundaryDefinitions, db.LoadItemDefinitions, db.LoadNpcDefinitions)
-	run(world.LoadCollisionData, game.UnmarshalPackets, world.RunScripts)
+	run(world.LoadCollisionData, world.UnmarshalPackets, world.RunScripts)
 	run(db.LoadObjectLocations, db.LoadNpcLocations, db.LoadItemLocations)
 
 	if config.Verbose() {
 		log.Debug("Loaded collision data from", len(world.Sectors), "map sectors")
 		log.Debug("Loaded", len(definitions.TileOverlays), "tile types")
-		log.Debug("Loaded", game.PacketCount(), "packet types, with handlers for", game.HandlerCount(), "of them")
+		log.Debug("Loaded", world.PacketCount(), "packet types, with handlers for", world.HandlerCount(), "of them")
 		log.Debug("Loaded", world.ItemIndexer.Load(), "items and", len(definitions.Items), "item types")
 		log.Debug("Loaded", world.Npcs.Size(), "NPCs and", len(definitions.Npcs), "NPC types")
 		scenary, boundary := 0, 0
@@ -336,7 +339,9 @@ again:
 				defer func() {
 					// makes the queue goroutines kill themself
 					player.InQueue <- nil
+					close(player.InQueue)
 					player.OutQueue <- nil
+					close(player.OutQueue)
 				}()
 				for {
 					packet, err := player.ReadPacket()
@@ -351,28 +356,28 @@ again:
 					player.InQueue <- packet
 				}
 			}()
+			// go func() {
+				// defer close(player.InQueue)
+				// for {
+					// select {
+					// case packet, ok := <-player.InQueue:
+						// if packet == nil || !ok {
+							// return
+						// }
+						// // script packet handlers are the most `modern` solution, and will be the default selected for any incoming packet
+						// if handlePacket := world.PacketTriggers[packet.Opcode]; handlePacket != nil {
+							// handlePacket(player, packet)
+							// continue
+						// }
+						// if handlePacket := world.Handler(packet.Opcode); handlePacket != nil {
+							// // This is old legacy go code handlers that are deprecated and being replaced with the aforementioned scripting API
+							// handlePacket(player, packet)
+						// }
+					// }
+				// }
+			// }()
 			go func() {
-				defer close(player.InQueue)
-				for {
-					select {
-					case packet, ok := <-player.InQueue:
-						if packet == nil || !ok {
-							return
-						}
-						// script packet handlers are the most `modern` solution, and will be the default selected for any incoming packet
-						if handlePacket := world.PacketTriggers[packet.Opcode]; handlePacket != nil {
-							handlePacket(player, packet)
-							continue
-						}
-						if handlePacket := game.Handler(packet.Opcode); handlePacket != nil {
-							// This is old legacy go code handlers that are deprecated and being replaced with the aforementioned scripting API
-							handlePacket(player, packet)
-						}
-					}
-				}
-			}()
-			go func() {
-				defer close(player.OutQueue)
+				// defer close(player.OutQueue)
 				defer player.WriteNow(*world.Logout)
 				for {
 					select {
@@ -395,45 +400,41 @@ again:
 
 func (s *Server) Start() {
 	defer s.Ticker.Stop()
-	wait := sync.WaitGroup{}
 	for range s.C {
-		tasks.TickList.Call(nil)
-		world.Players.AsyncRange(func(p *world.Player) {
+		start := time.Now()
+		tasks.TickList.Tick()
+		world.Players.Range(func(p *world.Player) {
 			if p == nil {
 				return
 			}
+			p.Tick()
 			if fn := p.TickAction(); fn != nil && !fn() {
 				p.ResetTickAction()
 			}
-			p.Tickables.Call(interface{}(p))
 
 			p.TraversePath()
 		})
-		wait.Add(world.Npcs.Size())
 		world.Npcs.RangeNpcs(func(n *world.NPC) bool {
-			go func() {
-				defer wait.Done()
-				if n.Busy() || n.IsFighting() {
-					return
-				}
-				if world.Chance(25) && n.VarInt("steps", 0) <= 0 && n.VarInt("ticks", 0) <= 0 {
-					// move some amount between 2-15 tiles, moving 1 tile per tick
-					n.SetVar("steps", rand.Intn(13+1)+2)
-					// wait some amount between 25-50 ticks before doing this again
-					n.SetVar("ticks", rand.Intn(10+1)+25)
-				}
-				if n.VarInt("ticks", 0) > 0 {
-					n.Dec("ticks", 1)
-				}
-				// wander aimlessly until we run out of scheduled steps
-				if n.VarInt("steps", 0) > 0 {
-					n.TraversePath()
-				}
-			}()
+			if n.Busy() || n.IsFighting() {
+				return false
+			}
+			
+			if world.Chance(25) && n.Steps <= 0 && n.Ticks <= 0 {
+				// move some amount between 2-15 tiles, moving 1 tile per tick
+				n.Steps = rand.Intn(13+1)+2
+				// wait some amount between 25-50 ticks before doing this again
+				n.Ticks = rand.Intn(10+1)+25
+			}
+			if n.Ticks > 0 {
+				n.Ticks -= 1
+			}
+			// wander aimlessly until we run out of scheduled steps
+			if n.Steps > 0 {
+				n.TraversePath()
+			}
 			return false
 		})
-		wait.Wait()
-		world.Players.AsyncRange(func(p *world.Player) {
+		world.Players.Range(func(p *world.Player) {
 			if p == nil {
 				return
 			}
@@ -471,18 +472,27 @@ func (s *Server) Start() {
 			}
 		})
 
-		world.Players.AsyncRange(func(p *world.Player) {
+		world.Players.Range(func(p *world.Player) {
 			if p == nil {
 				return
 			}
-			p.PostTickables.Call(interface{}(p))
 			p.ResetRegionRemoved()
 			p.ResetRegionMoved()
 			p.ResetSpriteUpdated()
 			p.ResetAppearanceChanged()
 		})
-		world.ResetNpcUpdateFlags()
+
+		world.Npcs.RangeNpcs(func(n *world.NPC) bool {
+			n.ResetRegionRemoved()
+			n.ResetRegionMoved()
+			n.ResetSpriteUpdated()
+			n.ResetAppearanceChanged()
+			return false
+		})
 		world.Ticks.Inc()
+		if config.Verbosity >= 5 {
+			log.Debug("time to process tick:", time.Since(start))
+		}
 	}
 }
 

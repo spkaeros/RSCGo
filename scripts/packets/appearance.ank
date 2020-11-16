@@ -21,3 +21,54 @@ bind.packet(packets.ticketRequests, func(player, packet) {
 		// log.debugf("%v wants info about players[%d](info update #%d); scheduling to send data...\n", player, serverIdx, appearanceTicket)
 	}
 })
+
+bind.packet(packets.appearance, func(player, packet) {
+	if !player.HasState(world.StateChangingLooks) {
+		// Make sure the player either has never logged in before, or talked to the makeover mage to get here.
+		return
+	}
+	isMale = packet.ReadBoolean()
+	headType = packet.ReadUint8() + 1
+	bodyType = packet.ReadUint8() + 1
+	legType = packet.ReadUint8() + 1 // appearance2Colour, seems to be a client const, value seems to remain 2.  ofc, legs never change
+	hairColor = packet.ReadUint8()
+	topColor = packet.ReadUint8()
+	legColor = packet.ReadUint8()
+	skinColor = packet.ReadUint8()
+	if hairColor >= len(validHeadColors) || !inArray(validHeads, headType) || topColor >= len(validBodyLegColors) || legColor >= len(validBodyLegColors) || skinColor >= len(validSkinColors) || !inArray(validBodys, bodyType) || legType != 3 || legColor >= len(validBodyLegColors) {
+		log.debugf("Invalid appearance data provided by %v: (headType:%v, bodyType:%v, legType:%v, hairColor:%v, topColor:%v, legColor:%v, skinColor:%v, gender:%v)\n", player.String(), headType, bodyType, legType, hairColor, topColor, legColor, skinColor, isMale)
+		return
+	}
+	if !isMale {
+		if bodyType != femaleBody {
+			log.cheat("Correcting invalid packet data: female asked for male body type; setting to female body type, packet from", player)
+			bodyType = femaleBody
+		}
+		if headType == beardHead {
+			log.cheat("Correcting invalid packet data: female asked for male head type; setting to female head type, packet from", player)
+			headType = metalHead
+		}
+	}
+	sprites = player.Equips()
+	if sprites[0] == player.Appearance.Head {
+		sprites[0] = headType
+	}
+	if sprites[1] == player.Appearance.Body {
+		sprites[1] = bodyType
+	}
+	player.Appearance.Body = bodyType
+	player.Appearance.Head = headType
+	player.Appearance.Male = isMale
+	player.Appearance.HeadColor = hairColor
+	player.Appearance.SkinColor = skinColor
+	player.Appearance.BodyColor = topColor
+	player.Appearance.LegsColor = legColor
+	player.UpdateAppearance()
+	player.RemoveState(world.StateChangingLooks)
+	if !player.Attributes.Contains("madeAvatar") {
+		player.SendPacket(world.WelcomeMessage)
+		player.Attributes.SetVar("madeAvatar", time.Now())
+                                                                                                                                                                                                                                                                                                                                                                                                  		player.Attributes.SetVar("lastLogin", time.Now())
+	}
+
+})

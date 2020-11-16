@@ -1,0 +1,79 @@
+state = import("state")
+load("scripts/lib/packets.ank")
+
+bind.packet(packets.withdrawBank, func(player, packet) {
+	if !player.HasState(state.Banking) {
+		return
+	}
+	id = packet.ReadUint16()
+	amount = packet.ReadUint32()
+	// botCheck = packet.ReadUint32()
+	idx = player.Bank().GetIndex(id)
+	if idx == -1 {
+		log.cheat("Attempted withdraw of item they do not have:", player.String(), id, amount)
+		return
+	}
+	item = player.Bank().Get(idx)
+	if item == nil || item.Amount < amount {
+		log.Suspicious.Println("Attempted withdraw of items they do not have:", player.String(), id, amount)
+		return
+	}
+	if !player.Inventory.CanHold(id, amount) {
+		player.Message("You don't have room to hold everything!")
+		return
+	}
+	if !item.Stackable() {
+		for i = 0; i < amount; i++ {
+			if !player.Inventory.CanHold(id, 1) || player.Bank().RemoveByID(id, 1) < 0 {
+				break
+			}
+			player.Inventory.Add(id, 1)
+		}
+		player.SendInventory()
+
+		if player.Bank().CountID(id) > 0 {
+			player.SendPacket(net.bankUpdateItem(idx, id, item.Amount))
+		} else {
+			player.SendPacket(net.bankUpdateItem(idx, id, 0))
+		}
+		return
+	}
+	if player.Bank().RemoveByID(id, amount) > -1 {
+		player.Inventory.Add(id, amount)
+		player.SendInventory()
+		if player.Bank().CountID(id) > 0 {
+			player.SendPacket(net.bankUpdateItem(idx, id, item.Amount))
+		} else {
+			player.SendPacket(net.bankUpdateItem(idx, id, 0))
+		}
+	}
+})
+
+bind.packet(packets.depositBank, func(player, packet) {
+	if !player.HasState(state.Banking) {
+		return
+	}
+	id = packet.ReadUint16()
+	amount = packet.ReadUint32()
+	if amount < 1 {
+		log.cheat("Attempted to deposit less than 1:", player.String())
+		return
+	}
+	count = player.Inventory.CountID(id)
+	if count < amount {
+		log.cheat("Attempted to deposit more than owned:", player.String())
+		return
+	}
+
+	if player.Inventory.RemoveByID(id, amount) > -1 {
+		player.Bank().Add(id, amount)
+		player.SendPacket(net.bankUpdateItem(player.Bank().GetIndex(id), id, player.Bank().GetByID(id).Amount))
+	}
+})
+
+bind.packet(packets.closeBank, func(player, packet) {
+	if !player.HasState(state.Banking) {
+		return
+	}
+	player.CloseBank()
+})

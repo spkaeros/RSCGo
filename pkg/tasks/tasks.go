@@ -22,14 +22,16 @@ import (
 // tickable script procedure
 type (
 	//scriptCall This is a type-free box type, made for boxing function pointers usually from an Anko script.
-	scriptCall interface{}
+	ScriptCall struct {
+		fn interface{}
+	}
 	//scriptArg This is a type-free box type, made for boxing any function arguments, for use in conjunction with scriptCall.
 	scriptArg interface{}
-	//scriptArg A slice of scriptCalls.
-	scriptCalls []scriptCall
-	//Scripts A locked slice of scriptCalls.
+	//scriptArg A slice of ScriptCalls.
+	ScriptCalls = []*ScriptCall
+	//Scripts A locked slice of ScriptCalls.
 	Scripts struct {
-		scriptCalls
+		ScriptCalls
 		sync.RWMutex
 	}
 )
@@ -72,32 +74,141 @@ func Schedule(ticks int, call Task) {
 func (s *Scripts) Schedule(ticks int, fn Task) {
 	curTick := 0
 	ticker := func() bool {
-		curTick++
 		if curTick >= ticks {
 			curTick = 0
 			return fn()
 		}
+		defer func() {
+			curTick += 1
+		}()
 		return false
 	}
 	s.Add(ticker)
 }
 
-func (s *Scripts) Add(fn scriptCall) {
+func (s *Scripts) Add(fn interface{}) {
 	s.Lock()
 	defer s.Unlock()
-	s.scriptCalls = append(s.scriptCalls, fn)
+	// log.Debugf("%v (%T)\n", fn, fn)
+	s.ScriptCalls = append(s.ScriptCalls, &ScriptCall{fn})
 }
 
 func (s *Scripts) Tick() {
-	s.Call(nil)
+	s.ForEach(nil)
 }
 
+func (s *Scripts) ForEach(arg interface{}) {
+	s.RLock()
+	// removeList := make(ScriptCalls, 0, len(s.ScriptCalls))
+	keepList := make(ScriptCalls, 0, len(s.ScriptCalls))
+	wait := sync.WaitGroup{}
+	for _, script := range s.ScriptCalls {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			if script == nil {
+				return
+			}
+			// Determine the type of our script callback
+			keepList = append(keepList, script)
+			switch script.fn.(type) {
+			// Simple function call, no input no input
+			case call:
+				(script.fn.(call))()
+			// A function call taking a *world.Player as an argument
+			case playerArgCall:
+				(script.fn.(playerArgCall))(arg.(entity.MobileEntity))
+			// A function call returning its active status.
+			case StatusReturnCall:
+				if (script.fn.(StatusReturnCall))() {
+					keepList = keepList[:len(keepList)-1]
+				}
+			// A function call taking a *world.Player as an argument and returning its active status.
+			case playerArgStatusReturnCall:
+				if (script.fn.(playerArgStatusReturnCall))(arg.(entity.MobileEntity)) {
+					keepList = keepList[:len(keepList)-1]
+				}
+			// A function call that returns two values, the first a result value, and the second an error value
+			// Upon non-nil error value, it will log the stringified err struct then remove from active list,
+			// otherwise schedules the same call to run again next tick.
+			case dualReturnCall:
+				ret, callErr := (script.fn.(dualReturnCall))(context.Background())
+				if !callErr.IsNil() {
+					log.Warn("Error retVal from a dualReturnCall in the Anko ctx:", callErr.Elem())
+					return
+				}
+				if v, ok := ret.Interface().(bool); ok && v {
+					keepList = keepList[:len(keepList)-1]
+					return
+				}
+				// log.Debugf("%v (%T)\n", script, script)
+				
+			// A function call that returns two values, the first a result value, and the second an error value
+			// Requires one argument, no type restrictions, so long as the client reads it properly.
+			// Upon non-nil error value, it will log the stringified err struct then remove from active list,
+			// otherwise schedules the same call to run again next tick.
+			case singleArgDualReturnCall:
+				ret, callErr := (script.fn.(singleArgDualReturnCall))(context.Background(), reflect.ValueOf(arg))
+				if !callErr.IsNil() {
+					log.Warn("Error retVal from a singleArgDualReturnCall in the Anko ctx:", callErr.String())
+					return
+				}
+				if v, ok := ret.Interface().(bool); ok && v {
+					keepList = keepList[:len(keepList)-1]
+					return
+				}
+			default:
+				log.Debugf("Unhandled task found: Type:%T, Value:%v\n", script.fn, script.fn)
+				return
+			}
+		}()
+	}
+	s.RUnlock()
+	wait.Wait()
+	s.Lock()
+	defer s.Unlock()
+	// for _, script := range removeList {
+		// if script.id >= len(s.ScriptCalls) {
+			// return
+		// }
+		// log.Debugf("Removing %v (type %T) from task list!\n", script.id, script)
+		// if script.id+1 < len(s.ScriptCalls) {
+			// s.ScriptCalls = append(s.ScriptCalls[:script.id], s.ScriptCalls[script.id+1:]...)
+		// } else {
+			// s.ScriptCalls = s.ScriptCalls[:i]
+		// }
+	// }
+	// for i, v := range keepList {
+		// log.Debug(i, "at", v)
+	// }
+	// s.ScriptCalls = keepList
+	// s.ScriptCalls = make(ScriptCalls, len(keepList))
+	s.ScriptCalls = keepList
+	// copy(s.ScriptCalls, keepList)
+	// for _, script := range removeList {
+		// for i := 0; i < len(s.ScriptCalls); i++ {
+			// v := s.ScriptCalls[i]
+			// if v == nil {
+				// continue
+			// }
+			// if v == script {
+				// s.ScriptCalls[i] = nil
+				// for ; i < len(s.ScriptCalls); i++ {
+					// if s.ScriptCalls[i] != nil {
+						// s.ScriptCalls[i], s.ScriptCalls[i+1] = s.ScriptCalls[i+1], s.ScriptCalls[i]
+					// }
+				// }
+				// break
+			// }
+		// }
+	// }
+}
+/*
 func (s *Scripts) Call(v interface{}) {
 	wait := sync.WaitGroup{}
-	// keep := make(scriptCalls, 0, len(s.scriptCalls))
-	removeList := make([]int, 0, len(s.scriptCalls))
+	removeList := make([]int, 0, len(s.ScriptCalls))
 	s.RLock()
-	for i, script := range s.scriptCalls {
+	for i, script := range s.ScriptCalls {
 		wait.Add(1)
 		go func(script scriptCall) {
 			defer wait.Done()
@@ -168,14 +279,15 @@ func (s *Scripts) Call(v interface{}) {
 	s.Lock()
 	defer s.Unlock()
 	for _, i := range removeList {
-		size := len(s.scriptCalls)
+		size := len(s.ScriptCalls)
 		if i < size-1 {
-			s.scriptCalls = append(s.scriptCalls[:i], s.scriptCalls[i+1:]...)
+			s.ScriptCalls = append(s.ScriptCalls[:i], s.ScriptCalls[i+1:]...)
 		} else {
-			s.scriptCalls = s.scriptCalls[:i]
+			s.ScriptCalls = s.ScriptCalls[:i]
 		}
 	}
-	// s.scriptCalls = make(scriptCalls, len(keep))
-	// copy(s.scriptCalls, keep)
-	// s.scriptCalls = keep
+	// s.ScriptCalls = make(ScriptCalls, len(keep))
+	// copy(s.ScriptCalls, keep)
+	// s.ScriptCalls = keep
 }
+*/

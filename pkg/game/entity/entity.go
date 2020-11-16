@@ -35,7 +35,6 @@ type Location interface {
 	Y() int
 	SetX(int)
 	SetY(int)
-	Collide(int,int) bool
 	Wilderness() int
 	Above() Location
 	Below() Location

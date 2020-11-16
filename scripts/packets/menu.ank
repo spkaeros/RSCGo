@@ -1,0 +1,13 @@
+state = import("state")
+load("scripts/lib/packets.ank")
+
+bind.packet(packets.menuAnswer, func(player, packet) {
+	choice = packet.ReadUint8()
+	if player.VarInt("state", 0)&state.ChatMenu&^state.OptionMenu == 0 {
+		return
+	}
+	if choice < 0 {
+		return
+	}
+	player.ReplyMenuC <- choice
+})

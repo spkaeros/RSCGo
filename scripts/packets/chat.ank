@@ -1,0 +1,14 @@
+load("scripts/lib/packets.ank")
+
+bind.packet(packets.chat, func(player, packet) {
+	msg = packet.ReadString()
+	for _, target in player.NearbyPlayers() {
+		target = toPlayer(target)
+		if target == nil {
+			return
+		}
+		if !target.ChatBlocked() || target.FriendsWith(player.UsernameHash()) {
+			target.Enqueue("playerEvents", newChatMessage(player, msg))
+		}
+	}
+})

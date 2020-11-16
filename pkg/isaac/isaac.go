@@ -131,13 +131,12 @@ func (r *ISAAC) Uint32() (number uint32) {
 	r.Lock()
 	defer r.Unlock()
 	number = uint32(r.randrsl[r.randcnt])
-	r.randcnt--
+	r.randcnt -= 1
 	if r.randcnt == 0 {
 		r.generateNextSet()
 		r.randcnt = 255
 	}
 	return
-//	return uint32(r.Int63() >> 31)
 }
 
 //Int31 returns a non-negative pseudo-random 31-bit integer as an int32

@@ -58,8 +58,6 @@ type (
 			Target   *Player
 			Inventory
 		}
-		Tickables         tasks.Scripts
-		PostTickables     tasks.Scripts
 		tickAction        tasks.StatusReturnCall
 		ActionLock        sync.RWMutex
 		ReplyMenuC        chan int8
@@ -157,7 +155,7 @@ func (p *Player) String() string {
 //SetTickAction queues a distanced action to run every game engine tick before path traversal, if action returns true, it will be reset.
 func (p *Player) SetTickAction(action func() bool) {
 	p.SetVar("tickAction", action)
-	// p.Tickables.Add(action)
+	
 }
 
 func (p *Player) TickAction() func() bool {
@@ -901,8 +899,8 @@ func (p *Player) OpenDuelScreen(target *Player) {
 
 //Destroy sends a kill signal to the underlying client to tear down all of the I/O routines and save the player.
 func (p *Player) Destroy() {
-	p.PostTickables.Add(func() bool {
 		p.killer.Do(func() {
+			p.WriteNow(*Logout)
 			defer func() {
 				p.Attributes.SetVar("lastIP", p.CurrentIP())
 				if err := p.Socket.Close(); err != nil {
@@ -923,8 +921,8 @@ func (p *Player) Destroy() {
 			}
 			log.Debug("Unregistered:{'" + p.CurrentIP() + "'}")
 		})
-		return true
-	})
+		// return true
+	// })
 }
 
 func (p *Player) AtObject(object *Object) bool {
@@ -1475,10 +1473,7 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 		}
 
 		nextHit := int(math.Min(float64(defender.Skills().Current(entity.StatHits)), float64(attacker.MeleeDamage(defender))))
-		if defender.DamageFrom(attacker, nextHit, 0) {
-			return true
-		}
-		return false
+		return defender.DamageFrom(attacker, nextHit, 0)
 	})
 }
 
@@ -1745,4 +1740,29 @@ func (p *Player) ReadPacket() (*net.Packet, error) {
 	}
 
 	return net.NewPacket(frame[0], frame[1:]), nil
+}
+
+func (p *Player) Tick() {
+	for {
+		select {
+		case packet, ok := <-p.InQueue:
+			if packet == nil || !ok {
+				return
+			}
+			// script packet handlers are the most `modern` solution, and will be the default selected for any incoming packet
+			if handlePacket := PacketTriggers[packet.Opcode]; handlePacket != nil {
+				handlePacket(p, packet)
+				continue
+			}
+			if handlePacket := Handler(packet.Opcode); handlePacket != nil {
+				// This is old legacy go code handlers that are deprecated and being replaced with the aforementioned scripting API
+				handlePacket(p, packet)
+			}
+
+			log.Debugf("Unhandled packet: {opcode%v, data[%v]:%v }\n", packet.Opcode, packet.Length(), packet.FrameBuffer)
+			continue
+		default:
+			return
+		}
+	}
 }

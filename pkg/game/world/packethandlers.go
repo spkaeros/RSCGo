@@ -7,21 +7,20 @@
  *
  */
 
-package game
+package world
 
 import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/spkaeros/rscgo/pkg/config"
 	"github.com/spkaeros/rscgo/pkg/game/net"
-	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/log"
 	// "github.com/spkaeros/rscgo/pkg/rand"
 )
 
 //HandlerFunc Represents a func that is to be called whenever a connected client receives
 // a specific incoming handlers.
-type HandlerFunc = func(*world.Player, *net.Packet)
+type HandlerFunc = func(*Player, *net.Packet)
 
 //handlers A map with descriptive names for the keys, and functions to run for the value.
 var Handlers = make(map[string]HandlerFunc)
@@ -43,8 +42,8 @@ type packetList struct {
 
 func init() {
 	// Just to prevent non-handled handlers message from spamming up the logs
-	// AddHandler("pingreq", func(*world.Player, *net.Packet) {})
-	// AddHandler("sessionreq", func(player *world.Player, p *net.Packet) {
+	// AddHandler("pingreq", func(*Player, *net.Packet) {})
+	// AddHandler("sessionreq", func(player *Player, p *net.Packet) {
 		// // TODO: Remove maybe...TLS deprecates the need for it
 		// player.SetConnected(true)
 		// p.ReadUint8() // UID, useful?

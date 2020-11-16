@@ -137,7 +137,7 @@ func RunScripts() {
 					if event.Op&fsnotify.Write == fsnotify.Write {
 						lastEvent = time.Now()
 						lastPath = event.Name
-						log.Info.Println("Reloading " + event.Name)
+						log.Debug("Reloading", event.Name)
 						_, err := vm.Execute(ScriptEnv(), &vm.Options{Debug: true}, load(event.Name))
 
 						if err != nil {
@@ -163,7 +163,7 @@ func RunScripts() {
 				log.Warn("Anko error ['"+path+"']:", err)
 				return nil
 			}
-			//log.Info.Println(val)
+			// log.Debug(val)
 			return scriptWatcher.Add(path)
 		}
 

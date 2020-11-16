@@ -11,12 +11,13 @@ package world
 
 import (
 	"sync"
+	// "math/rand"
 	"time"
 	
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
-	"github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/tasks"
+	"github.com/spkaeros/rscgo/pkg/rand"
 )
 
 //Npcs A collection of every NPC in the game, sorted by index
@@ -25,9 +26,10 @@ var Npcs = NewMobList()
 //NPC Represents a single non-playable character within the game world.
 type NPC struct {
 	Mob
-	ID       int
+	ID       					  int
 	StartPoint                    entity.Location
 	Boundaries                    [2]entity.Location
+	Steps, Ticks				  int
 	meleeRangeDamage, magicDamage damages
 }
 
@@ -140,23 +142,6 @@ func (n *NPC) Command() string {
 	return definitions.Npcs[n.ID].Command
 }
 
-
-//ResetNpcUpdateFlags Resets the synchronization update flags for all NPCs in the game world.
-func ResetNpcUpdateFlags() {
-	wait := sync.WaitGroup{}
-	Npcs.RangeNpcs(func(n *NPC) bool {
-		wait.Add(1)
-		go func() {
-			defer wait.Done()
-			n.ResetRegionRemoved()
-			n.ResetRegionMoved()
-			n.ResetSpriteUpdated()
-			n.ResetAppearanceChanged()
-		}()
-		return false
-	})
-	wait.Wait()
-}
 type NpcBlockingTrigger struct {
 	Check func(*Player, *NPC) bool
 	Action func(*Player, *NPC)
@@ -164,20 +149,6 @@ type NpcBlockingTrigger struct {
 
 //NpcDeathTriggers List of script callbacks to run when you kill an NPC
 var NpcDeathTriggers []NpcBlockingTrigger
-
-// func (n *NPC) Damage(dmg int) {
-	// n.enqueueArea(npcSplatHandle, HitSplat{n, dmg})
-	// n.Skills().DecreaseCur(entity.StatHits, dmg)
-// }
-// 
-// func (n *NPC) DamageFrom(m entity.MobileEntity, dmg, dmgKind int) {
-	// if dmgKind == 0 {
-		// n.meleeRangeDamage.Put(AsPlayer(m).UsernameHash(), dmg)
-	// } else if dmgKind == 1 {
-		// n.magicDamage.Put(AsPlayer(m).UsernameHash(), dmg)
-	// }
-	// n.Damage(dmg)
-// }
 
 func (n *NPC) rewardKillers() (winner *Player) {
 	n.meleeRangeDamage.RLock()
@@ -190,7 +161,6 @@ func (n *NPC) rewardKillers() (winner *Player) {
 	}
 	for username, damage := range n.meleeRangeDamage.damageTable {
 		if player, ok := Players.FindHash(username); ok {
-			// log.Debug(player, damage, totalExp, n.meleeRangeDamage.total, totalExp / float64(n.meleeRangeDamage.total) * damage))
 			if damage > amount || winner == nil {
 				winner = player
 				amount = damage
@@ -222,6 +192,7 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 	killer.ResetFighting()
 	n.ResetFighting()
 	n.Remove()
+	
 	tasks.Schedule(16, func() bool {
 		n.Respawn()
 		return true
@@ -252,7 +223,7 @@ func (n *NPC) Respawn() {
 func (n *NPC) TraversePath() {
 	dir := n.Direction()
 	if Chance(15) {
-		dir = int(rand.Rng.Uint8n(8))
+		dir = rand.Intn(8)
 	}
 	dst := n.Step(dir)
 	
@@ -260,7 +231,7 @@ func (n *NPC) TraversePath() {
 		return
 	}
 
-	n.Dec("steps", 1)
+	n.Steps -= 1
 	n.SetLocation(dst, false)
 }
 

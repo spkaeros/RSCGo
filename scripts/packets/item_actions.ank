@@ -122,8 +122,8 @@ bind.packet(packets.pickupItem, func(player, packet) {
 			maxDelta++
 		}
 		delta = player.Delta(item.Location)
-		if delta > maxDelta || delta == 1 && player.Collides(item.X(), item.Y()) {
-			return player.FinishedPath()
+		if !player.Near(item, maxDelta) || !player.Reachable(item) {
+			return !player.FinishedPath()
 		}
 
 		if !player.Inventory.CanHold(item.ID, item.Amount) {

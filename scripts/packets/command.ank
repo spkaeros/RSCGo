@@ -1,0 +1,28 @@
+strings = import("strings")
+
+load("scripts/lib/packets.ank")
+
+serverPrefix = "@que@@whi@[@cya@SERVER@whi@]: "
+
+bind.packet(packets.command, func(player, packet) {
+	if !checkPacket(packet, 1) {
+		return
+	}
+	raw = packet.ReadString()
+	if len(raw) <= 0 {
+		return
+	}
+	args = parseArgs(raw)
+	if len(args) <= 0 {
+		return
+	}
+	handler, ok = world.commands[strings.ToLower(args[0])]
+	if !ok {
+		player.Message(serverPrefix + "Command not found.  Double check your spelling then try again.")
+		log.cmdf("%v sent invalid command: ::%v\n", player.Username(), raw)
+		return
+	}
+	log.cmdf("%v sent command: ::%v\n", player.Username(), raw)
+	handler(player, args[1:])
+})
+

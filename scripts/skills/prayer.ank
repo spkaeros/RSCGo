@@ -12,7 +12,7 @@ drainRates = [15,15,15,30,30,30,5,10,10,60,60,60,60,60,60]
 
 bind.onLogin(func(player) {
 	drained = 0
-	player.Tickables.Add(func() {
+	onTick(func() {
 		index = 0
 		for drainRate in drainRates {
 			if player.PrayerActivated(index) {
@@ -40,7 +40,7 @@ bind.item(itemPredicate("bury", 20, 413, 604, 814), func(player, item) {
 	player.Message("You dig a hole in the ground")
 	// sleep(Millisecond*640)
 	player.AddState(state.DoingThing)
-	player.Tickables.Schedule(1, func() {
+	schedule(1, func() {
 		player.Message("You bury the " + strings.ToLower(item.Name()))
 		player.Inventory.RemoveByID(toInt(item.ID), 1)
 		switch item.ID {

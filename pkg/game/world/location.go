@@ -8,7 +8,6 @@ import (
 	
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/rand"
-	"github.com/spkaeros/rscgo/pkg/log"
 )
 
 //Direction represents directions that mobs can face within the game world.  Ranges from 1-8
@@ -30,7 +29,6 @@ const (
 	SouthEast
 	East
 	NorthEast
-	// TODO: Check is right
 	LeftFighting
 	RightFighting
 )
@@ -177,7 +175,6 @@ func (l Location) PivotTo(loc entity.Location) (deltas [2][]int) {
 	} else {
 		step = math.Abs(deltaY)
 	}
-	// queue := make([]entity.Location, 0, 16)
 	deltaX /= step
 	deltaY /= step
 	x, y := float64(l.X()), float64(l.Y())
@@ -187,18 +184,11 @@ func (l Location) PivotTo(loc entity.Location) (deltas [2][]int) {
 		} else {
 			deltas[0] = append(deltas[0], int(x+deltaX) - l.X())
 			deltas[1] = append(deltas[1], int(y+deltaY) - l.Y())
-			// queue = append(queue, NewLocation(int(x+deltaX),int(y+deltaY)))
 		}
 		x += deltaX
 		y += deltaY
 	}
 	return
-}
-
-func (l Location) Collide(x,y int) bool {
-	c:= l.Collides(NewLocation(x,y))
-	log.Debug(c)
-	return c
 }
 
 func (l Location) Collides(dst entity.Location) bool {
@@ -210,60 +200,44 @@ func (l Location) ReachableCoords(x, y int) bool {
 	if l.LongestDelta(dst) > 1 {
 		dst = l.NextTileToward(dst)
 	}
-	// check mask of our tile and dst tile
+	// first we'll take care of the simple cases, straights e.g N,E,S,W
 	if IsTileBlocking(l.X(), l.Y(), byte(ClipBit(l.DirectionToward(dst))), true) ||
 			IsTileBlocking(dst.X(), dst.Y(), byte(ClipBit(dst.DirectionToward(l))), false) {
 		return false
 	}
 
-	// does the walk tile affect both X and Y coord at same time
-	// if bitmask&(ClipNorth|ClipSouth))|dstmask&(ClipNorth|ClipSouth) != 0 &&
-	// bitmask&(ClipNorth|ClipSouth))|dstmask&(ClipEast|ClipWest) != 0 {
+	// below is for diagonal movement
 	if dst.X() != l.X() && dst.Y() != l.Y() {
 		// check masks diagonally
 		var vmask, hmask byte
+		// if we're heading west, we check for walls blocking
+		// the south side of a tile, but if headed east,
+		// we check walls blocking the north side of the tile
 		if dst.X() > l.X() {
 			vmask |= ClipSouth
 		} else {
 			vmask |= ClipNorth
 		}
+		// if we're heading south, we check for walls blocking
+		// the east side of a tile, but if headed north,
+		// we check walls blocking the west side of a tile
 		if dst.Y() > l.Y() {
 			hmask |= ClipEast
 		} else {
 			hmask |= ClipWest
 		}
+		// both significant sides of the tile must be blocked
+		// in order to stop our path.
+		// This works because we can still traverse toward
+		// our goal either vertically or horizontally,
+		// unless these checks both fail
 		if IsTileBlocking(l.X(), dst.Y(), vmask, false) && IsTileBlocking(dst.X(), l.Y(), hmask, false) {
 			return false
 		}
 	}
 	return true
 }
-// 
-// func (l Location) ReachableCoords(dstX,dstY int) bool {
-	// step := 0.0
-	// deltaX := float64(dstX - l.X())
-	// deltaY := float64(dstY - l.Y())
-	// if math.Abs(deltaX) >= math.Abs(deltaY) {
-		// step = math.Abs(deltaX)
-	// } else {
-		// step = math.Abs(deltaY)
-	// }
-	// deltaX /= step
-	// deltaY /= step
-	// x, y := float64(l.X()), float64(l.Y())
-	// start := l.Clone()
-	// for i := 1.0; i <= step; i++ {
-		// if start.Collides(NewLocation(int(x),int(y))) {// l.ReachableCoords(int(math.Floor(x)),int(math.Floor(y))) {
-		// // NewLocation(int(float64(x)+deltaX/step), int(float64(y)+deltaY/step))
-			// return false
-		// }
-		// x += deltaX
-		// y += deltaY
-		// start.SetX(int(x))
-		// start.SetY(int(y))
-	// }
-	// return true
-// }
+
 func (l Location) Step(dir int) entity.Location {
 	loc := l.Clone()
 	if dir == 2 || dir == 1 || dir == 3 {
@@ -317,42 +291,22 @@ func (l Location) Delta(other entity.Location) (delta int) {
 //DeltaX Returns the difference between this locations x coord and the other locations x coord
 func (l Location) DeltaX(other entity.Location) (deltaX int) {
 	deltaX = int(math.Abs(float64(other.X()) - float64(l.X())))
-	// if ourX > theirX {
-		// deltaX = ourX - theirX
-	// } else if theirX > ourX {
-		// deltaX = theirX - ourX
-	// }
 	return
 }
 
 //DeltaY Returns the difference between this locations y coord and the other locations y coord
 func (l Location) DeltaY(other entity.Location) (deltaY int) {
 	deltaY = int(math.Abs(float64(other.Y()) - float64(l.Y())))
-	// if ourY > theirY {
-		// deltaY = ourY - theirY
-	// } else if theirY > ourY {
-		// deltaY = theirY - ourY
-	// }
 	return
 }
 
 //DeltaY Returns the difference between this locations y coord and the other locations y coord
 func (l Location) TheirDeltaY(other entity.Location) (deltaY int) {
-	// if ourY > theirY {
-		// deltaY = ourY - theirY
-	// } else if theirY > ourY {
-		// deltaY = theirY - ourY
-	// }
 	return other.Y() - l.Y()
 }
 
 //DeltaY Returns the difference between this locations y coord and the other locations y coord
 func (l Location) TheirDeltaX(other entity.Location) (deltaY int) {
-	// if ourY > theirY {
-		// deltaY = ourY - theirY
-	// } else if theirY > ourY {
-		// deltaY = theirY - ourY
-	// }
 	return other.X() - l.X()
 }
 

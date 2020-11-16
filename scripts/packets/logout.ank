@@ -1,0 +1,20 @@
+net = import("net")
+
+load("scripts/lib/packets.ank")
+
+func logout(player, packet) {
+	if player.Busy() {
+		player.SendPacket(world.CannotLogout)
+		return
+	}
+
+	if player.Connected() {
+		return
+	}
+	player.SendPacket(net.logout)
+	player.Destroy()
+}
+
+bind.packet(packets.logout, logout)
+
+bind.packet(packets.closeStream, logout)

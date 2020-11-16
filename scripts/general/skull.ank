@@ -17,7 +17,7 @@ bind.command("skulled", func(player, args) {
 })
 
 bind.onLogin(func(player) {
-	player.Tickables.Add(func() {
+	onTick(func() {
 		if player.Skulled() {
 			player.Attributes.Dec("skullTicks", 1)
 
@@ -26,5 +26,6 @@ bind.onLogin(func(player) {
 				player.SetSkulled(false)
 			}
 		}
+		return false
 	})
 })
