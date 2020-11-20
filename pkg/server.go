@@ -297,7 +297,6 @@ again:
 			// protocol pads password out to constant 19 chars long (+1 terminator) for some reason with 0x20 bytes
 			password := strings.TrimSpace(string(rsaData[offset:offset+19]))
 			offset += 20
-			log.Debug(password)
 			// The rscplus team viewed this data below as a nonce, but in my opinion, this is not the motivation for this data.
 			// I'd call these more of an initialization vector (IV), as wikipedia defines it, used to make RSA semantically secure.
 			offset += 8
