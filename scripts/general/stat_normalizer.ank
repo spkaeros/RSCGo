@@ -1,7 +1,7 @@
 bind = import("bind")
 math = import("math")
 
-bind.onLogin(func(player) {
+bind.login(func(player) {
 	onTick(func() {
 		if CurTick() % (player.PrayerActivated(PRAYER_RAPID_RESTORE) ? 50 : 100) == 0 {
 			for i in [ ATTACK, DEFENSE, STRENGTH, RANGED, MAGIC, COOKING, WOODCUTTING, FIREMAKING,

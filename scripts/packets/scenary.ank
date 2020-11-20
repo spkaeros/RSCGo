@@ -1,0 +1,207 @@
+net = import("net")
+bind = import("bind")
+state = import("state")
+
+bind.packet(packets.sceneAction, func(player, packet) {
+	if player.Busy() || player.IsFighting() {
+		return
+	}
+	x = packet.ReadUint16()
+	y = packet.ReadUint16()
+	object = world.getObjectAt(x, y)
+
+	if object == nil {
+		log.cheat(player.String(), "attempted to use a scene object which doesn't exist")
+		return
+	}
+	player.SetTickAction(func() {
+	// player.WalkingArrivalAction(object, 1, func() {
+		if object == nil || world.getObjectAt(x, y) != object || player.Busy() {
+			return false
+		}
+		if !player.AtObject(object) {
+			return true
+		}
+		player.ResetPath()
+		player.AddState(state.Batching)
+		for trigger in *bind.sceneActions {
+			if trigger.Check(object, 0) {
+				go func() {
+					trigger.Action(player, object, 0)
+					player.RemoveState(state.Batching)
+				}()
+				return
+			}
+		}
+		player.RemoveState(state.Batching)
+		player.SendPacket(world.unhandledMessage)
+		return false
+	})
+})
+
+bind.packet(packets.sceneAction2, func(player, packet) {
+	if player.Busy() || player.IsFighting() {
+		return
+	}
+	x = packet.ReadUint16()
+	y = packet.ReadUint16()
+	object = world.getObjectAt(x, y)
+
+	if object == nil {
+		log.cheat(player.String(), "attempted to use a scene object which doesn't exist")
+		return
+	}
+	player.SetTickAction(func() {
+	// player.WalkingArrivalAction(object, 1, func() {
+		if object == nil || world.getObjectAt(x, y) != object || player.Busy() {
+			return false
+		}
+		if !player.AtObject(object) {
+			return true
+		}
+		player.ResetPath()
+		player.AddState(state.Batching)
+		for trigger in *bind.sceneActions {
+			if trigger.Check(object, 1) {
+				go func() {
+					trigger.Action(player, object, 1)
+					player.RemoveState(state.Batching)
+				}()
+				return
+			}
+		}
+		player.RemoveState(state.Batching)
+		player.SendPacket(world.unhandledMessage)
+		return false
+	})
+})
+
+bind.packet(packets.boundaryAction, func(player, packet) {
+	if player.Busy() || player.IsFighting() {
+		return
+	}
+	x = packet.ReadUint16()
+	y = packet.ReadUint16()
+	object = world.getObjectAt(x, y)
+
+	if object == nil || !object.Boundary {
+		log.cheat(player.String(), "attempted to use a scene object which doesn't exist")
+		return
+	}
+	player.SetTickAction(func() {
+	// player.WalkingArrivalAction(object, 1, func() {
+		if object == nil || world.getObjectAt(x, y) != object || player.Busy() {
+			return false
+		}
+		if !player.AtObject(object) {
+			return true
+		}
+		player.ResetPath()
+		player.AddState(state.Batching)
+		for trigger in *bind.boundaryActions {
+			if trigger.Check(object, 0) {
+				go func() {
+					trigger.Action(player, object, 0)
+					player.RemoveState(state.Batching)
+				}()
+				return false
+			}
+		}
+		player.RemoveState(state.Batching)
+		player.SendPacket(world.unhandledMessage)
+		return false
+	})
+})
+
+bind.packet(packets.boundaryAction2, func(player, packet) {
+	if player.Busy() || player.IsFighting() {
+		return
+	}
+	x = packet.ReadUint16()
+	y = packet.ReadUint16()
+	object = world.getObjectAt(x, y)
+
+	if object == nil || !object.Boundary {
+		log.cheat(player.String(), "attempted to use a scene object which doesn't exist")
+		return
+	}
+	player.SetTickAction(func() {
+	// player.WalkingArrivalAction(object, 1, func() {
+		if object == nil || world.getObjectAt(x, y) != object {
+			return false
+		}
+		if !player.AtObject(object) {
+			return true
+		}
+		player.ResetPath()
+		player.AddState(state.Batching)
+		for trigger in *bind.boundaryActions {
+			if trigger.Check(object, 1) {
+				go func() {
+					trigger.Action(player, object, 1)
+					player.RemoveState(state.Batching)
+				}()
+				return false
+			}
+		}
+		player.RemoveState(state.Batching)
+		player.SendPacket(world.unhandledMessage)
+		return false
+	})
+})
+
+bind.packet(packets.invOnScene, func(player, packet) {
+	x = packet.ReadUint16()
+	y = packet.ReadUint16()
+	object = world.getObjectAt(x, y)
+	if object == nil || object.Boundary {
+		log.cheat("attempted to use an item on a scene object which doesn't exist")
+		return
+	}
+	itemIdx = packet.ReadUint16()
+	if itemIdx >= player.Inventory.Size() {
+		log.cheat("attempted to use an item that doesn't exist on a scene object")
+		return
+	}
+	item = player.Inventory.Get(itemIdx)
+	bounds = object.Boundaries()
+	player.SetTickAction(func() {
+		if player.Busy() || world.getObjectAt(x, y) != object {
+			return true
+		}
+
+		if objectDef(object.ID).CollisionType == 2 || objectDef(object.ID).CollisionType == 3 {
+			if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.WithinArea(bounds) {
+					// player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() &&
+					// player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y()
+				player.ResetPath()
+				player.AddState(state.Batching)
+				go func() {
+					for action in *bind.invSceneActions {
+						if action(player, object, item) {
+							player.RemoveState(state.Batching)
+							return
+						}
+					}
+					player.SendPacket(world.unhandledMessage)
+					player.RemoveState(state.Batching)
+				}()
+			}
+		}
+		if player.AtObject(object) {
+				player.ResetPath()
+				player.AddState(state.Batching)
+				go func() {
+					for action in *bind.invSceneActions {
+						if action(player, object, item) {
+							player.RemoveState(state.Batching)
+							return
+						}
+					}
+					player.SendPacket(world.unhandledMessage)
+					player.RemoveState(state.Batching)
+				}()
+		}
+		return false
+	})
+})

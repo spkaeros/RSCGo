@@ -16,13 +16,16 @@ bind.packet(packets.command, func(player, packet) {
 	if len(args) <= 0 {
 		return
 	}
-	handler, ok = world.commands[strings.ToLower(args[0])]
+	handler, ok = bind.commands[strings.ToLower(args[0])]
 	if !ok {
 		player.Message(serverPrefix + "Command not found.  Double check your spelling then try again.")
 		log.cmdf("%v sent invalid command: ::%v\n", player.Username(), raw)
 		return
 	}
-	log.cmdf("%v sent command: ::%v\n", player.Username(), raw)
+	if len(args) < 1 {
+		args += "(N/A)"
+	}
+	log.cmdf("%v sent command: ::%v\n", player.Username(), args[0])
 	handler(player, args[1:])
 })
 

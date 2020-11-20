@@ -89,8 +89,10 @@ var ObjectTriggers []ObjectTrigger
 //BoundaryTriggers List of script callbacks to run for boundary actions
 var BoundaryTriggers []ObjectTrigger
 
+type Callback interface{}
+
 //NpcTriggers List of script callbacks to run for NPC talking actions
-var NpcTriggers []NpcTrigger
+var NpcTalkList = make([]Callback, 0, 800)
 
 //var Triggers []Trigger
 
@@ -107,7 +109,7 @@ var NpcAtkTriggers []NpcBlockingTrigger
 func Clear() {
 	ItemTriggers = ItemTriggers[:0]
 	ObjectTriggers = ObjectTriggers[:0]
-	NpcTriggers = NpcTriggers[:0]
+	NpcTalkList = NpcTalkList[:0]
 	NpcAtkTriggers = NpcAtkTriggers[:0]
 	NpcDeathTriggers = NpcDeathTriggers[:0]
 	BoundaryTriggers = BoundaryTriggers[:0]
@@ -156,14 +158,13 @@ func RunScripts() {
 
 	err = filepath.Walk("./scripts", func(path string, info os.FileInfo, err error) error {
 		if !info.Mode().IsDir() && strings.HasSuffix(path, "ank") && !strings.Contains(path, "def") && !strings.Contains(path, "lib") {
-			_, err := vm.Execute(ScriptEnv(), &vm.Options{Debug: true}, "bind = import(\"bind\")\nworld = import(\"world\")\nlog = import(\"log\")\nids = import(\"ids\")\npackets = import(\"packets\")\n\n"+load(path))
+			_, err := vm.Execute(ScriptEnv(), &vm.Options{Debug: true}, "bind = import(\"bind\")\nworld = import(\"world\")\nlog = import(\"log\")\nids = import(\"ids\")\npackets = import(\"packets\")\nnet = import(\"net\")\nstate = import(\"state\")\n\n"+load(path))
 			//// Note: Still want to run the code even after a parse error to see what happens
 			// _, err = vm.Run(ScriptEnv(), &vm.Options{Debug: true}, stmt)
 			if err != nil {
 				log.Warn("Anko error ['"+path+"']:", err)
 				return nil
 			}
-			// log.Debug(val)
 			return scriptWatcher.Add(path)
 		}
 

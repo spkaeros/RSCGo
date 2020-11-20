@@ -16,7 +16,7 @@ bind.command("skulled", func(player, args) {
 	player.Message("skulled: " + player.Skulled() + (player.Skulled() ? "; time left:" + minutes + "m" + seconds + "s (" + toInt(player.Cache("skullTicks")) + " ticks)" : ""))
 })
 
-bind.onLogin(func(player) {
+bind.login(func(player) {
 	onTick(func() {
 		if player.Skulled() {
 			player.Attributes.Dec("skullTicks", 1)

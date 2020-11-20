@@ -44,8 +44,7 @@ func (q tileQueue) Less(i, j int) bool {
 
 func (q tileQueue) Swap(i, j int) {
 	q[i], q[j] = q[j], q[i]
-	q[i].index = i
-	q[j].index = j
+	q[i].index, q[j].index = j, i
 }
 
 func (q *tileQueue) Push(x interface{}) {
@@ -120,7 +119,7 @@ func (p *Pathfinder) MakePath() *Pathway {
 		//			return makePath(active)
 		// return nil
 		// }
-		if position.Equals(p.end) {
+		if position.Equals(p.end) || p.tileQueue.Len() > 512 {
 			// We made it!
 			return makePath(active)
 		}
@@ -130,7 +129,7 @@ func (p *Pathfinder) MakePath() *Pathway {
 		// Direction precedent: E,W,N,S,SW,SE,NW,NE
 		for _, direction := range OrderedDirections {
 			neighbor := p.node(active.loc.Clone().Step(direction))
-			if active.loc.Collides(neighbor.loc) {
+			if !active.loc.Reachable(neighbor.loc) {
 				continue
 			}
 			gCost := active.gCostFrom(neighbor)

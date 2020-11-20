@@ -1,14 +1,78 @@
+bind = import("bind")
+log = import("log")
+state = import("state")
+time = import("time")
+world = import("world")
+packets = import("packets")
+
 load("scripts/lib/packets.ank")
+
+bind.packet(packets.npcChat, func(player, packet) {
+	if player.Busy() || player.IsFighting() {
+		return
+	}
+	npc = world.getNpc(packet.ReadUint16())
+	if npc == nil {
+		return
+	}
+	player.WalkingArrivalAction(npc, 1, func() {
+		player.ResetPath()
+		if npc.Busy() {
+			player.Message(npc.Name() + " is busy at the moment")
+			return
+		}
+		if player.Busy() {
+			return
+		}
+		for triggerDef in *bind.chatNpcs {
+			if triggerDef.Check(npc) {
+				npc.ResetPath()
+				if player.LongestDelta(npc) == 0 {
+					for direction in world.OrderedDirections {
+						neighbor = npc.Step(direction)
+						if !npc.Reachable(neighbor) {
+							continue
+						}
+						npc.SetLocation(neighbor, true)
+						break
+					}
+				}
+
+				if player.LongestDelta(npc) != 0 {
+					player.SetDirection(player.DirectionTo(npc.X(), npc.Y()))
+					npc.SetDirection(npc.DirectionTo(player.X(), player.Y()))
+				}
+				player.SetVar("targetMob", npc)
+				player.AddState(state.Chatting)
+				npc.AddState(state.Chatting)
+					
+				go func() {
+					triggerDef.Action(player, npc)
+					player.RemoveState(state.Chatting)
+					npc.RemoveState(state.Chatting)
+					player.UnsetVar("targetMob")
+				}()
+				return
+			}
+		}
+		player.Message("The " + npc.Name() + " does not appear interested in talking")
+	})
+})
 
 bind.packet(packets.chat, func(player, packet) {
 	msg = packet.ReadString()
-	for _, target in player.NearbyPlayers() {
-		target = toPlayer(target)
-		if target == nil {
-			return
-		}
-		if !target.ChatBlocked() || target.FriendsWith(player.UsernameHash()) {
-			target.Enqueue("playerEvents", newChatMessage(player, msg))
-		}
-	}
+	player.Enqueue(eventsPlayer, newChatMessage(player, packet.ReadString()))
+	// player.LocalPlayers.RangePlayers(func(other) {
+	// 	other.Enqueue(eventsPlayer, newChatMessage(player, msg))
+	// 	return false
+	// })
+	// for target in player.NearbyPlayers() {
+	// 	target = toPlayer(target)
+	// 	if target == nil {
+	// 		return
+	// 	}
+	// 	if !target.ChatBlocked() || target.FriendsWith(player.UsernameHash()) {
+	// 		target.Enqueue(eventsPlayer, newChatMessage(player, msg))
+	// 	}
+	// }
 })

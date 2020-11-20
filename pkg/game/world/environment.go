@@ -47,11 +47,15 @@ func init() {
 		"InDuel":				  reflect.ValueOf(StateDueling),
 		"DoingThing":			  reflect.ValueOf(StateAction),
 		"ChatMenu":				  reflect.ValueOf(StateChatChoosing),
+		"Chatting":				  reflect.ValueOf(StateChatting),
 		"OptionMenu":			  reflect.ValueOf(MSItemAction),
-		"Banking":			  reflect.ValueOf(StateBanking),
+		"Banking":				  reflect.ValueOf(StateBanking),
+		"Shopping":				  reflect.ValueOf(StateShopping),
+		"Batching":				  reflect.ValueOf(MSBatching),
 	}
 	env.Packages["world"] = map[string]reflect.Value{
 		"getPlayer":              reflect.ValueOf(Players.FindIndex),
+		"OrderedDirections":              reflect.ValueOf(OrderedDirections),
 		"getPlayerByName":        reflect.ValueOf(Players.FindHash),
 		"getNpcNear":             reflect.ValueOf(NpcNearest),
 		"getGridNpc":             reflect.ValueOf(NpcVisibleFrom),
@@ -71,7 +75,6 @@ func init() {
 		"maxY":                   reflect.ValueOf(MaxY),
 		"getObjectAt":            reflect.ValueOf(GetObject),
 		"getNpc":                 reflect.ValueOf(GetNpc),
-		"commands":                 reflect.ValueOf(CommandHandlers),
 		"attackNpcCalls":         reflect.ValueOf(NpcAtkTriggers),
 		"checkCollisions":        reflect.ValueOf(IsTileBlocking),
 		"tileData":               reflect.ValueOf(CollisionData),
@@ -113,11 +116,15 @@ func init() {
 		"teleport": reflect.ValueOf(func(target *Player, x, y int, bubble bool) {
 			if bubble {
 				target.SendPacket(TeleBubble(0, 0))
-				nearList := &MobList{mobSet: target.NearbyPlayers()}
-				nearList.RangePlayers(func(p1 *Player) bool {
+				target.LocalPlayers.RangePlayers(func(p1 *Player) bool {
 					p1.SendPacket(TeleBubble(target.X()-p1.X(), target.Y()-p1.Y()))
 					return false
 				})
+				// nearList := &MobList{mobSet: target.NearbyPlayers()}
+				// nearList.RangePlayers(func(p1 *Player) bool {
+					// p1.SendPacket(TeleBubble(target.X()-p1.X(), target.Y()-p1.Y()))
+					// return false
+				// })
 			}
 			plane := target.Plane()
 			target.ResetPath()
@@ -128,7 +135,7 @@ func init() {
 		}),
 		"newGroundItemFor": reflect.ValueOf(NewGroundItemFor),
 		"newGroundItem":    reflect.ValueOf(NewGroundItem),
-		"curTick":		    reflect.ValueOf(Ticks.Load()),
+		"curTick":		    reflect.ValueOf(tasks.Ticks.Load()),
 		"newShop":          reflect.ValueOf(NewShop),
 		"newItem":          reflect.ValueOf(NewItem),
 		"newLocation":      reflect.ValueOf(NewLocation),
@@ -140,6 +147,7 @@ func init() {
 		"barePacket": reflect.ValueOf(net.NewEmptyPacket),
 		"logout": reflect.ValueOf(Logout),
 		"bankUpdateItem": reflect.ValueOf(BankUpdateItem),
+		"shopOpen": reflect.ValueOf(ShopOpen),
 	}
 	env.PackageTypes["world"] = map[string]reflect.Type{
 		"players":    reflect.TypeOf(Players),
@@ -158,6 +166,13 @@ func init() {
 		"withdrawBank": reflect.ValueOf(22),
 		"menuAnswer": reflect.ValueOf(116),
 		"equip": reflect.ValueOf(169),
+		"npcChat": reflect.ValueOf(153),
+		"npcAction": reflect.ValueOf(202),
+		"sceneAction": reflect.ValueOf(136),
+		"sceneAction2": reflect.ValueOf(79),
+		"boundaryAction": reflect.ValueOf(127),
+		"boundaryAction2": reflect.ValueOf(14),
+		"invOnScene": reflect.ValueOf(115),
 		"unequip": reflect.ValueOf(170),
 		"dropItem": reflect.ValueOf(246),
 		"recoverAccount": reflect.ValueOf(220),
@@ -184,6 +199,9 @@ func init() {
 		"duelSettings": reflect.ValueOf(8),
 		"settings": reflect.ValueOf(111),
 		"privacySettings": reflect.ValueOf(64),
+		"shopSell": reflect.ValueOf(221),
+		"shopBuy": reflect.ValueOf(236),
+		"shopClose": reflect.ValueOf(166),
 		"command": reflect.ValueOf(38),
 		"chat": reflect.ValueOf(216),
 		"cancelRecoverys": reflect.ValueOf(196),
@@ -316,7 +334,7 @@ func init() {
 		"COAL":                     reflect.ValueOf(155),
 	}
 	env.Packages["bind"] = map[string]reflect.Value{
-		"onLogin": reflect.ValueOf(func(fn func(player *Player)) {
+		"login": reflect.ValueOf(func(fn func(player *Player)) {
 			LoginTriggers = append(LoginTriggers, fn)
 		}),
 		"invOnBoundary": reflect.ValueOf(func(fn func(player *Player, boundary *Object, item *Item) bool) {
@@ -338,14 +356,23 @@ func init() {
 			BoundaryTriggers = append(BoundaryTriggers, ObjectTrigger{pred, fn})
 		}),
 		"npc": reflect.ValueOf(func(predicate func(npc *NPC) bool, fn func(player *Player, npc *NPC)) {
-			NpcTriggers = append(NpcTriggers, NpcTrigger{predicate, fn})
+			NpcTalkList = append(NpcTalkList, NpcTrigger{predicate, fn})
 		}),
 		"spell": reflect.ValueOf(func(ident interface{}, fn func(player *Player, spell interface{})) {
 			switch ident.(type) {
 			case int64:
 				SpellTriggers[int(ident.(int64))] = fn
+			case int:
+				SpellTriggers[int(ident.(int))] = fn
+			default:
+				log.Debugf("%v, %T", ident, ident)
 			}
 		}),
+		"commands": reflect.ValueOf(CommandHandlers),
+		"chatNpcs": reflect.ValueOf(&NpcTalkList),
+		"sceneActions": reflect.ValueOf(&ObjectTriggers),
+		"invSceneActions": reflect.ValueOf(&InvOnObjectTriggers),
+		"boundaryActions": reflect.ValueOf(&BoundaryTriggers),
 		"spells": reflect.ValueOf(SpellTriggers),
 		"packet": reflect.ValueOf(func(ident interface{}, fn func(player *Player, packet interface{})) {
 			switch ident.(type) {
@@ -395,8 +422,10 @@ func ScriptEnv() *env.Env {
 	e.Define("onTick", tasks.TickList.Add)
 	e.Define("newChatMessage", NewChatMessage)
 	e.Define("newProjectile", NewProjectile)
-	e.Define("Minute", time.Second*60)
-	e.Define("Hour", time.Second*60*60)
+	e.Define("eventsPlayer", playerEvents)
+	e.Define("eventsNpc", npcEvents)
+	e.Define("Minute", TicksMinute)
+	e.Define("Hour", TicksHour)
 	e.Define("Second", time.Second)
 	e.Define("Millisecond", time.Millisecond)
 	e.Define("ChatDelay", TickMillis*3)
@@ -436,6 +465,7 @@ func ScriptEnv() *env.Env {
 	e.Define("ZeroTime", time.Time{})
 	e.Define("itemDefs", definitions.Items)
 	e.Define("objectDefs", definitions.ScenaryObjects)
+	e.Define("objectDef", definitions.Scenary)
 	e.Define("boundaryDefs", definitions.BoundaryObjects)
 	e.Define("npcDefs", definitions.Npcs)
 	e.Define("lvlToExp", entity.LevelToExperience)
@@ -447,6 +477,11 @@ func ScriptEnv() *env.Env {
 	e.Define("newObject", NewObject)
 	e.Define("newPath", NewPathway)
 	e.Define("base37", strutil.Base37.Encode)
+	e.Define("fromBase37", strutil.Base37.Decode)
+	e.Define("appraiseItem", func(shop *Shop, id int) int {
+		realPrice := int(Price(definitions.Item(id).BasePrice).Scale(shop.BasePurchasePercent + shop.DeltaPercentModID(id)))
+		return realPrice
+	})
 
 	e.Define("rand", func(low, high int) int {
 		return int(rand.Rng.Float64()*float64(high-low+1))+low
@@ -687,7 +722,7 @@ func init() {
 		})
 		env.Define("player", player)
 		env.Define("dataService", DefaultPlayerService)
-		ret, err := vm.Execute(env, nil, "bind = import(\"bind\")\nworld = import(\"world\")\nlog = import(\"log\")\nids = import(\"ids\")\npackets = import(\"packets\")\nnet= import(\"net\")\n\n"+line)
+		ret, err := vm.Execute(env, nil, "bind = import(\"bind\")\nworld = import(\"world\")\nlog = import(\"log\")\nids = import(\"ids\")\npackets = import(\"packets\")\nnet = import(\"net\")\nstate = import(\"state\")\n\n"+line)
 		if err != nil {
 			player.Message(serverPrefix + "Error: " + err.Error())
 			log.Debug("Anko Error: " + err.Error())
@@ -715,6 +750,6 @@ func init() {
 		Clear()
 		RunScripts()
 		player.Message(serverPrefix + "Reloaded runtime content scripts from ./scripts/")
-		log.Debugf("Triggers[\n\t%d item actions,\n\t%d scenary actions,\n\t%d boundary actions,\n\t%d npc actions,\n\t%d item->boundary actions,\n\t%d item->scenary actions,\n\t%d attacking NPC actions,\n\t%d killing NPC actions\n];\n", len(ItemTriggers), len(ObjectTriggers), len(BoundaryTriggers), len(NpcTriggers), len(InvOnBoundaryTriggers), len(InvOnObjectTriggers), len(NpcAtkTriggers), len(NpcDeathTriggers))
+		log.Debugf("Triggers[\n\t%d item actions,\n\t%d scenary actions,\n\t%d boundary actions,\n\t%d npc actions,\n\t%d item->boundary actions,\n\t%d item->scenary actions,\n\t%d attacking NPC actions,\n\t%d killing NPC actions\n];\n", len(ItemTriggers), len(ObjectTriggers), len(BoundaryTriggers), len(NpcTalkList), len(InvOnBoundaryTriggers), len(InvOnObjectTriggers), len(NpcAtkTriggers), len(NpcDeathTriggers))
 	}
 }

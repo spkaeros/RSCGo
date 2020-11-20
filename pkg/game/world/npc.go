@@ -153,7 +153,7 @@ var NpcDeathTriggers []NpcBlockingTrigger
 func (n *NPC) rewardKillers() (winner *Player) {
 	n.meleeRangeDamage.RLock()
 	defer n.meleeRangeDamage.RUnlock()
-	totalExp := float64(n.ExperienceReward())/* & int(uint32(mask))*/
+	totalExp := float64(n.ExperienceReward())
 	amount := 0
 	total := 0.0
 	for _, damage := range n.meleeRangeDamage.damageTable {
@@ -175,7 +175,7 @@ func (n *NPC) Killed(killer entity.MobileEntity) {
 	if killer, ok := killer.(*Player); ok {
 		for _, t := range NpcDeathTriggers {
 			if t.Check(killer, n) {
-				go t.Action(killer, n)
+				t.Action(killer, n)
 			}
 		}
 	}
@@ -238,6 +238,10 @@ func (n *NPC) TraversePath() {
 //ChatIndirect sends a chat message to target and all of target's view area players, without any delay.
 func (n *NPC) ChatIndirect(target *Player, msg string) {
 	n.enqueueArea(npcEvents, NewTargetedMessage(n,target,msg))
+}
+
+func (n *NPC) Enqueue(handle string, e interface{}) {
+	n.enqueueArea(handle, e)
 }
 
 func (n *NPC) enqueueArea(handle string, e interface{}) {

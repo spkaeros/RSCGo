@@ -249,7 +249,7 @@ func (p *Player) WalkingRangedAction(t entity.MobileEntity, fn func()) {
 func (p *Player) WalkingArrivalAction(t entity.MobileEntity, dist int, action func()) {
 	p.SetTickAction(func() bool {
 		if p.Near(t, dist) {
-			if p.Collides(t) {
+			if !p.Reachable(t) {
 				// p.WalkTo(NewLocation(t.X(), t.Y()))
 				// p.Message("I can't reach that.")
 				return false
@@ -257,16 +257,15 @@ func (p *Player) WalkingArrivalAction(t entity.MobileEntity, dist int, action fu
 			action()
 			return false
 		}
-		if p.FinishedPath() {
-			pivotList := p.PivotTo(t)
-			if len(pivotList[0]) == 0 || len(pivotList[1]) == 0 {
-				// no reasonable direct path to target
+		if p.FinishedPath() && p.Reachable(t) {
+			// pivotList := p.PivotTo(t)
+			// if len(pivotList[0]) == 0 || len(pivotList[1]) == 0 {
+			if !p.WalkTo(t) {
+				// // no reasonable direct path to target
 				p.Message("I can't reach that.")
 				return false
 			}
-			path := NewPathway(p.X(), p.Y(), pivotList[0], pivotList[1])
-			log.Debug(path)
-			p.SetPath(path)
+			// p.SetPath(NewPathway(p.X(), p.Y(), pivotList[0], pivotList[1]))
 		}
 		return true
 	})
@@ -351,6 +350,8 @@ func (l Location) NextTo(target entity.Location) bool {
 func (p *Player) NextToCoords(x, y int) bool {
 	return p.NextTo(NewLocation(x, y))
 }
+
+//TraversePath if the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
 func (p *Player) TraversePath() {
 	path := p.Path()
 	if path == nil {
@@ -373,43 +374,6 @@ func (p *Player) TraversePath() {
 
 	p.SetLocation(dst, false)
 }
-// //TraversePath if the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
-// func (p *Player) TraversePath() {
-	// path := p.Path()
-	// if path == nil {
-		// return
-	// }
-	// if p.LongestDelta(path.nextTile()) == 0 {
-		// path.CurrentWaypoint++
-	// }
-	// dst := p.Step(p.DirectionToward(path.nextTile()))
-// 
-	// // check mask of our tile and dst tile
-	// if p.FinishedPath() || p.Collides(dst) {
-		// if !p.FinishedPath() {
-			// if dx, dy := p.DeltaX(dst), p.DeltaY(dst); dx != 0 && dy != 0 {
-				// attempt := 0
-				// clipped := NewLocation(p.X()+dx, p.Y())
-// check:
-				// if !p.Collides(clipped) {
-					// goto walk
-				// }
-				// if attempt >= 1 {
-					// goto fail
-				// }
-				// attempt++
-				// clipped = NewLocation(p.X(), p.Y()+dy)
-				// goto check
-			// }
-		// }
-// fail:
-		// p.ResetPath()
-		// return
-	// }
-// 
-// walk:
-	// p.SetLocation(dst, false)
-// }
 
 //Targetable returns true if you are able to see the other location from the receiever location without hitting
 // any obstacles, and you are within range.  Otherwise returns false.
@@ -432,14 +396,13 @@ func (p *Player) WriteNow(packet net.Packet) {
 		if count, err := p.Writer.Write(packet.FrameBuffer); err != nil || count < packet.Length() {
 			log.Warn("Failed to write raw packet to player socket!")
 		}
-		if err := p.Writer.Flush(); err != nil {
-			log.Warn("Failed to flush player socket!")
-		}
-		// return
 		return
 	}
 	header := []byte{0, 0}
 	frameLength := len(packet.FrameBuffer)
+	if cipher := p.OpCiphers[0]; cipher != nil {
+		packet.FrameBuffer[0] = byte(uint32(packet.FrameBuffer[0]) + cipher.Uint32()) & 0xFF
+	}
 	if frameLength >= 160 {
 		header[0] = byte(frameLength>>8 + 160)
 		header[1] = byte(frameLength)
@@ -450,18 +413,9 @@ func (p *Player) WriteNow(packet net.Packet) {
 			header[1] = packet.FrameBuffer[frameLength]
 		}
 	}
-	if cipher := p.OpCiphers[0]; cipher != nil {
-		packet.FrameBuffer[0] = byte(uint32(packet.FrameBuffer[0]) + cipher.Uint32()) & 0xFF
-	}
 	if count, err := p.Writer.Write(append(header, packet.FrameBuffer[:frameLength]...)); err != nil || count < packet.Length()+1 {
 		log.Warn("Failed to write formatted packet to player socket!")
 	}
-	if err := p.Writer.Flush(); err != nil {
-		log.Warn("Failed to flush player socket!")
-	}
-	// if err := p.Writer.Flush(); err != nil {
-		// log.Warn("Failed to flush player socket!")
-	// }
 }
 
 //UpdateRegion if this player is currently in a region, removes it from that region, and adds it to the region at x,y
@@ -929,7 +883,7 @@ func (p *Player) AtObject(object *Object) bool {
 	bounds := object.Boundaries()
 	if definitions.ScenaryObjects[object.ID].CollisionType == 2 || definitions.ScenaryObjects[object.ID].CollisionType == 3 {
 		// door types
-		return !p.Collides(bounds[0]) && !p.Collides(bounds[1]) && p.WithinArea(bounds)
+		return /* (!p.Collides(bounds[0]) && p.Collides(bounds[1])) && */p.WithinArea(bounds)
 	}
 
 	return p.CanReach(bounds) || (p.FinishedPath() && p.CanReachDiag(bounds))
@@ -1155,7 +1109,8 @@ func (p *Player) QueueNpcChat(owner, target entity.MobileEntity, message string)
 }
 
 func (p *Player) Enqueue(id string, e interface{}) {
-	p.enqueue(id, e)
+	// p.enqueue(id, e)
+	p.enqueueArea(id, p.ViewRadius(), e)
 }
 func (p *Player) enqueue(id string, e interface{}) {
 	if queue, ok := p.VarChecked(id).([]interface{}); queue != nil && ok {
@@ -1452,9 +1407,13 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 	defender.SetDirection(LeftFighting)
 	defender.SetRegionRemoved()
 	attacker.SetLocation(defender.Clone(), true)
-	tasks.TickList.Schedule(3, func() bool {
+	tasks.Schedule(3, func() bool {
+		defer func() {
+			attacker.SessionCache().Inc("fightRound", 1)
+			attacker, defender = defender, attacker
+		}()
 		if (defender.IsPlayer() && !AsPlayer(defender).Connected()) || !defender.HasState(StateFighting) ||
-			(attacker.IsPlayer() && !AsPlayer(attacker).Connected()) || !attacker.HasState(StateFighting) || !attacker.Near(defender, 0) {
+			(attacker.IsPlayer() && !AsPlayer(attacker).Connected()) || !attacker.HasState(StateFighting) || attacker.LongestDelta(defender) > 0  {
 			// target is a disconnected player, we are disconnected,
 			// one of us is not in a fight, or we are distanced somehow unexpectedly.  Kill tasks.
 			// quickfix for possible bugs I imagined will exist
@@ -1462,10 +1421,6 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 			defender.ResetFighting()
 			return true
 		}
-		defer func() {
-			attacker.SessionCache().Inc("fightRound", 1)
-			attacker, defender = defender, attacker
-		}()
 
 		// Paralyze Monster goes into effect right here, we just return before the npc can do anything
 		if defender.IsPlayer() && attacker.IsNpc() && defender.PrayerActivated(12) {
@@ -1473,7 +1428,10 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 		}
 
 		nextHit := int(math.Min(float64(defender.Skills().Current(entity.StatHits)), float64(attacker.MeleeDamage(defender))))
-		return defender.DamageFrom(attacker, nextHit, 0)
+		if defender.DamageFrom(attacker, nextHit, 0) {
+			return true
+		}
+		return false
 	})
 }
 
@@ -1763,6 +1721,21 @@ func (p *Player) Tick() {
 			continue
 		default:
 			return
+		}
+	}
+}
+
+func (p *Player) PostTick() {
+	for {
+		select {
+		default:
+			return
+		case packet, ok := <-p.OutQueue:
+			if packet == nil || !ok {
+				return
+			}
+			p.WriteNow(*packet)
+			continue
 		}
 	}
 }

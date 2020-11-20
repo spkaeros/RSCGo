@@ -15,7 +15,7 @@ bind.command("sysupdate", func(player, args) {
 	})
 })
 
-bind.onLogin(func(player) {
+bind.login(func(player) {
 	if world.updateStarted() {
 		player.SendUpdateTimer()
 	}

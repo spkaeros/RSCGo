@@ -9,7 +9,7 @@ type HitSplat struct {
 }
 
 func NewHitsplat(target entity.MobileEntity, damage int) interface{} {
-	return &HitSplat{target, damage}
+	return HitSplat{target, damage}
 }
 
 func (p *Player) DamageFrom(m entity.MobileEntity, damage int, kind int) bool {
@@ -56,7 +56,7 @@ func (n *NPC) DamageFrom(m entity.MobileEntity, damage int, kind int) bool {
 		if attacker := AsPlayer(m); attacker != nil {
 			attacker.PlaySound("victory")
 		}
-		n.Killed(m)
+		go n.Killed(m)
 		return true
 	}
 	sound := "combat1"

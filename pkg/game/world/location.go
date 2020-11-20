@@ -231,9 +231,7 @@ func (l Location) ReachableCoords(x, y int) bool {
 		// This works because we can still traverse toward
 		// our goal either vertically or horizontally,
 		// unless these checks both fail
-		if IsTileBlocking(l.X(), dst.Y(), vmask, false) && IsTileBlocking(dst.X(), l.Y(), hmask, false) {
-			return false
-		}
+		return !IsTileBlocking(l.X(), dst.Y(), vmask, false) || !IsTileBlocking(dst.X(), l.Y(), hmask, false)
 	}
 	return true
 }

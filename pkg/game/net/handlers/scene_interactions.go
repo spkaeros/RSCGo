@@ -164,61 +164,6 @@ func init() {
 			return false
 		})
 	})
-	game.AddHandler("talktonpc", func(player *world.Player, p *net.Packet) {
-		if player.Busy() || player.IsFighting() {
-			return
-		}
-		idx := p.ReadUint16()
-		npc := world.GetNpc(idx)
-		if npc == nil {
-			return
-		}
-		if player.IsFighting() {
-			return
-		}
-		player.WalkingArrivalAction(npc, 1, func() {
-			player.ResetPath()
-			if npc.Busy() {
-				player.Message(npc.Name() + " is busy at the moment")
-				return
-			}
-			if player.Busy() {
-				return
-			}
-			for _, triggerDef := range world.NpcTriggers {
-				if triggerDef.Check(npc) {
-					npc.ResetPath()
-					if player.Point().Equals(npc.Point()) {
-						for _, direction := range world.OrderedDirections {
-							neighbor := npc.Step(direction)
-							if npc.Reachable(neighbor) {
-								npc.SetLocation(neighbor, true)
-								break
-							}
-						}
-					}
-
-					if !player.Point().Equals(npc.Point()) {
-						player.SetDirection(player.DirectionTo(npc.X(), npc.Y()))
-						npc.SetDirection(npc.DirectionTo(player.X(), player.Y()))
-					}
-					go func() {
-						player.SetVar("targetMob", npc)
-						defer func() {
-							player.UnsetVar("targetMob")
-							player.RemoveState(world.StateChatting)
-							npc.RemoveState(world.StateChatting)
-						}()
-						player.AddState(world.StateChatting)
-						npc.AddState(world.StateChatting)
-						triggerDef.Action(player, npc)
-					}()
-					return
-				}
-			}
-			player.Message("The " + npc.Name() + " does not appear interested in talking")
-		})
-	})
 	game.AddHandler("invonboundary", func(player *world.Player, p *net.Packet) {
 		if player.Busy() || player.IsFighting() {
 			return

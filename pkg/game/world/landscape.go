@@ -39,8 +39,8 @@ var SectorsLock sync.RWMutex
 // memory for quick access.
 func LoadCollisionData() {
 	archive := jag.New(config.DataDir() + string(os.PathSeparator) + "landscape.jag")
-	for _, v := range archive.Files {
-		Sectors[v.Hash] = loadSector(v.Data)
+	for _, f := range archive.Files {
+		Sectors[f.Hash] = loadSector(f.Data)
 	}
 }
 
@@ -168,7 +168,7 @@ func CollisionData(x, y int) CollisionMask {
 
 //loadSector Parses raw data into data structures that make up a 48x48 map sector.
 func loadSector(data []byte) (s *Sector) {
-	// 48*48=2304 tiles per sector and 10 bytes per tile makes each sector 23040 byte
+	// 48*48=2304 tiles per sector; 10 bytes per tile makes each sector 23040 bytes long
 	if len(data) < 23040 {
 		log.Warning.Printf("Too short sector data: %d\n", len(data))
 		return nil
@@ -179,12 +179,21 @@ func loadSector(data []byte) (s *Sector) {
 	blankCount := 0
 	for x := 0; x < RegionSize; x++ {
 		for y := 0; y < RegionSize; y++ {
-			groundTexture := data[offset+1] & 0xFF
-			groundOverlay := data[offset+2] & 0xFF
+			// wtf byte is at 0 on each tile?  Color or some shit, elevation, what??
+			// log.Debug(data[offset])
+			offset += 1
+			groundTexture := data[offset] & 0xFF
+			offset += 1
+			groundOverlay := data[offset] & 0xFF
+			offset += 1
 			//roofTexture := data[offset+3] & 0xFF
-			horizontalWalls := data[offset+4] & 0xFF
-			verticalWalls := data[offset+5] & 0xFF
-			diagonalWalls := binary.BigEndian.Uint32(data[offset+6:])
+			offset += 1
+			horizontalWalls := data[offset] & 0xFF
+			offset += 1
+			verticalWalls := data[offset] & 0xFF
+			offset += 1
+			diagonalWalls := binary.BigEndian.Uint32(data[offset:])
+			offset += 4
 			if groundOverlay == 250 {
 				// -6 overflows to 250, and is water tile
 				groundOverlay = definitions.OverlayWater
@@ -198,16 +207,16 @@ func loadSector(data []byte) (s *Sector) {
 			}
 			if boundary := int(verticalWalls) - 1; boundary < len(definitions.BoundaryObjects) && boundary >= 0 {
 				// log.Debugf("Out of bounds indexing attempted into definitions.BoundaryObjects[%d]; while upper bound is currently %d\n", boundary, len(definitions.BoundaryObjects)-1)
-				if wall := definitions.BoundaryObjects[verticalWalls-1]; !wall.Dynamic && wall.Solid {
+				if wall := definitions.BoundaryObjects[boundary]; !wall.Dynamic && wall.Solid {
 					s.Tiles[x*RegionSize+y] |= ClipNorth
 					if y > 0 {
-						s.Tiles[x*RegionSize+(y-1)] |= ClipSouth
+						s.Tiles[x*RegionSize+y-1] |= ClipSouth
 					}
 				}
 			}
 			if boundary := int(horizontalWalls) - 1; boundary < len(definitions.BoundaryObjects) && boundary >= 0 {
 				// log.Debugf("Out of bounds indexing attempted into definitions.BoundaryObjects[%d]; while upper bound is currently %d\n", boundary, len(definitions.BoundaryObjects)-1)
-				if wall := definitions.BoundaryObjects[horizontalWalls-1]; !wall.Dynamic && wall.Solid {
+				if wall := definitions.BoundaryObjects[boundary]; !wall.Dynamic && wall.Solid {
 					s.Tiles[x*RegionSize+y] |= ClipEast
 					if x > 0 {
 						s.Tiles[(x-1)*RegionSize+y] |= ClipWest
@@ -224,15 +233,13 @@ func loadSector(data []byte) (s *Sector) {
 				if wall := definitions.BoundaryObjects[idx]; !wall.Dynamic && wall.Solid {
 					if diagonalWalls > 12000 {
 						// diagonal that blocks: SW<->NE (\ aka ‾| or |_)
-						s.Tiles[tileIdx] |= ClipSwNe
+						s.Tiles[x*RegionSize+y] |= ClipSwNe
 					} else {
 						// diagonal that blocks: SE<->NW (/ aka |‾ or _|)
-						s.Tiles[tileIdx] |= ClipSeNw
+						s.Tiles[x*RegionSize+y] |= ClipSeNw
 					}
 				}
 			}
-
-			offset += 10
 		}
 	}
 	if blankCount >= 2304 {

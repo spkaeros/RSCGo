@@ -1,4 +1,5 @@
 state = import("state")
+net = import("net")
 load("scripts/lib/packets.ank")
 
 bind.packet(packets.withdrawBank, func(player, packet) {

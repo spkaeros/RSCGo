@@ -1,0 +1,88 @@
+state = import("state")
+net = import("net")
+
+bind.packet(packets.shopSell, func(player, packet) {
+	if !player.HasState(state.Shopping)	{
+		log.cheat(player.String(), "tried selling to a shop without access to it!")
+		return
+	}
+
+	id = packet.ReadUint16()
+	priceTag = packet.ReadUint32()
+	shop = player.CurrentShop()
+	if shop == nil {
+		log.cheat(player.String(), "tried selling to a shop with no current shop available!")
+		return
+	}
+
+	if !shop.Stock.Contains(id) && !shop.BuysUnstocked {
+		log.cheat(player.String(), "tried selling foreign item to a shop that lists no such options!")
+		player.Message("This shop does not purchase foreign objects")
+		return
+	}
+
+	price = shop.AppraiseItem(id)
+	if price != priceTag {
+		log.cheat("Invalid price tag found for an item sale!")
+		return
+	}
+	if player.Inventory.RemoveByID(id, 1) > -1 {
+		player.PlaySound("coins")
+		player.AddItem(10, price)
+		shop.Inventory.AddItem(id, 1)
+		shop.Players.RangePlayers(func(player) {
+			// update the other shop browsing players shop-inventory
+			if shop == player.CurrentShop() {
+				player.SendPacket(net.shopOpen(shop))
+			}
+			return false
+		})
+	}
+})
+
+bind.packet(packets.shopBuy, func(player, packet) {
+	if !player.HasState(state.Shopping)	{
+		log.cheat(player.String(), "tried buying from a shop without access to it!")
+		return
+	}
+
+	id = packet.ReadUint16()
+	priceTag = packet.ReadUint32()
+	shop = player.CurrentShop()
+	if shop == nil {
+		log.cheat(player.String(), "tried buying from a shop with no current shop available!")
+		return
+	}
+
+	if !shop.Inventory.Count(id) {
+		log.cheat(player.String(), "tried buying item no longer in shop!")
+		player.Message("The shop has ran out of stock")
+		return
+	}
+
+	price = shop.Inventory.Get(id).Price().Scale(shop.BaseSalePercent + shop.DeltaPercentModID(id))
+	if price != priceTag {
+		log.cheat("Invalid price tag found for an item purchase!")
+		return
+	}
+	if !player.Inventory.CanHold(id, 1) && player.Inventory.CountID(10) != price {
+		player.Message("You can't hold the objects you are trying to buy!")
+		return
+	}
+	if player.Inventory.CountID(10) < price || player.Inventory.RemoveByID(10, price) == -1 {
+		player.Message("You don't have enough coins")
+		return
+	}
+
+	player.AddItem(id, 1)
+	shop.Remove(id, 1)
+	player.PlaySound("coins")
+	shop.Players.RangePlayers(func(player) {
+		player.SendPacket(net.shopOpen(shop))
+		return false
+	})
+})
+
+bind.packet(packets.shopClose, func(player, packet) {
+	player.CloseShop()
+})

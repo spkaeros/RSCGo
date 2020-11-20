@@ -152,10 +152,8 @@ func newWeakenHandler(depleteStat, depletePercent) {
 				player.Message("@que@Your opponent already has weakened " + skillName(depleteStat))
 				return
 			}
-			for p in player.NearbyPlayers() {
-				p.QueueProjectile(player, spell.target, 1)
-			}
-			player.QueueProjectile(player, spell.target, 1)
+			
+			player.Enqueue(eventsPlayer, newProjectile(player, spell.target, 1))
 			spell.target.Skills().SetCur(depleteStat, newStat)
 			targetp = toPlayer(spell.target)
 			if targetp != nil {
@@ -167,20 +165,17 @@ func newWeakenHandler(depleteStat, depletePercent) {
 }
 
 func fireMissile(player, spell, dmg) {
+	hp = spell.target.Skills().Current(HITPOINTS)
 	hit = player.MagicDamage(spell.target, dmg)
-	spell.target.Skills().DecreaseCur(HITPOINTS, hit)
-	if spell.target.Skills().Current(HITPOINTS) <= 0 {
-		spell.target.Killed(player)
+	if hit >= hp {
+		hit = hp
+	}
+	if spell.target.DamageFrom(player, hit, 1) {
 		return
 	}
-	for p in player.NearbyPlayers() {
-		p.QueueProjectile(player, spell.target, 1)
-	}
-	player.QueueProjectile(player, spell.target, 1)
-	spell.target.DamageFrom(player, hit, 1)
-	targetp = toPlayer(spell.target)
-	if targetp != nil {
-		targetp.Message("Warning! " + player.Username() + " is shooting at you!")
+	player.Enqueue(eventsPlayer, newProjectile(player, spell.target, 1))
+	if spell.target.IsPlayer() {
+		toPlayer(spell.target).Message("Warning! " + player.Username() + " is shooting at you!")
 	}
 }
 

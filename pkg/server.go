@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"time"
 	"strings"
+	"encoding/binary"
 	"math"
 	// "math/rand"
 
@@ -180,7 +181,7 @@ func main() {
 		log.Debug("Loaded", boundary, "boundary objects, and", len(definitions.BoundaryObjects), "boundary types")
 		log.Debug("Loading all game entitys took:", time.Since(start).Seconds(), "seconds")
 		if config.Verbosity >= 2 {
-			log.Debugf("Triggers[\n\t%d item actions,\n\t%d scenary actions,\n\t%d boundary actions,\n\t%d npc actions,\n\t%d item->boundary actions,\n\t%d item->scenary actions,\n\t%d attacking NPC actions,\n\t%d killing NPC actions\n];\n", len(world.ItemTriggers), len(world.ObjectTriggers), len(world.BoundaryTriggers), len(world.NpcTriggers), len(world.InvOnBoundaryTriggers), len(world.InvOnObjectTriggers), len(world.NpcAtkTriggers), len(world.NpcDeathTriggers))
+			log.Debugf("Triggers[\n\t%d item actions,\n\t%d scenary actions,\n\t%d boundary actions,\n\t%d npc actions,\n\t%d item->boundary actions,\n\t%d item->scenary actions,\n\t%d attacking NPC actions,\n\t%d killing NPC actions\n];\n", len(world.ItemTriggers), len(world.ObjectTriggers), len(world.BoundaryTriggers), len(world.NpcTalkList), len(world.InvOnBoundaryTriggers), len(world.InvOnObjectTriggers), len(world.NpcAtkTriggers), len(world.NpcDeathTriggers))
 		}
 	}
 	log.Debug("Listening at TCP port " + strconv.Itoa(config.Port()))// + " (TCP), " + strconv.Itoa(config.WSPort()) + " (websockets)")
@@ -272,10 +273,12 @@ again:
 				player.Writer.Write([]byte{byte(handshake.ResponseServerRejection)})
 				player.Writer.Flush()
 				continue
-			}
+			} 
 
-			rsaBlock := net.NewPacket(0, rsa.RsaKeyPair.Decrypt(data))
-			checksum := rsaBlock.ReadUint8()
+			rsaData := rsa.RsaKeyPair.Decrypt(data)
+			offset := 0
+			checksum := rsaData[offset]
+			offset++
 			// It's been suggested to me that this first byte assures us that the RSA block could decode properly,
 			// it's only wrong for this purpose a statistically insignificant amount of time.  >99% accurate, as I understand it.
 			if checksum != 10 {
@@ -286,14 +289,18 @@ again:
 			}
 			var keys = make([]int, 4)
 			for i := range keys {
-				keys[i] = rsaBlock.ReadUint32()
+				keys[i] = int(binary.BigEndian.Uint32(rsaData[offset:]))
+				offset += 4
 			}
 			player.OpCiphers[0] = isaac.New(keys...)
 			player.OpCiphers[1] = isaac.New(keys...)
-			password := strings.TrimSpace(rsaBlock.ReadString())
+			// protocol pads password out to constant 19 chars long (+1 terminator) for some reason with 0x20 bytes
+			password := strings.TrimSpace(string(rsaData[offset:offset+19]))
+			offset += 20
+			log.Debug(password)
 			// The rscplus team viewed this data below as a nonce, but in my opinion, this is not the motivation for this data.
 			// I'd call these more of an initialization vector (IV), as wikipedia defines it, used to make RSA semantically secure.
-			rsaBlock.Skip(8)
+			offset += 8
 			blockSize := login.ReadUint16()
 			var block = make([]byte, blockSize)
 			if login.Available() != blockSize {
@@ -301,7 +308,19 @@ again:
 				log.Debugf("\t{ blockSize:%d, login.Available():%d }\n", blockSize, login.Available())
 			}
 			login.Read(block)
+			offset = 0
+			// limit30 := block[offset]
+			offset++
 			usernameData := xtea.New(keys).Decrypt(block)
+			// nonces := [...]uint32{
+				// binary.BigEndian.Uint32(block[offset:]),
+				// binary.BigEndian.Uint32(block[offset+4:]),
+				// binary.BigEndian.Uint32(block[offset+8:]),
+				// binary.BigEndian.Uint32(block[offset+12:]),
+				// binary.BigEndian.Uint32(block[offset+16:]),
+				// binary.BigEndian.Uint32(block[offset+20:]),
+			// }
+			offset += 24
 			// first byte of this block is limit30 parameter from the game client applet; boolean, use unknown
 			// I suppose the next 24 bytes are to ensure the stream gets sufficiently shuffled in each packet, preventing identifying markers appearing
 			// finally, the null-terminated UTF-8 encoded username comes at offset 25 and beyond.
@@ -337,6 +356,7 @@ again:
 			go func() {
 				defer player.Destroy()
 				defer func() {
+					player.WriteNow(*world.Logout)
 					// makes the queue goroutines kill themself
 					player.InQueue <- nil
 					close(player.InQueue)
@@ -354,39 +374,6 @@ again:
 						}
 					}
 					player.InQueue <- packet
-				}
-			}()
-			// go func() {
-				// defer close(player.InQueue)
-				// for {
-					// select {
-					// case packet, ok := <-player.InQueue:
-						// if packet == nil || !ok {
-							// return
-						// }
-						// // script packet handlers are the most `modern` solution, and will be the default selected for any incoming packet
-						// if handlePacket := world.PacketTriggers[packet.Opcode]; handlePacket != nil {
-							// handlePacket(player, packet)
-							// continue
-						// }
-						// if handlePacket := world.Handler(packet.Opcode); handlePacket != nil {
-							// // This is old legacy go code handlers that are deprecated and being replaced with the aforementioned scripting API
-							// handlePacket(player, packet)
-						// }
-					// }
-				// }
-			// }()
-			go func() {
-				// defer close(player.OutQueue)
-				defer player.WriteNow(*world.Logout)
-				for {
-					select {
-					case packet, ok := <-player.OutQueue:
-						if packet == nil || !ok {
-							return
-						}
-						player.WriteNow(*packet)
-					}
 				}
 			}()
 			log.Debug("[LOGIN]", player.Username() + "@" + player.CurrentIP(), "successfully logged in")
@@ -407,7 +394,7 @@ func (s *Server) Start() {
 			if p == nil {
 				return
 			}
-			p.Tick()
+			p.Tick() // dequeue incoming packets.  These are read off the socket then queued by each players own goroutine
 			if fn := p.TickAction(); fn != nil && !fn() {
 				p.ResetTickAction()
 			}
@@ -438,38 +425,19 @@ func (s *Server) Start() {
 			if p == nil {
 				return
 			}
-			positions := world.PlayerPositions(p)
-			if positions != nil {
-				p.WritePacket(positions)
+			sendPacket := func(p *world.Player, p1 *net.Packet) {
+				if p != nil && p1 != nil {
+					p.WritePacket(p1)
+				}
 			}
-			npcUpdates := world.NPCPositions(p)
-			if npcUpdates != nil {
-				p.WritePacket(npcUpdates)
-			}
-			appearances := world.PlayerAppearances(p)
-			if appearances != nil {
-				p.WritePacket(appearances)
-			}
-			npcEvents := world.NpcEvents(p)
-			if npcEvents != nil {
-				p.WritePacket(npcEvents)
-			}
-			objectUpdates := world.ObjectLocations(p)
-			if objectUpdates != nil {
-				p.WritePacket(objectUpdates)
-			}
-			boundaryUpdates := world.BoundaryLocations(p)
-			if boundaryUpdates != nil {
-				p.WritePacket(boundaryUpdates)
-			}
-			itemUpdates := world.ItemLocations(p)
-			if itemUpdates != nil {
-				p.WritePacket(itemUpdates)
-			}
-			clearDistantChunks := world.ClearDistantChunks(p)
-			if clearDistantChunks != nil {
-				p.WritePacket(clearDistantChunks)
-			}
+			sendPacket(p, world.PlayerPositions(p))
+			sendPacket(p, world.NPCPositions(p))
+			sendPacket(p, world.PlayerAppearances(p))
+			sendPacket(p, world.NpcEvents(p))
+			sendPacket(p, world.ObjectLocations(p))
+			sendPacket(p, world.BoundaryLocations(p))
+			sendPacket(p, world.ItemLocations(p))
+			sendPacket(p, world.ClearDistantChunks(p))
 		})
 
 		world.Players.Range(func(p *world.Player) {
@@ -480,8 +448,9 @@ func (s *Server) Start() {
 			p.ResetRegionMoved()
 			p.ResetSpriteUpdated()
 			p.ResetAppearanceChanged()
+			p.PostTick() // dequeue all the outgoing packets, writing them to socket
+			p.Writer.Flush() // flush outgoing buffer
 		})
-
 		world.Npcs.RangeNpcs(func(n *world.NPC) bool {
 			n.ResetRegionRemoved()
 			n.ResetRegionMoved()
@@ -489,8 +458,7 @@ func (s *Server) Start() {
 			n.ResetAppearanceChanged()
 			return false
 		})
-		world.Ticks.Inc()
-		if config.Verbosity >= 5 {
+		if config.Verbosity >= 4 {
 			log.Debug("time to process tick:", time.Since(start))
 		}
 	}

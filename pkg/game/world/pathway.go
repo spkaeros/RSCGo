@@ -91,6 +91,10 @@ func (p *Pathway) startingTile() Location {
 	return NewLocation(p.StartX, p.StartY)
 }
 
+func (p *Pathway) endingTile() entity.Location {
+	return NewLocation(p.StartX + p.waypointX(p.countWaypoints()-1), p.StartX + p.waypointX(p.countWaypoints()-1))
+}
+
 //addFirstWaypoint Prepends a waypoint to this path.
 func (p *Pathway) addFirstWaypoint(x, y int) *Pathway {
 	p.Lock()

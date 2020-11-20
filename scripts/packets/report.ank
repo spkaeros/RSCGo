@@ -23,8 +23,8 @@ actions = [
 
 bind.packet(packets.report, func(player, packet) {
 	userHash = packet.ReadUint64()
-	reasonIndex = packet.ReadUint8() - 1
-	actionIndex = packet.ReadUint8()
+	reasonIndex = toInt(packet.ReadUint8() - 1)
+	actionIndex = toInt(packet.ReadUint8())
 
 	if userHash == player.UsernameHash() {
 		player.Message("You can't report yourself!!")
@@ -33,7 +33,7 @@ bind.packet(packets.report, func(player, packet) {
 
 	// validate reason for report
 	if reasonIndex < 0 || reasonIndex > len(reasons)-1 {
-		log.cheatf("Report had invalid reason:\n[\n\taction:%d ('%s'),\n\tsender:'%s',\n\ttarget:'%s',\n\treason:%d\n];\n", actionIndex, actions[actionIndex], player.Username(), strutil.Base37.Decode(userHash), reasonIndex+1)
+		log.cheatf("Report had invalid reason:\n[\n\taction:%d ('%s'),\n\tsender:'%s',\n\ttarget:'%s',\n\treason:%d\n];\n", actionIndex, actions[actionIndex], player.Username(), fromBase37(userHash), reasonIndex+1)
 		return
 	}
 	// validate action report results in
@@ -49,7 +49,7 @@ bind.packet(packets.report, func(player, packet) {
 
 	log.debugf("Report:\n[\n\taction:%d ('%s'),\n\tsender:'%s',\n\ttarget:'%s',\n\treason:%d ('%s')\n];\n", actionIndex, actions[actionIndex], player.Username(), strutil.Base37.Decode(userHash), reasonIndex+1, reasons[reasonIndex])
 
-	log.debugf(player.Username(), actions[actionIndex], base37(userHash), "for breaking rule", reasonIndex+1, "('"+reasons[reasonIndex]+"')")
+	log.debugf(player.Username(), actions[actionIndex], fromBase37(userHash), "for breaking rule", reasonIndex+1, "('"+reasons[reasonIndex]+"')")
 	player.Message("Thank-you, your abuse report has been received.")
 
 })

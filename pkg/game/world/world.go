@@ -8,11 +8,10 @@ import (
 
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/isaac"
+	"github.com/spkaeros/rscgo/pkg/tasks"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
 	"github.com/spkaeros/rscgo/pkg/log"
 	rscRand "github.com/spkaeros/rscgo/pkg/rand"
-
-	"go.uber.org/atomic"
 )
 
 const (
@@ -32,12 +31,8 @@ const (
 	MaxY = 944 << 2 // 4 planes, 944 tiles per plane, shift mimics multiplying by 4
 )
 
-var (
-	Ticks = atomic.NewUint64(0)
-)
-
 func CurrentTick() int {
-	return int(Ticks.Load())
+	return int(tasks.Ticks.Load())
 }
 
 const (
@@ -549,7 +544,6 @@ func NpcVisibleFrom(id, x, y int) *NPC {
 
 	for x := 0; x < MaxX; x += RegionSize {
 		for y := 0; y < MaxY; y += RegionSize {
-			// if r := regions[x/RegionSize][y/RegionSize]; r != nil {
 			Region(x, y).NPCs.RangeNpcs(func(n *NPC) bool {
 				if n.ID == id && n.LongestDelta(point) < minDelta {
 					minDelta = n.LongestDelta(point)
@@ -557,9 +551,7 @@ func NpcVisibleFrom(id, x, y int) *NPC {
 				}
 				return false
 			})
-			// }
 		}
-
 	}
 	return npc
 }
@@ -568,25 +560,10 @@ var regionLock = sync.RWMutex{}
 
 // internal function to get a region by its row amd column indexes
 func get(x, y int) *region {
-	if x < 0 {
-		x = 0
-	}
-	if x >= HorizontalPlanes {
-		log.Warn("planeX", x, "out of bounds")
-		x = HorizontalPlanes - 1
-	}
-	if y < 0 {
-		y = 0
-	}
-	if y >= VerticalPlanes {
-		log.Warn("planeY", y, " out of bounds")
-		y = VerticalPlanes - 1
-	}
+	x = int(math.Min(math.Max(0, float64(x)), HorizontalPlanes - 1))
+	y = int(math.Min(math.Max(0, float64(y)), VerticalPlanes - 1))
 	regionLock.Lock()
 	defer regionLock.Unlock()
-	// if regions[x][y] == nil {
-	// regions[x][y] = &region{x, y, &MobList{}, &MobList{}, &entityList{}, &entityList{}}
-	// }
 	if !regions[x][y].Initialized() {
 		regions[x][y] = &region{x*RegionSize, y*RegionSize, NewMobList(), NewMobList(), &entityList{}, &entityList{}}
 	}
@@ -600,7 +577,7 @@ func (r *region) Initialized() bool {
 
 //Region Returns the region that corresponds with the given coordinates.  If it does not exist yet, it will allocate a new onr and store it for the lifetime of the application in the regions map.
 func Region(x, y int) *region {
-	return get(x/RegionSize, y/RegionSize)
+	return get(x, y)
 	// if regions[x/RegionSize][y/RegionSize] == nil {
 	// regions[x/RegionSize][y/RegionSize] = &region{x, y, &MobList{}, &MobList{}, &entityList{}, &entityList{}}
 	// }
@@ -615,18 +592,18 @@ func Region(x, y int) *region {
 //surroundingRegions Returns the regions surrounding the given coordinates.  It wil
 func (r *region) neighbors() (regions [4]*region) {
 	regions[0] = r
-	regionX := r.x % RegionSize
-	regionY := r.y % RegionSize
-	if regionX <= LowerBound {
+	// regionX := r.x % RegionSize
+	// regionY := r.y % RegionSize
+	if r.x % RegionSize <= LowerBound {
 		regions[1] = get((r.x/RegionSize)-1, r.y/RegionSize)
-		if regionY <= LowerBound {
+		if r.y % RegionSize <= LowerBound {
 			regions[2] = get((r.x/RegionSize)-1, (r.y/RegionSize)-1)
 			regions[3] = get(r.x/RegionSize, (r.y/RegionSize)-1)
 		} else {
 			regions[2] = get((r.x/RegionSize)-1, (r.y/RegionSize)+1)
 			regions[3] = get(r.x/RegionSize, (r.y/RegionSize)+1)
 		}
-	} else if regionY <= LowerBound {
+	} else if r.y % RegionSize <= LowerBound {
 		regions[1] = get((r.x/RegionSize)+1, r.y/RegionSize)
 		regions[2] = get((r.x/RegionSize)+1, (r.y/RegionSize)-1)
 		regions[3] = get(r.x/RegionSize, (r.y/RegionSize)-1)

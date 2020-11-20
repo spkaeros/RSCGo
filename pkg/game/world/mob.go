@@ -41,7 +41,7 @@ const (
 	StateShopping
 	//MSItemAction Indicates that the mob in this state is doing an inventory action
 	MSItemAction
-	// StateAction
+	// StateAction generic doing-a-thing state
 	StateAction
 
 	StateFightingDuel   = StateDueling | StateFighting
@@ -695,13 +695,9 @@ func (m *Mob) Isaac() *rand.Rand {
 // random percentage check around a call to GenerateHit.
 func (m *Mob) MagicDamage(target entity.MobileEntity, maximum float64) int {
 	// TODO: Tweak the defense/armor hit/miss formula to better match RSC--or at least verify this is somewhat close?
-	threshold := int(math.Min(212.0, 256.0*float64(m.MagicPoints())/(target.DefensePoints()*4.0)))
-	if int(m.CombatRngSrc().Uint8()) <= threshold {
-		return m.GenerateHit(m.MaxMeleeDamage())
+	if ChanceByte(int(math.Max(0.0, math.Min(212.0, 256.0 * float64(m.MagicPoints()) / (target.DefensePoints()*4.0))))) {
+		return m.GenerateHit(maximum)
 	}
-	// if BoundedChance(float64(256.0*m.MagicPoints())/(target.DefensePoints()*4), 0.0, 212.0) {// 82.8125) {
-		// return m.GenerateHit(maximum)
-	// }
 
 	return 0
 }
@@ -735,13 +731,7 @@ func (n *NPC) MeleeDamage(target entity.MobileEntity) int {
 // Kenix mentioned running monte-carlo sims when coming up with it, so presumably this formula matched up
 // statistically fairly well to the real game.  I can not say for sure as I didn't do these things myself, though.
 func (m *Mob) MeleeDamage(target entity.MobileEntity) int {
-	
-	// threshold := int(math.Max(0.0, math.Min(212.0, 256.0*m.AttackPoints()/(target.DefensePoints()*4.0))))
-	// if int(m.CombatRngSrc().Uint8()) <= threshold {
-		// return m.GenerateHit(m.MaxMeleeDamage())
-	// }
 	if ChanceByte(int(math.Max(0.0, math.Min(212.0, 256.0 * m.AttackPoints() / (target.DefensePoints()*4.0))))) {
-	//BoundedChance(256.0*m.AttackPoints()/(target.DefensePoints()*4.0), 0.0, 212.0) {// 82.0) {
 		return m.GenerateHit(m.MaxMeleeDamage())
 	}
 

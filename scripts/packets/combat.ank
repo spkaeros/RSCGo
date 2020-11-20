@@ -1,5 +1,6 @@
 bind = import("bind")
 log = import("log")
+state = import("state")
 time = import("time")
 world = import("world")
 packets = import("packets")
@@ -7,7 +8,7 @@ packets = import("packets")
 bind.packet(packets.attackNpc, func(player, packet) {
 	npc = world.getNpc(packet.ReadUint16())
 	if npc == nil || !npc.Attackable() {
-		log.debugf("%v tried to attack nil NPC\n", player)
+		log.debug(player.String(), "tried to attack nil NPC")
 		player.Message("The character does not appear interested in fighting")
 		player.ResetPath()
 		return

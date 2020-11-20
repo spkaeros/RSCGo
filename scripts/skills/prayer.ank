@@ -10,7 +10,7 @@ equipModifier = 30.0
 // some variation from equip related math where I am less certain does apply.
 drainRates = [15,15,15,30,30,30,5,10,10,60,60,60,60,60,60]
 
-bind.onLogin(func(player) {
+bind.login(func(player) {
 	drained = 0
 	onTick(func() {
 		index = 0

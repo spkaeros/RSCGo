@@ -15,6 +15,8 @@ import (
 	"sync"
 	"reflect"
 	
+	"go.uber.org/atomic"
+
 	`github.com/spkaeros/rscgo/pkg/game/entity`
 	`github.com/spkaeros/rscgo/pkg/log`
 )
@@ -22,13 +24,11 @@ import (
 // tickable script procedure
 type (
 	//scriptCall This is a type-free box type, made for boxing function pointers usually from an Anko script.
-	ScriptCall struct {
-		fn interface{}
-	}
+	ScriptCall interface{}
 	//scriptArg This is a type-free box type, made for boxing any function arguments, for use in conjunction with scriptCall.
 	scriptArg interface{}
 	//scriptArg A slice of ScriptCalls.
-	ScriptCalls = []*ScriptCall
+	ScriptCalls []ScriptCall
 	//Scripts A locked slice of ScriptCalls.
 	Scripts struct {
 		ScriptCalls
@@ -62,6 +62,21 @@ type TaskList struct {
 	sync.RWMutex
 }
 
+var (
+	Ticks = atomic.NewUint64(0)
+)
+
+type tickCount int
+
+func CurrentTick() tickCount {
+	return tickCount(Ticks.Load())
+}
+
+func (t tickCount) since(t1 tickCount) tickCount {
+	return t-t1
+}
+
+
 //TickList A collection of Tasks that are intended to be ran once per game engine tick.
 // Tasks should contractually return either true if they are to be removed after execution completes,
 // or false if they are to be ran again on the next engine cycle.
@@ -72,25 +87,37 @@ func Schedule(ticks int, call Task) {
 }
 
 func (s *Scripts) Schedule(ticks int, fn Task) {
-	curTick := 0
-	ticker := func() bool {
-		if curTick >= ticks {
-			curTick = 0
-			return fn()
+	startTick := CurrentTick()
+	var ticker func() bool
+	ticker = func() bool {
+		if CurrentTick().since(startTick) >= tickCount(ticks)  {
+			// log.Debug(CurrentTick(), "; start=", startTick, "elapsed: ", CurrentTick().since(startTick))
+			// if !fn() {
+				// defer func() {
+					// startTick = CurrentTick()
+					// endTick = startTick+ticks
+				// }()
+				// return false
+			// }
+			status := fn()
+			if !status {
+				startTick = CurrentTick()
+			}
+
+			return status
 		}
-		defer func() {
-			curTick += 1
-		}()
 		return false
 	}
-	s.Add(ticker)
+	s.Lock()
+	s.ScriptCalls = append(s.ScriptCalls, ticker)
+	s.Unlock()
 }
 
 func (s *Scripts) Add(fn interface{}) {
 	s.Lock()
 	defer s.Unlock()
 	// log.Debugf("%v (%T)\n", fn, fn)
-	s.ScriptCalls = append(s.ScriptCalls, &ScriptCall{fn})
+	s.ScriptCalls = append(s.ScriptCalls, fn)
 }
 
 func (s *Scripts) Tick() {
@@ -100,73 +127,84 @@ func (s *Scripts) Tick() {
 func (s *Scripts) ForEach(arg interface{}) {
 	s.RLock()
 	// removeList := make(ScriptCalls, 0, len(s.ScriptCalls))
-	keepList := make(ScriptCalls, 0, len(s.ScriptCalls))
-	wait := sync.WaitGroup{}
+	// keepList := make(ScriptCalls, 0, len(s.ScriptCalls))
+	var list = make(ScriptCalls, 0, len(s.ScriptCalls))
+	keepList := &list
+	// wait := sync.WaitGroup{}
 	for _, script := range s.ScriptCalls {
-		wait.Add(1)
-		go func() {
-			defer wait.Done()
+		// wait.Add(1)
+		// go func(script ScriptCall, keepList *ScriptCalls) {
+			// defer wait.Done()
 			if script == nil {
 				return
 			}
 			// Determine the type of our script callback
-			keepList = append(keepList, script)
-			switch script.fn.(type) {
+			// keepList = append(keepList, script)
+			// log.Debug(script)
+			*keepList = append(*keepList, script)
+			switch script.(type) {
 			// Simple function call, no input no input
 			case call:
-				(script.fn.(call))()
+				(script.(call))()
 			// A function call taking a *world.Player as an argument
 			case playerArgCall:
-				(script.fn.(playerArgCall))(arg.(entity.MobileEntity))
+				(script.(playerArgCall))(arg.(entity.MobileEntity))
 			// A function call returning its active status.
 			case StatusReturnCall:
-				if (script.fn.(StatusReturnCall))() {
-					keepList = keepList[:len(keepList)-1]
+				if (script.(StatusReturnCall))() {
+					// log.Debugf("%v (%T)\n", script, script)
+					*keepList = (*keepList)[:len(*keepList)-1]
+					// keepList = (keepList)[:len(keepList)-1]
 				}
 			// A function call taking a *world.Player as an argument and returning its active status.
 			case playerArgStatusReturnCall:
-				if (script.fn.(playerArgStatusReturnCall))(arg.(entity.MobileEntity)) {
-					keepList = keepList[:len(keepList)-1]
+				if (script.(playerArgStatusReturnCall))(arg.(entity.MobileEntity)) {
+					*keepList = (*keepList)[:len(*keepList)-1]
+					// keepList = (keepList)[:len(keepList)-1]
 				}
 			// A function call that returns two values, the first a result value, and the second an error value
 			// Upon non-nil error value, it will log the stringified err struct then remove from active list,
 			// otherwise schedules the same call to run again next tick.
 			case dualReturnCall:
-				ret, callErr := (script.fn.(dualReturnCall))(context.Background())
+				ret, callErr := (script.(dualReturnCall))(context.Background())
 				if !callErr.IsNil() {
 					log.Warn("Error retVal from a dualReturnCall in the Anko ctx:", callErr.Elem())
 					return
 				}
+				// log.Debugf("%v (%T)\n", script, script)
 				if v, ok := ret.Interface().(bool); ok && v {
-					keepList = keepList[:len(keepList)-1]
+					*keepList = (*keepList)[:len(*keepList)-1]
+					// keepList = (keepList)[:len(keepList)-1]
 					return
 				}
-				// log.Debugf("%v (%T)\n", script, script)
 				
 			// A function call that returns two values, the first a result value, and the second an error value
 			// Requires one argument, no type restrictions, so long as the client reads it properly.
 			// Upon non-nil error value, it will log the stringified err struct then remove from active list,
 			// otherwise schedules the same call to run again next tick.
 			case singleArgDualReturnCall:
-				ret, callErr := (script.fn.(singleArgDualReturnCall))(context.Background(), reflect.ValueOf(arg))
+				ret, callErr := (script.(singleArgDualReturnCall))(context.Background(), reflect.ValueOf(arg))
 				if !callErr.IsNil() {
 					log.Warn("Error retVal from a singleArgDualReturnCall in the Anko ctx:", callErr.String())
 					return
 				}
-				if v, ok := ret.Interface().(bool); ok && v {
-					keepList = keepList[:len(keepList)-1]
+				if v := ret.Bool(); v {
+					*keepList = (*keepList)[:len(*keepList)-1]
+					// keepList = (keepList)[:len(keepList)-1]
 					return
 				}
 			default:
-				log.Debugf("Unhandled task found: Type:%T, Value:%v\n", script.fn, script.fn)
+				log.Debugf("Unhandled task found: Type:%T, Value:%v\n", script, script)
 				return
 			}
-		}()
+		// }(script, &keepList)
 	}
 	s.RUnlock()
-	wait.Wait()
+	Ticks.Inc()
 	s.Lock()
 	defer s.Unlock()
+	// wait.Wait()
+	s.ScriptCalls = *keepList
 	// for _, script := range removeList {
 		// if script.id >= len(s.ScriptCalls) {
 			// return
@@ -183,7 +221,6 @@ func (s *Scripts) ForEach(arg interface{}) {
 	// }
 	// s.ScriptCalls = keepList
 	// s.ScriptCalls = make(ScriptCalls, len(keepList))
-	s.ScriptCalls = keepList
 	// copy(s.ScriptCalls, keepList)
 	// for _, script := range removeList {
 		// for i := 0; i < len(s.ScriptCalls); i++ {

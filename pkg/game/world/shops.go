@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/spkaeros/rscgo/pkg/tasks"
+	"github.com/spkaeros/rscgo/pkg/definitions"
 )
 
 const (
@@ -265,6 +266,25 @@ func (s *ShopItems) Add(item *Item) {
 	}
 }
 
+func (s *ShopItems) AddItem(id, amt int) {
+	if !s.Contains(id) {
+		s.Lock()
+		defer s.Unlock()
+		s.set = append(s.set, &Item{ID: id, Amount: amt})
+	} else {
+		s.Get(id).Amount += 1
+		//		s.RLock()
+		//		defer s.RUnlock()
+		//		for _, shopItem := range s.set {
+		//			if shopItem.ID == item.ID {
+		//				for i := 0; i < item.Amount; i++ {
+		//					shopItem.Amount += 1
+		//				}
+		//			}
+		//		}
+	}
+}
+
 func (s *ShopItems) Size() int {
 	s.RLock()
 	defer s.RUnlock()
@@ -373,4 +393,8 @@ func (s *Shop) Remove(id int, amount int) bool {
 	}
 	s.Inventory.RemoveID(id, amount, !s.Stock.Contains(id))
 	return true
+}
+
+func (s *Shop) AppraiseItem(id int) int {
+	return int(Price(definitions.Item(id).BasePrice).Scale(s.BasePurchasePercent + s.DeltaPercentModID(id)))
 }
