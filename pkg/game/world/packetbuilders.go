@@ -100,17 +100,24 @@ func NpcEvents(player *Player) (p *net.Packet) {
 					p.AddUint16(uint16(msg.Owner.ServerIndex()))
 					p.AddUint8(1)
 					p.AddUint16(uint16(msg.Target.ServerIndex()))
-					message := strutil.ChatFilter.Format(msg.string)
-					size := len(message)
-					if size > 0 && size < 128 {
+					// message := (msg.string)
+					// size := len(message)
+					// if size > 0 && size < 128 {
+						// p.AddUint8(uint8(size))
+					// } else if size >= 0 && size < 0x8000 {
+						// p.AddUint16(uint16(size))
+					// }
+					// for _, c := range message {
+						// p.AddUint8(byte(c))
+					// }
+					// p.AddBytes([]byte(message))
+					msgEnciphered, size := strutil.Encipher(strutil.ChatFilter.Format(msg.string))
+					if size > 128 {
+						p.AddUint16(uint16(size+0x8000))
+					} else {
 						p.AddUint8(uint8(size))
-					} else if size >= 0 && size < 0x8000 {
-						p.AddUint16(uint16(size))
 					}
-					for _, c := range message {
-						p.AddUint8(byte(c))
-					}
-					p.AddBytes([]byte(message))
+					p.AddBytes(msgEnciphered) // encrypted utf-8 char-stream
 				} else {
 					newList = append(newList, msg)
 				}
@@ -350,27 +357,40 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 					p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
 					p.AddUint8(1)                                // Update Type
 					// TODO: Is this better or is end of message indicator better
-					size := uint8(len(msg.string))
+					size := int(len(msg.string))
 					if size > 84 {
 						size = 84
 						msg.string = msg.string[:size]
 					}
-					p.AddUint8(size)               // Count of UTF-8 characters in message
-					p.AddBytes([]byte(msg.string)) // UTF-8 encoded message
+					msgEnciphered, size := strutil.Encipher(strutil.ChatFilter.Format(msg.string))
+					if size > 128 {
+						p.AddUint16(uint16(size+0x8000))
+					} else {
+						p.AddUint8(uint8(size))
+					}
+					p.AddBytes(msgEnciphered) // encrypted utf-8 char-stream
+					// p.AddUint8(size)               // Count of UTF-8 characters in message
 				} else {
 					p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
 					p.AddUint8(6)                                // Update Type
 					// Format chat messages to match the rules of Jagex chat format
 					// Examples: First letters capitalized for every sentence, color-codes are properly identified, etc.
-					msg.string = strutil.ChatFilter.Format(msg.string)
+					// msg.string = strutil.ChatFilter.Format(msg.string)
 					// Too long messages are truncated to 255 bytes
-					if len(msg.string) > 0xFF {
-						msg.string = msg.string[:0xFF]
-					}
+					// if len(msg.string) > 0xFF {
+						// msg.string = msg.string[:0xFF]
+					// }
 					// Deprecated below call; Go defaults string encoding to UTF-8 and I updated the clients to use UTF-8 as well
 					// messageRaw := strutil.ChatFilter.Encode(message)
-					p.AddUint8(uint8(len(msg.string)))
-					p.AddBytes([]byte(msg.string))
+					// p.AddUint8(uint8(len(msg.string)))
+					// p.AddBytes([]byte(msg.string))
+					msgEnciphered, size := strutil.Encipher(strutil.ChatFilter.Format(msg.string))
+					if size > 128 {
+						p.AddUint16(uint16(size+0x8000))
+					} else {
+						p.AddUint8(uint8(size))
+					}
+					p.AddBytes(msgEnciphered) // encrypted utf-8 char-stream
 				}
 			case HitSplat:
 				splat := e.(HitSplat)

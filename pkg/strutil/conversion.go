@@ -1,16 +1,60 @@
 package strutil
 
 import (
-	// "fmt"
 	"math"
 	// "strconv"
 	"net"
 	"strings"
 	"unicode"
+	// "unicode/utf8"
 )
 
 //MaxBase37 Max base37 string hash for 12-rune usernames. (999999999999)
 const MaxBase37 = 6582952005840035281
+
+var specialMap = map[rune]rune{
+	'€': 'ﾀ',
+	'?': 'ﾝ',
+	'‚': 'ﾂ',
+	'ƒ': 'ﾃ',
+	'„': 'ﾄ',
+	'…': 'ﾅ',
+	'†': 'ﾆ',
+	'‡': 'ﾇ',
+	'ˆ': 'ﾈ',
+	'‰': 'ﾉ',
+	'Š': 'ﾊ',
+	'‹': 'ﾋ',
+	'Œ': 'ﾌ',
+	'Ž': 'ﾎ',
+	'‘': 'ﾑ',
+	'’': 'ﾒ',
+	'“': 'ﾓ',
+	'”': 'ﾔ',
+	'•': 'ﾕ',
+	'–': 'ﾖ',
+	'—': 'ﾗ',
+	'˜': 'ﾘ',
+	'™': 'ﾙ',
+	'š': 'ﾚ',
+	'›': 'ﾛ',
+	'œ': 'ﾜ',
+	'ž': 'ﾞ',
+	'Ÿ': 'ﾟ',
+}
+
+var cipherDictionary []int
+var cipherData []int
+var shiftCounts = []int{22, 22, 22, 22, 22, 22, 21, 22, 22, 20, 22, 22, 22, 21, 22, 22,
+	22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 3, 8, 22, 16, 22, 16, 17, 7, 13, 13, 13, 16,
+	7, 10, 6, 16, 10, 11, 12, 12, 12, 12, 13, 13, 14, 14, 11, 14, 19, 15, 17, 8, 11, 9, 10, 10, 10, 10, 11, 10,
+	9, 7, 12, 11, 10, 10, 9, 10, 10, 12, 10, 9, 8, 12, 12, 9, 14, 8, 12, 17, 16, 17, 22, 13, 21, 4, 7, 6, 5, 3,
+	6, 6, 5, 4, 10, 7, 5, 6, 4, 4, 6, 10, 5, 4, 4, 5, 7, 6, 10, 6, 10, 22, 19, 22, 14, 22, 22, 22, 22, 22, 22,
+	22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22,
+	22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22,
+	22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22,
+	22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22,
+	22, 22, 22, 22, 22, 22, 21, 22, 21, 22, 22, 22, 21, 22, 22}
 
 //IPToInteger Converts a string representation of an IPv4 address(e.g 127.0.0.1) to a 4-byte integer, each byte containing the information from one octet.
 func IPToInteger(s string) (ip net.IP) {
@@ -428,4 +472,196 @@ func init() {
 		fmt.Println(Base16.String(418444))
 		fmt.Println(Base16.Int(Base16.String(418444)))
 	*/
+	blockBuilder := make([]int, 33)
+	cipherDictIndexTemp := 0
+	for initPos := 0; initPos < len(shiftCounts); initPos++ {
+		initValue := shiftCounts[initPos]
+		builderBitSelector := 1 << (32 - uint(initValue))
+		builderValue := blockBuilder[initValue]
+		cipherData = append(cipherData, builderValue)
+		builderValueBit := 0
+		if (builderValue & builderBitSelector) == 0 {
+			builderValueBit = builderValue | builderBitSelector
+			for initValueCounter := initValue - 1; initValueCounter > 0; initValueCounter-- {
+				builderValue2 := blockBuilder[initValueCounter]
+				if builderValue != builderValue2 {
+					break
+				}
+				builderValue2BitSelector := 1 << (32 - uint(initValueCounter))
+				if (builderValue2 & builderValue2BitSelector) == 0 {
+					blockBuilder[initValueCounter] = builderValue2BitSelector | builderValue2
+				} else {
+					blockBuilder[initValueCounter] = blockBuilder[initValueCounter-1]
+					break
+				}
+			}
+		} else {
+			builderValueBit = blockBuilder[initValue+-1]
+		}
+		blockBuilder[initValue] = builderValueBit
+		for initValueCounter := initValue + 1; initValueCounter <= 32; initValueCounter++ {
+			if builderValue == blockBuilder[initValueCounter] {
+				blockBuilder[initValueCounter] = builderValueBit
+			}
+		}
+		cipherDictIndex := 0
+		for initValueCounter := 0; initValueCounter < initValue; initValueCounter++ {
+			builderBitSelector2 := 0x80000000 >> uint(initValueCounter)
+			if (builderValue & builderBitSelector2) == 0 {
+				cipherDictIndex++
+			} else {
+				if cipherDictionary[cipherDictIndex] == 0 {
+					cipherDictionary[cipherDictIndex] = cipherDictIndexTemp
+				}
+				cipherDictIndex = cipherDictionary[cipherDictIndex]
+			}
+			for len(cipherDictionary) <= cipherDictIndex {
+				cipherDictionary = append(cipherDictionary, 0)
+			}
+		}
+		cipherDictionary[(cipherDictIndex)] = ^initPos
+		if cipherDictIndex >= cipherDictIndexTemp {
+			cipherDictIndexTemp = cipherDictIndex + 1
+		}
+	}
+}
+
+func convertMsg(txt string) []rune {
+	buf := []rune{}
+	for _, b := range []rune(txt) {
+		if b >= 128 && b < 160 {
+			buf = append(buf, rune(specialMap[b]))
+			continue
+		}
+		buf = append(buf, rune(b))
+	}
+	return buf
+}
+
+func init() {
+	//Initialize cipher blocks
+}
+func Decipher(msg []byte, decipheredLength int) string {
+	bufferIndex := 0
+	off := 0
+	decipherIndex := 0
+	var cipherDictValue int
+	buffer := make([]int, decipheredLength)
+
+	for bufferIndex < decipheredLength && len(msg)-off > 0 {
+		encipheredByte := int8(msg[off])
+		off++
+		if encipheredByte < 0 {
+			decipherIndex = cipherDictionary[decipherIndex]
+		} else {
+			decipherIndex = decipherIndex + 1
+		}
+
+		if cipherDictValue = cipherDictionary[decipherIndex]; 0 > (cipherDictValue) {
+			buffer[bufferIndex] = ^cipherDictValue
+			bufferIndex += 1
+			if bufferIndex >= decipheredLength {
+				break
+			}
+
+			decipherIndex = 0
+		}
+
+		for andVal := 0x40; andVal > 0; andVal >>= 1 {
+			if encipheredByte&int8(andVal) == 0 {
+				decipherIndex = decipherIndex + 1
+			} else {
+				decipherIndex = cipherDictionary[decipherIndex]
+			}
+			if cipherDictValue = cipherDictionary[decipherIndex]; cipherDictValue < 0 {
+				buffer[bufferIndex] = ^cipherDictValue
+				bufferIndex += 1
+				if bufferIndex >= decipheredLength {
+					break
+				}
+
+				decipherIndex = 0
+			}
+		}
+	}
+
+	s := make([]byte, decipheredLength)
+	//Swap bytes for unicode characters
+	for bufferIndex = 0; bufferIndex < decipheredLength; bufferIndex += 1 {
+		bufferValue := buffer[bufferIndex] & 0xFF
+		if bufferValue != 0 {
+			if bufferValue >= 128 && bufferValue < 160 {
+				bufferValue = int(specialMap[rune(bufferValue-128)])
+			}
+
+			s[bufferIndex] = byte(bufferValue)
+		}
+	}
+	return string(s[:])
+}
+
+func Encipher(txt string) ([]byte, int) {
+	buf := convertMsg(txt)
+	output := make([]int, 0, len(txt))
+	enciphered := int(0)
+	bitOffset := 0
+	for _, c := range buf {
+		v := cipherData[c]
+		i1 := shiftCounts[c]
+
+		off := bitOffset >> 3
+		shift := bitOffset & 7
+		enciphered &= -shift >> 31
+		endOff := off + ((shift + i1 - 1) >> 3)
+		bitOffset += i1
+		shift += 24
+		enciphered |= int(v >> uint(shift))
+		for len(output) <= off {
+			output = append(output, 0)
+		}
+		output[off] = enciphered
+		if endOff > off {
+			off++
+			shift -= 8
+			enciphered = v >> uint(shift)
+			for len(output) <= off {
+				output = append(output, 0)
+			}
+			output[off] = int(enciphered & 0xFF)
+			if off < endOff {
+				shift -= 8
+				off++
+				enciphered = v >> uint(shift)
+				for len(output) <= off {
+					output = append(output, 0)
+				}
+				output[off] = int(enciphered & 0xFF)
+				if endOff > off {
+					shift -= 8
+					off++
+					enciphered = v >> uint(shift)
+					for len(output) <= off {
+						output = append(output, 0)
+					}
+					output[off] = int(enciphered & 0xFF)
+					// output[off] = enciphered
+					if endOff > off {
+						shift -= 8
+						off++
+						enciphered = v << uint(-shift)
+						for len(output) <= off {
+							output = append(output, 0)
+						}
+						output[off] = int(enciphered & 0xFF)
+						// output[off] = enciphered
+					}
+				}
+			}
+		}
+	}
+	out := make([]uint8, len(output))
+	for i, v := range output[:(7+bitOffset)>>3] {
+		out[i] = uint8(v)
+	}
+	return out, len(txt)
 }
