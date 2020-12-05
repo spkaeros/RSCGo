@@ -2,16 +2,19 @@ package strutil
 
 import (
 	"math"
-	// "strconv"
 	"net"
 	"strings"
 	"unicode"
-	// "unicode/utf8"
+	// "github.com/spkaeros/rscgo/pkg/log"
 )
 
 //MaxBase37 Max base37 string hash for 12-rune usernames. (999999999999)
 const MaxBase37 = 6582952005840035281
 
+// this shit is whack.
+// Not even positive I'm using it in any active codepath really,
+// seems to alter exotic chars to other exotic-er chars, and accessed
+// in the chat crypto routines
 var specialMap = map[rune]rune{
 	'€': 'ﾀ',
 	'?': 'ﾝ',
@@ -43,8 +46,12 @@ var specialMap = map[rune]rune{
 	'Ÿ': 'ﾟ',
 }
 
+// These two slices contain data which apparently ends up mixing up the chat strings
+// It gets generated at runtime via the init routine below
 var cipherDictionary []int
 var cipherData []int
+
+// This data here is the number of bits each char from 0-255 corresponds to in this super strange string encryption
 var shiftCounts = []int{22, 22, 22, 22, 22, 22, 21, 22, 22, 20, 22, 22, 22, 21, 22, 22,
 	22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 3, 8, 22, 16, 22, 16, 17, 7, 13, 13, 13, 16,
 	7, 10, 6, 16, 10, 11, 12, 12, 12, 12, 13, 13, 14, 14, 11, 14, 19, 15, 17, 8, 11, 9, 10, 10, 10, 10, 11, 10,
@@ -90,10 +97,10 @@ func IPToHexidecimal(s string) string {
 	return net.ParseIP(s).String()
 }
 
+//JagHash implements a string hashing function for file names contained in a jagball archive.
 func JagHash(s string) int {
 	ident := 0
-	s = strings.ToUpper(s)
-	for _, c := range s {
+	for _, c := range strings.ToUpper(s) {
 		ident = int((rune(ident)*61 + c) - 32)
 	}
 	return ident
@@ -218,106 +225,131 @@ var BaseConversion struct {
 
 func init() {
 	// Presumably this charset is optimized to be in order of most-used in the English language, as I think I've encountered this character array before elsewhere and that was its stated design
-	charset := []rune{' ', 'e', 't', 'a', 'o', 'i', 'h', 'n', 's', 'r', 'd', 'l', 'u', 'm', 'w', 'c', 'y', 'f', 'g', 'p', 'b', 'v', 'k', 'x', 'j', 'q', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ' ', '!', '?', '.', ',', ':', ';', '(', ')', '-', '&', '*', '\\', '\'', '@', '#', '+', '=', '\243', '$', '%', '"', '[', ']'}
-	getCharCode := func(c rune) int {
-		for i, cs := range charset {
-			if cs == c {
-				return i
+	validChar := func(c byte) bool {
+		charset := []rune{
+				' ', 'e', 't', 'a', 'o', 'i', 'h', 'n', 's', 'r', 'd', 'l', 'u', 'm', 'w',
+				'c', 'y', 'f', 'g', 'p', 'b', 'v', 'k', 'x', 'j', 'q', 'z', '0', '1', '2',
+				'3', '4', '5', '6', '7', '8', '9', ' ', '!', '?', '.', ',', ':', ';', '(',
+				')', '-', '&', '*', '\\', '\'', '@', '#', '+', '=', '\243', '$', '%', '"',
+				'[', ']' }
+		for _, cs := range charset {
+			if cs == rune(c) {
+				return true
 			}
 		}
-		return 0
+		return false
 	}
-	ChatFilter.Pack = func(msg string) []byte {
-		var buf []byte
-		if len(msg) > 80 {
-			msg = msg[:80]
-		}
-		msg = strings.ToLower(msg)
-		cachedValue := -1
-		for _, c := range msg {
-			code := getCharCode(c)
-			if code > 12 {
-				code += 195
-			}
-			if cachedValue == -1 {
-				if code < 13 {
-					cachedValue = code
-				} else {
-					buf = append(buf, byte(code))
-				}
-			} else if code < 13 {
-				buf = append(buf, byte((cachedValue<<4)|code)) // little end
-				cachedValue = -1
-			} else {
-				buf = append(buf, byte((cachedValue<<4)|(code>>4)))
-				cachedValue = code & 0xF // big end
+	endsSentence := func(c byte) bool {
+		punct := []rune{'!', '?', '.', ':'}
+		for _, cs := range punct {
+			if cs == rune(c) {
+				return true
 			}
 		}
-		if cachedValue != -1 {
-			buf = append(buf, byte(cachedValue<<4))
-		}
-
-		return buf
+		return false
 	}
-	ChatFilter.Unpack = func(data []byte) string {
-		// deprecated
-		var buf []rune
-		dataOffset := 0
-		cachedValue := -1
-		for i1 := 0; i1 < len(data); i1++ {
-			nextChar := data[dataOffset] & 0xFF
-			dataOffset++
-
-			upperHalf := nextChar & 0xF      // Mask out first half of byte
-			lowerHalf := nextChar >> 4 & 0xF // mask out last half of byte
-			if cachedValue == -1 {
-				if lowerHalf < 13 {
-					buf = append(buf, charset[lowerHalf])
-				} else {
-					cachedValue = int(lowerHalf)
-				}
-			} else {
-				buf = append(buf, charset[byte(cachedValue<<4)|lowerHalf-195])
-				cachedValue = -1
-			}
-
-			if cachedValue == -1 {
-				if upperHalf < 13 {
-					buf = append(buf, charset[upperHalf])
-				} else {
-					cachedValue = int(upperHalf)
-				}
-			} else {
-				buf = append(buf, charset[byte(cachedValue<<4)|upperHalf-195])
-				cachedValue = -1
-			}
-		}
-		return string(buf)
-	}
+	// ChatFilter.Pack = func(msg string) []byte {
+		// var buf []byte
+		// if len(msg) > 80 {
+			// msg = msg[:80]
+		// }
+		// msg = strings.ToLower(msg)
+		// cachedValue := -1
+		// for _, c := range msg {
+			// code := getCharCode(c)
+			// if code > 12 {
+				// code += 195
+			// }
+			// if cachedValue == -1 {
+				// if code < 13 {
+					// cachedValue = code
+				// } else {
+					// buf = append(buf, byte(code))
+				// }
+			// } else if code < 13 {
+				// buf = append(buf, byte((cachedValue<<4)|code)) // little end
+				// cachedValue = -1
+			// } else {
+				// buf = append(buf, byte((cachedValue<<4)|(code>>4)))
+				// cachedValue = code & 0xF // big end
+			// }
+		// }
+		// if cachedValue != -1 {
+			// buf = append(buf, byte(cachedValue<<4))
+		// }
+// 
+		// return buf
+	// }
+	// ChatFilter.Unpack = func(data []byte) string {
+		// // deprecated
+		// var buf []rune
+		// dataOffset := 0
+		// cachedValue := -1
+		// for i1 := 0; i1 < len(data); i1++ {
+			// nextChar := data[dataOffset] & 0xFF
+			// dataOffset++
+// 
+			// upperHalf := nextChar & 0xF      // Mask out first half of byte
+			// lowerHalf := nextChar >> 4 & 0xF // mask out last half of byte
+			// if cachedValue == -1 {
+				// if lowerHalf < 13 {
+					// buf = append(buf, charset[lowerHalf])
+				// } else {
+					// cachedValue = int(lowerHalf)
+				// }
+			// } else {
+				// buf = append(buf, charset[byte(cachedValue<<4)|lowerHalf-195])
+				// cachedValue = -1
+			// }
+// 
+			// if cachedValue == -1 {
+				// if upperHalf < 13 {
+					// buf = append(buf, charset[upperHalf])
+				// } else {
+					// cachedValue = int(upperHalf)
+				// }
+			// } else {
+				// buf = append(buf, charset[byte(cachedValue<<4)|upperHalf-195])
+				// cachedValue = -1
+			// }
+		// }
+		// return string(buf)
+	// }
 	ChatFilter.Format = func(msg string) string {
 		builder := &strings.Builder{}
 		startingSentence := true
-		for i, c := range msg {
-			if unicode.IsGraphic(c) {
-				if c == '@' {
-					if i == 4 && msg[i-4] == '@' {
+		caret := 0
+		msg = strings.ToLower(msg)
+		for i := 0; i < len(msg); i += 1 {
+			caret += 1
+			if validChar(msg[i]) {
+				if msg[i] == '@' {
+					if caret == 1 && msg[i+4] == '@' {
+						builder.WriteString(msg[i:i+5])
+						i += 4
 						startingSentence = true
-					} else if i == 0 && msg[i+4] == '@' {
-						startingSentence = false
 					} else {
-						c = ' '
+						builder.WriteByte(' ')
 					}
-				} else if unicode.IsPunct(c) {
+				} else if msg[i] == '~' {
+					if i == 0 && msg[i+4] == '~' {
+						i += 4
+						caret = 0
+					} else {
+						builder.WriteByte(' ')
+					}
+				} else if endsSentence(msg[i]) {
 					startingSentence = true
-				}
-				startingSentence = false
-				if startingSentence {
-					c = unicode.ToUpper(c)
+					builder.WriteByte(msg[i])
+				} else if unicode.IsSpace(rune(msg[i])) || unicode.IsNumber(rune(msg[i])) {
+					builder.WriteByte(msg[i])
+				} else if startingSentence && !unicode.IsSpace(rune(msg[i])) {
+					builder.WriteRune(unicode.ToUpper(rune(msg[i])))
+					startingSentence = false
 				} else {
-					c = unicode.ToLower(c)
+					builder.WriteRune(unicode.ToLower(rune(msg[i])))
+					startingSentence = false
 				}
-
-				builder.WriteRune(c)
 			}
 		}
 
@@ -429,49 +461,6 @@ func init() {
 		}
 		return s
 	}
-	/*
-		BaseConversion.Encode = func(base int, s string) (l uint64) {
-			for _, c := range s {
-				l *= uint64(base)
-				if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' {
-					l += uint64(c-'a'+1)
-				} else if c >= '0' && c <= '9' {
-					l += uint64(c-'0'+27)
-				}
-			}
-
-			return
-		}
-
-		BaseConversion.Decode = func(base int, i uint64) (s string) {
-			if i < 0 {
-				return "invalid_integer_to_string (enc failure)"
-			}
-			upper := true
-			for i != 0 {
-				remainder := i%uint64(base)
-				i /= uint64(base)
-				if remainder >= 11 {
-					if upper {
-						s = string(remainder + 'a'-1) + s
-						upper = false
-					} else {
-						s = string(remainder + 'A'-1) + s
-					}
-				} else if remainder > 0 {
-					s = string(remainder + '0' - 27) + s
-				} else {
-					s = string(' ') + s
-					upper = true
-				}
-			}
-			return s
-		}
-		fmt.Println(Base37.Decode(418444))
-		fmt.Println(Base37.Encode(Base37.Decode(418444)))
-		fmt.Println(Base16.String(418444))
-		fmt.Println(Base16.Int(Base16.String(418444)))
-	*/
 	blockBuilder := make([]int, 33)
 	cipherDictIndexTemp := 0
 	for initPos := 0; initPos < len(shiftCounts); initPos++ {
@@ -496,7 +485,7 @@ func init() {
 				}
 			}
 		} else {
-			builderValueBit = blockBuilder[initValue+-1]
+			builderValueBit = blockBuilder[initValue-1]
 		}
 		blockBuilder[initValue] = builderValueBit
 		for initValueCounter := initValue + 1; initValueCounter <= 32; initValueCounter++ {
@@ -538,9 +527,6 @@ func convertMsg(txt string) []rune {
 	return buf
 }
 
-func init() {
-	//Initialize cipher blocks
-}
 func Decipher(msg []byte, decipheredLength int) string {
 	bufferIndex := 0
 	off := 0
@@ -603,7 +589,7 @@ func Decipher(msg []byte, decipheredLength int) string {
 func Encipher(txt string) ([]byte, int) {
 	buf := convertMsg(txt)
 	output := make([]int, 0, len(txt))
-	enciphered := int(0)
+	enciphered := 0
 	bitOffset := 0
 	for _, c := range buf {
 		v := cipherData[c]
@@ -615,7 +601,7 @@ func Encipher(txt string) ([]byte, int) {
 		endOff := off + ((shift + i1 - 1) >> 3)
 		bitOffset += i1
 		shift += 24
-		enciphered |= int(v >> uint(shift))
+		enciphered |= v >> uint(shift)
 		for len(output) <= off {
 			output = append(output, 0)
 		}
@@ -627,7 +613,7 @@ func Encipher(txt string) ([]byte, int) {
 			for len(output) <= off {
 				output = append(output, 0)
 			}
-			output[off] = int(enciphered & 0xFF)
+			output[off] = enciphered & 0xFF
 			if off < endOff {
 				shift -= 8
 				off++
@@ -635,7 +621,7 @@ func Encipher(txt string) ([]byte, int) {
 				for len(output) <= off {
 					output = append(output, 0)
 				}
-				output[off] = int(enciphered & 0xFF)
+				output[off] = enciphered & 0xFF
 				if endOff > off {
 					shift -= 8
 					off++
@@ -643,8 +629,7 @@ func Encipher(txt string) ([]byte, int) {
 					for len(output) <= off {
 						output = append(output, 0)
 					}
-					output[off] = int(enciphered & 0xFF)
-					// output[off] = enciphered
+					output[off] = enciphered & 0xFF
 					if endOff > off {
 						shift -= 8
 						off++
@@ -652,16 +637,20 @@ func Encipher(txt string) ([]byte, int) {
 						for len(output) <= off {
 							output = append(output, 0)
 						}
-						output[off] = int(enciphered & 0xFF)
-						// output[off] = enciphered
+						output[off] = enciphered & 0xFF
 					}
 				}
 			}
 		}
 	}
-	out := make([]uint8, len(output))
-	for i, v := range output[:(7+bitOffset)>>3] {
-		out[i] = uint8(v)
+
+	return toBytes(output[:(7+bitOffset)>>3]), len(txt)
+}
+
+func toBytes(arr []int) (out []byte) {
+	out = make([]byte, len(arr))
+	for i, v := range arr {
+		out[i] = byte(v)
 	}
-	return out, len(txt)
+	return out
 }

@@ -15,10 +15,10 @@ type ISAAC struct {
 	randcnt int
 
 	// internal state
-	state               [256]uint32
+	state			   [256]uint32
 	acc1, acc2, counter uint32
-	index               int
-	remainder           []byte
+	index			   int
+	remainder		   []byte
 	sync.RWMutex
 }
 
@@ -29,70 +29,57 @@ func (r *ISAAC) Seed(seed int64) {
 	r.randInit()
 }
 
-// ISAAC64+ result shaker, with modifications recommended by Jean-Phillipe Aumasson to avoid some bias,
-// to strengthen the output stream.  Replaces an addition with a xor, adds another xor, and
-// The below bit rotation ops were changed from right bitshifts of the same number of bits,
-// which purportedly gets more diffusion out of existing state bits.
-func (r *ISAAC) shake(i uint32, mixed uint32) {
-	prevState := r.state[i]
-	r.acc1 = mixed + r.state[(i+128)&0xFF]
-	// accumulators XOR op changed from ADD op in ISAAC64
-	// supposed to remove the reported biases
-	//r.state[i] = (r.acc1 ^ r.acc2) + r.state[int(bits.RotateLeft64(prevState&MixMask, 3))&0xFF]
-	// ISAAC64 non-modified:
-	r.state[i] = (r.acc1 + r.state[(prevState >> 2)&0xFF] + r.acc2)
-	// XOR op was added to result value calculation in ISAAC64
-	// supposed to reduce the linearity over ZsubText(pow(2,32))
-	//	r.acc2 = prevState + (r.acc1 ^ r.state[bits.RotateLeft64(r.state[i]&MixMask, 11)&0xFF])
-	// ISAAC64 non-modified:
-	r.acc2 = prevState + (r.state[(r.state[i]>>10)&0xFF])
-	r.randrsl[i] = r.acc2
-}
-
 func (r *ISAAC) generateNextSet() {
 	// count
 	r.counter++
 	// accumulate
 	r.acc2 += r.counter
 
+	var shifts = [...]uint { 13, 6, 2, 16 }
 	for i := uint32(0); i < 256; i += 1 {
-		r.shake(i, r.acc1^r.acc1<<13)
-		i += 1
-		r.shake(i, r.acc1^r.acc1>>6)
-		i += 1
-		r.shake(i, r.acc1^r.acc1<<2)
-		i += 1
-		r.shake(i, r.acc1^r.acc1>>16)
+		prevState := r.state[i]
+		var mixed uint32
+		if i&1 == 0 {
+			mixed = r.acc1^r.acc1 << shifts[i&3]
+		} else {
+			mixed = r.acc1^r.acc1 >> shifts[i&3]
+		}
+		r.acc1 = mixed + r.state[(i+128)&0xFF]
+		// accumulators XOR op changed from ADD op in ISAAC64
+		// supposed to remove the reported biases
+		//r.state[i] = (r.acc1 ^ r.acc2) + r.state[int(bits.RotateLeft64(prevState&MixMask, 3))&0xFF]
+		// ISAAC64 non-modified:
+		r.state[i] = r.acc1 + r.state[(prevState >> 2)&0xFF] + r.acc2
+		// XOR op was added to result value calculation in ISAAC64
+		// supposed to reduce the linearity over ZsubText(pow(2,32))
+		//	r.acc2 = prevState + (r.acc1 ^ r.state[bits.RotateLeft64(r.state[i]&MixMask, 11)&0xFF])
+		// ISAAC64 non-modified:
+		r.acc2 = prevState + r.state[(r.state[i]>>10)&0xFF]
+		r.randrsl[i] = r.acc2
 	}
 }
 
 func (r *ISAAC) randInit() {
 	var mess = [...]uint32 { phi, phi, phi, phi, phi, phi, phi, phi }
-    mix := func() {
-	    mix1 := func(i int, v uint32) {
-	        mess[i] ^= v
-	        mess[(i+3)%8] += mess[i]
-	        mess[(i+1)%8] += mess[(i+2)%8]
-	    }
-        mix1(0, mess[1]<<11)
-        mix1(1, mess[2]>>2)
-        mix1(2, mess[3]<<8)
-        mix1(3, mess[4]>>16)
-        mix1(4, mess[5]<<10)
-        mix1(5, mess[6]>>4)
-        mix1(6, mess[7]<<8)
-        mix1(7, mess[0]>>9)
-    }
+	mix := func() {
+		var shifts = [...]uint { 11, 2, 8, 16, 10, 4, 8, 9 }
+		for i := 0; i < 8; i++ {
+			if i&1 == 0 {
+				mess[i] ^= (mess[(i+1)&7] << shifts[i&7])
+			} else {
+				mess[i] ^= (mess[(i+1)&7] >> shifts[i&7])
+			}
+			mess[(i+3)&7] += mess[i]
+			mess[(i+1)&7] += mess[(i+2)&7]
+		}
+	}
 	fillMess := func(state [256]uint32) {
-		// for i := 0; i < 256; i += 8 { 
 		for i := 0; i < 256; i += 8 { // fill state or result-set with messy stuff derived of the golden ratio
 			for i1, v := range state[i : i+8] {
-			// for i1 := 0; i1 < 8; i1++ {
 				mess[i1] += v
 			}
 			mix()
 			for i1, v := range mess {
-			// for i1 := 0; i1 < 8; i1++ {
 				r.state[i+i1] = v
 			}
 		}
@@ -108,7 +95,7 @@ func (r *ISAAC) randInit() {
 	fillMess(r.state)
 
 	r.generateNextSet() // run core ISAAC algorithm to fill result-set
-	r.randcnt = 255 // set first output word to last element of result-set
+	r.randcnt = 256 // set first output word to last element of result-set
 	r.Unlock()
 }
 
@@ -118,11 +105,10 @@ func (r *ISAAC) Uint64() (number uint64) {
 }
 
 //Int63 Returns the next 8 bytes as a long integer from the ISAAC CSPRNG receiver instance.
-// Guarenteed non-negative
 func (r *ISAAC) Int63() (number int64) {
 	// return int64(r.Uint64())<<1>>1
 	// return (int64(r.Int31()) << 32) | int64(r.Uint32()) & 0x7FFFFFFFFFFFFFFF
-	return int64(r.Uint64()) & 0x7FFFFFFFFFFFFFFF
+	return int64(r.Uint64())
 }
 
 //Uint32 Returns the next 4 bytes as an integer from the ISAAC CSPRNG receiver instance.
@@ -130,18 +116,17 @@ func (r *ISAAC) Int63() (number int64) {
 func (r *ISAAC) Uint32() (number uint32) {
 	r.Lock()
 	defer r.Unlock()
-	number = uint32(r.randrsl[r.randcnt])
-	r.randcnt -= 1
-	if r.randcnt == 0 {
+	if r.randcnt <= 0 {
 		r.generateNextSet()
-		r.randcnt = 255
+		r.randcnt = 256
 	}
-	return
+	r.randcnt--
+	return uint32(r.randrsl[r.randcnt])
 }
 
-//Int31 returns a non-negative pseudo-random 31-bit integer as an int32
+//Int31 returns a pseudo-random 31-bit integer as an int32
 func (r *ISAAC) Int31() int32 {
-	return int32(r.Uint32()) & 0x7FFFFFFF
+	return int32(r.Uint32())
 }
 
 func (r *ISAAC) Int() int {

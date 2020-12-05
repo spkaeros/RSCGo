@@ -249,24 +249,39 @@ func (p *Player) WalkingRangedAction(t entity.MobileEntity, fn func()) {
 func (p *Player) WalkingArrivalAction(t entity.MobileEntity, dist int, action func()) {
 	p.SetTickAction(func() bool {
 		if p.Near(t, dist) {
-			if !p.Reachable(t) {
+			if p.Collides(t) {
 				// p.WalkTo(NewLocation(t.X(), t.Y()))
 				// p.Message("I can't reach that.")
-				return false
+				if !p.FinishedPath() {
+					return false
+				}
+				pivotList := p.PivotTo(t)
+				if len(pivotList[0]) == 0 || len(pivotList[1]) == 0 {
+					// // no reasonable direct path to target
+					p.Message("I can't reach that.")
+					return false
+				}
+				p.ResetPath()
+				p.SetCoords(pivotList[0][0], pivotList[1][0], false)
+				// p.SetPath(NewPathway(p.X(), p.Y(), pivotList[0], pivotList[1]))
+				return true
 			}
 			action()
 			return false
 		}
-		if p.FinishedPath() && p.Reachable(t) {
-			// pivotList := p.PivotTo(t)
-			// if len(pivotList[0]) == 0 || len(pivotList[1]) == 0 {
-			if !p.WalkTo(t) {
+		if p.FinishedPath() {
+			pivotList := p.PivotTo(t)
+			if len(pivotList[0]) == 0 || len(pivotList[1]) == 0 {
 				// // no reasonable direct path to target
 				p.Message("I can't reach that.")
 				return false
 			}
+			p.ResetPath()
+			p.SetCoords(pivotList[0][0], pivotList[1][0], false)
 			// p.SetPath(NewPathway(p.X(), p.Y(), pivotList[0], pivotList[1]))
+			return true
 		}
+		
 		return true
 	})
 }
@@ -651,6 +666,10 @@ func (p *Player) NewItems() (items []*GroundItem) {
 	return
 }
 
+func (p *Player) Unregister() {
+	p.SetVar("unregistering", true)
+}
+
 //NewPlayers Returns nearby players that this player is unaware of.
 func (p *Player) NewPlayers() (players *MobList) {
 	list := NewMobList()
@@ -704,6 +723,22 @@ func (p *Player) ResetTrade() {
 		p.TradeOffer.Clear()
 		p.RemoveState(StateTrading)
 	}
+}
+
+func (p *Player) OpenTradeConfirmation(target *Player) {
+	p.SendPacket(TradeConfirmationOpen(p, target))
+}
+
+func (p *Player) CloseTradeScreens() {
+	p.SendPacket(TradeClose)
+}
+
+func (p *Player) SetTradeTargetAccepted() {
+	p.SendPacket(TradeTargetAccept(true))
+}
+
+func (p *Player) UpdateTradeOffer(target *Player) {
+	p.SendPacket(TradeUpdate(target))
 }
 
 //TradeTarget returns the game index of the player we are trying to trade with, or -1 if we have not made a trade request.
@@ -851,32 +886,34 @@ func (p *Player) OpenDuelScreen(target *Player) {
 	// target.WritePacket(DuelOpen(p.ServerIndex()))
 }
 
+func (p *Player) OpenTradeScreen(target *Player) {
+	p.ResetPath()
+	p.AddState(StateTrading)
+	p.WritePacket(TradeOpen(target.ServerIndex()))
+}
+
 //Destroy sends a kill signal to the underlying client to tear down all of the I/O routines and save the player.
+// Note: This should probably be ran in its own goroutine as it saves the player to the database.
 func (p *Player) Destroy() {
-		p.killer.Do(func() {
-			p.WriteNow(*Logout)
-			defer func() {
-				p.Attributes.SetVar("lastIP", p.CurrentIP())
-				if err := p.Socket.Close(); err != nil {
-					log.Warn("Couldn't close socket:", err)
-				}
-			}()
-			p.Inventory.Owner = nil
-			if Players.Find(p) > -1 {
-				log.Debug("Unregistered:{'" + p.Username() + "'@'" + p.CurrentIP() + "'}")
-				p.ResetAll()
-				p.UpdateStatus(false)
-				p.SetConnected(false)
-				go func() {
-					DefaultPlayerService.PlayerSave(p)
-					RemovePlayer(p)
-				}()
-				return
-			}
-			log.Debug("Unregistered:{'" + p.CurrentIP() + "'}")
-		})
-		// return true
-	// })
+	p.killer.Do(func() {
+		p.Inventory.Owner = nil
+		p.SetConnected(false)
+		p.Attributes.SetVar("lastIP", p.CurrentIP())
+		close(p.InQueue)
+		close(p.OutQueue)
+		p.WriteNow(*Logout)
+		if err := p.Socket.Close(); err != nil {
+			log.Warn("Couldn't close socket:", err)
+		}
+		if Players.Find(p) > -1 {
+			log.Debug("Unregistered:", p.Username() + "@" + p.CurrentIP())
+			p.ResetAll()
+			DefaultPlayerService.PlayerSave(p)
+			RemovePlayer(p)
+			return
+		}
+		log.Debug("Unregistered:", p.CurrentIP())
+	})
 }
 
 func (p *Player) AtObject(object *Object) bool {
@@ -1022,8 +1059,8 @@ func NewPlayer(socket stdnet.Conn) *Player {
 		DuelOffer:        &Inventory{Capacity: 8},
 		InQueue:          make(chan *net.Packet, 4),
 		OutQueue:         make(chan *net.Packet, 2),
-		Reader:           bufio.NewReader(wsutil.NewServerSideReader(socket)),
-		Writer:			  bufio.NewWriterSize(socket, 5000),
+		// Reader:           bufio.NewReader(wsutil.NewServerSideReader(socket)),
+		// Writer:			  bufio.NewWriterSize(socket, 5000),
 		OpCiphers:		  [...]*isaac.ISAAC{nil, nil},
 	}
 	// TODO: Get rid of this self-referential member; figure out better way to handle client item updating
@@ -1052,14 +1089,37 @@ const playerEvents = "playerEventQ"
 //Chat sends a player NPC chat message packet to the player and all other players around it.  If multiple msgs are
 // provided, will sleep the goroutine for 3-4 ticks between each message, depending on length of message.
 func (p *Player) Chat(msgs ...string) {
-	wait := time.Duration(0)
-	for _, v := range msgs {
-		p.enqueueArea(playerEvents, p.ViewRadius(), NewTargetedMessage(p, p.TargetMob(), v))
-		wait += 3
-		if len(msgs[0]) >= 84 {
-			wait++
+	// wait := time.Duration(0)
+	// for _, v := range msgs {
+		// p.enqueueArea(playerEvents, p.ViewRadius(), NewTargetedMessage(p, p.TargetMob(), v))
+		// wait += 3
+		// if len(msgs[0]) >= 84 {
+			// wait++
+		// }
+		// time.Sleep(TickMillis * wait)
+	// }
+	if len(msgs) <= 0 {
+		return
+	}
+	p.enqueueArea(playerEvents, 16, NewTargetedMessage(p, nil, msgs[0]))
+	wait := 3
+	if len(msgs[0]) >= 84 {
+		wait += 1
+	}
+	if len(msgs) == 0 {
+		// just stall til next tick is run then returns
+		tasks.Stall(0)
+		return
+	}
+	for _, v := range msgs[1:] {
+		tasks.ScheduleWait(wait, func() bool {
+			p.enqueueArea(playerEvents, 16, NewTargetedMessage(p, nil, v))
+			return true
+		})
+		wait = 3
+		if len(v) >= 84 {
+			wait += 1
 		}
-		time.Sleep(TickMillis * wait)
 	}
 }
 
@@ -1700,7 +1760,7 @@ func (p *Player) ReadPacket() (*net.Packet, error) {
 	return net.NewPacket(frame[0], frame[1:]), nil
 }
 
-func (p *Player) Tick() {
+func (p *Player) ProcPacketsIn() {
 	for {
 		select {
 		case packet, ok := <-p.InQueue:
@@ -1725,7 +1785,7 @@ func (p *Player) Tick() {
 	}
 }
 
-func (p *Player) PostTick() {
+func (p *Player) ProcPacketsOut() {
 	for {
 		select {
 		default:

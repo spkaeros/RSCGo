@@ -4,7 +4,7 @@ load("scripts/lib/packets.ank")
 
 func logout(player, packet) {
 	if player.Busy() {
-		player.SendPacket(world.CannotLogout)
+		player.SendPacket(net.cannotLogout)
 		return
 	}
 

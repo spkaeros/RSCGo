@@ -8,6 +8,7 @@ bind.packet(packets.command, func(player, packet) {
 	if !checkPacket(packet, 1) {
 		return
 	}
+	packet.Skip(1)
 	raw = packet.ReadString()
 	if len(raw) <= 0 {
 		return

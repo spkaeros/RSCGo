@@ -45,8 +45,10 @@ func init() {
 	env.Packages["state"] = map[string]reflect.Value{
 		"UsingItem":			  reflect.ValueOf(MSItemAction),
 		"InDuel":				  reflect.ValueOf(StateDueling),
+		"InTrade":				  reflect.ValueOf(StateTrading),
 		"DoingThing":			  reflect.ValueOf(StateAction),
 		"ChatMenu":				  reflect.ValueOf(StateChatChoosing),
+		"ChangingLooks":	  reflect.ValueOf(StateChangingLooks),
 		"Chatting":				  reflect.ValueOf(StateChatting),
 		"OptionMenu":			  reflect.ValueOf(MSItemAction),
 		"Banking":				  reflect.ValueOf(StateBanking),
@@ -79,7 +81,7 @@ func init() {
 		"checkCollisions":        reflect.ValueOf(IsTileBlocking),
 		"tileData":               reflect.ValueOf(CollisionData),
 		"kickPlayer": reflect.ValueOf(func(client *Player) {
-			client.Destroy()
+			client.Unregister()
 		}),
 		"updateStarted": reflect.ValueOf(func() bool {
 			return !UpdateTime.IsZero()
@@ -98,8 +100,7 @@ func init() {
 			tasks.Schedule(1, func() bool {
 				if time.Since(start) >= time.Duration(t) * time.Second {
 					Players.Range(func(player *Player) {
-						player.WriteNow(*Logout)
-						player.Destroy()
+						player.Unregister()
 					})
 					time.Sleep(2 * time.Second)
 					os.Exit(200)
@@ -146,6 +147,7 @@ func init() {
 	env.Packages["net"] = map[string]reflect.Value {
 		"barePacket": reflect.ValueOf(net.NewEmptyPacket),
 		"logout": reflect.ValueOf(Logout),
+		"cannotLogout": reflect.ValueOf(CannotLogout),
 		"bankUpdateItem": reflect.ValueOf(BankUpdateItem),
 		"shopOpen": reflect.ValueOf(ShopOpen),
 	}
@@ -160,6 +162,11 @@ func init() {
 	}
 	env.Packages["packets"] = map[string]reflect.Value{
 		"ping": reflect.ValueOf(67),
+		"tradeRequest": reflect.ValueOf(142),
+		"tradeDecline": reflect.ValueOf(230),
+		"tradeAccept": reflect.ValueOf(55),
+		"tradeAccept2": reflect.ValueOf(104),
+		"tradeUpdate": reflect.ValueOf(46),
 		"follow": reflect.ValueOf(165),
 		"closeBank": reflect.ValueOf(212),
 		"depositBank": reflect.ValueOf(23),

@@ -61,7 +61,7 @@ bind.packet(packets.npcChat, func(player, packet) {
 
 bind.packet(packets.chat, func(player, packet) {
 	size = toInt(packet.ReadUint8())
-	if size > 128 {
+	if size >= 128 {
 		size = ((size-128) << 8) | toInt(packet.ReadUint8())
 	}
 	msg = decryptMsg(packet.ReadString(), size)

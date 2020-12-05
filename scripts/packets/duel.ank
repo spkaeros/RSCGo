@@ -13,8 +13,8 @@ bind.packet(packets.duelRequest, func(player, packet) {
 		return
 	}
 	index = packet.ReadUint16()
-	target, ok = world.Players.FindIndex(index)
-	if !ok {
+	target, ok = world.getPlayer(index)
+	if !ok || target == nil {
 		log.cheatf("%v attempted to duel a player that does not exist.\n", player.String())
 		return
 	}

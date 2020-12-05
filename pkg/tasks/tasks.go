@@ -86,6 +86,24 @@ func Schedule(ticks int, call Task) {
 	TickList.Schedule(ticks, call)
 }
 
+func ScheduleWait(ticks int, call Task) {
+	c := make(chan struct{})
+	TickList.Schedule(ticks, func() bool {
+		defer func() {
+			close(c)
+		}()
+		return call()
+	})
+	<-c
+	return
+}
+
+func Stall(ticks int) {
+	ScheduleWait(ticks, func() bool {
+		return true
+	})
+}
+
 func (s *Scripts) Schedule(ticks int, fn Task) {
 	startTick := CurrentTick()
 	var ticker func() bool

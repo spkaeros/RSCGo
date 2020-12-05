@@ -104,8 +104,6 @@ bind.packet(packets.pickupItem, func(player, packet) {
 		return
 	}
 
-	packet.ReadUint16() // Unused in this opcode this variable is what affect-type we are applying to the ground item, e.g casting, using item with, etc...but we are not using any affects
-
 	player.SetTickAction(func() {
 		if player.Busy() {
 			return false

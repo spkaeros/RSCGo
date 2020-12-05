@@ -182,8 +182,8 @@ func (l Location) PivotTo(loc entity.Location) (deltas [2][]int) {
 		if l.Collides(NewLocation(int(math.Floor(x)),int(math.Floor(y)))) {
 			return [2][]int { {}, {} }
 		} else {
-			deltas[0] = append(deltas[0], int(x+deltaX) - l.X())
-			deltas[1] = append(deltas[1], int(y+deltaY) - l.Y())
+			deltas[0] = append(deltas[0], int(x+deltaX))
+			deltas[1] = append(deltas[1], int(y+deltaY))
 		}
 		x += deltaX
 		y += deltaY

@@ -20,6 +20,7 @@ import (
 
 	"github.com/spkaeros/rscgo/pkg/errors"
 	"github.com/spkaeros/rscgo/pkg/log"
+	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 //WriteFlusher 
@@ -204,6 +205,26 @@ func (p *Packet) ReadString() string {
 	return string(s)
 }
 
+func (p *Packet) AddFramedString(s string) *Packet {
+	return p.AddBytes(append(append([]byte{0}, append([]byte(s), 0)...)))
+}
+
+func (p *Packet) AddEncryptedString(s string) *Packet {
+	log.Debug(s, strutil.ChatFilter.Format(s))
+	buf, n := strutil.Encipher(strutil.ChatFilter.Format(s))
+	if n < 128 {
+		p.AddUint8(uint8(n))
+	} else {
+		p.AddUint8((uint8(n) >> 8) + 128)
+		p.AddUint8(uint8(n))
+	}
+	return p.AddBytes(buf)
+}
+
+func (p *Packet) AddString(s string) *Packet {
+	return p.AddUint8(0).AddBytes([]byte(s)).AddUint8(0)
+}
+
 func (p *Packet) EnsureCapacity(l int) {
 	p.FrameBuffer = append(p.FrameBuffer, make([]byte, l)...)
 }
@@ -224,11 +245,24 @@ func (p *Packet) AddUint32(i uint32) *Packet {
 
 func (p *Packet) AddSmart0832(i int) *Packet {
 	if i >= 0x80 {
-		p.AddUint32(0x80<<24 | uint32(i))
-		return p
+		return p.AddUint32(0x80<<24 | uint32(i))
 	}
-	p.AddUint8(uint8(i))
-	return p
+	return p.AddUint8(uint8(i))
+}
+
+func (p *Packet) AddSmart1632(i int) *Packet {
+	i &= 0xFFFFFFFF
+	if i <= 0xFFFF {
+		return p.AddUint16(uint16(i))
+	}
+	return p.AddUint32(uint32(-2147483648 + i))
+}
+
+func (p *Packet) AddSmart0816(i int) *Packet {
+	if i >= 0x80 {
+		return p.AddUint16(0x80<<8 | uint16(i))
+	}
+	return p.AddUint8(uint8(i))
 }
 
 //AddUint8or32 Adds a 32-bit integer or an 8-byte integer to the handlers payload, depending on value.

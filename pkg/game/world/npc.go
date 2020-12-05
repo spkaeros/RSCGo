@@ -12,7 +12,7 @@ package world
 import (
 	"sync"
 	// "math/rand"
-	"time"
+	// "time"
 	
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
@@ -264,14 +264,24 @@ func (n *NPC) Chat(target *Player, msgs ...string) {
 		return
 	}
 	n.enqueueArea(npcEvents, NewTargetedMessage(n, target, msgs[0]))
-	wait := time.Duration(0)
-	for _, v := range msgs {
-		n.enqueueArea(npcEvents, NewTargetedMessage(n, target, v))
-		wait += 3
-		if len(msgs[0]) >= 84 {
-			wait++
+	wait := 3
+	if len(msgs[0]) >= 84 {
+		wait += 1
+	}
+	if len(msgs) == 0 {
+		// just stall til next tick runs then return
+		tasks.Stall(0)
+		return
+	}
+	for _, v := range msgs[1:] {
+		tasks.ScheduleWait(wait, func() bool {
+			n.enqueueArea(npcEvents, NewTargetedMessage(n, target, v))
+			return true
+		})
+		wait = 3
+		if len(v) >= 84 {
+			wait += 1
 		}
-		time.Sleep(TickMillis*wait)
 	}
 }
 

@@ -1,0 +1,203 @@
+load("scripts/lib/packets.ank")
+
+bind.packet(packets.tradeRequest, func(player, packet) {
+	if !checkPacket(packet, 2) {
+		return
+	}
+	if player.Busy() {
+		return
+	}
+	index = packet.ReadUint16()
+	target = world.getPlayer(index)
+	if target == nil {
+		log.cheatf("%v attempted to duel a player that does not exist.\n", player.String())
+		return
+	}
+	if !player.LocalPlayers.Contains(target) || player.Busy() {
+		return
+	}
+	if !player.Near(target, 5) {
+		player.Message("You are too far away to do that")
+		return
+	}
+	if target.TradeBlocked() && !target.FriendsWith(player.UsernameHash()) {
+		player.Message("This player has trade requests blocked.")
+		return
+	}
+	player.SetTradeTarget(target.ServerIndex())
+	player.Duel.Target = target
+	if target.TradeTarget() != player.ServerIndex() {
+		player.Message("Sending trade request")
+		target.Message(player.Username() + "@whi@ wishes to trade with you")
+		return
+	}
+	if target.Busy() || player.Busy() {
+		return
+	}
+	player.OpenTradeScreen(target)
+	target.OpenTradeScreen(player)
+})
+
+bind.packet(packets.tradeDecline, func(player, packet) {
+	if !player.IsTrading() {
+		log.cheat(player.String(), "attempted to decline a trade it was not in!")
+		player.ResetTrade()
+		return
+	}
+	target = world.getPlayer(player.TradeTarget())
+	if target == nil {
+		log.cheat(player.String(), "attempted to decline a trade with a non-existent target!")
+		player.ResetTrade()
+		return
+	}
+	if !player.IsTrading() || target.TradeTarget() != player.ServerIndex() {
+		log.cheat("bad duel update between", player.String(), "and", target.String())
+		player.ResetTrade()
+		return
+	}
+	if player.IsFighting() || target.IsFighting() || player.Busy() || target.Busy() {
+		return
+	}
+	player.ResetTrade()
+	target.ResetTrade()
+	target.Message(player.Username() + " has declined the duel")
+})
+
+
+bind.packet(packets.tradeAccept, func(player, packet) {
+	if !player.IsTrading() {
+		log.cheat(player.String(), "attempted to decline a duel it was not in!")
+		player.ResetTrade()
+		return
+	}
+	target = world.getPlayer(player.TradeTarget())
+	if target == nil {
+		log.cheat(player.String(), "attempted to accept a duel with a non-existent target!")
+		player.ResetTrade()
+		return
+	}
+	if !target.IsTrading() || target.TradeTarget() != player.ServerIndex() {
+		log.cheat("bad duel update between", player.String(), "and", target.String())
+		// player.ResetDuel()
+		// target.ResetDuel()
+		return
+	}
+
+	player.SetVar("trade1accept", true)
+	if target.VarBool("trade1accept", false) {
+		player.OpenTradeConfirmation(target)
+		target.OpenTradeConfirmation(player)
+	} else {
+		target.SetTradeTargetAccepted(true)
+	}
+
+})
+bind.packet(packets.tradeAccept2, func(player, packet) {
+	if !player.IsTrading() || !player.VarBool("trade1accept", false) {
+		log.cheat(player.String(), "%v attempted to accept a trade confirmation it was not in!")
+		player.ResetTrade()
+		return
+	}
+	target = world.getPlayer(player.TradeTarget())
+	if target == nil {
+		log.cheat(player.String(), "involved in trade with no target!")
+		player.ResetTrade()
+		return
+	}
+	if !target.IsTrading() || target.TradeTarget() != player.ServerIndex() || !target.VarBool("trade1accept", false) {
+		log.cheat("bad trade update between", player.String(), "and", target.String())
+		player.ResetDuel()
+		target.ResetDuel()
+		return
+	}
+	player.SetVar("trade2accept", true)
+	if target.VarBool("trade2accept", false) {
+		neededSlots = target.TradeOffer.Size()
+		availSlots = player.Inventory.Capacity - player.Inventory.Size() + player.TradeOffer.Size()
+		theirNeededSlots = player.TradeOffer.Size()
+		theirAvailSlots = target.Inventory.Capacity - target.Inventory.Size() + target.TradeOffer.Size()
+		if theirNeededSlots > theirAvailSlots {
+			player.Message("The other player does not have room to accept your items.")
+			target.Message("You do not have room in your inventory to hold those items.")
+			player.ResetTrade()
+			target.ResetTrade()
+			player.CloseTradeScreens()
+			target.CloseTradeScreens()
+			return
+		}
+		if neededSlots > availSlots {
+			player.Message("You do not have room in your inventory to hold those items.")
+			target.Message("The other player does not have room to accept your items.")
+			player.ResetTrade()
+			target.ResetTrade()
+			player.CloseTradeScreens()
+			target.CloseTradeScreens()
+			return
+		}
+		if player.Inventory.RemoveAll(player.TradeOffer) != player.TradeOffer.Size() {
+			log.cheatf("Players{ %v;2:%v } involved in a trade, player 1 did not have all items to give.", player.String(), target.String())
+			return
+		}
+		if target.Inventory.RemoveAll(target.TradeOffer) != target.TradeOffer.Size() {
+			log.cheatf("Players{ %v;2:%v } involved in a trade, player 2 did not have all items to give.", player.String(), target.String())
+			return
+		}
+		for i in range(target.TradeOffer.Size()) {
+			item = target.TradeOffer.Get(i)
+			player.Inventory.Add(item.ID, item.Amount)
+		}
+		for i in range(player.TradeOffer.Size()) {
+			item = player.TradeOffer.Get(i)
+			target.Inventory.Add(item.ID, item.Amount)
+		}
+		player.CloseTradeScreens()
+		target.CloseTradeScreens()
+		player.ResetTrade()
+		target.ResetTrade()
+		player.SendInventory()
+		target.SendInventory()
+		player.Message("Trade completed.")
+		target.Message("Trade completed.")
+	}
+})
+bind.packet(packets.tradeUpdate, func(player, packet) {
+	if !player.IsTrading() {
+		log.cheat(player.String(), "attempted to update a trade it was not in!")
+		player.ResetTrade()
+		return
+	}
+	target = world.getPlayer(player.TradeTarget())
+	if target == nil {
+		log.cheat(player.String(), "attempted to update a trade with a non-existent target!")
+		player.ResetTrade()
+		return
+	}
+	if !target.IsTrading() || target.TradeTarget() != player.ServerIndex() {
+		log.cheat("bad duel update between", player.String(), "and", target.String())
+		player.ResetTrade()
+		target.ResetTrade()
+		return
+	}
+	if (target.VarBool("trade1accept", false) && player.VarBool("trade1accept", false)) || (target.VarBool("trade2accept", false) && player.VarBool("trade2accept", false)) {
+		log.cheat(player, "attempted modifying trade with", target.String(), "after both parties accepted duel!")
+		player.ResetTrade()
+		target.ResetTrade()
+		return
+	}
+	player.UnsetVar("trade1accept")
+	target.UnsetVar("trade1accept")
+	player.TradeOffer.Clear()
+	itemCount = int(packet.ReadUint8())
+	if itemCount < 0 || itemCount > 12 {
+		log.Suspicious.Printf("%v attempted to offer an invalid amount[%v] of trade items!\n", player.String(), itemCount)
+		return
+	}
+	if !checkPacket(packet, itemCount*6+1) {
+		return
+	}
+	for i in range(itemCount) {
+		player.TradeOffer.Add(packet.ReadUint16(), packet.ReadUint32())
+	}
+	target.UpdateTradeOffer(player)
+})
+

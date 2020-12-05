@@ -91,8 +91,6 @@ func NpcEvents(player *Player) (p *net.Packet) {
 					p.AddUint8(uint8(splat.Damage))
 					p.AddUint8(uint8(splat.Owner.Skills().Current(entity.StatHits)))
 					p.AddUint8(uint8(splat.Owner.Skills().Maximum(entity.StatHits)))
-				} else {
-					newList = append(newList, splat)
 				}
 			case ChatMessage:
 				msg := e.(ChatMessage)
@@ -100,26 +98,7 @@ func NpcEvents(player *Player) (p *net.Packet) {
 					p.AddUint16(uint16(msg.Owner.ServerIndex()))
 					p.AddUint8(1)
 					p.AddUint16(uint16(msg.Target.ServerIndex()))
-					// message := (msg.string)
-					// size := len(message)
-					// if size > 0 && size < 128 {
-						// p.AddUint8(uint8(size))
-					// } else if size >= 0 && size < 0x8000 {
-						// p.AddUint16(uint16(size))
-					// }
-					// for _, c := range message {
-						// p.AddUint8(byte(c))
-					// }
-					// p.AddBytes([]byte(message))
-					msgEnciphered, size := strutil.Encipher(strutil.ChatFilter.Format(msg.string))
-					if size > 128 {
-						p.AddUint16(uint16(size+0x8000))
-					} else {
-						p.AddUint8(uint8(size))
-					}
-					p.AddBytes(msgEnciphered) // encrypted utf-8 char-stream
-				} else {
-					newList = append(newList, msg)
+					p.AddEncryptedString(msg.string) // encrypted utf-8 char-stream
 				}
 			default:
 				log.Debugf("Unknown NPC event found in queue: {var event %T = %v\n}", e, e)
@@ -178,8 +157,7 @@ func OptionMenuOpen(questions ...string) (p *net.Packet) {
 	p = net.NewEmptyPacket(245)
 	p.AddUint8(uint8(len(questions)))
 	for _, question := range questions {
-		p.AddUint8(uint8(len(question)))
-		p.AddBytes([]byte(question))
+		p.AddFramedString(question)
 	}
 	return p
 }
@@ -189,10 +167,9 @@ var OptionMenuClose = net.NewEmptyPacket(252)
 //NPCPositions Builds a packet containing view area NPC position and sprite information
 func NPCPositions(player *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(79)
-	changed := 0
 	p.AddBitmask(player.LocalNPCs.Size(), 8)
 	var local = player.LocalNPCs.mobSet[:0]
-	// var local = make(mobSet, 0, player.LocalNPCs.Size())
+	changed := 0
 	player.LocalNPCs.RangeNpcs(func(n *NPC) bool {
 		local = append(local, n)
 		changed++
@@ -233,18 +210,14 @@ func NPCPositions(player *Player) (p *net.Packet) {
 		newCount++
 		p.AddBitmask(n.ServerIndex(), 12)
 		// bitwise trick avoids branching to do a manual addition, and maintains binary compatibility with the original protocol
-		p.AddSignedBits(n.X() - player.X(), 5)
-		p.AddSignedBits(n.Y() - player.Y(), 5)
+		p.AddSignedBits(player.TheirDeltaX(n), 5)
+		p.AddSignedBits(player.TheirDeltaY(n), 5)
 		p.AddBitmask(n.Direction(), 4)
 		p.AddBitmask(n.ID, 10)
-		changed++
 		player.LocalNPCs.Add(n)
 		return false
 	})
-	// if newCount + player.LocalNPCs.Size() <= 0 {
-		// return nil
-	// }
-	if changed <= 0 {
+	if updates := newCount + changed; updates <= 0 {
 		return nil
 	}
 	return
@@ -269,10 +242,6 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 	p.AddBitmask(player.Direction(), 4)
 	p.AddBitmask(player.LocalPlayers.Size(), 8)
 	changed := 0
-	// if player.SyncMask&SyncNeedsPosition != 0 {
-		// changed++
-	// }
-	// var removing []*Player
 	var local = player.LocalPlayers.mobSet[:0]
 	player.LocalPlayers.RangePlayers(func(p1 *Player) bool {
 		local = append(local, p1)
@@ -318,8 +287,8 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		player.LocalPlayers.Add(p1)
 		p.AddBitmask(p1.ServerIndex(), 11)
 		// bitwise trick avoids branching to do a manual addition, and maintains binary compatibility with the original protocol
-		p.AddSignedBits(p1.X()-player.X(), 5)
-		p.AddSignedBits(p1.Y()-player.Y(), 5)
+		p.AddSignedBits(player.TheirDeltaX(p1), 5)
+		p.AddSignedBits(player.TheirDeltaY(p1), 5)
 		p.AddBitmask(p1.Direction(), 4)
 		// if ticket, ok := player.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
 		if ticket, hasPlayerTicket := player.Var(strconv.Itoa(p1.ServerIndex()) + "=" + strconv.Itoa(p1.AppearanceTicket())); !hasPlayerTicket || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
@@ -331,6 +300,9 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		}
 		return false
 	})
+	// if updates := changed+newPlayerCount; updates <= 0 {
+		// return nil
+	// }
 	return
 }
 
@@ -353,44 +325,20 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 				p.AddUint16(uint16(bubble.Item))                // Item ID
 			case ChatMessage:
 				msg := e.(ChatMessage)
+				// Format chat messages to match the rules of Jagex chat format
+				// Examples: First letters capitalized for every sentence, color-codes are properly identified, etc.
+				p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
 				if msg.Target == nil {
-					p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
-					p.AddUint8(1)                                // Update Type
+					p.AddUint8(1)
+					p.AddUint8(0)
 					// TODO: Is this better or is end of message indicator better
-					size := int(len(msg.string))
-					if size > 84 {
-						size = 84
-						msg.string = msg.string[:size]
+					if len(msg.string) > 84 {
+						msg.string = msg.string[:84]
 					}
-					msgEnciphered, size := strutil.Encipher(strutil.ChatFilter.Format(msg.string))
-					if size > 128 {
-						p.AddUint16(uint16(size+0x8000))
-					} else {
-						p.AddUint8(uint8(size))
-					}
-					p.AddBytes(msgEnciphered) // encrypted utf-8 char-stream
-					// p.AddUint8(size)               // Count of UTF-8 characters in message
+					p.AddEncryptedString(msg.string)
 				} else {
-					p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
-					p.AddUint8(6)                                // Update Type
-					// Format chat messages to match the rules of Jagex chat format
-					// Examples: First letters capitalized for every sentence, color-codes are properly identified, etc.
-					// msg.string = strutil.ChatFilter.Format(msg.string)
-					// Too long messages are truncated to 255 bytes
-					// if len(msg.string) > 0xFF {
-						// msg.string = msg.string[:0xFF]
-					// }
-					// Deprecated below call; Go defaults string encoding to UTF-8 and I updated the clients to use UTF-8 as well
-					// messageRaw := strutil.ChatFilter.Encode(message)
-					// p.AddUint8(uint8(len(msg.string)))
-					// p.AddBytes([]byte(msg.string))
-					msgEnciphered, size := strutil.Encipher(strutil.ChatFilter.Format(msg.string))
-					if size > 128 {
-						p.AddUint16(uint16(size+0x8000))
-					} else {
-						p.AddUint8(uint8(size))
-					}
-					p.AddBytes(msgEnciphered) // encrypted utf-8 char-stream
+					p.AddUint8(6)
+					p.AddEncryptedString(msg.string)
 				}
 			case HitSplat:
 				splat := e.(HitSplat)
@@ -437,17 +385,25 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 				// Everytime this ticket changes, we must send this block out regionally,
 				// containing data that identifies all of the owning players characteristics
 				p.AddUint16(uint16(ticketID)) // appearance uuid
-				p.AddUint64(p1.UsernameHash())             // base37 encoded username
+				// p.AddUint64(p1.UsernameHash())             // base37 encoded username
+				p.AddFramedString(p1.Username())
+				p.AddFramedString(p1.Username())
 				// ourPlayer.KnownAppearances[player.ServerIndex()] = player.AppearanceTicket()
 				sprites := p1.Equips()
 				p.AddUint8(uint8(len(sprites))) // length of equipped item sprites  If length less than 12 any ones after length will get set to 0
-				for i := 0; i < len(sprites); i++ {
-					p.AddUint8(uint8(sprites[i]))
+				for i := 0; i < len(sprites); i += 1 {
+					animID := uint8(sprites[i] & 0xFF)
+					/* I believe the valid distribution is 0-229; that said, I need to grab this value from data definitions */
+					if animID < 0 || animID >= 229 {
+						p.AddUint8(0)
+					} else {
+						p.AddUint8(animID)
+					}
 				}
 
 				// The below colors will set the human character animation colors used for this player,
 				// it will not apply to any equipment on top of said human character
-				// They are simple array indexes corresponding to arrays built in the client
+				// each one is simply the index for the corresponding arrays built in the client
 				p.AddUint8(uint8(p1.Appearance.HeadColor))
 				p.AddUint8(uint8(p1.Appearance.BodyColor))
 				p.AddUint8(uint8(p1.Appearance.LegsColor))
@@ -455,7 +411,7 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 
 				// Combat level is the publically shown level of this player; it gives a general
 				// idea of how good this player is in combat, it's calculated from the levels of the
-				// first 6 skill types
+				// first 6 skill types using some simple arithmetic, canonically players go from lv3-lv123
 				p.AddUint8(uint8(p1.Skills().CombatLevel()))
 				p.AddBoolean(p1.Skulled())
 			default:
@@ -666,8 +622,7 @@ func InventoryItems(player *Player) (p *net.Packet) {
 	p.AddUint8(uint8(player.Inventory.Size()))
 	player.Inventory.Range(func(item *Item) bool {
 		if item.Worn {
-			// turn equipped bit on
-			p.AddUint16(uint16(item.ID) | 0x8000)
+			p.AddUint16(uint16(item.ID) | (1<<15))
 		} else {
 			p.AddUint16(uint16(item.ID))
 		}
@@ -920,7 +875,9 @@ var DefaultActionMessage = ServerMessage("Nothing interesting happens.")
 //ServerMessage Builds a packet containing a game message to display in the chat box.
 func ServerMessage(msg string) (p *net.Packet) {
 	p = net.NewEmptyPacket(131)
-	p.AddBytes([]byte(msg))
+	p.AddUint8(0) // TODO: msg type, all I kno right now is default non-important game msgs
+	p.AddUint8(0) // TODO: Handle bits: 0x1 = sender info, 0x2 = color info
+	p.AddFramedString(msg)
 	return
 }
 
@@ -942,7 +899,7 @@ func SystemUpdate(t int64) (p *net.Packet) {
 
 func Sound(name string) (p *net.Packet) {
 	p = net.NewEmptyPacket(204)
-	p.AddBytes([]byte(name))
+	p.AddFramedString(name)
 	return
 }
 
@@ -965,12 +922,14 @@ func LoginBox(inactiveDays int, lastIP string) (p *net.Packet) {
 
 //BigInformationBox Builds a packet to trigger the opening of a large black text window with msg as its contents
 func BigInformationBox(msg string) (p *net.Packet) {
-	return net.NewEmptyPacket(222).AddBytes([]byte(msg))
+	return net.NewEmptyPacket(222).AddFramedString(msg)
 }
+
+var AppearanceKeepalive = net.NewEmptyPacket(213)
 
 //InformationBox Builds a packet to trigger the opening of a small black text window with msg as its contents
 func InformationBox(msg string) (p *net.Packet) {
-	return net.NewEmptyPacket(89).AddBytes([]byte(msg))
+	return net.NewEmptyPacket(89).AddFramedString(msg)
 }
 
 //HandshakeResponse Builds a bare net with the login response code.

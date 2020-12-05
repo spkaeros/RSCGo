@@ -3,6 +3,19 @@ log = import("log")
 world = import("world")
 packets = import("packets")
 load("scripts/lib/packets.ank")
+crewHead           = 1
+metalHead          = 4
+downsHead          = 6
+beardHead          = 7
+baldHead           = 8
+validHeads         = [crewHead, metalHead, downsHead, beardHead, baldHead]
+validFemaleHeads   = [crewHead, metalHead, downsHead, baldHead]
+maleBody           = 2
+femaleBody         = 5
+validBodys         = [maleBody, femaleBody]
+validSkinColors    = [0xecded0, 0xccb366, 0xb38c40, 0x997326, 0x906020]
+validHeadColors    = [0xffc030, 0xffa040, 0x805030, 0x604020, 0x303030, 0xff6020, 0xff4000, 0xffffff, 65280, 65535]
+validBodyLegColors = [0xff0000, 0xff8000, 0xffe000, 0xa0e000, 57344, 32768, 41088, 45311, 33023, 12528, 0xe000e0, 0x303030, 0x604000, 0x805000, 0xffffff]
 
 // TODO: RSC 235 does away with this--rather than the client asking for tickets, the server just does bookkeeping to notify others
 // as needed, which is a slightly more involved solution for the server, but ultimately is probably a better and simpler solution
@@ -23,7 +36,7 @@ bind.packet(packets.ticketRequests, func(player, packet) {
 })
 
 bind.packet(packets.appearance, func(player, packet) {
-	if !player.HasState(world.StateChangingLooks) {
+	if !player.HasState(state.ChangingLooks) {
 		// Make sure the player either has never logged in before, or talked to the makeover mage to get here.
 		return
 	}
@@ -64,7 +77,7 @@ bind.packet(packets.appearance, func(player, packet) {
 	player.Appearance.BodyColor = topColor
 	player.Appearance.LegsColor = legColor
 	player.UpdateAppearance()
-	player.RemoveState(world.StateChangingLooks)
+	player.RemoveState(state.ChangingLooks)
 	if !player.Attributes.Contains("madeAvatar") {
 		player.SendPacket(world.WelcomeMessage)
 		player.Attributes.SetVar("madeAvatar", time.Now())
@@ -72,3 +85,12 @@ bind.packet(packets.appearance, func(player, packet) {
 	}
 
 })
+
+func inArray(haystack, needle) {
+	for i in haystack {
+		if i == needle {
+			return true
+		}
+	}
+	return false
+}
