@@ -12,7 +12,7 @@ drainRates = [15,15,15,30,30,30,5,10,10,60,60,60,60,60,60]
 
 bind.login(func(player) {
 	drained = 0
-	onTick(func() {
+	tickRun(func() {
 		index = 0
 		for drainRate in drainRates {
 			if player.PrayerActivated(index) {
@@ -37,25 +37,23 @@ bind.login(func(player) {
 })
 
 bind.item(itemPredicate("bury", 20, 413, 604, 814), func(player, item) {
-	player.Message("You dig a hole in the ground")
-	// sleep(Millisecond*640)
 	player.AddState(state.DoingThing)
-	schedule(1, func() {
-		player.Message("You bury the " + strings.ToLower(item.Name()))
-		player.Inventory.RemoveByID(toInt(item.ID), 1)
-		switch item.ID {
-		case 20:
-			player.IncExp(PRAYER, 15/4)
-		case 604:
-			player.IncExp(PRAYER, 18/4)
-		case 413:
-			player.IncExp(PRAYER, 50/4)
-		case 814:
-			player.IncExp(PRAYER, 240/4)
-		default:
-			player.Message("Not yet supported, report it to staff.")
-		}
-		player.RemoveState(state.DoingThing)
-		return true
-	})
+	player.Message("You dig a hole in the ground")
+	stall(1)
+	player.Message("You bury the " + strings.ToLower(item.Name()))
+	player.Inventory.RemoveByID(toInt(item.ID), 1)
+	switch item.ID {
+	case 20:
+		player.IncExp(PRAYER, 15)
+	case 604:
+		player.IncExp(PRAYER, 18)
+	case 413:
+		player.IncExp(PRAYER, 50)
+	case 814:
+		player.IncExp(PRAYER, 240)
+	default:
+		player.Message("Not yet supported, report it to staff to get this added!")
+		log.cheat("Unsupported bury item encountered:", item, "from:", player)
+	}
+	player.RemoveState(state.DoingThing)
 })

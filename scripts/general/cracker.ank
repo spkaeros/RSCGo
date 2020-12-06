@@ -2,7 +2,7 @@ ids = import("ids")
 bind = import("bind")
 world = import("world")
 
-phats = {
+prizes = {
 	ids.PARTYHAT_RED: 25.0, // 64, // 32,
 	ids.PARTYHAT_YELLOW: 21.875, // 56, // 28,
 	ids.PARTYHAT_WHITE: 17.96875, // 46, // 23,
@@ -11,7 +11,7 @@ phats = {
 	ids.PARTYHAT_PINK: 7.8125, // 20, // 10,
 }
 
-prizes = {
+junk = {
 	ids.CHOCOLATE_BAR: 18.75,
 	ids.SILVER: 14.0625,
 	ids.SPINACH_ROLL: 13.28125,
@@ -26,18 +26,20 @@ prizes = {
 
 bind.invOnPlayer(itemPredicate(575), func(player, target, item) {
 	player.ItemBubble(ids.CHRISTMAS_CRACKER)
+	player.Inventory.RemoveByID(ids.CHRISTMAS_CRACKER, 1)
 	player.Message("You pull a christmas cracker")
 	target.Message("You pull a christmas cracker")
-	sleep(Millisecond*640)
-	hat = weightedChance(phats)
-	prize = weightedChance(prizes)
-	player.Inventory.RemoveByID(ids.CHRISTMAS_CRACKER, 1)
+	scheduleSync(1, func() {
+		prize = choose(prizes)
+		consolation = choose(junk)
 
-	if roll(50) {
-		target, player = player, target
-	}
-	player.Message("You get the prize from the cracker")
-	player.AddItem(hat, 1)
-	target.Message("The person you pull the cracker with gets the prize")
-	target.AddItem(prize, 1)
+		if roll(50) {
+			target, player = player, target
+		}
+
+		player.Message("You get the prize from the cracker")
+		player.AddItem(prize, 1)
+		target.Message("The person you pull the cracker with gets the prize")
+		target.AddItem(consolation, 1)
+	})
 })

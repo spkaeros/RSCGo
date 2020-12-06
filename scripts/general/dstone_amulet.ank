@@ -3,35 +3,36 @@ bind = import("bind")
 world = import("world")
 
 // TODO: Charge regular dstone amulet on gameobj heros guild fountain id=282
-
 locations = [
+	// edgeville
 	world.newLocation(226, 447),
+	// karamja
 	world.newLocation(360, 696),
+	// draynor
 	world.newLocation(214, 632),
+	// al kharid
 	world.newLocation(72, 696),
-	world.newLocation(0, 0)
 ]
 
 bind.item(itemPredicate(597), func(player, item) {
 	player.Message("You rub the amulet")
-	sleep(Millisecond * 640)
+	stall(1)
 	player.Message("Where would you like to teleport to?")
 	location = player.OpenOptionMenu("Edgeville", "Karamja", "Draynor village", "Al Kharid", "Nowhere")
-	if location < 0 {
-		return
-	}
-	if location >= len(locations)-1 || locations[location].X() == 0 || locations[location].Y() == 0 {
+	if location < 0 || location >= len(locations) {
 		player.Message("Nothing interesting happens.")
 		return
 	}
 	world.teleport(player, locations[location].X(), locations[location].Y(), true)
-	rubs = toInt(player.Cache("dstone_amulet"))
+	rubs = toInt(player.SessionCache().VarInt("dstone_amulet"))
 	if rubs >= 3 {
-		player.Inventory.Remove(player.Inventory.GetIndex(ids.DSTONE_AMULET_C)) // charged amulet
-		player.Inventory.Add(ids.DSTONE_AMULET, 1) // normal amulet
-		player.SendInventory()
-		player.RemoveCache("dstone_amulet")
+		if player.Inventory.Remove(player.Inventory.GetIndex(ids.DSTONE_AMULET_C)) > -1 {
+			// charged amulet remove was good
+			player.Inventory.Add(ids.DSTONE_AMULET, 1) // normal amulet
+			player.SendInventory()
+		}
+		player.SessionCache().UnsetVar("dstone_amulet")
 		return
 	}
-	player.SetCache("dstone_amulet", rubs+1)
+	player.SessionCache().SetVar("dstone_amulet", rubs+1)
 })

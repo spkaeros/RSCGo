@@ -419,12 +419,21 @@ func (s *Server) Start() {
 			// }
 
 		})
-		tasks.TickList.Tick()
+		tasks.TickList.Tick(	)
 		world.Npcs.RangeNpcs(func(n *world.NPC) bool {
 			if n.Busy() || n.IsFighting() {
 				return false
 			}
-			
+
+			if n.Aggressive() {
+				if _, ok := n.Var("targetPlayer"); ok {
+					return false
+				}
+				if closest := closestPlayer(n); closest != nil {
+					n.SetVar("targetPlayer", closest)
+				}
+				n.TraversePath()
+			}
 			if world.Chance(25) && n.Steps <= 0 && n.Ticks <= 0 {
 				// move some amount between 2-15 tiles, moving 1 tile per tick
 				n.Steps = rand.Intn(13+1)+2
@@ -504,3 +513,15 @@ func check(i interface{}, err error) interface{} {
 	return i
 }
 		
+func closestPlayer(n *world.NPC) *world.Player {
+	var closest *world.Player
+	distance := 8.0
+	world.Region(n.X(), n.Y()).Players.RangePlayers(func(p1 *world.Player) bool {
+		if p1.EuclideanDistance(n) < distance {
+			closest = p1
+			distance = p1.EuclideanDistance(n)
+		}
+		return false
+	})
+	return closest
+}

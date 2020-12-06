@@ -10,12 +10,13 @@
 package net
 
 import (
-	//	"math"
+	"math"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"runtime/debug"
 	"strconv"
+	// "math"
 	"strings"
 
 	"github.com/spkaeros/rscgo/pkg/errors"
@@ -251,11 +252,11 @@ func (p *Packet) AddSmart0832(i int) *Packet {
 }
 
 func (p *Packet) AddSmart1632(i int) *Packet {
-	i &= 0xFFFFFFFF
-	if i <= 0xFFFF {
+	i &= math.MaxUint32
+	if i <= math.MaxInt16 {
 		return p.AddUint16(uint16(i))
 	}
-	return p.AddUint32(uint32(-2147483648 + i))
+	return p.AddUint32(uint32(math.MinInt32 + i))
 }
 
 func (p *Packet) AddSmart0816(i int) *Packet {

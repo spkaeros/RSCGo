@@ -39,10 +39,7 @@ func (q tileQueue) Len() int {
 }
 
 func (q tileQueue) Less(i, j int) bool {
-	if i < len(q) && j < len(q) {
-		return q[i].nCost < q[j].nCost
-	}
-	return true
+	return q[i].nCost < q[j].nCost
 }
 
 func (q tileQueue) Swap(i, j int) {
@@ -117,11 +114,11 @@ func (p *Pathfinder) MakePath() *Pathway {
 			return path
 		}
 		position := active.loc
-		if p.last.LongestDelta(position) == 0 /*|| p.tileQueue.Len() > 512*/ {
+		// if p.last.LongestDelta(position) == 0 /*|| p.tileQueue.Len() > 512*/ {
 		// DoS prevention measures; astar will run forever if you let it
-		return makePath(active)
+		//			return makePath(active)
 		// return nil
-		}
+		// }
 		if position.Equals(p.end) || p.tileQueue.Len() > 512 {
 			// We made it!
 			return makePath(active)

@@ -65,7 +65,6 @@ bind.packet(packets.chat, func(player, packet) {
 		size = ((size-128) << 8) | toInt(packet.ReadUint8())
 	}
 	msg = decryptMsg(packet.ReadString(), size)
-	log.debug(msg)
 	player.Enqueue(eventsPlayer, newChatMessage(player, msg))
 	// player.LocalPlayers.RangePlayers(func(other) {
 	// 	other.Enqueue(eventsPlayer, newChatMessage(player, msg))

@@ -11,10 +11,10 @@ bind.npc(npcPredicate(497), func(player, npc) {
 	case 0:
 		npc.Chat(player, "Lets go then")
 		player.Message("You have completed the tutorial")
-		sleep(1200)
+		stall(2)
 		player.Teleport(120, 648)
 		player.RemoveCache("tutorial")
-		sleep(2000)
+		stall(3)
 		player.Message("The boat arrives in Lumbridge")
 	case 1:
 		npc.Chat(player, "Ok come back when you are ready")

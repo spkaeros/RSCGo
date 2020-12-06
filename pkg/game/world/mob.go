@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/spkaeros/rscgo/pkg/game/entity"
-	"github.com/spkaeros/rscgo/pkg/isaac"
 	"github.com/spkaeros/rscgo/pkg/log"
+	"github.com/spkaeros/rscgo/pkg/isaac"
 	rscRand "github.com/spkaeros/rscgo/pkg/rand"
+	"github.com/spkaeros/rscgo/pkg/tasks"
 )
 
 type MobState = int
@@ -180,9 +181,9 @@ type Mob struct {
 
 //ExperienceReward returns the total rewarded experience upon killing a mob.
 func (m *Mob) ExperienceReward() float64 {
-	meleeTotal := (m.Skills().Maximum(entity.StatStrength) + m.Skills().Maximum(entity.StatAttack) + m.Skills().Maximum(entity.StatDefense)) * 2
+	meleeTotal := (m.Skills().Maximum(entity.StatStrength) + m.Skills().Maximum(entity.StatAttack) + m.Skills().Maximum(entity.StatDefense)) * 2.0
 	total := float64(m.Skills().Maximum(entity.StatHits) + meleeTotal)
-	return math.Floor(total/7.0) * 2 + 20
+	return math.Floor(total/7.0) * 2.0 + 20.0
 }
 
 func (m *Mob) TargetMob() entity.MobileEntity {
@@ -344,6 +345,51 @@ func (m *Mob) WalkTo(end entity.Location) bool {
 	path := NewPathfinder(m.Clone(), end.Clone()).MakePath()
 	m.SetPath(path)
 	return path != nil
+}
+
+func StartCombat(attacker, defender entity.MobileEntity) {
+	if targetp := AsPlayer(defender); targetp != nil {
+		targetp.PlaySound("underattack")
+		if attacker := AsPlayer(attacker); attacker != nil && !attacker.IsDueling() && !targetp.SkulledOn(attacker.UsernameHash()) {
+			attacker.SkullOn(targetp)
+		}
+	}
+	attacker.SessionCache().UnsetVar("targetPlayer")
+	defender.SessionCache().SetVar("fightTarget", attacker)
+	attacker.SessionCache().SetVar("fightTarget", defender)
+	attacker.AddState(StateFighting)
+	defender.AddState(StateFighting)
+	attacker.SetDirection(RightFighting)
+	defender.SetDirection(LeftFighting)
+	attacker.SetLocation(defender.Clone(), true)
+	defender.SetRegionRemoved()
+	attacker.SetRegionRemoved()
+	tasks.Schedule(2, func() bool {
+		if (defender.IsPlayer() && !AsPlayer(defender).Connected()) || !defender.HasState(StateFighting) ||
+			(attacker.IsPlayer() && !AsPlayer(attacker).Connected()) || !attacker.HasState(StateFighting) || attacker.LongestDelta(defender) > 0  {
+			// target is a disconnected player, we are disconnected,
+			// one of us is not in a fight, or we are distanced somehow unexpectedly.  Kill tasks.
+			// quickfix for possible bugs I imagined will exist
+			attacker.ResetFighting()
+			defender.ResetFighting()
+			return true
+		}
+		defer func() {
+			attacker.SessionCache().Inc("fightRound", 1)
+			attacker, defender = defender, attacker
+		}()
+
+		// Paralyze Monster goes into effect right here, we just return before the npc can do anything
+		if defender.IsPlayer() && attacker.IsNpc() && defender.PrayerActivated(12) {
+			return false
+		}
+
+		nextHit := int(math.Min(float64(defender.Skills().Current(entity.StatHits)), float64(attacker.MeleeDamage(defender))))
+		if defender.DamageFrom(attacker, nextHit, 0) {
+			return true
+		}
+		return false
+	})
 }
 
 //Path returns the path that this mob is trying to traverse.

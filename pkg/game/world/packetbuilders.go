@@ -622,12 +622,12 @@ func InventoryItems(player *Player) (p *net.Packet) {
 	p.AddUint8(uint8(player.Inventory.Size()))
 	player.Inventory.Range(func(item *Item) bool {
 		if item.Worn {
-			p.AddUint16(uint16(item.ID) | (1<<15))
+			p.AddUint16(uint16(item.ID) | 1<<15)
 		} else {
 			p.AddUint16(uint16(item.ID))
 		}
 		if definitions.Items[item.ID].Stackable {
-			p.AddSmart0832(item.Amount)
+			p.AddSmart1632(item.Amount)
 		}
 		return true
 	})
@@ -727,7 +727,7 @@ func BankOpen(player *Player) (p *net.Packet) {
 	p.AddUint8(uint8(player.bank.Capacity))
 	player.bank.Range(func(item *Item) bool {
 		p.AddUint16(uint16(item.ID))
-		p.AddSmart0832(item.Amount)
+		p.AddSmart1632(item.Amount)
 		return true
 	})
 	return p

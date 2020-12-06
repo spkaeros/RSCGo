@@ -2,7 +2,7 @@ bind = import("bind")
 math = import("math")
 
 bind.login(func(player) {
-	onTick(func() {
+	tickRun(func() {
 		if CurTick() % (player.PrayerActivated(PRAYER_RAPID_RESTORE) ? 50 : 100) == 0 {
 			for i in [ ATTACK, DEFENSE, STRENGTH, RANGED, MAGIC, COOKING, WOODCUTTING, FIREMAKING,
 					FISHING, MINING, SMITHING, HERBLAW, FLETCHING, CRAFTING, AGILITY, THIEVING ] {

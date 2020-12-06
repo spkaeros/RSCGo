@@ -11,6 +11,7 @@ package world
 
 import (
 	"bufio"
+	// "context"
 	"fmt"
 	"io"
 	"math"
@@ -990,6 +991,7 @@ func (p *Player) Initialize() {
 	p.enqueueArea(playerEvents, p.ViewRadius(), map[string]int {"index": int(p.ServerIndex()), "ticket": int(p.AppearanceTicket())})
 	// Mark down time of authentication
 	p.SetVar("authTime", time.Now())
+	p.SetVar("authTick", CurrentTick())
 	// update flags
 	p.SetConnected(true)
 	p.SetAppearanceChanged()
@@ -1018,7 +1020,7 @@ func (p *Player) Initialize() {
 		p.OpenAppearanceChanger()
 	} else {
 		if !p.Reconnecting() {
-			// p.SendPacket(WelcomeMessage)
+			p.SendPacket(WelcomeMessage)
 			p.SendPacket(LoginBox(int(time.Since(p.Attributes.VarTime("lastLogin")).Hours()/24), p.Attributes.VarString("lastIP", "0.0.0.0")))
 		}
 		p.Attributes.SetVar("lastLogin", time.Now())
@@ -1031,8 +1033,8 @@ func (p *Player) WritePacket(packet *net.Packet) {
 	if p == nil || (!p.Connected() && !packet.Bare) {
 		return
 	}
-	// p.OutQueue <- packet
-	p.WriteNow(*packet)
+	p.OutQueue <- packet
+	// p.WriteNow(*packet)
 }
 
 //NewPlayer Returns a reference to a new player.
@@ -1057,8 +1059,8 @@ func NewPlayer(socket stdnet.Conn) *Player {
 		Inventory:        &Inventory{Capacity: 30},
 		TradeOffer:       &Inventory{Capacity: 12},
 		DuelOffer:        &Inventory{Capacity: 8},
-		InQueue:          make(chan *net.Packet, 4),
-		OutQueue:         make(chan *net.Packet, 2),
+		InQueue:          make(chan *net.Packet, 1000),
+		OutQueue:         make(chan *net.Packet, 1000),
 		// Reader:           bufio.NewReader(wsutil.NewServerSideReader(socket)),
 		// Writer:			  bufio.NewWriterSize(socket, 5000),
 		OpCiphers:		  [...]*isaac.ISAAC{nil, nil},
@@ -1089,37 +1091,16 @@ const playerEvents = "playerEventQ"
 //Chat sends a player NPC chat message packet to the player and all other players around it.  If multiple msgs are
 // provided, will sleep the goroutine for 3-4 ticks between each message, depending on length of message.
 func (p *Player) Chat(msgs ...string) {
-	// wait := time.Duration(0)
-	// for _, v := range msgs {
-		// p.enqueueArea(playerEvents, p.ViewRadius(), NewTargetedMessage(p, p.TargetMob(), v))
-		// wait += 3
-		// if len(msgs[0]) >= 84 {
-			// wait++
-		// }
-		// time.Sleep(TickMillis * wait)
-	// }
 	if len(msgs) <= 0 {
 		return
 	}
-	p.enqueueArea(playerEvents, 16, NewTargetedMessage(p, nil, msgs[0]))
-	wait := 3
-	if len(msgs[0]) >= 84 {
-		wait += 1
-	}
-	if len(msgs) == 0 {
-		// just stall til next tick is run then returns
-		tasks.Stall(0)
-		return
-	}
-	for _, v := range msgs[1:] {
-		tasks.ScheduleWait(wait, func() bool {
-			p.enqueueArea(playerEvents, 16, NewTargetedMessage(p, nil, v))
-			return true
-		})
-		wait = 3
+	for _, v := range msgs {
+		p.enqueueArea(playerEvents, 16, NewTargetedMessage(p, nil, v))
+		wait := 3
 		if len(v) >= 84 {
 			wait += 1
 		}
+		tasks.Stall(wait)
 	}
 }
 
@@ -1218,15 +1199,24 @@ func (p *Player) OpenOptionMenu(options ...string) int {
 	if p.IsPanelOpened() || p.HasState(StateMenu) {
 		return -1
 	}
+	// ctx, _ := context.WithTimeout(context.Background(), 90*time.Second)
+	
 	p.AddState(StateMenu)
 	p.SendPacket(OptionMenuOpen(options...))
 	p.ReplyMenuC = make(chan int8)
+	defer close(p.ReplyMenuC)
+	defer p.RemoveState(StateMenu)
 	select {
+	case <-time.After(90*time.Second):
+		if !p.HasState(StateMenu) {
+			return -1
+		}
+		p.CloseOptionMenu()
+		return -1
 	case r, ok := <-p.ReplyMenuC:
 		if !p.HasState(StateMenu) || !ok {
 			return -1
 		}
-		close(p.ReplyMenuC)
 		p.RemoveState(StateMenu)
 		if r < 0 || r > int8(len(options)-1) {
 			log.Warn("Invalid option menu reply:", r)

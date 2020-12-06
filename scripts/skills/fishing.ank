@@ -28,17 +28,16 @@ bind.object(objectPredicate(keys(defs)...), func(player, object, click) {
 	player.PlaySound("fishing")
 	player.ItemBubble(fishDef[click].net)
 	player.Message("You attempt to catch " + (fishDef[click].net == ids.NET ? "some" : "a") + " " + (fishDef[click].net == ids.LOBSTER_POT ? "lobster" : "fish"))
-	sleep(Millisecond*1920)
-
-
-	if gatheringSuccess(fish.lvl, player.Skills().Current(FISHING)) && world.getObjectAt(object.X(), object.Y()) == object {
-		if fishDef[click].bait >= 0 {
-			player.Inventory.RemoveByID(fishDef[click].bait, 1)
+	scheduleSync(3, func() {
+		if gatheringSuccess(fish.lvl, player.Skills().Current(FISHING)) && world.getObjectAt(object.X(), object.Y()) == object {
+			if fishDef[click].bait >= 0 {
+				player.Inventory.RemoveByID(fishDef[click].bait, 1)
+			}
+			player.Message("You catch " + (fishDef[click].net == ids.NET ? "some" : "a") + " " + (fishDef[click].net == ids.LOBSTER_POT ? "lobster" : "fish"))
+			player.AddItem(fish.id, 1)
+			player.IncExp(FISHING, fish.exp)
+			return
 		}
-		player.Message("You catch " + (fishDef[click].net == ids.NET ? "some" : "a") + " " + (fishDef[click].net == ids.LOBSTER_POT ? "lobster" : "fish"))
-		player.AddItem(fish.id, 1)
-		player.IncExp(FISHING, fish.exp)
-		return
-	}
-	player.Message("You fail to catch anything")
+		player.Message("You fail to catch anything")
+	})
 })

@@ -17,7 +17,7 @@ bind.command("skulled", func(player, args) {
 })
 
 bind.login(func(player) {
-	onTick(func() {
+	tickRun(func() {
 		if player.Skulled() {
 			player.Attributes.Dec("skullTicks", 1)
 

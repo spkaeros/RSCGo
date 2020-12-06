@@ -80,7 +80,7 @@ func handleGodSpell(player, spell) {
 		if world.getObjectAt(spell.target.X(), spell.target.Y()) == nil {
 			animation = newObject(godspell.animation, NORTH, spell.target.X(), spell.target.Y(), false)
 			world.addObject(animation)
-			go runAfter(Millisecond*1280, func() {
+			schedule(2, func() {
 				world.removeObject(animation)
 			})
 		}
@@ -821,7 +821,7 @@ defs = [
 			player.Attributes.SetVar("magic_charge", time.Now().Add(6*Minute))
 			animation = newObject(1147, NORTH, player.X(), player.Y(), false)
 			world.addObject(animation)
-			go runAfter(Millisecond*1280, func() {
+			schedule(2, func() {
 				world.removeObject(animation)
 			})
 		},

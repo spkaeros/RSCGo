@@ -12,7 +12,7 @@ package world
 import (
 	"sync"
 	// "math/rand"
-	// "time"
+	"time"
 	
 	"github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
@@ -36,7 +36,7 @@ type NPC struct {
 type (
 	damageTable = map[uint64]int
 	damages     struct {
-		damageTable
+		damageTable map[uint64]int
 		sync.RWMutex
 	}
 )
@@ -61,33 +61,28 @@ func NewNpc(id, startX, startY, minX, maxX, minY, maxY int) *NPC {
 			},
 			AttributeList: entity.NewAttributeList(),
 		},
-		meleeRangeDamage: damages{
-			damageTable: make(damageTable),
+		meleeRangeDamage: damages {
+			damageTable: make(map[uint64]int),
 		},
-		magicDamage: damages{
-			damageTable: make(damageTable),
+		magicDamage: damages {
+			damageTable: make(map[uint64]int),
 		},
 		Boundaries: [2]entity.Location{NewLocation(minX, minY), NewLocation(maxX, maxY)},
 	}
+	defer Npcs.Add(n)
 	n.StartPoint = n.Clone()
-	if id < len(definitions.Npcs)-1 {
-		n.Skills().SetCur(0, definitions.Npcs[id].Attack)
-		n.Skills().SetCur(1, definitions.Npcs[id].Defense)
-		n.Skills().SetCur(2, definitions.Npcs[id].Strength)
-		n.Skills().SetCur(3, definitions.Npcs[id].Hits)
-
-		n.Skills().SetMax(0, definitions.Npcs[id].Attack)
-		n.Skills().SetMax(1, definitions.Npcs[id].Defense)
-		n.Skills().SetMax(2, definitions.Npcs[id].Strength)
-		n.Skills().SetMax(3, definitions.Npcs[id].Hits)
+	if n.valid() {
+		skills := [18] int {
+			definitions.Npcs[id].Attack,
+			definitions.Npcs[id].Defense,
+			definitions.Npcs[id].Strength,
+			definitions.Npcs[id].Hits,
+		}
+		for i := 0; i < 18; i += 1 {
+			n.Skills().SetCur(i, skills[i])
+			n.Skills().SetMax(i, skills[i])
+		}
 	}
-
-	for i := 4; i < 18; i++ {
-		n.Skills().SetCur(i, 0)
-		n.Skills().SetMax(i, 0)
-	}
-
-	Npcs.Add(n)
 	return n
 }
 
@@ -97,13 +92,23 @@ func (d damages) Put(username uint64, dmg int) {
 	d.damageTable[username] += dmg
 }
 
+func (d damages) Reset() {
+	d.Lock()
+	defer d.Unlock()
+	d.damageTable = make(map[uint64]int)
+}
+
 func (n *NPC) CacheDamage(hash uint64, dmg int) {
 	n.meleeRangeDamage.Put(hash, dmg)
 }
 
+func (n *NPC) valid() bool {
+	return n.ID < len(definitions.Npcs)
+}
+
 // Returns true if this NPCs definition has the attackable hostility bit set.
 func (n *NPC) Attackable() bool {
-	if n.ID > len(definitions.Npcs)-1 {
+	if !n.valid() {
 		return false
 	}
 
@@ -112,7 +117,8 @@ func (n *NPC) Attackable() bool {
 
 // Returns true if this NPCs definition has the retreat near death hostility bit set.
 func (n *NPC) Retreats() bool {
-	if n.ID > len(definitions.Npcs)-1 {
+	if !n.valid() {
+	// if n.ID > len(d efinitions.Npcs)-1 {
 		return false
 	}
 
@@ -121,7 +127,7 @@ func (n *NPC) Retreats() bool {
 
 // Returns true if this NPCs definition has the aggressive hostility bit set.
 func (n *NPC) Aggressive() bool {
-	if n.ID > len(definitions.Npcs)-1 {
+	if !n.valid() {
 		return false
 	}
 
@@ -129,14 +135,14 @@ func (n *NPC) Aggressive() bool {
 }
 
 func (n *NPC) Name() string {
-	if n.ID > len(definitions.Npcs)-1 {
+	if !n.valid() {
 		return "nil"
 	}
 	return definitions.Npcs[n.ID].Name
 }
 
 func (n *NPC) Command() string {
-	if n.ID > len(definitions.Npcs)-1 {
+	if !n.valid() {
 		return "nil"
 	}
 	return definitions.Npcs[n.ID].Command
@@ -221,17 +227,45 @@ func (n *NPC) Respawn() {
 
 //TraversePath If the mob has a path, calling this method will change the mobs location to the next location described by said Path data structure.  This should be called no more than once per game tick.
 func (n *NPC) TraversePath() {
+	n.Steps -= 1
+	if p := n.VarPlayer("targetPlayer"); p != nil {
+		if !n.Near(p, 6) {
+			n.UnsetVar("targetPlayer")
+		}
+		if n.Aggressive() && n.Near(p, 1) && !n.Collides(p) && !p.Busy() && !p.IsFighting() {
+			if t := p.SessionCache().VarTime("lastFight"); time.Since(t) < 1920*time.Millisecond {
+				return
+			}
+			StartCombat(n, p)
+			return
+		}
+		path := n.PivotTo(p)
+		if len(path[0])|len(path[1]) == 0 {
+			return
+		}
+		dst := NewLocation(path[0][0], path[1][0])
+		if n.Collides(dst) || !dst.WithinArea(n.Boundaries) {
+			return
+		}
+		n.SetLocation(dst, false)
+		return
+	}
+
 	dir := n.Direction()
+	dst := n.Step(dir)
 	if Chance(15) {
 		dir = rand.Intn(8)
+		dst = n.Step(dir)
+		for i := 0; i < 10 && n.Collides(dst); i += 1 {
+			dir = rand.Intn(8)
+			dst = n.Step(dir)
+		}
 	}
-	dst := n.Step(dir)
 	
 	if n.Collides(dst) || !dst.WithinArea(n.Boundaries) {
 		return
 	}
 
-	n.Steps -= 1
 	n.SetLocation(dst, false)
 }
 
@@ -263,25 +297,13 @@ func (n *NPC) Chat(target *Player, msgs ...string) {
 	if len(msgs) <= 0 {
 		return
 	}
-	n.enqueueArea(npcEvents, NewTargetedMessage(n, target, msgs[0]))
-	wait := 3
-	if len(msgs[0]) >= 84 {
-		wait += 1
-	}
-	if len(msgs) == 0 {
-		// just stall til next tick runs then return
-		tasks.Stall(0)
-		return
-	}
-	for _, v := range msgs[1:] {
-		tasks.ScheduleWait(wait, func() bool {
-			n.enqueueArea(npcEvents, NewTargetedMessage(n, target, v))
-			return true
-		})
-		wait = 3
+	for _, v := range msgs {
+		n.enqueueArea(npcEvents, NewTargetedMessage(n, target, v))
+		wait := 3
 		if len(v) >= 84 {
 			wait += 1
 		}
+		tasks.Stall(wait)
 	}
 }
 
