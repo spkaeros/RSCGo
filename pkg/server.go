@@ -14,6 +14,7 @@ import (
 	stdnet "net"
 	"os"
 	"runtime"
+	"context"
 	"sync"
 	"strconv"
 	"time"
@@ -46,6 +47,8 @@ import (
 	
 )
 
+type sigEnd chan struct{}
+
 const (
 	TickMillis = time.Millisecond*640
 )
@@ -74,9 +77,10 @@ type (
 		UseCipher bool   `short:"e" long:"encryption" description:"Enable command opcode encryption using a variant of ISAAC to encrypt net opcodes."`
 	}
 	Server struct {
+		context.Context
 		loginQueue []*world.Player
 		logoutQueue []*world.Player
-		sync.Mutex
+		sync.RWMutex
 		port        int
 		*time.Ticker
 	}
@@ -207,21 +211,19 @@ func (s *Server) accept(l stdnet.Listener) *world.Player {
 		log.Warn("Problem accepting incoming TLS connection from '" + socket.RemoteAddr().String() + "':", err)
 		return nil
 	}
-	p := world.NewPlayer(socket)
+	p := world.NewPlayerCtx(Instance, socket)
 	if str := socket.LocalAddr().String(); strings.HasSuffix(str, strconv.Itoa(s.port)) {
 		p.Websocket = true
-		p.Reader = bufio.NewReader(wsutil.NewServerSideReader(socket))
+		p.Reader = bufio.NewReaderSize(wsutil.NewServerSideReader(socket), 5000)
 		p.Writer = wsutil.NewWriterSize(p.Socket, ws.StateServerSide, ws.OpBinary, 5000)
 		if check(wsUpgrader.Upgrade(socket)) == nil {
 			log.Debug("could not upgrade to websocket")
 			return nil
 		}
-		log.Debug("WS:", str)
 	} else {
 		p.Websocket = false
 		p.Reader = bufio.NewReaderSize(p.Socket, 5000)
 		p.Writer = bufio.NewWriterSize(p.Socket, 5000)
-		log.Debug("TCP:",str)
 	}
 	// p.Websocket = true
 	// log.Debug(p.Socket)
@@ -246,254 +248,127 @@ func (s *Server) Bind(port int) {
 
 func (s *Server) Start() {
 	defer s.Ticker.Stop()
-	for range s.C {
-		start := time.Now()
-		s.Lock()
-		for _, p := range s.loginQueue {
-			go func(p *world.Player) {
-				login, err := p.ReadPacket()
-				if login == nil {
-					return
-				}
-				if err != nil && err.(rscerrors.NetError).Fatal {
-					p.Socket.Close()
-					return
-				}
-				sendReply := func(i handshake.ResponseCode, reason string) {
-					p.Writer.Write([]byte{byte(i)})
-					p.Writer.Flush()
-					if !i.IsValid() {
-						log.Debug("[LOGIN]", p.Username() + "@" + p.CurrentIP(), "failed to login (" + reason + ")")
-						p.Destroy()
-					}
-				}
-
-				if login.Opcode != 0 {
-					log.Debug("Unhandled login packet from", p, ":", login.String())
-					return
-				}
-				if !world.UpdateTime.IsZero() {
-					sendReply(handshake.ResponseServerRejection, "System update in progress")
-					return
-				}
-				if world.Players.Size() >= config.MaxPlayers() {
-					sendReply(handshake.ResponseWorldFull, "Out of usable player slots")
-					return
-				}
-				if handshake.LoginThrottle.Recent(p.CurrentIP(), time.Second*10) >= 5 {
-					sendReply(handshake.ResponseSpamTimeout, "Too many recent invalid login attempts (5 in 10 seconds)")
-					return
-				}
-
-				p.SetReconnecting(login.ReadBoolean())
-				if ver := login.ReadUint32(); ver != config.Version() {
-					sendReply(handshake.ResponseUpdated, "Invalid client version (" + strconv.Itoa(ver) + ")")
-					return
-				}
-
-				rsaSize := login.ReadUint16()
-				data := make([]byte, rsaSize)
-				rsaRead := login.Read(data)
-				if rsaRead < rsaSize {
-					log.Debug("short RSA block")
-					p.Writer.Write([]byte{byte(handshake.ResponseServerRejection)})
-					p.Writer.Flush()
-					return
-				} 
-
-				rsaData := rsa.RsaKeyPair.Decrypt(data)
-				offset := 0
-				checksum := rsaData[offset]
-				offset++
-				// It's been suggested to me that this first byte assures us that the RSA block could decode properly,
-				// it's only wrong for this purpose a statistically insignificant amount of time.  >99% accurate, as I understand it.
-				if checksum != 10 {
-					log.Debug("Bad checksum:", checksum)
-					p.Writer.Write([]byte{byte(handshake.ResponseServerRejection)})
-					p.Writer.Flush()
-					return
-				}
-				var keys = make([]int, 4)
-				for i := range keys {
-					keys[i] = int(binary.BigEndian.Uint32(rsaData[offset:]))
-					offset += 4
-				}
-				p.OpCiphers[0] = isaac.New(keys...)
-				p.OpCiphers[1] = isaac.New(keys...)
-				// protocol pads password out to constant 19 chars long (+1 terminator) for some reason with 0x20 bytes
-				password := strings.TrimSpace(string(rsaData[offset:offset+19]))
-				offset += 20
-				// The rscplus team viewed this data below as a nonce, but in my opinion, this is not the motivation for this data.
-				// I'd call these more of an initialization vector (IV), as wikipedia defines it, used to make RSA semantically secure.
-				offset += 8
-				blockSize := login.ReadUint16()
-				var block = make([]byte, blockSize)
-				if login.Available() != blockSize {
-					log.Debug("XTEA block size recv'd doesn't take up the rest of the packets available buffer size! (it should)")
-					log.Debugf("\t{ blockSize:%d, login.Available():%d }\n", blockSize, login.Available())
-				}
-				login.Read(block)
-				offset = 0
-				// limit30 := block[offset]
-				offset++
-				usernameData := xtea.New(keys).Decrypt(block)
-				offset += 24
-				// first byte of this block is limit30 parameter from the game client applet; boolean, use unknown
-				// I suppose the next 24 bytes are to ensure the stream gets sufficiently shuffled in each packet, preventing identifying markers appearing
-				// finally, the null-terminated UTF-8 encoded username comes at offset 25 and beyond.
-				username := string(usernameData[25:])
-				p.SetVar("username", strutil.Base37.Encode(username))
-				if world.Players.ContainsHash(p.UsernameHash()) {
-					sendReply(handshake.ResponseLoggedIn, "Player with same username is already logged in")
-					return
-				}
-				var dataService = db.DefaultPlayerService
-				if !dataService.PlayerNameExists(p.Username()) || !dataService.PlayerValidLogin(p.UsernameHash(), crypto.Hash(password)) {
-					handshake.LoginThrottle.Add(p.CurrentIP())
-					sendReply(handshake.ResponseBadPassword, "Invalid credentials")
-					return
-				}
-				if !dataService.PlayerLoad(p) {
-					sendReply(handshake.ResponseDecodeFailure, "Could not load player profile; is the dataService setup properly?")
-					return
-				}
-
-				if p.Reconnecting() {
-					sendReply(handshake.ResponseReconnected, "")
-					return
-				}
-				switch p.Rank() {
-				case 2:
-					sendReply(handshake.ResponseAdministrator|handshake.ResponseLoginAcceptBit, "")
-				case 1:
-					sendReply(handshake.ResponseModerator|handshake.ResponseLoginAcceptBit, "")
-				default:
-					sendReply(handshake.ResponseLoginSuccess|handshake.ResponseLoginAcceptBit, "")
-				}
-				go func() {
-					defer func() {
-						s.Lock()
-						s.logoutQueue = append(s.logoutQueue, p)
-						s.Unlock()
-					}()
-					for {
-						packet, err := p.ReadPacket()
-						if p.VarBool("unregistering", false) {
-							return
-						}
-						if err != nil || packet == nil {
-							if needsData(err) {
-								return
-							} else if err.(rscerrors.NetError).Fatal {
-								// p.Socket.Close()
-								return
-							}
-						}
-						p.InQueue <- packet
-					}
-				}()
-				log.Debug("[LOGIN]", p.Username() + "@" + p.CurrentIP(), "successfully logged in")
-				p.Initialize()
-				return
-			}(p)
-		}
-		s.loginQueue = []*world.Player{}
-		for _, p := range s.logoutQueue {
-			go p.Destroy()
-		}
-		s.logoutQueue = []*world.Player{}
-		s.Unlock()
-		world.Players.Range(func(p *world.Player) {
-			if p == nil {
-				return
+	ctx, cancel := context.WithCancel(context.WithValue(context.Background(), "server", Instance))
+	s.Context = ctx
+	for {
+		select {
+		case <-ctx.Done():
+			cancel()
+			continue
+		case <-s.C:
+			start := time.Now()
+			s.RLock()
+			for _, p := range s.loginQueue {
+				go s.handleLogin(p)
 			}
-			p.ProcPacketsIn() // dequeue incoming packets.  These are read off the socket then queued by each players own goroutine
-			p.TraversePath()
-			if fn := p.TickAction(); fn != nil && !fn() {
-				p.ResetTickAction()
+			for _, p := range s.logoutQueue {
+				go p.Destroy()
 			}
-			// if p.VarBool("unregistering", false) {
-				// s.Lock()
-				// s.logoutQueue = append(s.logoutQueue, p)
-				// s.Unlock()
-			// }
-
-		})
-		tasks.TickList.Tick(	)
-		world.Npcs.RangeNpcs(func(n *world.NPC) bool {
-			if n.Busy() || n.IsFighting() {
-				return false
-			}
-
-			if n.Aggressive() {
-				if _, ok := n.Var("targetPlayer"); ok {
+			s.RUnlock()
+			s.Lock()
+			s.loginQueue = []*world.Player{}
+			s.logoutQueue = []*world.Player{}
+			s.Unlock()
+			socketsDone := make(sigEnd)
+			go (func(ctx context.Context, cancel func()) {
+				defer close(socketsDone)
+				select {
+					case <-ctx.Done():
+						return
+					default:
+						tasks.TickList.Tick(ctx)
+						world.Players.Range(func(p *world.Player) {
+							p.ProcPacketsIn() // dequeue incoming packets.  These are read off the socket then queued by each players own goroutine
+						})
+						cancel()
+				}
+			})(context.WithCancel(ctx))
+			<-socketsDone
+			world.Players.Range(func(p *world.Player) {
+				if p == nil {
+					return
+				}
+				p.TraversePath()
+				if fn := p.TickAction(); fn != nil && !fn() {
+					p.ResetTickAction()
+				}
+			})
+			world.Npcs.RangeNpcs(func(n *world.NPC) bool {
+				if n.Busy() || n.IsFighting() {
 					return false
 				}
-				if closest := closestPlayer(n); closest != nil {
-					n.SetVar("targetPlayer", closest)
-				}
-				n.TraversePath()
-			}
-			if world.Chance(25) && n.Steps <= 0 && n.Ticks <= 0 {
-				// move some amount between 2-15 tiles, moving 1 tile per tick
-				n.Steps = rand.Intn(13+1)+2
-				// wait some amount between 25-50 ticks before doing this again
-				n.Ticks = rand.Intn(10+1)+25
-			}
-			if n.Ticks > 0 {
-				n.Ticks -= 1
-			}
-			// wander aimlessly until we run out of scheduled steps
-			if n.Steps > 0 {
-				n.TraversePath()
-			}
-			return false
-		})
-		world.Players.Range(func(p *world.Player) {
-			if p == nil {
-				return
-			}
-			sendPacket := func(p1 *net.Packet) {
-				if p != nil && p1 != nil {
-					p.WritePacket(p1)
-				}
-			}
-			// if p.HasState(world.StateChangingLooks) {
-				// sendPacket(world.AppearanceKeepalive)
-				// return
-			// }
-			sendPacket(world.PlayerPositions(p))
-			sendPacket(world.NPCPositions(p))
-			sendPacket(world.PlayerAppearances(p))
-			sendPacket(world.NpcEvents(p))
-			sendPacket(world.ObjectLocations(p))
-			sendPacket(world.BoundaryLocations(p))
-			sendPacket(world.ItemLocations(p))
-			sendPacket(world.ClearDistantChunks(p))
-		})
 
-		world.Players.Range(func(p *world.Player) {
-			if p == nil {
-				return
-			}
-			p.ResetRegionRemoved()
-			p.ResetRegionMoved()
-			p.ResetSpriteUpdated()
-			p.ResetAppearanceChanged()
-			p.ProcPacketsOut() // dequeue all the outgoing packets, writing them to socket
-			p.Writer.Flush() // flush outgoing buffer
-		})
-		world.Npcs.RangeNpcs(func(n *world.NPC) bool {
-			n.ResetRegionRemoved()
-			n.ResetRegionMoved()
-			n.ResetSpriteUpdated()
-			n.ResetAppearanceChanged()
-			return false
-		})
-		if config.Verbosity >= 4 {
-			if world.CurrentTick() % 100 == 0 {
-				// each 64 seconds we log our tick processing time
-				log.Debug("time to process tick:", time.Since(start))
+				if n.Aggressive() {
+					if _, ok := n.Var("targetPlayer"); ok {
+						return false
+					}
+					if closest := closestPlayer(n); closest != nil {
+						n.SetVar("targetPlayer", closest)
+					}
+					n.TraversePath()
+					return false
+				}
+				if world.Chance(25) && n.Steps <= 0 && n.Ticks <= 0 {
+					// move some amount between 2-15 tiles, moving 1 tile per tick
+					n.Steps = rand.Intn(13+1)+2
+					// wait some amount between 25-50 ticks before doing this again
+					n.Ticks = rand.Intn(10+1)+25
+				}
+				if n.Ticks > 0 {
+					n.Ticks -= 1
+				}
+				// wander aimlessly until we run out of scheduled steps
+				if n.Steps > 0 {
+					n.TraversePath()
+				}
+				return false
+			})
+			world.Players.Range(func(p *world.Player) {
+				if p == nil {
+					return
+				}
+				sendPacket := func(p1 *net.Packet) {
+					if p != nil && p1 != nil {
+						p.OutQueue <- p1
+					}
+				}
+				// if p.HasState(world.StateChangingLooks) {
+					// sendPacket(world.AppearanceKeepalive)
+					// return
+				// }
+				sendPacket(world.PlayerPositions(p))
+				sendPacket(world.NPCPositions(p))
+				sendPacket(world.PlayerAppearances(p))
+				sendPacket(world.NpcEvents(p))
+				sendPacket(world.ObjectLocations(p))
+				sendPacket(world.BoundaryLocations(p))
+				sendPacket(world.ItemLocations(p))
+				sendPacket(world.ClearDistantChunks(p))
+			})
+
+			world.Players.Range(func(p *world.Player) {
+				if p == nil {
+					return
+				}
+				p.ResetRegionRemoved()
+				p.ResetRegionMoved()
+				p.ResetSpriteUpdated()
+				p.ResetAppearanceChanged()
+				p.ProcPacketsOut() // dequeue all the outgoing packets, writing them to socket
+				p.Writer.Flush() // flush outgoing buffer
+			})
+			world.Npcs.RangeNpcs(func(n *world.NPC) bool {
+				n.ResetRegionRemoved()
+				n.ResetRegionMoved()
+				n.ResetSpriteUpdated()
+				n.ResetAppearanceChanged()
+				return false
+			})
+			if config.Verbosity >= 4 {
+				if world.CurrentTick() % 100 == 0 {
+					// each 64 seconds we log our tick processing time
+					log.Debug("time to process tick:", time.Since(start))
+				}
 			}
 		}
 	}
@@ -515,7 +390,7 @@ func check(i interface{}, err error) interface{} {
 		
 func closestPlayer(n *world.NPC) *world.Player {
 	var closest *world.Player
-	distance := 8.0
+	distance := math.Pow(8.0,2)
 	world.Region(n.X(), n.Y()).Players.RangePlayers(func(p1 *world.Player) bool {
 		if p1.EuclideanDistance(n) < distance {
 			closest = p1
@@ -525,3 +400,150 @@ func closestPlayer(n *world.NPC) *world.Player {
 	})
 	return closest
 }
+
+func (s *Server) handleLogin(p *world.Player) {
+	login, err := p.ReadPacket()
+	if login == nil {
+		return
+	}
+	if err != nil && err.(rscerrors.NetError).Fatal {
+		p.Socket.Close()
+		return
+	}
+	sendReply := func(i handshake.ResponseCode, reason string) {
+		p.Writer.Write([]byte{byte(i)})
+		p.Writer.Flush()
+		if !i.IsValid() {
+			log.Debug("[LOGIN]", p.Username() + "@" + p.CurrentIP(), "failed to login (" + reason + ")")
+			p.Destroy()
+		} else {
+			log.Debug("[LOGIN]", p.Username() + "@" + p.CurrentIP(), "successfully logged in")
+			p.Initialize()
+			defer func() {
+				s.Lock()
+				s.logoutQueue = append(s.logoutQueue, p)
+				s.Unlock()
+			}()
+			for {
+				packet, err := p.ReadPacket()
+				if p.VarBool("unregistering", false) {
+					return
+				}
+				if err != nil || packet == nil {
+					if needsData(err) {
+						return
+					} else if err.(rscerrors.NetError).Fatal {
+						// p.Socket.Close()
+						return
+					}
+				}
+				p.InQueue <- packet
+			}
+		}
+	}
+
+	if login.Opcode != 0 {
+		log.Debug("Unhandled login packet from", p, ":", login.String())
+		return
+	}
+	if !world.UpdateTime.IsZero() {
+		sendReply(handshake.ResponseServerRejection, "System update in progress")
+		return
+	}
+	if world.Players.Size() >= config.MaxPlayers() {
+		sendReply(handshake.ResponseWorldFull, "Out of usable player slots")
+		return
+	}
+	if handshake.LoginThrottle.Recent(p.CurrentIP(), time.Second*10) >= 5 {
+		sendReply(handshake.ResponseSpamTimeout, "Too many recent invalid login attempts (5 in 10 seconds)")
+		return
+	}
+
+	p.SetReconnecting(login.ReadBoolean())
+	if ver := login.ReadUint32(); ver != config.Version() {
+		sendReply(handshake.ResponseUpdated, "Invalid client version (" + strconv.Itoa(ver) + ")")
+		return
+	}
+
+	rsaSize := login.ReadUint16()
+	data := make([]byte, rsaSize)
+	rsaRead := login.Read(data)
+	if rsaRead < rsaSize {
+		log.Debug("short RSA block")
+		p.Writer.Write([]byte{byte(handshake.ResponseServerRejection)})
+		p.Writer.Flush()
+		return
+	} 
+
+	rsaData := rsa.RsaKeyPair.Decrypt(data)
+	offset := 0
+	checksum := rsaData[offset]
+	offset++
+	// It's been suggested to me that this first byte assures us that the RSA block could decode properly,
+	// it's only wrong for this purpose a statistically insignificant amount of time.  >99% accurate, as I understand it.
+	if checksum != 10 {
+		log.Debug("Bad checksum:", checksum)
+		p.Writer.Write([]byte{byte(handshake.ResponseServerRejection)})
+		p.Writer.Flush()
+		return
+	}
+	var keys = make([]int, 4)
+	for i := range keys {
+		keys[i] = int(binary.BigEndian.Uint32(rsaData[offset:]))
+		offset += 4
+	}
+	p.OpCiphers[0] = isaac.New(keys...)
+	p.OpCiphers[1] = isaac.New(keys...)
+	// protocol pads password out to constant 19 chars long (+1 terminator) for some reason with 0x20 bytes
+	password := strings.TrimSpace(string(rsaData[offset:offset+19]))
+	offset += 20
+	// The rscplus team viewed this data below as a nonce, but in my opinion, this is not the motivation for this data.
+	// I'd call these more of an initialization vector (IV), as wikipedia defines it, used to make RSA semantically secure.
+	offset += 8
+	blockSize := login.ReadUint16()
+	var block = make([]byte, blockSize)
+	if login.Available() != blockSize {
+		log.Debug("XTEA block size recv'd doesn't take up the rest of the packets available buffer size! (it should)")
+		log.Debugf("\t{ blockSize:%d, login.Available():%d }\n", blockSize, login.Available())
+	}
+	login.Read(block)
+	offset = 0
+	// limit30 := block[offset]
+	offset++
+	usernameData := xtea.New(keys).Decrypt(block)
+	offset += 24
+	// first byte of this block is limit30 parameter from the game client applet; boolean, use unknown
+	// I suppose the next 24 bytes are to ensure the stream gets sufficiently shuffled in each packet, preventing identifying markers appearing
+	// finally, the null-terminated UTF-8 encoded username comes at offset 25 and beyond.
+	username := string(usernameData[25:])
+	p.SetVar("username", strutil.Base37.Encode(username))
+	if world.Players.ContainsHash(p.UsernameHash()) {
+		sendReply(handshake.ResponseLoggedIn, "Player with same username is already logged in")
+		return
+	}
+	var dataService = db.DefaultPlayerService
+	if !dataService.PlayerNameExists(p.Username()) || !dataService.PlayerValidLogin(p.UsernameHash(), crypto.Hash(password)) {
+		handshake.LoginThrottle.Add(p.CurrentIP())
+		sendReply(handshake.ResponseBadPassword, "Invalid credentials")
+		return
+	}
+	if !dataService.PlayerLoad(p) {
+		sendReply(handshake.ResponseDecodeFailure, "Could not load player profile; is the dataService setup properly?")
+		return
+	}
+
+	if p.Reconnecting() {
+		sendReply(handshake.ResponseReconnected, "")
+		return
+	}
+	switch p.Rank() {
+	case 2:
+		sendReply(handshake.ResponseAdministrator|handshake.ResponseLoginAcceptBit, "")
+	case 1:
+		sendReply(handshake.ResponseModerator|handshake.ResponseLoginAcceptBit, "")
+	default:
+		sendReply(handshake.ResponseLoginSuccess|handshake.ResponseLoginAcceptBit, "")
+	}
+	return
+}
+

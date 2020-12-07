@@ -15,5 +15,5 @@ package isaac
  * in software and is orders of magnitude faster in software than AES, and honestly I haven't got a clue if
  * ChaCha/Salsa variants are slower or faster than ISAAC.
  *
- * In summary, this package implements ISAAC with Jean-Philippe Aumasson's proposed modifications to avoid bias.
+ * In summary, this package implements ISAAC
  */

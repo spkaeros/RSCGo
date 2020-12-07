@@ -11,7 +11,7 @@ package world
 
 import (
 	"bufio"
-	// "context"
+	"context"
 	"fmt"
 	"io"
 	"math"
@@ -38,6 +38,7 @@ import (
 type (
 	//Player A player in our game world.
 	Player struct {
+		context.Context
 		LocalPlayers      *MobList
 		LocalNPCs         *MobList
 		LocalObjects      *entityList
@@ -1037,8 +1038,8 @@ func (p *Player) WritePacket(packet *net.Packet) {
 	// p.WriteNow(*packet)
 }
 
-//NewPlayer Returns a reference to a new player.
-func NewPlayer(socket stdnet.Conn) *Player {
+//NewPlayerCtx Returns a reference to a new player with a parent context.
+func NewPlayerCtx(server context.Context, socket stdnet.Conn) *Player {
 	p := &Player{
 		Socket: socket,
 		Mob: Mob{
@@ -1059,16 +1060,20 @@ func NewPlayer(socket stdnet.Conn) *Player {
 		Inventory:        &Inventory{Capacity: 30},
 		TradeOffer:       &Inventory{Capacity: 12},
 		DuelOffer:        &Inventory{Capacity: 8},
-		InQueue:          make(chan *net.Packet, 1000),
-		OutQueue:         make(chan *net.Packet, 1000),
-		// Reader:           bufio.NewReader(wsutil.NewServerSideReader(socket)),
-		// Writer:			  bufio.NewWriterSize(socket, 5000),
+		InQueue:          make(chan *net.Packet, 100),
+		OutQueue:         make(chan *net.Packet, 100),
 		OpCiphers:		  [...]*isaac.ISAAC{nil, nil},
 	}
+	p.Context = context.WithValue(server, "player", p)
 	// TODO: Get rid of this self-referential member; figure out better way to handle client item updating
 	p.Inventory.Owner = p
 	p.SetVar("sprites", []int{entity.DefaultAppearance().Head, entity.DefaultAppearance().Body, entity.DefaultAppearance().Legs, -1, -1, -1, -1, -1, -1, -1, -1, -1})
 	return p
+}
+
+//NewPlayer Returns a reference to a new player, with context.Background as parent
+func NewPlayer(socket stdnet.Conn) *Player {
+	return NewPlayerCtx(context.Background(), socket)
 }
 
 //Message sends a message to the player.
@@ -1200,14 +1205,15 @@ func (p *Player) OpenOptionMenu(options ...string) int {
 		return -1
 	}
 	// ctx, _ := context.WithTimeout(context.Background(), 90*time.Second)
-	
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	p.AddState(StateMenu)
 	p.SendPacket(OptionMenuOpen(options...))
 	p.ReplyMenuC = make(chan int8)
-	defer close(p.ReplyMenuC)
 	defer p.RemoveState(StateMenu)
+	defer cancel()
+	defer close(p.ReplyMenuC)
 	select {
-	case <-time.After(90*time.Second):
+	case <-ctx.Done():
 		if !p.HasState(StateMenu) {
 			return -1
 		}

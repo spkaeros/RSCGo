@@ -13,6 +13,7 @@ package tasks
 import (
 	"context"
 	"sync"
+	"time"
 	"reflect"
 	
 	"go.uber.org/atomic"
@@ -198,71 +199,86 @@ func Do(fn interface{}) {
 	TickList.Add(fn)
 }
 
-func (s *Scripts) Tick() {
-	s.ForEach(nil)
+
+func (s *Scripts) Tick(ctx context.Context) {
+	// s.ForEach(nil)
+	s.ForEach(ctx, nil)
 }
 
-func (s *Scripts) ForEach(arg interface{}) {
-	s.RLock()
+type sigFin chan struct{}
+
+func (s *Scripts) ForEach(ctx context.Context, arg interface{}) {
 	var list = s.ScriptCalls[:0]
-	for _, script := range s.ScriptCalls {
-		// wait.Add(1)
-		// go func(script ScriptCall, keepList *ScriptCalls) {
-			// defer wait.Done()
-		if script == nil {
-			continue
-		}
-		list = append(list, script)
-		switch script.(type) {
-		// Simple function call, no input no input
-		case call:
-			script.(call)()
-		// A function call taking a MobileEntity interface as an argument
-		case playerArgCall:
-			script.(playerArgCall)(arg.(entity.MobileEntity))
-		// A function call returning its active status.
-		case StatusReturnCall:
-			if script.(StatusReturnCall)() {
-				list = list[:len(list)-1]
-			}
-		// A function call taking a *world.Player as an argument and returning its active status.
-		case playerArgStatusReturnCall:
-			if script.(playerArgStatusReturnCall)(arg.(entity.MobileEntity)) {
-				list = list[:len(list)-1]
-			}
-		// A function call that returns two values, the first a result value, and the second an error value
-		// Upon non-nil error value, it will log the stringified err struct then remove from active list,
-		// otherwise schedules the same call to run again next tick.
-		case dualReturnCall:
-			ret, callErr := (script.(dualReturnCall))(context.Background())
-			if !callErr.IsNil() {
-				log.Warn("Error retVal from a dualReturnCall in the Anko ctx:", callErr.Elem())
-				continue
-			}
-			if ret.Bool() {
-				list = list[:len(list)-1]
-			}
-		// A function call that returns two values, the first a result value, and the second an error value
-		// Requires one argument, no type restrictions, so long as the client reads it properly.
-		// Upon non-nil error value, it will log the stringified err struct then remove from active list,
-		// otherwise schedules the same call to run again next tick.
-		case singleArgDualReturnCall:
-			ret, callErr := (script.(singleArgDualReturnCall))(context.Background(), reflect.ValueOf(arg))
-			if !callErr.IsNil() {
-				log.Warn("Error retVal from a singleArgDualReturnCall in the Anko ctx:", callErr.String())
-				continue
-			}
-			if ret.Bool() {
-				list = list[:len(list)-1]
-			}
-		default:
-			log.Debugf("Couldn't run task[%v]: Type '%T' not handled.", script, script)
+	tickCtx, cancel := context.WithTimeout(ctx, 640*time.Millisecond)
+	done := make(sigFin)
+	s.RLock()
+	// log.Debug(tickCtx.Value("server"))
+	go func(ctx context.Context) {
+		defer cancel()
+		for _, script := range s.ScriptCalls {
+			select {
+			case <-ctx.Done():
+				log.Debug("Task scheduling context reached timeout with the error value:", ctx.Err())
+				return
+			default:
+				if script == nil {
+					continue
+				}
+				list = append(list, script)
+				switch script.(type) {
+				// Simple function call, no input no input
+				case call:
+					script.(call)()
+				// A function call taking a MobileEntity interface as an argument
+				case playerArgCall:
+					script.(playerArgCall)(arg.(entity.MobileEntity))
+				// A function call returning its active status.
+				case StatusReturnCall: 
+					if script.(StatusReturnCall)() {
+						list = list[:len(list)-1]
+					}
+				// A function call taking a *world.Player as an argument and returning its active status.
+				case playerArgStatusReturnCall:
+					if script.(playerArgStatusReturnCall)(arg.(entity.MobileEntity)) {
+						list = list[:len(list)-1]
+					}
+				// A function call that returns two values, the first a result value, and the second an error value
+				// Upon non-nil error value, it will log the stringified err struct then remove from active list,
+				// otherwise schedules the same call to run again next tick.
+				case dualReturnCall:
+					ret, callErr := (script.(dualReturnCall))(context.Background())
+					if !callErr.IsNil() {
+						log.Warn("Error retVal from a dualReturnCall in the Anko ctx:", callErr.Elem())
+						continue
+					}
+					if ret.Bool() {
+						list = list[:len(list)-1]
+					}
+				// A function call that returns two values, the first a result value, and the second an error value
+				// Requires one argument, no type restrictions, so long as the client reads it properly.
+				// Upon non-nil error value, it will log the stringified err struct then remove from active list,
+				// otherwise schedules the same call to run again next tick.
+				case singleArgDualReturnCall:
+					ret, callErr := (script.(singleArgDualReturnCall))(context.Background(), reflect.ValueOf(arg))
+					if !callErr.IsNil() {
+						log.Warn("Error retVal from a singleArgDualReturnCall in the Anko ctx:", callErr.String())
+						continue
+					}
+					if ret.Bool() {
+						list = list[:len(list)-1]
+					}
+				default:
+					log.Debugf("Couldn't run task[%v]: Type '%T' not handled.", script, script)
+				}
 		}
 	}
+		close(done)
+	}(tickCtx)
 	s.RUnlock()
+	<-done
 	s.Lock()
 	defer s.Unlock()
-	// wait.Wait()
 	s.ScriptCalls = list
 	Ticks.Inc()
+	// wait.Wait()
 }
