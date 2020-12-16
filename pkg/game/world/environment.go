@@ -116,9 +116,9 @@ func init() {
 		}),
 		"teleport": reflect.ValueOf(func(target *Player, x, y int, bubble bool) {
 			if bubble {
-				target.SendPacket(TeleBubble(0, 0))
+				target.WritePacket(TeleBubble(0, 0))
 				target.LocalPlayers.RangePlayers(func(p1 *Player) bool {
-					p1.SendPacket(TeleBubble(target.X()-p1.X(), target.Y()-p1.Y()))
+					p1.WritePacket(TeleBubble(target.X()-p1.X(), target.Y()-p1.Y()))
 					return false
 				})
 				// nearList := &MobList{mobSet: target.NearbyPlayers()}
@@ -131,7 +131,7 @@ func init() {
 			target.ResetPath()
 			target.Teleport(x, y)
 			if target.Plane() != plane {
-				target.SendPacket(PlaneInfo(target))
+				target.WritePacket(PlaneInfo(target))
 			}
 		}),
 		"newGroundItemFor": reflect.ValueOf(NewGroundItemFor),
@@ -180,6 +180,7 @@ func init() {
 		"boundaryAction": reflect.ValueOf(127),
 		"boundaryAction2": reflect.ValueOf(14),
 		"invOnScene": reflect.ValueOf(115),
+		"invOnBoundary": reflect.ValueOf(161),
 		"unequip": reflect.ValueOf(170),
 		"dropItem": reflect.ValueOf(246),
 		"recoverAccount": reflect.ValueOf(220),
@@ -379,6 +380,7 @@ func init() {
 		"chatNpcs": reflect.ValueOf(&NpcTalkList),
 		"sceneActions": reflect.ValueOf(&ObjectTriggers),
 		"invSceneActions": reflect.ValueOf(&InvOnObjectTriggers),
+		"invBoundaryActions": reflect.ValueOf(&InvOnBoundaryTriggers),
 		"boundaryActions": reflect.ValueOf(&BoundaryTriggers),
 		"spells": reflect.ValueOf(SpellTriggers),
 		"packet": reflect.ValueOf(func(ident interface{}, fn func(player *Player, packet interface{})) {
@@ -662,7 +664,7 @@ func init() {
 				p1.Message(serverPrefix + "Shutting down.")
 				time.Sleep(TickMillis)
 				p1.WriteNow(*Logout)
-				p1.Destroy()
+				p1.Unregister()
 			}()
 		})
 		wait.Wait()

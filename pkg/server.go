@@ -78,18 +78,19 @@ type (
 	}
 	Server struct {
 		context.Context
-		loginQueue []*world.Player
-		logoutQueue []*world.Player
+		loginQ chan *world.Player
+		logoutQ chan *world.Player
 		sync.RWMutex
-		port        int
 		*time.Ticker
+		port  int
+		debug bool
+		*tasks.Scripts
 	}
 )
 
 var (
 	cliFlags = &Flags{}
 	start = time.Now()
-	newPlayers chan *world.Player
 	tlsConfig = &tls.Config{
 		Certificates: []tls.Certificate{
 			check(tls.LoadX509KeyPair("./data/ssl/fullchain.pem", "./data/ssl/privkey.pem")).(tls.Certificate),
@@ -168,6 +169,7 @@ func main() {
 	// data, it will result in a world filled with objects that are not solid.  Many similar bugs possible.  Best just to leave this be.
 	run(db.LoadTileDefinitions, db.LoadObjectDefinitions, db.LoadBoundaryDefinitions, db.LoadItemDefinitions, db.LoadNpcDefinitions)
 	run(world.LoadCollisionData, world.UnmarshalPackets, world.RunScripts)
+		// world.LoadCollisionData, world.UnmarshalPackets, world.RunScripts)
 	run(db.LoadObjectLocations, db.LoadNpcLocations, db.LoadItemLocations)
 
 	if config.Verbose() {
@@ -203,7 +205,7 @@ func needsData(err error) bool {
 	return err.Error() == "Socket buffer has less bytes available than we need to form a message packet."
 }
 
-var Instance = &Server{Ticker: time.NewTicker(world.TickMillis)}
+var Instance = &Server{Ticker: time.NewTicker(world.TickMillis), loginQ: make(chan *world.Player, 25), logoutQ: make(chan *world.Player, 25), Scripts: tasks.TickList}
 
 func (s *Server) accept(l stdnet.Listener) *world.Player {
 	socket, err := l.Accept()
@@ -235,9 +237,7 @@ func (s *Server) Bind(port int) {
 	bindTo := func(listener stdnet.Listener) {
 		for {
 			if p := s.accept(listener); p != nil {
-				s.Lock()
-				s.loginQueue = append(s.loginQueue, p)
-				s.Unlock()
+				s.SubmitLogin(p)
 			}
 		}
 	}
@@ -245,54 +245,62 @@ func (s *Server) Bind(port int) {
 	go bindTo(tls.NewListener(check(stdnet.Listen("tcp", ":" + strconv.Itoa(port))).(stdnet.Listener), tlsConfig))
 }
 
-
 func (s *Server) Start() {
 	defer s.Ticker.Stop()
 	ctx, cancel := context.WithCancel(context.WithValue(context.Background(), "server", Instance))
 	s.Context = ctx
+	defer cancel()
+	// s.DebugTicks()
 	for {
 		select {
 		case <-ctx.Done():
-			cancel()
-			continue
+			return
 		case <-s.C:
 			start := time.Now()
-			s.RLock()
-			for _, p := range s.loginQueue {
-				go s.handleLogin(p)
-			}
-			for _, p := range s.logoutQueue {
-				go p.Destroy()
-			}
-			s.RUnlock()
-			s.Lock()
-			s.loginQueue = []*world.Player{}
-			s.logoutQueue = []*world.Player{}
-			s.Unlock()
-			socketsDone := make(sigEnd)
-			go (func(ctx context.Context, cancel func()) {
-				defer close(socketsDone)
-				select {
-					case <-ctx.Done():
-						return
-					default:
-						tasks.TickList.Tick(ctx)
-						world.Players.Range(func(p *world.Player) {
-							p.ProcPacketsIn() // dequeue incoming packets.  These are read off the socket then queued by each players own goroutine
-						})
-						cancel()
+			select {
+			case p1,ok := <-s.loginQ:
+				if !ok || p1 == nil {
+					continue
 				}
-			})(context.WithCancel(ctx))
-			<-socketsDone
-			world.Players.Range(func(p *world.Player) {
+				s.handleLogin(p1)
+			case <-ctx.Done():
+				return
+			default:
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case p1,ok := <-s.logoutQ:
+				if !ok || p1 == nil {
+					continue
+				}
+				s.runLogout(p1)
+				continue
+			default:
+			}
+
+			s.Tick(ctx)
+			world.Players.AsyncRange(func(p *world.Player) {
+			// if run := s.WrapWaitRoutines(world.Players.Set(), func(p *world.Player) {
 				if p == nil {
 					return
 				}
-				p.TraversePath()
+				// if !p.Connected() {
+					// p.Initialize()
+				// }
+				p.ProcPacketsIn() // dequeue incoming packets.  These are read off the socket then queued by each players own goroutine
+				if !p.Connected() {
+					p.Initialize()
+				}
 				if fn := p.TickAction(); fn != nil && !fn() {
 					p.ResetTickAction()
 				}
+				p.TraversePath()
 			})
+			// }); run != nil {
+				// run()
+			// }
+			// world.Players.RUnlock()
 			world.Npcs.RangeNpcs(func(n *world.NPC) bool {
 				if n.Busy() || n.IsFighting() {
 					return false
@@ -323,13 +331,13 @@ func (s *Server) Start() {
 				}
 				return false
 			})
-			world.Players.Range(func(p *world.Player) {
+			world.Players.AsyncRange(func(p *world.Player) {
 				if p == nil {
 					return
 				}
 				sendPacket := func(p1 *net.Packet) {
 					if p != nil && p1 != nil {
-						p.OutQueue <- p1
+						p.WritePacket(p1)// <- p1
 					}
 				}
 				// if p.HasState(world.StateChangingLooks) {
@@ -344,9 +352,13 @@ func (s *Server) Start() {
 				sendPacket(world.BoundaryLocations(p))
 				sendPacket(world.ItemLocations(p))
 				sendPacket(world.ClearDistantChunks(p))
+				if p.VarInt("lastPlane", -1) != p.Plane() {
+					sendPacket(world.PlaneInfo(p))
+					p.SetVar("lastPlane", p.Plane())
+				}
 			})
 
-			world.Players.Range(func(p *world.Player) {
+			world.Players.AsyncRange(func(p *world.Player) {
 				if p == nil {
 					return
 				}
@@ -354,7 +366,7 @@ func (s *Server) Start() {
 				p.ResetRegionMoved()
 				p.ResetSpriteUpdated()
 				p.ResetAppearanceChanged()
-				p.ProcPacketsOut() // dequeue all the outgoing packets, writing them to socket
+				p.ProcPacketsOut() // dequeue incoming packets.  These are read off the socket then queued by each players own goroutine
 				p.Writer.Flush() // flush outgoing buffer
 			})
 			world.Npcs.RangeNpcs(func(n *world.NPC) bool {
@@ -364,11 +376,11 @@ func (s *Server) Start() {
 				n.ResetAppearanceChanged()
 				return false
 			})
-			if config.Verbosity >= 4 {
-				if world.CurrentTick() % 100 == 0 {
+			if s.debug {
+				// if world.CurrentTick() % 100 == 0 {
 					// each 64 seconds we log our tick processing time
 					log.Debug("time to process tick:", time.Since(start))
-				}
+				// }
 			}
 		}
 	}
@@ -407,7 +419,7 @@ func (s *Server) handleLogin(p *world.Player) {
 		return
 	}
 	if err != nil && err.(rscerrors.NetError).Fatal {
-		p.Socket.Close()
+		p.Unregister()
 		return
 	}
 	sendReply := func(i handshake.ResponseCode, reason string) {
@@ -415,30 +427,29 @@ func (s *Server) handleLogin(p *world.Player) {
 		p.Writer.Flush()
 		if !i.IsValid() {
 			log.Debug("[LOGIN]", p.Username() + "@" + p.CurrentIP(), "failed to login (" + reason + ")")
-			p.Destroy()
+			p.Unregister()
 		} else {
 			log.Debug("[LOGIN]", p.Username() + "@" + p.CurrentIP(), "successfully logged in")
-			p.Initialize()
-			defer func() {
-				s.Lock()
-				s.logoutQueue = append(s.logoutQueue, p)
-				s.Unlock()
-			}()
-			for {
-				packet, err := p.ReadPacket()
-				if p.VarBool("unregistering", false) {
-					return
-				}
-				if err != nil || packet == nil {
-					if needsData(err) {
+			go func() {
+				defer p.Unregister()
+				world.AddPlayer(p)
+				for {
+					select {
+					case <-p.Done():
 						return
-					} else if err.(rscerrors.NetError).Fatal {
-						// p.Socket.Close()
-						return
+					default:
+						packet, err := p.ReadPacket()
+						if err != nil || packet == nil {
+							if err.(rscerrors.NetError).Fatal {
+								return
+							}
+						}
+						p.InQueue <- packet
+						
 					}
 				}
-				p.InQueue <- packet
-			}
+			}()
+			// p.Initialize()
 		}
 	}
 
@@ -547,3 +558,66 @@ func (s *Server) handleLogin(p *world.Player) {
 	return
 }
 
+func (s *Server) SubmitLogout(p *world.Player) {
+	// s.Lock()
+	// s.logoutQueue = append(s.logoutQueue, p)
+	s.logoutQ <- p
+	// s.Unlock()
+}
+
+func (s *Server) SubmitLogin(p *world.Player) {
+	// s.Lock()
+	s.loginQ <- p
+	// s.loginQueue = append(s.loginQueue, p)
+	// s.Unlock()
+}
+
+func (s *Server) DebugTicks() {
+	s.debug = !s.debug
+}
+
+func (s *Server) runLogout(p *world.Player) {
+	go p.Destroy()
+}
+
+func (s *Server) WrapWaitRoutines (ps []*world.Player, fns ...func(*world.Player)) ( func() ) {
+	if len(ps) == 0 {
+		return nil
+	}
+	return func() {
+		wait := sync.WaitGroup{}
+		for _, p := range ps {
+			select {
+			case <-p.Done():
+				return
+			default:
+				for _, fn := range fns {
+					if p == nil {
+						return
+					}
+				
+				// case <-p.Done():
+					// return
+					wait.Add(1)
+					go func() {
+						defer wait.Done()
+						fn(p)
+					}()
+				}
+			}
+		}
+		// select {
+			// case <-ctx.Done():
+				// return
+			// default:
+				// for _, fn := range fns {
+					// go fn()
+				// }
+				// // world.Players.Range(func(p *world.Player) {
+					// // p.ProcPacketsIn() // dequeue incoming packets.  These are read off the socket then queued by each players own goroutine
+				// // })
+		// }
+		wait.Wait()
+	}
+	// })(context.WithCancel(ctx))
+}

@@ -33,7 +33,7 @@ bind.packet(packets.shopSell, func(player, packet) {
 		shop.Players.RangePlayers(func(player) {
 			// update the other shop browsing players shop-inventory
 			if shop == player.CurrentShop() {
-				player.SendPacket(net.shopOpen(shop))
+				player.WritePacket(net.shopOpen(shop))
 			}
 			return false
 		})
@@ -78,7 +78,7 @@ bind.packet(packets.shopBuy, func(player, packet) {
 	shop.Remove(id, 1)
 	player.PlaySound("coins")
 	shop.Players.RangePlayers(func(player) {
-		player.SendPacket(net.shopOpen(shop))
+		player.WritePacket(net.shopOpen(shop))
 		return false
 	})
 })

@@ -211,7 +211,7 @@ func (p *Packet) AddFramedString(s string) *Packet {
 }
 
 func (p *Packet) AddEncryptedString(s string) *Packet {
-	log.Debug(s, strutil.ChatFilter.Format(s))
+	// log.Debug(s, strutil.ChatFilter.Format(s))
 	buf, n := strutil.Encipher(strutil.ChatFilter.Format(s))
 	if n < 128 {
 		p.AddUint8(uint8(n))

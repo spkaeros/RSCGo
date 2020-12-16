@@ -1,6 +1,6 @@
-net = import("net")
-bind = import("bind")
 state = import("state")
+
+load("scripts/lib/packets.ank")
 
 bind.packet(packets.sceneAction, func(player, packet) {
 	if player.Busy() || player.IsFighting() {
@@ -34,7 +34,7 @@ bind.packet(packets.sceneAction, func(player, packet) {
 			}
 		}
 		player.RemoveState(state.Batching)
-		player.SendPacket(world.unhandledMessage)
+		player.WritePacket(world.unhandledMessage)
 		return false
 	})
 })
@@ -71,7 +71,7 @@ bind.packet(packets.sceneAction2, func(player, packet) {
 			}
 		}
 		player.RemoveState(state.Batching)
-		player.SendPacket(world.unhandledMessage)
+		player.WritePacket(world.unhandledMessage)
 		return false
 	})
 })
@@ -108,7 +108,7 @@ bind.packet(packets.boundaryAction, func(player, packet) {
 			}
 		}
 		player.RemoveState(state.Batching)
-		player.SendPacket(world.unhandledMessage)
+		player.WritePacket(world.unhandledMessage)
 		return false
 	})
 })
@@ -145,12 +145,15 @@ bind.packet(packets.boundaryAction2, func(player, packet) {
 			}
 		}
 		player.RemoveState(state.Batching)
-		player.SendPacket(world.unhandledMessage)
+		player.WritePacket(world.unhandledMessage)
 		return false
 	})
 })
 
 bind.packet(packets.invOnScene, func(player, packet) {
+	if !checkPacket(packet, 6) {
+		return
+	}
 	x = packet.ReadUint16()
 	y = packet.ReadUint16()
 	object = world.getObjectAt(x, y)
@@ -166,42 +169,88 @@ bind.packet(packets.invOnScene, func(player, packet) {
 	item = player.Inventory.Get(itemIdx)
 	bounds = object.Boundaries()
 	player.SetTickAction(func() {
-		if player.Busy() || world.getObjectAt(x, y) != object {
-			return true
+		if player.IsFighting() || player.Busy() || world.getObjectAt(x, y) != object {
+			return false
+		}
+		handle = func() {
+			player.ResetPath()
+			player.AddState(state.Batching)
+			go func() {
+				for action in *bind.invSceneActions {
+					if action(player, object, item) {
+						player.RemoveState(state.Batching)
+						return
+					}
+				}
+				player.WritePacket(world.unhandledMessage)
+				player.RemoveState(state.Batching)
+			}()
 		}
 
-		if objectDef(object.ID).CollisionType == 2 || objectDef(object.ID).CollisionType == 3 {
-			if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.WithinArea(bounds) {
-					// player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() &&
-					// player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y()
-				player.ResetPath()
-				player.AddState(state.Batching)
-				go func() {
-					for action in *bind.invSceneActions {
-						if action(player, object, item) {
-							player.RemoveState(state.Batching)
-							return
-						}
-					}
-					player.SendPacket(world.unhandledMessage)
-					player.RemoveState(state.Batching)
-				}()
+		// player.X() >= bounds[0].X() && player.Y() >= bounds[0].Y() &&
+		// player.X() <= bounds[1].X() && player.Y() <= bounds[1].Y()
+
+		// below checks whether this boundary is an open or closed door type
+		clipType = object.ClipType()
+		if clipType == 1 {
+			if player.AtObject(object) {
+				handle()
+				return false
+			}
+		} else if clipType >= 2 {
+			if player.WithinArea(bounds) && (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) {
+				handle()
+				return false
 			}
 		}
-		if player.AtObject(object) {
-				player.ResetPath()
-				player.AddState(state.Batching)
-				go func() {
-					for action in *bind.invSceneActions {
-						if action(player, object, item) {
-							player.RemoveState(state.Batching)
-							return
-						}
-					}
-					player.SendPacket(world.unhandledMessage)
-					player.RemoveState(state.Batching)
-				}()
+		return !player.FinishedPath()
+	})
+})
+
+bind.packet(packets.invOnBoundary, func(player, packet) {
+	if !checkPacket(packet, 7) {
+		return
+	}
+	x = packet.ReadUint16()
+	y = packet.ReadUint16()
+	// direction; scenary orientations are derived from cache files, but not boundary orientations!
+	// if useful to handle special sometimes, dir of boundary obj the client is wanting to operate on can be read in this skipped byte
+	packet.Skip(1)
+	object = world.getObjectAt(x, y)
+	if object == nil || !object.Boundary {
+		log.cheat("attempted to use an item on a boundary entity which doesn't exist or is actually a scenary entity")
+		return
+	}
+	itemIdx = packet.ReadUint16()
+	if itemIdx >= player.Inventory.Size() {
+		// log.cheat("attempted to use an item that doesn't exist on a scene object")
+		log.cheat("Inventory has", player.Inventory.Size(), "valid slots, tried accessing out of bounds at:", itemIdx)
+		return
+	}
+	item = player.Inventory.Get(itemIdx)
+	bounds = object.Boundaries()
+	player.SetTickAction(func() {
+		if player.IsFighting() || player.Busy() || world.getObjectAt(x, y) != object {
+			return false
 		}
-		return false
+
+		if (player.NextTo(bounds[1]) || player.NextTo(bounds[0])) && player.WithinArea(bounds) {
+			player.ResetPath()
+			player.AddState(state.Batching)
+			go func() {
+				for action in *bind.invBoundaryActions {
+					if action(player, object, item) {
+						player.RemoveState(state.Batching)
+						return
+					}
+				}
+				player.WritePacket(world.unhandledMessage)
+				player.RemoveState(state.Batching)
+			}()
+			return false
+		}
+
+		return !player.FinishedPath()
+
 	})
 })

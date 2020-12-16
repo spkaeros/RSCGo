@@ -50,7 +50,7 @@ func (l *entityList) NearbyNpcs(e entity.MobileEntity) []entity.MobileEntity {
 	l.RLock()
 	defer l.RUnlock()
 	var npcs []entity.MobileEntity
-	for _, v := range l.set {
+	for _,  v := range l.set {
 		if n, ok := v.(*NPC); ok && n.Near(e, e.SessionCache().VarInt("viewRadius", 16)) {
 			npcs = append(npcs, n)
 		}
@@ -66,7 +66,7 @@ func (l *entityList) NearbyObjects(e entity.MobileEntity) []entity.Entity {
 	defer l.RUnlock()
 	var objects []entity.Entity
 	for _, o1 := range l.set {
-		if o, ok := o1.(*Object); ok && e.Near(o, e.SessionCache().VarInt("viewRadius", 16)>>1) {
+		if o, ok := o1.(*Object); ok && e.Near(o, e.SessionCache().VarInt("viewRadius", 16) * 2) {
 			objects = append(objects, o)
 		}
 	}
@@ -112,29 +112,28 @@ func (l *entityList) Add(e entity.Entity) {
 func (l *entityList) Contains(e entity.Entity) bool {
 	l.RLock()
 	defer l.RUnlock()
-	for _, v := range l.set {
-		if (v.ServerIndex() == e.ServerIndex() && v.Type() == e.Type()) || e == v {
-			// Pointers should be comparable?
+	for _, e1 := range l.set {
+		if e == e1 {
 			return true
 		}
 	}
-
 	return false
 }
 
 //Remove removes e from the collection set.
 func (l *entityList) Remove(e entity.Entity) {
+	if !l.Contains(e) {
+		return
+	}
 	l.Lock()
 	defer l.Unlock()
-	elems := l.set
-	for i, v := range elems {
-		if v == e {
-			last := len(elems) - 1
-			if i < last {
-				copy(elems[i:], elems[i+1:])
+	for i, e1 := range l.set {
+		if e == e1 {
+			if i >= len(l.set) {
+				l.set = l.set[:i]
+			} else {
+				l.set = append(l.set[:i], l.set[i+1:]...)
 			}
-			elems[last] = nil
-			l.set = elems[:last]
 			return
 		}
 	}

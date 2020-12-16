@@ -230,7 +230,7 @@ func NewGeneralShop(name string) *Shop {
 			})
 			if changed {
 				shop.Players.RangePlayers(func(player *Player) bool {
-					player.SendPacket(ShopOpen(shop))
+					player.WritePacket(ShopOpen(shop))
 					return false
 				})
 			}

@@ -168,16 +168,16 @@ var OptionMenuClose = net.NewEmptyPacket(252)
 func NPCPositions(player *Player) (p *net.Packet) {
 	p = net.NewEmptyPacket(79)
 	p.AddBitmask(player.LocalNPCs.Size(), 8)
-	var local = player.LocalNPCs.mobSet[:0]
+	var removed = []*NPC{}
 	changed := 0
 	player.LocalNPCs.RangeNpcs(func(n *NPC) bool {
-		local = append(local, n)
+		// local = append(local, n)
 		changed++
 		n.RLock()
 		mask := n.SyncMask
 		if !player.Near(n, player.ViewRadius()-1) || mask&SyncRemoved == SyncRemoved || n.VarBool("removed", false) {
 			p.AddBitmask(0xF, 4)
-			local = local[:len(local)-1]
+			removed = append(removed, n)
 		} else if mask&SyncMoved == SyncMoved {
 			p.AddBitmask(2, 2)
 			p.AddBitmask(n.Direction(), 3)
@@ -191,7 +191,13 @@ func NPCPositions(player *Player) (p *net.Packet) {
 		n.RUnlock()
 		return false
 	})
-	player.LocalNPCs.Set(local)
+	// player.LocalNPCs.Set(local)
+	for _, n := range removed {
+		if player.LocalNPCs.Contains(n) {
+			
+		player.LocalNPCs.Remove(n)
+		}
+	}
 
 	newCount := 0
 	player.NewNPCs().RangeNpcs(func(n *NPC) bool {
@@ -231,6 +237,14 @@ func PrayerStatus(player *Player) (p *net.Packet) {
 	return p
 }
 
+func QuestStatus(player *Player) (p *net.Packet) {
+	p = net.NewEmptyPacket(5)
+	for i := 0; i < 50; i++ {
+		p.AddBoolean(player.VarBool("quest"+strconv.Itoa(i), false))
+	}
+	return p
+}
+
 //PlayerPositions Builds a packet containing view area player position and sprite information, including ones own information, and returns it.
 // If no players need to be updated, returns nil.
 func PlayerPositions(player *Player) (p *net.Packet) {
@@ -240,46 +254,52 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 	p.AddBitmask(player.X(), 11)
 	p.AddBitmask(player.Y(), 13)
 	p.AddBitmask(player.Direction(), 4)
-	p.AddBitmask(player.LocalPlayers.Size(), 8)
+	updates := player.LocalPlayers.Size()
+	p.AddBitmask(updates, 8)
 	changed := 0
-	var local = player.LocalPlayers.mobSet[:0]
-	player.LocalPlayers.RangePlayers(func(p1 *Player) bool {
-		local = append(local, p1)
-		changed++
-		p1.RLock()
-		mask := p1.SyncMask
-		if !player.Near(p1, player.ViewRadius()) || mask&SyncRemoved == SyncRemoved {
-			// flips on the next 4 bits
-			p.AddBitmask(0xF, 4)
-			local = local[:len(local)-1]
-		} else if mask&SyncMoved == SyncMoved {
-			// Sets next 2 bits as 1, 0 consecutively
-			p.AddBitmask(2, 2)
-			p.AddBitmask(p1.Direction(), 3)
-		} else if mask&SyncSprite == SyncSprite {
-			p.AddBitmask(3, 2)
-			p.AddBitmask(p1.Direction(), 4)
-		} else {
-			p.AddBitmask(0, 1)
-			changed--
+	// var local = make(mobSet, 0, updates)
+	var removed = []entity.MobileEntity{}
+	if updates > 0 {
+		player.LocalPlayers.RangePlayers(func(p1 *Player) bool {
+			changed++
+			p1.RLock()
+			mask := p1.SyncMask
+			if !player.Near(p1, player.ViewRadius()) || mask&SyncRemoved == SyncRemoved {
+				// flips on the next 4 bits
+				p.AddBitmask(0xF, 4)
+				removed = append(removed, p1)
+			} else if mask&SyncMoved == SyncMoved {
+				// Sets next 2 bits as 1, 0 consecutively
+				p.AddBitmask(2, 2)
+				p.AddBitmask(p1.Direction(), 3)
+			} else if mask&SyncSprite == SyncSprite {
+				p.AddBitmask(3, 2)
+				p.AddBitmask(p1.Direction(), 4)
+			} else {
+				p.AddBitmask(0, 1)
+				changed--
+			}
+			p1.RUnlock()
+			return false
+		})
+		for _, p1 := range removed {
+			player.LocalPlayers.Remove(p1)
 		}
-		p1.RUnlock()
-		return false
-	})
-	player.LocalPlayers.Set(local)
+	}
 	newPlayerCount := 0
 	player.NewPlayers().RangePlayers(func(p1 *Player) bool {
 		if player.LocalPlayers.Size() >= 255 {
 			// We can only support so many players.  This might even be too much
-			return false
+			return true
 		}
-		if newPlayerCount >= 25 {
+		if newPlayerCount >= 50 {
 			// Shrink view area when too many new players in one tick
 			if player.ViewRadius() > 1 {
 				player.Dec("viewRadius", 1)
 			}
 			return true
-		} else if player.ViewRadius() < 15 {
+		}
+		for player.ViewRadius() < 15 {
 			// Grow view area back out after it had been shrunk
 			player.Inc("viewRadius", 1)
 		}
@@ -293,10 +313,10 @@ func PlayerPositions(player *Player) (p *net.Packet) {
 		// if ticket, ok := player.KnownAppearances[p1.ServerIndex()]; !ok || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
 		if ticket, hasPlayerTicket := player.Var(strconv.Itoa(p1.ServerIndex()) + "=" + strconv.Itoa(p1.AppearanceTicket())); !hasPlayerTicket || ticket != p1.AppearanceTicket() || p1.SyncMask&(SyncRemoved|SyncAppearance) != 0 {
 			player.enqueue(playerEvents, map[string]int {"index": int(p1.ServerIndex()), "ticket": int(p1.AppearanceTicket())})
-			p.AddBitmask(0, 1)
-			return false
-		} else {
-			p.AddBitmask(1, 1)
+			// p.AddBitmask(0, 1)
+			// return false
+		// } else {
+			// p.AddBitmask(1, 1)
 		}
 		return false
 	})
@@ -330,7 +350,7 @@ func PlayerAppearances(ourPlayer *Player) (p *net.Packet) {
 				p.AddUint16(uint16(msg.Owner.ServerIndex())) // Index
 				if msg.Target == nil {
 					p.AddUint8(1)
-					p.AddUint8(0)
+					p.AddUint8(uint8(ourPlayer.Rank()))
 					// TODO: Is this better or is end of message indicator better
 					if len(msg.string) > 84 {
 						msg.string = msg.string[:84]
@@ -449,10 +469,9 @@ func ClearDistantChunks(player *Player) (p *net.Packet) {
 func ObjectLocations(player *Player) (p *net.Packet) {
 	changed := 0
 	p = net.NewEmptyPacket(48)
-	var local []entity.Entity
+	var removed []entity.Entity
 	player.LocalObjects.Range(func(e entity.Entity) {
 		if o, ok := e.(*Object); ok {
-			local = append(local, o)
 			if o.Boundary {
 				return
 			}
@@ -470,14 +489,17 @@ func ObjectLocations(player *Player) (p *net.Packet) {
 					p.AddUint8(byte(o.Y() - player.Y()))
 					changed++
 				}
-				local = local[:len(local)-1]
+				removed = append(removed, o)
 			}
 		}
 		return
 	})
-	player.LocalObjects.Lock()
-	player.LocalObjects.set = local
-	player.LocalObjects.Unlock()
+	for _, r := range removed {
+		player.LocalObjects.Remove(r)
+	}
+	// player.LocalObjects.Lock()
+	// player.LocalObjects.set = local
+	// player.LocalObjects.Unlock()
 	for _, o := range player.NewObjects() {
 		if o.Boundary {
 			continue
@@ -499,14 +521,14 @@ func ObjectLocations(player *Player) (p *net.Packet) {
 func BoundaryLocations(player *Player) (p *net.Packet) {
 	changed := 0
 	p = net.NewEmptyPacket(91)
-	var local []entity.Entity
-	for _, o := range player.LocalObjects.set {
+	var removed []entity.Entity
+	player.LocalObjects.Range(func(o entity.Entity) {
 		if o, ok := o.(*Object); ok {
 			if !o.Boundary {
-				local = append(local, o)
-				continue
+				return
 			}
 			if !player.Near(o, player.ViewRadius()+5) {
+				removed = append(removed, o)
 				if !player.Near(o, (player.ViewRadius()+5)*3) {
 					if !player.Near(o, player.ViewRadius()*9) {
 						if chunks, ok := player.Var("distantChunks"); ok {
@@ -531,22 +553,20 @@ func BoundaryLocations(player *Player) (p *net.Packet) {
 					p.AddUint8(uint8(player.TheirDeltaX(o)))
 					p.AddUint8(uint8(player.TheirDeltaY(o)))
 					p.AddUint8(o.Direction)
-					continue
+					return
 				}
 				p.AddUint16(uint16(o1.ID))
 				p.AddUint8(uint8(player.TheirDeltaX(o1)))
 				p.AddUint8(uint8(player.TheirDeltaY(o1)))
 				p.AddUint8(o.Direction)
-			} else {
-				local = append(local, o)
 			}
 		}
+	})
+
+	for _, o1 := range removed {
+		player.LocalObjects.Remove(o1)
 	}
 
-	player.LocalObjects.Lock()
-	player.LocalObjects.set = local
-	player.LocalObjects.Unlock()
-	
 	for _, o := range player.NewObjects() {
 		if !o.Boundary {
 			continue
@@ -569,8 +589,8 @@ func BoundaryLocations(player *Player) (p *net.Packet) {
 func ItemLocations(player *Player) (p *net.Packet) {
 	changed := 0
 	p = net.NewEmptyPacket(99)
-	var local []entity.Entity
-	for _, i := range player.LocalItems.set {
+	var removed []entity.Entity
+	player.LocalItems.Range(func (i entity.Entity) {
 		if i, ok := i.(*GroundItem); ok {
 			x, y := i.X(), i.Y()
 			if !player.Near(i, player.ViewRadius()*3) {
@@ -587,19 +607,19 @@ func ItemLocations(player *Player) (p *net.Packet) {
 					p.AddUint8(byte(player.TheirDeltaY(i)))
 					changed++
 				}
+				removed = append(removed, i)
 			} else if !i.VisibleTo(player) || !Region(x, y).Items.Contains(i) {
-				p.AddUint16(uint16(i.ID | 0x8000)) // turn remove by ID bit on
+				p.AddUint16(uint16(i.ID | (1<<15))) // turn remove by ID bit on
 				p.AddUint8(byte(player.TheirDeltaX(i)))
 				p.AddUint8(byte(player.TheirDeltaY(i)))
 				changed++
-			} else {
-				local = append(local, i)
+				removed = append(removed, i)
 			}
 		}
+	})
+	for _, i := range removed {
+		player.LocalItems.Remove(i)
 	}
-	player.LocalItems.Lock()
-	player.LocalItems.set = local
-	player.LocalItems.Unlock()
 	for _, i := range player.NewItems() {
 		p.AddUint16(uint16(i.ID))
 		p.AddUint8(byte(player.TheirDeltaX(i)))
@@ -690,12 +710,6 @@ func PlayerExperience(player *Player, idx int) (p *net.Packet) {
 	return p
 }
 
-func PlayerCombatPoints(player *Player) (p *net.Packet) {
-	p = net.NewEmptyPacket(242)
-	p.AddUint32(uint32(player.Attributes.VarInt("combatPoints", 0)))
-	return p
-}
-
 //PlayerStat Builds a packet containing player's stat information for skill at idx and returns it.
 func PlayerStat(player *Player, idx int) (p *net.Packet) {
 	p = net.NewEmptyPacket(159)
@@ -737,7 +751,7 @@ func BankUpdateItem(index, id, amount int) (p *net.Packet) {
 	p = net.NewEmptyPacket(249)
 	p.AddUint8(uint8(index))
 	p.AddUint16(uint16(id))
-	p.AddSmart0832(amount)
+	p.AddSmart1632(amount)
 	return p
 }
 
@@ -893,6 +907,8 @@ func TeleBubble(offsetX, offsetY int) (p *net.Packet) {
 //SystemUpdate A packet with the time until servers next system update, measured in server ticks (640ms intervals)
 func SystemUpdate(t int64) (p *net.Packet) {
 	p = net.NewEmptyPacket(52)
+	// this formula provides an integer RSC client clock duration.
+	// 50 fps in the client, several input calls per frame??, 32*50=640
 	p.AddUint16(uint16(t / 640))
 	return p
 }
@@ -909,6 +925,7 @@ func LoginBox(inactiveDays int, lastIP string) (p *net.Packet) {
 	i, err := strconv.Atoi(strutil.IPToInteger(lastIP).String())
 	if err != nil {
 		p.AddUint32(127<<24 | 1)
+		
 	} else {
 		p.AddUint32(uint32(i)) // IP
 	}

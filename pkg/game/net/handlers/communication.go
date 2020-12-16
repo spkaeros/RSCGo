@@ -10,25 +10,12 @@
 package handlers
 
 import (
-	"github.com/spkaeros/rscgo/pkg/game"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/world"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 )
 
 func init() {
-	// game.AddHandler("chatmsg", func(player *world.Player, p *net.Packet) {
-		// for _, p1 := range player.NearbyPlayers() {
-			// p1, ok := p1.(*world.Player)
-			// if !ok {
-				// return
-			// }
-			// if !p1.ChatBlocked() || p1.FriendsWith(player.UsernameHash()) {
-				// //p1.SendPacket(world.PlayerChat(player.Index, string(p.FrameBuffer)))
-				// p1.QueuePublicChat(player, string(p.FrameBuffer))
-			// }
-		// }
-	// })
 	game.AddHandler("addfriend", func(player *world.Player, p *net.Packet) {
 		hash := p.ReadUint64()
 		defer func() {
@@ -48,14 +35,6 @@ func init() {
 			p1.SendPacket(world.FriendUpdate(player.UsernameHash(), true))
 		}
 	})
-	game.AddHandler("privmsg", func(player *world.Player, p *net.Packet) {
-		hash := p.ReadUint64()
-		if p1, ok := world.Players.FindHash(hash); ok && p1 != nil &&
-			(!p1.FriendBlocked() || p1.FriendList.ContainsHash(hash)) {
-			// c1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(strutil.ChatFilter.Unpack(p.FrameBuffer[8:]))))
-			p1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(string(p.FrameBuffer[8:]))))
-		}
-	})
 	game.AddHandler("removefriend", func(player *world.Player, p *net.Packet) {
 		hash := p.ReadUint64()
 		defer func() {
@@ -71,6 +50,14 @@ func init() {
 				p1.FriendList.ContainsHash(hash) {
 				p1.FriendList.ToggleStatus(player.Username())
 			}
+		}
+	})
+	game.AddHandler("privmsg", func(player *world.Player, p *net.Packet) {
+		hash := p.ReadUint64()
+		if p1, ok := world.Players.FindHash(hash); ok && p1 != nil &&
+			(!p1.FriendBlocked() || p1.FriendList.ContainsHash(hash)) {
+			// c1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(strutil.ChatFilter.Unpack(p.FrameBuffer[8:]))))
+			p1.SendPacket(world.PrivateMessage(player.UsernameHash(), strutil.ChatFilter.Format(string(p.FrameBuffer[8:]))))
 		}
 	})
 	game.AddHandler("addignore", func(player *world.Player, p *net.Packet) {
@@ -106,14 +93,14 @@ func init() {
 			}
 		}
 	})
-	game.AddHandler("chooseoption", func(player *world.Player, p *net.Packet) {
-		choice := p.ReadUint8()
-		if player.VarInt("state", 0)&world.StateChatChoosing&^world.MSItemAction == 0 {
-			return
-		}
-		if choice < 0 {
-			return
-		}
-		player.ReplyMenuC <- int8(choice)
-	})
+	// game.AddHandler("chooseoption", func(player *world.Player, p *net.Packet) {
+		// choice := p.ReadUint8()
+		// if player.VarInt("state", 0)&world.StateChatChoosing&^world.MSItemAction == 0 {
+			// return
+		// }
+		// if choice < 0 {
+			// return
+		// }
+		// player.ReplyMenuC <- int8(choice)
+	// })
 }

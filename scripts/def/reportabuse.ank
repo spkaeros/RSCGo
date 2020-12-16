@@ -1,0 +1,20 @@
+rules = [
+	"Offensive Language",                // 1
+	"Item scamming",                     // 2
+	"Password scamming",                 // 3
+	"Bug abuse",                         // 4
+	"Staff impersonation",               // 5
+	"Account sharing",                   // 6
+	"Macroing",                          // 7
+	"Multiple logging in",               // 8
+	"Encouraging others to break rules", // 9
+	"Misuse of customer support",        // 10
+	"Advertising/website",               // 11
+	"Real world item trading",           // 12
+]
+
+enforcementTypes = [
+	"reported",
+	"muted",
+	"banned",
+]

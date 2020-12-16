@@ -53,7 +53,7 @@ var UpdateTime time.Time
 type indexQueue []int
 
 func (q *indexQueue) Push(i int) {
-	*q = append(*q, i)
+	*q = append([]int{i}, *q...)
 }
 
 func (q *indexQueue) Pop() int {
@@ -69,34 +69,43 @@ func (q *indexQueue) Pop() int {
 	return idx
 }
 
-type playerList [1250]*Player
+type PlayersList map[*Player]struct{}
 
 type PlayerList struct {
 	sync.RWMutex
-	playerList
+	PlayersList
 	free   indexQueue
 	curIdx int
 }
 
 //Players Collection containing all of the active client, by index and username hash, guarded by a mutex
-var Players = &PlayerList{free: make(indexQueue, 0, 1250)}
+var Players = &PlayerList{free: make(indexQueue, 0, 1250), PlayersList: make(PlayersList)}
 
 //FindHash Returns the client with the base37 username `hash` if it exists and true, otherwise returns nil and false.
 func (m *PlayerList) FindHash(hash uint64) (*Player, bool) {
-	idx := m.ForEach(func(p *Player) bool {
-		return p.UsernameHash() == hash
-	})
-	return m.FindIndex(idx)
+	m.RLock()
+	defer m.RUnlock()
+	for player := range m.PlayersList {
+		if player.UsernameHash() == hash {
+			return player, true
+		}
+	}
+	return nil, false
 }
 
 //FromIndex Returns the client with the index `index` if it exists and true, otherwise returns nil and false.
 func (m *PlayerList) FindIndex(index int) (*Player, bool) {
-	if index == -1 {
+	if index < 0 {
 		return nil, false
 	}
 	m.RLock()
 	defer m.RUnlock()
-	return m.playerList[index], m.playerList[index] != nil
+	for player := range m.PlayersList {
+		if player.ServerIndex() == index {
+			return player, true
+		}
+	}
+	return nil, false
 }
 
 //Find Returns the slot that this player occupies in the set.
@@ -125,9 +134,13 @@ func (m *PlayerList) Put(player *Player) {
 		return
 	}
 	player.SetServerIndex(m.nextSlot())
+	// for player.ServerIndex() >= len(m.PlayersList) {
+		// m.PlayersList = append(m.PlayersList, nil)
+	// }
 	m.Lock()
 	defer m.Unlock()
-	m.playerList[player.ServerIndex()] = player
+	m.PlayersList[player] = struct{}{}// = append(m.PlayersList, player)
+	// m.PlayersList[player.ServerIndex()] = player
 }
 
 //Remove Removes a client from the set.
@@ -140,7 +153,17 @@ func (m *PlayerList) Remove(player *Player) {
 	player.SetServerIndex(-1)
 	m.Lock()
 	defer m.Unlock()
-	m.playerList[slot] = nil
+	delete(m.PlayersList, player)
+	// m.PlayersList[slot] = nil
+	// if len(m.PlayersList) == 1 {
+		// m.PlayersList = m.PlayersList[:0]
+	// } else {
+		// if slot < len(m.PlayersList)-1 {
+			// m.PlayersList = append(m.PlayersList[:slot], m.PlayersList[slot+1:]...)
+		// } else {
+			// m.PlayersList = m.PlayersList[:slot]
+		// }
+	// }
 	m.free.Push(slot)
 }
 
@@ -148,7 +171,7 @@ func (m *PlayerList) Remove(player *Player) {
 func (m *PlayerList) Range(action func(*Player)) {
 	m.RLock()
 	defer m.RUnlock()
-	for _, p := range m.playerList {
+	for p := range m.PlayersList {
 		if p != nil {
 			action(p)
 		}
@@ -159,10 +182,10 @@ func (m *PlayerList) Range(action func(*Player)) {
 func (m *PlayerList) ForEach(action func(*Player) bool) int {
 	m.RLock()
 	defer m.RUnlock()
-	for i, p := range m.playerList {
+	for p := range m.PlayersList {
 		if p != nil {
 			if action(p) {
-				return i
+				return p.ServerIndex()
 			}
 		}
 	}
@@ -174,7 +197,7 @@ func (m *PlayerList) ForEach(action func(*Player) bool) int {
 func (m *PlayerList) Size() int {
 	m.RLock()
 	defer m.RUnlock()
-	return len(m.playerList)
+	return len(m.PlayersList)
 }
 
 //NextIndex Returns the lowest available index for the client to be mapped to.
@@ -189,16 +212,39 @@ func (m *PlayerList) nextSlot() int {
 	return idx
 }
 
+func (m *PlayerList) Set() []*Player {
+	keys := make([]*Player, m.Size())
+
+	i := 0
+	for k := range m.PlayersList {
+	    keys[i] = k
+	    i++
+	}
+	return keys
+}
+
 func (m *PlayerList) AsyncRange(fn func(*Player)) {
-	w := sync.WaitGroup{}
-	m.Range(func(p *Player) {
-		w.Add(1)
+	m.RLock()
+	sz := len(m.PlayersList)
+	done := make(chan struct{})
+	for player := range m.PlayersList {
 		go func() {
-			defer w.Done()
-			fn(p)
+			fn(player)
+			done <- struct{}{}
 		}()
-	})
-	w.Wait()
+	}
+	m.RUnlock()
+	defer close(done)
+	for i := 0; i < sz; i += 1 {
+		select {
+		case _, ok := <-done:
+			if !ok {
+				log.Debug("premature AsyncRange done-signal")
+				break
+			}
+			continue
+		}
+	}
 }
 
 //region Represents a 48x48 section of map.  The purpose of this is to keep track of entities in the entire world without having to allocate tiles individually, which would make search algorithms slower and utilizes a great deal of memory.
@@ -220,16 +266,16 @@ func WithinWorld(x, y int) bool {
 
 //AddPlayer Add a player to a region of the game world.
 func AddPlayer(p *Player) {
-	Region(p.X(), p.Y()).Players.Add(p)
 	Players.Put(p)
+	Region(p.X(), p.Y()).Players.Add(p)
 	// Players.Range(func(player *Player) {
 		// if player.FriendList.Contains(p.Username()) && (!p.FriendBlocked() || p.FriendList.Contains(player.Username())) {
 			// player.FriendList.Set(p.Username(), true)
-			// player.SendPacket(FriendUpdate(p.UsernameHash(), true))
+			// player.WritePacket(FriendUpdate(p.UsernameHash(), true))
 		// }
 // 
 		// //		if player.FriendList.Contains(p.Username()) {
-		// //			player.SendPacket(FriendUpdate(p.UsernameHash(), p.FriendList.Contains(player.Username()) || !p.FriendBlocked()))
+		// //			player.WritePacket(FriendUpdate(p.UsernameHash(), p.FriendList.Contains(player.Username()) || !p.FriendBlocked()))
 		// //		}
 	// })
 }
@@ -239,12 +285,12 @@ func RemovePlayer(p *Player) {
 	p.SetRegionRemoved()
 	Region(p.X(), p.Y()).Players.Remove(p)
 	Players.Remove(p)
-	Players.Range(func(player *Player) {
-		if player.FriendList.Contains(p.Username()) && (!p.FriendBlocked() || p.FriendList.Contains(player.Username())) {
-			player.FriendList.Set(p.Username(), false)
-			player.SendPacket(FriendUpdate(p.UsernameHash(), false))
-		}
-	})
+	// Players.Range(func(player *Player) {
+		// if player.FriendList.Contains(p.Username()) && (!p.FriendBlocked() || p.FriendList.Contains(player.Username())) {
+			// player.FriendList.Set(p.Username(), false)
+			// player.WritePacket(FriendUpdate(p.UsernameHash(), false))
+		// }
+	// })
 }
 
 //AddNpc Add a NPC to the region.
@@ -292,7 +338,7 @@ func AddObject(o *Object) {
 		// type 1 is used when the object fully blocks the tile(s) that it sits on.  Marks tile as fully blocked.
 		// type 2 is used when the object mimics a boundary, e.g for gates and the like.
 		// type 3 is used when the object mimics an opened door-type boundary, e.g opened gates and the like.
-		if scenary.CollisionType%3 == 0 {
+		if scenary.SolidityType == 0 || scenary.SolidityType == 3 {
 			return
 		}
 		width := scenary.Height
@@ -310,7 +356,7 @@ func AddObject(o *Object) {
 					log.Warning.Println("ERROR: Sector with no tiles at:" + strconv.Itoa(x) + "," + strconv.Itoa(y) + " (" + strconv.Itoa(areaX) + "," + strconv.Itoa(areaY) + "\n")
 					return
 				}
-				if scenary.CollisionType == 1 {
+				if scenary.SolidityType == 1 {
 					// Blocks the whole tile.  Can not walk on it from any direction
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipFullBlock
 					continue
@@ -389,7 +435,7 @@ func RemoveObject(o *Object) {
 		// type 1 is used when the object fully blocks the tile(s) that it sits on.  Marks tile as fully blocked.
 		// type 2 is used when the object mimics a boundary, e.g for gates and the like.
 		// type 3 is used when the object mimics an opened door-type boundary, e.g opened gates and the like.
-		if scenary.CollisionType%3 == 0 {
+		if scenary.SolidityType%3 == 0 {
 			return
 		}
 		width := scenary.Height
@@ -406,7 +452,7 @@ func RemoveObject(o *Object) {
 			for y := o.Y(); y < o.Y()+height; y++ {
 				areaX := (2304 + x) % RegionSize
 				areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
-				if scenary.CollisionType == 1 {
+				if scenary.SolidityType == 1 {
 					// This indicates a solid object.  Impassable and blocks the whole tile.
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipFullBlock
 				} else if o.Direction == 0 {
@@ -590,27 +636,28 @@ func Region(x, y int) *region {
 }
 
 //surroundingRegions Returns the regions surrounding the given coordinates.  It wil
-func (r *region) neighbors() (regions [4]*region) {
+func (r *region) neighbors() (regions [3]*region) {
 	regions[0] = r
 	// regionX := r.x % RegionSize
 	// regionY := r.y % RegionSize
 	if r.x % RegionSize <= LowerBound {
 		regions[1] = get((r.x/RegionSize)-1, r.y/RegionSize)
 		if r.y % RegionSize <= LowerBound {
-			regions[2] = get((r.x/RegionSize)-1, (r.y/RegionSize)-1)
-			regions[3] = get(r.x/RegionSize, (r.y/RegionSize)-1)
+			regions[2] = get(r.x/RegionSize, (r.y/RegionSize)-1)
+			// regions[3] = get((r.x/RegionSize)-1, (r.y/RegionSize)-1)
 		} else {
-			regions[2] = get((r.x/RegionSize)-1, (r.y/RegionSize)+1)
-			regions[3] = get(r.x/RegionSize, (r.y/RegionSize)+1)
+			regions[2] = get(r.x/RegionSize, (r.y/RegionSize)+1)
+			// regions[3] = get((r.x/RegionSize)-1, (r.y/RegionSize)+1)
 		}
-	} else if r.y % RegionSize <= LowerBound {
-		regions[1] = get((r.x/RegionSize)+1, r.y/RegionSize)
-		regions[2] = get((r.x/RegionSize)+1, (r.y/RegionSize)-1)
-		regions[3] = get(r.x/RegionSize, (r.y/RegionSize)-1)
 	} else {
 		regions[1] = get((r.x/RegionSize)+1, r.y/RegionSize)
-		regions[2] = get((r.x/RegionSize)+1, (r.y/RegionSize)+1)
-		regions[3] = get(r.x/RegionSize, (r.y/RegionSize)+1)
+		if r.y % RegionSize <= LowerBound {
+			regions[2] = get(r.x/RegionSize, (r.y/RegionSize)-1)
+			// regions[3] = get((r.x/RegionSize)+1, (r.y/RegionSize)-1)
+		} else {
+			regions[2] = get(r.x/RegionSize, (r.y/RegionSize)+1)
+			// regions[3] = get((r.x/RegionSize)+1, (r.y/RegionSize)+1)
+		}
 	}
 
 	return

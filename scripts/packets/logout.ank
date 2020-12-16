@@ -4,15 +4,15 @@ load("scripts/lib/packets.ank")
 
 func logout(player, packet) {
 	if player.Busy() {
-		player.SendPacket(net.cannotLogout)
+		player.WritePacket(net.cannotLogout)
 		return
 	}
 
-	if player.Connected() {
+	if !player.Connected() {
 		return
 	}
-	player.SendPacket(net.logout)
-	player.Destroy()
+	player.WriteNow(*net.logout)
+	player.Unregister()
 }
 
 bind.packet(packets.logout, logout)

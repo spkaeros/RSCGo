@@ -19,14 +19,14 @@ bind.packet(packets.privacySettings, func(player, packet) {
 		// turning off private chat block
 		world.players.Range(func(c1) {
 			if c1.FriendsWith(player.UsernameHash()) && !player.FriendsWith(c1.UsernameHash()) {
-				c1.SendPacket(world.FriendUpdate(player.UsernameHash(), true))
+				c1.WritePacket(world.FriendUpdate(player.UsernameHash(), true))
 			}
 		})
 	} else if !player.FriendBlocked() && friendBlocked {
 		// turning on private chat block
 		world.players.Range(func(c1) {
 			if c1.FriendsWith(player.UsernameHash()) && !player.FriendsWith(c1.UsernameHash()) {
-				c1.SendPacket(world.FriendUpdate(player.UsernameHash(), false))
+				c1.WritePacket(world.FriendUpdate(player.UsernameHash(), false))
 			}
 		})
 	}
@@ -76,7 +76,7 @@ bind.packet(packets.recoverAccount, func(player, packet) {
 		for _, question in dataService.PlayerLoadRecoverys(usernameHash) {
 			// player.OutQueue <- &net.Packet{Bare: true, FrameBuffer: append([]byte{byte(len(question))}, []byte(question)...)}
 //			player.WritePacket(net.barePacket([len(question), question...]))
-			// player.SendPacket(net.NewReplyPacket([]byte{byte(len(question))}).AddBytes([]byte(question)))
+			// player.WritePacket(net.NewReplyPacket([]byte{byte(len(question))}).AddBytes([]byte(question)))
 		}
 	}()
 })

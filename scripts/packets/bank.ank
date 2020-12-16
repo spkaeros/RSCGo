@@ -33,9 +33,9 @@ bind.packet(packets.withdrawBank, func(player, packet) {
 		player.SendInventory()
 
 		if player.Bank().CountID(id) > 0 {
-			player.SendPacket(net.bankUpdateItem(idx, id, item.Amount))
+			player.WritePacket(net.bankUpdateItem(idx, id, item.Amount))
 		} else {
-			player.SendPacket(net.bankUpdateItem(idx, id, 0))
+			player.WritePacket(net.bankUpdateItem(idx, id, 0))
 		}
 		return
 	}
@@ -43,9 +43,9 @@ bind.packet(packets.withdrawBank, func(player, packet) {
 		player.Inventory.Add(id, amount)
 		player.SendInventory()
 		if player.Bank().CountID(id) > 0 {
-			player.SendPacket(net.bankUpdateItem(idx, id, item.Amount))
+			player.WritePacket(net.bankUpdateItem(idx, id, item.Amount))
 		} else {
-			player.SendPacket(net.bankUpdateItem(idx, id, 0))
+			player.WritePacket(net.bankUpdateItem(idx, id, 0))
 		}
 	}
 })
@@ -68,7 +68,7 @@ bind.packet(packets.depositBank, func(player, packet) {
 
 	if player.Inventory.RemoveByID(id, amount) > -1 {
 		player.Bank().Add(id, amount)
-		player.SendPacket(net.bankUpdateItem(player.Bank().GetIndex(id), id, player.Bank().GetByID(id).Amount))
+		player.WritePacket(net.bankUpdateItem(player.Bank().GetIndex(id), id, player.Bank().GetByID(id).Amount))
 	}
 })
 

@@ -80,7 +80,7 @@ type MobList struct {
 //NewMobList returns a pointer to a newly pre-allocated MobList, with an initial capacity
 // of 255.
 func NewMobList() *MobList {
-	return &MobList{mobSet: make(mobSet, 0, 1250)}
+	return &MobList{mobSet: make(mobSet, 0, 255)}
 }
 
 //Add Adds a entity.MobileEntity to this MobList
@@ -104,10 +104,6 @@ func (l *MobList) Range(action func(entity.MobileEntity) bool) int {
 	return -1
 }
 
-func (l *MobList) Set(mobs []entity.MobileEntity) {
-	l.mobSet = mobs
-}
-
 //Size returns the number of mobile entitys entered into this list.
 func (l *MobList) Size() int {
 	l.RLock()
@@ -117,9 +113,14 @@ func (l *MobList) Size() int {
 
 //Size returns the number of mobile entitys entered into this list.
 func (l *MobList) Contains(mob entity.MobileEntity) bool {
-	return l.Range(func(m entity.MobileEntity) bool {
-		return m == mob
-	}) > -1
+	l.RLock()
+	defer l.RUnlock()
+	for _, v := range l.mobSet {
+		if v == mob {
+			return true
+		}
+	}
+	return false
 }
 
 //Remove removes a entity.MobileEntity from this list and reslices the collection.
@@ -128,10 +129,10 @@ func (l *MobList) Remove(m entity.MobileEntity) bool {
 	defer l.Unlock()
 	for i, v := range l.mobSet {
 		if v == m {
-			if len(l.mobSet) >= i+1 {
-				l.mobSet = append(l.mobSet[:i], l.mobSet[i+1:]...)
-			} else {
+			if i >= len(l.mobSet) {
 				l.mobSet = l.mobSet[:i]
+			} else {
+				l.mobSet = append(l.mobSet[:i], l.mobSet[i+1:]...)
 			}
 			return true
 		}
@@ -160,8 +161,9 @@ func (l *MobList) RangeNpcs(action func(*NPC) bool) int {
 func (l *MobList) Get(idx int) entity.MobileEntity {
 	l.RLock()
 	defer l.RUnlock()
+	
 	for _, v := range l.mobSet {
-		if v.ServerIndex() == idx {
+		if v.ServerIndex() == idx{
 			return v
 		}
 	}
@@ -232,8 +234,9 @@ func (m *Mob) Busy() bool {
 }
 
 func (m *Mob) BusyInput() bool {
-	return m.State()&StateWaitEvent == StateChatChoosing || m.State()&StateWaitEvent == StateItemChoosing ||
-		m.State()&StateWaitEvent == StateObjectChoosing || m.State() == StateIdle
+	filtered := m.State()&StateWaitEvent
+	return filtered&StateMenu != 0// && (StateChatChoosing|StateItemChoosing|StateObjectChoosing)// || m.State()&StateWaitEvent == StateItemChoosing ||
+		//m.State()&StateWaitEvent == StateObjectChoosing// || m.State() != StateIdle
 	//	return m.State() != StateIdle && m.State() != MSItemAction
 }
 

@@ -79,7 +79,7 @@ bind.packet(packets.appearance, func(player, packet) {
 	player.UpdateAppearance()
 	player.RemoveState(state.ChangingLooks)
 	if !player.Attributes.Contains("madeAvatar") {
-		player.SendPacket(world.WelcomeMessage)
+		player.WritePacket(world.WelcomeMessage)
 		player.Attributes.SetVar("madeAvatar", time.Now())
                                                                                                                                                                                                                                                                                                                                                                                                   		player.Attributes.SetVar("lastLogin", time.Now())
 	}

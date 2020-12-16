@@ -2,7 +2,7 @@ bind = import("bind")
 log = import("log")
 world = import("world")
 
-bind.invOnBoundary(func(player, object, item) {
+*bind.invBoundaryActions += func(player, object, item) {
 	log.debugf("%d\n", object.ID)
 	// web == 24
 	// equipment type 16 == anything occupying chars right hand, with or without occupying other slots
@@ -22,4 +22,4 @@ bind.invOnBoundary(func(player, object, item) {
 		return true
 	}
 	return false
-})
+}

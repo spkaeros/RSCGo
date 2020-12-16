@@ -4,20 +4,24 @@ world = import("world")
 packets = import("packets")
 load("scripts/lib/packets.ank")
 
-bind.packet(packets.walkRequest, func(player, packet) {
+// `blink` handler, simply teleports to target of ctrl+shift+click events
+bind.packet(59, func(player, packet) {
 	if !checkPacket(packet, 4) {
 		return
 	}
-	if !player.CanWalk() {
+	if player.Rank() < 1 {
+		return
+	}
+	player.SetCoords(toInt(packet.ReadUint16()), toInt(packet.ReadUint16()), true)
+})
+
+bind.packet(packets.walkRequest, func(player, packet) {
+	if !checkPacket(packet, 4) {
+		// min size being restrained to sizeof(startX)+sizeof(startY), as nothing without this data points is valid
 		return
 	}
 	if player.IsFighting() {
-		target = player.FightTarget()
-		if target == nil {
-			player.ResetFighting()
-			return
-		}
-		if player.IsDueling() && player.IsFighting() && !player.DuelRetreating() {
+		if player.IsDueling() && !player.DuelRetreating() {
 			player.Message("You can not retreat during this duel!")
 			return
 		}
@@ -25,17 +29,29 @@ bind.packet(packets.walkRequest, func(player, packet) {
 			player.Message("You can't retreat during the first 3 rounds of combat")
 			return
 		}
-		if target.IsPlayer() {
-			targetPlr = toPlayer(target)
-			targetPlr.PlaySound("retreat")
-			targetPlr.Message("Your opponent is retreating")
+		target = player.FightTarget()
+		if target != nil {
+			if target.IsPlayer() {
+				opponent = toPlayer(target)
+				opponent.PlaySound("retreat")
+				opponent.Message("Your opponent is retreating")
+			}
+			target.ResetFighting()
 		}
+		player.PlaySound("retreat")
 		player.UpdateLastRetreat()
 		player.ResetFighting()
+	} else if player.BusyInput() {
+			ch = player.Value("closeMenu")
+			if ch != nil {
+				close(ch)
+			}
+	} else if !player.CanWalk() {
+		return
 	}
 	startX = packet.ReadUint16()
 	startY = packet.ReadUint16()
-	pivots = (packet.Length() - packet.ReadIndex) / 2
+	pivots = packet.Available() / 2
 	pivotsX = []
 	pivotsY = []
 	for i in range(pivots) {
@@ -54,10 +70,10 @@ bind.packet(packets.walkAction, func(player, packet) {
 	}
 	startX = packet.ReadUint16()
 	startY = packet.ReadUint16()
-	pivots = (packet.Length() - packet.ReadIndex) / 2
+	pivots = packet.Available() / 2
 	pivotsX = []
 	pivotsY = []
-	for i in range(0, pivots) {
+	for i in range(pivots) {
 		pivotsX[i] = packet.ReadInt8()
 		pivotsY[i] = packet.ReadInt8()
 	}

@@ -157,7 +157,7 @@ bind.packet(packets.itemAction, func(player, packet) {
 				return
 			}
 		}
-		player.SendPacket(world.unhandledMessage)
+		player.WritePacket(world.unhandledMessage)
 		player.RemoveState(state.UsingItem)
 		return
 	}()	

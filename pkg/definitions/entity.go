@@ -92,13 +92,13 @@ type ScenaryDefinition struct {
 	Name          string
 	Commands      [2]string
 	Description   string
-	CollisionType int
+	SolidityType  int
 	Width, Height int
 	ModelHeight   int
 }
 
 //ScenaryObjects This is used to cache the persistent scenary object data in RAM for quick access when needed.
-var ScenaryObjects []ScenaryDefinition
+var ScenaryObjects ScenaryDefinitions
 
 func Scenary(id int) ScenaryDefinition {
 	for _, o := range ScenaryObjects {
@@ -117,6 +117,8 @@ type TileDefinition struct {
 	Blocked int
 }
 
+//gouraudReplacement A placeholder to represent that this tile should be colored specially on the client, using the gouraud shading alg
+const gouraudReplacement = 987654321
 //TileOverlays Cache for tile overlays.
 var TileOverlays []TileDefinition
 
@@ -125,7 +127,7 @@ func TileOverlay(id int) TileDefinition {
 		return TileOverlays[id]
 	}
 
-	return TileDefinition{Blocked: 1, Visible: 0, Color: 987654321}
+	return TileDefinition{Blocked: 1, Visible: 0, Color: gouraudReplacement}
 }
 
 //BoundaryDefinition This represents a single definition for a single boundary object in the game.
@@ -138,8 +140,11 @@ type BoundaryDefinition struct {
 	Solid       bool
 }
 
+type BoundaryDefinitions []BoundaryDefinition
+type ScenaryDefinitions []ScenaryDefinition
+
 //BoundaryObjectss This holds the defining characteristics for all of the game's boundary scene objects, ordered by ID.
-var BoundaryObjects []BoundaryDefinition
+var BoundaryObjects BoundaryDefinitions
 
 func Boundary(id int) BoundaryDefinition {
 	for _, b := range BoundaryObjects {
@@ -149,6 +154,16 @@ func Boundary(id int) BoundaryDefinition {
 	}
 
 	return BoundaryDefinition{ID: -1}
+}
+
+
+
+func (b BoundaryDefinitions) Size() int {
+	return len(b)
+}
+
+func (s ScenaryDefinitions) Size() int {
+	return len(s)
 }
 
 const (

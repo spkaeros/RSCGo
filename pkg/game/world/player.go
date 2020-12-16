@@ -64,6 +64,7 @@ type (
 		ActionLock        sync.RWMutex
 		ReplyMenuC        chan int8
 		killer            sync.Once
+		Cancel            func()
 		inFrame			  bool
 		hasReader         bool
 		Websocket         bool
@@ -86,6 +87,10 @@ func (p *Player) UsernameHash() uint64 {
 
 func (p *Player) Bank() *Inventory {
 	return p.bank
+}
+
+func (p *Player) UpdatedRegions() {
+	p.SetVar("needsObjects", true)
 }
 
 func (p *Player) CanAttack(target entity.MobileEntity) bool {
@@ -146,6 +151,9 @@ func (p *Player) Rank() int {
 }
 
 func (p *Player) AppearanceTicket() int {
+	if p == nil {
+		return 0
+	}
 	return p.VarInt("appearanceTicket", 0)
 }
 
@@ -226,7 +234,7 @@ func (p *Player) UpdateStatus(status bool) {
 	Players.Range(func(player *Player) {
 		if player.FriendList.Contains(p.Username()) {
 			if p.FriendList.Contains(player.Username()) || !p.FriendBlocked() {
-				p.SendPacket(FriendUpdate(p.UsernameHash(), status))
+				p.WritePacket(FriendUpdate(p.UsernameHash(), status))
 			}
 		}
 	})
@@ -300,7 +308,7 @@ func (p *Player) SetPrivacySettings(chatBlocked, friendBlocked, tradeBlocked, du
 	Players.Range(func(player *Player) {
 		if player.FriendList.Contains(p.Username()) {
 			if !p.FriendList.Contains(player.Username()) || p.FriendBlocked() {
-				p.SendPacket(FriendUpdate(p.UsernameHash(), !p.FriendBlocked() || p.FriendList.Contains(player.Username())))
+				p.WritePacket(FriendUpdate(p.UsernameHash(), !p.FriendBlocked() || p.FriendList.Contains(player.Username())))
 			}
 		}
 	})
@@ -581,6 +589,10 @@ func (p *Player) ResetAll() {
 	p.CloseShop()
 }
 
+func (m *Mob) ResetState() {
+	m.UnsetVar("state")
+}
+
 func (p *Player) ResetAllExceptDueling() {
 	p.ResetTrade()
 	p.ResetTickAction()
@@ -600,7 +612,7 @@ func (p *Player) SetFatigue(i int) {
 }
 
 //NearbyPlayers Returns nearby players.
-func (p *Player) NearbyPlayers() (players mobSet) {
+func (p *Player) NearbyPlayers() (players []*Player) {
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.Players.RangePlayers(func(p1 *Player) bool  {
 			if p.Near(p1, p.ViewRadius()) && p1.ServerIndex() != p.ServerIndex() {
@@ -617,7 +629,7 @@ func (p *Player) NearbyPlayers() (players mobSet) {
 }
 
 //NearbyNpcs Returns nearby NPCs.
-func (p *Player) NearbyNpcs() (npcs mobSet) {
+func (p *Player) NearbyNpcs() (npcs []*NPC) {
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
 		r.NPCs.RangeNpcs(func(n *NPC) bool  {
 			if p.Near(n, p.ViewRadius()) && !p.VarBool("removed", false) {
@@ -668,20 +680,32 @@ func (p *Player) NewItems() (items []*GroundItem) {
 	return
 }
 
+type Server interface {
+	SubmitLogin(*Player)
+	SubmitLogout(*Player)
+	DebugTicks()
+}
+
+func (p *Player) Server() Server {
+	return p.Value("server").(Server)
+}
+
 func (p *Player) Unregister() {
-	p.SetVar("unregistering", true)
+	p.Cancel()
+	p.Server().SubmitLogout(p)
 }
 
 //NewPlayers Returns nearby players that this player is unaware of.
 func (p *Player) NewPlayers() (players *MobList) {
 	list := NewMobList()
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
-		r.Players.RangePlayers(func(p1 *Player) bool {
-			if !p.LocalPlayers.Contains(p1) && p != p1 && !list.Contains(p1) && p.Near(p1, p.ViewRadius()) {
+		r.Players.RLock()
+		for _, p1 := range r.Players.mobSet {
+			if !p.LocalPlayers.Contains(p1) && p != p1 && !list.Contains(p1) && p.Near(p1, p.ViewRadius()-1) {
 				list.Add(p1)
 			}
-			return false
-		})
+		}
+		r.Players.RUnlock()
 	}
 
 	return list
@@ -691,12 +715,14 @@ func (p *Player) NewPlayers() (players *MobList) {
 func (p *Player) NewNPCs() (npcs *MobList) {
 	list := NewMobList()
 	for _, r := range Region(p.X(), p.Y()).neighbors() {
-		r.NPCs.RangeNpcs(func(n *NPC) bool {
-			if !list.Contains(n) && !p.LocalNPCs.Contains(n) && p.Near(n, p.ViewRadius()) && !n.VarBool("removed", false) {
+		r.NPCs.RLock()
+		for _, n := range r.NPCs.mobSet {
+			if p.Near(n, p.ViewRadius()-1) && !n.SessionCache().VarBool("removed", false) && !p.LocalNPCs.Contains(n) {
 				list.Add(n)
 			}
-			return false
-		})
+			
+		}
+		r.NPCs.RUnlock()
 	}
 
 	return list
@@ -728,19 +754,19 @@ func (p *Player) ResetTrade() {
 }
 
 func (p *Player) OpenTradeConfirmation(target *Player) {
-	p.SendPacket(TradeConfirmationOpen(p, target))
+	p.WritePacket(TradeConfirmationOpen(p, target))
 }
 
 func (p *Player) CloseTradeScreens() {
-	p.SendPacket(TradeClose)
+	p.WritePacket(TradeClose)
 }
 
 func (p *Player) SetTradeTargetAccepted() {
-	p.SendPacket(TradeTargetAccept(true))
+	p.WritePacket(TradeTargetAccept(true))
 }
 
 func (p *Player) UpdateTradeOffer(target *Player) {
-	p.SendPacket(TradeUpdate(target))
+	p.WritePacket(TradeUpdate(target))
 }
 
 //TradeTarget returns the game index of the player we are trying to trade with, or -1 if we have not made a trade request.
@@ -814,7 +840,7 @@ func (p *Player) DuelEquipment() bool {
 }
 
 func (p *Player) CloseDuel() {
-	p.SendPacket(DuelClose)
+	p.WritePacket(DuelClose)
 }
 
 //ResetDuel resets duel-related variables.
@@ -865,12 +891,12 @@ func (p *Player) ResetDuelRules() {
 	}
 }
 
-//SendPacket sends a net to the client.
-func (p *Player) SendPacket(packet *net.Packet) {
+//WritePacket sends a net to the client.
+func (p *Player) WritePacket(packet *net.Packet) {
 	if p == nil || (!p.Connected() && !packet.Bare) {
 		return
 	}
-	p.WritePacket(packet)
+	p.OutQueue <- packet
 }
 
 type PlayerService interface {
@@ -897,20 +923,22 @@ func (p *Player) OpenTradeScreen(target *Player) {
 //Destroy sends a kill signal to the underlying client to tear down all of the I/O routines and save the player.
 // Note: This should probably be ran in its own goroutine as it saves the player to the database.
 func (p *Player) Destroy() {
+	p.WriteNow(*Logout)
 	p.killer.Do(func() {
-		p.Inventory.Owner = nil
+		defer p.Cancel()
 		p.SetConnected(false)
+		p.Inventory.Owner = nil
 		p.Attributes.SetVar("lastIP", p.CurrentIP())
 		close(p.InQueue)
 		close(p.OutQueue)
-		p.WriteNow(*Logout)
+		
 		if err := p.Socket.Close(); err != nil {
 			log.Warn("Couldn't close socket:", err)
 		}
 		if Players.Find(p) > -1 {
 			log.Debug("Unregistered:", p.Username() + "@" + p.CurrentIP())
 			p.ResetAll()
-			DefaultPlayerService.PlayerSave(p)
+			go DefaultPlayerService.PlayerSave(p)
 			RemovePlayer(p)
 			return
 		}
@@ -920,7 +948,7 @@ func (p *Player) Destroy() {
 
 func (p *Player) AtObject(object *Object) bool {
 	bounds := object.Boundaries()
-	if definitions.ScenaryObjects[object.ID].CollisionType == 2 || definitions.ScenaryObjects[object.ID].CollisionType == 3 {
+	if definitions.ScenaryObjects[object.ID].SolidityType == 2 || definitions.ScenaryObjects[object.ID].SolidityType == 3 {
 		// door types
 		return /* (!p.Collides(bounds[0]) && p.Collides(bounds[1])) && */p.WithinArea(bounds)
 	}
@@ -988,54 +1016,55 @@ func (p *Player) CanReachDiag(bounds [2]entity.Location) bool {
 //Initialize informs the client of all of the various attributes of this player, and starts the stat normalization
 // routine.
 func (p *Player) Initialize() {
-	AddPlayer(p)
-	p.enqueueArea(playerEvents, p.ViewRadius(), map[string]int {"index": int(p.ServerIndex()), "ticket": int(p.AppearanceTicket())})
 	// Mark down time of authentication
+	// defer p.Enqueue(playerEvents, map[string]int {"index": int(p.ServerIndex()), "ticket": int(p.AppearanceTicket())})
+	// defer AddPlayer(p)
+	p.SetConnected(true)
+	p.Attributes.SetVar("lastLogin", time.Now())
+	// p.UpdatedRegions()
 	p.SetVar("authTime", time.Now())
 	p.SetVar("authTick", CurrentTick())
 	// update flags
-	p.SetConnected(true)
 	p.SetAppearanceChanged()
+	p.UnsetVar("hasPlane")
+	
 	p.SetSpriteUpdated()
 
 	// settings panel
-	p.WritePacket(ClientSettings(p))
 	p.WritePacket(PrivacySettings(p))
+	p.WritePacket(WelcomeMessage)
+	p.WritePacket(ClientSettings(p))
+	p.WritePacket(PlaneInfo(p))
+	p.WritePacket(QuestStatus(p))
+	if !p.Reconnecting() {
+		p.WritePacket(LoginBox(int(time.Since(p.Attributes.VarTime("lastLogin")).Hours()/24), p.Attributes.VarString("lastIP", "127.0.0.1")))
+	}
+
+	p.WritePacket(InventoryItems(p))
+	// This is authentically redundant--probably related to the water-world bug, or some thing...
+	// p.WritePacket(PlaneInfo(p))
+	// stat panel
+	p.WritePacket(PlayerStats(p))
+	p.WritePacket(EquipmentStats(p))
+	p.WritePacket(PrayerStatus(p))
+	p.WritePacket(Fatigue(p))
 	// social panel
 	// p.WritePacket(FriendList(p))
 	// p.WritePacket(IgnoreList(p))
 	// TODO: Not canonical RSC, but definitely good QoL update...
-	//  p.SendPacket(FightMode(p))
+	//  p.WritePacket(FightMode(p))
 
-	// stat panel
-	p.WritePacket(PlayerStats(p))
-	p.WritePacket(Fatigue(p))
-	p.WritePacket(EquipmentStats(p))
 	// p.SendCombatPoints()
 
 	// inventory panel
-	p.WritePacket(InventoryItems(p))
 	// mesh related coordinate info and player index
-	p.SendPlane()
 	if !p.Attributes.Contains("madeAvatar") {
 		p.OpenAppearanceChanger()
-	} else {
-		if !p.Reconnecting() {
-			p.SendPacket(WelcomeMessage)
-			p.SendPacket(LoginBox(int(time.Since(p.Attributes.VarTime("lastLogin")).Hours()/24), p.Attributes.VarString("lastIP", "0.0.0.0")))
-		}
-		p.Attributes.SetVar("lastLogin", time.Now())
 	}
 	for _, fn := range LoginTriggers {
-		fn(p)
+		go fn(p)
 	}
-}
-func (p *Player) WritePacket(packet *net.Packet) {
-	if p == nil || (!p.Connected() && !packet.Bare) {
-		return
-	}
-	p.OutQueue <- packet
-	// p.WriteNow(*packet)
+	p.Enqueue(playerEvents, map[string]int {"index": int(p.ServerIndex()), "ticket": int(p.AppearanceTicket())})
 }
 
 //NewPlayerCtx Returns a reference to a new player with a parent context.
@@ -1060,11 +1089,11 @@ func NewPlayerCtx(server context.Context, socket stdnet.Conn) *Player {
 		Inventory:        &Inventory{Capacity: 30},
 		TradeOffer:       &Inventory{Capacity: 12},
 		DuelOffer:        &Inventory{Capacity: 8},
-		InQueue:          make(chan *net.Packet, 100),
-		OutQueue:         make(chan *net.Packet, 100),
+		InQueue:          make(chan *net.Packet, 50),
+		OutQueue:         make(chan *net.Packet, 50),
 		OpCiphers:		  [...]*isaac.ISAAC{nil, nil},
 	}
-	p.Context = context.WithValue(server, "player", p)
+	p.Context, p.Cancel = context.WithCancel(context.WithValue(server, "player", p))
 	// TODO: Get rid of this self-referential member; figure out better way to handle client item updating
 	p.Inventory.Owner = p
 	p.SetVar("sprites", []int{entity.DefaultAppearance().Head, entity.DefaultAppearance().Body, entity.DefaultAppearance().Legs, -1, -1, -1, -1, -1, -1, -1, -1, -1})
@@ -1078,7 +1107,7 @@ func NewPlayer(socket stdnet.Conn) *Player {
 
 //Message sends a message to the player.
 func (p *Player) Message(msg string) {
-	p.SendPacket(ServerMessage(msg))
+	p.WritePacket(ServerMessage(msg))
 }
 
 //OpenAppearanceChanger If the player is not fighting or trading, opens the appearance window.
@@ -1087,7 +1116,7 @@ func (p *Player) OpenAppearanceChanger() {
 		return
 	}
 	p.AddState(StateChangingLooks)
-	p.SendPacket(OpenChangeAppearance)
+	p.WritePacket(OpenChangeAppearance)
 }
 
 const npcEvents = "npcEventQ"
@@ -1205,34 +1234,38 @@ func (p *Player) OpenOptionMenu(options ...string) int {
 		return -1
 	}
 	// ctx, _ := context.WithTimeout(context.Background(), 90*time.Second)
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	done := make(chan struct{})
+	ctx, cancel := context.WithTimeout(context.WithValue(p, "menuClose", done), 90*time.Second)
 	p.AddState(StateMenu)
-	p.SendPacket(OptionMenuOpen(options...))
+	p.WritePacket(OptionMenuOpen(options...))
 	p.ReplyMenuC = make(chan int8)
-	defer p.RemoveState(StateMenu)
-	defer cancel()
 	defer close(p.ReplyMenuC)
-	select {
-	case <-ctx.Done():
-		if !p.HasState(StateMenu) {
-			return -1
-		}
-		p.CloseOptionMenu()
-		return -1
-	case r, ok := <-p.ReplyMenuC:
-		if !p.HasState(StateMenu) || !ok {
-			return -1
-		}
-		p.RemoveState(StateMenu)
-		if r < 0 || r > int8(len(options)-1) {
-			log.Warn("Invalid option menu reply:", r)
-			return -1
-		}
+	defer cancel()
+	defer p.RemoveState(StateMenu)
+	// defer p.TargetNpc().ResetState()aa
+	for {
+		select {
+		case r, ok := <-p.ReplyMenuC:
+			if !p.HasState(StateMenu) || !ok {
+				return -1
+			}
+			// p.RemoveState(StateMenu)
+			if r < 0 || r > int8(len(options)-1) {
+				log.Warn("Invalid option menu reply:", r)
+				return -1
+			}
 
-		if p.TargetNpc() != nil && p.HasState(StateChatting) {
-			p.Chat(options[r])
+			if p.TargetNpc() != nil && p.HasState(StateChatting) {
+				p.Chat(options[r])
+			}
+			return int(r)
+		case <-ctx.Done():
+			p.CloseOptionMenu()
+			return -1
+		case <-ctx.Value("menuClose").(chan struct{}):
+			p.CloseOptionMenu()
+			return -1
 		}
-		return int(r)
 	}
 }
 
@@ -1240,7 +1273,7 @@ func (p *Player) OpenOptionMenu(options ...string) int {
 func (p *Player) CloseOptionMenu() {
 	if p.HasState(StateMenu) {
 		p.RemoveState(StateMenu)
-		p.SendPacket(OptionMenuClose)
+		p.WritePacket(OptionMenuClose)
 	}
 }
 
@@ -1249,36 +1282,33 @@ func (p *Player) CanWalk() bool {
 	if p.BusyInput() {
 		return true
 	}
-	return !p.HasState(MSBatching, StateFighting, StateTrading, StateDueling, StateChangingLooks, StateSleeping, StateChatting, StateBusy, StateShopping)
+	return !p.HasState(MSBatching, StateFighting, StateTrading, StateDueling, StateChangingLooks, StateSleeping, StateChatting, StateBusy, StateShopping, StateAction)
 }
 
 //PlaySound sends a command to the client to play a sound by its file name.
 func (p *Player) PlaySound(soundName string) {
-	p.SendPacket(Sound(soundName))
+	p.WritePacket(Sound(soundName))
 }
 
 //SendStat sends the information for the stat at idx to the player.
 func (p *Player) SendStat(idx int) {
-	p.SendPacket(PlayerStat(p, idx))
+	p.WritePacket(PlayerStat(p, idx))
 }
 
 //SendStatExp sends the experience information for the stat at idx to the player.
 func (p *Player) SendStatExp(idx int) {
-	p.SendPacket(PlayerExperience(p, idx))
+	p.WritePacket(PlayerExperience(p, idx))
 }
 
-func (p *Player) SendCombatPoints() {
-	p.SendPacket(PlayerCombatPoints(p))
-}
 
 //SendStats sends all stat information to this player.
 func (p *Player) SendStats() {
-	p.SendPacket(PlayerStats(p))
+	p.WritePacket(PlayerStats(p))
 }
 
 //SendInventory sends inventory information to this player.
 func (p *Player) SendInventory() {
-	p.SendPacket(InventoryItems(p))
+	p.WritePacket(InventoryItems(p))
 }
 
 //SetCurStat sets this players current stat at idx to lvl and updates the client about it.
@@ -1295,13 +1325,8 @@ func (p *Player) IncCurStat(idx int, lvl int) {
 
 //SetCurStat sets this players current stat at idx to lvl and updates the client about it.
 func (p *Player) IncExp(idx int, amt int) {
-	//if idx <= 3 {
-	//	p.Attributes.Inc("combatPoints", amt)
-	//	p.SendCombatPoints()
-	//	return
-	//}
 	amt *= 20
-	p.Skills().IncExp(idx, amt)
+	p.Skills().IncExp(idx, amt/4)
 	// TODO: Fatigue
 	delta := entity.ExperienceToLevel(p.Skills().Experience(idx)) - p.Skills().Maximum(idx)
 	if delta > 0 {
@@ -1384,7 +1409,7 @@ func (p *Player) DeactivatePrayer(idx int) {
 }
 
 func (p *Player) SendPrayers() {
-	p.SendPacket(PrayerStatus(p))
+	p.WritePacket(PrayerStatus(p))
 }
 
 func (p *Player) Skulled() bool {
@@ -1463,7 +1488,7 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 	defender.SetDirection(LeftFighting)
 	defender.SetRegionRemoved()
 	attacker.SetLocation(defender.Clone(), true)
-	tasks.Schedule(3, func() bool {
+	tasks.Schedule(2, func() bool {
 		defer func() {
 			attacker.SessionCache().Inc("fightRound", 1)
 			attacker, defender = defender, attacker
@@ -1495,7 +1520,7 @@ func (p *Player) StartCombat(defender entity.MobileEntity) {
 func (p *Player) Killed(killer entity.MobileEntity) {
 	p.SessionCache().SetVar("deathTime", time.Now())
 	p.PlaySound("death")
-	p.SendPacket(Death)
+	p.WritePacket(Death)
 
 	for i := 0; i < 14; i++ {
 		p.DeactivatePrayer(i)
@@ -1553,21 +1578,21 @@ func (p *Player) Killed(killer entity.MobileEntity) {
 	p.ResetFighting()
 	p.SetSkulled(false)
 
-	plane := p.Plane()
+	// plane := p.Plane()
 	p.SetLocation(SpawnPoint, true)
-	if p.Plane() != plane {
-		p.SendPlane()
-	}
+	// if p.Plane() != plane {
+		// p.SendPlane()
+	// }
 }
 
 //SendPlane sends the current plane of this player.
 func (p *Player) SendPlane() {
-	p.SendPacket(PlaneInfo(p))
+	p.WritePacket(PlaneInfo(p))
 }
 
 //SendEquipBonuses sends the current equipment bonuses of this player.
 func (p *Player) SendEquipBonuses() {
-	p.SendPacket(EquipmentStats(p))
+	p.WritePacket(EquipmentStats(p))
 }
 
 //Damage sends a player damage bubble for this player to itself and any nearby players.
@@ -1603,7 +1628,7 @@ func (p *Player) OpenShop(shop *Shop) {
 	p.AddState(StateShopping)
 	shop.Players.Add(p)
 	p.SetVar("shop", shop)
-	p.SendPacket(ShopOpen(shop))
+	p.WritePacket(ShopOpen(shop))
 }
 
 //CloseBank closes the bank screen for this player and sets the appropriate state variables
@@ -1614,7 +1639,7 @@ func (p *Player) CloseShop() {
 	p.RemoveState(StateShopping)
 	p.CurrentShop().Players.Remove(p)
 	p.UnsetVar("shop")
-	p.SendPacket(ShopClose)
+	p.WritePacket(ShopClose)
 }
 
 //OpenBank opens a bank screen for the player and sets the appropriate state variables.
@@ -1623,7 +1648,7 @@ func (p *Player) OpenBank() {
 		return
 	}
 	p.AddState(StateBanking)
-	p.SendPacket(BankOpen(p))
+	p.WritePacket(BankOpen(p))
 }
 
 //CloseBank closes the bank screen for this player and sets the appropriate state variables
@@ -1632,19 +1657,19 @@ func (p *Player) CloseBank() {
 		return
 	}
 	p.RemoveState(StateBanking)
-	p.SendPacket(BankClose)
+	p.WritePacket(BankClose)
 }
 
 //SendUpdateTimer sends a system update countdown timer to the client.
 func (p *Player) SendUpdateTimer() {
-	p.SendPacket(SystemUpdate(time.Until(UpdateTime).Nanoseconds() / 1000))
+	p.WritePacket(SystemUpdate(time.Until(UpdateTime).Nanoseconds() / 1000))
 }
 
 func (p *Player) SendMessageBox(msg string, big bool) {
 	if big {
-		p.SendPacket(BigInformationBox(msg))
+		p.WritePacket(BigInformationBox(msg))
 	} else {
-		p.SendPacket(InformationBox(msg))
+		p.WritePacket(InformationBox(msg))
 	}
 }
 
@@ -1665,24 +1690,22 @@ func (p *Player) Cache(name string) interface{} {
 
 func (p *Player) OpenSleepScreen() {
 	p.AddState(StateSleeping)
-	p.SendPacket(SleepWord(p))
+	p.WritePacket(SleepWord(p))
 }
 
 //Read implements an io.Reader that detects what type of connection the underlying socket is using,
 // and interprets the network byte stream accordingly.  Websockets require a lot of extra book-keeping
 // to be used like this, and as such
 func (p *Player) Read(data []byte) (n int, err error) {
-	written := 0
-	for written < len(data) {
+	for written := 0; written < len(data); written += n {
 		err := p.Socket.SetReadDeadline(time.Now().Add(time.Second * time.Duration(15)))
 		if err != nil {
 			// timeout after 15 seconds of nothing
 			return -1, errors.NewNetworkError("Deadline reached", true)
 		}
-		if p.IsWebsocket() && len(data) > p.Reader.Buffered() {
+		if p.IsWebsocket() && p.Reader.Buffered() < len(data) {
 			// reset buffer read index and create the next reader
 			header, reader, err := wsutil.NextReader(p.Socket, ws.StateServerSide)
-			// p.hasReader = true
 			p.webFrame = header
 			if err != nil {
 				if err == io.EOF && !header.Fin {
@@ -1693,11 +1716,11 @@ func (p *Player) Read(data []byte) (n int, err error) {
 					return -1, errors.NewNetworkError("timed out", true)
 				}
 				log.Warn("Problem creating reader for next websocket frame:", err)
+				return -1, err
 			}
 			p.Reader.Reset(io.LimitReader(reader, header.Length))
 		}
-		n, err := p.Reader.Read(data[written:])
-		written += n
+		n, err = p.Reader.Read(data[written:])
 		if err != nil {
 			if err == io.EOF && p.IsWebsocket() && !p.webFrame.Fin {
 				// TODO: Figure best actions to take upon these events
@@ -1707,12 +1730,16 @@ func (p *Player) Read(data []byte) (n int, err error) {
 			} else if e, ok := err.(stdnet.Error); ok && e.Timeout() {
 				return -1, errors.NewNetworkError("timed out", true)
 			}
-			continue
-			// return -1, errors.NewNetworkError(err.Error(), false)
+			log.Warn("Problem reading from player socket:", err)
+			return -1, err
+			// continue
 		}
 	}
-	return written, nil
+	return len(data), nil
 }
+
+
+
 func (p *Player) ReadPacket() (*net.Packet, error) {
 	header := make([]byte, 2)
 	
@@ -1721,7 +1748,7 @@ func (p *Player) ReadPacket() (*net.Packet, error) {
 		switch err.(type) {
 		case errors.NetError:
 			if err.(errors.NetError).Fatal {
-				p.Destroy()
+				p.Unregister()
 			}
 		}
 		log.Warn("Error reading packet header:", err)
@@ -1737,7 +1764,7 @@ func (p *Player) ReadPacket() (*net.Packet, error) {
 		length -= 1
 	}
 
-	frame := make([]byte, length)
+	var frame = make([]byte, length)
 	if length > 0 {
 		_, err := p.Read(frame)
 		if err != nil {
@@ -1749,49 +1776,60 @@ func (p *Player) ReadPacket() (*net.Packet, error) {
 	if length < 160 {
 		frame = append(frame, header[1])
 	}
-	if cipher := p.OpCiphers[1]; cipher != nil {
-		frame[0] = byte(uint32(frame[0]) - cipher.Uint32()) & 0xFF
-	}
+	// if cipher := p.OpCiphers[1]; cipher != nil {
+		// frame[0] = byte(uint32(frame[0]) - cipher.Uint32()) & 0xFF
+	// }
 
 	return net.NewPacket(frame[0], frame[1:]), nil
 }
 
 func (p *Player) ProcPacketsIn() {
 	for {
-		select {
-		case packet, ok := <-p.InQueue:
-			if packet == nil || !ok {
-				return
-			}
-			// script packet handlers are the most `modern` solution, and will be the default selected for any incoming packet
-			if handlePacket := PacketTriggers[packet.Opcode]; handlePacket != nil {
-				handlePacket(p, packet)
-				continue
-			}
-			if handlePacket := Handler(packet.Opcode); handlePacket != nil {
-				// This is old legacy go code handlers that are deprecated and being replaced with the aforementioned scripting API
-				handlePacket(p, packet)
-			}
-
-			log.Debugf("Unhandled packet: {opcode%v, data[%v]:%v }\n", packet.Opcode, packet.Length(), packet.FrameBuffer)
-			continue
-		default:
+	select {
+	case packet, ok := <-p.InQueue:
+		if packet == nil || !ok {
 			return
 		}
+		// script packet handlers are the most `modern` solution, and will be the default selected for any incoming packet
+		opcode := packet.Opcode
+		if cipher := p.OpCiphers[1]; cipher != nil {
+			opcode = byte(uint32(packet.Opcode) - cipher.Uint32()) & 0xFF
+		}
+
+		if handlePacket := PacketTriggers[opcode]; handlePacket != nil {
+			handlePacket(p, packet)
+			continue
+		}
+
+		log.Debugf("Unhandled packet: {opcode%v, data[%v]:%v }\n", opcode, packet.Length(), packet.FrameBuffer)
+		continue
+	case <-p.Done():
+		return
+	default:
+		return
+	}
 	}
 }
 
 func (p *Player) ProcPacketsOut() {
+	i := 0
 	for {
-		select {
-		default:
+	select {
+	default:
+		return
+	case <-p.Done():
+		return
+	case packet, ok := <-p.OutQueue:
+		if packet == nil || !ok {
 			return
-		case packet, ok := <-p.OutQueue:
-			if packet == nil || !ok {
-				return
-			}
-			p.WriteNow(*packet)
-			continue
 		}
+		p.WriteNow(*packet)
+		p.Writer.Flush()
+		i += 1
+		if i > 4 {
+			return
+		}
+		continue
+	}
 	}
 }
