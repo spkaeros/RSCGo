@@ -39,7 +39,7 @@ func (s *sqlService) Objects() (objects []definitions.ScenaryDefinition) {
 
 	for rows.Next() {
 		nextDef := definitions.ScenaryDefinition{}
-		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.SolidityType, &nextDef.Width, &nextDef.Height, &nextDef.ModelHeight)
+		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.SolidityType, &nextDef.W, &nextDef.H, &nextDef.ModelHeight)
 		objects = append(objects, nextDef)
 	}
 
@@ -60,7 +60,7 @@ func (s *sqlService) Boundarys() (boundarys []definitions.BoundaryDefinition) {
 
 	for rows.Next() {
 		nextDef := definitions.BoundaryDefinition{}
-		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.Solid, &nextDef.Dynamic)
+		rows.Scan(&nextDef.ID, &nextDef.Name, &nextDef.Description, &nextDef.Commands[0], &nextDef.Commands[1], &nextDef.Barrier, &nextDef.Dynamic)
 		boundarys = append(boundarys, nextDef)
 	}
 

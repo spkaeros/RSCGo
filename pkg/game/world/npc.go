@@ -78,9 +78,9 @@ func NewNpc(id, startX, startY, minX, maxX, minY, maxY int) *NPC {
 			definitions.Npcs[id].Strength,
 			definitions.Npcs[id].Hits,
 		}
-		for i := 0; i < 18; i += 1 {
-			n.Skills().SetCur(i, skills[i])
-			n.Skills().SetMax(i, skills[i])
+		for i, lvl := range skills {
+			n.Skills().SetCur(i, lvl)
+			n.Skills().SetMax(i, lvl)
 		}
 	}
 	return n
@@ -280,7 +280,7 @@ func (n *NPC) Enqueue(handle string, e interface{}) {
 
 func (n *NPC) enqueueArea(handle string, e interface{}) {
 	updated := NewMobList()
-	for _, region := range Region(n.X(), n.Y()).neighbors() {
+	for _, region := range VisibleRegionsFrom(n) {
 		region.Players.RangePlayers(func(p *Player) bool {
 			if !updated.Contains(p) && p.Near(n, p.ViewRadius()) {
 				p.enqueue(handle, e)

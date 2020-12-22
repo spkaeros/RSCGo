@@ -585,6 +585,10 @@ func ScriptEnv() *env.Env {
 		}
 	})
 
+	e.Define("visibleRegions", func(x, y int) [4]*region {
+		return VisibleRegionsFrom(NewLocation(x, y))
+	})
+
 	e.Define("fuzzyItem", func(input string) (itemList []map[string]interface{}) {
 		for id, item := range definitions.Items {
 			if fuzzy.MatchNormalized(strings.ToLower(input), strings.ToLower(item.Name)) {

@@ -22,7 +22,7 @@ import (
 	"bufio"
 	"encoding/binary"
 	"math"
-	crand "crypto/rand"
+	"crypto/rand"
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
@@ -38,7 +38,7 @@ import (
 	"github.com/spkaeros/rscgo/pkg/isaac"
 	"github.com/spkaeros/rscgo/pkg/xtea"
 	"github.com/spkaeros/rscgo/pkg/rsa"
-	"github.com/spkaeros/rscgo/pkg/rand"
+	rscrand "github.com/spkaeros/rscgo/pkg/rand"
 	"github.com/spkaeros/rscgo/pkg/strutil"
 	"github.com/spkaeros/rscgo/pkg/game/net"
 	"github.com/spkaeros/rscgo/pkg/game/net/handshake"
@@ -101,7 +101,7 @@ var (
 		PreferServerCipherSuites: true,
 		// ClientAuth: tls.RequireAndVerifyClientCert,
 		ClientAuth: tls.NoClientCert,
-		Rand: crand.Reader,
+		Rand: rand.Reader,
 	}
 	wsUpgrader = ws.Upgrader{
 		Protocol: func(protocol []byte) bool {
@@ -111,6 +111,13 @@ var (
 		WriteBufferSize: 5000,
 	}
 )
+func openUserDatabase()  {
+	run(func() {
+		world.DefaultPlayerService = db.NewPlayerServiceSql()
+	}, func() {
+		db.DefaultPlayerService = db.NewPlayerServiceSql()
+	})
+}
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU() * 2)
@@ -150,11 +157,7 @@ func main() {
 		os.Exit(3)
 		return
 	}
-	run(db.ConnectEntityService, func() {
-		db.DefaultPlayerService = db.NewPlayerServiceSql()
-	}, func() {
-		world.DefaultPlayerService = db.NewPlayerServiceSql()
-	})
+	run(db.ConnectEntityService, openUserDatabase)
 	if cliFlags.Port > 0 {
 		config.TomlConfig.Port = cliFlags.Port
 	}
@@ -196,9 +199,10 @@ func main() {
 	log.Debug("Listening at TCP port " + strconv.Itoa(config.Port()))// + " (TCP), " + strconv.Itoa(config.WSPort()) + " (websockets)")
 	log.Debug()
 	log.Debug("RSCGo has finished initializing world; we hope you enjoy it")
-	Instance.Bind(config.Port())
 	// go Instance.WsBind()
-	Instance.Start()
+	go Instance.Start()
+	Instance.Bind(config.Port())
+	select{}
 }
 
 func needsData(err error) bool {
@@ -258,129 +262,120 @@ func (s *Server) Start() {
 		case <-s.C:
 			start := time.Now()
 			select {
-			case p1,ok := <-s.loginQ:
-				if !ok || p1 == nil {
-					continue
-				}
-				s.handleLogin(p1)
 			case <-ctx.Done():
 				return
 			default:
-			}
-			select {
-			case <-ctx.Done():
-				return
-			case p1,ok := <-s.logoutQ:
-				if !ok || p1 == nil {
-					continue
+				for i := 0; i < 25; i++ { 
+					select {
+					case p1, ok := <-s.loginQ:
+						if !ok || p1 == nil {
+							break
+						}
+						s.handleLogin(p1)
+					default:
+						break
+					}
 				}
-				s.runLogout(p1)
-				continue
-			default:
-			}
-
-			s.Tick(ctx)
-			world.Players.AsyncRange(func(p *world.Player) {
-			// if run := s.WrapWaitRoutines(world.Players.Set(), func(p *world.Player) {
-				if p == nil {
-					return
-				}
-				// if !p.Connected() {
-					// p.Initialize()
-				// }
-				p.ProcPacketsIn() // dequeue incoming packets.  These are read off the socket then queued by each players own goroutine
-				if !p.Connected() {
-					p.Initialize()
-				}
-				if fn := p.TickAction(); fn != nil && !fn() {
-					p.ResetTickAction()
-				}
-				p.TraversePath()
-			})
-			// }); run != nil {
-				// run()
-			// }
-			// world.Players.RUnlock()
-			world.Npcs.RangeNpcs(func(n *world.NPC) bool {
-				if n.Busy() || n.IsFighting() {
-					return false
-				}
-
-				if n.Aggressive() {
-					if _, ok := n.Var("targetPlayer"); ok {
+				
+				world.Players.AsyncRange(func(p *world.Player) {
+					if p == nil {
+						return
+					}
+					p.ProcPacketsIn() // dequeue incoming packets.  These are read off the socket then queued by each players own goroutine
+					if !p.Connected() {
+						p.Initialize()
+					}
+					if fn := p.TickAction(); fn != nil && !fn() {
+						p.ResetTickAction()
+					}
+					p.TraversePath()
+				})
+				world.Npcs.RangeNpcs(func(n *world.NPC) bool {
+					if n.Busy() || n.IsFighting() {
 						return false
 					}
-					if closest := closestPlayer(n); closest != nil {
-						n.SetVar("targetPlayer", closest)
-					}
-					n.TraversePath()
-					return false
-				}
-				if world.Chance(25) && n.Steps <= 0 && n.Ticks <= 0 {
-					// move some amount between 2-15 tiles, moving 1 tile per tick
-					n.Steps = rand.Intn(13+1)+2
-					// wait some amount between 25-50 ticks before doing this again
-					n.Ticks = rand.Intn(10+1)+25
-				}
-				if n.Ticks > 0 {
-					n.Ticks -= 1
-				}
-				// wander aimlessly until we run out of scheduled steps
-				if n.Steps > 0 {
-					n.TraversePath()
-				}
-				return false
-			})
-			world.Players.AsyncRange(func(p *world.Player) {
-				if p == nil {
-					return
-				}
-				sendPacket := func(p1 *net.Packet) {
-					if p != nil && p1 != nil {
-						p.WritePacket(p1)// <- p1
-					}
-				}
-				// if p.HasState(world.StateChangingLooks) {
-					// sendPacket(world.AppearanceKeepalive)
-					// return
-				// }
-				sendPacket(world.PlayerPositions(p))
-				sendPacket(world.NPCPositions(p))
-				sendPacket(world.PlayerAppearances(p))
-				sendPacket(world.NpcEvents(p))
-				sendPacket(world.ObjectLocations(p))
-				sendPacket(world.BoundaryLocations(p))
-				sendPacket(world.ItemLocations(p))
-				sendPacket(world.ClearDistantChunks(p))
-				if p.VarInt("lastPlane", -1) != p.Plane() {
-					sendPacket(world.PlaneInfo(p))
-					p.SetVar("lastPlane", p.Plane())
-				}
-			})
 
-			world.Players.AsyncRange(func(p *world.Player) {
-				if p == nil {
-					return
+					if n.Aggressive() {
+						if _, ok := n.Var("targetPlayer"); ok {
+							return false
+						}
+						if closest := closestPlayer(n); closest != nil {
+							n.SetVar("targetPlayer", closest)
+						}
+						n.TraversePath()
+						return false
+					}
+					if world.Chance(25) && n.Steps <= 0 && n.Ticks <= 0 {
+						// move some amount between 2-15 tiles, moving 1 tile per tick
+						n.Steps = rscrand.Intn(13+1)+2
+						// wait some amount between 25-50 ticks before doing this again
+						n.Ticks = rscrand.Intn(10+1)+25
+					}
+					if n.Ticks > 0 {
+						n.Ticks -= 1
+					}
+					// wander aimlessly until we run out of scheduled steps
+					if n.Steps > 0 {
+						n.TraversePath()
+					}
+					return false
+				})
+				s.Tick(ctx)
+				world.Players.AsyncRange(func(p *world.Player) {
+					sendPacket := func(p1 *net.Packet) {
+						if p != nil && p1 != nil {
+							p.WritePacket(p1)// <- p1
+						}
+					}
+					// if p.HasState(world.StateChangingLooks) {
+						// sendPacket(world.AppearanceKeepalive)
+						// return
+					// }
+					sendPacket(world.PlayerPositions(p))
+					sendPacket(world.NPCPositions(p))
+					sendPacket(world.PlayerAppearances(p))
+					sendPacket(world.NpcEvents(p))
+					sendPacket(world.ObjectLocations(p))
+					sendPacket(world.BoundaryLocations(p))
+					sendPacket(world.ItemLocations(p))
+					sendPacket(world.ClearDistantChunks(p))
+					if p.VarInt("lastPlane", -1) != p.Plane() {
+						sendPacket(world.PlaneInfo(p))
+						p.SetVar("lastPlane", p.Plane())
+					}
+				})
+
+				world.Players.AsyncRange(func(p *world.Player) {
+					p.ResetRegionRemoved()
+					p.ResetRegionMoved()
+					p.ResetSpriteUpdated()
+					p.ResetAppearanceChanged()
+					p.ProcPacketsOut() // dequeue incoming packets.  These are read off the socket then queued by each players own goroutine
+				})
+				world.Npcs.RangeNpcs(func(n *world.NPC) bool {
+					n.ResetRegionRemoved()
+					n.ResetRegionMoved()
+					n.ResetSpriteUpdated()
+					n.ResetAppearanceChanged()
+					return false
+				})
+				for i := 0; i < 25; i++ { 
+					select {
+					case p1, ok := <-s.logoutQ:
+						if !ok || p1 == nil {
+							break
+						}
+						s.runLogout(p1)
+					default:
+						break
+					}
 				}
-				p.ResetRegionRemoved()
-				p.ResetRegionMoved()
-				p.ResetSpriteUpdated()
-				p.ResetAppearanceChanged()
-				p.ProcPacketsOut() // dequeue incoming packets.  These are read off the socket then queued by each players own goroutine
-				p.Writer.Flush() // flush outgoing buffer
-			})
-			world.Npcs.RangeNpcs(func(n *world.NPC) bool {
-				n.ResetRegionRemoved()
-				n.ResetRegionMoved()
-				n.ResetSpriteUpdated()
-				n.ResetAppearanceChanged()
-				return false
-			})
-			if s.debug {
-				// if world.CurrentTick() % 100 == 0 {
-					// each 64 seconds we log our tick processing time
-					log.Debug("time to process tick:", time.Since(start))
-				// }
+				if s.debug {
+					// if world.CurrentTick() % 100 == 0 {
+						// each 64 seconds we log our tick processing time
+						log.Debug("time to process tick:", time.Since(start))
+					// }
+				}
 			}
 		}
 	}

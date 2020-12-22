@@ -2,11 +2,11 @@ package world
 
 import (
 	"math"
-	"strconv"
+	// "strconv"
 	"sync"
 	"time"
 
-	"github.com/spkaeros/rscgo/pkg/definitions"
+	// "github.com/spkaeros/rscgo/pkg/definitions"
 	"github.com/spkaeros/rscgo/pkg/isaac"
 	"github.com/spkaeros/rscgo/pkg/tasks"
 	"github.com/spkaeros/rscgo/pkg/game/entity"
@@ -27,8 +27,13 @@ const (
 
 	//MaxX Width of the game
 	MaxX = 944
+	// MaxX = 960
 	//MaxY Height of the game
-	MaxY = 944 << 2 // 4 planes, 944 tiles per plane, shift mimics multiplying by 4
+	// MaxY = 944 * 4 - 16 // View area for player is 16 tiles wide
+	MaxY = 944 * 4 // 4 planes, 944 tiles per plane
+	//TODO: I need to investigate other measurement windows to use for the map
+	// for instance, wilderness levels increase every 6 tiles
+	// The client scene mesh uses 128x128 unit tiles to display things
 )
 
 func CurrentTick() int {
@@ -43,7 +48,7 @@ const (
 	//VerticalPlanes Represents how many rows of regions there are
 	VerticalPlanes = MaxY/RegionSize + 1
 	//LowerBound Represents a dividing line in the exact middle of a region
-	LowerBound = RegionSize >> 1
+	LowerBound = RegionSize / 2
 )
 
 //UpdateTime a point in time in the future to log all active players out and shut down the game for updates.
@@ -226,15 +231,19 @@ func (m *PlayerList) Set() []*Player {
 func (m *PlayerList) AsyncRange(fn func(*Player)) {
 	m.RLock()
 	sz := len(m.PlayersList)
-	done := make(chan struct{})
+	done := make(chan struct{}, sz)
 	for player := range m.PlayersList {
-		go func() {
+		go func(player *Player) {
 			fn(player)
+			// if i == sz {
+				// done <- struct{}{}
+			// }
 			done <- struct{}{}
-		}()
+		}(player)
 	}
 	m.RUnlock()
 	defer close(done)
+	// <-done
 	for i := 0; i < sz; i += 1 {
 		select {
 		case _, ok := <-done:
@@ -329,148 +338,250 @@ func RemoveItem(i *GroundItem) {
 	Region(i.X(), i.Y()).Items.Remove(i)
 }
 
+type mapBarrier interface {
+	// should return true if this barrier is totally impassable, blocking all mobs
+	// from walking on it so long as it stands in the way
+	// example being things like counters or altars...
+	Solid() bool
+
+	// should return true if this barrier only blocks mobs coming at them from specific
+	// directions.  Typically results in one to three tiles being blocked as source locations
+	// Example being bank doors or member gates, so on..
+	Door() bool
+
+	// returns true if both Door and Solid return false
+	// just a shortcut for doing this check manually
+	Passable() bool
+
+	// How many rows this barrier occupies
+	Width() int
+	// How many columns this barrier occupies
+	Height() int
+
+	// returns true if we have a stored entry for this type of barrier
+	// otherwise, returns false
+	Defined() bool
+}
+
 //AddObject Add an object to the region.
 func AddObject(o *Object) {
 	Region(o.X(), o.Y()).Objects.Add(o)
-	if !o.Boundary {
-		scenary := definitions.ScenaryObjects[o.ID]
-		// type 0 is used when the object causes no collisions of any sort.
-		// type 1 is used when the object fully blocks the tile(s) that it sits on.  Marks tile as fully blocked.
-		// type 2 is used when the object mimics a boundary, e.g for gates and the like.
-		// type 3 is used when the object mimics an opened door-type boundary, e.g opened gates and the like.
-		if scenary.SolidityType == 0 || scenary.SolidityType == 3 {
-			return
-		}
-		width := scenary.Height
-		height := scenary.Width
-		//if o.Direction == 0 || o.Direction == 4 {
-		if o.Direction%4 == 0 {
-			width = scenary.Width
-			height = scenary.Height
-		}
-		for x := o.X(); x < o.X()+width; x++ {
-			for y := o.Y(); y < o.Y()+height; y++ {
-				areaX := (2304 + x) % RegionSize
-				areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
-				if len(sectorFromCoords(x, y).Tiles) <= 0 {
-					log.Warning.Println("ERROR: Sector with no tiles at:" + strconv.Itoa(x) + "," + strconv.Itoa(y) + " (" + strconv.Itoa(areaX) + "," + strconv.Itoa(areaY) + "\n")
-					return
-				}
-				if scenary.SolidityType == 1 {
-					// Blocks the whole tile.  Can not walk on it from any direction
-					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipFullBlock
-					continue
-				}
-
-				// If it's gone this far, collisionType is 2 (directional blocking, e.g gates etc)
-				if o.Direction == byte(North) {
-					// Block the tiles east side
-					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipEast
-					// ensure that the neighbors index is valid
-					if len(sectorFromCoords(x-1, y).Tiles) > 0 && (areaX > 0 || areaY >= RegionSize) {
-						// then block the eastern neighbors west side
-						sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY] |= ClipWest
-					}
-				} else if o.Direction == byte(West) {
-					// Block the tiles south side
-					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipSouth
-					// then block the southern neighbors north side
-					sectorFromCoords(x, y+1).Tiles[areaX*RegionSize+areaY+1] |= ClipNorth
-				} else if o.Direction == byte(South) {
-					// Block the tiles west side
-					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipWest
-					// then block the western neighbors east side
-					if areaX, areaY := (2304+x+1)%RegionSize, (1776+y-(944*((y+100)/944)))%RegionSize; (areaX+1)*RegionSize+areaY > 2304 {
-						sectorFromCoords(x+1, y).Tiles[areaX*RegionSize+areaY] |= ClipEast
-					}
-				} else if o.Direction == byte(East) {
-					// Block the tiles north side
-					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipNorth
-					// ensure that the neighbors index is valid
-					if len(sectorFromCoords(x, y-1).Tiles) > 0 && areaX+areaY > 0 {
-						// then block the eastern neighbors west side
-						sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1] |= ClipSouth
-					}
-				}
-
-			}
-		}
-	} else {
-		boundary := definitions.BoundaryObjects[o.ID]
-		if !boundary.Solid {
-			// Doorframes and some other stuff collide with nothing.
-			return
-		}
-		x, y := o.X(), o.Y()
-		areaX := (2304 + x) % RegionSize
-		areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
-		if len(sectorFromCoords(x, y).Tiles) <= 0 {
-			log.Warn("ERROR: Sector with no tiles at:" + strconv.Itoa(x) + "," + strconv.Itoa(y) + " (" + strconv.Itoa(areaX) + "," + strconv.Itoa(areaY) + "\n")
-			return
-		}
-		if o.Direction == 0 {
+	data := o.TypeData()
+	if !data.Defined() {
+		return
+	}
+	if data.Passable() {
+		return
+	}
+	if o.Boundary {
+		x,y := o.X(),o.Y()
+		areaX := (2304+x) % RegionSize
+		areaY := (1776+y - (944*((y+100)/944))) % RegionSize
+		switch o.Direction {
+		case 0:
 			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipNorth
 			if areaX+areaY > 0 {
 				sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1] |= ClipSouth
 			}
-		} else if o.Direction == 1 {
+		case 1:
 			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipEast
 			if areaX > 0 || areaY >= 48 {
 				sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY] |= ClipWest
 			}
-		} else if o.Direction == 2 {
+		case 2:
 			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipSwNe
-		} else if o.Direction == 3 {
+		case 3:
 			sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipSeNw
 		}
+		return
 	}
+	width, height := data.Width(), data.Height()
+	if o.Direction&3 != 0 {
+		width, height = height, width
+	}
+	for dx := 0; dx < width; dx++ {
+		for dy := 0; dy < height; dy++ {
+			x,y := o.X()+dx,o.Y()+dy
+			areaX := (2304+x) % RegionSize
+			areaY := (1776+y - (944*((y+100)/944))) % RegionSize
+			if len(sectorFromCoords(x, y).Tiles) <= 0 {
+				return
+			}
+			if data.Solid() {
+				sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipFullBlock
+				continue
+			}
+			switch int(o.Direction) {
+			case 0: // block movement from the west
+				// Block the tiles east side
+				sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipEast
+				// ensure that the neighbors index is valid
+				if len(sectorFromCoords(x-1, y).Tiles) > 0 && (areaX > 0 || areaY >= RegionSize) {
+					// then block the eastern neighbors west side
+					sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY] |= ClipWest
+				}
+			case 2: // block movement from the north
+				// Block the tiles south side
+				sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipSouth
+				// then block the southern neighbors north side
+				sectorFromCoords(x, y+1).Tiles[areaX*RegionSize+areaY+1] |= ClipNorth
+			case 4: // block movement from the east
+				// Block the tiles west side
+				sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipWest
+				// then block the western neighbors east side
+				if areaX, areaY := (2304+x+1)%RegionSize, (1776+y-(944*((y+100)/944)))%RegionSize; (areaX+1)*RegionSize+areaY > 2304 {
+					sectorFromCoords(x+1, y).Tiles[areaX*RegionSize+areaY] |= ClipEast
+				}
+			case 6: // block movement from the south
+				// Block the tiles north side
+				sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipNorth
+				// ensure that the neighbors index is valid
+				if len(sectorFromCoords(x, y-1).Tiles) > 0 && areaX+areaY > 0 {
+					// then block the eastern neighbors west side
+					sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1] |= ClipSouth
+				}
+			}
+		}
+	}
+	// if !o.Boundary {
+		// scenary := definitions.ScenaryObjects[o.ID]
+		// // type 0 is used when the object causes no collisions of any sort.
+		// // type 1 is used when the object fully blocks the tile(s) that it sits on.  Marks tile as fully blocked.
+		// // type 2 is used when the object mimics a boundary, e.g for gates and the like.
+		// // type 3 is used when the object mimics an opened door-type boundary, e.g opened gates and the like.
+		// if scenary.SolidityType == 0 || scenary.SolidityType == 3 {
+			// return
+		// }
+		// width, height := scenary.Height(), scenary.Width()
+		// //if o.Direction == 0 || o.Direction == 4 {
+		// if o.Direction%4 == 0 {
+			// width, height = height, width
+		// }
+		// for x := o.X(); x < o.X()+width; x++ {
+			// for y := o.Y(); y < o.Y()+height; y++ {
+				// areaX := (2304 + x) % RegionSize
+				// areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
+				// if len(sectorFromCoords(x, y).Tiles) <= 0 {
+					// log.Warning.Println("ERROR: Sector with no tiles at:" + strconv.Itoa(x) + "," + strconv.Itoa(y) + " (" + strconv.Itoa(areaX) + "," + strconv.Itoa(areaY) + "\n")
+					// return
+				// }
+				// if scenary.SolidityType == 1 {
+					// // Blocks the whole tile.  Can not walk on it from any direction
+					// sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipFullBlock
+					// continue
+				// }
+// 
+				// // If it's gone this far, collisionType is 2 (directional blocking, e.g gates etc)
+				// if o.Direction == byte(North) {
+					// // Block the tiles east side
+					// sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipEast
+					// // ensure that the neighbors index is valid
+					// if len(sectorFromCoords(x-1, y).Tiles) > 0 && (areaX > 0 || areaY >= RegionSize) {
+						// // then block the eastern neighbors west side
+						// sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY] |= ClipWest
+					// }
+				// } else if o.Direction == byte(West) {
+					// // Block the tiles south side
+					// sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipSouth
+					// // then block the southern neighbors north side
+					// sectorFromCoords(x, y+1).Tiles[areaX*RegionSize+areaY+1] |= ClipNorth
+				// } else if o.Direction == byte(South) {
+					// // Block the tiles west side
+					// sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipWest
+					// // then block the western neighbors east side
+					// if areaX, areaY := (2304+x+1)%RegionSize, (1776+y-(944*((y+100)/944)))%RegionSize; (areaX+1)*RegionSize+areaY > 2304 {
+						// sectorFromCoords(x+1, y).Tiles[areaX*RegionSize+areaY] |= ClipEast
+					// }
+				// } else if o.Direction == byte(East) {
+					// // Block the tiles north side
+					// sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipNorth
+					// // ensure that the neighbors index is valid
+					// if len(sectorFromCoords(x, y-1).Tiles) > 0 && areaX+areaY > 0 {
+						// // then block the eastern neighbors west side
+						// sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1] |= ClipSouth
+					// }
+				// }
+// 
+			// }
+		// }
+	// } else {
+		// boundary := definitions.BoundaryObjects[o.ID]
+		// if !boundary.Solid {
+			// // Doorframes and some other stuff collide with nothing.
+			// return
+		// }
+		// x, y := o.X(), o.Y()
+		// areaX := (2304 + x) % RegionSize
+		// areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
+		// if len(sectorFromCoords(x, y).Tiles) <= 0 {
+			// log.Warn("ERROR: Sector with no tiles at:" + strconv.Itoa(x) + "," + strconv.Itoa(y) + " (" + strconv.Itoa(areaX) + "," + strconv.Itoa(areaY) + "\n")
+			// return
+		// }
+		// if o.Direction == 0 {
+			// sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipNorth
+			// if areaX+areaY > 0 {
+				// sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1] |= ClipSouth
+			// }
+		// } else if o.Direction == 1 {
+			// sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipEast
+			// if areaX > 0 || areaY >= 48 {
+				// sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY] |= ClipWest
+			// }
+		// } else if o.Direction == 2 {
+			// sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipSwNe
+		// } else if o.Direction == 3 {
+			// sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] |= ClipSeNw
+		// }
+	// }
 }
 
 //RemoveObject SetRegionRemoved an object from the region.
 func RemoveObject(o *Object) {
 	Region(o.X(), o.Y()).Objects.Remove(o)
+	data := o.TypeData()
+	if data.Passable() {
+		return
+	}
 	if !o.Boundary {
-		scenary := definitions.ScenaryObjects[o.ID]
+		// scenary := definitions.ScenaryObjects[o.ID]
 		// type 0 is used when the object causes no collisions of any sort.
 		// type 1 is used when the object fully blocks the tile(s) that it sits on.  Marks tile as fully blocked.
 		// type 2 is used when the object mimics a boundary, e.g for gates and the like.
 		// type 3 is used when the object mimics an opened door-type boundary, e.g opened gates and the like.
-		if scenary.SolidityType%3 == 0 {
-			return
-		}
-		width := scenary.Height
-		height := scenary.Width
-
+		width, height := data.Width(), data.Height()
 		//if o.Direction == byte(North) || o.Direction == byte(South) {
-		if o.Direction%4 == 0 {
+		if o.Direction&3 != 0 {
 			// reverse measurements for directions 0(North) and 4(South), as scenary measurements
 			// are oriented vertically by default
-			width = scenary.Width
-			height = scenary.Height
+			width,height = height,width
 		}
-		for x := o.X(); x < o.X()+width; x++ {
-			for y := o.Y(); y < o.Y()+height; y++ {
+		for dx := 0; dx < width; dx++ {
+			for dy := 0; dy < height; dy++ {
+				x,y := o.X()+dx,o.Y()+dy
 				areaX := (2304 + x) % RegionSize
 				areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
-				if scenary.SolidityType == 1 {
+				if data.Solid() {
 					// This indicates a solid object.  Impassable and blocks the whole tile.
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipFullBlock
-				} else if o.Direction == 0 {
+					continue
+				}
+				switch o.Direction {
+				case 0:
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipEast
 					if sectorFromCoords(x-1, y) != nil {
 						sectorFromCoords(x-1, y).Tiles[(areaX-1)*RegionSize+areaY] &= ^ClipWest
 					}
-				} else if o.Direction == 2 {
+				case 2:
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipSouth
 					if sectorFromCoords(x, y+1) != nil {
 						sectorFromCoords(x, y+1).Tiles[areaX*RegionSize+areaY+1] &= ^ClipNorth
 					}
-				} else if o.Direction == 4 {
+				case 4:
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipWest
 					if sectorFromCoords(x+1, y) != nil {
 						sectorFromCoords(x+1, y).Tiles[(areaX+1)*RegionSize+areaY] &= ^ClipEast
 					}
-				} else if o.Direction == 6 {
+				case 6:
 					sectorFromCoords(x, y).Tiles[areaX*RegionSize+areaY] &= ^ClipNorth
 					if sectorFromCoords(x, y-1) != nil {
 						sectorFromCoords(x, y-1).Tiles[areaX*RegionSize+areaY-1] &= ^ClipSouth
@@ -479,12 +590,6 @@ func RemoveObject(o *Object) {
 			}
 		}
 	} else {
-		// Wall or door location
-		boundary := definitions.BoundaryObjects[o.ID]
-		if !boundary.Solid {
-			return
-		}
-
 		x, y := o.X(), o.Y()
 		areaX := (2304 + x) % RegionSize
 		areaY := (1776 + y - (944 * ((y + 100) / 944))) % RegionSize
@@ -603,64 +708,60 @@ func NpcVisibleFrom(id, x, y int) *NPC {
 }
 
 var regionLock = sync.RWMutex{}
+// 
+// func init() {
+	// regionLock.Lock()
+	// defer regionLock.Unlock()
+// 
+	// for x := 0; x < MaxX/RegionSize+1; x += 1 {
+		// for y := 0; y < MaxY/RegionSize+1; y += 1 {
+			// regions[x][y] = &region{x*RegionSize, y*RegionSize, NewMobList(), NewMobList(), &entityList{}, &entityList{}}
+		// }
+	// }
+// }
 
 // internal function to get a region by its row amd column indexes
 func get(x, y int) *region {
-	x = int(math.Min(math.Max(0, float64(x)), HorizontalPlanes - 1))
-	y = int(math.Min(math.Max(0, float64(y)), VerticalPlanes - 1))
+	x = int(math.Min(math.Max(0, float64(x/RegionSize)), HorizontalPlanes - 1))
+	y = int(math.Min(math.Max(0, float64(y/RegionSize)), VerticalPlanes - 1))
 	regionLock.Lock()
 	defer regionLock.Unlock()
-	if !regions[x][y].Initialized() {
-		regions[x][y] = &region{x*RegionSize, y*RegionSize, NewMobList(), NewMobList(), &entityList{}, &entityList{}}
+	if regions[x][y] == nil {
+		regions[x][y] = &region{x, y, NewMobList(), NewMobList(), &entityList{}, &entityList{}}
 	}
 	return regions[x][y]
-}
-
-//Initialized returns true if the region has been initialized, otherwise returns false
-func (r *region) Initialized() bool {
-	return r != nil
 }
 
 //Region Returns the region that corresponds with the given coordinates.  If it does not exist yet, it will allocate a new onr and store it for the lifetime of the application in the regions map.
 func Region(x, y int) *region {
 	return get(x, y)
-	// if regions[x/RegionSize][y/RegionSize] == nil {
-	// regions[x/RegionSize][y/RegionSize] = &region{x, y, &MobList{}, &MobList{}, &entityList{}, &entityList{}}
-	// }
-	// regionLock.Lock()
-	// defer regionLock.Unlock()
-	// if !regions[x/RegionSize][y/RegionSize].Initialized() {
-		// regions[x/RegionSize][y/RegionSize] = &region{x, y, NewMobList(), NewMobList(), &entityList{}, &entityList{}}
-	// }
-	// return regions[x/RegionSize][y/RegionSize]
 }
 
-//surroundingRegions Returns the regions surrounding the given coordinates.  It wil
-func (r *region) neighbors() (regions [3]*region) {
-	regions[0] = r
-	// regionX := r.x % RegionSize
-	// regionY := r.y % RegionSize
-	if r.x % RegionSize <= LowerBound {
-		regions[1] = get((r.x/RegionSize)-1, r.y/RegionSize)
-		if r.y % RegionSize <= LowerBound {
-			regions[2] = get(r.x/RegionSize, (r.y/RegionSize)-1)
-			// regions[3] = get((r.x/RegionSize)-1, (r.y/RegionSize)-1)
-		} else {
-			regions[2] = get(r.x/RegionSize, (r.y/RegionSize)+1)
-			// regions[3] = get((r.x/RegionSize)-1, (r.y/RegionSize)+1)
-		}
-	} else {
-		regions[1] = get((r.x/RegionSize)+1, r.y/RegionSize)
-		if r.y % RegionSize <= LowerBound {
-			regions[2] = get(r.x/RegionSize, (r.y/RegionSize)-1)
-			// regions[3] = get((r.x/RegionSize)+1, (r.y/RegionSize)-1)
-		} else {
-			regions[2] = get(r.x/RegionSize, (r.y/RegionSize)+1)
-			// regions[3] = get((r.x/RegionSize)+1, (r.y/RegionSize)+1)
-		}
-	}
-
+//VisibleRegions Returns the regions surrounding the given coordinates.
+func VisibleRegions(x, y int) (regions [4]*region) {
+	regionX, regionY := x, y
+	regions[0] = get(regionX, regionY)
+	regions[1] = get(regionX+RegionSize, regionY)
+	regions[2] = get(regionX, regionY+RegionSize)
+	regions[3] = get(regionX+RegionSize, regionY+RegionSize)
+	// if x % RegionSize <= LowerBound {
+		// regionX -= RegionSize
+	// } else {
+		// regionX += RegionSize
+	// }
+	// regions[1] = get(regionX, regionY)
+	// regions[2] = get(x, regionY)
+	// if y % RegionSize <= LowerBound {
+		// regionY -= RegionSize+(RegionSize/2)
+	// } else {
+		// regionY += RegionSize+(RegionSize/2)
+	// }
+	// regions[3] = get(regionX, regionY)
+	
 	return
+}
+func VisibleRegionsFrom(l entity.Location) (regions [4]*region) {
+	return VisibleRegions(l.X(), l.Y())
 }
 
 //BoundedChance is a statistically random function that should return true percent/maxPercent% of the time.

@@ -205,32 +205,48 @@ func loadSector(data []byte) (s *Sector) {
 			if groundOverlay > 0 && int(groundOverlay) < len(definitions.TileOverlays) && definitions.TileOverlays[groundOverlay-1].Blocked != 0 {
 				s.Tiles[tileIdx] |= ClipFullBlock
 			}
-			if boundary := int(verticalWalls) - 1; boundary < len(definitions.BoundaryObjects) && boundary >= 0 {
-				// log.Debugf("Out of bounds indexing attempted into definitions.BoundaryObjects[%d]; while upper bound is currently %d\n", boundary, len(definitions.BoundaryObjects)-1)
-				if wall := definitions.BoundaryObjects[boundary]; !wall.Dynamic && wall.Solid {
+			// if boundary := int(verticalWalls) - 1; boundary < len(definitions.BoundaryObjects) && boundary >= 0 {
+				// // log.Debugf("Out of bounds indexing attempted into definitions.BoundaryObjects[%d]; while upper bound is currently %d\n", boundary, len(definitions.BoundaryObjects)-1)
+				// if wall := definitions.BoundaryObjects[boundary]; !wall.Dynamic && wall.Solid {
+					// s.Tiles[x*RegionSize+y] |= ClipNorth
+					// if y > 0 {
+						// s.Tiles[x*RegionSize+y-1] |= ClipSouth
+					// }
+				// }
+			// }
+			if boundary := definitions.Boundary(int(verticalWalls-1)); boundary.Defined() {
+				if boundary.Solid() {
 					s.Tiles[x*RegionSize+y] |= ClipNorth
-					if y > 0 {
+					if x > 0 {
 						s.Tiles[x*RegionSize+y-1] |= ClipSouth
 					}
 				}
 			}
-			if boundary := int(horizontalWalls) - 1; boundary < len(definitions.BoundaryObjects) && boundary >= 0 {
-				// log.Debugf("Out of bounds indexing attempted into definitions.BoundaryObjects[%d]; while upper bound is currently %d\n", boundary, len(definitions.BoundaryObjects)-1)
-				if wall := definitions.BoundaryObjects[boundary]; !wall.Dynamic && wall.Solid {
+			if boundary := definitions.Boundary(int(horizontalWalls-1)); boundary.Defined() {
+				if boundary.Solid() {
 					s.Tiles[x*RegionSize+y] |= ClipEast
 					if x > 0 {
 						s.Tiles[(x-1)*RegionSize+y] |= ClipWest
 					}
 				}
 			}
+			// if boundary := int(horizontalWalls) - 1; boundary < len(definitions.BoundaryObjects) && boundary >= 0 {
+				// // log.Debugf("Out of bounds indexing attempted into definitions.BoundaryObjects[%d]; while upper bound is currently %d\n", boundary, len(definitions.BoundaryObjects)-1)
+				// if wall := definitions.BoundaryObjects[boundary]; !wall.Dynamic && wall.Solid {
+					// s.Tiles[x*RegionSize+y] |= ClipEast
+					// if x > 0 {
+						// s.Tiles[(x-1)*RegionSize+y] |= ClipWest
+					// }
+				// }
+			// }
 			// TODO: Affect adjacent tiles in an intelligent way to determine which are solid and which are not
 			if diagonalWalls < 24000 && diagonalWalls > 0 {
-				idx := diagonalWalls
+				idx := int(diagonalWalls)
 				if idx > 12000 {
 					idx -= 12000
 				}
 				idx -= 1
-				if wall := definitions.BoundaryObjects[idx]; !wall.Dynamic && wall.Solid {
+				if wall := definitions.Boundary(idx); wall.Defined() && wall.Solid() {
 					if diagonalWalls > 12000 {
 						// diagonal that blocks: SW<->NE (\ aka ‾| or |_)
 						s.Tiles[x*RegionSize+y] |= ClipSwNe

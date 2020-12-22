@@ -93,8 +93,32 @@ type ScenaryDefinition struct {
 	Commands      [2]string
 	Description   string
 	SolidityType  int
-	Width, Height int
+	W, H 		  int
 	ModelHeight   int
+}
+
+func (d ScenaryDefinition) Solid() bool {
+	return d.SolidityType == 1
+}
+
+func (d ScenaryDefinition) Door() bool {
+	return d.SolidityType == 2
+}
+
+func (d ScenaryDefinition) Passable() bool {
+	return !d.Door() && !d.Solid()
+}
+
+func (d ScenaryDefinition) Width() int {
+	return d.W
+}
+
+func (d ScenaryDefinition) Height() int {
+	return d.H
+}
+
+func (d ScenaryDefinition) Defined() bool {
+	return d.ID > -1
 }
 
 //ScenaryObjects This is used to cache the persistent scenary object data in RAM for quick access when needed.
@@ -137,7 +161,31 @@ type BoundaryDefinition struct {
 	Commands    [2]string
 	Description string
 	Dynamic     bool
-	Solid       bool
+	Barrier     bool
+}
+
+func (d BoundaryDefinition) Defined() bool {
+	return d.ID > -1
+}
+
+func (d BoundaryDefinition) Solid() bool {
+	return d.Barrier && !d.Dynamic
+}
+
+func (d BoundaryDefinition) Door() bool {
+	return d.Barrier && !d.Dynamic
+}
+
+func (d BoundaryDefinition) Passable() bool {
+	return !d.Solid()
+}
+
+func (d BoundaryDefinition) Width() int {
+	return 1
+}
+
+func (d BoundaryDefinition) Height() int {
+	return 1
 }
 
 type BoundaryDefinitions []BoundaryDefinition
@@ -155,8 +203,6 @@ func Boundary(id int) BoundaryDefinition {
 
 	return BoundaryDefinition{ID: -1}
 }
-
-
 
 func (b BoundaryDefinitions) Size() int {
 	return len(b)

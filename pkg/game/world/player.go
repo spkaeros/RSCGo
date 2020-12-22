@@ -427,6 +427,8 @@ func (p *Player) WriteNow(packet net.Packet) {
 	frameLength := len(packet.FrameBuffer)
 	if cipher := p.OpCiphers[0]; cipher != nil {
 		packet.FrameBuffer[0] = byte(uint32(packet.FrameBuffer[0]) + cipher.Uint32()) & 0xFF
+	} else {
+		log.Debug("nil isaac thingy")
 	}
 	if frameLength >= 160 {
 		header[0] = byte(frameLength>>8 + 160)
@@ -613,7 +615,7 @@ func (p *Player) SetFatigue(i int) {
 
 //NearbyPlayers Returns nearby players.
 func (p *Player) NearbyPlayers() (players []*Player) {
-	for _, r := range Region(p.X(), p.Y()).neighbors() {
+	for _, r := range VisibleRegionsFrom(p) {
 		r.Players.RangePlayers(func(p1 *Player) bool  {
 			if p.Near(p1, p.ViewRadius()) && p1.ServerIndex() != p.ServerIndex() {
 				players = append(players, p1)
@@ -630,7 +632,7 @@ func (p *Player) NearbyPlayers() (players []*Player) {
 
 //NearbyNpcs Returns nearby NPCs.
 func (p *Player) NearbyNpcs() (npcs []*NPC) {
-	for _, r := range Region(p.X(), p.Y()).neighbors() {
+	for _, r := range VisibleRegionsFrom(p) {
 		r.NPCs.RangeNpcs(func(n *NPC) bool  {
 			if p.Near(n, p.ViewRadius()) && !p.VarBool("removed", false) {
 				npcs = append(npcs, n)
@@ -643,7 +645,7 @@ func (p *Player) NearbyNpcs() (npcs []*NPC) {
 
 //NearbyObjects Returns nearby objects.
 func (p *Player) NearbyObjects() (objects []entity.Entity) {
-	for _, r := range Region(p.X(), p.Y()).neighbors() {
+	for _, r := range VisibleRegionsFrom(p) {
 		objects = append(objects, r.Objects.NearbyObjects(p)...)
 	}
 
@@ -652,7 +654,7 @@ func (p *Player) NearbyObjects() (objects []entity.Entity) {
 
 //NewObjects Returns nearby objects that this player is unaware of.
 func (p *Player) NewObjects() (objects []*Object) {
-	for _, r := range Region(p.X(), p.Y()).neighbors() {
+	for _, r := range VisibleRegionsFrom(p) {
 		r.Objects.Lock()
 		for _, o := range r.Objects.set {
 			if p.Near(o, p.ViewRadius() * 2) && !p.LocalObjects.Contains(o) {
@@ -667,7 +669,7 @@ func (p *Player) NewObjects() (objects []*Object) {
 
 //NewItems Returns nearby ground items that this player is unaware of.
 func (p *Player) NewItems() (items []*GroundItem) {
-	for _, r := range Region(p.X(), p.Y()).neighbors() {
+	for _, r := range VisibleRegionsFrom(p) {
 		r.Items.Lock()
 		for _, i := range r.Items.set {
 			if p.Near(i, p.ViewRadius() * 2) && !p.LocalItems.Contains(i) {
@@ -698,7 +700,7 @@ func (p *Player) Unregister() {
 //NewPlayers Returns nearby players that this player is unaware of.
 func (p *Player) NewPlayers() (players *MobList) {
 	list := NewMobList()
-	for _, r := range Region(p.X(), p.Y()).neighbors() {
+	for _, r := range VisibleRegionsFrom(p) {
 		r.Players.RLock()
 		for _, p1 := range r.Players.mobSet {
 			if !p.LocalPlayers.Contains(p1) && p != p1 && !list.Contains(p1) && p.Near(p1, p.ViewRadius()-1) {
@@ -714,7 +716,7 @@ func (p *Player) NewPlayers() (players *MobList) {
 //NewNPCs Returns nearby NPCs that this player is unaware of.
 func (p *Player) NewNPCs() (npcs *MobList) {
 	list := NewMobList()
-	for _, r := range Region(p.X(), p.Y()).neighbors() {
+	for _, r := range VisibleRegionsFrom(p) {
 		r.NPCs.RLock()
 		for _, n := range r.NPCs.mobSet {
 			if p.Near(n, p.ViewRadius()-1) && !n.SessionCache().VarBool("removed", false) && !p.LocalNPCs.Contains(n) {
@@ -1089,8 +1091,8 @@ func NewPlayerCtx(server context.Context, socket stdnet.Conn) *Player {
 		Inventory:        &Inventory{Capacity: 30},
 		TradeOffer:       &Inventory{Capacity: 12},
 		DuelOffer:        &Inventory{Capacity: 8},
-		InQueue:          make(chan *net.Packet, 50),
-		OutQueue:         make(chan *net.Packet, 50),
+		InQueue:          make(chan *net.Packet, 5000),
+		OutQueue:         make(chan *net.Packet, 5000),
 		OpCiphers:		  [...]*isaac.ISAAC{nil, nil},
 	}
 	p.Context, p.Cancel = context.WithCancel(context.WithValue(server, "player", p))
@@ -1217,7 +1219,7 @@ func (p *Player) QueueItemBubble(owner *Player, id int) {
 
 func (p *Player) enqueueArea(id string, radius int, e interface{}) {
 	updated := NewMobList()
-	for _, region := range Region(p.X(), p.Y()).neighbors() {
+	for _, region := range VisibleRegionsFrom(p) {
 		region.Players.RangePlayers(func(p1 *Player) bool {
 			if !updated.Contains(p1) && p.Near(p1, radius) {
 				p1.enqueue(id, e)
@@ -1812,7 +1814,7 @@ func (p *Player) ProcPacketsIn() {
 }
 
 func (p *Player) ProcPacketsOut() {
-	i := 0
+	// i := 0
 	for {
 	select {
 	default:
@@ -1825,10 +1827,10 @@ func (p *Player) ProcPacketsOut() {
 		}
 		p.WriteNow(*packet)
 		p.Writer.Flush()
-		i += 1
-		if i > 4 {
-			return
-		}
+		// i += 1
+		// if i > 4 {
+			// return
+		// }
 		continue
 	}
 	}

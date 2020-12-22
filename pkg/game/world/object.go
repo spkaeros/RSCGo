@@ -85,12 +85,19 @@ func (o *Object) ClipType() int {
 		return 0
 	}
 	if o.Boundary {
-		if definitions.BoundaryObjects[o.ID].Solid {
+		if definitions.BoundaryObjects[o.ID].Door() {
 			return 2
 		}
 		return 3
 	}
 	return definitions.ScenaryObjects[o.ID].SolidityType
+}
+
+func (o *Object) TypeData() mapBarrier {
+	if o.Boundary {
+		return definitions.Boundary(o.ID)
+	}
+	return definitions.Scenary(o.ID)
 }
 
 func (o *Object) Defined() bool {
@@ -114,7 +121,7 @@ func (o *Object) Width() int {
 		// no large ass door boundarys exist, we take up 1x1 tiles
 		return 1
 	}
-	return definitions.ScenaryObjects[o.ID].Width
+	return definitions.ScenaryObjects[o.ID].Width()
 }
 
 //Height The height measured in game tiles that this object takes up in the game world.
@@ -127,7 +134,7 @@ func (o *Object) Height() int {
 		// no large ass door boundarys exist, we take up 1x1 tiles
 		return 1
 	}
-	return definitions.ScenaryObjects[o.ID].Height
+	return definitions.ScenaryObjects[o.ID].Height()
 }
 
 func (o *Object) Boundaries() [2]entity.Location {
